@@ -2,12 +2,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { PDFParse } from "pdf-parse";
-import { createWorker } from "tesseract.js";
+import "server-only";
 
 import env from "@/lib/env";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
-import { fetchText } from "@/integrations/http";
 import { NormalizedFinancialStatement } from "@/lib/types";
 
 type ParsedPayload = Record<string, any>;
@@ -521,6 +519,11 @@ async function downloadAnnualReportPdf(orgNumber: string, year: number) {
 }
 
 async function ocrRelevantPages(pdfBuffer: Buffer, year: number) {
+  const [{ PDFParse }, tesseractModule] = await Promise.all([
+    import("pdf-parse"),
+    import("tesseract.js"),
+  ]);
+  const { createWorker } = tesseractModule;
   const parser = new PDFParse({ data: pdfBuffer });
   const screenshots = await parser.getScreenshot({ partial: [2, 3, 4, 5], scale: 2 });
   await parser.destroy();
