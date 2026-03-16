@@ -15,6 +15,12 @@ export type OverviewSummaryMetric = {
   meta?: string;
 };
 
+export type OverviewSummarySection = {
+  activeYearLabel: string;
+  primaryMetrics: OverviewSummaryMetric[];
+  secondaryMetrics: OverviewSummaryMetric[];
+};
+
 function getAtPath(payload: Record<string, unknown>, path: string) {
   return path.split(".").reduce<unknown>((current, segment) => {
     if (current && typeof current === "object" && segment in (current as Record<string, unknown>)) {
@@ -72,16 +78,22 @@ export function formatCompactNok(value: number | null | undefined) {
   }).format(absolute)} kr`;
 }
 
-export function formatFullNok(value: number | null | undefined) {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return "Ikke tilgjengelig";
+export function formatAxisNok(value: number) {
+  if (Math.abs(value) >= 1_000_000) {
+    return `${new Intl.NumberFormat("nb-NO", {
+      maximumFractionDigits: 1,
+    }).format(value / 1_000_000)} mill. kr`;
   }
 
-  return new Intl.NumberFormat("nb-NO", {
-    style: "currency",
-    currency: "NOK",
+  if (Math.abs(value) >= 1_000) {
+    return `${new Intl.NumberFormat("nb-NO", {
+      maximumFractionDigits: 0,
+    }).format(value / 1_000)}k kr`;
+  }
+
+  return `${new Intl.NumberFormat("nb-NO", {
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(value)} kr`;
 }
 
 export function formatSignedPercent(value: number | null | undefined) {
@@ -165,51 +177,62 @@ export function getOverviewChartPoints(statements: NormalizedFinancialStatement[
 export function getOverviewSummaryMetrics(
   company: NormalizedCompany,
   statements: NormalizedFinancialStatement[],
-): OverviewSummaryMetric[] {
+  selectedYear?: number | null,
+): OverviewSummarySection {
   const points = getOverviewChartPoints(statements);
   const latest = points.at(-1) ?? null;
-  const previous = points.length > 1 ? points.at(-2) ?? null : null;
-  const revenueGrowth = calcGrowth(latest?.revenue ?? null, previous?.revenue ?? null);
-  const ebitMargin = calcMargin(latest?.operatingProfit ?? null, latest?.revenue ?? null);
+  const selected =
+    (selectedYear !== null && selectedYear !== undefined
+      ? points.find((point) => point.fiscalYear === selectedYear) ?? null
+      : null) ?? latest;
+  const selectedIndex = selected ? points.findIndex((point) => point.fiscalYear === selected.fiscalYear) : -1;
+  const previous = selectedIndex > 0 ? points[selectedIndex - 1] : null;
+  const revenueGrowth = calcGrowth(selected?.revenue ?? null, previous?.revenue ?? null);
+  const ebitMargin = calcMargin(selected?.operatingProfit ?? null, selected?.revenue ?? null);
   const historyRange =
     points.length > 1 ? `${points[0].fiscalYear} - ${points[points.length - 1].fiscalYear}` : null;
 
-  return [
-    {
-      label: "Siste årsregnskap",
-      value: latest ? String(latest.fiscalYear) : "Ikke tilgjengelig",
-      meta: company.lastSubmittedAnnualReportYear
-        ? `Brreg registrert ${company.lastSubmittedAnnualReportYear}`
-        : undefined,
-    },
-    {
-      label: "Omsetning",
-      value: formatCompactNok(latest?.revenue ?? null),
-      meta: revenueGrowth !== null ? `${formatSignedPercent(revenueGrowth)} mot forrige år` : undefined,
-      tone: revenueGrowth !== null && revenueGrowth < 0 ? "negative" : "default",
-    },
-    {
-      label: "Driftsresultat (EBIT)",
-      value: formatCompactNok(latest?.operatingProfit ?? null),
-      meta: ebitMargin !== null ? `Margin ${formatSignedPercent(ebitMargin)}` : undefined,
-      tone:
-        latest && latest.operatingProfit !== null && latest.operatingProfit < 0
-          ? "negative"
-          : "default",
-    },
-    {
-      label: "Årsresultat",
-      value: formatCompactNok(latest?.netIncome ?? null),
-      tone: latest && latest.netIncome !== null && latest.netIncome < 0 ? "negative" : "default",
-    },
-    {
-      label: "Egenkapital",
-      value: formatCompactNok(latest?.equity ?? null),
-    },
-    {
-      label: "Tilgjengelig historikk",
-      value: points.length > 0 ? `${points.length} år` : "Ingen historikk",
-      meta: historyRange ?? undefined,
-    },
-  ];
+  return {
+    activeYearLabel: selected ? String(selected.fiscalYear) : "Ikke tilgjengelig",
+    primaryMetrics: [
+      {
+        label: "Omsetning",
+        value: formatCompactNok(selected?.revenue ?? null),
+        meta: revenueGrowth !== null ? `${formatSignedPercent(revenueGrowth)} mot forrige år` : undefined,
+        tone: revenueGrowth !== null && revenueGrowth < 0 ? "negative" : "default",
+      },
+      {
+        label: "Driftsresultat (EBIT)",
+        value: formatCompactNok(selected?.operatingProfit ?? null),
+        meta: ebitMargin !== null ? `Margin ${formatSignedPercent(ebitMargin)}` : undefined,
+        tone:
+          selected && selected.operatingProfit !== null && selected.operatingProfit < 0
+            ? "negative"
+            : "default",
+      },
+      {
+        label: "Årsresultat",
+        value: formatCompactNok(selected?.netIncome ?? null),
+        tone: selected && selected.netIncome !== null && selected.netIncome < 0 ? "negative" : "default",
+      },
+    ],
+    secondaryMetrics: [
+      {
+        label: "Egenkapital",
+        value: formatCompactNok(selected?.equity ?? null),
+      },
+      {
+        label: "Siste årsregnskap",
+        value: latest ? String(latest.fiscalYear) : "Ikke tilgjengelig",
+        meta: company.lastSubmittedAnnualReportYear
+          ? `Brreg registrert ${company.lastSubmittedAnnualReportYear}`
+          : undefined,
+      },
+      {
+        label: "Tilgjengelig historikk",
+        value: points.length > 0 ? `${points.length} år` : "Ingen historikk",
+        meta: historyRange ?? undefined,
+      },
+    ],
+  };
 }

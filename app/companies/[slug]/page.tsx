@@ -1,12 +1,11 @@
 import { notFound } from "next/navigation";
 
 import { CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
-import { FinancialChart } from "@/components/company/financial-chart";
 import { FinancialDocuments } from "@/components/company/financial-documents";
 import { FinancialTimeSeriesTable } from "@/components/company/financial-time-series-table";
 import { KeyFiguresGrid } from "@/components/company/key-figures-grid";
 import { MetricGrid } from "@/components/company/metric-grid";
-import { OverviewSidePanel } from "@/components/company/overview-side-panel";
+import { OverviewAnalytics } from "@/components/company/overview-analytics";
 import { RolesList } from "@/components/company/roles-list";
 import { PremiumLock } from "@/components/paywall/premium-lock";
 import { Card } from "@/components/ui/card";
@@ -95,26 +94,7 @@ export default async function CompanyPage({
       <CompanyTabs companySlug={company.orgNumber} activeTab={activeTab} />
 
       {activeTab === "oversikt" ? (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr),340px]">
-          <Card className="border-[#E7ECF1] bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-[1.65rem] font-semibold tracking-tight text-[#101828]">Oversikt</h2>
-                <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#667085]">
-                  Historisk utvikling i sum driftsinntekter og driftsresultat (EBIT), bygget fra verifiserte Brreg-regnskap.
-                </p>
-              </div>
-              <div className="rounded-full border border-[#DCE4EB] bg-[#F8FAFC] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
-                BRREG
-              </div>
-            </div>
-            <div className="mt-5">
-              <FinancialChart statements={financialStatements} />
-            </div>
-          </Card>
-
-          <OverviewSidePanel company={company} statements={financialStatements} />
-        </div>
+        <OverviewAnalytics company={company} statements={financialStatements} />
       ) : null}
 
       {activeTab === "regnskap" ? (
