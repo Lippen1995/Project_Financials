@@ -42,28 +42,25 @@ function normalizeOperatingCostBreakdown(statement: NormalizedFinancialStatement
     return statement;
   }
 
-  const sumDriftsinntekter = Number(driftsinntekter?.sumDriftsinntekter);
-  const sumDriftskostnad = Number(driftskostnad.sumDriftskostnad);
+  const salgsinntekter = Number(driftsinntekter?.salgsinntekter);
+  let sumDriftsinntekter = Number(driftsinntekter?.sumDriftsinntekter);
+  let sumDriftskostnad = Number(driftskostnad.sumDriftskostnad);
   const varekostnad = Number(driftskostnad.varekostnad);
   const annenDriftskostnad = Number(driftskostnad.annenDriftskostnad);
+  let operatingProfit = Number(driftsresultat.driftsresultat);
+
+  if (!Number.isFinite(sumDriftsinntekter) && Number.isFinite(salgsinntekter)) {
+    sumDriftsinntekter = salgsinntekter;
+    driftsinntekter.sumDriftsinntekter = salgsinntekter;
+  }
 
   if (
-    !Number.isFinite(sumDriftskostnad) ||
-    !Number.isFinite(varekostnad) ||
-    !Number.isFinite(annenDriftskostnad)
+    !Number.isFinite(sumDriftskostnad) &&
+    Number.isFinite(sumDriftsinntekter) &&
+    Number.isFinite(operatingProfit)
   ) {
-    return statement;
-  }
-
-  const reconciledLoennskostnad = sumDriftskostnad - varekostnad - annenDriftskostnad;
-  if (reconciledLoennskostnad < 0) {
-    return statement;
-  }
-
-  driftskostnad.loennskostnad = reconciledLoennskostnad;
-
-  if (Number.isFinite(sumDriftsinntekter) && Number.isFinite(sumDriftskostnad)) {
-    driftsresultat.driftsresultat = sumDriftsinntekter - sumDriftskostnad;
+    sumDriftskostnad = sumDriftsinntekter - operatingProfit;
+    driftskostnad.sumDriftskostnad = sumDriftskostnad;
   }
 
   const sumFinansinntekter = Number(finansresultat?.finansinntekt?.sumFinansinntekter);
@@ -74,6 +71,22 @@ function normalizeOperatingCostBreakdown(statement: NormalizedFinancialStatement
   }
 
   const nettoFinans = Number(finansresultat?.nettoFinans);
+  if (
+    Number.isFinite(sumDriftskostnad) &&
+    Number.isFinite(varekostnad) &&
+    Number.isFinite(annenDriftskostnad)
+  ) {
+    const reconciledLoennskostnad = sumDriftskostnad - varekostnad - annenDriftskostnad;
+    if (reconciledLoennskostnad >= 0) {
+      driftskostnad.loennskostnad = reconciledLoennskostnad;
+    }
+  }
+
+  if (Number.isFinite(sumDriftsinntekter) && Number.isFinite(sumDriftskostnad)) {
+    operatingProfit = sumDriftsinntekter - sumDriftskostnad;
+    driftsresultat.driftsresultat = operatingProfit;
+  }
+
   const normalizedOperatingProfit = Number(driftsresultat.driftsresultat);
 
   if (Number.isFinite(normalizedOperatingProfit) && Number.isFinite(nettoFinans)) {
