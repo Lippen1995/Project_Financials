@@ -34,10 +34,10 @@ function niceCeiling(value: number) {
 
 function buildTicks(minValue: number, maxValue: number) {
   if (minValue >= 0) {
-    return [0, maxValue * 0.25, maxValue * 0.5, maxValue * 0.75, maxValue];
+    return [0, maxValue * 0.16, maxValue * 0.33, maxValue * 0.5, maxValue * 0.66, maxValue * 0.83, maxValue];
   }
 
-  return [minValue, minValue * 0.5, 0, maxValue * 0.5, maxValue];
+  return [minValue, minValue * 0.66, minValue * 0.33, 0, maxValue * 0.33, maxValue * 0.66, maxValue];
 }
 
 function getDefaultYear(points: OverviewChartPoint[]) {
@@ -282,25 +282,15 @@ export function FinancialChart({
                 return (
                   <g key={`group-${point.fiscalYear}`}>
                     {isActive ? (
-                      <>
-                        <rect
-                          x={groupX + groupWidth * 0.18}
-                          y={CHART_PADDING.top}
-                          width={groupWidth * 0.64}
-                          height={plotHeight}
-                          rx={12}
-                          fill="#F8FAFC"
-                        />
-                        <line
-                          x1={centerX}
-                          x2={centerX}
-                          y1={CHART_PADDING.top}
-                          y2={CHART_HEIGHT - CHART_PADDING.bottom}
-                          stroke="#D5DEE8"
-                          strokeDasharray="3 5"
-                          strokeWidth={1}
-                        />
-                      </>
+                      <line
+                        x1={centerX}
+                        x2={centerX}
+                        y1={CHART_PADDING.top}
+                        y2={CHART_HEIGHT - CHART_PADDING.bottom}
+                        stroke="#CBD5E1"
+                        strokeDasharray="2 6"
+                        strokeWidth={1}
+                      />
                     ) : null}
                     <rect
                       x={groupX}
