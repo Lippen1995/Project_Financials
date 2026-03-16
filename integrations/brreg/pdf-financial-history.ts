@@ -2,8 +2,6 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import "server-only";
-
 import env from "@/lib/env";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { NormalizedFinancialStatement } from "@/lib/types";
@@ -217,7 +215,12 @@ const assetRows: RowDefinition[] = [
     },
   },
   {
-    aliases: ["bankinnskudd, kontanter o.l.", "sum bankinnskudd, kontanter og lignende", "bankinnskudd, kontanter og lignende"],
+    aliases: [
+      "bankinnskudd, kontanter o.l.",
+      "bankinnskudd, kontanter o.",
+      "sum bankinnskudd, kontanter og lignende",
+      "bankinnskudd, kontanter og lignende",
+    ],
     apply: (payload, value) => {
       payload.eiendeler.sumBankinnskuddOgKontanter = value;
     },
@@ -463,14 +466,14 @@ function stripLikelyNoteTokens(tokens: string[], noteTokenLikely?: boolean) {
   if (noteTokenLikely) {
     if (
       tokens.length >= 3 &&
-      tokens[0].replace("-", "").length <= 2 &&
+      tokens[0].replace("-", "").length === 1 &&
       !tokens[0].startsWith("-")
     ) {
       const withoutNote = tokens.slice(1);
 
       if (
         withoutNote.length >= 4 &&
-        withoutNote[0].replace("-", "").length <= 1 &&
+        withoutNote[0].replace("-", "").length === 1 &&
         !withoutNote[0].startsWith("-")
       ) {
         const withoutExtraShortToken = withoutNote.slice(1);
@@ -531,6 +534,16 @@ function extractTwoValues(rest: string, noteTokenLikely?: boolean) {
     return [Number(candidateTokens[0]), null] as const;
   }
 
+  if (
+    candidateTokens.length === 2 &&
+    candidateTokens[0].replace("-", "").length <= 2 &&
+    candidateTokens[1].replace("-", "").length === 3 &&
+    !candidateTokens[0].startsWith("-") &&
+    !candidateTokens[1].startsWith("-")
+  ) {
+    return [Number(candidateTokens.join("")), null] as const;
+  }
+
   const splitIndex = chooseSplit(candidateTokens);
   return [
     Number(candidateTokens.slice(0, splitIndex).join("")),
@@ -545,26 +558,33 @@ function applyParsedLine(
   rowDefinitions: RowDefinition[],
 ) {
   const normalized = normalizeText(line);
+  let bestMatch: { row: RowDefinition; alias: string } | null = null;
 
   for (const row of rowDefinitions) {
     for (const alias of row.aliases) {
-      if (!normalized.startsWith(alias)) {
+      if (normalized !== alias && !normalized.startsWith(`${alias} `)) {
         continue;
       }
 
-      const rest = normalized.slice(alias.length).trim();
-      const [first, second] = extractTwoValues(rest, row.noteTokenLikely);
-
-      if (first !== null && Number.isFinite(first)) {
-        row.apply(registry.get(years[0])!, first);
+      if (!bestMatch || alias.length > bestMatch.alias.length) {
+        bestMatch = { row, alias };
       }
-
-      if (second !== null && Number.isFinite(second)) {
-        row.apply(registry.get(years[1])!, second);
-      }
-
-      return;
     }
+  }
+
+  if (!bestMatch) {
+    return;
+  }
+
+  const rest = normalized.slice(bestMatch.alias.length).trim();
+  const [first, second] = extractTwoValues(rest, bestMatch.row.noteTokenLikely);
+
+  if (first !== null && Number.isFinite(first)) {
+    bestMatch.row.apply(registry.get(years[0])!, first);
+  }
+
+  if (second !== null && Number.isFinite(second)) {
+    bestMatch.row.apply(registry.get(years[1])!, second);
   }
 }
 
@@ -662,6 +682,183 @@ function reconcileOperatingCostBreakdown(payload: ParsedPayload) {
   }
 }
 
+function reconcileBalanceSheet(payload: ParsedPayload) {
+  const eiendeler = payload.eiendeler;
+  const egenkapitalGjeld = payload.egenkapitalGjeld;
+  const egenkapital = egenkapitalGjeld?.egenkapital;
+  const gjeldOversikt = egenkapitalGjeld?.gjeldOversikt;
+  const kortsiktigGjeld = gjeldOversikt?.kortsiktigGjeld;
+  const langsiktigGjeld = gjeldOversikt?.langsiktigGjeld;
+  const innskuttEgenkapital = egenkapital?.innskuttEgenkapital;
+  const opptjentEgenkapital = egenkapital?.opptjentEgenkapital;
+
+  if (!eiendeler || !egenkapitalGjeld || !egenkapital || !gjeldOversikt) {
+    return;
+  }
+
+  const totalAssets = Number(eiendeler.sumEiendeler);
+  const totalCurrentAssets = Number(eiendeler.omloepsmidler?.sumOmloepsmidler);
+  const inventory = Number(eiendeler.sumVarer);
+  const accountsReceivable = Number(eiendeler.kundefordringer);
+  const otherShortTermReceivables = Number(eiendeler.andreKortsiktigeFordringer);
+  const intercompanyReceivables = Number(eiendeler.konsernfordringer);
+  const totalReceivables = Number(eiendeler.sumFordringer);
+  const cashAndEquivalents = Number(eiendeler.sumBankinnskuddOgKontanter);
+  const totalFixedAssets = Number(eiendeler.anleggsmidler?.sumAnleggsmidler);
+  const totalDebt = Number(gjeldOversikt.sumGjeld);
+  const totalEquity = Number(egenkapital.sumEgenkapital);
+  const totalLongTermDebt = Number(langsiktigGjeld?.sumLangsiktigGjeld);
+  const totalShortTermDebt = Number(kortsiktigGjeld?.sumKortsiktigGjeld);
+
+  if (
+    Number.isFinite(totalAssets) &&
+    Number.isFinite(totalDebt) &&
+    (!Number.isFinite(totalEquity) || Math.abs(totalEquity - (totalAssets - totalDebt)) >= 1000)
+  ) {
+    egenkapital.sumEgenkapital = totalAssets - totalDebt;
+  }
+
+  if (
+    Number.isFinite(totalAssets) &&
+    Number.isFinite(totalCurrentAssets) &&
+    (!Number.isFinite(totalFixedAssets) || Math.abs(totalFixedAssets - (totalAssets - totalCurrentAssets)) >= 1000)
+  ) {
+    eiendeler.anleggsmidler.sumAnleggsmidler = totalAssets - totalCurrentAssets;
+  }
+
+  if (
+    Number.isFinite(totalCurrentAssets) &&
+    Number.isFinite(inventory) &&
+    Number.isFinite(totalReceivables) &&
+    (!Number.isFinite(cashAndEquivalents) ||
+      Math.abs(cashAndEquivalents - (totalCurrentAssets - inventory - totalReceivables)) >= 1000)
+  ) {
+    const derivedCash = totalCurrentAssets - inventory - totalReceivables;
+    if (derivedCash >= 0) {
+      eiendeler.sumBankinnskuddOgKontanter = derivedCash;
+    }
+  }
+
+  if (
+    Number.isFinite(totalReceivables) &&
+    Number.isFinite(intercompanyReceivables) &&
+    Number.isFinite(otherShortTermReceivables) &&
+    (!Number.isFinite(accountsReceivable) ||
+      Math.abs(accountsReceivable - (totalReceivables - intercompanyReceivables - otherShortTermReceivables)) >= 1000)
+  ) {
+    const derivedAccountsReceivable =
+      totalReceivables - intercompanyReceivables - otherShortTermReceivables;
+    if (derivedAccountsReceivable >= 0) {
+      eiendeler.kundefordringer = derivedAccountsReceivable;
+    }
+  }
+
+  if (
+    Number.isFinite(totalReceivables) &&
+    Number.isFinite(intercompanyReceivables) &&
+    Number.isFinite(accountsReceivable) &&
+    (!Number.isFinite(otherShortTermReceivables) ||
+      Math.abs(otherShortTermReceivables - (totalReceivables - intercompanyReceivables - accountsReceivable)) >= 1000)
+  ) {
+    const derivedOtherShortTermReceivables =
+      totalReceivables - intercompanyReceivables - accountsReceivable;
+    if (derivedOtherShortTermReceivables >= 0) {
+      eiendeler.andreKortsiktigeFordringer = derivedOtherShortTermReceivables;
+    }
+  }
+
+  if (
+    Number.isFinite(totalDebt) &&
+    Number.isFinite(totalLongTermDebt) &&
+    (!Number.isFinite(totalShortTermDebt) ||
+      Math.abs(totalShortTermDebt - (totalDebt - totalLongTermDebt)) >= 1000)
+  ) {
+    kortsiktigGjeld.sumKortsiktigGjeld = totalDebt - totalLongTermDebt;
+  }
+
+  const currentShortTermDebt = Number(kortsiktigGjeld?.sumKortsiktigGjeld);
+  const supplierDebt = Number(kortsiktigGjeld?.leverandorgjeld);
+  const publicCharges = Number(kortsiktigGjeld?.skyldigOffentligeAvgifter);
+  const dividendDebt = Number(kortsiktigGjeld?.utbytte);
+  const otherShortTermDebt = Number(kortsiktigGjeld?.annenKortsiktigGjeld);
+  const taxPayable = Number(kortsiktigGjeld?.betalbarSkatt);
+  const longTermCreditInstitutionDebt = Number(langsiktigGjeld?.gjeldTilKredittinstitusjoner);
+  const longTermProvisions = Number(langsiktigGjeld?.avsetningerForForpliktelser);
+
+  if (
+    Number.isFinite(currentShortTermDebt) &&
+    Number.isFinite(supplierDebt) &&
+    Number.isFinite(publicCharges) &&
+    Number.isFinite(dividendDebt) &&
+    Number.isFinite(otherShortTermDebt)
+  ) {
+    const derivedTaxPayable =
+      currentShortTermDebt - supplierDebt - publicCharges - dividendDebt - otherShortTermDebt;
+
+    if (derivedTaxPayable >= 0) {
+      kortsiktigGjeld.betalbarSkatt = derivedTaxPayable;
+    }
+  }
+
+  const normalizedTaxPayable = Number(kortsiktigGjeld?.betalbarSkatt);
+  if (
+    Number.isFinite(currentShortTermDebt) &&
+    Number.isFinite(supplierDebt) &&
+    Number.isFinite(publicCharges) &&
+    Number.isFinite(dividendDebt) &&
+    Number.isFinite(normalizedTaxPayable) &&
+    (!Number.isFinite(otherShortTermDebt) ||
+      Math.abs(
+        otherShortTermDebt -
+          (currentShortTermDebt -
+            supplierDebt -
+            publicCharges -
+            dividendDebt -
+            normalizedTaxPayable),
+      ) >= 1000)
+  ) {
+    const derivedOtherShortTermDebt =
+      currentShortTermDebt -
+      supplierDebt -
+      publicCharges -
+      dividendDebt -
+      normalizedTaxPayable;
+
+    if (derivedOtherShortTermDebt >= 0) {
+      kortsiktigGjeld.annenKortsiktigGjeld = derivedOtherShortTermDebt;
+    }
+  }
+
+  if (
+    Number.isFinite(totalLongTermDebt) &&
+    Number.isFinite(longTermCreditInstitutionDebt) &&
+    (!Number.isFinite(longTermProvisions) ||
+      Math.abs(longTermProvisions - (totalLongTermDebt - longTermCreditInstitutionDebt)) >= 1000)
+  ) {
+    const derivedLongTermProvisions = totalLongTermDebt - longTermCreditInstitutionDebt;
+    if (derivedLongTermProvisions >= 0) {
+      langsiktigGjeld.avsetningerForForpliktelser = derivedLongTermProvisions;
+    }
+  }
+
+  const paidInEquity = Number(innskuttEgenkapital?.sumInnskuttEgenkaptial);
+  const retainedEarnings = Number(opptjentEgenkapital?.sumOpptjentEgenkapital);
+  const currentTotalEquity = Number(egenkapital.sumEgenkapital);
+
+  if (
+    Number.isFinite(currentTotalEquity) &&
+    Number.isFinite(retainedEarnings) &&
+    (!Number.isFinite(paidInEquity) ||
+      Math.abs(paidInEquity - (currentTotalEquity - retainedEarnings)) >= 1000)
+  ) {
+    innskuttEgenkapital.sumInnskuttEgenkaptial = currentTotalEquity - retainedEarnings;
+  }
+
+  if (Number.isFinite(totalAssets)) {
+    egenkapitalGjeld.sumEgenkapitalGjeld = totalAssets;
+  }
+}
+
 async function downloadAnnualReportPdf(orgNumber: string, year: number) {
   const url = `${env.brregFinancialsBaseUrl}/aarsregnskap/kopi/${orgNumber}/${year}`;
   const response = await fetch(url, {
@@ -710,6 +907,30 @@ async function ocrRelevantPages(pdfBuffer: Buffer, year: number) {
   return pages;
 }
 
+function inferPageYears(
+  pageText: string,
+  reportYear: number,
+  lastSeenYears: readonly [number, number] | null,
+) {
+  const explicitYears = extractYearPair(pageText);
+  if (explicitYears) {
+    return explicitYears;
+  }
+
+  const normalized = normalizeText(pageText);
+  const isBalanceContinuation =
+    normalized.includes("sum egenkapital og gjeld") ||
+    normalized.includes("sum langsiktig gjeld") ||
+    normalized.includes("sum kortsiktig gjeld") ||
+    normalized.includes("sum gjeld");
+
+  if (isBalanceContinuation) {
+    return lastSeenYears ?? ([reportYear, reportYear - 1] as const);
+  }
+
+  return lastSeenYears;
+}
+
 function buildStatementsFromRegistry(orgNumber: string, registry: Map<number, ParsedPayload>) {
   return Array.from(registry.entries())
     .map(([year, payload]) => {
@@ -718,6 +939,7 @@ function buildStatementsFromRegistry(orgNumber: string, registry: Map<number, Pa
       };
 
       reconcileOperatingCostBreakdown(payload);
+      reconcileBalanceSheet(payload);
 
       if (!payload.resultatregnskapResultat?.aarsresultat) {
         return null;
@@ -744,12 +966,14 @@ export async function extractHistoricalStatementsFromAnnualReports(
   for (const reportYear of yearsToParse) {
     const pdfBuffer = await downloadAnnualReportPdf(orgNumber, reportYear);
     const ocrPages = await ocrRelevantPages(pdfBuffer, reportYear);
+    let currentYears: readonly [number, number] | null = null;
 
     for (const page of ocrPages) {
-      const years = extractYearPair(page.text);
+      const years = inferPageYears(page.text, reportYear, currentYears);
       if (!years) {
         continue;
       }
+      currentYears = years;
 
       if (!registry.has(years[0])) {
         registry.set(years[0], createEmptyPayload(years[0]));

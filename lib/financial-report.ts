@@ -34,12 +34,21 @@ export type FinancialReportDataset = {
   years: number[];
   currency: string;
   valuesByYear: Record<number, Record<string, number | null>>;
+  reliableKeysByYear: Record<number, Set<string>>;
   latestYearByStatement: Partial<Record<FinancialStatementType, number>>;
   balanceValidationByYear: Record<number, BalanceValidation>;
 };
 
 const EMPTY = "—";
 const BALANCE_TOLERANCE = 1;
+
+function approximatelyEqual(left: number | null, right: number | null, tolerance = BALANCE_TOLERANCE) {
+  if (left === null || right === null) {
+    return false;
+  }
+
+  return Math.abs(left - right) <= tolerance;
+}
 
 function getAtPath(payload: Record<string, unknown>, path: string) {
   return path.split(".").reduce<unknown>((current, segment) => {
@@ -510,6 +519,32 @@ export const financialReportRows: FinancialReportRow[] = [
     accessor: createAccessor(["eiendeler.andreKortsiktigeFordringer"]),
   },
   {
+    label: "Konsernfordringer",
+    key: "intercompany_receivables",
+    section: "balance_current_assets",
+    statement: "balance",
+    type: "normal",
+    visibility: "detail",
+    accessor: createAccessor(["eiendeler.konsernfordringer", "eiendeler.kundefordringerKonsern"]),
+  },
+  {
+    label: "Sum fordringer",
+    key: "total_receivables",
+    section: "balance_current_assets",
+    statement: "balance",
+    type: "subtotal",
+    visibility: "detail",
+    accessor: createAccessor(
+      ["eiendeler.sumFordringer"],
+      (payload) =>
+        sumDefined([
+          firstNumber(payload, ["eiendeler.kundefordringer"]),
+          firstNumber(payload, ["eiendeler.andreKortsiktigeFordringer"]),
+          firstNumber(payload, ["eiendeler.konsernfordringer", "eiendeler.kundefordringerKonsern"]),
+        ]),
+    ),
+  },
+  {
     label: "Bankinnskudd, kontanter o.l.",
     key: "cash_and_equivalents",
     section: "balance_current_assets",
@@ -530,8 +565,7 @@ export const financialReportRows: FinancialReportRow[] = [
       (payload) =>
         sumDefined([
           firstNumber(payload, ["eiendeler.sumVarer", "eiendeler.omloepsmidler.varer"]),
-          firstNumber(payload, ["eiendeler.kundefordringer"]),
-          firstNumber(payload, ["eiendeler.andreKortsiktigeFordringer"]),
+          firstNumber(payload, ["eiendeler.sumFordringer"]),
           firstNumber(payload, ["eiendeler.sumBankinnskuddOgKontanter"]),
         ]),
     ),
@@ -669,6 +703,24 @@ export const financialReportRows: FinancialReportRow[] = [
     accessor: createAccessor(["egenkapitalGjeld.gjeldOversikt.kortsiktigGjeld.betalbarSkatt"]),
   },
   {
+    label: "Skyldige offentlige avgifter",
+    key: "public_charges",
+    section: "balance_short_term_debt",
+    statement: "balance",
+    type: "normal",
+    visibility: "detail",
+    accessor: createAccessor(["egenkapitalGjeld.gjeldOversikt.kortsiktigGjeld.skyldigOffentligeAvgifter"]),
+  },
+  {
+    label: "Utbytte",
+    key: "dividend_liability",
+    section: "balance_short_term_debt",
+    statement: "balance",
+    type: "normal",
+    visibility: "detail",
+    accessor: createAccessor(["egenkapitalGjeld.gjeldOversikt.kortsiktigGjeld.utbytte"]),
+  },
+  {
     label: "Annen kortsiktig gjeld",
     key: "other_short_term_debt",
     section: "balance_short_term_debt",
@@ -690,6 +742,8 @@ export const financialReportRows: FinancialReportRow[] = [
         sumDefined([
           firstNumber(payload, ["egenkapitalGjeld.gjeldOversikt.kortsiktigGjeld.leverandorgjeld"]),
           firstNumber(payload, ["egenkapitalGjeld.gjeldOversikt.kortsiktigGjeld.betalbarSkatt"]),
+          firstNumber(payload, ["egenkapitalGjeld.gjeldOversikt.kortsiktigGjeld.skyldigOffentligeAvgifter"]),
+          firstNumber(payload, ["egenkapitalGjeld.gjeldOversikt.kortsiktigGjeld.utbytte"]),
           firstNumber(payload, [
             "egenkapitalGjeld.gjeldOversikt.kortsiktigGjeld.annenKortsiktigGjeld",
           ]),
@@ -874,6 +928,108 @@ function latestYearForStatement(statement: FinancialStatementType, years: number
   return matchingYear;
 }
 
+function markReliable(set: Set<string>, keys: string[]) {
+  for (const key of keys) {
+    set.add(key);
+  }
+}
+
+function computeReliableBalanceKeys(values: Record<string, number | null>) {
+  const reliable = new Set<string>([
+    "total_assets",
+    "total_equity_and_liabilities",
+    "total_equity",
+    "total_long_term_debt",
+    "total_short_term_debt",
+    "total_current_assets",
+    "total_fixed_assets",
+    "paid_in_equity",
+    "retained_earnings",
+  ]);
+
+  if (approximatelyEqual(values.total_assets, values.total_equity_and_liabilities)) {
+    markReliable(reliable, ["total_assets", "total_equity_and_liabilities"]);
+  }
+
+  if (
+    approximatelyEqual(
+      values.total_receivables ?? null,
+      sumDefined([
+        values.accounts_receivable ?? null,
+        values.other_short_term_receivables ?? null,
+        values.intercompany_receivables ?? null,
+      ]),
+    )
+  ) {
+    markReliable(reliable, [
+      "total_receivables",
+      "accounts_receivable",
+      "other_short_term_receivables",
+      "intercompany_receivables",
+    ]);
+  }
+
+  if (
+    approximatelyEqual(
+      values.total_current_assets ?? null,
+      sumDefined([
+        values.inventory ?? null,
+        values.total_receivables ?? null,
+        values.cash_and_equivalents ?? null,
+      ]),
+    )
+  ) {
+    markReliable(reliable, [
+      "total_current_assets",
+      "inventory",
+      "total_receivables",
+      "cash_and_equivalents",
+    ]);
+  }
+
+  if (
+    approximatelyEqual(
+      values.total_equity ?? null,
+      sumDefined([values.paid_in_equity ?? null, values.retained_earnings ?? null]),
+    )
+  ) {
+    markReliable(reliable, ["total_equity", "paid_in_equity", "retained_earnings"]);
+  }
+
+  if (
+    approximatelyEqual(
+      values.total_long_term_debt ?? null,
+      sumDefined([values.long_term_debt ?? null, values.provisions ?? null]),
+    )
+  ) {
+    markReliable(reliable, ["total_long_term_debt", "long_term_debt", "provisions"]);
+  }
+
+  if (
+    approximatelyEqual(
+      values.total_short_term_debt ?? null,
+      sumDefined([
+        values.supplier_debt ?? null,
+        values.tax_payable ?? null,
+        values.public_charges ?? null,
+        values.dividend_liability ?? null,
+        values.other_short_term_debt ?? null,
+      ]),
+    )
+  ) {
+    markReliable(reliable, [
+      "total_short_term_debt",
+      "supplier_debt",
+      "tax_payable",
+      "public_charges",
+      "dividend_liability",
+      "other_short_term_debt",
+    ]);
+  }
+
+  return reliable;
+}
+
 export function buildFinancialReportDataset(
   statements: NormalizedFinancialStatement[],
   documents: NormalizedFinancialDocument[],
@@ -891,6 +1047,7 @@ export function buildFinancialReportDataset(
   }
 
   const valuesByYear: FinancialReportDataset["valuesByYear"] = {};
+  const reliableKeysByYear: FinancialReportDataset["reliableKeysByYear"] = {};
   const balanceValidationByYear: FinancialReportDataset["balanceValidationByYear"] = {};
 
   for (const year of years) {
@@ -912,6 +1069,18 @@ export function buildFinancialReportDataset(
       balanced: difference !== null ? Math.abs(difference) <= BALANCE_TOLERANCE : false,
       difference,
     };
+
+    reliableKeysByYear[year] = computeReliableBalanceKeys(valuesByYear[year]);
+
+    for (const row of financialReportRows) {
+      if (
+        row.statement === "balance" &&
+        row.visibility === "detail" &&
+        !reliableKeysByYear[year].has(row.key)
+      ) {
+        valuesByYear[year][row.key] = null;
+      }
+    }
   }
 
   const latestCurrency = statements.find((statement) => statement.currency)?.currency ?? "NOK";
@@ -920,6 +1089,7 @@ export function buildFinancialReportDataset(
     years,
     currency: latestCurrency,
     valuesByYear,
+    reliableKeysByYear,
     latestYearByStatement: {
       income: latestYearForStatement("income", years, valuesByYear),
       balance: latestYearForStatement("balance", years, valuesByYear),
