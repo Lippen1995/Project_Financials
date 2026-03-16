@@ -13,8 +13,15 @@ function buildRevenueTicks(maxValue: number) {
   return [0, maxValue * 0.16, maxValue * 0.33, maxValue * 0.5, maxValue * 0.66, maxValue * 0.83, maxValue];
 }
 
-function buildMarginTicks(minValue: number, maxValue: number) {
-  return [minValue, minValue * 0.5, 0, maxValue * 0.5, maxValue];
+function buildLinearTicks(minValue: number, maxValue: number, count = 7) {
+  if (count <= 1 || minValue === maxValue) {
+    return [minValue];
+  }
+
+  return Array.from({ length: count }, (_, index) => {
+    const progress = index / (count - 1);
+    return minValue + (maxValue - minValue) * progress;
+  });
 }
 
 function niceMarginBound(value: number) {
@@ -72,7 +79,7 @@ export function FinancialChart({
   const groupWidth = plotWidth / Math.max(points.length, 1);
   const barWidth = Math.min(26, groupWidth * 0.34);
   const revenueTicks = buildRevenueTicks(maxRevenue);
-  const marginTicks = buildMarginTicks(minMargin, maxMargin);
+  const marginTicks = buildLinearTicks(minMargin, maxMargin, 7);
   const zeroY =
     CHART_PADDING.top + ((maxMargin - 0) / marginRange) * plotHeight;
 

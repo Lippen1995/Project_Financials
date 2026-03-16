@@ -3,29 +3,19 @@
 import { cn } from "@/lib/utils";
 import { formatAxisNok, formatCompactNok, OverviewChartPoint } from "@/lib/overview-chart";
 
-const CHART_HEIGHT = 220;
+const CHART_HEIGHT = 336;
 const CHART_WIDTH_PER_YEAR = 78;
 const CHART_PADDING = { top: 18, right: 18, bottom: 40, left: 72 };
 
 function buildTicks(minValue: number, maxValue: number) {
-  return [minValue, minValue * 0.66, minValue * 0.33, 0, maxValue * 0.33, maxValue * 0.66, maxValue];
-}
+  if (minValue === maxValue) {
+    return [minValue];
+  }
 
-function niceBound(value: number) {
-  const absolute = Math.max(Math.abs(value), 1);
-  const magnitude = 10 ** Math.floor(Math.log10(absolute));
-  const normalized = absolute / magnitude;
-
-  if (normalized <= 1.5) {
-    return 1.5 * magnitude;
-  }
-  if (normalized <= 3) {
-    return 3 * magnitude;
-  }
-  if (normalized <= 5) {
-    return 5 * magnitude;
-  }
-  return 10 * magnitude;
+  return Array.from({ length: 7 }, (_, index) => {
+    const progress = index / 6;
+    return minValue + (maxValue - minValue) * progress;
+  });
 }
 
 export function EbitChart({
@@ -39,9 +29,9 @@ export function EbitChart({
 }) {
   const activePoint = points.find((point) => point.fiscalYear === activeYear) ?? points.at(-1) ?? null;
   const minValue = Math.min(...points.map((point) => point.operatingProfit ?? 0), 0);
-  const maxValue = Math.max(...points.map((point) => point.operatingProfit ?? 0), 0);
-  const upperBound = niceBound(maxValue);
-  const lowerBound = minValue < 0 ? -niceBound(Math.abs(minValue)) : 0;
+  const maxValue = Math.max(...points.map((point) => point.operatingProfit ?? 0), 1);
+  const upperBound = maxValue;
+  const lowerBound = minValue < 0 ? minValue : 0;
   const range = upperBound - lowerBound || 1;
   const ticks = buildTicks(lowerBound, upperBound);
   const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
@@ -61,7 +51,7 @@ export function EbitChart({
       <div className="flex items-center justify-between gap-3">
         <div className="inline-flex items-center gap-2 rounded-full border border-[#E4EAF0] bg-white px-3 py-2 text-xs font-semibold text-[#475467]">
           <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#A4642D]" />
-          EBIT
+          Driftsresultat (EBIT)
         </div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#98A2B3]">
           Egen serie for absolutt driftsresultat
@@ -87,7 +77,7 @@ export function EbitChart({
               </div>
             ) : null}
 
-            <svg viewBox={`0 0 ${svgWidth} ${CHART_HEIGHT}`} className="h-[15rem] w-full" aria-label="Historisk EBIT">
+            <svg viewBox={`0 0 ${svgWidth} ${CHART_HEIGHT}`} className="h-[23.5rem] w-full" aria-label="Historisk driftsresultat">
               <line
                 x1={CHART_PADDING.left}
                 x2={CHART_PADDING.left}
