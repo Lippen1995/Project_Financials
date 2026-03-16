@@ -7,11 +7,18 @@ export type SourceMetadata = {
   rawPayload?: unknown;
 };
 
+export type DataAvailability = {
+  available: boolean;
+  message?: string;
+  sourceSystem?: string;
+};
+
 export type NormalizedIndustryCode = SourceMetadata & {
   code: string;
-  title: string;
+  title?: string | null;
   description?: string | null;
   level?: string | null;
+  parentCode?: string | null;
 };
 
 export type NormalizedAddress = SourceMetadata & {
@@ -54,11 +61,9 @@ export type NormalizedCompany = SourceMetadata & {
   foundedAt?: Date | null;
   website?: string | null;
   employeeCount?: number | null;
-  revenue?: number | null;
-  operatingProfit?: number | null;
-  netIncome?: number | null;
-  equity?: number | null;
   description?: string | null;
+  municipality?: string | null;
+  vatRegistered?: boolean | null;
   addresses: NormalizedAddress[];
   industryCode?: NormalizedIndustryCode | null;
   roles?: NormalizedRole[];
@@ -69,9 +74,16 @@ export type SearchFilters = {
   query?: string;
   industryCode?: string;
   city?: string;
-  minRevenue?: number;
-  maxRevenue?: number;
-  minEmployees?: number;
-  maxEmployees?: number;
+  legalForm?: string;
   status?: "ACTIVE" | "DISSOLVED" | "BANKRUPT";
+  page?: number;
+  size?: number;
+};
+
+export type CompanyProfile = {
+  company: NormalizedCompany;
+  roles: NormalizedRole[];
+  financialStatements: NormalizedFinancialStatement[];
+  financialsAvailability: DataAvailability;
+  regulatoryAvailability: DataAvailability;
 };

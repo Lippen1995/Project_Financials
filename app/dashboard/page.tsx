@@ -29,8 +29,10 @@ export default async function DashboardPage() {
         </div>
       </Card>
       <Card className="bg-gradient-to-br from-sand to-white">
-        <h2 className="text-2xl font-semibold">Hvordan paywall fungerer</h2>
-        <p className="mt-3 max-w-2xl text-sm text-ink/70">ProjectX apner basisdata offentlig. Premium-elementer som full historikk og alle roller gates via subscription-status i auth-token og billing-laget.</p>
+        <h2 className="text-2xl font-semibold">Hva som er ekte i MVP-et</h2>
+        <p className="mt-3 max-w-2xl text-sm text-ink/70">
+          Virksomhetsdata kommer fra Brønnøysundregistrene. Næringskodebeskrivelser kommer fra SSB. Når åpne data ikke finnes for en seksjon, viser ProjectX tom tilstand i stedet for syntetisk innhold.
+        </p>
       </Card>
     </main>
   );

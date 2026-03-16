@@ -1,12 +1,30 @@
 import { Card } from "@/components/ui/card";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
 
-export function MetricGrid({ revenue, operatingProfit, netIncome, employeeCount }: { revenue?: number | null; operatingProfit?: number | null; netIncome?: number | null; employeeCount?: number | null }) {
+export function MetricGrid({
+  employeeCount,
+  legalForm,
+  vatRegistered,
+  registeredAt,
+}: {
+  employeeCount?: number | null;
+  legalForm?: string | null;
+  vatRegistered?: boolean | null;
+  registeredAt?: Date | string | null;
+}) {
   const metrics = [
-    { label: "Siste omsetning", value: formatCurrency(revenue) },
-    { label: "Driftsresultat", value: formatCurrency(operatingProfit) },
-    { label: "Arsresultat", value: formatCurrency(netIncome) },
     { label: "Ansatte", value: formatNumber(employeeCount) },
+    { label: "Organisasjonsform", value: legalForm ?? "Ikke tilgjengelig" },
+    {
+      label: "MVA-registrert",
+      value:
+        vatRegistered === null || vatRegistered === undefined
+          ? "Ikke tilgjengelig"
+          : vatRegistered
+            ? "Ja"
+            : "Nei",
+    },
+    { label: "Registrert", value: formatDate(registeredAt) },
   ];
 
   return (

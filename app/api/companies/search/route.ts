@@ -8,9 +8,9 @@ export async function GET(request: NextRequest) {
     query: searchParams.get("query") ?? undefined,
     industryCode: searchParams.get("industryCode") ?? undefined,
     city: searchParams.get("city") ?? undefined,
-    status: (searchParams.get("status") as "ACTIVE" | "DISSOLVED" | "BANKRUPT" | null) ?? undefined,
-    minRevenue: searchParams.get("minRevenue") ? Number(searchParams.get("minRevenue")) : undefined,
-    minEmployees: searchParams.get("minEmployees") ? Number(searchParams.get("minEmployees")) : undefined,
+    legalForm: searchParams.get("legalForm") ?? undefined,
+    status:
+      (searchParams.get("status") as "ACTIVE" | "DISSOLVED" | "BANKRUPT" | null) ?? undefined,
   });
 
   return NextResponse.json({ data: companies });

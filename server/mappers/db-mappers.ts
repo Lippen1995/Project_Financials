@@ -1,4 +1,11 @@
-import { Address, Company, FinancialStatement, IndustryCode, Person, Role } from "@prisma/client";
+import {
+  Address,
+  Company,
+  FinancialStatement,
+  IndustryCode,
+  Person,
+  Role,
+} from "@prisma/client";
 import { NormalizedCompany, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
 
 type CompanyWithRelations = Company & {
@@ -25,11 +32,9 @@ export function mapDbCompany(company: CompanyWithRelations): NormalizedCompany {
     foundedAt: company.foundedAt,
     website: company.website,
     employeeCount: company.employeeCount,
-    revenue: company.revenue,
-    operatingProfit: company.operatingProfit,
-    netIncome: company.netIncome,
-    equity: company.equity,
     description: company.description,
+    municipality: company.addresses[0]?.region ?? null,
+    vatRegistered: null,
     addresses: company.addresses.map((address) => ({
       sourceSystem: address.sourceSystem,
       sourceEntityType: address.sourceEntityType,
@@ -44,20 +49,25 @@ export function mapDbCompany(company: CompanyWithRelations): NormalizedCompany {
       region: address.region,
       country: address.country,
     })),
-    industryCode: company.industryCode ? {
-      sourceSystem: company.industryCode.sourceSystem,
-      sourceEntityType: company.industryCode.sourceEntityType,
-      sourceId: company.industryCode.sourceId,
-      fetchedAt: company.industryCode.fetchedAt,
-      normalizedAt: company.industryCode.normalizedAt,
-      rawPayload: company.industryCode.rawPayload,
-      code: company.industryCode.code,
-      title: company.industryCode.title,
-      description: company.industryCode.description,
-      level: company.industryCode.level,
-    } : null,
+    industryCode: company.industryCode
+      ? {
+          sourceSystem: company.industryCode.sourceSystem,
+          sourceEntityType: company.industryCode.sourceEntityType,
+          sourceId: company.industryCode.sourceId,
+          fetchedAt: company.industryCode.fetchedAt,
+          normalizedAt: company.industryCode.normalizedAt,
+          rawPayload: company.industryCode.rawPayload,
+          code: company.industryCode.code,
+          title: company.industryCode.title,
+          description: company.industryCode.description,
+          level: company.industryCode.level,
+          parentCode: null,
+        }
+      : null,
     roles: company.roles ? mapDbRoles(company.roles) : undefined,
-    financialStatements: company.financialStatements ? mapDbFinancialStatements(company.financialStatements) : undefined,
+    financialStatements: company.financialStatements
+      ? mapDbFinancialStatements(company.financialStatements)
+      : undefined,
   };
 }
 
@@ -86,7 +96,9 @@ export function mapDbRoles(roles: (Role & { person: Person })[]): NormalizedRole
   }));
 }
 
-export function mapDbFinancialStatements(statements: FinancialStatement[]): NormalizedFinancialStatement[] {
+export function mapDbFinancialStatements(
+  statements: FinancialStatement[],
+): NormalizedFinancialStatement[] {
   return statements.map((statement) => ({
     sourceSystem: statement.sourceSystem,
     sourceEntityType: statement.sourceEntityType,
