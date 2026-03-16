@@ -52,6 +52,39 @@ function deepMerge(target: Record<string, any>, source: Record<string, any>) {
   return output;
 }
 
+function normalizeOperatingCostBreakdown(statement: NormalizedFinancialStatement) {
+  const payload = (statement.rawPayload ?? {}) as Record<string, any>;
+  const driftskostnad = payload.resultatregnskapResultat?.driftsresultat?.driftskostnad;
+
+  if (!driftskostnad) {
+    return statement;
+  }
+
+  const sumDriftskostnad = Number(driftskostnad.sumDriftskostnad);
+  const varekostnad = Number(driftskostnad.varekostnad);
+  const annenDriftskostnad = Number(driftskostnad.annenDriftskostnad);
+
+  if (
+    !Number.isFinite(sumDriftskostnad) ||
+    !Number.isFinite(varekostnad) ||
+    !Number.isFinite(annenDriftskostnad)
+  ) {
+    return statement;
+  }
+
+  const reconciledLoennskostnad = sumDriftskostnad - varekostnad - annenDriftskostnad;
+  if (reconciledLoennskostnad < 0) {
+    return statement;
+  }
+
+  driftskostnad.loennskostnad = reconciledLoennskostnad;
+
+  return {
+    ...statement,
+    rawPayload: payload,
+  };
+}
+
 export class BrregFinancialsProvider implements FinancialsProvider {
   async getFinancialStatements(orgNumber: string) {
     const cached = await readFinancialCache(orgNumber);
@@ -128,9 +161,9 @@ export class BrregFinancialsProvider implements FinancialsProvider {
       }
     }
 
-    const statementList = Array.from(statements.values()).sort(
-      (left, right) => right.fiscalYear - left.fiscalYear,
-    );
+    const statementList = Array.from(statements.values())
+      .map((statement) => normalizeOperatingCostBreakdown(statement))
+      .sort((left, right) => right.fiscalYear - left.fiscalYear);
 
     const result = {
       statements: statementList,
