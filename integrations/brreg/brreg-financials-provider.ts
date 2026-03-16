@@ -35,10 +35,14 @@ export class BrregFinancialsProvider implements FinancialsProvider {
     let documents: NormalizedFinancialDocument[] = [];
 
     try {
-      const latestStatement = await fetchJson<Record<string, any>>(
+      const latestResponse = await fetchJson<Record<string, any> | Record<string, any>[]>(
         `${env.brregFinancialsBaseUrl}/${orgNumber}`,
       );
-      statements.push(mapBrregFinancialStatement(latestStatement, orgNumber));
+      const latestStatement = Array.isArray(latestResponse) ? latestResponse[0] : latestResponse;
+
+      if (latestStatement) {
+        statements.push(mapBrregFinancialStatement(latestStatement, orgNumber));
+      }
     } catch {
       // Keep an honest empty state if the open regnskap endpoint fails.
     }
