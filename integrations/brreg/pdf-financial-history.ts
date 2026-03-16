@@ -542,6 +542,43 @@ function applyParsedLine(
   }
 }
 
+function reconcileOperatingCostBreakdown(payload: ParsedPayload) {
+  const driftskostnad = payload.resultatregnskapResultat?.driftsresultat?.driftskostnad;
+  if (!driftskostnad) {
+    return;
+  }
+
+  const sumDriftskostnad = Number(driftskostnad.sumDriftskostnad);
+  const varekostnad = Number(driftskostnad.varekostnad);
+  const annenDriftskostnad = Number(driftskostnad.annenDriftskostnad);
+  const loennskostnad = Number(driftskostnad.loennskostnad);
+
+  if (
+    Number.isFinite(sumDriftskostnad) &&
+    Number.isFinite(varekostnad) &&
+    Number.isFinite(annenDriftskostnad)
+  ) {
+    const derivedLoennskostnad = sumDriftskostnad - varekostnad - annenDriftskostnad;
+
+    if (derivedLoennskostnad >= 0) {
+      if (!Number.isFinite(loennskostnad)) {
+        driftskostnad.loennskostnad = derivedLoennskostnad;
+        return;
+      }
+
+      const difference = Math.abs(loennskostnad - derivedLoennskostnad);
+      const relativeDifference =
+        derivedLoennskostnad > 0 ? difference / derivedLoennskostnad : 0;
+
+      // OCR tends to insert stray digits around note-marked rows. If the parsed value
+      // materially disagrees with the verified total line, trust the reconciled amount.
+      if (difference >= 1000 && relativeDifference >= 0.1) {
+        driftskostnad.loennskostnad = derivedLoennskostnad;
+      }
+    }
+  }
+}
+
 async function downloadAnnualReportPdf(orgNumber: string, year: number) {
   const url = `${env.brregFinancialsBaseUrl}/aarsregnskap/kopi/${orgNumber}/${year}`;
   const response = await fetch(url, {
@@ -593,6 +630,8 @@ function buildStatementsFromRegistry(orgNumber: string, registry: Map<number, Pa
       payload.virksomhet = {
         organisasjonsnummer: orgNumber,
       };
+
+      reconcileOperatingCostBreakdown(payload);
 
       if (!payload.resultatregnskapResultat?.aarsresultat) {
         return null;
