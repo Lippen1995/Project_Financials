@@ -9,6 +9,26 @@ import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { NormalizedFinancialStatement } from "@/lib/types";
 
 type ParsedPayload = Record<string, any>;
+type OcrWord = {
+  text: string;
+  bbox: {
+    x0: number;
+    x1: number;
+    y0: number;
+    y1: number;
+  };
+};
+
+type OcrLine = {
+  words: OcrWord[];
+  y0: number;
+  y1: number;
+};
+
+type OcrPage = {
+  text: string;
+  words: OcrWord[];
+};
 
 type RowDefinition = {
   aliases: string[];
@@ -396,145 +416,154 @@ function normalizeText(value: string) {
     .trim();
 }
 
-function extractYearPair(text: string) {
-  const match = text.match(/(?:note|belep i:\s*nok note)\s*(20\d{2})\s*(20\d{2})/i);
-  if (!match) {
+function toNumericToken(value: string) {
+  return value.replace(/[^\d-]/g, "");
+}
+
+function parseNumberFromTokens(tokens: string[]) {
+  const cleaned = tokens
+    .map((token) => toNumericToken(token))
+    .filter(Boolean);
+
+  if (cleaned.length === 0) {
     return null;
   }
 
-  return [Number(match[1]), Number(match[2])] as const;
+  const normalized = cleaned.join("");
+  if (!normalized || normalized === "-") {
+    return null;
+  }
+
+  return Number(normalized);
 }
 
-function splitScore(tokens: string[], index: number) {
-  const left = tokens.slice(0, index).join("");
-  const right = tokens.slice(index).join("");
-  const leftDigits = left.replace("-", "").length;
-  const rightDigits = right.replace("-", "").length;
-
-  return Math.abs(leftDigits - rightDigits) + Math.abs(tokens.length - 2 * index) * 0.25;
-}
-
-function chooseSplit(tokens: string[]) {
-  let bestIndex = 1;
-  let bestScore = Number.POSITIVE_INFINITY;
-
-  for (let index = 1; index < tokens.length; index += 1) {
-    const score = splitScore(tokens, index);
-
-    if (score < bestScore) {
-      bestScore = score;
-      bestIndex = index;
-    }
-  }
-
-  return bestIndex;
-}
-
-function candidateScore(tokens: string[]) {
-  if (tokens.length < 2) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  const splitIndex = chooseSplit(tokens);
-  const left = tokens.slice(0, splitIndex).join("");
-  const right = tokens.slice(splitIndex).join("");
-  const leftDigits = left.replace("-", "").length;
-  const rightDigits = right.replace("-", "").length;
-  const minDigits = Math.min(leftDigits, rightDigits);
-  const maxDigits = Math.max(leftDigits, rightDigits);
-
-  let score = splitScore(tokens, splitIndex);
-
-  // Most regnskapstall in this table should be 4-7 digits. Penalize suspiciously long numbers.
-  if (maxDigits > 7) {
-    score += (maxDigits - 7) * 3;
-  }
-
-  if (minDigits < 4) {
-    score += (4 - minDigits) * 2;
-  }
-
-  return score;
-}
-
-function stripLikelyNoteTokens(tokens: string[], noteTokenLikely?: boolean) {
-  const candidates: string[][] = [tokens];
-
-  if (tokens.length >= 2 && tokens[0].replace("-", "").length <= 2) {
-    candidates.push(tokens.slice(1));
-  }
-
-  if (
-    noteTokenLikely &&
-    tokens.length >= 3 &&
-    tokens[0].replace("-", "").length <= 2 &&
-    tokens[1].replace("-", "").length <= 2
-  ) {
-    candidates.push(tokens.slice(2));
-  }
-
-  return candidates.reduce((best, candidate) =>
-    candidateScore(candidate) < candidateScore(best) ? candidate : best,
+function groupWordsIntoLines(words: OcrWord[]) {
+  const sorted = [...words].sort((left, right) =>
+    left.bbox.y0 === right.bbox.y0 ? left.bbox.x0 - right.bbox.x0 : left.bbox.y0 - right.bbox.y0,
   );
-}
+  const lines: OcrLine[] = [];
 
-function extractTwoValues(rest: string, noteTokenLikely?: boolean) {
-  const originalTokens = rest.replace(/[|]/g, " ").match(/-?\d+/g) ?? [];
-  let tokens = [...originalTokens];
-
-  if (tokens.length === 0) {
-    return [null, null] as const;
-  }
-
-  if (tokens.length === 1) {
-    return [Number(tokens[0]), null] as const;
-  }
-
-  if (tokens.length === 2) {
-    const [first, second] = tokens;
-    if (first.replace("-", "").length >= 3 && second.replace("-", "").length === 3) {
-      return [Number(tokens.join("")), null] as const;
+  for (const word of sorted) {
+    const text = normalizeText(word.text);
+    if (!text) {
+      continue;
     }
 
-    return [Number(first), Number(second)] as const;
+    const existingLine = lines.find(
+      (line) =>
+        Math.abs(line.y0 - word.bbox.y0) <= 12 ||
+        Math.abs(line.y1 - word.bbox.y1) <= 12,
+    );
+
+    if (existingLine) {
+      existingLine.words.push(word);
+      existingLine.y0 = Math.min(existingLine.y0, word.bbox.y0);
+      existingLine.y1 = Math.max(existingLine.y1, word.bbox.y1);
+    } else {
+      lines.push({
+        words: [word],
+        y0: word.bbox.y0,
+        y1: word.bbox.y1,
+      });
+    }
   }
 
-  const candidateTokens = stripLikelyNoteTokens(tokens, noteTokenLikely);
-
-  if (candidateTokens.length === 1) {
-    return [Number(candidateTokens[0]), null] as const;
+  for (const line of lines) {
+    line.words.sort((left, right) => left.bbox.x0 - right.bbox.x0);
   }
 
-  const splitIndex = chooseSplit(candidateTokens);
-  return [
-    Number(candidateTokens.slice(0, splitIndex).join("")),
-    Number(candidateTokens.slice(splitIndex).join("")),
-  ] as const;
+  return lines.sort((left, right) => left.y0 - right.y0);
+}
+
+function extractYearPairFromWords(words: OcrWord[]) {
+  const topWords = words
+    .filter((word) => word.bbox.y0 < 200)
+    .filter((word) => /^20\d{2}$/.test(toNumericToken(word.text)))
+    .sort((left, right) => left.bbox.x0 - right.bbox.x0);
+
+  if (topWords.length < 2) {
+    return null;
+  }
+
+  return [Number(toNumericToken(topWords[0].text)), Number(toNumericToken(topWords[1].text))] as const;
+}
+
+function getColumnAnchors(words: OcrWord[]) {
+  const topWords = words.filter((word) => word.bbox.y0 < 220);
+  const yearWords = topWords
+    .filter((word) => /^20\d{2}$/.test(toNumericToken(word.text)))
+    .sort((left, right) => left.bbox.x0 - right.bbox.x0);
+
+  if (yearWords.length < 2) {
+    return null;
+  }
+
+  const noteWord = topWords.find((word) => normalizeText(word.text) === "note");
+  const yearOneCenter = (yearWords[0].bbox.x0 + yearWords[0].bbox.x1) / 2;
+  const yearTwoCenter = (yearWords[1].bbox.x0 + yearWords[1].bbox.x1) / 2;
+  const noteRight = noteWord ? noteWord.bbox.x1 + 30 : yearOneCenter - 220;
+
+  return {
+    noteRight,
+    yearOneLeft: yearOneCenter - 90,
+    yearOneRight: yearOneCenter + 110,
+    yearTwoLeft: yearTwoCenter - 90,
+    yearTwoRight: yearTwoCenter + 110,
+  };
+}
+
+function parseLineValues(
+  line: OcrLine,
+  anchors: NonNullable<ReturnType<typeof getColumnAnchors>>,
+  noteTokenLikely?: boolean,
+) {
+  const labelWords = line.words.filter((word) => word.bbox.x0 < anchors.noteRight);
+  const noteWords = line.words.filter(
+    (word) => word.bbox.x0 >= anchors.noteRight && word.bbox.x1 < anchors.yearOneLeft,
+  );
+  const yearOneWords = line.words.filter(
+    (word) => word.bbox.x0 >= anchors.yearOneLeft && word.bbox.x1 <= anchors.yearOneRight,
+  );
+  const yearTwoWords = line.words.filter(
+    (word) => word.bbox.x0 >= anchors.yearTwoLeft && word.bbox.x1 <= anchors.yearTwoRight,
+  );
+
+  const label = normalizeText(labelWords.map((word) => word.text).join(" "));
+  const yearOneTokens = yearOneWords.map((word) => word.text);
+  const yearTwoTokens = yearTwoWords.map((word) => word.text);
+
+  // Explicitly ignore note column tokens so they can never leak into values.
+  if (noteTokenLikely && noteWords.length > 0) {
+    void noteWords;
+  }
+
+  return {
+    label,
+    first: parseNumberFromTokens(yearOneTokens),
+    second: parseNumberFromTokens(yearTwoTokens),
+  };
 }
 
 function applyParsedLine(
-  line: string,
+  line: OcrLine,
   years: readonly [number, number],
   registry: Map<number, ParsedPayload>,
   rowDefinitions: RowDefinition[],
+  anchors: NonNullable<ReturnType<typeof getColumnAnchors>>,
 ) {
-  const normalized = normalizeText(line);
-
   for (const row of rowDefinitions) {
+    const parsed = parseLineValues(line, anchors, row.noteTokenLikely);
     for (const alias of row.aliases) {
-      if (!normalized.startsWith(alias)) {
+      if (!parsed.label.startsWith(alias)) {
         continue;
       }
 
-      const rest = normalized.slice(alias.length).trim();
-      const [first, second] = extractTwoValues(rest, row.noteTokenLikely);
-
-      if (first !== null && Number.isFinite(first)) {
-        row.apply(registry.get(years[0])!, first);
+      if (parsed.first !== null && Number.isFinite(parsed.first)) {
+        row.apply(registry.get(years[0])!, parsed.first);
       }
 
-      if (second !== null && Number.isFinite(second)) {
-        row.apply(registry.get(years[1])!, second);
+      if (parsed.second !== null && Number.isFinite(parsed.second)) {
+        row.apply(registry.get(years[1])!, parsed.second);
       }
 
       return;
@@ -608,20 +637,32 @@ async function ocrRelevantPages(pdfBuffer: Buffer, year: number) {
   const worker = await createWorker("eng", 1, {
     cachePath: path.join(os.tmpdir(), "projectx-tesseract-cache"),
   });
-  const texts: string[] = [];
+  const pages: OcrPage[] = [];
 
   try {
     for (let index = 0; index < screenshots.pages.length; index += 1) {
       const screenshotPath = path.join(os.tmpdir(), `projectx-brreg-${year}-${index + 2}.png`);
       await fs.writeFile(screenshotPath, Buffer.from(screenshots.pages[index].data));
       const result = await worker.recognize(screenshotPath);
-      texts.push(result.data.text);
+      const data = result.data as any;
+      pages.push({
+        text: data.text,
+        words: (data.words ?? []).map((word: any) => ({
+          text: word.text,
+          bbox: {
+            x0: word.bbox.x0,
+            x1: word.bbox.x1,
+            y0: word.bbox.y0,
+            y1: word.bbox.y1,
+          },
+        })),
+      });
     }
   } finally {
     await worker.terminate();
   }
 
-  return texts;
+  return pages;
 }
 
 function buildStatementsFromRegistry(orgNumber: string, registry: Map<number, ParsedPayload>) {
@@ -657,11 +698,15 @@ export async function extractHistoricalStatementsFromAnnualReports(
 
   for (const reportYear of yearsToParse) {
     const pdfBuffer = await downloadAnnualReportPdf(orgNumber, reportYear);
-    const pageTexts = await ocrRelevantPages(pdfBuffer, reportYear);
+    const ocrPages = await ocrRelevantPages(pdfBuffer, reportYear);
 
-    for (const text of pageTexts) {
-      const years = extractYearPair(text);
+    for (const page of ocrPages) {
+      const years = extractYearPairFromWords(page.words);
       if (!years) {
+        continue;
+      }
+      const anchors = getColumnAnchors(page.words);
+      if (!anchors) {
         continue;
       }
 
@@ -673,16 +718,11 @@ export async function extractHistoricalStatementsFromAnnualReports(
         registry.set(years[1], createEmptyPayload(years[1]));
       }
 
-      const lines = text
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-
-      const normalizedText = normalizeText(text);
+      const lines = groupWordsIntoLines(page.words);
       for (const line of lines) {
-        applyParsedLine(line, years, registry, resultRows);
-        applyParsedLine(line, years, registry, assetRows);
-        applyParsedLine(line, years, registry, equityRows);
+        applyParsedLine(line, years, registry, resultRows, anchors);
+        applyParsedLine(line, years, registry, assetRows, anchors);
+        applyParsedLine(line, years, registry, equityRows, anchors);
       }
     }
   }

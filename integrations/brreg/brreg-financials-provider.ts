@@ -1,7 +1,6 @@
 import env from "@/lib/env";
 import { NormalizedFinancialDocument, NormalizedFinancialStatement } from "@/lib/types";
 import { fetchJson } from "@/integrations/http";
-import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { extractHistoricalStatementsFromAnnualReports } from "@/integrations/brreg/pdf-financial-history";
 import { FinancialsProvider } from "@/integrations/provider-interface";
 import { readFinancialCache, writeFinancialCache } from "@/server/persistence/financial-cache";
@@ -31,35 +30,19 @@ function mapDocumentYears(years: BrregFinancialDocumentYear[], orgNumber: string
     .sort((left, right) => right.year - left.year);
 }
 
-function deepMerge(target: Record<string, any>, source: Record<string, any>) {
-  const output = { ...target };
-
-  for (const [key, value] of Object.entries(source)) {
-    if (
-      value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      output[key] &&
-      typeof output[key] === "object" &&
-      !Array.isArray(output[key])
-    ) {
-      output[key] = deepMerge(output[key], value);
-    } else {
-      output[key] = value;
-    }
-  }
-
-  return output;
-}
-
 function normalizeOperatingCostBreakdown(statement: NormalizedFinancialStatement) {
   const payload = (statement.rawPayload ?? {}) as Record<string, any>;
-  const driftskostnad = payload.resultatregnskapResultat?.driftsresultat?.driftskostnad;
+  const resultat = payload.resultatregnskapResultat;
+  const driftsresultat = resultat?.driftsresultat;
+  const driftsinntekter = driftsresultat?.driftsinntekter;
+  const driftskostnad = driftsresultat?.driftskostnad;
+  const finansresultat = resultat?.finansresultat;
 
-  if (!driftskostnad) {
+  if (!driftskostnad || !driftsresultat) {
     return statement;
   }
 
+  const sumDriftsinntekter = Number(driftsinntekter?.sumDriftsinntekter);
   const sumDriftskostnad = Number(driftskostnad.sumDriftskostnad);
   const varekostnad = Number(driftskostnad.varekostnad);
   const annenDriftskostnad = Number(driftskostnad.annenDriftskostnad);
@@ -79,8 +62,30 @@ function normalizeOperatingCostBreakdown(statement: NormalizedFinancialStatement
 
   driftskostnad.loennskostnad = reconciledLoennskostnad;
 
+  if (Number.isFinite(sumDriftsinntekter) && Number.isFinite(sumDriftskostnad)) {
+    driftsresultat.driftsresultat = sumDriftsinntekter - sumDriftskostnad;
+  }
+
+  const sumFinansinntekter = Number(finansresultat?.finansinntekt?.sumFinansinntekter);
+  const sumFinanskostnad = Number(finansresultat?.finanskostnad?.sumFinanskostnad);
+
+  if (Number.isFinite(sumFinansinntekter) && Number.isFinite(sumFinanskostnad)) {
+    finansresultat.nettoFinans = sumFinansinntekter - sumFinanskostnad;
+  }
+
+  const nettoFinans = Number(finansresultat?.nettoFinans);
+  const normalizedOperatingProfit = Number(driftsresultat.driftsresultat);
+
+  if (Number.isFinite(normalizedOperatingProfit) && Number.isFinite(nettoFinans)) {
+    resultat.ordinaertResultatFoerSkattekostnad = normalizedOperatingProfit + nettoFinans;
+  }
+
   return {
     ...statement,
+    operatingProfit:
+      typeof driftsresultat.driftsresultat === "number"
+        ? driftsresultat.driftsresultat
+        : statement.operatingProfit,
     rawPayload: payload,
   };
 }
@@ -98,22 +103,6 @@ export class BrregFinancialsProvider implements FinancialsProvider {
 
     const statements = new Map<number, NormalizedFinancialStatement>();
     let documents: NormalizedFinancialDocument[] = [];
-    let latestApiPayload: Record<string, any> | null = null;
-
-    try {
-      const latestResponse = await fetchJson<Record<string, any> | Record<string, any>[]>(
-        `${env.brregFinancialsBaseUrl}/${orgNumber}`,
-      );
-      const latestStatement = Array.isArray(latestResponse) ? latestResponse[0] : latestResponse;
-
-      if (latestStatement) {
-        latestApiPayload = latestStatement;
-        const mapped = mapBrregFinancialStatement(latestStatement, orgNumber);
-        statements.set(mapped.fiscalYear, mapped);
-      }
-    } catch {
-      // Keep an honest empty state if the open regnskap endpoint fails.
-    }
 
     try {
       const years = await fetchJson<string[]>(
@@ -139,28 +128,6 @@ export class BrregFinancialsProvider implements FinancialsProvider {
       }
     }
 
-    if (latestApiPayload) {
-      const latestMapped = mapBrregFinancialStatement(latestApiPayload, orgNumber);
-      const existing = statements.get(latestMapped.fiscalYear);
-
-      if (existing) {
-        statements.set(latestMapped.fiscalYear, {
-          ...existing,
-          revenue: latestMapped.revenue ?? existing.revenue,
-          operatingProfit: latestMapped.operatingProfit ?? existing.operatingProfit,
-          netIncome: latestMapped.netIncome ?? existing.netIncome,
-          equity: latestMapped.equity ?? existing.equity,
-          assets: latestMapped.assets ?? existing.assets,
-          rawPayload: deepMerge(
-            (existing.rawPayload ?? {}) as Record<string, any>,
-            latestApiPayload,
-          ),
-        });
-      } else {
-        statements.set(latestMapped.fiscalYear, latestMapped);
-      }
-    }
-
     const statementList = Array.from(statements.values())
       .map((statement) => normalizeOperatingCostBreakdown(statement))
       .sort((left, right) => right.fiscalYear - left.fiscalYear);
@@ -173,10 +140,10 @@ export class BrregFinancialsProvider implements FinancialsProvider {
         sourceSystem: "BRREG",
         message:
           statementList.length > 1
-            ? "ProjectX viser apne regnskapstall fra Bronnoysundregistrenes Regnskapsregister og historikk parsret fra offisielle Brreg-PDF-kopier av arsregnskap."
+            ? "ProjectX viser regnskapstall parsret fra offisielle Brreg-PDF-kopier av arsregnskap."
             : statementList.length > 0
-              ? "ProjectX viser apne regnskapstall fra Bronnoysundregistrenes Regnskapsregister for sist tilgjengelige arsregnskap."
-            : "ProjectX fant ingen apne regnskapstall for virksomheten akkurat na.",
+              ? "ProjectX viser regnskapstall parsret fra offisiell Brreg-PDF for sist tilgjengelige arsregnskap."
+            : "ProjectX fant ingen regnskapstall i tilgjengelige Brreg-PDF-er for virksomheten akkurat na.",
       },
     };
 
