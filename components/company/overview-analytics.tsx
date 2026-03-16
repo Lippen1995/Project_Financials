@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { EbitChart } from "@/components/company/ebit-chart";
 import { FinancialChart } from "@/components/company/financial-chart";
 import { OverviewSidePanel } from "@/components/company/overview-side-panel";
 import { Card } from "@/components/ui/card";
@@ -26,7 +27,7 @@ export function OverviewAnalytics({
           <div>
             <h2 className="text-[1.65rem] font-semibold tracking-tight text-[#101828]">Oversikt</h2>
             <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[#667085]">
-              Historisk utvikling i omsetning og EBIT basert på verifiserte Brreg-regnskap.
+              Historisk utvikling i inntekt, EBIT-margin og EBIT basert på verifiserte Brreg-regnskap.
             </p>
           </div>
           <div className="rounded-full border border-[#DCE4EB] bg-[#F8FAFC] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
@@ -34,8 +35,9 @@ export function OverviewAnalytics({
           </div>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-5 space-y-5">
           <FinancialChart points={points} activeYear={activeYear} onActiveYearChange={setActiveYear} />
+          <EbitChart points={points} activeYear={activeYear} onActiveYearChange={setActiveYear} />
         </div>
       </Card>
 

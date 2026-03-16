@@ -4,6 +4,7 @@ export type OverviewChartPoint = {
   fiscalYear: number;
   revenue: number | null;
   operatingProfit: number | null;
+  operatingMargin: number | null;
   netIncome: number | null;
   equity: number | null;
 };
@@ -155,6 +156,17 @@ export function getOverviewChartPoints(statements: NormalizedFinancialStatement[
           toNumber(getAtPath(payload, "resultatregnskapResultat.driftsresultat.driftsresultat")) ??
           statement.operatingProfit ??
           null,
+        operatingMargin: calcMargin(
+          toNumber(getAtPath(payload, "resultatregnskapResultat.driftsresultat.driftsresultat")) ??
+            statement.operatingProfit ??
+            null,
+          toNumber(
+            getAtPath(
+              payload,
+              "resultatregnskapResultat.driftsresultat.driftsinntekter.sumDriftsinntekter",
+            ),
+          ) ?? statement.revenue ?? null,
+        ),
         netIncome:
           toNumber(getAtPath(payload, "resultatregnskapResultat.aarsresultat")) ??
           statement.netIncome ??
