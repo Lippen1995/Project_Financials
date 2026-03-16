@@ -17,7 +17,7 @@ type CachedFinancials = {
 };
 
 const cacheDirectory = path.join(process.cwd(), ".projectx-cache", "financials");
-const cacheVersion = 7;
+const cacheVersion = 8;
 
 function getCachePath(orgNumber: string) {
   return path.join(cacheDirectory, `${orgNumber}.json`);

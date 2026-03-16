@@ -460,6 +460,20 @@ function candidateScore(tokens: string[]) {
 }
 
 function stripLikelyNoteTokens(tokens: string[], noteTokenLikely?: boolean) {
+  if (noteTokenLikely) {
+    const stripped = [...tokens];
+
+    while (
+      stripped.length >= 3 &&
+      stripped[0].replace("-", "").length <= 2 &&
+      !stripped[0].startsWith("-")
+    ) {
+      stripped.shift();
+    }
+
+    return stripped.length >= 2 ? stripped : tokens;
+  }
+
   const candidates: string[][] = [tokens];
 
   if (tokens.length >= 2 && tokens[0].replace("-", "").length <= 2) {
