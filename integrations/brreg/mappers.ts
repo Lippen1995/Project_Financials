@@ -129,23 +129,38 @@ export function mapBrregFinancialStatement(
   orgNumber: string,
 ): NormalizedFinancialStatement {
   const now = new Date();
+  const driftsresultat = payload.resultatregnskapResultat?.driftsresultat;
+  const driftsinntekter = driftsresultat?.driftsinntekter;
+  const driftskostnad = driftsresultat?.driftskostnad;
+  const finansresultat = payload.resultatregnskapResultat?.finansresultat;
+  const egenkapitalGjeld = payload.egenkapitalGjeld;
+  const egenkapital = egenkapitalGjeld?.egenkapital;
+  const eiendeler = payload.eiendeler;
+  const fiscalYear = payload.regnskapsperiode?.tilDato
+    ? new Date(payload.regnskapsperiode.tilDato).getFullYear()
+    : payload.aar ?? new Date().getFullYear();
 
   return {
     sourceSystem: "BRREG",
     sourceEntityType: "financialStatement",
-    sourceId: `${orgNumber}-${payload.regnskapsperiode?.fraDato ?? payload.aar}`,
+    sourceId: `${orgNumber}-${payload.id ?? fiscalYear}`,
     fetchedAt: now,
     normalizedAt: now,
     rawPayload: payload,
-    fiscalYear:
-      payload.aar ??
-      new Date(payload.regnskapsperiode?.tilDato ?? payload.regnskapsperiode?.fraDato).getFullYear(),
+    fiscalYear,
     currency: payload.valuta ?? "NOK",
-    revenue: payload.resultatregnskap?.sumDriftsinntekter ?? payload.revenue ?? null,
-    operatingProfit: payload.resultatregnskap?.driftsresultat ?? payload.operatingProfit ?? null,
+    revenue:
+      driftsinntekter?.salgsinntekter ??
+      driftsinntekter?.sumDriftsinntekter ??
+      payload.revenue ??
+      null,
+    operatingProfit: driftsresultat?.driftsresultat ?? payload.operatingProfit ?? null,
     netIncome:
-      payload.resultatregnskap?.ordinaertResultatFoerSkattekostnad ?? payload.netIncome ?? null,
-    equity: payload.balanse?.sumEgenkapital ?? payload.equity ?? null,
-    assets: payload.balanse?.sumEiendeler ?? payload.assets ?? null,
+      payload.resultatregnskapResultat?.aarsresultat ??
+      payload.resultatregnskapResultat?.ordinaertResultatFoerSkattekostnad ??
+      payload.netIncome ??
+      null,
+    equity: egenkapital?.sumEgenkapital ?? payload.equity ?? null,
+    assets: eiendeler?.sumEiendeler ?? payload.assets ?? null,
   };
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
 import { FinancialChart } from "@/components/company/financial-chart";
 import { FinancialDocuments } from "@/components/company/financial-documents";
+import { FinancialStatementDetails } from "@/components/company/financial-statement-details";
 import { KeyFiguresGrid } from "@/components/company/key-figures-grid";
 import { MetricGrid } from "@/components/company/metric-grid";
 import { RolesList } from "@/components/company/roles-list";
@@ -47,6 +48,9 @@ export default async function CompanyPage({
     financialsAvailability,
     regulatoryAvailability,
   } = profile;
+  const latestFinancialStatement = financialStatements
+    .slice()
+    .sort((left, right) => right.fiscalYear - left.fiscalYear)[0];
   const visibleRoles = premium ? roles : roles.slice(0, 5);
 
   return (
@@ -98,9 +102,9 @@ export default async function CompanyPage({
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-semibold">Oversikt</h2>
-                <p className="mt-1 text-sm text-ink/65">
-                  Historiske stolper vises bare nar apne Brreg-nokkeltall er verifisert for virksomheten.
-                </p>
+            <p className="mt-1 text-sm text-ink/65">
+              Omsetning og driftsresultat (EBIT) hentes fra apne Brreg-regnskapstall nar de er tilgjengelige.
+            </p>
               </div>
               <div className="rounded-full bg-sand px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
                 BRREG
@@ -150,6 +154,16 @@ export default async function CompanyPage({
                 documents={financialDocuments}
                 latestYear={company.lastSubmittedAnnualReportYear}
               />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold">Apent regnskapstallbilde</h3>
+            <p className="mt-3 text-sm text-ink/70">
+              Nedenfor vises alle regnskapsfelt ProjectX henter fra Bronnoysundregistrenes apne regnskaps-API for sist tilgjengelige arsregnskap.
+            </p>
+            <div className="mt-6">
+              <FinancialStatementDetails statement={latestFinancialStatement} />
             </div>
           </Card>
 

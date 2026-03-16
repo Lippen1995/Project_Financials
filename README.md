@@ -37,7 +37,7 @@ Brukes som source of truth for:
 - roller i virksomheten
 
 ProjectX bruker åpne Brreg-endepunkter under `data.brreg.no/enhetsregisteret/api`.
-I tillegg bruker ProjectX den offisielle virksomhetssiden hos Brønnøysundregistrene som kilde for åpne årsregnskapsmetadata som registrerte årganger.
+For regnskap bruker ProjectX den åpne delen av Regnskapsregisterets API under `data.brreg.no/regnskapsregisteret/regnskap`, som ifølge Brregs OpenAPI publiserer nøkkeltall fra sist innsendte årsregnskap.
 
 ### SSB Klass
 
@@ -54,9 +54,8 @@ Ikke aktivert i denne iterasjonen. ProjectX viser derfor ingen regulatorisk over
 
 ## Viktige begrensninger
 
-- ProjectX viser åpne årsregnskapsmetadata fra Brønnøysundregistrene når de er tilgjengelige.
-- Historiske resultatlinjer som omsetning og driftsresultat vises bare når de kan spores til en verifisert åpen Brreg-kontrakt.
-- ProjectX viser derfor tom/ærlig tilstand for diagram- og nøkkeltallsseksjoner når detaljfeltene ikke er verifisert i åpen kilde.
+- ProjectX viser åpne regnskapstall fra Brønnøysundregistrenes Regnskapsregister når de er tilgjengelige.
+- Den åpne Brreg-regnskapskilden ser ut til å være knyttet til sist tilgjengelige årsregnskap. ProjectX viser derfor ikke syntetisk flerårshistorikk når slike tall ikke kommer fra åpen kilde.
 - Regulatorisk overlay fra Finanstilsynet er ikke aktivert ennå.
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i ProjectX, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
 
@@ -112,6 +111,7 @@ Subscription-modellen finnes i databasen og brukes til enkel feature gating i pr
 - `BRREG_BASE_URL`: base-URL for Brreg virksomhetsdata
 - `BRREG_ROLES_BASE_URL`: base-URL for Brreg roller
 - `BRREG_COMPANY_LOOKUP_BASE_URL`: base-URL for Brreg virksomhetsoppslag brukt til åpne årsregnskapsmetadata
+- `BRREG_FINANCIALS_BASE_URL`: base-URL for Brreg Regnskapsregisterets åpne regnskaps-API
 - `SSB_KLASS_BASE_URL`: base-URL for SSB Klass
 - `SSB_INDUSTRY_CLASSIFICATION_ID`: klassifikasjons-ID for næringskodeverket
 - `PROJECTX_CACHE_HOURS`: antall timer før cache oppfriskes
@@ -120,7 +120,7 @@ Subscription-modellen finnes i databasen og brukes til enkel feature gating i pr
 
 - `BrregCompanyProvider`: søker og henter virksomheter
 - `BrregRolesProvider`: henter roller/styre
-- `BrregFinancialsProvider`: henter åpne årsregnskapsmetadata fra Brreg-oppslaget og markerer ærlig når historiske resultatlinjer ikke er verifisert
+- `BrregFinancialsProvider`: henter åpne regnskapstall fra Regnskapsregisterets API og årganger for kopi av årsregnskap
 - `SsbIndustryCodeProvider`: beriker næringskode med SSB-beskrivelse
 
 ## Kjørbart resultat

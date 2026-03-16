@@ -5,6 +5,8 @@ const env = {
     process.env.BRREG_ROLES_BASE_URL ?? "https://data.brreg.no/enhetsregisteret/api",
   brregCompanyLookupBaseUrl:
     process.env.BRREG_COMPANY_LOOKUP_BASE_URL ?? "https://virksomhet.brreg.no/nb/oppslag/enheter",
+  brregFinancialsBaseUrl:
+    process.env.BRREG_FINANCIALS_BASE_URL ?? "https://data.brreg.no/regnskapsregisteret/regnskap",
   ssbKlassBaseUrl: process.env.SSB_KLASS_BASE_URL ?? "https://data.ssb.no/api/klass/v1",
   ssbIndustryClassificationId: process.env.SSB_INDUSTRY_CLASSIFICATION_ID ?? "6",
   cacheHours: Number(process.env.PROJECTX_CACHE_HOURS ?? "24"),
