@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
 import { FinancialChart } from "@/components/company/financial-chart";
 import { FinancialDocuments } from "@/components/company/financial-documents";
-import { FinancialStatementDetails } from "@/components/company/financial-statement-details";
+import { FinancialTimeSeriesTable } from "@/components/company/financial-time-series-table";
 import { KeyFiguresGrid } from "@/components/company/key-figures-grid";
 import { MetricGrid } from "@/components/company/metric-grid";
 import { RolesList } from "@/components/company/roles-list";
@@ -48,9 +48,6 @@ export default async function CompanyPage({
     financialsAvailability,
     regulatoryAvailability,
   } = profile;
-  const latestFinancialStatement = financialStatements
-    .slice()
-    .sort((left, right) => right.fiscalYear - left.fiscalYear)[0];
   const visibleRoles = premium ? roles : roles.slice(0, 5);
 
   return (
@@ -102,9 +99,9 @@ export default async function CompanyPage({
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-semibold">Oversikt</h2>
-            <p className="mt-1 text-sm text-ink/65">
-              Omsetning og driftsresultat (EBIT) hentes fra apne Brreg-regnskapstall nar de er tilgjengelige.
-            </p>
+                <p className="mt-1 text-sm text-ink/65">
+                  Omsetning og driftsresultat (EBIT) hentes fra apne Brreg-regnskapstall nar de er tilgjengelige.
+                </p>
               </div>
               <div className="rounded-full bg-sand px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
                 BRREG
@@ -147,23 +144,23 @@ export default async function CompanyPage({
           <Card>
             <h2 className="text-2xl font-semibold">Regnskap</h2>
             <p className="mt-1 text-sm text-ink/65">
-              Denne fanen viser apen regnskapsmetadata fra Bronnoysundregistrene. Historiske resultatlinjer kobles inn nar den apne kontrakten for disse feltene er verifisert.
+              Regnskap vises som tidsserie. Bare ar med verifiserte apne Brreg-tall fylles med verdier.
+            </p>
+            <div className="mt-6">
+              <FinancialTimeSeriesTable statements={financialStatements} documents={financialDocuments} />
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold">Dokumenttilgang</h3>
+            <p className="mt-3 text-sm text-ink/70">
+              Disse arene er registrert med kopi av arsregnskap hos Brreg. Kolonner uten tall betyr at den apne regnskaps-API-en ikke leverte en egen verifiserbar arsrespons for det aret.
             </p>
             <div className="mt-6">
               <FinancialDocuments
                 documents={financialDocuments}
                 latestYear={company.lastSubmittedAnnualReportYear}
               />
-            </div>
-          </Card>
-
-          <Card>
-            <h3 className="text-lg font-semibold">Apent regnskapstallbilde</h3>
-            <p className="mt-3 text-sm text-ink/70">
-              Nedenfor vises alle regnskapsfelt ProjectX henter fra Bronnoysundregistrenes apne regnskaps-API for sist tilgjengelige arsregnskap.
-            </p>
-            <div className="mt-6">
-              <FinancialStatementDetails statement={latestFinancialStatement} />
             </div>
           </Card>
 
