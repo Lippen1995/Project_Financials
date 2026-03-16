@@ -4,6 +4,7 @@ import { fetchJson } from "@/integrations/http";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { extractHistoricalStatementsFromAnnualReports } from "@/integrations/brreg/pdf-financial-history";
 import { FinancialsProvider } from "@/integrations/provider-interface";
+import { readFinancialCache, writeFinancialCache } from "@/server/persistence/financial-cache";
 
 type BrregFinancialDocumentYear = string;
 
@@ -53,6 +54,15 @@ function deepMerge(target: Record<string, any>, source: Record<string, any>) {
 
 export class BrregFinancialsProvider implements FinancialsProvider {
   async getFinancialStatements(orgNumber: string) {
+    const cached = await readFinancialCache(orgNumber);
+    if (cached) {
+      return {
+        statements: cached.statements,
+        documents: cached.documents,
+        availability: cached.availability,
+      };
+    }
+
     const statements = new Map<number, NormalizedFinancialStatement>();
     let documents: NormalizedFinancialDocument[] = [];
     let latestApiPayload: Record<string, any> | null = null;
@@ -122,7 +132,7 @@ export class BrregFinancialsProvider implements FinancialsProvider {
       (left, right) => right.fiscalYear - left.fiscalYear,
     );
 
-    return {
+    const result = {
       statements: statementList,
       documents,
       availability: {
@@ -136,5 +146,13 @@ export class BrregFinancialsProvider implements FinancialsProvider {
             : "ProjectX fant ingen apne regnskapstall for virksomheten akkurat na.",
       },
     };
+
+    try {
+      await writeFinancialCache(orgNumber, result);
+    } catch {
+      // Ignore local cache write failures and still return live data.
+    }
+
+    return result;
   }
 }

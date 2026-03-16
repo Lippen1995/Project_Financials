@@ -6,7 +6,11 @@ import {
   Person,
   Role,
 } from "@prisma/client";
-import { NormalizedCompany, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
+import {
+  NormalizedCompany,
+  NormalizedFinancialStatement,
+  NormalizedRole,
+} from "@/lib/types";
 
 type CompanyWithRelations = Company & {
   addresses: Address[];

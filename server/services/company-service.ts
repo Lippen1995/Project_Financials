@@ -1,5 +1,10 @@
 import env from "@/lib/env";
-import { NormalizedFinancialDocument, NormalizedFinancialStatement, SearchFilters } from "@/lib/types";
+import {
+  DataAvailability,
+  NormalizedFinancialDocument,
+  NormalizedFinancialStatement,
+  SearchFilters,
+} from "@/lib/types";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
 import { BrregRolesProvider } from "@/integrations/brreg/brreg-roles-provider";
@@ -113,11 +118,7 @@ export async function getCompanyProfile(idOrSlug: string) {
   let financials: {
     statements: NormalizedFinancialStatement[];
     documents: NormalizedFinancialDocument[];
-    availability: {
-      available: boolean;
-      sourceSystem: string;
-      message: string;
-    };
+    availability: DataAvailability;
   } = {
     statements: [],
     documents: [],
