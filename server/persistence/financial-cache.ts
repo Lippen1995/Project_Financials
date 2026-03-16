@@ -9,6 +9,7 @@ import {
 } from "@/lib/types";
 
 type CachedFinancials = {
+  version: number;
   cachedAt: string;
   statements: NormalizedFinancialStatement[];
   documents: NormalizedFinancialDocument[];
@@ -16,6 +17,7 @@ type CachedFinancials = {
 };
 
 const cacheDirectory = path.join(process.cwd(), ".projectx-cache", "financials");
+const cacheVersion = 2;
 
 function getCachePath(orgNumber: string) {
   return path.join(cacheDirectory, `${orgNumber}.json`);
@@ -47,6 +49,9 @@ export async function readFinancialCache(orgNumber: string): Promise<CachedFinan
   try {
     const payload = await fs.readFile(getCachePath(orgNumber), "utf8");
     const parsed = JSON.parse(payload) as CachedFinancials;
+    if (parsed.version !== cacheVersion) {
+      return null;
+    }
     const cacheAgeMs = Date.now() - new Date(parsed.cachedAt).getTime();
 
     if (cacheAgeMs > env.cacheHours * 60 * 60 * 1000) {
@@ -54,6 +59,7 @@ export async function readFinancialCache(orgNumber: string): Promise<CachedFinan
     }
 
     return {
+      version: parsed.version,
       cachedAt: parsed.cachedAt,
       availability: parsed.availability,
       statements: parsed.statements.map((statement) => reviveStatement(statement as never)),
@@ -66,13 +72,14 @@ export async function readFinancialCache(orgNumber: string): Promise<CachedFinan
 
 export async function writeFinancialCache(
   orgNumber: string,
-  financials: Omit<CachedFinancials, "cachedAt">,
+  financials: Omit<CachedFinancials, "cachedAt" | "version">,
 ) {
   await fs.mkdir(cacheDirectory, { recursive: true });
   await fs.writeFile(
     getCachePath(orgNumber),
     JSON.stringify(
       {
+        version: cacheVersion,
         cachedAt: new Date().toISOString(),
         ...financials,
       },

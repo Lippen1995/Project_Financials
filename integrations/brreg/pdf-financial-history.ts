@@ -430,6 +430,54 @@ function chooseSplit(tokens: string[]) {
   return bestIndex;
 }
 
+function candidateScore(tokens: string[]) {
+  if (tokens.length < 2) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const splitIndex = chooseSplit(tokens);
+  const left = tokens.slice(0, splitIndex).join("");
+  const right = tokens.slice(splitIndex).join("");
+  const leftDigits = left.replace("-", "").length;
+  const rightDigits = right.replace("-", "").length;
+  const minDigits = Math.min(leftDigits, rightDigits);
+  const maxDigits = Math.max(leftDigits, rightDigits);
+
+  let score = splitScore(tokens, splitIndex);
+
+  // Most regnskapstall in this table should be 4-7 digits. Penalize suspiciously long numbers.
+  if (maxDigits > 7) {
+    score += (maxDigits - 7) * 3;
+  }
+
+  if (minDigits < 4) {
+    score += (4 - minDigits) * 2;
+  }
+
+  return score;
+}
+
+function stripLikelyNoteTokens(tokens: string[], noteTokenLikely?: boolean) {
+  const candidates: string[][] = [tokens];
+
+  if (tokens.length >= 2 && tokens[0].replace("-", "").length <= 2) {
+    candidates.push(tokens.slice(1));
+  }
+
+  if (
+    noteTokenLikely &&
+    tokens.length >= 3 &&
+    tokens[0].replace("-", "").length <= 2 &&
+    tokens[1].replace("-", "").length <= 2
+  ) {
+    candidates.push(tokens.slice(2));
+  }
+
+  return candidates.reduce((best, candidate) =>
+    candidateScore(candidate) < candidateScore(best) ? candidate : best,
+  );
+}
+
 function extractTwoValues(rest: string, noteTokenLikely?: boolean) {
   const originalTokens = rest.replace(/[|]/g, " ").match(/-?\d+/g) ?? [];
   let tokens = [...originalTokens];
@@ -451,15 +499,7 @@ function extractTwoValues(rest: string, noteTokenLikely?: boolean) {
     return [Number(first), Number(second)] as const;
   }
 
-  let candidateTokens = tokens;
-  if (noteTokenLikely && tokens.length >= 3 && tokens[0].replace("-", "").length <= 2) {
-    candidateTokens = tokens.slice(1);
-  } else if (tokens.length >= 3 && tokens[0].replace("-", "").length <= 2) {
-    const droppedTokens = tokens.slice(1);
-    const originalScore = splitScore(tokens, chooseSplit(tokens));
-    const droppedScore = splitScore(droppedTokens, chooseSplit(droppedTokens));
-    candidateTokens = droppedScore < originalScore ? droppedTokens : tokens;
-  }
+  const candidateTokens = stripLikelyNoteTokens(tokens, noteTokenLikely);
 
   if (candidateTokens.length === 1) {
     return [Number(candidateTokens[0]), null] as const;
