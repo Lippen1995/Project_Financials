@@ -1,5 +1,5 @@
 import env from "@/lib/env";
-import { SearchFilters } from "@/lib/types";
+import { NormalizedFinancialDocument, NormalizedFinancialStatement, SearchFilters } from "@/lib/types";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
 import { BrregRolesProvider } from "@/integrations/brreg/brreg-roles-provider";
@@ -43,49 +43,116 @@ async function hydrateIndustryCodes<T extends { industryCode?: { code: string } 
 
 export async function searchCompanies(filters: SearchFilters) {
   const companies = await companyProvider.searchCompanies(filters);
-  await hydrateIndustryCodes(companies);
-  await Promise.all(companies.map((company) => upsertCompanySnapshot(company)));
+  try {
+    await hydrateIndustryCodes(companies);
+  } catch {
+    // Keep search results even if enrichment fails.
+  }
+
+  await Promise.all(
+    companies.map(async (company) => {
+      try {
+        await upsertCompanySnapshot(company);
+      } catch {
+        // Search should still work if cache persistence fails.
+      }
+    }),
+  );
   return companies;
 }
 
 export async function getCompanyProfile(idOrSlug: string) {
-  const cachedCompany = await getCachedCompany(idOrSlug, env.cacheHours);
-  const company =
-    cachedCompany ? mapDbCompany(cachedCompany) : await companyProvider.getCompany(idOrSlug);
+  let cachedCompany = null;
+  try {
+    cachedCompany = await getCachedCompany(idOrSlug, env.cacheHours);
+  } catch {
+    cachedCompany = null;
+  }
+
+  const company = cachedCompany ? mapDbCompany(cachedCompany) : await companyProvider.getCompany(idOrSlug);
 
   if (!company) {
     return null;
   }
 
   if (company.industryCode?.code) {
-    const industryCode = await industryCodeProvider.getIndustryCode(company.industryCode.code);
-    if (industryCode) {
-      company.industryCode = industryCode;
-      await upsertIndustryCodeSnapshot(industryCode);
+    try {
+      const industryCode = await industryCodeProvider.getIndustryCode(company.industryCode.code);
+      if (industryCode) {
+        company.industryCode = industryCode;
+        await upsertIndustryCodeSnapshot(industryCode);
+      }
+    } catch {
+      // Company page should still render without enrichment text.
     }
   }
 
-  await upsertCompanySnapshot(company);
+  try {
+    await upsertCompanySnapshot(company);
+  } catch {
+    // Ignore cache write issues when rendering the profile.
+  }
 
-  const cachedRoles = await getCachedRoles(company.orgNumber, env.cacheHours);
+  let cachedRoles = null;
+  try {
+    cachedRoles = await getCachedRoles(company.orgNumber, env.cacheHours);
+  } catch {
+    cachedRoles = null;
+  }
+
   const roles = cachedRoles ? mapDbRoles(cachedRoles) : await rolesProvider.getRoles(company.orgNumber);
 
   if (!cachedRoles) {
-    await upsertRolesSnapshot(company.orgNumber, roles);
+    try {
+      await upsertRolesSnapshot(company.orgNumber, roles);
+    } catch {
+      // Ignore cache write issues for roles.
+    }
   }
 
-  const financials = await financialsProvider.getFinancialStatements(company.orgNumber);
+  let financials: {
+    statements: NormalizedFinancialStatement[];
+    documents: NormalizedFinancialDocument[];
+    availability: {
+      available: boolean;
+      sourceSystem: string;
+      message: string;
+    };
+  } = {
+    statements: [],
+    documents: [],
+    availability: {
+      available: false,
+      sourceSystem: "BRREG",
+      message: "Regnskap kunne ikke hentes akkurat na.",
+    },
+  };
+
+  try {
+    financials = await financialsProvider.getFinancialStatements(company.orgNumber);
+  } catch {
+    financials = {
+      statements: [],
+      documents: [],
+      availability: {
+        available: false,
+        sourceSystem: "BRREG",
+        message: "Regnskap kunne ikke hentes akkurat na.",
+      },
+    };
+  }
 
   return {
     company,
     roles,
     financialStatements: financials.statements,
+    financialDocuments: financials.documents,
     financialsAvailability: financials.availability,
     regulatoryAvailability: {
       available: false,
       sourceSystem: "FINANSTILSYNET",
       message:
-        "Regulatorisk overlay er ikke aktivert i MVP-et fordi åpen og stabil kildetilgang ikke er koblet inn ennå.",
+        "Regulatorisk overlay er ikke aktivert i MVP-et fordi apen og stabil kildetilgang ikke er koblet inn enna.",
     },
   };
 }

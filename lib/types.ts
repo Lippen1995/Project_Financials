@@ -51,6 +51,15 @@ export type NormalizedFinancialStatement = SourceMetadata & {
   assets?: number | null;
 };
 
+export type NormalizedFinancialDocument = SourceMetadata & {
+  year: number;
+  files: {
+    type: string;
+    id: string;
+    label: string;
+  }[];
+};
+
 export type NormalizedCompany = SourceMetadata & {
   orgNumber: string;
   name: string;
@@ -64,6 +73,11 @@ export type NormalizedCompany = SourceMetadata & {
   description?: string | null;
   municipality?: string | null;
   vatRegistered?: boolean | null;
+  shareCapital?: number | null;
+  shareCapitalCurrency?: string | null;
+  shareCount?: number | null;
+  lastSubmittedAnnualReportYear?: number | null;
+  announcementsUrl?: string | null;
   addresses: NormalizedAddress[];
   industryCode?: NormalizedIndustryCode | null;
   roles?: NormalizedRole[];
@@ -84,6 +98,7 @@ export type CompanyProfile = {
   company: NormalizedCompany;
   roles: NormalizedRole[];
   financialStatements: NormalizedFinancialStatement[];
+  financialDocuments: NormalizedFinancialDocument[];
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;
 };

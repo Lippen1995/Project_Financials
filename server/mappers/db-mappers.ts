@@ -35,6 +35,41 @@ export function mapDbCompany(company: CompanyWithRelations): NormalizedCompany {
     description: company.description,
     municipality: company.addresses[0]?.region ?? null,
     vatRegistered: null,
+    shareCapital:
+      typeof company.rawPayload === "object" &&
+      company.rawPayload &&
+      "kapital" in company.rawPayload &&
+      typeof company.rawPayload.kapital === "object" &&
+      company.rawPayload.kapital &&
+      "belop" in company.rawPayload.kapital
+        ? Number(company.rawPayload.kapital.belop)
+        : null,
+    shareCapitalCurrency:
+      typeof company.rawPayload === "object" &&
+      company.rawPayload &&
+      "kapital" in company.rawPayload &&
+      typeof company.rawPayload.kapital === "object" &&
+      company.rawPayload.kapital &&
+      "valuta" in company.rawPayload.kapital
+        ? String(company.rawPayload.kapital.valuta)
+        : null,
+    shareCount:
+      typeof company.rawPayload === "object" &&
+      company.rawPayload &&
+      "kapital" in company.rawPayload &&
+      typeof company.rawPayload.kapital === "object" &&
+      company.rawPayload.kapital &&
+      "antallAksjer" in company.rawPayload.kapital
+        ? Number(company.rawPayload.kapital.antallAksjer)
+        : null,
+    lastSubmittedAnnualReportYear:
+      typeof company.rawPayload === "object" &&
+      company.rawPayload &&
+      "sisteInnsendteAarsregnskap" in company.rawPayload &&
+      company.rawPayload.sisteInnsendteAarsregnskap
+        ? Number(company.rawPayload.sisteInnsendteAarsregnskap)
+        : null,
+    announcementsUrl: `https://w2.brreg.no/kunngjoring/hent_nr.jsp?orgnr=${company.orgNumber}`,
     addresses: company.addresses.map((address) => ({
       sourceSystem: address.sourceSystem,
       sourceEntityType: address.sourceEntityType,

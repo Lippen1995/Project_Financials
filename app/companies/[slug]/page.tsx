@@ -1,29 +1,52 @@
 import { notFound } from "next/navigation";
 
+import { CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
+import { FinancialChart } from "@/components/company/financial-chart";
+import { FinancialDocuments } from "@/components/company/financial-documents";
+import { KeyFiguresGrid } from "@/components/company/key-figures-grid";
 import { MetricGrid } from "@/components/company/metric-grid";
 import { RolesList } from "@/components/company/roles-list";
 import { PremiumLock } from "@/components/paywall/premium-lock";
 import { Card } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
 import { isPremium } from "@/server/billing/subscription";
 import { getCompanyProfile } from "@/server/services/company-service";
 
 export default async function CompanyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  const query = await searchParams;
+  const requestedTab = typeof query.tab === "string" ? query.tab : undefined;
+  const activeTab = isCompanyTab(requestedTab) ? requestedTab : "oversikt";
+
   const session = await auth();
   const premium = isPremium(session?.user.subscriptionStatus, session?.user.subscriptionPlan);
-  const profile = await getCompanyProfile(slug);
+  let profile = null;
+
+  try {
+    profile = await getCompanyProfile(slug);
+  } catch {
+    profile = null;
+  }
 
   if (!profile) {
     notFound();
   }
 
-  const { company, roles, financialStatements, financialsAvailability, regulatoryAvailability } = profile;
+  const {
+    company,
+    roles,
+    financialStatements,
+    financialDocuments,
+    financialsAvailability,
+    regulatoryAvailability,
+  } = profile;
   const visibleRoles = premium ? roles : roles.slice(0, 5);
 
   return (
@@ -67,56 +90,149 @@ export default async function CompanyPage({
         registeredAt={company.registeredAt}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1.5fr,0.9fr]">
-        <Card>
-          <h2 className="text-2xl font-semibold">Roller og styre</h2>
-          <p className="mt-1 text-sm text-ink/65">
-            Roller hentes fra Brønnøysundregistrene og normaliseres før visning i ProjectX.
-          </p>
-          <div className="mt-5">
-            <RolesList roles={visibleRoles} />
-          </div>
-          {!premium && roles.length > visibleRoles.length ? (
-            <div className="mt-5">
-              <PremiumLock
-                title="Premium"
-                description="Gratisbrukere ser et utsnitt av roller. Logg inn med premium-plan for full rollevisning når data finnes i kilden."
-              />
-            </div>
-          ) : null}
-        </Card>
+      <CompanyTabs companySlug={company.orgNumber} activeTab={activeTab} />
 
+      {activeTab === "oversikt" ? (
+        <div className="grid gap-6 xl:grid-cols-[1.35fr,0.95fr]">
+          <Card>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold">Oversikt</h2>
+                <p className="mt-1 text-sm text-ink/65">
+                  Historiske stolper vises bare nar apne Brreg-nokkeltall er verifisert for virksomheten.
+                </p>
+              </div>
+              <div className="rounded-full bg-sand px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink/60">
+                BRREG
+              </div>
+            </div>
+            <div className="mt-6">
+              <FinancialChart statements={financialStatements} premium={premium} />
+            </div>
+          </Card>
+
+          <div className="space-y-6">
+            <Card>
+              <h3 className="text-lg font-semibold">Regnskapsstatus</h3>
+              <div className="mt-4 space-y-2 text-sm text-ink/70">
+                <p>Sist innsendt arsregnskap: {company.lastSubmittedAnnualReportYear ?? "Ikke tilgjengelig"}</p>
+                <p>Registrerte arsregnskapsar: {formatNumber(financialDocuments.length)}</p>
+                <p>
+                  Aksjekapital:{" "}
+                  {company.shareCapital !== null && company.shareCapital !== undefined
+                    ? `${formatNumber(company.shareCapital)} ${company.shareCapitalCurrency ?? "NOK"}`
+                    : "Ikke tilgjengelig"}
+                </p>
+              </div>
+            </Card>
+
+            <Card>
+              <h3 className="text-lg font-semibold">Datakilder</h3>
+              <div className="mt-4 space-y-2 text-sm text-ink/75">
+                <p>Virksomhetsdata: Bronnoysundregistrene</p>
+                <p>Naringskodebeskrivelse: SSB Klass</p>
+                <p>Regnskapsmetadata: Bronnoysundregistrene virksomhetsoppslag</p>
+              </div>
+            </Card>
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "regnskap" ? (
         <div className="space-y-6">
           <Card>
-            <h3 className="text-lg font-semibold">Regnskap</h3>
-            {financialsAvailability.available && financialStatements.length > 0 ? (
-              <p className="mt-3 text-sm text-ink/70">
-                Regnskapsdata er tilgjengelig og koblet til denne virksomheten.
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-ink/70">
-                {financialsAvailability.message ??
-                  "Ingen åpne regnskapstall er tilgjengelige for denne virksomheten i MVP-et."}
-              </p>
-            )}
-          </Card>
-          <Card>
-            <h3 className="text-lg font-semibold">Regulatorisk overlay</h3>
-            <p className="mt-3 text-sm text-ink/70">
-              {regulatoryAvailability.message ??
-                "Ingen regulatorisk informasjon er tilgjengelig for denne virksomheten."}
+            <h2 className="text-2xl font-semibold">Regnskap</h2>
+            <p className="mt-1 text-sm text-ink/65">
+              Denne fanen viser apen regnskapsmetadata fra Bronnoysundregistrene. Historiske resultatlinjer kobles inn nar den apne kontrakten for disse feltene er verifisert.
             </p>
+            <div className="mt-6">
+              <FinancialDocuments
+                documents={financialDocuments}
+                latestYear={company.lastSubmittedAnnualReportYear}
+              />
+            </div>
           </Card>
-          <Card className="bg-ink text-white">
-            <h3 className="text-lg font-semibold">Datakilder</h3>
-            <div className="mt-4 space-y-2 text-sm text-white/75">
-              <p>Virksomhetsdata: Brønnøysundregistrene</p>
-              <p>Næringskodebeskrivelse: SSB Klass</p>
-              <p>Regnskap: vises bare når åpen reell kilde er koblet</p>
+
+          <Card>
+            <h3 className="text-lg font-semibold">Status for detaljerte regnskapstall</h3>
+            <p className="mt-3 text-sm text-ink/70">{financialsAvailability.message}</p>
+          </Card>
+        </div>
+      ) : null}
+
+      {activeTab === "nokkeltall" ? (
+        <div className="space-y-6">
+          <Card>
+            <h2 className="text-2xl font-semibold">Nokkeltall</h2>
+            <p className="mt-1 text-sm text-ink/65">
+              ProjectX viser bare nokkeltall som kan spores til apne, offisielle kilder.
+            </p>
+            <div className="mt-6">
+              <KeyFiguresGrid company={company} statements={financialStatements} />
             </div>
           </Card>
         </div>
-      </div>
+      ) : null}
+
+      {activeTab === "organisasjon" ? (
+        <div className="grid gap-6 xl:grid-cols-[1.5fr,0.9fr]">
+          <Card>
+            <h2 className="text-2xl font-semibold">Roller og styre</h2>
+            <p className="mt-1 text-sm text-ink/65">
+              Roller hentes fra Bronnoysundregistrene og normaliseres for visning i ProjectX.
+            </p>
+            <div className="mt-5">
+              <RolesList roles={visibleRoles} />
+            </div>
+            {!premium && roles.length > visibleRoles.length ? (
+              <div className="mt-5">
+                <PremiumLock
+                  title="Premium"
+                  description="Gratisbrukere ser et utsnitt av roller. Logg inn med premium-plan for full rollevisning nar data finnes i kilden."
+                />
+              </div>
+            ) : null}
+          </Card>
+
+          <div className="space-y-6">
+            <Card>
+              <h3 className="text-lg font-semibold">Registrerte forhold</h3>
+              <div className="mt-4 space-y-2 text-sm text-ink/70">
+                <p>Ansatte: {formatNumber(company.employeeCount)}</p>
+                <p>Kommunenummer/region: {company.municipality ?? "Ikke tilgjengelig"}</p>
+                <p>Regulatorisk overlay: {regulatoryAvailability.message}</p>
+              </div>
+            </Card>
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "kunngjoringer" ? (
+        <div className="space-y-6">
+          <Card>
+            <h2 className="text-2xl font-semibold">Kunngjoringer</h2>
+            <p className="mt-1 text-sm text-ink/65">
+              ProjectX lenker forelopig videre til Bronnoysundregistrenes offisielle kunngjoringer for denne virksomheten.
+            </p>
+            <div className="mt-6">
+              {company.announcementsUrl ? (
+                <a
+                  href={company.announcementsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-tide"
+                >
+                  Apne kunngjoringer hos Brreg
+                </a>
+              ) : (
+                <div className="rounded-[1.5rem] border border-dashed border-ink/15 bg-sand/55 p-6 text-sm text-ink/65">
+                  Ingen apen kunngjoringslenke er tilgjengelig for denne virksomheten akkurat na.
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </main>
   );
 }

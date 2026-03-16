@@ -1,6 +1,7 @@
 import { CompanyTable } from "@/components/company/company-table";
 import { FilterPanel } from "@/components/search/filter-panel";
 import { SearchForm } from "@/components/search/search-form";
+import { NormalizedCompany } from "@/lib/types";
 import { searchCompanies } from "@/server/services/company-service";
 
 export default async function SearchPage({
@@ -9,16 +10,24 @@ export default async function SearchPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const companies = await searchCompanies({
-    query: typeof params.query === "string" ? params.query : undefined,
-    industryCode: typeof params.industryCode === "string" ? params.industryCode : undefined,
-    city: typeof params.city === "string" ? params.city : undefined,
-    legalForm: typeof params.legalForm === "string" ? params.legalForm : undefined,
-    status:
-      typeof params.status === "string"
-        ? (params.status as "ACTIVE" | "DISSOLVED" | "BANKRUPT")
-        : undefined,
-  });
+  let companies: NormalizedCompany[] = [];
+  let searchError: string | null = null;
+
+  try {
+    companies = await searchCompanies({
+      query: typeof params.query === "string" ? params.query : undefined,
+      industryCode: typeof params.industryCode === "string" ? params.industryCode : undefined,
+      city: typeof params.city === "string" ? params.city : undefined,
+      legalForm: typeof params.legalForm === "string" ? params.legalForm : undefined,
+      status:
+        typeof params.status === "string"
+          ? (params.status as "ACTIVE" | "DISSOLVED" | "BANKRUPT")
+          : undefined,
+    });
+  } catch {
+    searchError =
+      "Søket mot Brønnøysundregistrene feilet akkurat nå. Prøv igjen med selskapsnavn eller organisasjonsnummer.";
+  }
 
   return (
     <main className="space-y-6">
@@ -32,6 +41,11 @@ export default async function SearchPage({
         </div>
       </section>
       <FilterPanel searchParams={params} />
+      {searchError ? (
+        <div className="rounded-[1.75rem] border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          {searchError}
+        </div>
+      ) : null}
       <CompanyTable companies={companies} />
     </main>
   );

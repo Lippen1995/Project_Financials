@@ -16,6 +16,7 @@ ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeSc
 - Globalt søk mot Brønnøysundregistrene
 - Selskapsprofil med virksomhetsdata fra Brønnøysundregistrene
 - Roller og styre når de er tilgjengelige fra Brønnøysundregistrene
+- Faner for Oversikt, Regnskap, Nøkkeltall, Organisasjon og Kunngjøringer
 - Næringskodeberiking fra SSB Klass
 - Filtrering på sentrale virksomhetsfelt
 - Innlogging, registrering og enkel feature gating
@@ -36,6 +37,7 @@ Brukes som source of truth for:
 - roller i virksomheten
 
 ProjectX bruker åpne Brreg-endepunkter under `data.brreg.no/enhetsregisteret/api`.
+I tillegg bruker ProjectX den offisielle virksomhetssiden hos Brønnøysundregistrene som kilde for åpne årsregnskapsmetadata som registrerte årganger.
 
 ### SSB Klass
 
@@ -52,8 +54,9 @@ Ikke aktivert i denne iterasjonen. ProjectX viser derfor ingen regulatorisk over
 
 ## Viktige begrensninger
 
-- Detaljerte regnskapstall er ikke koblet til en åpen, stabil offisiell kilde i denne MVP-iterasjonen.
-- ProjectX viser derfor tom/ærlig tilstand for regnskapsseksjoner i stedet for syntetiske tall.
+- ProjectX viser åpne årsregnskapsmetadata fra Brønnøysundregistrene når de er tilgjengelige.
+- Historiske resultatlinjer som omsetning og driftsresultat vises bare når de kan spores til en verifisert åpen Brreg-kontrakt.
+- ProjectX viser derfor tom/ærlig tilstand for diagram- og nøkkeltallsseksjoner når detaljfeltene ikke er verifisert i åpen kilde.
 - Regulatorisk overlay fra Finanstilsynet er ikke aktivert ennå.
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i ProjectX, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
 
@@ -108,6 +111,7 @@ Subscription-modellen finnes i databasen og brukes til enkel feature gating i pr
 - `NEXTAUTH_URL`: lokal base-URL
 - `BRREG_BASE_URL`: base-URL for Brreg virksomhetsdata
 - `BRREG_ROLES_BASE_URL`: base-URL for Brreg roller
+- `BRREG_COMPANY_LOOKUP_BASE_URL`: base-URL for Brreg virksomhetsoppslag brukt til åpne årsregnskapsmetadata
 - `SSB_KLASS_BASE_URL`: base-URL for SSB Klass
 - `SSB_INDUSTRY_CLASSIFICATION_ID`: klassifikasjons-ID for næringskodeverket
 - `PROJECTX_CACHE_HOURS`: antall timer før cache oppfriskes
@@ -116,7 +120,7 @@ Subscription-modellen finnes i databasen og brukes til enkel feature gating i pr
 
 - `BrregCompanyProvider`: søker og henter virksomheter
 - `BrregRolesProvider`: henter roller/styre
-- `BrregFinancialsProvider`: returnerer ærlig utilgjengelighet når åpen regnskapskilde ikke er koblet
+- `BrregFinancialsProvider`: henter åpne årsregnskapsmetadata fra Brreg-oppslaget og markerer ærlig når historiske resultatlinjer ikke er verifisert
 - `SsbIndustryCodeProvider`: beriker næringskode med SSB-beskrivelse
 
 ## Kjørbart resultat

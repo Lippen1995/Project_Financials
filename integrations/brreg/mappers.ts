@@ -48,6 +48,15 @@ export function mapBrregCompany(payload: Record<string, any>): NormalizedCompany
     description: payload.formaal ?? null,
     municipality: businessAddress?.kommune ?? null,
     vatRegistered: payload.registrertIMvaregisteret ?? null,
+    shareCapital: payload.kapital?.belop ?? null,
+    shareCapitalCurrency: payload.kapital?.valuta ?? null,
+    shareCount: payload.kapital?.antallAksjer ?? null,
+    lastSubmittedAnnualReportYear: payload.sisteInnsendteAarsregnskap
+      ? Number(payload.sisteInnsendteAarsregnskap)
+      : null,
+    announcementsUrl: orgNumber
+      ? `https://w2.brreg.no/kunngjoring/hent_nr.jsp?orgnr=${orgNumber}`
+      : null,
     industryCode: industry
       ? {
           sourceSystem: "SSB_KLASS",

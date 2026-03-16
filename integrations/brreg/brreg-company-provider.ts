@@ -41,6 +41,10 @@ export class BrregCompanyProvider implements CompanySearchProvider, CompanyProfi
       return [];
     }
 
+    if (!filters.query?.trim()) {
+      return [];
+    }
+
     if (filters.query && /^\d{9}$/.test(filters.query.trim())) {
       const company = await this.getCompany(filters.query.trim());
       return company ? applyClientSideFilters([company], filters) : [];
@@ -48,16 +52,14 @@ export class BrregCompanyProvider implements CompanySearchProvider, CompanyProfi
 
     const params = new URLSearchParams({
       size: String(filters.size ?? 25),
-      side: String(filters.page ?? 0),
+      page: String(filters.page ?? 0),
     });
 
     if (filters.query) {
       params.set("navn", filters.query.trim());
     }
 
-    const response = await fetchJson<BrregSearchResponse>(
-      `${env.brregBaseUrl}/enheter?${params.toString()}`,
-    );
+    const response = await fetchJson<BrregSearchResponse>(`${env.brregBaseUrl}/enheter?${params.toString()}`);
     const companies = response._embedded?.enheter?.map(mapBrregCompany) ?? [];
     return applyClientSideFilters(companies, filters);
   }

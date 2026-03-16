@@ -22,3 +22,28 @@ export async function fetchJson<T>(url: string, init?: RequestInit, timeoutMs = 
     clearTimeout(timeout);
   }
 }
+
+export async function fetchText(url: string, init?: RequestInit, timeoutMs = 7000): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        Accept: "text/html, text/plain;q=0.9, */*;q=0.8",
+        ...init?.headers,
+      },
+      next: { revalidate: 3600 },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+
+    return await response.text();
+  } finally {
+    clearTimeout(timeout);
+  }
+}

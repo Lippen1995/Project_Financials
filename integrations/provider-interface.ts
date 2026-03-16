@@ -1,6 +1,7 @@
 import {
   DataAvailability,
   NormalizedCompany,
+  NormalizedFinancialDocument,
   NormalizedFinancialStatement,
   NormalizedIndustryCode,
   NormalizedRole,
@@ -22,6 +23,7 @@ export interface RolesProvider {
 export interface FinancialsProvider {
   getFinancialStatements(orgNumber: string): Promise<{
     statements: NormalizedFinancialStatement[];
+    documents: NormalizedFinancialDocument[];
     availability: DataAvailability;
   }>;
 }
