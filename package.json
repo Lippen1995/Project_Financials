@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "import:annual-reports": "tsx scripts/import-company-annual-reports.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

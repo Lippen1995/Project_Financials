@@ -37,8 +37,8 @@ Brukes som source of truth for:
 - roller i virksomheten
 
 ProjectX bruker åpne Brreg-endepunkter under `data.brreg.no/enhetsregisteret/api`.
-For regnskap bruker ProjectX den åpne delen av Regnskapsregisterets API under `data.brreg.no/regnskapsregisteret/regnskap`, som ifølge Brregs OpenAPI publiserer nøkkeltall fra sist innsendte årsregnskap.
-For flerårig historikk forsøker ProjectX i tillegg å lese Brregs offisielle PDF-kopier av årsregnskap og parse tabellene lokalt via OCR.
+For regnskap bruker ProjectX Brregs offisielle PDF-kopier av årsregnskap under `data.brreg.no/regnskapsregisteret/regnskap/aarsregnskap/kopi/...`.
+Historikk bygges ved lokal OCR-parsing og normalisering av disse PDF-ene.
 
 ### SSB Klass
 
@@ -55,9 +55,9 @@ Ikke aktivert i denne iterasjonen. ProjectX viser derfor ingen regulatorisk over
 
 ## Viktige begrensninger
 
-- ProjectX viser åpne regnskapstall fra Brønnøysundregistrenes Regnskapsregister når de er tilgjengelige.
-- Flerårshistorikk bygges fra Brregs offisielle PDF-kopier av årsregnskap når OCR-parsingen lykkes.
-- OCR-basert historikk er best effort og kan ha enkelte feil på vanskelig leste linjer; ProjectX fyller fortsatt ikke hull med syntetiske tall.
+- ProjectX viser regnskap fra Brregs offisielle PDF-kopier av årsregnskap.
+- Flerårshistorikk bygges fra OCR-parsing og normalisering av disse PDF-ene.
+- OCR-basert historikk er best effort og kan ha enkelte feil på vanskelig leste linjer; note-rader og summer valideres derfor defensivt, og ProjectX fyller fortsatt ikke hull med syntetiske tall.
 - Regulatorisk overlay fra Finanstilsynet er ikke aktivert ennå.
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i ProjectX, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
 
@@ -105,6 +105,21 @@ Det finnes ingen seedede demo-brukere. Opprett en konto i UI for lokal bruk.
 
 Subscription-modellen finnes i databasen og brukes til enkel feature gating i produktet. Betalingsflyt er ikke ferdigstilt i denne iterasjonen.
 
+## Import av årsrapporter
+
+ProjectX har en første importjobb som kan hente og lagre regnskap for konkrete virksomheter i databasen:
+
+```bash
+npm run import:annual-reports -- 928846466
+```
+
+Dette vil:
+
+- hente virksomheten fra Brreg
+- hente tilgjengelige årsrapporter
+- parse regnskapstall fra offisielle Brreg-PDF-er
+- skrive normaliserte `FinancialStatement`-rader til PostgreSQL
+
 ## Miljøvariabler
 
 - `DATABASE_URL`: PostgreSQL-tilkobling
@@ -122,7 +137,7 @@ Subscription-modellen finnes i databasen og brukes til enkel feature gating i pr
 
 - `BrregCompanyProvider`: søker og henter virksomheter
 - `BrregRolesProvider`: henter roller/styre
-- `BrregFinancialsProvider`: henter åpne regnskapstall fra Regnskapsregisterets API og bygger historikk fra offisielle PDF-kopier av årsregnskap
+- `BrregFinancialsProvider`: bygger regnskapstall fra offisielle PDF-kopier av årsregnskap og normaliserer dem for visning/import
 - `SsbIndustryCodeProvider`: beriker næringskode med SSB-beskrivelse
 
 ## Kjørbart resultat

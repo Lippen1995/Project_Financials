@@ -461,17 +461,28 @@ function candidateScore(tokens: string[]) {
 
 function stripLikelyNoteTokens(tokens: string[], noteTokenLikely?: boolean) {
   if (noteTokenLikely) {
-    const stripped = [...tokens];
-
-    while (
-      stripped.length >= 3 &&
-      stripped[0].replace("-", "").length <= 2 &&
-      !stripped[0].startsWith("-")
+    if (
+      tokens.length >= 3 &&
+      tokens[0].replace("-", "").length <= 2 &&
+      !tokens[0].startsWith("-")
     ) {
-      stripped.shift();
+      const withoutNote = tokens.slice(1);
+
+      if (
+        withoutNote.length >= 4 &&
+        withoutNote[0].replace("-", "").length <= 1 &&
+        !withoutNote[0].startsWith("-")
+      ) {
+        const withoutExtraShortToken = withoutNote.slice(1);
+        return candidateScore(withoutExtraShortToken) < candidateScore(withoutNote)
+          ? withoutExtraShortToken
+          : withoutNote;
+      }
+
+      return withoutNote;
     }
 
-    return stripped.length >= 2 ? stripped : tokens;
+    return tokens;
   }
 
   const candidates: string[][] = [tokens];
@@ -558,15 +569,28 @@ function applyParsedLine(
 }
 
 function reconcileOperatingCostBreakdown(payload: ParsedPayload) {
-  const driftskostnad = payload.resultatregnskapResultat?.driftsresultat?.driftskostnad;
+  const resultat = payload.resultatregnskapResultat;
+  const driftsresultat = resultat?.driftsresultat;
+  const driftsinntekter = driftsresultat?.driftsinntekter;
+  const driftskostnad = driftsresultat?.driftskostnad;
+  const finansresultat = resultat?.finansresultat;
   if (!driftskostnad) {
     return;
   }
 
+  const salgsinntekter = Number(driftsinntekter?.salgsinntekter);
+  const sumDriftsinntekter = Number(driftsinntekter?.sumDriftsinntekter);
   const sumDriftskostnad = Number(driftskostnad.sumDriftskostnad);
   const varekostnad = Number(driftskostnad.varekostnad);
   const annenDriftskostnad = Number(driftskostnad.annenDriftskostnad);
   const loennskostnad = Number(driftskostnad.loennskostnad);
+
+  if (
+    Number.isFinite(salgsinntekter) &&
+    (!Number.isFinite(sumDriftsinntekter) || sumDriftsinntekter < salgsinntekter)
+  ) {
+    driftsinntekter.sumDriftsinntekter = salgsinntekter;
+  }
 
   if (
     Number.isFinite(sumDriftskostnad) &&
@@ -589,6 +613,52 @@ function reconcileOperatingCostBreakdown(payload: ParsedPayload) {
         driftskostnad.loennskostnad = derivedLoennskostnad;
       }
     }
+  }
+
+  const parsedProfitBeforeTax = Number(resultat?.ordinaertResultatFoerSkattekostnad);
+  const parsedTaxExpense = Number(resultat?.skattekostnadResultat);
+  const parsedNetIncome = Number(resultat?.aarsresultat);
+  const parsedTotalResult = Number(resultat?.totalresultat);
+  const normalizedNetFinance = Number(finansresultat?.nettoFinans);
+  const normalizedOperatingProfit = Number(driftsresultat?.driftsresultat);
+
+  if (
+    Number.isFinite(normalizedOperatingProfit) &&
+    Number.isFinite(normalizedNetFinance) &&
+    (!Number.isFinite(parsedProfitBeforeTax) ||
+      Math.abs(parsedProfitBeforeTax - (normalizedOperatingProfit + normalizedNetFinance)) >= 1000)
+  ) {
+    resultat.ordinaertResultatFoerSkattekostnad = normalizedOperatingProfit + normalizedNetFinance;
+  }
+
+  const profitBeforeTax = Number(resultat?.ordinaertResultatFoerSkattekostnad);
+
+  if (
+    Number.isFinite(profitBeforeTax) &&
+    Number.isFinite(parsedTotalResult) &&
+    (!Number.isFinite(parsedTaxExpense) ||
+      Math.abs(parsedTaxExpense - (profitBeforeTax - parsedTotalResult)) >= 1000)
+  ) {
+    resultat.skattekostnadResultat = profitBeforeTax - parsedTotalResult;
+  }
+
+  const taxExpense = Number(resultat?.skattekostnadResultat);
+
+  if (
+    Number.isFinite(profitBeforeTax) &&
+    Number.isFinite(taxExpense) &&
+    (!Number.isFinite(parsedNetIncome) ||
+      Math.abs(parsedNetIncome - (profitBeforeTax - taxExpense)) >= 1000)
+  ) {
+    resultat.aarsresultat = profitBeforeTax - taxExpense;
+  }
+
+  if (
+    Number.isFinite(Number(resultat?.aarsresultat)) &&
+    (!Number.isFinite(parsedTotalResult) ||
+      Math.abs(parsedTotalResult - Number(resultat.aarsresultat)) >= 1000)
+  ) {
+    resultat.totalresultat = Number(resultat.aarsresultat);
   }
 }
 
