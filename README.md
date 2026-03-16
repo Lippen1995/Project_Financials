@@ -38,6 +38,7 @@ Brukes som source of truth for:
 
 ProjectX bruker åpne Brreg-endepunkter under `data.brreg.no/enhetsregisteret/api`.
 For regnskap bruker ProjectX den åpne delen av Regnskapsregisterets API under `data.brreg.no/regnskapsregisteret/regnskap`, som ifølge Brregs OpenAPI publiserer nøkkeltall fra sist innsendte årsregnskap.
+For flerårig historikk forsøker ProjectX i tillegg å lese Brregs offisielle PDF-kopier av årsregnskap og parse tabellene lokalt via OCR.
 
 ### SSB Klass
 
@@ -55,7 +56,8 @@ Ikke aktivert i denne iterasjonen. ProjectX viser derfor ingen regulatorisk over
 ## Viktige begrensninger
 
 - ProjectX viser åpne regnskapstall fra Brønnøysundregistrenes Regnskapsregister når de er tilgjengelige.
-- Den åpne Brreg-regnskapskilden ser ut til å være knyttet til sist tilgjengelige årsregnskap. ProjectX viser derfor ikke syntetisk flerårshistorikk når slike tall ikke kommer fra åpen kilde.
+- Flerårshistorikk bygges fra Brregs offisielle PDF-kopier av årsregnskap når OCR-parsingen lykkes.
+- OCR-basert historikk er best effort og kan ha enkelte feil på vanskelig leste linjer; ProjectX fyller fortsatt ikke hull med syntetiske tall.
 - Regulatorisk overlay fra Finanstilsynet er ikke aktivert ennå.
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i ProjectX, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
 
@@ -120,7 +122,7 @@ Subscription-modellen finnes i databasen og brukes til enkel feature gating i pr
 
 - `BrregCompanyProvider`: søker og henter virksomheter
 - `BrregRolesProvider`: henter roller/styre
-- `BrregFinancialsProvider`: henter åpne regnskapstall fra Regnskapsregisterets API og årganger for kopi av årsregnskap
+- `BrregFinancialsProvider`: henter åpne regnskapstall fra Regnskapsregisterets API og bygger historikk fra offisielle PDF-kopier av årsregnskap
 - `SsbIndustryCodeProvider`: beriker næringskode med SSB-beskrivelse
 
 ## Kjørbart resultat

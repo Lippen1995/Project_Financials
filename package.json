@@ -20,10 +20,12 @@
     "lucide-react": "^0.511.0",
     "next": "^15.2.2",
     "next-auth": "^5.0.0-beta.25",
+    "pdf-parse": "^2.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "stripe": "^18.0.0",
     "tailwind-merge": "^3.3.0",
+    "tesseract.js": "^7.0.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {

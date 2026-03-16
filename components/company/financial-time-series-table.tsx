@@ -29,9 +29,19 @@ const sections: SectionDefinition[] = [
           payload.resultatregnskapResultat?.driftsresultat?.driftsinntekter?.sumDriftsinntekter,
       },
       {
+        label: "Varekostnad",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.driftsresultat?.driftskostnad?.varekostnad,
+      },
+      {
         label: "Lonnskostnader",
         accessor: (payload) =>
           payload.resultatregnskapResultat?.driftsresultat?.driftskostnad?.loennskostnad,
+      },
+      {
+        label: "Andre driftskostnader",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.driftsresultat?.driftskostnad?.annenDriftskostnad,
       },
       {
         label: "Sum driftskostnad",
@@ -47,9 +57,39 @@ const sections: SectionDefinition[] = [
         accessor: (payload) => payload.resultatregnskapResultat?.finansresultat?.nettoFinans,
       },
       {
+        label: "Renteinntekt fra tilknyttet selskap",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.finansresultat?.finansinntekt?.renteinntektTilknyttetSelskap,
+      },
+      {
+        label: "Annen renteinntekt",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.finansresultat?.finansinntekt?.annenRenteinntekt,
+      },
+      {
+        label: "Annen finansinntekt",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.finansresultat?.finansinntekt?.annenFinansinntekt,
+      },
+      {
         label: "Sum finansinntekter",
         accessor: (payload) =>
           payload.resultatregnskapResultat?.finansresultat?.finansinntekt?.sumFinansinntekter,
+      },
+      {
+        label: "Rentekostnad til tilknyttet selskap",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.finansresultat?.finanskostnad?.rentekostnadTilknyttetSelskap,
+      },
+      {
+        label: "Annen rentekostnad",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.finansresultat?.finanskostnad?.annenRentekostnad,
+      },
+      {
+        label: "Annen finanskostnad",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.finansresultat?.finanskostnad?.annenFinanskostnad,
       },
       {
         label: "Sum finanskostnad",
@@ -62,6 +102,15 @@ const sections: SectionDefinition[] = [
           payload.resultatregnskapResultat?.ordinaertResultatFoerSkattekostnad,
       },
       {
+        label: "Skattekostnad pa resultat",
+        accessor: (payload) => payload.resultatregnskapResultat?.skattekostnadResultat,
+      },
+      {
+        label: "Ordinaert resultat etter skattekostnad",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.ordinaertResultatEtterSkattekostnad,
+      },
+      {
         label: "Arsresultat",
         accessor: (payload) => payload.resultatregnskapResultat?.aarsresultat,
       },
@@ -69,17 +118,43 @@ const sections: SectionDefinition[] = [
         label: "Totalresultat",
         accessor: (payload) => payload.resultatregnskapResultat?.totalresultat,
       },
+      {
+        label: "Avsatt til utbytte",
+        accessor: (payload) => payload.resultatregnskapResultat?.overforinger?.utbytte,
+      },
+      {
+        label: "Avsatt til annen egenkapital",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.overforinger?.avsattTilAnnenEgenkapital,
+      },
+      {
+        label: "Overfort fra annen egenkapital",
+        accessor: (payload) =>
+          payload.resultatregnskapResultat?.overforinger?.overfortFraAnnenEgenkapital,
+      },
+      {
+        label: "Sum overforinger",
+        accessor: (payload) => payload.resultatregnskapResultat?.overforinger?.sumOverforinger,
+      },
     ],
   },
   {
     title: "Eiendeler",
     rows: [
-      { label: "Goodwill", accessor: (payload) => payload.eiendeler?.goodwill },
       { label: "Sum varer", accessor: (payload) => payload.eiendeler?.sumVarer },
-      { label: "Sum fordringer", accessor: (payload) => payload.eiendeler?.sumFordringer },
-      { label: "Sum investeringer", accessor: (payload) => payload.eiendeler?.sumInvesteringer },
+      { label: "Kundefordringer", accessor: (payload) => payload.eiendeler?.kundefordringer },
       {
-        label: "Bankinnskudd og kontanter",
+        label: "Kundefordringer konsern",
+        accessor: (payload) => payload.eiendeler?.kundefordringerKonsern,
+      },
+      {
+        label: "Andre kortsiktige fordringer",
+        accessor: (payload) => payload.eiendeler?.andreKortsiktigeFordringer,
+      },
+      { label: "Konsernfordringer", accessor: (payload) => payload.eiendeler?.konsernfordringer },
+      { label: "Sum fordringer", accessor: (payload) => payload.eiendeler?.sumFordringer },
+      {
+        label: "Bankinnskudd, kontanter o.l.",
         accessor: (payload) => payload.eiendeler?.sumBankinnskuddOgKontanter,
       },
       {
@@ -97,8 +172,28 @@ const sections: SectionDefinition[] = [
     title: "Egenkapital og gjeld",
     rows: [
       {
+        label: "Aksjekapital",
+        accessor: (payload) =>
+          payload.egenkapitalGjeld?.egenkapital?.innskuttEgenkapital?.aksjekapital,
+      },
+      {
+        label: "Overkurs",
+        accessor: (payload) =>
+          payload.egenkapitalGjeld?.egenkapital?.innskuttEgenkapital?.overkurs,
+      },
+      {
+        label: "Annen innskutt egenkapital",
+        accessor: (payload) =>
+          payload.egenkapitalGjeld?.egenkapital?.innskuttEgenkapital?.annenInnskuttEgenkapital,
+      },
+      {
         label: "Sum egenkapital",
         accessor: (payload) => payload.egenkapitalGjeld?.egenkapital?.sumEgenkapital,
+      },
+      {
+        label: "Annen egenkapital",
+        accessor: (payload) =>
+          payload.egenkapitalGjeld?.egenkapital?.opptjentEgenkapital?.annenEgenkapital,
       },
       {
         label: "Sum opptjent egenkapital",
@@ -115,6 +210,35 @@ const sections: SectionDefinition[] = [
         label: "Sum kortsiktig gjeld",
         accessor: (payload) =>
           payload.egenkapitalGjeld?.gjeldOversikt?.kortsiktigGjeld?.sumKortsiktigGjeld,
+      },
+      {
+        label: "Leverandorgjeld",
+        accessor: (payload) =>
+          payload.egenkapitalGjeld?.gjeldOversikt?.kortsiktigGjeld?.leverandorgjeld,
+      },
+      {
+        label: "Betalbar skatt",
+        accessor: (payload) =>
+          payload.egenkapitalGjeld?.gjeldOversikt?.kortsiktigGjeld?.betalbarSkatt,
+      },
+      {
+        label: "Skyldig offentlige avgifter",
+        accessor: (payload) =>
+          payload.egenkapitalGjeld?.gjeldOversikt?.kortsiktigGjeld?.skyldigOffentligeAvgifter,
+      },
+      {
+        label: "Utbytte",
+        accessor: (payload) => payload.egenkapitalGjeld?.gjeldOversikt?.kortsiktigGjeld?.utbytte,
+      },
+      {
+        label: "Annen kortsiktig gjeld",
+        accessor: (payload) =>
+          payload.egenkapitalGjeld?.gjeldOversikt?.kortsiktigGjeld?.annenKortsiktigGjeld,
+      },
+      {
+        label: "Gjeld til kredittinstitusjoner",
+        accessor: (payload) =>
+          payload.egenkapitalGjeld?.gjeldOversikt?.langsiktigGjeld?.gjeldTilKredittinstitusjoner,
       },
       {
         label: "Sum langsiktig gjeld",
