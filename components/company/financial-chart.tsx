@@ -9,29 +9,6 @@ const CHART_HEIGHT = 336;
 const CHART_WIDTH_PER_YEAR = 78;
 const CHART_PADDING = { top: 18, right: 18, bottom: 42, left: 72 };
 
-function niceCeiling(value: number) {
-  if (value <= 0) {
-    return 1;
-  }
-
-  const magnitude = 10 ** Math.floor(Math.log10(value));
-  const normalized = value / magnitude;
-
-  if (normalized <= 1.5) {
-    return 1.5 * magnitude;
-  }
-
-  if (normalized <= 3) {
-    return 3 * magnitude;
-  }
-
-  if (normalized <= 5) {
-    return 5 * magnitude;
-  }
-
-  return 10 * magnitude;
-}
-
 function buildTicks(minValue: number, maxValue: number) {
   if (minValue >= 0) {
     return [0, maxValue * 0.16, maxValue * 0.33, maxValue * 0.5, maxValue * 0.66, maxValue * 0.83, maxValue];
@@ -63,8 +40,8 @@ export function FinancialChart({
   const maxRevenue = Math.max(...points.map((point) => point.revenue ?? 0), 0);
   const maxPositiveEbit = Math.max(...points.map((point) => Math.max(point.operatingProfit ?? 0, 0)), 0);
   const minNegativeEbit = Math.min(...points.map((point) => Math.min(point.operatingProfit ?? 0, 0)), 0);
-  const maxDomain = niceCeiling(Math.max(maxRevenue, maxPositiveEbit, 1));
-  const minDomain = minNegativeEbit < 0 ? -niceCeiling(Math.abs(minNegativeEbit)) : 0;
+  const maxDomain = Math.max(maxRevenue, maxPositiveEbit, 1);
+  const minDomain = minNegativeEbit < 0 ? minNegativeEbit : 0;
   const totalRange = maxDomain - minDomain || 1;
   const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
   const plotWidth = Math.max(points.length * CHART_WIDTH_PER_YEAR, 560);
@@ -90,7 +67,7 @@ export function FinancialChart({
     .filter((point) => point.operatingProfit !== null)
     .map((point, index) => {
       const originalIndex = points.findIndex((candidate) => candidate.fiscalYear === point.fiscalYear);
-      const x = CHART_PADDING.left + groupWidth * originalIndex + groupWidth / 2 + barWidth * 0.72;
+      const x = CHART_PADDING.left + groupWidth * originalIndex + groupWidth / 2;
       const y = yScale(point.operatingProfit ?? 0);
       return `${index === 0 ? "M" : "L"} ${x} ${y}`;
     })
@@ -257,7 +234,7 @@ export function FinancialChart({
                     }
 
                     const index = points.findIndex((candidate) => candidate.fiscalYear === point.fiscalYear);
-                    const cx = CHART_PADDING.left + groupWidth * index + groupWidth / 2 + barWidth * 0.72;
+                    const cx = CHART_PADDING.left + groupWidth * index + groupWidth / 2;
                     const cy = yScale(point.operatingProfit);
 
                     return (
