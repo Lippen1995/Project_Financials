@@ -115,6 +115,15 @@ export function EbitChart({
                 );
               })}
 
+              <line
+                x1={CHART_PADDING.left}
+                x2={svgWidth - CHART_PADDING.right}
+                y1={zeroY}
+                y2={zeroY}
+                stroke="#BFCADA"
+                strokeWidth={1.6}
+              />
+
               {points.map((point, index) => {
                 const value = point.operatingProfit ?? 0;
                 const centerX = CHART_PADDING.left + groupWidth * index + groupWidth / 2;
