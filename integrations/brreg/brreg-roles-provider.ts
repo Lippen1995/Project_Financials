@@ -4,11 +4,9 @@ import { fetchJson } from "@/integrations/http";
 import { RolesProvider } from "@/integrations/provider-interface";
 
 type BrregRolesResponse = {
-  roller?: {
-    rollegrupper?: Array<{
-      roller?: any[];
-    }>;
-  };
+  rollegrupper?: Array<{
+    roller?: any[];
+  }>;
 };
 
 export class BrregRolesProvider implements RolesProvider {
@@ -19,7 +17,7 @@ export class BrregRolesProvider implements RolesProvider {
       );
 
       return (
-        response.roller?.rollegrupper?.flatMap((group) =>
+        response.rollegrupper?.flatMap((group) =>
           (group.roller ?? []).map((role) => mapBrregRole(role, orgNumber)),
         ) ?? []
       );

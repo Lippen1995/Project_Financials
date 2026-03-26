@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import type { Session } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
@@ -84,3 +85,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+export async function safeAuth(): Promise<Session | null> {
+  try {
+    return await auth();
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("Auth session could not be read, falling back to logged-out state.", error);
+    }
+
+    return null;
+  }
+}

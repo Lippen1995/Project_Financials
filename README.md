@@ -16,6 +16,7 @@ ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeSc
 - Globalt søk mot Brønnøysundregistrene
 - Selskapsprofil med virksomhetsdata fra Brønnøysundregistrene
 - Roller og styre når de er tilgjengelige fra Brønnøysundregistrene
+- Årsbundet selskapsstruktur basert på importerte aksjonærregisterdata fra Skatteetaten når snapshot er tilgjengelig
 - Faner for Oversikt, Regnskap, Nøkkeltall, Organisasjon og Kunngjøringer
 - Næringskodeberiking fra SSB Klass
 - Filtrering på sentrale virksomhetsfelt
@@ -53,18 +54,33 @@ ProjectX bruker SSB Klass API under `data.ssb.no/api/klass/v1`.
 
 Ikke aktivert i denne iterasjonen. ProjectX viser derfor ingen regulatorisk overlay i stedet for å anta eller simulere tilsynsstatus.
 
+### Skatteetatens aksjonærregister
+
+Brukes som source of truth for:
+
+- aksjonærer per selskap og år
+- antall aksjer per aksjonær
+- beregning av direkte eierandel når totalt antall aksjer finnes i leveransen
+
+ProjectX støtter import av reelle aksjonærregisteruttrekk fra Skatteetatens leveranseformat som CSV per selskap/år. Data er årsbundet og vises aldri som live-data.
+
+ProjectX kan også hente aksjonærdata direkte fra Skatteetatens `Aksjonær i virksomhet API` når Maskinporten-tilgang, rettighetspakke og bearer-token er konfigurert lokalt. Live API prioriteres foran importerte snapshots.
+
 ## Viktige begrensninger
 
 - ProjectX viser regnskap fra Brregs offisielle PDF-kopier av årsregnskap.
 - Flerårshistorikk bygges fra OCR-parsing og normalisering av disse PDF-ene.
 - OCR-basert historikk er best effort og kan ha enkelte feil på vanskelig leste linjer; note-rader og summer valideres derfor defensivt, og ProjectX fyller fortsatt ikke hull med syntetiske tall.
 - Regulatorisk overlay fra Finanstilsynet er ikke aktivert ennå.
+- Aksjonærdata krever et reelt Skatteetaten-uttrekk for aktuelt selskap og år. Hvis snapshot mangler, viser ProjectX en tydelig tomtilstand i stedet for en plassholdergraf.
+- Eierandeler beregnes bare når totalt antall aksjer finnes og er konsistent i den importerte leveransen.
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i ProjectX, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
 
 ## Arkitektur
 
 - `integrations/`: provider-lag for Brreg og SSB
 - `server/`: mapping, persistens og service-lag
+- `server/shareholdings/`: importpipeline, normalisering, entity resolution og graph-transform for aksjonærdata
 - `app/`: Next.js UI og API-ruter
 - `prisma/`: datamodell
 
@@ -120,6 +136,23 @@ Dette vil:
 - parse regnskapstall fra offisielle Brreg-PDF-er
 - skrive normaliserte `FinancialStatement`-rader til PostgreSQL
 
+## Import av aksjonærdata
+
+ProjectX har en egen importjobb for aksjonærregisterdata fra Skatteetaten:
+
+```bash
+npm run import:shareholding -- 928846466 2024 ./data/aksjonaerer-928846466-2024.csv
+```
+
+Dette vil:
+
+- lese inn rå CSV-leveranse for valgt selskap og år
+- lagre råkilden separat fra normaliserte data
+- normalisere aksjonærer og direkte eierskap
+- forsøke konservativ kobling av selskapsaksjonærer mot Brreg
+- beregne direkte eierandel når total shares finnes
+- persistere et graph-ready snapshot for UI-et
+
 ## Miljøvariabler
 
 - `DATABASE_URL`: PostgreSQL-tilkobling
@@ -129,6 +162,9 @@ Dette vil:
 - `BRREG_ROLES_BASE_URL`: base-URL for Brreg roller
 - `BRREG_COMPANY_LOOKUP_BASE_URL`: base-URL for Brreg virksomhetsoppslag brukt til åpne årsregnskapsmetadata
 - `BRREG_FINANCIALS_BASE_URL`: base-URL for Brreg Regnskapsregisterets åpne regnskaps-API
+- `SKATTEETATEN_SHAREHOLDING_BASE_URL`: base-URL for Skatteetatens Aksjonær i virksomhet API
+- `SKATTEETATEN_SHAREHOLDING_PACKAGE`: rettighetspakke for datasettet
+- `SKATTEETATEN_SHAREHOLDING_TOKEN`: bearer-token med scope `skatteetaten:aksjonaer`
 - `SSB_KLASS_BASE_URL`: base-URL for SSB Klass
 - `SSB_INDUSTRY_CLASSIFICATION_ID`: klassifikasjons-ID for næringskodeverket
 - `PROJECTX_CACHE_HOURS`: antall timer før cache oppfriskes

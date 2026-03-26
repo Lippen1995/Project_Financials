@@ -98,12 +98,28 @@ export function mapBrregRole(payload: Record<string, any>, orgNumber: string): N
   const now = new Date();
   const type = payload.type ?? payload.rolletype?.type ?? payload.rolletype ?? {};
   const personPayload = payload.person ?? payload.rolleinnehaver ?? payload.innehaver ?? {};
-  const fullName = personPayload.navn ?? personPayload.fulltNavn ?? payload.navn ?? "Ukjent person";
+  const companyPayload = payload.enhet ?? payload.organisasjon ?? null;
+  const companyName = Array.isArray(companyPayload?.navn)
+    ? companyPayload.navn.join(" ")
+    : companyPayload?.navn ?? null;
+  const personName =
+    typeof personPayload.navn === "string"
+      ? personPayload.navn
+      : personPayload.navn?.fulltNavn ??
+        [personPayload.navn?.fornavn, personPayload.navn?.mellomnavn, personPayload.navn?.etternavn]
+          .filter(Boolean)
+          .join(" ");
+  const fullName = personName ?? companyName ?? payload.navn ?? "Ukjent rolleinnehaver";
+  const holderId =
+    companyPayload?.organisasjonsnummer ??
+    personPayload.foedselsdato ??
+    personPayload.fodselsdato ??
+    fullName;
 
   return {
     sourceSystem: "BRREG",
     sourceEntityType: "role",
-    sourceId: `${orgNumber}-${type.kode ?? type.beskrivelse ?? fullName}`,
+    sourceId: `${orgNumber}-${type.kode ?? type.beskrivelse ?? "rolle"}-${holderId}`,
     fetchedAt: now,
     normalizedAt: now,
     rawPayload: payload,
@@ -111,16 +127,33 @@ export function mapBrregRole(payload: Record<string, any>, orgNumber: string): N
     isBoardRole: /styre/i.test(type.beskrivelse ?? type.kode ?? ""),
     fromDate: payload.fraDato ? new Date(payload.fraDato) : null,
     toDate: payload.tilDato ? new Date(payload.tilDato) : null,
+    holderType: companyPayload ? "COMPANY" : "PERSON",
     person: {
       sourceSystem: "BRREG",
       sourceEntityType: "person",
-      sourceId: personPayload.foedselsdato ?? personPayload.navn ?? fullName,
+      sourceId:
+        holderId,
       fetchedAt: now,
       normalizedAt: now,
       rawPayload: personPayload,
       fullName,
       birthYear: personPayload.foedselsaar ?? personPayload.fodselsaar ?? null,
     },
+    organization: companyPayload
+      ? {
+          sourceSystem: "BRREG",
+          sourceEntityType: "company",
+          sourceId: companyPayload.organisasjonsnummer ?? fullName,
+          fetchedAt: now,
+          normalizedAt: now,
+          rawPayload: companyPayload,
+          name: companyName ?? fullName,
+          orgNumber: companyPayload.organisasjonsnummer ?? null,
+          legalForm: companyPayload.organisasjonsform?.kode ?? null,
+          approvalStatus: companyPayload.godkjenningsstatus ?? null,
+          status: companyPayload.erSlettet ? "SLETTET" : "ACTIVE",
+        }
+      : null,
   };
 }
 

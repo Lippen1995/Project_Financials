@@ -35,10 +35,18 @@ export type NormalizedRole = SourceMetadata & {
   isBoardRole: boolean;
   fromDate?: Date | null;
   toDate?: Date | null;
+  holderType?: "PERSON" | "COMPANY";
   person: {
     fullName: string;
     birthYear?: number | null;
   } & SourceMetadata;
+  organization?: ({
+    name: string;
+    orgNumber?: string | null;
+    legalForm?: string | null;
+    approvalStatus?: string | null;
+    status?: string | null;
+  } & SourceMetadata) | null;
 };
 
 export type NormalizedFinancialStatement = SourceMetadata & {
@@ -101,4 +109,192 @@ export type CompanyProfile = {
   financialDocuments: NormalizedFinancialDocument[];
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;
+};
+
+export type ShareholderType = "PERSON" | "COMPANY" | "UNKNOWN";
+export type ShareholdingSourceSystem = "SKATTEETATEN_CSV" | "SKATTEETATEN_API";
+export type ShareholdingGraphNodeType =
+  | "COMPANY"
+  | "PERSON"
+  | "COMPANY_SHAREHOLDER"
+  | "UNKNOWN_SHAREHOLDER";
+
+export type ShareholdingImportErrorRecord = {
+  stage: string;
+  rowNumber?: number | null;
+  message: string;
+  payload?: unknown;
+};
+
+export type NormalizedShareholder = {
+  id: string;
+  type: ShareholderType;
+  name: string;
+  normalizedName: string;
+  birthYear?: number | null;
+  postalCode?: string | null;
+  postalPlace?: string | null;
+  externalIdentifier?: string | null;
+  linkedCompanyId?: string | null;
+  linkedCompanyOrgNumber?: string | null;
+  linkedCompanyName?: string | null;
+  matchConfidence?: number | null;
+};
+
+export type NormalizedOwnership = {
+  id: string;
+  snapshotId: string;
+  companyId: string;
+  shareholderId: string;
+  shareClass?: string | null;
+  numberOfShares: string;
+  ownershipPercent?: number | null;
+  ownershipPercentRaw?: string | null;
+  ownershipBasis?: string | null;
+  dataQualityNote?: string | null;
+  isDirect: boolean;
+};
+
+export type ShareholdingGraphNode = {
+  id: string;
+  type: ShareholdingGraphNodeType;
+  label: string;
+  metadata?: {
+    orgNumber?: string | null;
+    companyId?: string | null;
+    shareholderId?: string | null;
+    confidence?: number | null;
+    typeLabel?: string | null;
+  };
+};
+
+export type ShareholdingGraphEdge = {
+  id: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  relationshipType: "OWNS";
+  percent?: number | null;
+  percentRaw?: string | null;
+  shares?: string | null;
+  shareClass?: string | null;
+};
+
+export type ShareholdingGraphSnapshot = {
+  snapshotId: string;
+  companyId: string;
+  companyOrgNumber: string;
+  companyName: string;
+  taxYear: number;
+  totalShares?: string | null;
+  shareholderCount: number;
+  source: ShareholdingSourceSystem;
+  sourceImportedAt: Date;
+  latestAvailableYear?: number | null;
+  dataQualityNote?: string | null;
+  availabilityMessage?: string | null;
+  nodes: ShareholdingGraphNode[];
+  edges: ShareholdingGraphEdge[];
+  ownerships: NormalizedOwnership[];
+  shareholders: NormalizedShareholder[];
+};
+
+export type BrregLegalEntity = {
+  id: string;
+  orgNumber: string;
+  name: string;
+  entityType: "MAIN_ENTITY" | "SUBUNIT";
+  companyForm?: string | null;
+  status: "ACTIVE" | "DISSOLVED" | "BANKRUPT";
+  registrationDate?: Date | null;
+  foundationDate?: Date | null;
+  parentOrgNumber?: string | null;
+  parentName?: string | null;
+  address?: string | null;
+  postalAddress?: string | null;
+  industryCode?: string | null;
+  industryDescription?: string | null;
+  source: "BRREG";
+  rawPayload?: unknown;
+};
+
+export type BrregSubunit = {
+  id: string;
+  orgNumber: string;
+  name: string;
+  parentOrgNumber: string;
+  address?: string | null;
+  status: "ACTIVE" | "DISSOLVED" | "BANKRUPT";
+  source: "BRREG";
+  rawPayload?: unknown;
+};
+
+export type BrregRoleHolder = {
+  id: string;
+  type: "PERSON" | "COMPANY";
+  name: string;
+  birthYear?: number | null;
+  orgNumber?: string | null;
+  source: "BRREG";
+};
+
+export type BrregRoleAssignment = {
+  id: string;
+  entityOrgNumber: string;
+  roleHolderId: string;
+  roleType: string;
+  roleGroup: string;
+  source: "BRREG";
+};
+
+export type BrregAuthorityRule = {
+  id: string;
+  entityOrgNumber: string;
+  type: "SIGNATURE" | "PROCURATION";
+  rawText: string;
+  structuredInterpretation?: string | null;
+  relatedRoleHolders: string[];
+};
+
+export type BrregStructureNode = {
+  id: string;
+  type: "main_entity" | "subunit" | "related_entity" | "person" | "advisor";
+  label: string;
+  metadata?: {
+    orgNumber?: string | null;
+    companyForm?: string | null;
+    status?: string | null;
+    roleSummary?: string | null;
+    trustNote?: string | null;
+  };
+};
+
+export type BrregStructureEdge = {
+  id: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  relationshipType:
+    | "HAS_SUBUNIT"
+    | "HAS_ROLE_HOLDER"
+    | "HAS_SIGNATURE_RULE"
+    | "HAS_PROCURATION_RULE"
+    | "RELATED_ENTITY";
+  label: string;
+  priority: "high" | "medium" | "low";
+};
+
+export type BrregLegalStructureSnapshot = {
+  entity: BrregLegalEntity;
+  subunits: BrregSubunit[];
+  roleHolders: BrregRoleHolder[];
+  roleAssignments: BrregRoleAssignment[];
+  authorityRules: BrregAuthorityRule[];
+  nodes: BrregStructureNode[];
+  edges: BrregStructureEdge[];
+  fetchedAt: Date;
+  availability: {
+    subunits: boolean;
+    roles: boolean;
+    signature: boolean;
+    procuration: boolean;
+  };
 };

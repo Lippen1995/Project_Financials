@@ -7,6 +7,11 @@ const env = {
     process.env.BRREG_COMPANY_LOOKUP_BASE_URL ?? "https://virksomhet.brreg.no/nb/oppslag/enheter",
   brregFinancialsBaseUrl:
     process.env.BRREG_FINANCIALS_BASE_URL ?? "https://data.brreg.no/regnskapsregisteret/regnskap",
+  skatteetatenShareholdingBaseUrl:
+    process.env.SKATTEETATEN_SHAREHOLDING_BASE_URL ??
+    "https://api.skatteetaten.no/api/aksjonaerivirksomhet/v1",
+  skatteetatenShareholdingPackage: process.env.SKATTEETATEN_SHAREHOLDING_PACKAGE ?? "",
+  skatteetatenShareholdingToken: process.env.SKATTEETATEN_SHAREHOLDING_TOKEN ?? "",
   ssbKlassBaseUrl: process.env.SSB_KLASS_BASE_URL ?? "https://data.ssb.no/api/klass/v1",
   ssbIndustryClassificationId: process.env.SSB_INDUSTRY_CLASSIFICATION_ID ?? "6",
   cacheHours: Number(process.env.PROJECTX_CACHE_HOURS ?? "24"),

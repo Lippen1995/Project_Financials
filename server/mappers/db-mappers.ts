@@ -122,6 +122,7 @@ export function mapDbRoles(roles: (Role & { person: Person })[]): NormalizedRole
     isBoardRole: role.isBoardRole,
     fromDate: role.fromDate,
     toDate: role.toDate,
+    holderType: "PERSON",
     person: {
       sourceSystem: role.person.sourceSystem,
       sourceEntityType: role.person.sourceEntityType,
@@ -132,6 +133,7 @@ export function mapDbRoles(roles: (Role & { person: Person })[]): NormalizedRole
       fullName: role.person.fullName,
       birthYear: role.person.birthYear,
     },
+    organization: null,
   }));
 }
 
