@@ -29,7 +29,10 @@ export function CompanyTable({ companies }: { companies: NormalizedCompany[] }) 
           {companies.map((company) => (
             <tr key={company.orgNumber} className="hover:bg-[rgba(248,249,250,0.72)]">
               <td className="px-5 py-4">
-                <Link href={`/companies/${company.orgNumber}`} className="font-semibold text-[#162233] hover:text-[#31495f]">
+                <Link
+                  href={`/companies/${company.orgNumber}`}
+                  className="font-semibold text-[#162233] hover:text-[#31495f]"
+                >
                   {company.name}
                 </Link>
                 <div className="text-xs text-slate-500">{company.status}</div>

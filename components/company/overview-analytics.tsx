@@ -23,12 +23,12 @@ export function OverviewAnalytics({
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr),320px]">
       <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.92)] shadow-none">
-        <div className="flex items-start justify-between gap-4 border-b border-[rgba(15,23,42,0.08)] pb-4">
+        <div className="flex items-start justify-between gap-4 border-b border-[rgba(15,23,42,0.08)] px-6 pb-5 pt-6">
           <div>
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Oversikt</div>
-            <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Drift og utvikling</h2>
+            <h2 className="mt-2 text-[1.65rem] font-semibold text-slate-950">Drift og utvikling</h2>
             <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-500">
-              Les utviklingen i omsetning, margin og driftsresultat over tid i en rolig analyseflate.
+              Les utviklingen i omsetning, margin og driftsresultat over tid i en mer konsentrert analyseflate.
             </p>
           </div>
           <div className="data-label rounded-full border border-[rgba(15,23,42,0.1)] bg-[rgba(49,73,95,0.05)] px-3 py-1.5 text-[11px] font-semibold uppercase text-slate-600">
@@ -36,7 +36,7 @@ export function OverviewAnalytics({
           </div>
         </div>
 
-        <div className="mt-5 space-y-5">
+        <div className="space-y-5 px-6 py-6">
           <FinancialChart points={points} activeYear={activeYear} onActiveYearChange={setActiveYear} />
           <EbitChart points={points} activeYear={activeYear} onActiveYearChange={setActiveYear} />
         </div>

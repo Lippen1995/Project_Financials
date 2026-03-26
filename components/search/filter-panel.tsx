@@ -40,7 +40,7 @@ export function FilterPanel({
         </button>
       </div>
       <p className="text-sm leading-6 text-slate-600">
-        Filtreringen bruker åpne Brreg-oppslag og etterbehandling i ProjectX. Kombiner gjerne filtre med navn eller organisasjonsnummer for mest presise treff.
+        Kombiner gjerne filtre med navn eller organisasjonsnummer for å få en mer presis treffliste.
       </p>
     </form>
   );

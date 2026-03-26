@@ -98,7 +98,7 @@ function getExecutiveSignals(profile: CompanyProfile) {
     latest.operatingProfit < 0
       ? "Siste tilgjengelige driftsresultat er negativt."
       : null,
-    revenueChange !== null && revenueChange < 0 ? "Omsetningen er lavere enn forrige ar." : null,
+    revenueChange !== null && revenueChange < 0 ? "Omsetningen er lavere enn forrige år." : null,
     roles.length <= 2 ? "Styringsstrukturen ser kompakt ut og bør vurderes nærmere." : null,
   ].filter(Boolean) as string[];
 
@@ -133,26 +133,30 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
   ];
   const secondarySignals = [
     { label: "Soliditet", value: signals.solidity },
-    { label: "Lonnsomhet", value: signals.profitability },
-    { label: "Utvikling vs forrige ar", value: signals.revenueChange },
+    { label: "Lønnsomhet", value: signals.profitability },
+    { label: "Utvikling vs forrige år", value: signals.revenueChange },
     { label: "Kontrollsignal", value: signals.controlSummary },
   ];
 
   return (
     <section className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.82)] xl:grid-cols-[240px,minmax(0,1fr),340px]">
       <div className="border-b border-[rgba(15,23,42,0.08)] p-6 xl:border-b-0 xl:border-r">
-        <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Executive snapshot</div>
+        <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Hovedsignaler</div>
         <h2 className="mt-3 text-[1.8rem] font-semibold text-slate-950">Rask vurdering</h2>
         <p className="mt-3 text-sm leading-7 text-slate-600">
-          De viktigste driftssignalene, kontrollsporsmalene og datadekningen samlet i ett lag.
+          De viktigste driftssignalene, kontrollspørsmålene og tilgjengeligheten samlet i ett lag.
         </p>
       </div>
 
       <div className="p-6">
         <div className="flex items-start justify-between gap-4 border-b border-[rgba(15,23,42,0.08)] pb-4">
           <div>
-            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Finansielle signaler</div>
-            <h2 className="mt-2 text-[1.6rem] font-semibold text-slate-950">Viktigste signaler for rask vurdering</h2>
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+              Finansielle signaler
+            </div>
+            <h2 className="mt-2 text-[1.6rem] font-semibold text-slate-950">
+              Viktigste signaler for rask vurdering
+            </h2>
             <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500">
               Oppsummerer størrelse, drift, kapital og formell kontroll i ett beslutningslag.
             </p>
@@ -168,7 +172,9 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
               key={signal.label}
               className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4"
             >
-              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">{signal.label}</div>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+                {signal.label}
+              </div>
               <div className="mt-2 text-[1.45rem] font-semibold tracking-tight text-slate-950 tabular-nums">
                 {signal.value}
               </div>
@@ -179,7 +185,9 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
         <div className="mt-4 grid gap-4 border-t border-[rgba(15,23,42,0.08)] pt-4 md:grid-cols-2">
           {secondarySignals.map((signal) => (
             <div key={signal.label}>
-              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">{signal.label}</div>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+                {signal.label}
+              </div>
               <div className="mt-1 text-sm font-semibold text-slate-900">{signal.value}</div>
             </div>
           ))}
@@ -187,7 +195,9 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
       </div>
 
       <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-6 xl:border-l xl:border-t-0">
-        <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Verdt å undersøke</div>
+        <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+          Verdt å undersøke
+        </div>
         <div className="mt-4 space-y-2">
           {signals.investigationNotes.map((note) => (
             <div
@@ -200,7 +210,9 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
         </div>
 
         <div className="mt-5 rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
-          <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Datadekning</div>
+          <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+            Tilgjengelighet
+          </div>
           <div className="mt-2 text-sm font-semibold text-slate-900">
             {financialsAvailability.available ? "Regnskap er tilgjengelig." : "Regnskap er delvis tilgjengelig."}
           </div>
@@ -239,7 +251,9 @@ function CompanyHeader({ profile }: { profile: CompanyProfile }) {
           </div>
           <div>
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Selskapsform</div>
-            <div className="mt-1 font-semibold text-slate-900">{company.legalForm ?? "Ikke tilgjengelig"}</div>
+            <div className="mt-1 font-semibold text-slate-900">
+              {company.legalForm ?? "Ikke tilgjengelig"}
+            </div>
           </div>
           <div>
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Kommune</div>
@@ -252,11 +266,14 @@ function CompanyHeader({ profile }: { profile: CompanyProfile }) {
           <div>
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Bransje</div>
             <div className="mt-1 font-semibold text-slate-900">
-              {[company.industryCode?.code, company.industryCode?.title].filter(Boolean).join(" ") || "Ikke tilgjengelig"}
+              {[company.industryCode?.code, company.industryCode?.title].filter(Boolean).join(" ") ||
+                "Ikke tilgjengelig"}
             </div>
           </div>
           <div>
-            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Formell kontroll</div>
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+              Formell kontroll
+            </div>
             <div className="mt-1 font-semibold text-slate-900">{controlSummary}</div>
           </div>
         </div>
@@ -266,15 +283,15 @@ function CompanyHeader({ profile }: { profile: CompanyProfile }) {
         <div className="data-label text-[11px] font-semibold uppercase text-white/60">Fakta</div>
         <div className="mt-5 space-y-4 text-sm">
           <div className="border-b border-white/10 pb-4">
-              <div className="text-white/60">Datakilde</div>
+            <div className="text-white/60">Datakilde</div>
             <div className="mt-1 font-semibold">{company.sourceSystem}</div>
           </div>
           <div className="border-b border-white/10 pb-4">
-              <div className="text-white/60">Referanse</div>
+            <div className="text-white/60">Referanse</div>
             <div className="mt-1 font-semibold">{company.sourceId}</div>
           </div>
           <div className="border-b border-white/10 pb-4">
-            <div className="text-white/60">Oppdatert</div>
+            <div className="text-white/60">Sist oppdatert</div>
             <div className="mt-1 font-semibold">{formatDate(company.fetchedAt)}</div>
           </div>
           <div>
@@ -342,14 +359,20 @@ export default async function CompanyPage({
 
       <CompanyTabs companySlug={company.orgNumber} activeTab={activeTab} />
 
-      {activeTab === "oversikt" ? <OverviewAnalytics company={company} statements={financialStatements} /> : null}
+      {activeTab === "oversikt" ? (
+        <OverviewAnalytics company={company} statements={financialStatements} />
+      ) : null}
 
       {activeTab === "regnskap" ? (
         <div className="space-y-6">
           <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
             <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
-              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Regnskap</div>
-              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Resultat og balanse over tid</h2>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+                Regnskap
+              </div>
+              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
+                Resultat og balanse over tid
+              </h2>
               <p className="mt-1.5 text-sm leading-6 text-slate-500">
                 Vises som tidsserie med eldste år først. Bare verifiserte tall fylles inn.
               </p>
@@ -365,12 +388,15 @@ export default async function CompanyPage({
               Årsregnskap og vedlegg vises når dokumentasjon er tilgjengelig.
             </p>
             <div className="mt-6">
-              <FinancialDocuments documents={financialDocuments} latestYear={company.lastSubmittedAnnualReportYear} />
+              <FinancialDocuments
+                documents={financialDocuments}
+                latestYear={company.lastSubmittedAnnualReportYear}
+              />
             </div>
           </Card>
 
           <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-            <h3 className="text-xl font-semibold text-slate-950">Datatilgjengelighet</h3>
+            <h3 className="text-xl font-semibold text-slate-950">Tilgjengelighet</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">{financialsAvailability.message}</p>
           </Card>
         </div>
@@ -380,8 +406,12 @@ export default async function CompanyPage({
         <div className="space-y-6">
           <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
             <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
-              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Nøkkeltall</div>
-              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Finansielle signaler</h2>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+                Nøkkeltall
+              </div>
+              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
+                Finansielle signaler
+              </h2>
               <p className="mt-1.5 text-sm leading-6 text-slate-500">
                 Nøkkeltall vises når de er tilgjengelige for analyse.
               </p>
@@ -426,7 +456,9 @@ export default async function CompanyPage({
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
                 Kunngjøringer og historikk
               </div>
-              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Offisielle kunngjøringer</h2>
+              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
+                Offisielle kunngjøringer
+              </h2>
               <p className="mt-1.5 text-sm leading-6 text-slate-500">
                 Her finner du foretakets registrerte kunngjøringer og formelle historikk.
               </p>
@@ -439,7 +471,7 @@ export default async function CompanyPage({
                   rel="noreferrer"
                   className="inline-flex rounded-full bg-[#182535] px-5 py-3 text-sm font-semibold text-white hover:bg-[#223246]"
                 >
-                  Åpne kunngjøringer hos Brreg
+                  Åpne kunngjøringer
                 </a>
               ) : (
                 <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-6 text-slate-600">

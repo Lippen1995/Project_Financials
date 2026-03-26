@@ -17,24 +17,73 @@ export default async function DashboardPage() {
   });
 
   return (
-    <main className="space-y-6 pb-10">
-      <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.88)]">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-950">Min konto</h1>
-        <div className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
-          <p>Navn: {session.user.name}</p>
-          <p>E-post: {session.user.email}</p>
-          <p>Plan: {subscription?.plan ?? "free"}</p>
-          <p>Status: {subscription?.status ?? "FREE"}</p>
-          <p>Neste periode: {formatDate(subscription?.currentPeriodEnd)}</p>
+    <main className="space-y-8 pb-10">
+      <section className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.78)] xl:grid-cols-[minmax(0,1.35fr),340px]">
+        <div className="p-8">
+          <div className="data-label inline-flex rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
+            Konto
+          </div>
+          <h1 className="editorial-display mt-5 max-w-4xl text-[3rem] leading-[0.98] text-slate-950 sm:text-[4rem]">
+            Kontoinnstillinger og tilgang samlet i én arbeidsflate.
+          </h1>
+          <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
+            Her ser du hvilken tilgang brukeren har, når perioden løper ut og hvilke kontodetaljer
+            som gjelder akkurat nå.
+          </p>
         </div>
-      </Card>
 
-      <Card className="border-[rgba(15,23,42,0.08)] bg-[#192536] text-white">
-        <h2 className="text-2xl font-semibold">Kontostatus og tilgang</h2>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-white/76">
-          Her ser du hvilken tilgang kontoen har i dag, og når neste periode utløper dersom kontoen er satt opp med abonnement.
-        </p>
-      </Card>
+        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[#192536] p-8 text-white xl:border-l xl:border-t-0">
+          <div className="data-label text-[11px] font-semibold uppercase text-white/60">
+            Kontostatus
+          </div>
+          <div className="mt-4 text-[1.45rem] font-semibold leading-tight">
+            {subscription?.status ? `Status: ${subscription.status}` : "Standard tilgang aktiv"}
+          </div>
+          <p className="mt-4 text-sm leading-7 text-white/76">
+            Tilgangen bestemmer hvor mye av analyseflaten som er synlig for brukeren.
+          </p>
+        </aside>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.88)]">
+          <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+            Brukerprofil
+          </div>
+          <h2 className="mt-4 text-[1.9rem] font-semibold text-slate-950">Kontoopplysninger</h2>
+          <div className="mt-6 grid gap-4 text-sm text-slate-600 md:grid-cols-2">
+            <div>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Navn</div>
+              <div className="mt-1 font-semibold text-slate-900">{session.user.name}</div>
+            </div>
+            <div>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">E-post</div>
+              <div className="mt-1 font-semibold text-slate-900">{session.user.email}</div>
+            </div>
+            <div>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Plan</div>
+              <div className="mt-1 font-semibold text-slate-900">{subscription?.plan ?? "Standard"}</div>
+            </div>
+            <div>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Neste periode</div>
+              <div className="mt-1 font-semibold text-slate-900">
+                {formatDate(subscription?.currentPeriodEnd)}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="border-[rgba(15,23,42,0.08)] bg-[#F8FAFC]">
+          <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+            Tilgang
+          </div>
+          <h2 className="mt-4 text-[1.9rem] font-semibold text-slate-950">Oversikt over kontorettigheter</h2>
+          <p className="mt-4 text-sm leading-7 text-slate-600">
+            Bruk denne siden til å kontrollere om kontoen har standard eller utvidet tilgang før du
+            går videre i produktet.
+          </p>
+        </Card>
+      </div>
     </main>
   );
 }

@@ -16,11 +16,17 @@ export function KeyFiguresGrid({
     { label: "Eiendeler", value: formatCurrency(latestStatement?.assets) },
     {
       label: "Aksjekapital",
-      value: company.shareCapital !== null && company.shareCapital !== undefined ? formatCurrency(company.shareCapital) : "Ikke tilgjengelig",
+      value:
+        company.shareCapital !== null && company.shareCapital !== undefined
+          ? formatCurrency(company.shareCapital)
+          : "Ikke tilgjengelig",
     },
     {
       label: "Antall aksjer",
-      value: company.shareCount !== null && company.shareCount !== undefined ? formatNumber(company.shareCount) : "Ikke tilgjengelig",
+      value:
+        company.shareCount !== null && company.shareCount !== undefined
+          ? formatNumber(company.shareCount)
+          : "Ikke tilgjengelig",
     },
   ];
 

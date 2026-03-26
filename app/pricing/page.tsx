@@ -1,5 +1,5 @@
-import { safeAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
+import { safeAuth } from "@/lib/auth";
 import { isPremium } from "@/server/billing/subscription";
 
 export default async function PricingPage() {
@@ -17,7 +17,8 @@ export default async function PricingPage() {
             Tilgangsnivåer for team som jobber systematisk med selskapsanalyse.
           </h1>
           <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
-            Velg arbeidsnivå etter hvor mye innsikt teamet trenger i research, vurdering og oppfølging av norske selskaper.
+            Velg arbeidsnivå etter hvor mye innsikt teamet trenger i research, vurdering og oppfølging
+            av norske selskaper.
           </p>
         </div>
 
@@ -37,9 +38,9 @@ export default async function PricingPage() {
           <p className="data-label text-[11px] font-semibold uppercase text-slate-500">Standard</p>
           <h2 className="mt-4 text-[2rem] font-semibold text-slate-950">God dekning for daglig research</h2>
           <ul className="mt-5 space-y-3 text-sm leading-7 text-slate-600">
-            <li>• Søk, filtrering og selskapsprofiler</li>
-            <li>• Oversikt over virksomhetsdata, regnskap og struktur</li>
-            <li>• Begrenset visning i enkelte analyseblokker</li>
+            <li>Søk, filtrering og selskapsprofiler</li>
+            <li>Oversikt over virksomhetsdata, regnskap og struktur</li>
+            <li>Begrenset visning i enkelte analyseblokker</li>
           </ul>
         </Card>
 
@@ -47,9 +48,9 @@ export default async function PricingPage() {
           <p className="data-label text-[11px] font-semibold uppercase text-white/60">Utvidet</p>
           <h2 className="mt-4 text-[2rem] font-semibold">Mer komplett arbeidsflate for dypere analyse</h2>
           <ul className="mt-5 space-y-3 text-sm leading-7 text-white/76">
-            <li>• Fullere innsyn i roller og struktur når data er tilgjengelig</li>
-            <li>• Mer komplett visning for analyse og oppfølging</li>
-            <li>• Klargjort for tilgangsstyring på tvers av produktet</li>
+            <li>Fullere innsyn i roller og struktur når data er tilgjengelig</li>
+            <li>Mer komplett visning for analyse og oppfølging</li>
+            <li>Klargjort for tilgangsstyring på tvers av produktet</li>
           </ul>
           <div className="mt-6 rounded-[0.9rem] border border-white/10 bg-white/5 p-4 text-sm text-white/82">
             {premium

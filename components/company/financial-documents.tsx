@@ -32,11 +32,15 @@ export function FinancialDocuments({
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] p-5">
-          <p className="data-label text-[11px] font-semibold uppercase text-slate-500">Sist innsendte årsregnskap</p>
+          <p className="data-label text-[11px] font-semibold uppercase text-slate-500">
+            Sist innsendte årsregnskap
+          </p>
           <p className="mt-2 text-3xl font-semibold text-slate-950">{latestYear ?? "Ikke tilgjengelig"}</p>
         </div>
         <div className="border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] p-5">
-          <p className="data-label text-[11px] font-semibold uppercase text-slate-500">Registrerte regnskapsår</p>
+          <p className="data-label text-[11px] font-semibold uppercase text-slate-500">
+            Registrerte regnskapsår
+          </p>
           <p className="mt-2 text-3xl font-semibold text-slate-950">{documents.length}</p>
         </div>
       </div>
@@ -47,7 +51,9 @@ export function FinancialDocuments({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-slate-950">{document.year}</p>
-                <p className="text-sm text-slate-600">{document.files.map((file) => fileTypeLabel(file.type)).join(", ")}</p>
+                <p className="text-sm text-slate-600">
+                  {document.files.map((file) => fileTypeLabel(file.type)).join(", ")}
+                </p>
               </div>
               <div className="data-label rounded-full border border-[rgba(15,23,42,0.1)] bg-[rgba(49,73,95,0.05)] px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
                 Registrert

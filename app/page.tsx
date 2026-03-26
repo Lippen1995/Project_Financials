@@ -109,8 +109,8 @@ export default function HomePage() {
                   Produktdisiplin
                 </div>
                 <div className="mt-2 text-sm leading-7 text-white/76">
-                  Ingen mockdata, ingen syntetiske selskaper og ingen pyntede signaler når grunnlag
-                  mangler.
+                  Ingen plassholdere, ingen pyntede signaler og ingen snarveier når grunnlaget er
+                  tynt.
                 </div>
               </div>
             </div>
@@ -163,7 +163,7 @@ export default function HomePage() {
             {[
               [
                 "Selskapsprofil",
-                "Juridisk navn, status, bransje, kommune, executive snapshot og sentrale signaler i samme arbeidsflate.",
+                "Juridisk navn, status, bransje, kommune, hovedsignaler og sentrale vurderingspunkter i samme arbeidsflate.",
               ],
               [
                 "Regnskap",
@@ -188,7 +188,7 @@ export default function HomePage() {
         <div className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-white">
           <div className="border-b border-[rgba(15,23,42,0.08)] p-6">
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-              Datadekning
+              Datagrunnlag
             </div>
             <h2 className="mt-3 text-[2rem] font-semibold text-slate-950">
               Tillit bygges i hvordan informasjonen presenteres

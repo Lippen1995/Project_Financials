@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export function SearchForm({
   compact = false,

@@ -32,7 +32,10 @@ export default function LoginPage() {
         <div className="mt-8 rounded-[0.95rem] border border-white/10 bg-white/5 p-6">
           <LoginForm mode="register" />
         </div>
-        <Link href="/pricing" className="mt-6 inline-flex text-sm font-semibold text-white underline underline-offset-4">
+        <Link
+          href="/pricing"
+          className="mt-6 inline-flex text-sm font-semibold text-white underline underline-offset-4"
+        >
           Se tilgangsnivåer
         </Link>
       </Card>
