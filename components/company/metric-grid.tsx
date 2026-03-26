@@ -28,11 +28,11 @@ export function MetricGrid({
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       {metrics.map((metric) => (
-        <Card key={metric.label} className="p-5">
-          <p className="text-sm text-ink/55">{metric.label}</p>
-          <p className="mt-2 text-2xl font-semibold text-ink">{metric.value}</p>
+        <Card key={metric.label} className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.84)] p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
+          <p className="mt-2 text-[1.45rem] font-semibold tracking-tight text-slate-950">{metric.value}</p>
         </Card>
       ))}
     </div>

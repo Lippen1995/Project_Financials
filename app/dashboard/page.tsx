@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 
 import { Card } from "@/components/ui/card";
-import { auth } from "@/lib/auth";
+import { safeAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 
 export default async function DashboardPage() {
-  const session = await auth();
+  const session = await safeAuth();
 
   if (!session?.user?.id) {
     redirect("/login");
@@ -17,10 +17,10 @@ export default async function DashboardPage() {
   });
 
   return (
-    <main className="space-y-6">
-      <Card>
-        <h1 className="text-3xl font-semibold tracking-tight">Min konto</h1>
-        <div className="mt-5 grid gap-3 text-sm text-ink/70 md:grid-cols-2">
+    <main className="space-y-6 pb-10">
+      <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.88)]">
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-950">Min konto</h1>
+        <div className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
           <p>Navn: {session.user.name}</p>
           <p>E-post: {session.user.email}</p>
           <p>Plan: {subscription?.plan ?? "free"}</p>
@@ -28,10 +28,11 @@ export default async function DashboardPage() {
           <p>Neste periode: {formatDate(subscription?.currentPeriodEnd)}</p>
         </div>
       </Card>
-      <Card className="bg-gradient-to-br from-sand to-white">
-        <h2 className="text-2xl font-semibold">Hva som er ekte i MVP-et</h2>
-        <p className="mt-3 max-w-2xl text-sm text-ink/70">
-          Virksomhetsdata kommer fra Brønnøysundregistrene. Næringskodebeskrivelser kommer fra SSB. Når åpne data ikke finnes for en seksjon, viser ProjectX tom tilstand i stedet for syntetisk innhold.
+
+      <Card className="border-[rgba(15,23,42,0.08)] bg-[#192536] text-white">
+        <h2 className="text-2xl font-semibold">Kontostatus og tilgang</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-white/76">
+          Her ser du hvilken tilgang kontoen har i dag, og når neste periode utløper dersom kontoen er satt opp med abonnement.
         </p>
       </Card>
     </main>

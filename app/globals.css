@@ -4,12 +4,50 @@
 
 :root {
   color-scheme: light;
+  --px-bg: #f5f4f0;
+  --px-surface: rgba(255, 255, 255, 0.9);
+  --px-surface-strong: #ffffff;
+  --px-border: rgba(15, 23, 42, 0.1);
+  --px-text: #111827;
+  --px-muted: #5f6b7a;
+  --px-accent: #31495f;
+  --px-accent-soft: #e7edf3;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  @apply min-h-screen bg-mesh text-ink antialiased;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.75), transparent 30%),
+    linear-gradient(180deg, #f7f6f2 0%, #f3f2ee 100%);
+  color: var(--px-text);
+  @apply min-h-screen antialiased;
+  font-family: var(--font-sans), sans-serif;
+  font-feature-settings: "cv11" 1, "tnum" 1, "lnum" 1;
 }
 
 a {
   @apply transition-colors;
+}
+
+::selection {
+  background: rgba(49, 73, 95, 0.14);
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.04em;
+}
+
+.editorial-display {
+  font-family: var(--font-serif), serif;
+  letter-spacing: -0.05em;
+}
+
+.data-label {
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.14em;
 }

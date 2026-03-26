@@ -5,7 +5,7 @@ import { FormEvent } from "react";
 
 export function SearchForm({
   compact = false,
-  placeholder = "Søk på selskapsnavn eller organisasjonsnummer",
+  placeholder = "Søk på selskapsnavn, person eller organisasjonsnummer",
 }: {
   compact?: boolean;
   placeholder?: string;
@@ -29,16 +29,23 @@ export function SearchForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex w-full flex-col gap-3 sm:flex-row">
+    <form
+      onSubmit={onSubmit}
+      className="flex w-full flex-col gap-3 rounded-[1rem] border border-[rgba(15,23,42,0.1)] bg-[rgba(255,255,255,0.92)] p-2 sm:flex-row"
+    >
       <input
         name="query"
         defaultValue={searchParams.get("query") ?? ""}
         placeholder={placeholder}
-        className="min-h-12 flex-1 rounded-full border border-ink/10 bg-white px-5 text-sm outline-none transition focus:border-tide"
+        className="min-h-14 flex-1 rounded-[0.85rem] bg-transparent px-4 text-[15px] text-slate-900 outline-none placeholder:text-slate-400"
       />
       <button
         type="submit"
-        className={`rounded-full px-5 py-3 text-sm font-semibold text-white ${compact ? "bg-ember" : "bg-tide"}`}
+        className={`min-h-14 rounded-[0.85rem] px-5 text-sm font-semibold ${
+          compact
+            ? "border border-[rgba(15,23,42,0.12)] bg-[rgba(49,73,95,0.06)] text-slate-800"
+            : "bg-[#182535] text-white"
+        }`}
       >
         Søk i ProjectX
       </button>

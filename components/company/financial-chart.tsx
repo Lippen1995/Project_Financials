@@ -3,14 +3,27 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
-import { formatAxisNok, formatCompactNok, formatSignedPercent, OverviewChartPoint } from "@/lib/overview-chart";
+import {
+  formatAxisNok,
+  formatCompactNok,
+  formatSignedPercent,
+  OverviewChartPoint,
+} from "@/lib/overview-chart";
 
 const CHART_HEIGHT = 336;
 const CHART_WIDTH_PER_YEAR = 78;
 const CHART_PADDING = { top: 18, right: 72, bottom: 42, left: 72 };
 
 function buildRevenueTicks(maxValue: number) {
-  return [0, maxValue * 0.16, maxValue * 0.33, maxValue * 0.5, maxValue * 0.66, maxValue * 0.83, maxValue];
+  return [
+    0,
+    maxValue * 0.16,
+    maxValue * 0.33,
+    maxValue * 0.5,
+    maxValue * 0.66,
+    maxValue * 0.83,
+    maxValue,
+  ];
 }
 
 function buildLinearTicks(minValue: number, maxValue: number, count = 7) {
@@ -26,18 +39,10 @@ function buildLinearTicks(minValue: number, maxValue: number, count = 7) {
 
 function niceMarginBound(value: number) {
   const absolute = Math.max(Math.abs(value), 5);
-  if (absolute <= 5) {
-    return 5;
-  }
-  if (absolute <= 10) {
-    return 10;
-  }
-  if (absolute <= 15) {
-    return 15;
-  }
-  if (absolute <= 25) {
-    return 25;
-  }
+  if (absolute <= 5) return 5;
+  if (absolute <= 10) return 10;
+  if (absolute <= 15) return 15;
+  if (absolute <= 25) return 25;
   return Math.ceil(absolute / 10) * 10;
 }
 
@@ -58,8 +63,8 @@ export function FinancialChart({
 
   if (points.length === 0) {
     return (
-      <div className="rounded-[1.35rem] border border-dashed border-[#D8DFE6] bg-[#FAFBFC] p-6 text-sm text-[#667085]">
-        Historiske regnskapslinjer er ikke tilgjengelige fra verifiserte Brreg-kilder ennå.
+      <div className="border border-dashed border-[#D8DFE6] bg-[#FAFBFC] p-6 text-sm text-[#667085]">
+        Historiske regnskapslinjer er ikke tilgjengelige ennå.
       </div>
     );
   }
@@ -80,8 +85,6 @@ export function FinancialChart({
   const barWidth = Math.min(26, groupWidth * 0.34);
   const revenueTicks = buildRevenueTicks(maxRevenue);
   const marginTicks = buildLinearTicks(minMargin, maxMargin, 7);
-  const zeroY =
-    CHART_PADDING.top + ((maxMargin - 0) / marginRange) * plotHeight;
 
   function yRevenue(value: number) {
     return CHART_PADDING.top + ((maxRevenue - value) / maxRevenue) * plotHeight;
@@ -103,43 +106,49 @@ export function FinancialChart({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-full border border-[#D8DFE6] bg-white p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,42,0.08)] pb-3">
+        <div className="inline-flex rounded-full border border-[#D8DFE6] bg-[#F8FAFC] p-1">
           <button
             type="button"
             onClick={() => setShowRevenue((current) => !current)}
             className={cn(
               "inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold tracking-[0.01em] transition",
-              showRevenue ? "bg-[#113E49] text-white" : "text-[#475467] hover:bg-[#F4F6F8]",
+              showRevenue ? "bg-[#162233] text-white" : "text-[#475467] hover:bg-white",
             )}
           >
-            <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", showRevenue ? "bg-white" : "bg-[#2D6F78]")} />
-            Inntekt
+            <span
+              aria-hidden="true"
+              className={cn("h-2 w-2 rounded-full", showRevenue ? "bg-white" : "bg-[#31495F]")}
+            />
+            Omsetning
           </button>
           <button
             type="button"
             onClick={() => setShowMargin((current) => !current)}
             className={cn(
               "inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold tracking-[0.01em] transition",
-              showMargin ? "bg-[#7A4A23] text-white" : "text-[#475467] hover:bg-[#F4F6F8]",
+              showMargin ? "bg-[#5B4631] text-white" : "text-[#475467] hover:bg-white",
             )}
           >
-            <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", showMargin ? "bg-white" : "bg-[#A4642D]")} />
+            <span
+              aria-hidden="true"
+              className={cn("h-2 w-2 rounded-full", showMargin ? "bg-white" : "bg-[#A4642D]")}
+            />
             EBIT-margin
           </button>
         </div>
 
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#98A2B3]">
+        <p className="data-label text-[11px] font-semibold uppercase text-[#98A2B3]">
           {points[0].fiscalYear} - {points[points.length - 1].fiscalYear}
         </p>
       </div>
 
-      <div className="rounded-[1.4rem] border border-[#E4EAF0] bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFD_100%)] px-3 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+      <div className="border border-[#E4EAF0] bg-white px-3 py-3">
         <div className="relative overflow-x-auto">
           <div className="min-w-[620px]">
             {activePoint && activeIndex >= 0 ? (
               <div
-                className="pointer-events-none absolute z-20 -translate-x-1/2 rounded-[1rem] border border-[#E4EAF0] bg-white px-3 py-2 shadow-[0_16px_36px_rgba(15,23,42,0.12)]"
+                className="pointer-events-none absolute z-20 -translate-x-1/2 border border-[#E4EAF0] bg-white px-3 py-2"
                 style={{
                   left: `${CHART_PADDING.left + groupWidth * activeIndex + groupWidth / 2}px`,
                   top: 10,
@@ -150,8 +159,8 @@ export function FinancialChart({
                 </div>
                 <div className="mt-2 space-y-1.5 text-sm">
                   <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
-                    <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#2D6F78]" />
-                    <span className="text-[#475467]">Inntekt</span>
+                    <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#31495F]" />
+                    <span className="text-[#475467]">Omsetning</span>
                     <span className="text-right font-semibold tabular-nums text-[#101828]">
                       {formatCompactNok(activePoint.revenue)}
                     </span>
@@ -159,7 +168,10 @@ export function FinancialChart({
                   <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
                     <span
                       aria-hidden="true"
-                      className={cn("h-2 w-2 rounded-full", (activePoint.operatingMargin ?? 0) < 0 ? "bg-[#8B3A2B]" : "bg-[#A4642D]")}
+                      className={cn(
+                        "h-2 w-2 rounded-full",
+                        (activePoint.operatingMargin ?? 0) < 0 ? "bg-[#8B3A2B]" : "bg-[#A4642D]",
+                      )}
                     />
                     <span className="text-[#475467]">EBIT-margin</span>
                     <span
@@ -179,7 +191,7 @@ export function FinancialChart({
               viewBox={`0 0 ${svgWidth} ${CHART_HEIGHT}`}
               className="h-[23.5rem] w-full"
               role="img"
-              aria-label="Historisk utvikling i inntekt og EBIT-margin"
+              aria-label="Historisk utvikling i omsetning og EBIT-margin"
             >
               <line
                 x1={CHART_PADDING.left}
@@ -255,9 +267,7 @@ export function FinancialChart({
 
               {showRevenue
                 ? points.map((point, index) => {
-                    if (point.revenue === null) {
-                      return null;
-                    }
+                    if (point.revenue === null) return null;
                     const x = CHART_PADDING.left + groupWidth * index + groupWidth / 2 - barWidth / 2;
                     const y = yRevenue(point.revenue);
                     return (
@@ -267,8 +277,8 @@ export function FinancialChart({
                         y={y}
                         width={barWidth}
                         height={Math.max(CHART_HEIGHT - CHART_PADDING.bottom - y, 6)}
-                        rx={7}
-                        fill={activePoint?.fiscalYear === point.fiscalYear ? "#1E5964" : "#2D6F78"}
+                        rx={6}
+                        fill={activePoint?.fiscalYear === point.fiscalYear ? "#20374D" : "#31495F"}
                         opacity={activePoint?.fiscalYear === point.fiscalYear ? 1 : 0.88}
                       />
                     );
@@ -279,7 +289,7 @@ export function FinancialChart({
                 <path
                   d={marginPath}
                   fill="none"
-                  stroke="#A4642D"
+                  stroke="#8B6338"
                   strokeWidth={2.25}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -288,9 +298,7 @@ export function FinancialChart({
 
               {showMargin
                 ? points.map((point, index) => {
-                    if (point.operatingMargin === null) {
-                      return null;
-                    }
+                    if (point.operatingMargin === null) return null;
                     const cx = CHART_PADDING.left + groupWidth * index + groupWidth / 2;
                     const cy = yMargin(point.operatingMargin);
                     return (
@@ -299,7 +307,7 @@ export function FinancialChart({
                         cx={cx}
                         cy={cy}
                         r={activePoint?.fiscalYear === point.fiscalYear ? 5 : 4}
-                        fill={(point.operatingMargin ?? 0) < 0 ? "#8B3A2B" : "#A4642D"}
+                        fill={(point.operatingMargin ?? 0) < 0 ? "#8B3A2B" : "#8B6338"}
                         stroke="#FFFFFF"
                         strokeWidth={2}
                       />

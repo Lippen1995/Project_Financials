@@ -15,7 +15,11 @@ export function RolesList({ roles }: { roles: NormalizedRole[] }) {
               <p className="font-semibold text-ink">{role.person.fullName}</p>
               <p className="text-sm text-ink/60">{role.title}</p>
             </div>
-            <div className="text-xs text-ink/55">{role.fromDate ? `${formatDate(role.fromDate)} - ${role.toDate ? formatDate(role.toDate) : "na"}` : "Periode ikke oppgitt"}</div>
+            <div className="text-xs text-ink/55">
+              {role.fromDate
+                ? `${formatDate(role.fromDate)} - ${role.toDate ? formatDate(role.toDate) : "nå"}`
+                : "Periode ikke oppgitt"}
+            </div>
           </div>
         </div>
       ))}

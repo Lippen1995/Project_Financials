@@ -12,9 +12,9 @@ export type CompanyTabId =
 const tabs: { id: CompanyTabId; label: string }[] = [
   { id: "oversikt", label: "Oversikt" },
   { id: "regnskap", label: "Regnskap" },
-  { id: "nokkeltall", label: "Nokkeltall" },
+  { id: "nokkeltall", label: "Nøkkeltall" },
   { id: "organisasjon", label: "Organisasjon" },
-  { id: "kunngjoringer", label: "Kunngjoringer" },
+  { id: "kunngjoringer", label: "Kunngjøringer" },
 ];
 
 export function isCompanyTab(value: string | undefined): value is CompanyTabId {
@@ -29,17 +29,17 @@ export function CompanyTabs({
   activeTab: CompanyTabId;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <div className="inline-flex min-w-full gap-2 rounded-[1.5rem] border border-white/70 bg-white/75 p-2 shadow-panel">
+    <div className="sticky top-4 z-30 overflow-x-auto rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(247,247,245,0.86)] px-2 py-2 backdrop-blur-sm">
+      <div className="inline-flex min-w-full gap-1">
         {tabs.map((tab) => (
           <Link
             key={tab.id}
             href={`/companies/${companySlug}?tab=${tab.id}`}
             className={cn(
-              "rounded-[1.1rem] px-4 py-3 text-sm font-medium transition",
+              "rounded-[0.8rem] px-4 py-2.5 text-sm font-medium transition",
               activeTab === tab.id
-                ? "bg-ink text-white"
-                : "text-ink/65 hover:bg-sand hover:text-ink",
+                ? "bg-[#182535] text-white"
+                : "text-slate-600 hover:bg-white hover:text-slate-900",
             )}
           >
             {tab.label}

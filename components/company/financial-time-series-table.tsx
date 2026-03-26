@@ -5,8 +5,8 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 
 import {
   buildFinancialReportDataset,
-  FinancialReportRow,
   FinancialDensityMode,
+  FinancialReportRow,
   FinancialStatementType,
   FinancialValueMode,
   formatCompactCurrency,
@@ -55,20 +55,17 @@ const incomeKpis: KpiDefinition[] = [
   },
   {
     label: "EBIT",
-    formatter: (dataset, year) => (year ? formatCompactCurrency(dataset.valuesByYear[year]?.ebit ?? null) : "—"),
+    formatter: (dataset, year) =>
+      year ? formatCompactCurrency(dataset.valuesByYear[year]?.ebit ?? null) : "—",
   },
   {
     label: "EBIT-margin",
     formatter: (dataset, year) => {
-      if (!year) {
-        return "—";
-      }
+      if (!year) return "—";
 
       const revenue = dataset.valuesByYear[year]?.total_operating_revenue ?? null;
       const ebit = dataset.valuesByYear[year]?.ebit ?? null;
-      if (revenue === null || ebit === null || revenue === 0) {
-        return "—";
-      }
+      if (revenue === null || ebit === null || revenue === 0) return "—";
 
       return formatPercent((ebit / revenue) * 100);
     },
@@ -83,11 +80,13 @@ const incomeKpis: KpiDefinition[] = [
 const balanceKpis: KpiDefinition[] = [
   {
     label: "Sum eiendeler",
-    formatter: (dataset, year) => (year ? formatCompactCurrency(dataset.valuesByYear[year]?.total_assets ?? null) : "—"),
+    formatter: (dataset, year) =>
+      year ? formatCompactCurrency(dataset.valuesByYear[year]?.total_assets ?? null) : "—",
   },
   {
     label: "Egenkapital",
-    formatter: (dataset, year) => (year ? formatCompactCurrency(dataset.valuesByYear[year]?.total_equity ?? null) : "—"),
+    formatter: (dataset, year) =>
+      year ? formatCompactCurrency(dataset.valuesByYear[year]?.total_equity ?? null) : "—",
   },
   {
     label: "Langsiktig gjeld",
@@ -97,25 +96,18 @@ const balanceKpis: KpiDefinition[] = [
   {
     label: "Egenkapitalandel",
     formatter: (dataset, year) => {
-      if (!year) {
-        return "—";
-      }
+      if (!year) return "—";
 
       const totalAssets = dataset.valuesByYear[year]?.total_assets ?? null;
       const equity = dataset.valuesByYear[year]?.total_equity ?? null;
-      if (totalAssets === null || equity === null || totalAssets === 0) {
-        return "—";
-      }
+      if (totalAssets === null || equity === null || totalAssets === 0) return "—";
 
       return formatPercent((equity / totalAssets) * 100);
     },
   },
 ];
 
-function formatCell(
-  value: number | null,
-  mode: FinancialValueMode,
-) {
+function formatCell(value: number | null, mode: FinancialValueMode) {
   if (mode === "amount") {
     return formatCurrency(value);
   }
@@ -137,6 +129,37 @@ function NegativeValue({ children, negative }: { children: string; negative: boo
   );
 }
 
+function SegmentedControl<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-full border border-[rgba(15,23,42,0.1)] bg-[#F8FAFC] p-1">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={value === option.value}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "rounded-full px-3 py-2 text-sm font-medium transition",
+            value === option.value
+              ? "bg-[#162233] text-white"
+              : "text-slate-600 hover:bg-white hover:text-slate-950",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function TableControls({
   mode,
   densityMode,
@@ -149,48 +172,29 @@ function TableControls({
   onDensityChange: (value: FinancialDensityMode) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-y border-slate-200/80 bg-slate-50/75 px-4 py-4 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-3 border-y border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] px-5 py-4 md:flex-row md:items-center md:justify-between">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
-          {(["amount", "margin", "growth"] as FinancialValueMode[]).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={mode === option}
-              onClick={() => onModeChange(option)}
-              className={cn(
-                "rounded-full px-3 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500",
-                mode === option
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-              )}
-            >
-              {modeLabels[option]}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={mode}
+          onChange={onModeChange}
+          options={[
+            { value: "amount", label: modeLabels.amount },
+            { value: "margin", label: modeLabels.margin },
+            { value: "growth", label: modeLabels.growth },
+          ]}
+        />
 
-        <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
-          {(["main", "all"] as FinancialDensityMode[]).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={densityMode === option}
-              onClick={() => onDensityChange(option)}
-              className={cn(
-                "rounded-full px-3 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500",
-                densityMode === option
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-              )}
-            >
-              {densityLabels[option]}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={densityMode}
+          onChange={onDensityChange}
+          options={[
+            { value: "main", label: densityLabels.main },
+            { value: "all", label: densityLabels.all },
+          ]}
+        />
       </div>
 
-      <p className="text-sm font-medium text-slate-500">Tall i NOK</p>
+      <p className="data-label text-[11px] font-semibold uppercase text-slate-500">Tall i NOK</p>
     </div>
   );
 }
@@ -210,8 +214,8 @@ export function FinancialTimeSeriesTable({
 
   if (dataset.years.length === 0) {
     return (
-      <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50/70 p-6 text-sm text-slate-600">
-        Ingen verifiserte regnskapstall er tilgjengelige for denne virksomheten ennå. Når ekte Brreg-data finnes, vises resultatregnskap og balanse her.
+      <div className="border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-7 text-slate-600">
+        Regnskapstall er ikke tilgjengelige for denne virksomheten ennå.
       </div>
     );
   }
@@ -251,35 +255,26 @@ export function FinancialTimeSeriesTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-[1.9rem] border border-slate-200/90 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.08)]">
-      <div className="border-b border-slate-200 bg-[linear-gradient(135deg,rgba(248,250,252,0.95),rgba(239,246,255,0.92))] px-4 py-5 sm:px-6">
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex rounded-full border border-slate-200 bg-white/90 p-1 shadow-sm">
-                {(["income", "balance"] as FinancialStatementType[]).map((statement) => (
-                  <button
-                    key={statement}
-                    type="button"
-                    aria-pressed={activeStatement === statement}
-                    onClick={() => setActiveStatement(statement)}
-                    className={cn(
-                      "rounded-full px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500",
-                      activeStatement === statement
-                        ? "bg-slate-900 text-white"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                    )}
-                  >
-                    {statementMeta[statement].title}
-                  </button>
-                ))}
-              </div>
+    <section className="border border-[rgba(15,23,42,0.08)] bg-white">
+      <div className="grid gap-6 border-b border-[rgba(15,23,42,0.08)] p-5 xl:grid-cols-[220px,minmax(0,1fr)]">
+        <div>
+          <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+            Finansiell visning
+          </div>
+          <h3 className="mt-3 text-[1.9rem] font-semibold text-slate-950">{meta.title}</h3>
+          <p className="mt-2 text-sm leading-7 text-slate-600">{meta.subtitle}</p>
+        </div>
 
-              <div>
-                <h3 className="text-2xl font-semibold tracking-tight text-slate-950">{meta.title}</h3>
-                <p className="mt-1 text-sm text-slate-500">{meta.subtitle}</p>
-              </div>
-            </div>
+        <div className="space-y-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <SegmentedControl
+              value={activeStatement}
+              onChange={setActiveStatement}
+              options={[
+                { value: "income", label: statementMeta.income.title },
+                { value: "balance", label: statementMeta.balance.title },
+              ]}
+            />
 
             {activeStatement === "balance" ? (
               <div
@@ -311,13 +306,15 @@ export function FinancialTimeSeriesTable({
             {kpis.map((item) => (
               <div
                 key={item.label}
-                className="rounded-[1.35rem] border border-slate-200/80 bg-white/90 px-4 py-4 shadow-sm"
+                className="border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] px-4 py-4"
               >
-                <p className="text-sm font-medium text-slate-500">{item.label}</p>
-                <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                <p className="data-label text-[11px] font-semibold uppercase text-slate-500">
+                  {item.label}
+                </p>
+                <p className="mt-2 text-[1.6rem] font-semibold tracking-tight text-slate-950">
                   {item.formatter(dataset, latestYear)}
                 </p>
-                <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-400">
+                <p className="mt-1 text-xs text-slate-500">
                   {latestYear ? latestYear : "Ikke tilgjengelig"}
                 </p>
               </div>
@@ -339,10 +336,10 @@ export function FinancialTimeSeriesTable({
             {meta.title} vist som tidsserie med år fra venstre til høyre og verdier i NOK.
           </caption>
           <thead className="sticky top-0 z-20">
-            <tr className="bg-slate-950">
+            <tr className="bg-[#162233]">
               <th
                 scope="col"
-                className="sticky left-0 z-30 min-w-[320px] border-b border-slate-800 bg-slate-950 px-5 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-200"
+                className="data-label sticky left-0 z-30 min-w-[320px] border-b border-[#101826] bg-[#162233] px-5 py-4 text-left text-xs font-semibold uppercase text-slate-200"
               >
                 Linje
               </th>
@@ -350,7 +347,7 @@ export function FinancialTimeSeriesTable({
                 <th
                   key={`${activeStatement}-${year}`}
                   scope="col"
-                  className="border-b border-slate-800 px-5 py-4 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-200"
+                  className="data-label border-b border-[#101826] px-5 py-4 text-right text-xs font-semibold uppercase text-slate-200"
                 >
                   {year}
                 </th>
@@ -360,9 +357,7 @@ export function FinancialTimeSeriesTable({
           <tbody>
             {sections.map((section) => {
               const rows = getRenderedRows(section.key);
-              if (rows.length === 0) {
-                return null;
-              }
+              if (rows.length === 0) return null;
 
               return (
                 <FragmentSection key={section.key} title={section.title}>
@@ -383,7 +378,7 @@ export function FinancialTimeSeriesTable({
                       <tr
                         key={`${row.key}-${activeStatement}`}
                         className={cn(
-                          "group transition hover:bg-sky-50/60",
+                          "group transition hover:bg-slate-50",
                           canExpand && "cursor-pointer",
                           rowClassName,
                         )}
@@ -408,9 +403,13 @@ export function FinancialTimeSeriesTable({
                                   }}
                                   aria-expanded={expanded}
                                   aria-label={`${expanded ? "Skjul" : "Vis"} detaljer for ${row.label}`}
-                                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
+                                  className="inline-flex h-7 w-7 items-center justify-center border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
                                 >
-                                  {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                  {expanded ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
                                 </button>
                               ) : row.parentKey ? (
                                 <span
@@ -425,7 +424,8 @@ export function FinancialTimeSeriesTable({
                                 className={cn(
                                   "text-sm text-slate-800",
                                   row.parentKey && "pl-2 text-slate-600",
-                                  (row.type === "subtotal" || row.type === "key_metric") && "font-semibold",
+                                  (row.type === "subtotal" || row.type === "key_metric") &&
+                                    "font-semibold",
                                   row.type === "total" && "font-semibold text-slate-950",
                                 )}
                               >
@@ -434,7 +434,8 @@ export function FinancialTimeSeriesTable({
                             </div>
                             {activeStatement === "balance" &&
                             latestYear &&
-                            (row.key === "total_assets" || row.key === "total_equity_and_liabilities") ? (
+                            (row.key === "total_assets" ||
+                              row.key === "total_equity_and_liabilities") ? (
                               <span
                                 className={cn(
                                   "shrink-0 rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]",
@@ -443,7 +444,9 @@ export function FinancialTimeSeriesTable({
                                     : "border-amber-200 bg-amber-50 text-amber-900",
                                 )}
                               >
-                                {dataset.balanceValidationByYear[latestYear]?.balanced ? "Balanced" : "Sjekk"}
+                                {dataset.balanceValidationByYear[latestYear]?.balanced
+                                  ? "Avstemt"
+                                  : "Sjekk"}
                               </span>
                             ) : null}
                           </div>
@@ -475,7 +478,7 @@ export function FinancialTimeSeriesTable({
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -492,7 +495,7 @@ function FragmentSection({
         <th
           colSpan={999}
           scope="colgroup"
-          className="border-b border-slate-200 px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500"
+          className="data-label border-b border-slate-200 px-5 py-3 text-left text-[11px] font-semibold uppercase text-slate-500"
         >
           {title}
         </th>
