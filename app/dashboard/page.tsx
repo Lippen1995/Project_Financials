@@ -24,11 +24,11 @@ export default async function DashboardPage() {
             Konto
           </div>
           <h1 className="editorial-display mt-5 max-w-4xl text-[3rem] leading-[0.98] text-slate-950 sm:text-[4rem]">
-            Kontoinnstillinger og tilgang samlet i én arbeidsflate.
+            Tilgang til skarp innsikt samlet i én arbeidsflate.
           </h1>
           <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
-            Her ser du hvilken tilgang brukeren har, når perioden løper ut og hvilke kontodetaljer
-            som gjelder akkurat nå.
+            Her ser du hvilken tilgang brukeren har, når perioden løper ut og hvilke
+            kontooplysninger som gjelder akkurat nå.
           </p>
         </div>
 
@@ -77,10 +77,10 @@ export default async function DashboardPage() {
           <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
             Tilgang
           </div>
-          <h2 className="mt-4 text-[1.9rem] font-semibold text-slate-950">Oversikt over kontorettigheter</h2>
+          <h2 className="mt-4 text-[1.9rem] font-semibold text-slate-950">Datagrunnlag du kan stole på</h2>
           <p className="mt-4 text-sm leading-7 text-slate-600">
-            Bruk denne siden til å kontrollere om kontoen har standard eller utvidet tilgang før du
-            går videre i produktet.
+            Tilgangen styrer hvor mye av analyseflaten som er synlig, men innsikten bygger fortsatt
+            på offisielle kilder og tydelige tomtilstander når data mangler.
           </p>
         </Card>
       </div>

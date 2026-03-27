@@ -49,12 +49,12 @@ export default function HomePage() {
               </div>
               <div className="grid gap-5">
                 <h1 className="editorial-display max-w-5xl text-[3.5rem] leading-[0.96] text-[#111827] sm:text-[4.8rem] xl:text-[6.15rem]">
-                  Presis selskapsanalyse for vurdering, research og beslutninger.
+                  Skarp innsikt for kritiske forretningsbeslutninger.
                 </h1>
                 <p className="max-w-3xl text-[1.06rem] leading-8 text-slate-600">
-                  Søk i norske selskaper, personer og organisasjonsnumre med et grensesnitt bygget
-                  for investorer, rådgivere, regnskapsførere og kommersielle team som trenger raske,
-                  etterprøvbare svar.
+                  Søk i norske selskaper, personer og organisasjonsnumre med offisielle data fra
+                  Brønnøysundregistrene og SSB. ProjectX er bygget for team som trenger raske,
+                  etterprøvbare svar når vurderinger og beslutninger haster.
                 </p>
               </div>
             </div>
@@ -87,11 +87,11 @@ export default function HomePage() {
                 Hva produktet gjør
               </div>
               <div className="mt-4 text-[1.7rem] font-semibold leading-tight">
-                Fra registerdata til faktisk arbeidsflate.
+                Fra registerdata til skarpere vurderinger.
               </div>
               <p className="mt-4 text-sm leading-7 text-white/72">
                 ProjectX er designet som et analyseverktøy, ikke en bedriftskatalog. Hver flate
-                skal bidra til å vurdere et foretak raskt og presist.
+                skal bidra til å vurdere et foretak raskt, presist og på et sporbart grunnlag.
               </p>
             </div>
             <div className="grid gap-4 p-6">
@@ -101,7 +101,7 @@ export default function HomePage() {
                 </div>
                 <div className="mt-2 text-sm leading-7 text-white/76">
                   Informasjonen er strukturert for vurdering og kontroll, med tydelig skille mellom
-                  det som er registrert og det som ikke er tilgjengelig.
+                  det som er registrert, og det som ikke er tilgjengelig i offisielle kilder.
                 </div>
               </div>
               <div>
@@ -109,8 +109,8 @@ export default function HomePage() {
                   Produktdisiplin
                 </div>
                 <div className="mt-2 text-sm leading-7 text-white/76">
-                  Ingen plassholdere, ingen pyntede signaler og ingen snarveier når grunnlaget er
-                  tynt.
+                  Ingen plassholdere, ingen pyntede signaler og ingen snarveier når datagrunnlaget
+                  er tynt.
                 </div>
               </div>
             </div>
@@ -148,7 +148,7 @@ export default function HomePage() {
                 Produktets flater
               </div>
               <h2 className="mt-3 text-[2.2rem] font-semibold text-slate-950">
-                Bygget for rask scanning og dyp analyse
+                Bygget for rask scanning og skarp analyse
               </h2>
             </div>
             <Link
@@ -191,7 +191,7 @@ export default function HomePage() {
               Datagrunnlag
             </div>
             <h2 className="mt-3 text-[2rem] font-semibold text-slate-950">
-              Tillit bygges i hvordan informasjonen presenteres
+              Tillit bygges i hvordan data brukes
             </h2>
           </div>
 

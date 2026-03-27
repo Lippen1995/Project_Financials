@@ -40,7 +40,7 @@ export function FilterPanel({
         </button>
       </div>
       <p className="text-sm leading-6 text-slate-600">
-        Kombiner gjerne filtre med navn eller organisasjonsnummer for å få en mer presis treffliste.
+        Kombiner gjerne filtre med navn eller organisasjonsnummer for å få skarpere treff.
       </p>
     </form>
   );

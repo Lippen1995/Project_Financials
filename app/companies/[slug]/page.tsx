@@ -103,8 +103,8 @@ function getExecutiveSignals(profile: CompanyProfile) {
     latest.operatingProfit < 0
       ? "Siste tilgjengelige driftsresultat er negativt."
       : null,
-    revenueChange !== null && revenueChange < 0 ? "Omsetningen er lavere enn forrige Ã¥r." : null,
-    roles.length <= 2 ? "Styringsstrukturen ser kompakt ut og bÃ¸r vurderes nÃ¦rmere." : null,
+    revenueChange !== null && revenueChange < 0 ? "Omsetningen er lavere enn forrige år." : null,
+    roles.length <= 2 ? "Styringsstrukturen ser kompakt ut og bør vurderes nærmere." : null,
   ].filter(Boolean) as string[];
 
   return {
@@ -138,8 +138,8 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
   ];
   const secondarySignals = [
     { label: "Soliditet", value: signals.solidity },
-    { label: "LÃ¸nnsomhet", value: signals.profitability },
-    { label: "Utvikling vs forrige Ã¥r", value: signals.revenueChange },
+    { label: "Lønnsomhet", value: signals.profitability },
+    { label: "Utvikling vs forrige år", value: signals.revenueChange },
     { label: "Kontrollsignal", value: signals.controlSummary },
   ];
 
@@ -149,7 +149,7 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
         <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Hovedsignaler</div>
         <h2 className="mt-3 text-[1.8rem] font-semibold text-slate-950">Rask vurdering</h2>
         <p className="mt-3 text-sm leading-7 text-slate-600">
-          De viktigste driftssignalene, kontrollspÃ¸rsmÃ¥lene og tilgjengeligheten samlet i ett lag.
+          De viktigste driftssignalene, kontrollspørsmålene og tilgjengeligheten samlet i ett lag.
         </p>
       </div>
 
@@ -163,11 +163,11 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
               Viktigste signaler for rask vurdering
             </h2>
             <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500">
-              Oppsummerer stÃ¸rrelse, drift, kapital og formell kontroll i ett beslutningslag.
+              Oppsummerer størrelse, drift, kapital og formell kontroll i ett beslutningslag.
             </p>
           </div>
           <div className="data-label rounded-full border border-[rgba(15,23,42,0.1)] bg-[rgba(49,73,95,0.05)] px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-            {signals.latestYear ? `Siste Ã¥r: ${signals.latestYear}` : "Regnskap ikke tilgjengelig"}
+            {signals.latestYear ? `Siste år: ${signals.latestYear}` : "Regnskap ikke tilgjengelig"}
           </div>
         </div>
 
@@ -201,7 +201,7 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
 
       <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-6 xl:border-l xl:border-t-0">
         <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-          Verdt Ã¥ undersÃ¸ke
+          Verdt å undersøke
         </div>
         <div className="mt-4 space-y-2">
           {signals.investigationNotes.map((note) => (
@@ -247,7 +247,7 @@ function CompanyHeader({ profile }: { profile: CompanyProfile }) {
             {company.status}
           </div>
           <div className="data-label rounded-full border border-[rgba(15,23,42,0.08)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-500">
-            {company.industryCode?.code ?? "NÃ¦ringskode mangler"}
+            {company.industryCode?.code ?? "Næringskode mangler"}
           </div>
         </div>
 
@@ -393,7 +393,7 @@ export default async function CompanyPage({
                 Resultat og balanse over tid
               </h2>
               <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                Vises som tidsserie med eldste Ã¥r fÃ¸rst. Bare verifiserte tall fylles inn.
+                Vises som tidsserie med eldste år først. Bare verifiserte tall fylles inn.
               </p>
             </div>
             <div className="mt-6">
@@ -404,7 +404,7 @@ export default async function CompanyPage({
           <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
             <h3 className="text-xl font-semibold text-slate-950">Dokumentasjon og dekning</h3>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Ã…rsregnskap og vedlegg vises nÃ¥r dokumentasjon er tilgjengelig.
+              Årsregnskap og vedlegg vises når dokumentasjon er tilgjengelig.
             </p>
             <div className="mt-6">
               <FinancialDocuments
@@ -426,13 +426,13 @@ export default async function CompanyPage({
           <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
             <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-                NÃ¸kkeltall
+                Nøkkeltall
               </div>
               <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
                 Finansielle signaler
               </h2>
               <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                NÃ¸kkeltall vises nÃ¥r de er tilgjengelige for analyse.
+                Nøkkeltall vises når de er tilgjengelige for analyse.
               </p>
             </div>
             <div className="mt-6">

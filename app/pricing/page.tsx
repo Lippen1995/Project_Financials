@@ -14,11 +14,11 @@ export default async function PricingPage() {
             Tilgang
           </div>
           <h1 className="editorial-display mt-5 max-w-4xl text-[3rem] leading-[0.98] text-slate-950 sm:text-[4rem]">
-            Tilgangsnivåer for team som jobber systematisk med selskapsanalyse.
+            Tilgang til skarp innsikt for team som jobber systematisk med selskaper.
           </h1>
           <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
-            Velg arbeidsnivå etter hvor mye innsikt teamet trenger i research, vurdering og oppfølging
-            av norske selskaper.
+            Velg arbeidsnivå etter hvor mye innsikt teamet trenger i research, vurdering og
+            oppfølging av norske selskaper.
           </p>
         </div>
 
@@ -36,17 +36,17 @@ export default async function PricingPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.88)]">
           <p className="data-label text-[11px] font-semibold uppercase text-slate-500">Standard</p>
-          <h2 className="mt-4 text-[2rem] font-semibold text-slate-950">God dekning for daglig research</h2>
+          <h2 className="mt-4 text-[2rem] font-semibold text-slate-950">Åpen innsikt for daglig research</h2>
           <ul className="mt-5 space-y-3 text-sm leading-7 text-slate-600">
             <li>Søk, filtrering og selskapsprofiler</li>
             <li>Oversikt over virksomhetsdata, regnskap og struktur</li>
-            <li>Begrenset visning i enkelte analyseblokker</li>
+            <li>Grunnleggende innsyn i analyseblokker med åpne data</li>
           </ul>
         </Card>
 
         <Card className="border-[rgba(15,23,42,0.08)] bg-[#192536] text-white">
           <p className="data-label text-[11px] font-semibold uppercase text-white/60">Utvidet</p>
-          <h2 className="mt-4 text-[2rem] font-semibold">Mer komplett arbeidsflate for dypere analyse</h2>
+          <h2 className="mt-4 text-[2rem] font-semibold">Utvidet innsikt for dypere analyse</h2>
           <ul className="mt-5 space-y-3 text-sm leading-7 text-white/76">
             <li>Fullere innsyn i roller og struktur når data er tilgjengelig</li>
             <li>Mer komplett visning for analyse og oppfølging</li>

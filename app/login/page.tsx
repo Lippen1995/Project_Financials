@@ -12,10 +12,11 @@ export default function LoginPage() {
             Tilgang til ProjectX
           </div>
           <h1 className="editorial-display mt-5 max-w-3xl text-[3rem] leading-[0.98] text-slate-950 sm:text-[4rem]">
-            Logg inn for å fortsette arbeidet i ProjectX.
+            Logg inn for skarpere selskapsinnsikt.
           </h1>
           <p className="mt-4 max-w-2xl text-[1.02rem] leading-8 text-slate-600">
-            Få tilgang til selskapsprofiler, analyseflater og kontoinnstillinger i ett samlet arbeidsmiljø.
+            Få tilgang til selskapsprofiler, analyseflater og kontoinnstillinger i ett samlet
+            arbeidsmiljø.
           </p>
         </div>
         <div className="border-t border-[rgba(15,23,42,0.08)] p-8">
@@ -25,9 +26,10 @@ export default function LoginPage() {
 
       <Card className="border-[rgba(15,23,42,0.08)] bg-[#192536] text-white">
         <p className="data-label text-[11px] font-semibold uppercase text-white/60">Ny bruker</p>
-        <h2 className="mt-4 text-[2rem] font-semibold">Opprett konto for team og individuell bruk</h2>
+        <h2 className="mt-4 text-[2rem] font-semibold">Opprett konto for team som trenger skarp innsikt</h2>
         <p className="mt-4 text-sm leading-7 text-white/76">
-          Nye brukere får tilgang til produktets standardnivå og kan senere utvides ved behov.
+          Nye brukere får standard tilgang. Utvidet tilgang gir mer komplett innsyn der offisielle
+          kilder faktisk støtter det.
         </p>
         <div className="mt-8 rounded-[0.95rem] border border-white/10 bg-white/5 p-6">
           <LoginForm mode="register" />

@@ -42,7 +42,7 @@ export default async function SearchPage({
     });
   } catch {
     searchError =
-      "Soket mot virksomhetsregisteret feilet akkurat na. Prov igjen med selskapsnavn eller organisasjonsnummer.";
+      "Søket mot virksomhetsregisteret feilet akkurat nå. Prøv igjen med selskapsnavn eller organisasjonsnummer.";
   }
 
   return (
@@ -50,14 +50,14 @@ export default async function SearchPage({
       <section className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.78)] xl:grid-cols-[minmax(0,1.45fr),340px]">
         <div className="p-8">
           <div className="data-label inline-flex rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-            Sokeflate
+            Søkeflate
           </div>
           <h1 className="editorial-display mt-5 max-w-4xl text-[3rem] leading-[0.98] text-slate-950 sm:text-[4rem]">
-            Sok i norske selskaper med samme disiplin som resten av analyseproduktet.
+            Finn selskaper med skarpere treff.
           </h1>
           <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
-            Skriv vanlige sporringer, navn eller organisasjonsnummer. Resultatene rangeres etter
-            relevans først og deretter inntekt der ekte regnskap er tilgjengelig.
+            Skriv vanlige søk, navn eller organisasjonsnummer. Resultatene tolkes for bedre treff,
+            men bygger fortsatt på reelle data fra Brreg, SSB og lagret regnskap.
           </p>
           <div className="mt-6">
             <SearchForm compact />
@@ -70,8 +70,8 @@ export default async function SearchPage({
             Trefflisten er bygget for vurdering
           </div>
           <p className="mt-4 text-sm leading-7 text-white/76">
-            AI brukes bare til a tolke soketeksten. Selve kandidatene og sorteringen bygger fortsatt
-            pa reelle data fra Brreg, SSB og lagret regnskap.
+            AI brukes bare til å tolke søketeksten. Selve kandidatene og sorteringen bygger fortsatt
+            på reelle data fra Brreg, SSB og lagret regnskap.
           </p>
         </aside>
       </section>
@@ -98,7 +98,7 @@ export default async function SearchPage({
               </h2>
             </div>
             <div className="text-sm text-slate-500">
-              Sok: {typeof params.query === "string" && params.query ? params.query : "Ingen soketekst angitt"}
+              Søk: {typeof params.query === "string" && params.query ? params.query : "Ingen søketekst angitt"}
             </div>
           </div>
 
@@ -112,7 +112,7 @@ export default async function SearchPage({
             <div className="border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.72)] p-5 text-sm text-slate-600">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-slate-900">
-                  {searchResult.interpretation.aiAssisted ? "AI-tolket sok" : "Fallback-sok"}
+                  {searchResult.interpretation.aiAssisted ? "AI-tolket søk" : "Fallback-søk"}
                 </span>
                 {searchResult.interpretation.intentSummary ? (
                   <span>{searchResult.interpretation.intentSummary}</span>
@@ -124,7 +124,7 @@ export default async function SearchPage({
                     key={item.code}
                     className="rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1"
                   >
-                    Naeringskode {item.code}
+                    Næringskode {item.code}
                     {item.title ? ` ${item.title}` : ""}
                   </span>
                 ))}

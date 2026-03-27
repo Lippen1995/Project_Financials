@@ -28,7 +28,7 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "ProjectX",
-  description: "ProjectX gir selskapsanalyse og selskapsinformasjon for norske virksomheter.",
+  description: "Skarp innsikt for kritiske forretningsbeslutninger.",
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -46,8 +46,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                     ProjectX
                   </Link>
                   <p className="max-w-2xl text-sm leading-6 text-slate-500">
-                    Analyseflate for norske selskaper, strukturert for vurdering, research og
-                    beslutningsstøtte.
+                    Skarp innsikt for kritiske forretningsbeslutninger.
                   </p>
                 </div>
 
