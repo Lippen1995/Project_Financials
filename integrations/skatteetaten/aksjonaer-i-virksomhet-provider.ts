@@ -97,8 +97,8 @@ export class SkatteetatenShareholdingProvider {
       shareholders.push({
         id: shareholderId,
         type: holderType as "PERSON" | "COMPANY" | "UNKNOWN",
-        name: shareholder.navn ?? "Ukjent aksjonaer",
-        normalizedName: shareholder.navn?.toUpperCase() ?? "UKJENT AKSJONAER",
+        name: shareholder.navn ?? "Ukjent aksjonær",
+        normalizedName: shareholder.navn?.toUpperCase() ?? "UKJENT AKSJONÆR",
         birthYear: shareholder.foedselsaar ? Number.parseInt(shareholder.foedselsaar, 10) : null,
         postalCode: shareholder.postnummer ?? null,
         postalPlace: null,
@@ -145,7 +145,7 @@ export class SkatteetatenShareholdingProvider {
           const shareholder = shareholders.find((item) => item.id === ownership.shareholderId);
           return {
             shareholderId: ownership.shareholderId,
-            shareholderName: shareholder?.name ?? "Ukjent aksjonaer",
+            shareholderName: shareholder?.name ?? "Ukjent aksjonær",
             shareholderType: shareholder?.type ?? "UNKNOWN",
             linkedCompanyId: shareholder?.linkedCompanyId ?? null,
             linkedCompanyOrgNumber: shareholder?.linkedCompanyOrgNumber ?? null,

@@ -10,7 +10,13 @@ const DEFAULT_ALIASES: Record<keyof ShareholdingColumnMapping, string[]> = {
   issuerOrgNumber: ["selskap_orgnr", "issuer_org_number", "organisasjonsnummer", "orgnr", "selskaporgnr"],
   issuerName: ["selskap_navn", "issuer_name", "selskapsnavn", "company_name"],
   shareholderName: ["aksjonaer_navn", "shareholder_name", "aksjonaernavn", "navn"],
-  shareholderIdentifier: ["aksjonaer_identifikator", "shareholder_identifier", "identifikator", "id", "orgnr_eller_fnr"],
+  shareholderIdentifier: [
+    "aksjonaer_identifikator",
+    "shareholder_identifier",
+    "identifikator",
+    "id",
+    "orgnr_eller_fnr",
+  ],
   birthYear: ["foedselsaar", "fodselsaar", "birth_year"],
   postalCode: ["postnummer", "postal_code"],
   postalPlace: ["poststed", "postal_place"],
@@ -147,7 +153,7 @@ export function parseShareholdingCsv(
         {
           stage: "parse",
           message:
-            "Fant ikke paakrevde kolonner for aksjonaernavn og antall aksjer. Oppgi column mapping eller bruk en fil med header.",
+            "Fant ikke påkrevde kolonner for aksjonærnavn og antall aksjer. Oppgi column mapping eller bruk en fil med header.",
           payload: { headers },
         },
       ],
@@ -164,7 +170,7 @@ export function parseShareholdingCsv(
       errors.push({
         stage: "parse",
         rowNumber: lineIndex + 1,
-        message: "Mangler aksjonaernavn.",
+        message: "Mangler aksjonærnavn.",
         payload: raw,
       });
       continue;

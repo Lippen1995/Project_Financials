@@ -14,7 +14,7 @@ const companyProvider = new BrregCompanyProvider();
 async function ensureCompany(orgNumber: string) {
   const providerCompany = await companyProvider.getCompany(orgNumber);
   if (!providerCompany) {
-    throw new Error(`Fant ikke virksomhet ${orgNumber} i Bronnoysundregistrene.`);
+    throw new Error(`Fant ikke virksomhet ${orgNumber} i Brønnøysundregistrene.`);
   }
 
   await upsertCompanySnapshot(providerCompany);
@@ -121,7 +121,7 @@ export async function importShareholdingSnapshot(input: ShareholdingImportInput)
       latestAvailableYear: buildLatestAvailableYear(),
       dataQualityNote:
         filteredRows.length === 0
-          ? "Aksjonaerdata ikke tilgjengelig for valgt aar."
+          ? "Aksjonærdata ikke tilgjengelig for valgt år."
           : normalized.totalShares === null
             ? "Totalt antall aksjer mangler eller er inkonsistent. Eierandel er derfor ufullstendig."
             : allErrors.length > 0
@@ -141,7 +141,7 @@ export async function importShareholdingSnapshot(input: ShareholdingImportInput)
       latestAvailableYear: buildLatestAvailableYear(),
       dataQualityNote:
         filteredRows.length === 0
-          ? "Aksjonaerdata ikke tilgjengelig for valgt aar."
+          ? "Aksjonærdata ikke tilgjengelig for valgt år."
           : normalized.totalShares === null
             ? "Totalt antall aksjer mangler eller er inkonsistent. Eierandel er derfor ufullstendig."
             : allErrors.length > 0

@@ -51,10 +51,10 @@ export async function getCompanyShareholdingOverview(orgNumber: string, requeste
       dataQualityNote: null,
       availabilityMessage:
         !skatteetatenProvider.canFetch()
-          ? "Aksjonaerdata er ikke tilgjengelig fordi Skatteetatens API ikke er konfigurert, og det finnes heller ikke importert snapshot for valgt aar."
+          ? "Aksjonærdata er ikke tilgjengelig fordi Skatteetatens API ikke er konfigurert, og det finnes heller ikke importert snapshot for valgt år."
           : selectedYear > latestExpectedYear
-          ? `Aksjonaerdata for ${selectedYear} er normalt ikke tilgjengelig ennå. Siste forventede tilgjengelige aar er ${latestExpectedYear}.`
-          : "Aksjonaerdata ikke tilgjengelig for valgt aar.",
+          ? `Aksjonærdata for ${selectedYear} er normalt ikke tilgjengelig ennå. Siste forventede tilgjengelige år er ${latestExpectedYear}.`
+          : "Aksjonærdata ikke tilgjengelig for valgt år.",
       nodes: [],
       edges: [],
       ownerships: [],
@@ -70,7 +70,7 @@ export async function getCompanyShareholdingOverview(orgNumber: string, requeste
 
   snapshot.latestAvailableYear = latestExpectedYear;
   if (!snapshot.availabilityMessage && selectedYear > latestExpectedYear) {
-    snapshot.availabilityMessage = `Aksjonaerdata for ${selectedYear} er normalt ikke tilgjengelig ennå.`;
+    snapshot.availabilityMessage = `Aksjonærdata for ${selectedYear} er normalt ikke tilgjengelig ennå.`;
   }
 
   return {

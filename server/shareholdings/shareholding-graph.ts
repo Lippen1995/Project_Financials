@@ -84,8 +84,8 @@ export function buildOwnershipGraph(params: {
           nodeType === "PERSON"
             ? "Person"
             : nodeType === "COMPANY_SHAREHOLDER"
-              ? "Selskapsaksjonaer"
-              : "Uavklart aksjonaer",
+              ? "Selskapsaksjonær"
+              : "Uavklart aksjonær",
       },
     });
 

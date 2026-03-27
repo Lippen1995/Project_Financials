@@ -24,7 +24,7 @@ function mapDocumentYears(years: BrregFinancialDocumentYear[], orgNumber: string
         {
           type: "aarsregnskap",
           id: year,
-          label: "Kopi av arsregnskap",
+          label: "Kopi av årsregnskap",
           url: `${env.brregFinancialsBaseUrl}/aarsregnskap/kopi/${orgNumber}/${year}`,
         },
       ],
@@ -161,10 +161,10 @@ export class BrregFinancialsProvider implements FinancialsProvider {
         sourceSystem: "BRREG",
         message:
           statementList.length > 1
-            ? "ProjectX viser regnskapstall parsret fra offisielle Brreg-PDF-kopier av arsregnskap."
+            ? "ProjectX viser regnskapstall parsret fra offisielle Brreg-PDF-kopier av årsregnskap."
             : statementList.length > 0
-              ? "ProjectX viser regnskapstall parsret fra offisiell Brreg-PDF for sist tilgjengelige arsregnskap."
-            : "ProjectX fant ingen regnskapstall i tilgjengelige Brreg-PDF-er for virksomheten akkurat na.",
+              ? "ProjectX viser regnskapstall parsret fra offisiell Brreg-PDF for sist tilgjengelige årsregnskap."
+            : "ProjectX fant ingen regnskapstall i tilgjengelige Brreg-PDF-er for virksomheten akkurat nå.",
       },
     };
 

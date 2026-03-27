@@ -161,7 +161,7 @@ function scoreCompanyResult(
   const industryScore = company.industryCode?.code ? industryCodeScores.get(company.industryCode.code) ?? 0 : 0;
   if (industryScore > 0) {
     relevanceScore += industryScore;
-    reasons.push(`Treffer naeringskode ${company.industryCode?.code}`);
+    reasons.push(`Treffer næringskode ${company.industryCode?.code}`);
   }
 
   const municipalityNumber = getMunicipalityNumber(company);
@@ -517,7 +517,7 @@ export async function getCompanyProfile(idOrSlug: string) {
         sourceSystem: "BRREG",
         message:
           roles.length > 0
-            ? "Roller er hentet fra Bronnoysundregistrene."
+            ? "Roller er hentet fra Brønnøysundregistrene."
             : "Brreg har ingen registrerte roller tilgjengelig for denne virksomheten.",
       };
     } catch (error) {
@@ -528,7 +528,7 @@ export async function getCompanyProfile(idOrSlug: string) {
       rolesAvailability = {
         available: false,
         sourceSystem: "BRREG",
-        message: "Roller kunne ikke hentes akkurat na fra Bronnoysundregistrene.",
+        message: "Roller kunne ikke hentes akkurat nå fra Brønnøysundregistrene.",
       };
     }
   }
@@ -551,11 +551,11 @@ export async function getCompanyProfile(idOrSlug: string) {
   } = {
     statements: [],
     documents: [],
-    availability: {
-      available: false,
-      sourceSystem: "BRREG",
-      message: "Regnskap kunne ikke hentes akkurat na.",
-    },
+      availability: {
+        available: false,
+        sourceSystem: "BRREG",
+        message: "Regnskap kunne ikke hentes akkurat nå.",
+      },
   };
 
   try {
@@ -570,7 +570,7 @@ export async function getCompanyProfile(idOrSlug: string) {
       availability: {
         available: false,
         sourceSystem: "BRREG",
-        message: "Regnskap kunne ikke hentes akkurat na.",
+        message: "Regnskap kunne ikke hentes akkurat nå.",
       },
     };
   }
@@ -586,7 +586,7 @@ export async function getCompanyProfile(idOrSlug: string) {
       available: false,
       sourceSystem: "FINANSTILSYNET",
       message:
-        "Regulatorisk overlay er ikke aktivert i MVP-et fordi apen og stabil kildetilgang ikke er koblet inn enna.",
+        "Regulatorisk overlay er ikke aktivert i MVP-et fordi åpen og stabil kildetilgang ikke er koblet inn ennå.",
     },
   };
 }
