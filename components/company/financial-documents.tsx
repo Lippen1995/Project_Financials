@@ -46,8 +46,9 @@ export function FinancialDocuments({
       </div>
 
       <div className="space-y-3">
-        {documents.map((document) => (
-          <div key={document.sourceId} className="border border-[rgba(15,23,42,0.08)] bg-white px-4 py-4">
+        {documents.map((document) => {
+          const annualReportFile = document.files.find((file) => file.type === "aarsregnskap" && file.url);
+          const content = (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-slate-950">{document.year}</p>
@@ -59,8 +60,28 @@ export function FinancialDocuments({
                 Registrert
               </div>
             </div>
-          </div>
-        ))}
+          );
+
+          if (!annualReportFile?.url) {
+            return (
+              <div key={document.sourceId} className="border border-[rgba(15,23,42,0.08)] bg-white px-4 py-4">
+                {content}
+              </div>
+            );
+          }
+
+          return (
+            <a
+              key={document.sourceId}
+              href={annualReportFile.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block border border-[rgba(15,23,42,0.08)] bg-white px-4 py-4 transition hover:border-[rgba(15,23,42,0.18)] hover:bg-[rgba(248,249,250,0.9)] focus:outline-none focus:ring-2 focus:ring-[rgba(15,23,42,0.14)]"
+            >
+              {content}
+            </a>
+          );
+        })}
       </div>
     </div>
   );

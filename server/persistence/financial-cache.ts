@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import env from "@/lib/env";
+import { logRecoverableError } from "@/lib/recoverable-error";
 import {
   DataAvailability,
   NormalizedFinancialDocument,
@@ -17,7 +18,7 @@ type CachedFinancials = {
 };
 
 const cacheDirectory = path.join(process.cwd(), ".projectx-cache", "financials");
-const cacheVersion = 15;
+const cacheVersion = 16;
 
 function getCachePath(orgNumber: string) {
   return path.join(cacheDirectory, `${orgNumber}.json`);
@@ -65,7 +66,12 @@ export async function readFinancialCache(orgNumber: string): Promise<CachedFinan
       statements: parsed.statements.map((statement) => reviveStatement(statement as never)),
       documents: parsed.documents.map((document) => reviveDocument(document as never)),
     };
-  } catch {
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      logRecoverableError("financial-cache.read", error, {
+        orgNumber,
+      });
+    }
     return null;
   }
 }

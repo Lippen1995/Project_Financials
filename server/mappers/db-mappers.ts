@@ -11,6 +11,10 @@ import {
   NormalizedFinancialStatement,
   NormalizedRole,
 } from "@/lib/types";
+import {
+  buildRegisteredIndustryCode,
+  mergeIndustryCodeClassification,
+} from "@/lib/industry-code";
 
 type CompanyWithRelations = Company & {
   addresses: Address[];
@@ -19,7 +23,76 @@ type CompanyWithRelations = Company & {
   financialStatements?: FinancialStatement[];
 };
 
+function deriveRoleHolder(role: Role & { person: Person }) {
+  const rawPayload =
+    typeof role.rawPayload === "object" && role.rawPayload
+      ? (role.rawPayload as Record<string, unknown>)
+      : null;
+  const companyPayload =
+    rawPayload && typeof rawPayload.enhet === "object" && rawPayload.enhet
+      ? (rawPayload.enhet as Record<string, unknown>)
+      : rawPayload && typeof rawPayload.organisasjon === "object" && rawPayload.organisasjon
+        ? (rawPayload.organisasjon as Record<string, unknown>)
+        : null;
+  const companyName =
+    companyPayload &&
+    (Array.isArray(companyPayload.navn)
+      ? companyPayload.navn.filter((value): value is string => typeof value === "string").join(" ")
+      : typeof companyPayload.navn === "string"
+        ? companyPayload.navn
+        : null);
+
+  return {
+    holderType: companyPayload ? ("COMPANY" as const) : ("PERSON" as const),
+    organization: companyPayload
+      ? {
+          sourceSystem: "BRREG",
+          sourceEntityType: "company",
+          sourceId:
+            typeof companyPayload.organisasjonsnummer === "string"
+              ? companyPayload.organisasjonsnummer
+              : companyName ?? role.person.fullName,
+          fetchedAt: role.fetchedAt,
+          normalizedAt: role.normalizedAt,
+          rawPayload: companyPayload,
+          name: companyName ?? role.person.fullName,
+          orgNumber:
+            typeof companyPayload.organisasjonsnummer === "string"
+              ? companyPayload.organisasjonsnummer
+              : null,
+          legalForm:
+            companyPayload.organisasjonsform &&
+            typeof companyPayload.organisasjonsform === "object" &&
+            "kode" in companyPayload.organisasjonsform &&
+            typeof companyPayload.organisasjonsform.kode === "string"
+              ? companyPayload.organisasjonsform.kode
+              : null,
+          approvalStatus:
+            typeof companyPayload.godkjenningsstatus === "string"
+              ? companyPayload.godkjenningsstatus
+              : null,
+          status:
+            typeof companyPayload.erSlettet === "boolean" && companyPayload.erSlettet
+              ? "SLETTET"
+              : "ACTIVE",
+        }
+      : null,
+  };
+}
+
 export function mapDbCompany(company: CompanyWithRelations): NormalizedCompany {
+  const registeredIndustryCode = buildRegisteredIndustryCode({
+    orgNumber: company.orgNumber,
+    industryPayload:
+      typeof company.rawPayload === "object" &&
+      company.rawPayload &&
+      "naeringskode1" in company.rawPayload
+        ? company.rawPayload.naeringskode1
+        : null,
+    fetchedAt: company.fetchedAt,
+    normalizedAt: company.normalizedAt,
+  });
+
   return {
     sourceSystem: company.sourceSystem,
     sourceEntityType: company.sourceEntityType,
@@ -88,21 +161,24 @@ export function mapDbCompany(company: CompanyWithRelations): NormalizedCompany {
       region: address.region,
       country: address.country,
     })),
-    industryCode: company.industryCode
-      ? {
-          sourceSystem: company.industryCode.sourceSystem,
-          sourceEntityType: company.industryCode.sourceEntityType,
-          sourceId: company.industryCode.sourceId,
-          fetchedAt: company.industryCode.fetchedAt,
-          normalizedAt: company.industryCode.normalizedAt,
-          rawPayload: company.industryCode.rawPayload,
-          code: company.industryCode.code,
-          title: company.industryCode.title,
-          description: company.industryCode.description,
-          level: company.industryCode.level,
-          parentCode: null,
-        }
-      : null,
+    industryCode: mergeIndustryCodeClassification(
+      registeredIndustryCode,
+      company.industryCode
+        ? {
+            sourceSystem: company.industryCode.sourceSystem,
+            sourceEntityType: company.industryCode.sourceEntityType,
+            sourceId: company.industryCode.sourceId,
+            fetchedAt: company.industryCode.fetchedAt,
+            normalizedAt: company.industryCode.normalizedAt,
+            rawPayload: company.industryCode.rawPayload,
+            code: company.industryCode.code,
+            title: company.industryCode.title,
+            description: company.industryCode.description,
+            level: company.industryCode.level,
+            parentCode: null,
+          }
+        : null,
+    ),
     roles: company.roles ? mapDbRoles(company.roles) : undefined,
     financialStatements: company.financialStatements
       ? mapDbFinancialStatements(company.financialStatements)
@@ -112,6 +188,7 @@ export function mapDbCompany(company: CompanyWithRelations): NormalizedCompany {
 
 export function mapDbRoles(roles: (Role & { person: Person })[]): NormalizedRole[] {
   return roles.map((role) => ({
+    ...deriveRoleHolder(role),
     sourceSystem: role.sourceSystem,
     sourceEntityType: role.sourceEntityType,
     sourceId: role.sourceId,
@@ -122,7 +199,6 @@ export function mapDbRoles(roles: (Role & { person: Person })[]): NormalizedRole
     isBoardRole: role.isBoardRole,
     fromDate: role.fromDate,
     toDate: role.toDate,
-    holderType: "PERSON",
     person: {
       sourceSystem: role.person.sourceSystem,
       sourceEntityType: role.person.sourceEntityType,
@@ -133,7 +209,6 @@ export function mapDbRoles(roles: (Role & { person: Person })[]): NormalizedRole
       fullName: role.person.fullName,
       birthYear: role.person.birthYear,
     },
-    organization: null,
   }));
 }
 

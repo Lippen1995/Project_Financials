@@ -1,8 +1,24 @@
 import { CompanyTable } from "@/components/company/company-table";
 import { FilterPanel } from "@/components/search/filter-panel";
 import { SearchForm } from "@/components/search/search-form";
-import { NormalizedCompany } from "@/lib/types";
+import { CompanySearchResponse } from "@/lib/types";
 import { searchCompanies } from "@/server/services/company-service";
+
+const emptySearchResult: CompanySearchResponse = {
+  results: [],
+  interpretation: {
+    originalQuery: "",
+    rewrittenQuery: "",
+    aiAssisted: false,
+    fallbackReason: null,
+    companyTerms: [],
+    industryTerms: [],
+    geographicTerm: null,
+    geographicType: null,
+    intentSummary: null,
+    matchedIndustryCodes: [],
+  },
+};
 
 export default async function SearchPage({
   searchParams,
@@ -10,11 +26,11 @@ export default async function SearchPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  let companies: NormalizedCompany[] = [];
+  let searchResult: CompanySearchResponse = emptySearchResult;
   let searchError: string | null = null;
 
   try {
-    companies = await searchCompanies({
+    searchResult = await searchCompanies({
       query: typeof params.query === "string" ? params.query : undefined,
       industryCode: typeof params.industryCode === "string" ? params.industryCode : undefined,
       city: typeof params.city === "string" ? params.city : undefined,
@@ -26,7 +42,7 @@ export default async function SearchPage({
     });
   } catch {
     searchError =
-      "Søket mot virksomhetsregisteret feilet akkurat nå. Prøv igjen med selskapsnavn eller organisasjonsnummer.";
+      "Soket mot virksomhetsregisteret feilet akkurat na. Prov igjen med selskapsnavn eller organisasjonsnummer.";
   }
 
   return (
@@ -34,14 +50,14 @@ export default async function SearchPage({
       <section className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.78)] xl:grid-cols-[minmax(0,1.45fr),340px]">
         <div className="p-8">
           <div className="data-label inline-flex rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-            Søkeflate
+            Sokeflate
           </div>
           <h1 className="editorial-display mt-5 max-w-4xl text-[3rem] leading-[0.98] text-slate-950 sm:text-[4rem]">
-            Søk i norske selskaper med samme disiplin som resten av analyseproduktet.
+            Sok i norske selskaper med samme disiplin som resten av analyseproduktet.
           </h1>
           <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
-            Søk på navn, organisasjonsnummer og kombiner med filter på næringskode, sted,
-            organisasjonsform og status. Resultatene er laget for rask scanning, ikke katalogvisning.
+            Skriv vanlige sporringer, navn eller organisasjonsnummer. Resultatene rangeres etter
+            relevans først og deretter inntekt der ekte regnskap er tilgjengelig.
           </p>
           <div className="mt-6">
             <SearchForm compact />
@@ -54,8 +70,8 @@ export default async function SearchPage({
             Trefflisten er bygget for vurdering
           </div>
           <p className="mt-4 text-sm leading-7 text-white/76">
-            Bruk søkeresultatet til å orientere deg raskt, og gå videre til selskapsprofilen for
-            regnskap, struktur, roller og dokumentasjon.
+            AI brukes bare til a tolke soketeksten. Selve kandidatene og sorteringen bygger fortsatt
+            pa reelle data fra Brreg, SSB og lagret regnskap.
           </p>
         </aside>
       </section>
@@ -78,14 +94,11 @@ export default async function SearchPage({
             <div>
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Treff</div>
               <h2 className="mt-2 text-[1.8rem] font-semibold text-slate-950">
-                {companies.length} selskaper funnet
+                {searchResult.results.length} selskaper funnet
               </h2>
             </div>
             <div className="text-sm text-slate-500">
-              Søk:{" "}
-              {typeof params.query === "string" && params.query
-                ? params.query
-                : "Ingen søketekst angitt"}
+              Sok: {typeof params.query === "string" && params.query ? params.query : "Ingen soketekst angitt"}
             </div>
           </div>
 
@@ -95,7 +108,41 @@ export default async function SearchPage({
             </div>
           ) : null}
 
-          <CompanyTable companies={companies} />
+          {!searchError && typeof params.query === "string" && params.query ? (
+            <div className="border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.72)] p-5 text-sm text-slate-600">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-slate-900">
+                  {searchResult.interpretation.aiAssisted ? "AI-tolket sok" : "Fallback-sok"}
+                </span>
+                {searchResult.interpretation.intentSummary ? (
+                  <span>{searchResult.interpretation.intentSummary}</span>
+                ) : null}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                {searchResult.interpretation.matchedIndustryCodes.map((item) => (
+                  <span
+                    key={item.code}
+                    className="rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1"
+                  >
+                    Naeringskode {item.code}
+                    {item.title ? ` ${item.title}` : ""}
+                  </span>
+                ))}
+                {searchResult.interpretation.geographicTerm ? (
+                  <span className="rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1">
+                    Geografi {searchResult.interpretation.geographicTerm}
+                  </span>
+                ) : null}
+                {searchResult.interpretation.fallbackReason ? (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">
+                    {searchResult.interpretation.fallbackReason}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          <CompanyTable companies={searchResult.results} />
         </div>
       </section>
     </main>

@@ -65,7 +65,27 @@ export type NormalizedFinancialDocument = SourceMetadata & {
     type: string;
     id: string;
     label: string;
+    url?: string;
   }[];
+};
+
+export type NormalizedAnnouncement = SourceMetadata & {
+  id: string;
+  orgNumber: string;
+  title: string;
+  publishedAt?: Date | null;
+  year?: number | null;
+  detailUrl: string;
+};
+
+export type NormalizedAnnouncementDetail = SourceMetadata & {
+  id: string;
+  orgNumber: string;
+  title: string;
+  publishedAt?: Date | null;
+  sourceLabel?: string | null;
+  detailUrl: string;
+  contentHtml: string;
 };
 
 export type NormalizedCompany = SourceMetadata & {
@@ -96,15 +116,50 @@ export type SearchFilters = {
   query?: string;
   industryCode?: string;
   city?: string;
+  municipality?: string;
+  municipalityNumber?: string;
   legalForm?: string;
   status?: "ACTIVE" | "DISSOLVED" | "BANKRUPT";
   page?: number;
   size?: number;
 };
 
+export type SearchInterpretationLocationType = "MUNICIPALITY" | "COUNTY" | "POSTAL_CITY" | "UNKNOWN";
+
+export type SearchInterpretation = {
+  originalQuery: string;
+  rewrittenQuery: string;
+  aiAssisted: boolean;
+  fallbackReason?: string | null;
+  companyTerms: string[];
+  industryTerms: string[];
+  geographicTerm?: string | null;
+  geographicType?: SearchInterpretationLocationType | null;
+  intentSummary?: string | null;
+  matchedIndustryCodes: Array<{
+    code: string;
+    title?: string | null;
+    score: number;
+  }>;
+};
+
+export type RankedCompanySearchResult = {
+  company: NormalizedCompany;
+  relevanceScore: number;
+  revenue?: number | null;
+  revenueFiscalYear?: number | null;
+  matchReasons: string[];
+};
+
+export type CompanySearchResponse = {
+  results: RankedCompanySearchResult[];
+  interpretation: SearchInterpretation;
+};
+
 export type CompanyProfile = {
   company: NormalizedCompany;
   roles: NormalizedRole[];
+  rolesAvailability: DataAvailability;
   financialStatements: NormalizedFinancialStatement[];
   financialDocuments: NormalizedFinancialDocument[];
   financialsAvailability: DataAvailability;

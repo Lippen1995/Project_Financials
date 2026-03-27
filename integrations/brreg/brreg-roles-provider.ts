@@ -11,18 +11,14 @@ type BrregRolesResponse = {
 
 export class BrregRolesProvider implements RolesProvider {
   async getRoles(orgNumber: string) {
-    try {
-      const response = await fetchJson<BrregRolesResponse>(
-        `${env.brregRolesBaseUrl}/enheter/${orgNumber}/roller`,
-      );
+    const response = await fetchJson<BrregRolesResponse>(
+      `${env.brregRolesBaseUrl}/enheter/${orgNumber}/roller`,
+    );
 
-      return (
-        response.rollegrupper?.flatMap((group) =>
-          (group.roller ?? []).map((role) => mapBrregRole(role, orgNumber)),
-        ) ?? []
-      );
-    } catch {
-      return [];
-    }
+    return (
+      response.rollegrupper?.flatMap((group) =>
+        (group.roller ?? []).map((role) => mapBrregRole(role, orgNumber)),
+      ) ?? []
+    );
   }
 }

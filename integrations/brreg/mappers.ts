@@ -1,3 +1,4 @@
+import { buildRegisteredIndustryCode } from "@/lib/industry-code";
 import { slugify } from "@/lib/utils";
 import { NormalizedCompany, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
 
@@ -57,21 +58,12 @@ export function mapBrregCompany(payload: Record<string, any>): NormalizedCompany
     announcementsUrl: orgNumber
       ? `https://w2.brreg.no/kunngjoring/hent_nr.jsp?orgnr=${orgNumber}`
       : null,
-    industryCode: industry
-      ? {
-          sourceSystem: "SSB_KLASS",
-          sourceEntityType: "industryCode",
-          sourceId: industry.kode,
-          fetchedAt: now,
-          normalizedAt: now,
-          rawPayload: industry,
-          code: industry.kode,
-          title: null,
-          description: null,
-          level: "primary",
-          parentCode: null,
-        }
-      : null,
+    industryCode: buildRegisteredIndustryCode({
+      orgNumber,
+      industryPayload: industry,
+      fetchedAt: now,
+      normalizedAt: now,
+    }),
     addresses: businessAddress
       ? [
           {

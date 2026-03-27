@@ -260,3 +260,43 @@ export async function upsertRolesSnapshot(companyOrgNumber: string, roles: Norma
     });
   }
 }
+
+export async function getLatestFinancialsForCompanies(orgNumbers: string[]) {
+  if (orgNumbers.length === 0) {
+    return new Map<string, { revenue: number | null; fiscalYear: number | null }>();
+  }
+
+  const statements = await prisma.financialStatement.findMany({
+    where: {
+      company: {
+        orgNumber: {
+          in: orgNumbers,
+        },
+      },
+    },
+    orderBy: [{ companyId: "asc" }, { fiscalYear: "desc" }],
+    select: {
+      revenue: true,
+      fiscalYear: true,
+      company: {
+        select: {
+          orgNumber: true,
+        },
+      },
+    },
+  });
+
+  const lookup = new Map<string, { revenue: number | null; fiscalYear: number | null }>();
+
+  for (const statement of statements) {
+    const orgNumber = statement.company.orgNumber;
+    if (!lookup.has(orgNumber)) {
+      lookup.set(orgNumber, {
+        revenue: statement.revenue,
+        fiscalYear: statement.fiscalYear,
+      });
+    }
+  }
+
+  return lookup;
+}

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
 import { CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
 import { FinancialDocuments } from "@/components/company/financial-documents";
 import { FinancialTimeSeriesTable } from "@/components/company/financial-time-series-table";
@@ -14,7 +15,11 @@ import { safeAuth } from "@/lib/auth";
 import { CompanyProfile, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { isPremium } from "@/server/billing/subscription";
-import { getCompanyProfile } from "@/server/services/company-service";
+import {
+  getCompanyAnnouncementDetail,
+  getCompanyAnnouncements,
+  getCompanyProfile,
+} from "@/server/services/company-service";
 import { getLegalStructure } from "@/server/services/legal-structure-service";
 
 function sortStatements(statements: NormalizedFinancialStatement[]) {
@@ -98,8 +103,8 @@ function getExecutiveSignals(profile: CompanyProfile) {
     latest.operatingProfit < 0
       ? "Siste tilgjengelige driftsresultat er negativt."
       : null,
-    revenueChange !== null && revenueChange < 0 ? "Omsetningen er lavere enn forrige år." : null,
-    roles.length <= 2 ? "Styringsstrukturen ser kompakt ut og bør vurderes nærmere." : null,
+    revenueChange !== null && revenueChange < 0 ? "Omsetningen er lavere enn forrige Ã¥r." : null,
+    roles.length <= 2 ? "Styringsstrukturen ser kompakt ut og bÃ¸r vurderes nÃ¦rmere." : null,
   ].filter(Boolean) as string[];
 
   return {
@@ -121,7 +126,7 @@ function getExecutiveSignals(profile: CompanyProfile) {
 }
 
 function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
-  const { company, financialsAvailability } = profile;
+  const { company, financialsAvailability, rolesAvailability } = profile;
   const signals = getExecutiveSignals(profile);
   const primarySignals = [
     { label: "Omsetning", value: signals.revenue },
@@ -133,8 +138,8 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
   ];
   const secondarySignals = [
     { label: "Soliditet", value: signals.solidity },
-    { label: "Lønnsomhet", value: signals.profitability },
-    { label: "Utvikling vs forrige år", value: signals.revenueChange },
+    { label: "LÃ¸nnsomhet", value: signals.profitability },
+    { label: "Utvikling vs forrige Ã¥r", value: signals.revenueChange },
     { label: "Kontrollsignal", value: signals.controlSummary },
   ];
 
@@ -144,7 +149,7 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
         <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Hovedsignaler</div>
         <h2 className="mt-3 text-[1.8rem] font-semibold text-slate-950">Rask vurdering</h2>
         <p className="mt-3 text-sm leading-7 text-slate-600">
-          De viktigste driftssignalene, kontrollspørsmålene og tilgjengeligheten samlet i ett lag.
+          De viktigste driftssignalene, kontrollspÃ¸rsmÃ¥lene og tilgjengeligheten samlet i ett lag.
         </p>
       </div>
 
@@ -158,11 +163,11 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
               Viktigste signaler for rask vurdering
             </h2>
             <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500">
-              Oppsummerer størrelse, drift, kapital og formell kontroll i ett beslutningslag.
+              Oppsummerer stÃ¸rrelse, drift, kapital og formell kontroll i ett beslutningslag.
             </p>
           </div>
           <div className="data-label rounded-full border border-[rgba(15,23,42,0.1)] bg-[rgba(49,73,95,0.05)] px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-            {signals.latestYear ? `Siste år: ${signals.latestYear}` : "Regnskap ikke tilgjengelig"}
+            {signals.latestYear ? `Siste Ã¥r: ${signals.latestYear}` : "Regnskap ikke tilgjengelig"}
           </div>
         </div>
 
@@ -196,7 +201,7 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
 
       <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-6 xl:border-l xl:border-t-0">
         <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-          Verdt å undersøke
+          Verdt Ã¥ undersÃ¸ke
         </div>
         <div className="mt-4 space-y-2">
           {signals.investigationNotes.map((note) => (
@@ -217,6 +222,12 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
             {financialsAvailability.available ? "Regnskap er tilgjengelig." : "Regnskap er delvis tilgjengelig."}
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600">{financialsAvailability.message}</p>
+          <div className="mt-4 border-t border-[rgba(15,23,42,0.08)] pt-4 text-sm leading-6 text-slate-600">
+            <div className="font-semibold text-slate-900">
+              {rolesAvailability.available ? "Rolledatakilde er tilgjengelig." : "Rolledatakilde er ikke bekreftet."}
+            </div>
+            <p className="mt-1">{rolesAvailability.message}</p>
+          </div>
         </div>
       </aside>
     </section>
@@ -236,7 +247,7 @@ function CompanyHeader({ profile }: { profile: CompanyProfile }) {
             {company.status}
           </div>
           <div className="data-label rounded-full border border-[rgba(15,23,42,0.08)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-500">
-            {company.industryCode?.code ?? "Næringskode mangler"}
+            {company.industryCode?.code ?? "NÃ¦ringskode mangler"}
           </div>
         </div>
 
@@ -322,13 +333,7 @@ export default async function CompanyPage({
 
   const session = await safeAuth();
   const premium = isPremium(session?.user.subscriptionStatus, session?.user.subscriptionPlan);
-  let profile = null;
-
-  try {
-    profile = await getCompanyProfile(slug);
-  } catch {
-    profile = null;
-  }
+  const profile = await getCompanyProfile(slug);
 
   if (!profile) {
     notFound();
@@ -337,6 +342,7 @@ export default async function CompanyPage({
   const {
     company,
     roles,
+    rolesAvailability,
     financialStatements,
     financialDocuments,
     financialsAvailability,
@@ -344,23 +350,36 @@ export default async function CompanyPage({
   } = profile;
   const visibleRoles = premium ? roles : roles.slice(0, 5);
   const legalStructure = activeTab === "organisasjon" ? await getLegalStructure(company.orgNumber) : null;
+  const announcementsData =
+    activeTab === "kunngjoringer" ? await getCompanyAnnouncements(company.orgNumber) : null;
+  const initialAnnouncementDetail =
+    activeTab === "kunngjoringer" && announcementsData?.announcements[0]
+      ? await getCompanyAnnouncementDetail(
+          company.orgNumber,
+          announcementsData.announcements[0].id,
+          announcementsData.announcements[0].publishedAt ?? null,
+        )
+      : null;
 
   return (
     <main className="space-y-6 pb-10">
       <CompanyHeader profile={profile} />
-      <ExecutiveSnapshot profile={profile} />
-
-      <MetricGrid
-        employeeCount={company.employeeCount}
-        legalForm={company.legalForm}
-        vatRegistered={company.vatRegistered}
-        registeredAt={company.registeredAt}
-      />
 
       <CompanyTabs companySlug={company.orgNumber} activeTab={activeTab} />
 
       {activeTab === "oversikt" ? (
-        <OverviewAnalytics company={company} statements={financialStatements} />
+        <>
+          <ExecutiveSnapshot profile={profile} />
+
+          <MetricGrid
+            employeeCount={company.employeeCount}
+            legalForm={company.legalForm}
+            vatRegistered={company.vatRegistered}
+            registeredAt={company.registeredAt}
+          />
+
+          <OverviewAnalytics company={company} statements={financialStatements} />
+        </>
       ) : null}
 
       {activeTab === "regnskap" ? (
@@ -374,7 +393,7 @@ export default async function CompanyPage({
                 Resultat og balanse over tid
               </h2>
               <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                Vises som tidsserie med eldste år først. Bare verifiserte tall fylles inn.
+                Vises som tidsserie med eldste Ã¥r fÃ¸rst. Bare verifiserte tall fylles inn.
               </p>
             </div>
             <div className="mt-6">
@@ -385,7 +404,7 @@ export default async function CompanyPage({
           <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
             <h3 className="text-xl font-semibold text-slate-950">Dokumentasjon og dekning</h3>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Årsregnskap og vedlegg vises når dokumentasjon er tilgjengelig.
+              Ã…rsregnskap og vedlegg vises nÃ¥r dokumentasjon er tilgjengelig.
             </p>
             <div className="mt-6">
               <FinancialDocuments
@@ -407,13 +426,13 @@ export default async function CompanyPage({
           <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
             <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-                Nøkkeltall
+                NÃ¸kkeltall
               </div>
               <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
                 Finansielle signaler
               </h2>
               <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                Nøkkeltall vises når de er tilgjengelige for analyse.
+                NÃ¸kkeltall vises nÃ¥r de er tilgjengelige for analyse.
               </p>
             </div>
             <div className="mt-6">
@@ -440,6 +459,7 @@ export default async function CompanyPage({
             profile={{
               company,
               roles: visibleRoles,
+              rolesAvailability,
               financialStatements,
               financialDocuments,
               financialsAvailability,
@@ -464,18 +484,21 @@ export default async function CompanyPage({
               </p>
             </div>
             <div className="mt-6">
-              {company.announcementsUrl ? (
-                <a
-                  href={company.announcementsUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex rounded-full bg-[#182535] px-5 py-3 text-sm font-semibold text-white hover:bg-[#223246]"
-                >
-                  Åpne kunngjøringer
-                </a>
+              {announcementsData ? (
+                <CompanyAnnouncementsTimeline
+                  companyName={company.name}
+                  companySlug={company.orgNumber}
+                  announcements={announcementsData.announcements}
+                  availabilityMessage={
+                    announcementsData.availability.message ?? "Kunngjøringer er tilgjengelige."
+                  }
+                  available={announcementsData.availability.available}
+                  allAnnouncementsUrl={announcementsData.allAnnouncementsUrl ?? company.announcementsUrl}
+                  initialDetail={initialAnnouncementDetail}
+                />
               ) : (
                 <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-6 text-slate-600">
-                  Ingen åpen kunngjøringslenke er tilgjengelig for denne virksomheten akkurat nå.
+                  Kunngjøringer kunne ikke lastes akkurat nå.
                 </div>
               )}
             </div>

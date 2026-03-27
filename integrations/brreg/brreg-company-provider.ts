@@ -37,11 +37,25 @@ function applyClientSideFilters(companies: ReturnType<typeof mapBrregCompany>[],
 
 export class BrregCompanyProvider implements CompanySearchProvider, CompanyProfileProvider {
   async searchCompanies(filters: SearchFilters) {
-    if (!filters.query && !filters.city && !filters.industryCode && !filters.legalForm && !filters.status) {
+    if (
+      !filters.query &&
+      !filters.city &&
+      !filters.municipality &&
+      !filters.municipalityNumber &&
+      !filters.industryCode &&
+      !filters.legalForm &&
+      !filters.status
+    ) {
       return [];
     }
 
-    if (!filters.query?.trim()) {
+    if (
+      !filters.query?.trim() &&
+      !filters.industryCode &&
+      !filters.city &&
+      !filters.municipality &&
+      !filters.municipalityNumber
+    ) {
       return [];
     }
 
@@ -57,6 +71,18 @@ export class BrregCompanyProvider implements CompanySearchProvider, CompanyProfi
 
     if (filters.query) {
       params.set("navn", filters.query.trim());
+    }
+
+    if (filters.industryCode) {
+      params.set("naeringskode", filters.industryCode.trim());
+    }
+
+    if (filters.municipality) {
+      params.set("forretningsadresse.kommune", filters.municipality.trim().toUpperCase());
+    }
+
+    if (filters.municipalityNumber) {
+      params.set("forretningsadresse.kommunenummer", filters.municipalityNumber.trim());
     }
 
     const response = await fetchJson<BrregSearchResponse>(`${env.brregBaseUrl}/enheter?${params.toString()}`);

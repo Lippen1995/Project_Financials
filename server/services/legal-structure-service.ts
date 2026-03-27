@@ -2,6 +2,7 @@ import { BrregAuthorityProvider } from "@/integrations/brreg/brreg-authority-pro
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import { BrregRolesProvider } from "@/integrations/brreg/brreg-roles-provider";
 import { BrregSubunitsProvider } from "@/integrations/brreg/brreg-subunits-provider";
+import { logRecoverableError } from "@/lib/recoverable-error";
 import {
   BrregLegalEntity,
   BrregLegalStructureSnapshot,
@@ -43,10 +44,22 @@ export async function getLegalStructure(orgNumber: string): Promise<BrregLegalSt
   }
 
   const [subunits, roles, signature, procuration] = await Promise.all([
-    subunitsProvider.fetchSubunits(orgNumber).catch(() => []),
-    rolesProvider.getRoles(orgNumber).catch(() => []),
-    authorityProvider.fetchSignatoryRules(orgNumber).catch(() => ({ rules: [], holders: [], raw: null })),
-    authorityProvider.fetchProcurationRules(orgNumber).catch(() => ({ rules: [], holders: [], raw: null })),
+    subunitsProvider.fetchSubunits(orgNumber).catch((error) => {
+      logRecoverableError("legal-structure.subunits", error, { orgNumber });
+      return [];
+    }),
+    rolesProvider.getRoles(orgNumber).catch((error) => {
+      logRecoverableError("legal-structure.roles", error, { orgNumber });
+      return [];
+    }),
+    authorityProvider.fetchSignatoryRules(orgNumber).catch((error) => {
+      logRecoverableError("legal-structure.signature", error, { orgNumber });
+      return { rules: [], holders: [], raw: null };
+    }),
+    authorityProvider.fetchProcurationRules(orgNumber).catch((error) => {
+      logRecoverableError("legal-structure.procuration", error, { orgNumber });
+      return { rules: [], holders: [], raw: null };
+    }),
   ]);
 
   const entity: BrregLegalEntity = {

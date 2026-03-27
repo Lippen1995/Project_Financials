@@ -194,36 +194,6 @@ export function FinancialChart({
       <div className="bg-[#F7F9FB] px-4 py-4">
         <div className="relative overflow-x-auto border border-[rgba(15,23,42,0.08)] bg-white">
           <div className="min-w-[680px]">
-            {activePoint && activeIndex >= 0 ? (
-              <div
-                className="pointer-events-none absolute z-20 -translate-x-1/2 border border-[#D7E0E9] bg-white/96 px-4 py-3 shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
-                style={{
-                  left: `${CHART_PADDING.left + groupWidth * activeIndex + groupWidth / 2}px`,
-                  top: 16,
-                }}
-              >
-                <div className="border-b border-[#EEF2F6] pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
-                  {activePoint.fiscalYear}
-                </div>
-                <div className="mt-2 space-y-2 text-sm">
-                  <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
-                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-[#31495F]" />
-                    <span className="text-[#475467]">Omsetning</span>
-                    <span className="text-right font-semibold tabular-nums text-[#101828]">
-                      {formatCompactNok(activePoint.revenue)}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
-                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-[#8B6338]" />
-                    <span className="text-[#475467]">EBIT-margin</span>
-                    <span className="text-right font-semibold tabular-nums text-[#101828]">
-                      {formatSignedPercent(activePoint.operatingMargin)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
             <svg
               viewBox={`0 0 ${svgWidth} ${CHART_HEIGHT}`}
               className="h-[25rem] w-full"

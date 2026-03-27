@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 export function SearchForm({
   compact = false,
-  placeholder = "Søk på selskapsnavn, person eller organisasjonsnummer",
+  placeholder = "Skriv f.eks. Selskaper som selger barneklaer i Rogaland",
 }: {
   compact?: boolean;
   placeholder?: string;
@@ -47,7 +47,7 @@ export function SearchForm({
             : "bg-[#182535] text-white"
         }`}
       >
-        Søk i ProjectX
+        Sok i ProjectX
       </button>
     </form>
   );

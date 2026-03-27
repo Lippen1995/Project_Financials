@@ -1,4 +1,5 @@
 import env from "@/lib/env";
+import { logRecoverableError } from "@/lib/recoverable-error";
 import { NormalizedFinancialDocument, NormalizedFinancialStatement } from "@/lib/types";
 import { fetchJson } from "@/integrations/http";
 import { extractHistoricalStatementsFromAnnualReports } from "@/integrations/brreg/pdf-financial-history";
@@ -24,6 +25,7 @@ function mapDocumentYears(years: BrregFinancialDocumentYear[], orgNumber: string
           type: "aarsregnskap",
           id: year,
           label: "Kopi av arsregnskap",
+          url: `${env.brregFinancialsBaseUrl}/aarsregnskap/kopi/${orgNumber}/${year}`,
         },
       ],
     }))
@@ -122,7 +124,10 @@ export class BrregFinancialsProvider implements FinancialsProvider {
         `${env.brregFinancialsBaseUrl}/aarsregnskap/kopi/${orgNumber}/aar`,
       );
       documents = mapDocumentYears(years, orgNumber);
-    } catch {
+    } catch (error) {
+      logRecoverableError("brreg-financials.documents", error, {
+        orgNumber,
+      });
       documents = [];
     }
 
@@ -136,8 +141,11 @@ export class BrregFinancialsProvider implements FinancialsProvider {
         for (const statement of historicalStatements) {
           statements.set(statement.fiscalYear, statement);
         }
-      } catch {
-        // Keep latest API statement if OCR-based history extraction fails.
+      } catch (error) {
+        logRecoverableError("brreg-financials.history", error, {
+          orgNumber,
+          years: documents.map((document) => document.year),
+        });
       }
     }
 
@@ -162,8 +170,10 @@ export class BrregFinancialsProvider implements FinancialsProvider {
 
     try {
       await writeFinancialCache(orgNumber, result);
-    } catch {
-      // Ignore local cache write failures and still return live data.
+    } catch (error) {
+      logRecoverableError("brreg-financials.cache-write", error, {
+        orgNumber,
+      });
     }
 
     return result;

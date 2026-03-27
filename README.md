@@ -14,6 +14,7 @@ ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeSc
 ## Hva som er implementert
 
 - Globalt søk mot Brønnøysundregistrene
+- AI-assistert fritekstsøk som tolker spørringer som aktivitet + geografi før kandidater rangeres
 - Selskapsprofil med virksomhetsdata fra Brønnøysundregistrene
 - Roller og styre når de er tilgjengelige fra Brønnøysundregistrene
 - Årsbundet selskapsstruktur basert på importerte aksjonærregisterdata fra Skatteetaten når snapshot er tilgjengelig
@@ -38,6 +39,7 @@ Brukes som source of truth for:
 - roller i virksomheten
 
 ProjectX bruker åpne Brreg-endepunkter under `data.brreg.no/enhetsregisteret/api`.
+Registrert næringskode beholdes med Brreg som kildesporing i domenemodellen; SSB brukes bare til beskrivelse og kodeverksberiking.
 For regnskap bruker ProjectX Brregs offisielle PDF-kopier av årsregnskap under `data.brreg.no/regnskapsregisteret/regnskap/aarsregnskap/kopi/...`.
 Historikk bygges ved lokal OCR-parsing og normalisering av disse PDF-ene.
 
@@ -75,6 +77,8 @@ ProjectX kan også hente aksjonærdata direkte fra Skatteetatens `Aksjonær i vi
 - Aksjonærdata krever et reelt Skatteetaten-uttrekk for aktuelt selskap og år. Hvis snapshot mangler, viser ProjectX en tydelig tomtilstand i stedet for en plassholdergraf.
 - Eierandeler beregnes bare når totalt antall aksjer finnes og er konsistent i den importerte leveransen.
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i ProjectX, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
+- AI-søk bruker OpenAI kun til å tolke søketeksten til strukturert intensjon. Kandidater hentes fortsatt fra Brreg, næringskoder berikes fra SSB, og sortering på størrelse bruker bare reelle inntektstall som finnes i lokal lagring/importerte regnskap.
+- Hvis `OPENAI_API_KEY` mangler, faller søket tilbake til en enklere regelbasert tolkning og UI-et markerer dette tydelig.
 
 ## Arkitektur
 
@@ -168,6 +172,8 @@ Dette vil:
 - `SSB_KLASS_BASE_URL`: base-URL for SSB Klass
 - `SSB_INDUSTRY_CLASSIFICATION_ID`: klassifikasjons-ID for næringskodeverket
 - `PROJECTX_CACHE_HOURS`: antall timer før cache oppfriskes
+- `OPENAI_API_KEY`: API-nøkkel brukt til å tolke fritekstsøk
+- `OPENAI_SEARCH_MODEL`: modellnavn for søketolkning, standard `gpt-5-mini`
 
 ## Provider-oversikt
 

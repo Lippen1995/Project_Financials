@@ -327,6 +327,11 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
             title="Rolleoversikt"
             description="Rollene er gruppert etter kontroll, styring, fullmakter og eksterne funksjoner."
           />
+          {!profile.rolesAvailability.available ? (
+            <div className="mt-5 rounded-[1rem] border border-[#F0D8C2] bg-[#FFF8F1] p-4 text-sm leading-6 text-[#8A4B14]">
+              {profile.rolesAvailability.message}
+            </div>
+          ) : null}
           <div className="mt-5 space-y-5">
             <div className={cn("rounded-[1.4rem] border p-5", bucketClasses.owners)}>
               <div className="flex items-start justify-between gap-4">

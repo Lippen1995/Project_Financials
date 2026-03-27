@@ -1,4 +1,6 @@
 import {
+  NormalizedAnnouncement,
+  NormalizedAnnouncementDetail,
   DataAvailability,
   NormalizedCompany,
   NormalizedFinancialDocument,
@@ -34,4 +36,18 @@ export interface IndustryCodeProvider {
 
 export interface RegulatoryOverlayProvider {
   getOverlay(orgNumber: string): Promise<DataAvailability>;
+}
+
+export interface AnnouncementsProvider {
+  getAnnouncements(orgNumber: string): Promise<{
+    announcements: NormalizedAnnouncement[];
+    availability: DataAvailability;
+    allAnnouncementsUrl?: string | null;
+  }>;
+
+  getAnnouncementDetail(
+    orgNumber: string,
+    announcementId: string,
+    publishedAt?: Date | null,
+  ): Promise<NormalizedAnnouncementDetail | null>;
 }

@@ -18,7 +18,7 @@ export function OverviewAnalytics({
 }) {
   const points = useMemo(() => getOverviewChartPoints(statements), [statements]);
   const defaultYear = points.at(-1)?.fiscalYear ?? null;
-  const [activeYear, setActiveYear] = useState<number | null>(defaultYear);
+  const [overviewYear, setOverviewYear] = useState<number | null>(defaultYear);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr),320px]">
@@ -37,12 +37,12 @@ export function OverviewAnalytics({
         </div>
 
         <div className="space-y-5 px-6 py-6">
-          <FinancialChart points={points} activeYear={activeYear} onActiveYearChange={setActiveYear} />
-          <EbitChart points={points} activeYear={activeYear} onActiveYearChange={setActiveYear} />
+          <FinancialChart points={points} activeYear={overviewYear} onActiveYearChange={setOverviewYear} />
+          <EbitChart points={points} />
         </div>
       </Card>
 
-      <OverviewSidePanel company={company} statements={statements} activeYear={activeYear} />
+      <OverviewSidePanel company={company} statements={statements} activeYear={overviewYear} />
     </div>
   );
 }

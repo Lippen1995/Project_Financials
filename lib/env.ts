@@ -5,6 +5,8 @@ const env = {
     process.env.BRREG_ROLES_BASE_URL ?? "https://data.brreg.no/enhetsregisteret/api",
   brregCompanyLookupBaseUrl:
     process.env.BRREG_COMPANY_LOOKUP_BASE_URL ?? "https://virksomhet.brreg.no/nb/oppslag/enheter",
+  brregAnnouncementsBaseUrl:
+    process.env.BRREG_ANNOUNCEMENTS_BASE_URL ?? "https://w2.brreg.no/kunngjoring",
   brregFinancialsBaseUrl:
     process.env.BRREG_FINANCIALS_BASE_URL ?? "https://data.brreg.no/regnskapsregisteret/regnskap",
   skatteetatenShareholdingBaseUrl:
@@ -17,6 +19,8 @@ const env = {
   cacheHours: Number(process.env.PROJECTX_CACHE_HOURS ?? "24"),
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
   stripePriceId: process.env.STRIPE_PRICE_ID ?? "",
+  openAiApiKey: process.env.OPENAI_API_KEY ?? "",
+  openAiSearchModel: process.env.OPENAI_SEARCH_MODEL ?? "gpt-5-mini",
 };
 
 export default env;

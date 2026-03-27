@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+
 import { cn } from "@/lib/utils";
 import { formatAxisNok, formatCompactNok, OverviewChartPoint } from "@/lib/overview-chart";
 
@@ -20,13 +22,10 @@ function buildTicks(minValue: number, maxValue: number) {
 
 export function EbitChart({
   points,
-  activeYear,
-  onActiveYearChange,
 }: {
   points: OverviewChartPoint[];
-  activeYear: number | null;
-  onActiveYearChange: (year: number | null) => void;
 }) {
+  const [activeYear, setActiveYear] = React.useState<number | null>(points.at(-1)?.fiscalYear ?? null);
   const activePoint = points.find((point) => point.fiscalYear === activeYear) ?? points.at(-1) ?? null;
   const minValue = Math.min(...points.map((point) => point.operatingProfit ?? 0), 0);
   const maxValue = Math.max(...points.map((point) => point.operatingProfit ?? 0), 1);
@@ -183,8 +182,8 @@ export function EbitChart({
                       width={groupWidth}
                       height={plotHeight}
                       fill="transparent"
-                      onMouseEnter={() => onActiveYearChange(point.fiscalYear)}
-                      onClick={() => onActiveYearChange(point.fiscalYear)}
+                      onMouseEnter={() => setActiveYear(point.fiscalYear)}
+                      onClick={() => setActiveYear(point.fiscalYear)}
                     />
                     <text
                       x={centerX}

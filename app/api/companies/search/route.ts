@@ -4,7 +4,7 @@ import { searchCompanies } from "@/server/services/company-service";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const companies = await searchCompanies({
+  const searchResult = await searchCompanies({
     query: searchParams.get("query") ?? undefined,
     industryCode: searchParams.get("industryCode") ?? undefined,
     city: searchParams.get("city") ?? undefined,
@@ -13,5 +13,8 @@ export async function GET(request: NextRequest) {
       (searchParams.get("status") as "ACTIVE" | "DISSOLVED" | "BANKRUPT" | null) ?? undefined,
   });
 
-  return NextResponse.json({ data: companies });
+  return NextResponse.json({
+    data: searchResult.results,
+    interpretation: searchResult.interpretation,
+  });
 }
