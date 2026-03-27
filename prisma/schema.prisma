@@ -26,6 +26,58 @@ enum SubscriptionStatus {
   CANCELED
 }
 
+enum WorkspaceType {
+  PERSONAL
+  TEAM
+}
+
+enum WorkspaceStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum WorkspaceMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum WorkspaceInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELED
+}
+
+enum DdRoomStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum DdCommentThreadTargetType {
+  ROOM_POST
+  ANNOUNCEMENT
+  FINANCIAL_STATEMENT
+}
+
+enum WorkspaceWatchStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum WorkspaceNotificationType {
+  ANNOUNCEMENT_NEW
+  FINANCIAL_STATEMENT_NEW
+  COMPANY_STATUS_CHANGED
+  DISTRESS_MATCH
+}
+
+enum WorkspaceMonitorStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum ShareholderType {
   PERSON
   COMPANY
@@ -51,17 +103,26 @@ enum ShareholdingGraphNodeType {
 }
 
 model User {
-  id             String         @id @default(cuid())
-  name           String?
-  email          String         @unique
-  emailVerified  DateTime?
-  passwordHash   String?
-  image          String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  accounts       Account[]
-  sessions       Session[]
-  subscription   Subscription?
+  id                          String                @id @default(cuid())
+  name                        String?
+  email                       String                @unique
+  emailVerified               DateTime?
+  passwordHash                String?
+  image                       String?
+  lastWorkspaceId             String?
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime              @updatedAt
+  accounts                    Account[]
+  sessions                    Session[]
+  subscription                Subscription?
+  lastWorkspace               Workspace?            @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
+  personalWorkspace           Workspace?            @relation("PersonalWorkspaceOwner")
+  workspaceMemberships        WorkspaceMember[]
+  sentWorkspaceInvitations    WorkspaceInvitation[] @relation("WorkspaceInvitationInvitedBy")
+  acceptedWorkspaceInvitations WorkspaceInvitation[] @relation("WorkspaceInvitationAcceptedBy")
+  ddPosts                     DdPost[]
+  ddCommentThreads            DdCommentThread[]     @relation("DdCommentThreadCreatedBy")
+  ddComments                  DdComment[]           @relation("DdCommentAuthor")
 }
 
 model Subscription {
@@ -75,6 +136,63 @@ model Subscription {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Workspace {
+  id            String                @id @default(cuid())
+  name          String
+  type          WorkspaceType
+  status        WorkspaceStatus       @default(ACTIVE)
+  personalOwnerId String?             @unique
+  archivedAt    DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  personalOwner User?                 @relation("PersonalWorkspaceOwner", fields: [personalOwnerId], references: [id], onDelete: SetNull)
+  lastUsedByUsers User[]              @relation("LastWorkspace")
+  members       WorkspaceMember[]
+  invitations   WorkspaceInvitation[]
+  ddRooms       DdRoom[]
+  watches       WorkspaceWatch[]
+  notifications WorkspaceNotification[]
+  monitors      WorkspaceMonitor[]
+
+  @@index([status, type])
+}
+
+model WorkspaceMember {
+  id          String              @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceMemberRole @default(MEMBER)
+  joinedAt    DateTime            @default(now())
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, role])
+}
+
+model WorkspaceInvitation {
+  id               String                    @id @default(cuid())
+  workspaceId      String
+  email            String
+  role             WorkspaceMemberRole       @default(MEMBER)
+  token            String                    @unique
+  status           WorkspaceInvitationStatus @default(PENDING)
+  expiresAt        DateTime
+  respondedAt      DateTime?
+  invitedByUserId  String
+  acceptedByUserId String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  workspace        Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy        User                      @relation("WorkspaceInvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  acceptedBy       User?                     @relation("WorkspaceInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([email, status])
 }
 
 model Company {
@@ -107,6 +225,10 @@ model Company {
   shareholdingSnapshots ShareholdingSnapshot[]
   linkedShareholders  Shareholder[]
   ownerships          Ownership[]
+  ddRooms             DdRoom[]
+  ddCommentThreads    DdCommentThread[]
+  workspaceWatches    WorkspaceWatch[]
+  workspaceNotifications WorkspaceNotification[]
   industryCodeId      String?
   industryCode        IndustryCode?        @relation(fields: [industryCodeId], references: [id])
 
@@ -171,6 +293,7 @@ model FinancialStatement {
   updatedAt        DateTime @updatedAt
   companyId        String
   company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ddCommentThreads DdCommentThread[]
 
   @@unique([companyId, fiscalYear])
   @@index([companyId, fiscalYear])
@@ -211,6 +334,145 @@ model IndustryCode {
   normalizedAt     DateTime
   rawPayload       Json?
   companies        Company[]
+}
+
+model DdRoom {
+  id               String      @id @default(cuid())
+  workspaceId      String
+  primaryCompanyId String
+  name             String
+  description      String?
+  status           DdRoomStatus @default(ACTIVE)
+  archivedAt       DateTime?
+  lastActivityAt   DateTime    @default(now())
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  workspace        Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  primaryCompany   Company     @relation(fields: [primaryCompanyId], references: [id], onDelete: Restrict)
+  posts            DdPost[]
+  commentThreads   DdCommentThread[]
+
+  @@index([workspaceId, status])
+  @@index([primaryCompanyId, status])
+}
+
+model DdPost {
+  id           String           @id @default(cuid())
+  roomId        String
+  authorUserId  String
+  content       String
+  deletedAt     DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  room          DdRoom          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author        User            @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  commentThreads DdCommentThread[]
+
+  @@index([roomId, createdAt])
+  @@index([authorUserId, createdAt])
+}
+
+model DdCommentThread {
+  id                            String                    @id @default(cuid())
+  roomId                        String
+  targetType                    DdCommentThreadTargetType
+  targetCompanyId               String?
+  targetAnnouncementId          String?
+  targetAnnouncementSourceId    String?
+  targetAnnouncementSourceSystem String?
+  targetAnnouncementPublishedAt DateTime?
+  targetFinancialStatementId    String?
+  targetPostId                  String?
+  createdByUserId               String
+  createdAt                     DateTime                  @default(now())
+  updatedAt                     DateTime                  @updatedAt
+  room                          DdRoom                    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  targetCompany                 Company?                  @relation(fields: [targetCompanyId], references: [id], onDelete: SetNull)
+  targetFinancialStatement      FinancialStatement?       @relation(fields: [targetFinancialStatementId], references: [id], onDelete: SetNull)
+  targetPost                    DdPost?                   @relation(fields: [targetPostId], references: [id], onDelete: SetNull)
+  createdBy                     User                      @relation("DdCommentThreadCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  comments                      DdComment[]
+
+  @@index([roomId, targetType])
+  @@index([targetCompanyId, targetType])
+}
+
+model DdComment {
+  id              String      @id @default(cuid())
+  threadId         String
+  authorUserId     String
+  parentCommentId  String?
+  content          String
+  deletedAt        DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  thread           DdCommentThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author           User       @relation("DdCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  parentComment    DdComment? @relation("DdCommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies          DdComment[] @relation("DdCommentReplies")
+
+  @@index([threadId, createdAt])
+  @@index([authorUserId, createdAt])
+}
+
+model WorkspaceWatch {
+  id                      String              @id @default(cuid())
+  workspaceId             String
+  companyId               String
+  status                  WorkspaceWatchStatus @default(ACTIVE)
+  watchAnnouncements      Boolean             @default(true)
+  watchFinancialStatements Boolean            @default(true)
+  watchStatusChanges      Boolean             @default(true)
+  archivedAt              DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  workspace               Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company                 Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  notifications           WorkspaceNotification[]
+
+  @@unique([workspaceId, companyId])
+  @@index([workspaceId, status])
+}
+
+model WorkspaceNotification {
+  id         String                    @id @default(cuid())
+  workspaceId String
+  type       WorkspaceNotificationType
+  watchId    String?
+  companyId  String?
+  dedupeKey  String                    @unique
+  title      String
+  body       String
+  metadata   Json?
+  createdAt  DateTime                  @default(now())
+  readAt     DateTime?
+  workspace  Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  watch      WorkspaceWatch?           @relation(fields: [watchId], references: [id], onDelete: SetNull)
+  company    Company?                  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, readAt, createdAt])
+  @@index([companyId, type])
+}
+
+model WorkspaceMonitor {
+  id                 String                @id @default(cuid())
+  workspaceId        String
+  name               String
+  status             WorkspaceMonitorStatus @default(ACTIVE)
+  industryCodePrefix String?
+  minEmployees       Int?
+  maxEmployees       Int?
+  minRevenue         Int?
+  maxRevenue         Int?
+  companyStatus      CompanyStatus?
+  minimumDaysInStatus Int?
+  unsupportedReason  String?
+  archivedAt         DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  workspace          Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
 }
 
 model ShareholdingRawSource {

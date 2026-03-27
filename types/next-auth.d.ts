@@ -10,6 +10,11 @@ declare module "next-auth" {
       image?: string | null;
       subscriptionPlan?: string;
       subscriptionStatus?: string;
+      currentWorkspaceId?: string;
+      currentWorkspaceName?: string;
+      currentWorkspaceType?: "PERSONAL" | "TEAM";
+      currentWorkspaceStatus?: "ACTIVE" | "ARCHIVED";
+      currentWorkspaceRole?: "OWNER" | "ADMIN" | "MEMBER";
     };
   }
 }
@@ -18,5 +23,10 @@ declare module "next-auth/jwt" {
   interface JWT {
     subscriptionPlan?: string;
     subscriptionStatus?: string;
+    currentWorkspaceId?: string;
+    currentWorkspaceName?: string;
+    currentWorkspaceType?: "PERSONAL" | "TEAM";
+    currentWorkspaceStatus?: "ACTIVE" | "ARCHIVED";
+    currentWorkspaceRole?: "OWNER" | "ADMIN" | "MEMBER";
   }
 }

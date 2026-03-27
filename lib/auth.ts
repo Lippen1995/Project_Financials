@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { getSessionWorkspaceContext } from "@/server/services/workspace-service";
 
 const credentialSchema = z.object({
   email: z.string().email(),
@@ -70,6 +71,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         token.subscriptionPlan = subscription?.plan ?? "free";
         token.subscriptionStatus = subscription?.status ?? "FREE";
+
+        const workspaceContext = await getSessionWorkspaceContext(token.sub);
+        token.currentWorkspaceId = workspaceContext.currentWorkspaceId ?? undefined;
+        token.currentWorkspaceName = workspaceContext.currentWorkspaceName ?? undefined;
+        token.currentWorkspaceType = workspaceContext.currentWorkspaceType ?? undefined;
+        token.currentWorkspaceStatus = workspaceContext.currentWorkspaceStatus ?? undefined;
+        token.currentWorkspaceRole = workspaceContext.currentWorkspaceRole ?? undefined;
       }
 
       return token;
@@ -79,6 +87,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.sub!;
         session.user.subscriptionPlan = (token.subscriptionPlan as string) ?? "free";
         session.user.subscriptionStatus = (token.subscriptionStatus as string) ?? "FREE";
+        session.user.currentWorkspaceId = (token.currentWorkspaceId as string | undefined) ?? undefined;
+        session.user.currentWorkspaceName = (token.currentWorkspaceName as string | undefined) ?? undefined;
+        session.user.currentWorkspaceType =
+          (token.currentWorkspaceType as "PERSONAL" | "TEAM" | undefined) ?? undefined;
+        session.user.currentWorkspaceStatus =
+          (token.currentWorkspaceStatus as "ACTIVE" | "ARCHIVED" | undefined) ?? undefined;
+        session.user.currentWorkspaceRole =
+          (token.currentWorkspaceRole as "OWNER" | "ADMIN" | "MEMBER" | undefined) ?? undefined;
       }
 
       return session;

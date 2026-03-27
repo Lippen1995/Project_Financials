@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { signIn, signOut } from "@/lib/auth";
+import { ensureUserWorkspaceState } from "@/server/services/workspace-service";
 
 const authSchema = z.object({
   email: z.string().email(),
@@ -20,6 +21,19 @@ export async function loginAction(_: unknown, formData: FormData) {
       email: formData.get("email"),
       password: formData.get("password"),
     });
+
+    const existing = await prisma.user.findUnique({
+      where: {
+        email: values.email,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existing) {
+      await ensureUserWorkspaceState(existing.id);
+    }
 
     await signIn("credentials", {
       email: values.email,
@@ -64,6 +78,8 @@ export async function registerAction(_: unknown, formData: FormData) {
         },
       },
     });
+
+    await ensureUserWorkspaceState(user.id);
 
     await signIn("credentials", {
       email: user.email,

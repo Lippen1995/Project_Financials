@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "backfill:workspaces": "tsx scripts/backfill-workspaces.ts",
     "import:annual-reports": "tsx scripts/import-company-annual-reports.ts",
     "import:shareholding": "tsx scripts/import-shareholding-snapshot.ts",
     "postinstall": "prisma generate"

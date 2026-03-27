@@ -353,3 +353,61 @@ export type BrregLegalStructureSnapshot = {
     procuration: boolean;
   };
 };
+
+export type WorkspaceType = "PERSONAL" | "TEAM";
+export type WorkspaceStatus = "ACTIVE" | "ARCHIVED";
+export type WorkspaceMemberRole = "OWNER" | "ADMIN" | "MEMBER";
+export type WorkspaceInvitationStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "EXPIRED" | "CANCELED";
+export type DdRoomStatus = "ACTIVE" | "ARCHIVED";
+export type WorkspaceWatchStatus = "ACTIVE" | "ARCHIVED";
+export type WorkspaceMonitorStatus = "ACTIVE" | "ARCHIVED";
+
+export type WorkspaceCapabilitySet = {
+  canManageWorkspace: boolean;
+  canInviteMembers: boolean;
+  canRemoveMembers: boolean;
+  canCreateDdRoom: boolean;
+  canManageWatches: boolean;
+};
+
+export type WorkspaceMemberSummary = {
+  id: string;
+  userId: string;
+  name: string | null;
+  email: string;
+  role: WorkspaceMemberRole;
+  joinedAt: Date;
+  isCurrentUser: boolean;
+};
+
+export type WorkspaceInvitationSummary = {
+  id: string;
+  email: string;
+  role: WorkspaceMemberRole;
+  status: WorkspaceInvitationStatus;
+  expiresAt: Date;
+  respondedAt?: Date | null;
+  createdAt: Date;
+  invitedByName?: string | null;
+  invitedByEmail?: string | null;
+};
+
+export type WorkspaceSummary = {
+  id: string;
+  name: string;
+  type: WorkspaceType;
+  status: WorkspaceStatus;
+  role: WorkspaceMemberRole;
+  memberCount: number;
+  activeDdRoomCount: number;
+  archivedDdRoomCount: number;
+  activeWatchCount: number;
+  archivedWatchCount: number;
+  unreadNotificationCount: number;
+};
+
+export type CurrentWorkspaceSummary = WorkspaceSummary & {
+  capabilities: WorkspaceCapabilitySet;
+  members: WorkspaceMemberSummary[];
+  invitations: WorkspaceInvitationSummary[];
+};

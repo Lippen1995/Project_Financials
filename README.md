@@ -22,6 +22,7 @@ ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeSc
 - Næringskodeberiking fra SSB Klass
 - Filtrering på sentrale virksomhetsfelt
 - Innlogging, registrering og enkel feature gating
+- Workspace-basert kontooversikt med personlig workspace, team-workspaces og invitasjoner
 - Lokal cache/persistens av hentede records med sporbarhet
 
 ## Datakilder
@@ -111,7 +112,13 @@ npm install
 npm run db:push
 ```
 
-5. Start appen:
+5. Hvis databasen allerede har brukere, backfill workspace-tilstand:
+
+```bash
+npm run backfill:workspaces
+```
+
+6. Start appen:
 
 ```bash
 npm run dev
@@ -122,6 +129,8 @@ Appen kjører da på [http://localhost:3000](http://localhost:3000).
 ## Auth
 
 Det finnes ingen seedede demo-brukere. Opprett en konto i UI for lokal bruk.
+
+Hver bruker får automatisk en personlig workspace ved registrering eller første innlogging etter schema-oppdateringen. Team-workspaces og medlemsinvitasjoner administreres fra dashboardet.
 
 Subscription-modellen finnes i databasen og brukes til enkel feature gating i produktet. Betalingsflyt er ikke ferdigstilt i denne iterasjonen.
 
