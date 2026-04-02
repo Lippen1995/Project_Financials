@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
+import { CompanyFinancialDiscussions } from "@/components/company/company-financial-discussions";
 import { CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
 import { FinancialDocuments } from "@/components/company/financial-documents";
 import { FinancialTimeSeriesTable } from "@/components/company/financial-time-series-table";
@@ -15,11 +17,16 @@ import { safeAuth } from "@/lib/auth";
 import { CompanyProfile, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { isPremium } from "@/server/billing/subscription";
+import { getCompanyDdDiscussionContext } from "@/server/services/company-dd-discussion-service";
 import {
   getCompanyAnnouncementDetail,
   getCompanyAnnouncements,
   getCompanyProfile,
 } from "@/server/services/company-service";
+import {
+  listFinancialMetricCommentThreads,
+  listFinancialStatementCommentThreads,
+} from "@/server/services/dd-comment-service";
 import { getLegalStructure } from "@/server/services/legal-structure-service";
 
 function sortStatements(statements: NormalizedFinancialStatement[]) {
@@ -104,7 +111,7 @@ function getExecutiveSignals(profile: CompanyProfile) {
       ? "Siste tilgjengelige driftsresultat er negativt."
       : null,
     revenueChange !== null && revenueChange < 0 ? "Omsetningen er lavere enn forrige år." : null,
-    roles.length <= 2 ? "Styringsstrukturen ser kompakt ut og bør vurderes nærmere." : null,
+    roles.length <= 2 ? "Styringsstrukturen er kompakt og bør vurderes nærmere." : null,
   ].filter(Boolean) as string[];
 
   return {
@@ -121,7 +128,9 @@ function getExecutiveSignals(profile: CompanyProfile) {
     investigationNotes:
       investigationNotes.length > 0
         ? investigationNotes
-        : ["Ingen umiddelbare avvik i toppsignalene. Fortsett med regnskap og struktur for dypere analyse."],
+        : [
+            "Ingen umiddelbare avvik i toppsignalene. Fortsett med regnskap og struktur for dypere analyse.",
+          ],
   };
 }
 
@@ -139,14 +148,16 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
   const secondarySignals = [
     { label: "Soliditet", value: signals.solidity },
     { label: "Lønnsomhet", value: signals.profitability },
-    { label: "Utvikling vs forrige år", value: signals.revenueChange },
+    { label: "Utvikling mot forrige år", value: signals.revenueChange },
     { label: "Kontrollsignal", value: signals.controlSummary },
   ];
 
   return (
     <section className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.82)] xl:grid-cols-[240px,minmax(0,1fr),340px]">
       <div className="border-b border-[rgba(15,23,42,0.08)] p-6 xl:border-b-0 xl:border-r">
-        <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Hovedsignaler</div>
+        <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+          Hovedsignaler
+        </div>
         <h2 className="mt-3 text-[1.8rem] font-semibold text-slate-950">Rask vurdering</h2>
         <p className="mt-3 text-sm leading-7 text-slate-600">
           De viktigste driftssignalene, kontrollspørsmålene og tilgjengeligheten samlet i ett lag.
@@ -219,12 +230,16 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
             Tilgjengelighet
           </div>
           <div className="mt-2 text-sm font-semibold text-slate-900">
-            {financialsAvailability.available ? "Regnskap er tilgjengelig." : "Regnskap er delvis tilgjengelig."}
+            {financialsAvailability.available
+              ? "Regnskap er tilgjengelig."
+              : "Regnskap er delvis tilgjengelig."}
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600">{financialsAvailability.message}</p>
           <div className="mt-4 border-t border-[rgba(15,23,42,0.08)] pt-4 text-sm leading-6 text-slate-600">
             <div className="font-semibold text-slate-900">
-              {rolesAvailability.available ? "Rolledatakilde er tilgjengelig." : "Rolledatakilde er ikke bekreftet."}
+              {rolesAvailability.available
+                ? "Rolledatakilde er tilgjengelig."
+                : "Rolledatakilde er ikke bekreftet."}
             </div>
             <p className="mt-1">{rolesAvailability.message}</p>
           </div>
@@ -257,25 +272,35 @@ function CompanyHeader({ profile }: { profile: CompanyProfile }) {
 
         <div className="mt-6 grid gap-x-6 gap-y-4 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-3">
           <div>
-            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Org.nr</div>
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+              Org.nr.
+            </div>
             <div className="mt-1 font-semibold text-slate-900">{company.orgNumber}</div>
           </div>
           <div>
-            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Selskapsform</div>
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+              Selskapsform
+            </div>
             <div className="mt-1 font-semibold text-slate-900">
               {company.legalForm ?? "Ikke tilgjengelig"}
             </div>
           </div>
           <div>
-            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Kommune</div>
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+              Kommune
+            </div>
             <div className="mt-1 font-semibold text-slate-900">{municipality}</div>
           </div>
           <div>
-            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Registrert</div>
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+              Registrert
+            </div>
             <div className="mt-1 font-semibold text-slate-900">{formatDate(company.registeredAt)}</div>
           </div>
           <div>
-            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Bransje</div>
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+              Bransje
+            </div>
             <div className="mt-1 font-semibold text-slate-900">
               {[company.industryCode?.code, company.industryCode?.title].filter(Boolean).join(" ") ||
                 "Ikke tilgjengelig"}
@@ -330,6 +355,9 @@ export default async function CompanyPage({
   const query = await searchParams;
   const requestedTab = typeof query.tab === "string" ? query.tab : undefined;
   const activeTab = isCompanyTab(requestedTab) ? requestedTab : "oversikt";
+  const notice = typeof query.notice === "string" ? query.notice : null;
+  const error = typeof query.error === "string" ? query.error : null;
+  const requestedDdRoomId = typeof query.ddRoom === "string" ? query.ddRoom : null;
 
   const session = await safeAuth();
   const premium = isPremium(session?.user.subscriptionStatus, session?.user.subscriptionPlan);
@@ -360,12 +388,77 @@ export default async function CompanyPage({
           announcementsData.announcements[0].publishedAt ?? null,
         )
       : null;
+  const discussionContext =
+    session?.user?.id && (activeTab === "regnskap" || activeTab === "kunngjoringer")
+      ? await getCompanyDdDiscussionContext(
+          session.user.id,
+          company.orgNumber,
+          requestedDdRoomId,
+        )
+      : null;
+  const financialDiscussions =
+    session?.user?.id && activeTab === "regnskap" && discussionContext?.selectedRoomId
+      ? await listFinancialStatementCommentThreads(session.user.id, discussionContext.selectedRoomId)
+      : [];
+  const financialMetricDiscussions =
+    session?.user?.id && activeTab === "regnskap" && discussionContext?.selectedRoomId
+      ? await listFinancialMetricCommentThreads(session.user.id, discussionContext.selectedRoomId)
+      : [];
 
   return (
     <main className="space-y-6 pb-10">
       <CompanyHeader profile={profile} />
 
-      <CompanyTabs companySlug={company.orgNumber} activeTab={activeTab} />
+      <CompanyTabs
+        companySlug={company.orgNumber}
+        activeTab={activeTab}
+        activeDdRoomId={discussionContext?.selectedRoomId ?? requestedDdRoomId}
+      />
+
+      {notice ? (
+        <div className="rounded-[1rem] border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">
+          {notice}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="rounded-[1rem] border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800">
+          {error}
+        </div>
+      ) : null}
+
+      {(activeTab === "regnskap" || activeTab === "kunngjoringer") && discussionContext ? (
+        <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+                DD-kontekst
+              </div>
+              <h2 className="mt-2 text-[1.35rem] font-semibold text-slate-950">
+                Kommentarer i DD-rom
+              </h2>
+              <p className="mt-1.5 text-sm leading-6 text-slate-600">
+                Kommentarer på kunngjøringer og regnskap vises bare når selskapsprofilen er åpnet fra et aktivt DD-rom.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {discussionContext.rooms.map((room) => (
+                <Link
+                  key={room.id}
+                  href={`/companies/${company.orgNumber}?tab=${activeTab}&ddRoom=${room.id}`}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold ${
+                    discussionContext.selectedRoomId === room.id
+                      ? "border-[#162233] bg-[#162233] text-white"
+                      : "border-[rgba(15,23,42,0.1)] bg-white text-slate-700"
+                  }`}
+                >
+                  {room.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       {activeTab === "oversikt" ? (
         <>
@@ -397,7 +490,14 @@ export default async function CompanyPage({
               </p>
             </div>
             <div className="mt-6">
-              <FinancialTimeSeriesTable statements={financialStatements} documents={financialDocuments} />
+              <FinancialTimeSeriesTable
+                statements={financialStatements}
+                documents={financialDocuments}
+                discussionRoomId={discussionContext?.selectedRoomId ?? null}
+                discussionRoomName={discussionContext?.selectedRoomName ?? null}
+                discussionStatements={financialDiscussions}
+                discussionThreads={financialMetricDiscussions}
+              />
             </div>
           </Card>
 
@@ -418,6 +518,30 @@ export default async function CompanyPage({
             <h3 className="text-xl font-semibold text-slate-950">Tilgjengelighet</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">{financialsAvailability.message}</p>
           </Card>
+
+          {discussionContext?.selectedRoomId ? (
+            <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
+              <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
+                <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+                  Regnskapsdiskusjon
+                </div>
+                <h3 className="mt-2 text-xl font-semibold text-slate-950">
+                  Kommentarer per lagret regnskapsartefakt
+                </h3>
+                <p className="mt-1.5 text-sm leading-6 text-slate-500">
+                  Denne flaten bruker bare lagrede og sporbare regnskapsartefakter i ProjectX.
+                </p>
+              </div>
+              <div className="mt-6">
+                <CompanyFinancialDiscussions
+                  companySlug={company.orgNumber}
+                  roomId={discussionContext.selectedRoomId}
+                  roomName={discussionContext.selectedRoomName}
+                  discussions={financialDiscussions}
+                />
+              </div>
+            </Card>
+          ) : null}
         </div>
       ) : null}
 
@@ -495,6 +619,8 @@ export default async function CompanyPage({
                   available={announcementsData.availability.available}
                   allAnnouncementsUrl={announcementsData.allAnnouncementsUrl ?? company.announcementsUrl}
                   initialDetail={initialAnnouncementDetail}
+                  discussionRoomId={discussionContext?.selectedRoomId ?? null}
+                  discussionRoomName={discussionContext?.selectedRoomName ?? null}
                 />
               ) : (
                 <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-6 text-slate-600">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Card } from "@/components/ui/card";
@@ -23,11 +24,11 @@ function getWorkspaceTypeLabel(type: WorkspaceSummary["type"]) {
 
 function getRoleLabel(role: CurrentWorkspaceSummary["role"]) {
   if (role === "OWNER") {
-    return "Owner";
+    return "Eier";
   }
 
   if (role === "ADMIN") {
-    return "Admin";
+    return "Administrator";
   }
 
   return "Medlem";
@@ -119,6 +120,13 @@ function WorkspaceOverviewCard({ workspace }: { workspace: WorkspaceSummary }) {
             </button>
           </form>
 
+          <Link
+            href={`/workspaces/${workspace.id}/distress`}
+            className="rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-[rgba(15,23,42,0.2)] hover:text-slate-950"
+          >
+            Distress
+          </Link>
+
           {workspace.type === "TEAM" && (workspace.role === "OWNER" || workspace.role === "ADMIN") ? (
             <form action={action}>
               <input type="hidden" name="workspaceId" value={workspace.id} />
@@ -147,7 +155,7 @@ function WorkspaceOverviewCard({ workspace }: { workspace: WorkspaceSummary }) {
         <div className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Uleste varsler</div>
           <div className="mt-2 text-xl font-semibold text-slate-950">{workspace.unreadNotificationCount}</div>
-          <div className="mt-1 text-xs text-slate-500">Inbox i appen kommer i neste steg</div>
+          <div className="mt-1 text-xs text-slate-500">Samlet oversikt for aktiv arbeidsflate</div>
         </div>
       </div>
     </Card>
@@ -190,8 +198,8 @@ export default async function DashboardPage({
             {currentWorkspace.name}
           </h1>
           <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
-            Dashboardet er nå workspace-basert. Du kan jobbe alene i en personlig arbeidsflate eller
-            invitere flere inn i team, uten å miste dagens konto- og abonnementsoverblikk.
+            Dashboardet samler team, tilgang og invitasjoner i én arbeidsflate, slik at det er
+            enkelt å holde oversikt over hvem som jobber med hva.
           </p>
         </div>
 
@@ -204,8 +212,7 @@ export default async function DashboardPage({
             Plan: {subscription?.plan ?? "Standard"} · neste periode {formatDate(subscription?.currentPeriodEnd)}
           </p>
           <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/82">
-            Aktiv workspace styrer hvilke team, invitasjoner og senere DD-rom, overvåkninger og varsler
-            du jobber i.
+            Aktiv arbeidsflate styrer hvilke medlemmer, invitasjoner og oppgaver du arbeider med.
           </div>
         </aside>
       </section>
@@ -219,11 +226,11 @@ export default async function DashboardPage({
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,42,0.08)] pb-4">
               <div>
                 <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-                  Workspaces
+                  Arbeidsflater
                 </div>
                 <h2 className="mt-2 text-[1.7rem] font-semibold text-slate-950">Bytt arbeidsflate</h2>
               </div>
-              <div className="text-sm text-slate-500">{workspaces.length} tilgjengelige workspaces</div>
+              <div className="text-sm text-slate-500">{workspaces.length} tilgjengelige arbeidsflater</div>
             </div>
             <div className="mt-6 grid gap-4">
               {workspaces.map((workspace) => (
@@ -240,7 +247,8 @@ export default async function DashboardPage({
                 </div>
                 <h2 className="mt-2 text-[1.7rem] font-semibold text-slate-950">Team og tilgang</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Medlemskap arves av alle kommende DD-rom, abonnementer og varsler i workspace-et.
+                  Medlemmer får tilgang til kommende DD-rom, abonnementer og varsler i denne
+                  arbeidsflaten.
                 </p>
 
                 <div className="mt-6 grid gap-3">
@@ -255,7 +263,8 @@ export default async function DashboardPage({
                           {member.isCurrentUser ? " (deg)" : ""}
                         </div>
                         <div className="mt-1 text-sm text-slate-500">
-                          {member.email} · {getRoleLabel(member.role)} · med siden {formatDate(member.joinedAt)}
+                          {member.email} · {getRoleLabel(member.role)} · med siden{" "}
+                          {formatDate(member.joinedAt)}
                         </div>
                       </div>
 
@@ -304,7 +313,7 @@ export default async function DashboardPage({
                         className="w-full rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[#31495f]"
                       >
                         <option value="MEMBER">Medlem</option>
-                        <option value="ADMIN">Admin</option>
+                        <option value="ADMIN">Administrator</option>
                       </select>
                     </div>
                     <button
@@ -317,14 +326,14 @@ export default async function DashboardPage({
                 ) : (
                   <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-white p-4 text-sm leading-6 text-slate-600">
                     {currentWorkspace.type === "PERSONAL"
-                      ? "Personlige workspaces støtter ikke flere medlemmer. Opprett et team-workspace for samarbeid."
-                      : "Bare owner og admin kan invitere nye medlemmer."}
+                      ? "Personlige arbeidsflater støtter ikke flere medlemmer. Opprett en teamarbeidsflate for samarbeid."
+                      : "Bare eiere og administratorer kan invitere nye medlemmer."}
                   </div>
                 )}
 
                 <div className="border-t border-[rgba(15,23,42,0.08)] pt-4">
                   <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-                    Team-workspace
+                    Teamarbeidsflate
                   </div>
                   <form action={createTeamWorkspaceAction} className="mt-3 space-y-3">
                     <input
@@ -349,13 +358,13 @@ export default async function DashboardPage({
         <div className="space-y-6">
           <Card className="bg-[rgba(255,255,255,0.92)]">
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-              Invitasjoner inn
+              Mottatte invitasjoner
             </div>
             <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Ventende invitasjoner</h2>
             <div className="mt-5 space-y-3">
               {incomingInvitations.length === 0 ? (
                 <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
-                  Du har ingen ventende workspace-invitasjoner akkurat nå.
+                  Du har ingen ventende invitasjoner akkurat nå.
                 </div>
               ) : (
                 incomingInvitations.map((invitation) => (
@@ -363,7 +372,9 @@ export default async function DashboardPage({
                     key={invitation.id}
                     className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.76)] p-4"
                   >
-                    <div className="font-semibold text-slate-950">{invitation.invitedByName ?? invitation.email}</div>
+                    <div className="font-semibold text-slate-950">
+                      {invitation.invitedByName ?? invitation.email}
+                    </div>
                     <div className="mt-1 text-sm leading-6 text-slate-600">
                       Invitert av {invitation.invitedByName ?? invitation.invitedByEmail} · rolle{" "}
                       {getRoleLabel(invitation.role)} · utløper {formatDate(invitation.expiresAt)}
@@ -412,7 +423,7 @@ export default async function DashboardPage({
                   {currentWorkspace.activeDdRoomCount}
                 </div>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Infrastruktur er klar. Romoversikt og rom-shell kobles på i neste steg.
+                  Viser aktive rom og tilgjengelig kapasitet i denne arbeidsflaten.
                 </p>
               </div>
 
@@ -424,7 +435,7 @@ export default async function DashboardPage({
                   {currentWorkspace.activeWatchCount}
                 </div>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Dashboardet viser allerede aktive og inaktive plasser for overvåkning og varsler.
+                  Gir rask oversikt over aktive og arkiverte abonnementer per arbeidsflate.
                 </p>
               </div>
 
@@ -434,7 +445,7 @@ export default async function DashboardPage({
                   {currentWorkspace.unreadNotificationCount}
                 </div>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  In-app inbox er modellert i databasen og kan kobles på uten å endre ownership-modellen.
+                  Fremhever uleste signaler som fortsatt krever oppfølging.
                 </p>
               </div>
             </div>
@@ -444,11 +455,11 @@ export default async function DashboardPage({
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
               Sendte invitasjoner
             </div>
-            <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Historikk for aktiv workspace</h2>
+            <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Historikk for aktiv arbeidsflate</h2>
             <div className="mt-5 space-y-3">
               {currentWorkspace.invitations.length === 0 ? (
                 <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
-                  Ingen invitasjoner er sendt fra dette workspace-et ennå.
+                  Ingen invitasjoner er sendt fra denne arbeidsflaten ennå.
                 </div>
               ) : (
                 currentWorkspace.invitations.map((invitation) => (

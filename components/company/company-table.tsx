@@ -7,7 +7,7 @@ export function CompanyTable({ companies }: { companies: RankedCompanySearchResu
   if (companies.length === 0) {
     return (
       <div className="border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(255,255,255,0.7)] p-8 text-center text-sm text-slate-600">
-        Ingen selskaper matchet soket eller filtrene dine.
+        Ingen selskaper matchet søket eller filtrene dine.
       </div>
     );
   }
@@ -50,7 +50,7 @@ export function CompanyTable({ companies }: { companies: RankedCompanySearchResu
               <td className="px-5 py-4">
                 {formatCurrency(revenue)}
                 {revenueFiscalYear ? (
-                  <div className="text-xs text-slate-500">Siste ar {revenueFiscalYear}</div>
+                    <div className="text-xs text-slate-500">Siste år {revenueFiscalYear}</div>
                 ) : null}
               </td>
               <td className="px-5 py-4">{formatNumber(company.employeeCount)}</td>

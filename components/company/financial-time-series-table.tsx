@@ -1,10 +1,12 @@
 "use client";
 
 import { ReactNode, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, X } from "lucide-react";
 
+import { buildThreadedComments, ThreadedCommentNode } from "@/lib/comment-thread";
 import {
   buildFinancialReportDataset,
+  financialReportRows,
   FinancialDensityMode,
   FinancialReportRow,
   FinancialStatementType,
@@ -17,7 +19,13 @@ import {
   getFinancialSections,
   getVisibleRows,
 } from "@/lib/financial-report";
-import { NormalizedFinancialDocument, NormalizedFinancialStatement } from "@/lib/types";
+import {
+  CompanyFinancialMetricDiscussionSummary,
+  CompanyFinancialStatementDiscussionSummary,
+  DdCommentThreadSummary,
+  NormalizedFinancialDocument,
+  NormalizedFinancialStatement,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type KpiDefinition = {
@@ -199,18 +207,266 @@ function TableControls({
   );
 }
 
+function formatCommentDateTime(value: Date | string) {
+  return new Intl.DateTimeFormat("nb-NO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+type FinancialCellTarget = {
+  financialStatementId: string;
+  fiscalYear: number;
+  metricKey: string;
+  rowLabel: string;
+};
+
+function buildCellThreadKey(financialStatementId: string, metricKey: string) {
+  return `${financialStatementId}:${metricKey}`;
+}
+
+function FinancialCommentList({
+  thread,
+  expanded,
+}: {
+  thread: DdCommentThreadSummary;
+  expanded: boolean;
+}) {
+  const comments = buildThreadedComments(thread.comments);
+  const visibleComments = expanded ? comments : comments.slice(-2);
+
+  function CommentNode({
+    comment,
+    depth,
+  }: {
+    comment: ThreadedCommentNode;
+    depth: number;
+  }) {
+    return (
+      <div className={depth > 0 ? "border-l border-[rgba(15,23,42,0.08)] pl-3" : ""}>
+        <div className="rounded-[0.75rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span className="font-semibold text-slate-900">{comment.author.name ?? comment.author.email}</span>
+            <span>{formatCommentDateTime(comment.createdAt)}</span>
+          </div>
+          <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{comment.content}</div>
+        </div>
+        {comment.replies.length > 0 ? (
+          <div className="mt-2 space-y-2">
+            {comment.replies.map((reply) => (
+              <CommentNode key={reply.id} comment={reply} depth={depth + 1} />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {visibleComments.map((comment) => (
+        <CommentNode key={comment.id} comment={comment} depth={0} />
+      ))}
+    </div>
+  );
+}
+
+function FinancialCellHoverCard({
+  thread,
+  roomName,
+  replyValue,
+  onReplyChange,
+  onReplySubmit,
+  submitting,
+}: {
+  thread: DdCommentThreadSummary;
+  roomName: string;
+  replyValue: string;
+  onReplyChange: (value: string) => void;
+  onReplySubmit: () => void;
+  submitting: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[340px] rounded-[1rem] border border-[rgba(15,23,42,0.12)] bg-white p-4 shadow-[0_20px_45px_rgba(15,23,42,0.16)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-semibold uppercase text-slate-500">DD-trad</div>
+          <div className="mt-1 text-sm font-semibold text-slate-950">{roomName}</div>
+        </div>
+        <div className="rounded-full border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-600">
+          {thread.commentCount} kommentarer
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <FinancialCommentList thread={thread} expanded={expanded} />
+      </div>
+
+      {thread.commentCount > 2 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#2f5d9f]"
+        >
+          {expanded ? "Vis mindre" : "Utvid"}
+        </button>
+      ) : null}
+
+      <div className="mt-3 space-y-2">
+        <textarea
+          value={replyValue}
+          onChange={(event) => onReplyChange(event.target.value)}
+          rows={2}
+          placeholder="Svar i tråden"
+          className="w-full rounded-[0.75rem] border border-[rgba(15,23,42,0.1)] bg-white px-3 py-2 text-sm outline-none focus:border-[#31495f]"
+        />
+        <button
+          type="button"
+          onClick={onReplySubmit}
+          disabled={submitting || replyValue.trim().length < 2}
+          className="rounded-full border border-[rgba(15,23,42,0.1)] bg-[rgba(248,249,250,0.92)] px-3 py-2 text-xs font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? "Lagrer..." : "Svar"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FinancialCellDialog({
+  open,
+  roomName,
+  target,
+  thread,
+  value,
+  onValueChange,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  open: boolean;
+  roomName: string;
+  target: FinancialCellTarget | null;
+  thread: DdCommentThreadSummary | null;
+  value: string;
+  onValueChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+  submitting: boolean;
+}) {
+  if (!open || !target) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.42)] px-4 py-8">
+      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-[1.25rem] border border-[rgba(15,23,42,0.12)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.24)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+                <div className="text-[11px] font-semibold uppercase text-slate-500">Finansiell kommentartråd</div>
+            <h3 className="mt-2 text-2xl font-semibold text-slate-950">
+              {target.rowLabel} · {target.fiscalYear}
+            </h3>
+            <p className="mt-1.5 text-sm leading-6 text-slate-600">
+              Kommentarene er knyttet til dette datapunktet i {roomName}.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(15,23,42,0.1)] bg-white text-slate-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          {thread ? (
+            <FinancialCommentList thread={thread} expanded />
+          ) : (
+            <div className="rounded-[0.9rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-4 text-sm leading-6 text-slate-600">
+              Ingen kommentarer enda. Første kommentar starter tråden for dette datapunktet.
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 space-y-3">
+          <textarea
+            value={value}
+            onChange={(event) => onValueChange(event.target.value)}
+            rows={4}
+            placeholder="Skriv en kommentar"
+            className="w-full rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[#31495f]"
+          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={submitting || value.trim().length < 2}
+              className="rounded-full bg-[#162233] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? "Lagrer..." : thread ? "Svar i tråden" : "Start tråd"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FinancialTimeSeriesTable({
   statements,
   documents,
+  discussionRoomId,
+  discussionRoomName,
+  discussionStatements,
+  discussionThreads = [],
 }: {
   statements: NormalizedFinancialStatement[];
   documents: NormalizedFinancialDocument[];
+  discussionRoomId?: string | null;
+  discussionRoomName?: string | null;
+  discussionStatements?: CompanyFinancialStatementDiscussionSummary[];
+  discussionThreads?: CompanyFinancialMetricDiscussionSummary[];
 }) {
   const dataset = useMemo(() => buildFinancialReportDataset(statements, documents), [documents, statements]);
   const [activeStatement, setActiveStatement] = useState<FinancialStatementType>("income");
   const [mode, setMode] = useState<FinancialValueMode>("amount");
   const [densityMode, setDensityMode] = useState<FinancialDensityMode>("main");
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [hoveredCellKey, setHoveredCellKey] = useState<string | null>(null);
+  const [hoverReplyDrafts, setHoverReplyDrafts] = useState<Record<string, string>>({});
+  const [dialogDraft, setDialogDraft] = useState("");
+  const [dialogTarget, setDialogTarget] = useState<FinancialCellTarget | null>(null);
+  const [submittingCellKey, setSubmittingCellKey] = useState<string | null>(null);
+  const [discussionError, setDiscussionError] = useState<string | null>(null);
+  const [threadsByCell, setThreadsByCell] = useState<Record<string, DdCommentThreadSummary>>(() =>
+    Object.fromEntries(
+      discussionThreads.map((item) => [
+        buildCellThreadKey(item.financialStatementId, item.metricKey),
+        item.thread,
+      ]),
+    ),
+  );
+  const statementByYear = useMemo(
+    () =>
+      new Map(
+        (discussionStatements ?? []).map((item) => [
+          item.fiscalYear,
+          { financialStatementId: item.financialStatementId, fiscalYear: item.fiscalYear },
+        ]),
+      ),
+    [discussionStatements],
+  );
+  const rowLabelByKey = useMemo(
+    () => new Map(financialReportRows.map((row) => [row.key, row.label])),
+    [],
+  );
 
   if (dataset.years.length === 0) {
     return (
@@ -226,6 +482,52 @@ export function FinancialTimeSeriesTable({
   const visibleRows = getVisibleRows(activeStatement, densityMode);
   const kpis = activeStatement === "income" ? incomeKpis : balanceKpis;
   const balanceStatus = latestYear ? dataset.balanceValidationByYear[latestYear] : null;
+  const dialogThread =
+    dialogTarget ? threadsByCell[buildCellThreadKey(dialogTarget.financialStatementId, dialogTarget.metricKey)] ?? null : null;
+
+  async function submitCellComment(target: FinancialCellTarget, content: string) {
+    if (!discussionRoomId || content.trim().length < 2) {
+      return;
+    }
+
+    const cellKey = buildCellThreadKey(target.financialStatementId, target.metricKey);
+    setSubmittingCellKey(cellKey);
+    setDiscussionError(null);
+
+    try {
+      const response = await fetch(`/api/dd-rooms/${discussionRoomId}/financial-metric-comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          financialStatementId: target.financialStatementId,
+          financialMetricKey: target.metricKey,
+          content,
+        }),
+      });
+
+      const payload = (await response.json()) as { data?: DdCommentThreadSummary; error?: string };
+
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error ?? "Kunne ikke lagre kommentaren.");
+      }
+
+      setThreadsByCell((current) => ({
+        ...current,
+        [cellKey]: payload.data as DdCommentThreadSummary,
+      }));
+      setHoverReplyDrafts((current) => ({ ...current, [cellKey]: "" }));
+
+      if (dialogTarget && buildCellThreadKey(dialogTarget.financialStatementId, dialogTarget.metricKey) === cellKey) {
+        setDialogDraft("");
+      }
+    } catch (error) {
+      setDiscussionError(error instanceof Error ? error.message : "Kunne ikke lagre kommentaren.");
+    } finally {
+      setSubmittingCellKey(null);
+    }
+  }
 
   function hasDataForRow(row: FinancialReportRow) {
     return dataset.years.some((year) => dataset.valuesByYear[year]?.[row.key] !== null);
@@ -329,6 +631,12 @@ export function FinancialTimeSeriesTable({
         onModeChange={setMode}
         onDensityChange={setDensityMode}
       />
+
+      {discussionRoomId && discussionRoomName ? (
+        <div className="border-b border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] px-5 py-3 text-sm text-slate-600">
+          Klikk på et tall i tabellen for å starte eller åpne en kommentartråd for akkurat det datapunktet.
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto">
         <table className="min-w-[980px] border-separate border-spacing-0 text-sm">
@@ -454,6 +762,26 @@ export function FinancialTimeSeriesTable({
                         {dataset.years.map((year) => {
                           const displayValue = getDisplayValue(row, year, mode, dataset);
                           const negative = displayValue !== null && displayValue < 0;
+                          const statementArtifact = statementByYear.get(year) ?? null;
+                          const commentable =
+                            Boolean(discussionRoomId) &&
+                            mode === "amount" &&
+                            displayValue !== null &&
+                            statementArtifact !== null;
+                          const cellTarget = commentable
+                            ? {
+                                financialStatementId: statementArtifact.financialStatementId,
+                                fiscalYear: year,
+                                metricKey: row.key,
+                                rowLabel: rowLabelByKey.get(row.key) ?? row.label,
+                              }
+                            : null;
+                          const cellKey = cellTarget
+                            ? buildCellThreadKey(cellTarget.financialStatementId, cellTarget.metricKey)
+                            : null;
+                          const thread = cellKey ? threadsByCell[cellKey] ?? null : null;
+                          const hoverDraft = cellKey ? hoverReplyDrafts[cellKey] ?? "" : "";
+                          const hoverOpen = Boolean(thread && hoveredCellKey === cellKey);
 
                           return (
                             <td
@@ -463,9 +791,69 @@ export function FinancialTimeSeriesTable({
                                 row.type === "total" && "py-4",
                               )}
                             >
-                              <NegativeValue negative={negative}>
-                                {formatCell(displayValue, mode)}
-                              </NegativeValue>
+                              <div
+                                className={cn(
+                                  "relative inline-flex max-w-full justify-end",
+                                  commentable && "cursor-pointer",
+                                )}
+                                onMouseEnter={() => {
+                                  if (thread && cellKey) {
+                                    setHoveredCellKey(cellKey);
+                                  }
+                                }}
+                                onMouseLeave={() => {
+                                  if (thread && cellKey && hoveredCellKey === cellKey) {
+                                    setHoveredCellKey(null);
+                                  }
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  disabled={!cellTarget}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    if (!cellTarget) {
+                                      return;
+                                    }
+                                    setDiscussionError(null);
+                                    setDialogTarget(cellTarget);
+                                    setDialogDraft("");
+                                  }}
+                                  className={cn(
+                                    "relative rounded-[0.75rem] px-1.5 py-1 text-right transition",
+                                    commentable
+                                      ? "hover:bg-[rgba(47,93,159,0.08)]"
+                                      : "cursor-default",
+                                  )}
+                                >
+                                  <NegativeValue negative={negative}>
+                                    {formatCell(displayValue, mode)}
+                                  </NegativeValue>
+                                  {thread ? (
+                                    <span className="absolute -right-1 -top-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#2f5d9f]" />
+                                  ) : null}
+                                </button>
+
+                                {thread && hoverOpen && discussionRoomName ? (
+                                  <FinancialCellHoverCard
+                                    thread={thread}
+                                    roomName={discussionRoomName}
+                                    replyValue={hoverDraft}
+                                    onReplyChange={(value) =>
+                                      setHoverReplyDrafts((current) => ({
+                                        ...current,
+                                        [cellKey as string]: value,
+                                      }))
+                                    }
+                                    onReplySubmit={() => {
+                                      if (cellTarget) {
+                                        void submitCellComment(cellTarget, hoverDraft);
+                                      }
+                                    }}
+                                    submitting={submittingCellKey === cellKey}
+                                  />
+                                ) : null}
+                              </div>
                             </td>
                           );
                         })}
@@ -478,6 +866,36 @@ export function FinancialTimeSeriesTable({
           </tbody>
         </table>
       </div>
+
+      {discussionError ? (
+        <div className="border-t border-[rgba(15,23,42,0.08)] bg-[rgba(255,246,236,0.9)] px-5 py-3 text-sm text-[#8a5b21]">
+          {discussionError}
+        </div>
+      ) : null}
+
+      <FinancialCellDialog
+        open={Boolean(dialogTarget)}
+        roomName={discussionRoomName ?? "DD-rom"}
+        target={dialogTarget}
+        thread={dialogThread}
+        value={dialogDraft}
+        onValueChange={setDialogDraft}
+        onClose={() => {
+          setDialogTarget(null);
+          setDialogDraft("");
+        }}
+        onSubmit={() => {
+          if (dialogTarget) {
+            void submitCellComment(dialogTarget, dialogDraft);
+          }
+        }}
+        submitting={
+          dialogTarget
+            ? submittingCellKey ===
+              buildCellThreadKey(dialogTarget.financialStatementId, dialogTarget.metricKey)
+            : false
+        }
+      />
     </section>
   );
 }

@@ -11,6 +11,7 @@ import {
 } from "react";
 import { ArrowUpRight, CalendarClock, Check, ChevronDown, LoaderCircle, Search } from "lucide-react";
 
+import { AnnouncementDiscussionPanel } from "@/components/company/announcement-discussion-panel";
 import { Card } from "@/components/ui/card";
 import { NormalizedAnnouncement, NormalizedAnnouncementDetail } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
@@ -23,6 +24,8 @@ type AnnouncementTimelineProps = {
   available: boolean;
   allAnnouncementsUrl?: string | null;
   initialDetail?: NormalizedAnnouncementDetail | null;
+  discussionRoomId?: string | null;
+  discussionRoomName?: string | null;
 };
 
 function formatDetailDate(value?: Date | string | null) {
@@ -84,6 +87,8 @@ export function CompanyAnnouncementsTimeline({
   available,
   allAnnouncementsUrl,
   initialDetail,
+  discussionRoomId,
+  discussionRoomName,
 }: AnnouncementTimelineProps) {
   const sortedAnnouncements = useMemo(
     () => [...announcements].sort(compareAnnouncements),
@@ -634,6 +639,14 @@ export function CompanyAnnouncementsTimeline({
                     dangerouslySetInnerHTML={{ __html: selectedDetail.contentHtml }}
                   />
                 </div>
+              ) : null}
+
+              {discussionRoomId && discussionRoomName ? (
+                <AnnouncementDiscussionPanel
+                  roomId={discussionRoomId}
+                  roomName={discussionRoomName}
+                  announcement={selectedAnnouncement}
+                />
               ) : null}
             </div>
           )}

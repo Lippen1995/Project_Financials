@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/workspace-sync",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

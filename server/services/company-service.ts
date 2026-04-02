@@ -24,6 +24,7 @@ import {
   getCachedRoles,
   getLatestFinancialsForCompanies,
   upsertCompanySnapshot,
+  upsertFinancialStatementsSnapshot,
   upsertIndustryCodeSnapshot,
   upsertRolesSnapshot,
 } from "@/server/persistence/company-repository";
@@ -573,6 +574,17 @@ export async function getCompanyProfile(idOrSlug: string) {
         message: "Regnskap kunne ikke hentes akkurat nå.",
       },
     };
+  }
+
+  if (financials.statements.length > 0) {
+    try {
+      await upsertFinancialStatementsSnapshot(company.orgNumber, financials.statements);
+    } catch (error) {
+      logRecoverableError("company-service.getCompanyProfile.persistFinancials", error, {
+        orgNumber: company.orgNumber,
+        statementCount: financials.statements.length,
+      });
+    }
   }
 
   return {

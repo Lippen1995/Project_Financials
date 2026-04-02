@@ -66,18 +66,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (token.sub) {
-        const subscription = await prisma.subscription.findUnique({
-          where: { userId: token.sub },
-        });
-        token.subscriptionPlan = subscription?.plan ?? "free";
-        token.subscriptionStatus = subscription?.status ?? "FREE";
+        try {
+          const subscription = await prisma.subscription.findUnique({
+            where: { userId: token.sub },
+          });
+          token.subscriptionPlan = subscription?.plan ?? "free";
+          token.subscriptionStatus = subscription?.status ?? "FREE";
 
-        const workspaceContext = await getSessionWorkspaceContext(token.sub);
-        token.currentWorkspaceId = workspaceContext.currentWorkspaceId ?? undefined;
-        token.currentWorkspaceName = workspaceContext.currentWorkspaceName ?? undefined;
-        token.currentWorkspaceType = workspaceContext.currentWorkspaceType ?? undefined;
-        token.currentWorkspaceStatus = workspaceContext.currentWorkspaceStatus ?? undefined;
-        token.currentWorkspaceRole = workspaceContext.currentWorkspaceRole ?? undefined;
+          const workspaceContext = await getSessionWorkspaceContext(token.sub);
+          token.currentWorkspaceId = workspaceContext.currentWorkspaceId ?? undefined;
+          token.currentWorkspaceName = workspaceContext.currentWorkspaceName ?? undefined;
+          token.currentWorkspaceType = workspaceContext.currentWorkspaceType ?? undefined;
+          token.currentWorkspaceStatus = workspaceContext.currentWorkspaceStatus ?? undefined;
+          token.currentWorkspaceRole = workspaceContext.currentWorkspaceRole ?? undefined;
+        } catch (error) {
+          if (process.env.NODE_ENV !== "production") {
+            const message = error instanceof Error ? error.message : "Unknown auth persistence error";
+            console.warn("Auth persistence could not be refreshed. Reusing existing token values.", message);
+          }
+        }
       }
 
       return token;

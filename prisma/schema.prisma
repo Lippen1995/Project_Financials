@@ -13,6 +13,15 @@ enum CompanyStatus {
   BANKRUPT
 }
 
+enum DistressStatus {
+  RECONSTRUCTION
+  BANKRUPTCY
+  LIQUIDATION
+  FORCED_PROCESS
+  FOREIGN_INSOLVENCY
+  OTHER_DISTRESS
+}
+
 enum AddressType {
   BUSINESS
   POSTAL
@@ -55,10 +64,94 @@ enum DdRoomStatus {
   ARCHIVED
 }
 
+enum DdTaskStage {
+  COLLECTION
+  COMPANY_UNDERSTANDING
+  MANAGEMENT_OWNERSHIP
+  FINANCIAL_REVIEW
+  LEGAL_REGULATORY
+  RISK_ASSESSMENT
+  CONCLUSION
+}
+
+enum DdTaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum DdTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum DdWorkstream {
+  FINANCIAL
+  COMMERCIAL
+  LEGAL
+  OPERATIONAL
+  REGULATORY
+  ESG
+}
+
+enum DdFindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DdFindingStatus {
+  OPEN
+  IN_REVIEW
+  MITIGATED
+  ACCEPTED
+  CLOSED
+}
+
+enum DdFindingImpact {
+  NONE
+  THESIS_RISK
+  VALUATION
+  DOWNSIDE
+  UPSIDE
+  MONITORING
+  NO_GO
+}
+
+enum DdFindingEvidenceType {
+  COMPANY
+  ANNOUNCEMENT
+  FINANCIAL_STATEMENT
+  COMPANY_PROFILE_FIELD
+  TASK
+  FINDING
+}
+
+enum DdCompanyProfileField {
+  STATUS
+  LEGAL_FORM
+  INDUSTRY_CODE
+  EMPLOYEE_COUNT
+  REVENUE
+  DESCRIPTION
+}
+
+enum DdDecisionOutcome {
+  INVEST
+  INVEST_WITH_CONDITIONS
+  WATCH
+  PASS
+}
+
 enum DdCommentThreadTargetType {
   ROOM_POST
   ANNOUNCEMENT
   FINANCIAL_STATEMENT
+  FINDING
+  TASK
 }
 
 enum WorkspaceWatchStatus {
@@ -102,6 +195,15 @@ enum ShareholdingGraphNodeType {
   UNKNOWN_SHAREHOLDER
 }
 
+enum PetroleumEntityType {
+  FIELD
+  DISCOVERY
+  LICENCE
+  FACILITY
+  TUF
+  SURVEY
+}
+
 model User {
   id                          String                @id @default(cuid())
   name                        String?
@@ -121,6 +223,16 @@ model User {
   sentWorkspaceInvitations    WorkspaceInvitation[] @relation("WorkspaceInvitationInvitedBy")
   acceptedWorkspaceInvitations WorkspaceInvitation[] @relation("WorkspaceInvitationAcceptedBy")
   ddPosts                     DdPost[]
+  assignedDdTasks             DdTask[]              @relation("DdTaskAssignee")
+  createdDdTasks              DdTask[]              @relation("DdTaskCreatedBy")
+  createdDdMandates           DdMandate[]           @relation("DdMandateCreatedBy")
+  updatedDdMandates           DdMandate[]           @relation("DdMandateUpdatedBy")
+  assignedDdFindings          DdFinding[]           @relation("DdFindingAssignee")
+  createdDdFindings           DdFinding[]           @relation("DdFindingCreatedBy")
+  createdDdFindingEvidence    DdFindingEvidence[]   @relation("DdFindingEvidenceCreatedBy")
+  createdDdConclusions        DdConclusion[]        @relation("DdConclusionCreatedBy")
+  updatedDdConclusions        DdConclusion[]        @relation("DdConclusionUpdatedBy")
+  ddDecisionLogEntries        DdDecisionLogEntry[]  @relation("DdDecisionLogEntryCreatedBy")
   ddCommentThreads            DdCommentThread[]     @relation("DdCommentThreadCreatedBy")
   ddComments                  DdComment[]           @relation("DdCommentAuthor")
 }
@@ -202,6 +314,7 @@ model Company {
   name                String
   legalForm           String?
   status              CompanyStatus        @default(ACTIVE)
+  statusObservedAt    DateTime?
   registeredAt        DateTime?
   foundedAt           DateTime?
   website             String?
@@ -227,14 +340,87 @@ model Company {
   ownerships          Ownership[]
   ddRooms             DdRoom[]
   ddCommentThreads    DdCommentThread[]
+  ddFindingEvidence   DdFindingEvidence[]
   workspaceWatches    WorkspaceWatch[]
   workspaceNotifications WorkspaceNotification[]
+  distressProfile     CompanyDistressProfile?
+  distressFinancialSnapshot DistressFinancialSnapshot?
   industryCodeId      String?
   industryCode        IndustryCode?        @relation(fields: [industryCodeId], references: [id])
 
   @@index([name])
   @@index([orgNumber])
   @@index([status])
+}
+
+model CompanyDistressProfile {
+  id                        String         @id @default(cuid())
+  companyId                 String         @unique
+  distressStatus            DistressStatus
+  statusStartedAt           DateTime?
+  statusObservedAt          DateTime
+  daysInStatus              Int?
+  bankruptcyDate            DateTime?
+  liquidationDate           DateTime?
+  forcedProcessDate         DateTime?
+  reconstructionDate        DateTime?
+  foreignInsolvencyDate     DateTime?
+  lastAnnouncementPublishedAt DateTime?
+  lastAnnouncementTitle     String?
+  sourceSystem              String
+  sourceEntityType          String
+  sourceId                  String
+  fetchedAt                 DateTime
+  normalizedAt              DateTime
+  rawPayload                Json?
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+  company                   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([distressStatus, daysInStatus])
+  @@index([statusStartedAt])
+}
+
+model DistressFinancialSnapshot {
+  id                 String         @id @default(cuid())
+  companyId          String         @unique
+  distressStatus     DistressStatus
+  daysInStatus       Int?
+  industryCode       String?
+  sectorCode         String?
+  sectorLabel        String?
+  lastReportedYear   Int?
+  revenue            Int?
+  ebit               Int?
+  netIncome          Int?
+  equityRatio        Decimal?       @db.Decimal(8, 2)
+  assets             Int?
+  interestBearingDebt Int?
+  distressScore      Int?
+  scoreVersion       String?
+  dataCoverage       String?
+  sourceSystem       String?
+  sourceEntityType   String?
+  sourceId           String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  company            Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([distressStatus, daysInStatus])
+  @@index([sectorCode, lastReportedYear])
+}
+
+model DistressSyncState {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  lastUpdateId    Int?
+  lastRunAt       DateTime?
+  lastBootstrapAt DateTime?
+  etag            String?
+  lastModified    String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Person {
@@ -294,6 +480,7 @@ model FinancialStatement {
   companyId        String
   company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   ddCommentThreads DdCommentThread[]
+  ddFindingEvidence DdFindingEvidence[]
 
   @@unique([companyId, fiscalYear])
   @@index([companyId, fiscalYear])
@@ -319,6 +506,376 @@ model Address {
 
   @@index([city])
   @@index([region])
+}
+
+model PetroleumSyncState {
+  key          String   @id
+  lastRunAt    DateTime?
+  lastSuccessAt DateTime?
+  status       String?
+  errorMessage String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model PetroleumCompanyLink {
+  id                    String   @id @default(cuid())
+  npdCompanyId          Int      @unique
+  companyName           String
+  orgNumber             String?
+  factPageUrl           String?
+  activeOnNcsCurrent    Boolean?
+  activeOnNcsFormer     Boolean?
+  licenceOperatorCurrent Boolean?
+  licenceLicenseeCurrent Boolean?
+  tufOperatorCurrent    Boolean?
+  tufPartnerCurrent     Boolean?
+  linkedCompanyOrgNumber String?
+  linkedCompanySlug     String?
+  sourceSystem          String
+  sourceEntityType      String
+  sourceId              String
+  fetchedAt             DateTime
+  normalizedAt          DateTime
+  rawPayload            Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([orgNumber])
+  @@index([linkedCompanyOrgNumber])
+}
+
+model PetroleumField {
+  id                    String   @id @default(cuid())
+  npdId                 Int      @unique
+  slug                  String   @unique
+  name                  String
+  activityStatus        String?
+  discoveryYear         Int?
+  ownerKind             String?
+  ownerName             String?
+  operatorCompanyName   String?
+  operatorNpdCompanyId  Int?
+  operatorOrgNumber     String?
+  operatorCompanySlug   String?
+  mainSupplyBase        String?
+  hydrocarbonType       String?
+  mainArea              String?
+  discoveryWellboreName String?
+  factPageUrl           String?
+  factMapUrl            String?
+  geometry              Json?
+  bbox                  Json?
+  centroid              Json?
+  operatorHistory       Json?
+  licensees             Json?
+  ownerHistory          Json?
+  sourceSystem          String
+  sourceEntityType      String
+  sourceId              String
+  fetchedAt             DateTime
+  normalizedAt          DateTime
+  rawPayload            Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([activityStatus])
+  @@index([mainArea])
+  @@index([operatorNpdCompanyId])
+}
+
+model PetroleumDiscovery {
+  id                   String   @id @default(cuid())
+  npdId                Int      @unique
+  slug                 String   @unique
+  name                 String
+  activityStatus       String?
+  discoveryYear        Int?
+  ownerKind            String?
+  ownerName            String?
+  operatorCompanyName  String?
+  operatorNpdCompanyId Int?
+  operatorOrgNumber    String?
+  operatorCompanySlug  String?
+  hydrocarbonType      String?
+  areaName             String?
+  relatedFieldName     String?
+  relatedFieldNpdId    Int?
+  factPageUrl          String?
+  factMapUrl           String?
+  geometry             Json?
+  bbox                 Json?
+  centroid             Json?
+  operatorHistory      Json?
+  sourceSystem         String
+  sourceEntityType     String
+  sourceId             String
+  fetchedAt            DateTime
+  normalizedAt         DateTime
+  rawPayload           Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([activityStatus])
+  @@index([areaName])
+  @@index([operatorNpdCompanyId])
+}
+
+model PetroleumLicence {
+  id                   String   @id @default(cuid())
+  npdId                Int      @unique
+  slug                 String   @unique
+  name                 String
+  licensingActivityName String?
+  status               String?
+  active               Boolean?
+  stratigraphical      String?
+  currentPhase         String?
+  mainArea             String?
+  operatorCompanyName  String?
+  operatorNpdCompanyId Int?
+  operatorOrgNumber    String?
+  operatorCompanySlug  String?
+  grantedAt            DateTime?
+  validTo              DateTime?
+  originalAreaSqKm     Float?
+  currentAreaSqKm      Float?
+  factPageUrl          String?
+  factMapUrl           String?
+  geometry             Json?
+  bbox                 Json?
+  centroid             Json?
+  licensees            Json?
+  transfers            Json?
+  registerMessages     Json?
+  sourceSystem         String
+  sourceEntityType     String
+  sourceId             String
+  fetchedAt            DateTime
+  normalizedAt         DateTime
+  rawPayload           Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([status])
+  @@index([mainArea])
+  @@index([operatorNpdCompanyId])
+}
+
+model PetroleumFacility {
+  id                     String   @id @default(cuid())
+  npdId                  Int      @unique
+  slug                   String   @unique
+  name                   String
+  fixedOrMoveable        String?
+  kind                   String?
+  phase                  String?
+  functions              String?
+  waterDepth             Float?
+  designLifetime         Int?
+  startupDate            DateTime?
+  belongsToName          String?
+  belongsToKind          String?
+  currentOperatorName    String?
+  currentOperatorNpdId   Int?
+  currentOperatorOrgNumber String?
+  currentOperatorSlug    String?
+  factPageUrl            String?
+  factMapUrl             String?
+  geometry               Json?
+  bbox                   Json?
+  centroid               Json?
+  sourceSystem           String
+  sourceEntityType       String
+  sourceId               String
+  fetchedAt              DateTime
+  normalizedAt           DateTime
+  rawPayload             Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([phase])
+  @@index([belongsToName])
+  @@index([currentOperatorNpdId])
+}
+
+model PetroleumTuf {
+  id                  String   @id @default(cuid())
+  npdId               Int      @unique
+  slug                String   @unique
+  name                String
+  currentPhase        String?
+  mainGroupingName    String?
+  medium              String?
+  belongsToName       String?
+  belongsToNpdId      Int?
+  operatorCompanyName String?
+  operatorNpdCompanyId Int?
+  operatorOrgNumber   String?
+  operatorCompanySlug String?
+  fromFacilityName    String?
+  toFacilityName      String?
+  dimensionInch       Float?
+  waterDepth          Float?
+  factPageUrl         String?
+  factMapUrl          String?
+  geometry            Json?
+  bbox                Json?
+  centroid            Json?
+  sourceSystem        String
+  sourceEntityType    String
+  sourceId            String
+  fetchedAt           DateTime
+  normalizedAt        DateTime
+  rawPayload          Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([currentPhase])
+  @@index([operatorNpdCompanyId])
+}
+
+model PetroleumSurvey {
+  id                String   @id @default(cuid())
+  npdId             Int      @unique
+  slug              String   @unique
+  name              String
+  status            String?
+  category          String?
+  mainType          String?
+  subType           String?
+  geographicalArea  String?
+  companyName       String?
+  companyNpdId      Int?
+  startedAt         DateTime?
+  finalizedAt       DateTime?
+  plannedFromDate   DateTime?
+  plannedToDate     DateTime?
+  factPageUrl       String?
+  geometry          Json?
+  bbox              Json?
+  centroid          Json?
+  sourceSystem      String
+  sourceEntityType  String
+  sourceId          String
+  fetchedAt         DateTime
+  normalizedAt      DateTime
+  rawPayload        Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
+  @@index([mainType])
+  @@index([companyNpdId])
+}
+
+model PetroleumProductionPoint {
+  id                String              @id @default(cuid())
+  entityType        PetroleumEntityType
+  entityNpdId       Int
+  entityName        String
+  year              Int
+  month             Int?
+  period            String?
+  oilNetMillSm3     Float?
+  gasNetBillSm3     Float?
+  condensateNetMillSm3 Float?
+  nglNetMillSm3     Float?
+  oeNetMillSm3      Float?
+  producedWaterMillSm3 Float?
+  investmentsMillNok Float?
+  sourceSystem      String
+  sourceEntityType  String
+  sourceId          String
+  fetchedAt         DateTime
+  normalizedAt      DateTime
+  rawPayload        Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([entityType, entityNpdId, year, month])
+  @@index([entityType, year])
+}
+
+model PetroleumReserveSnapshot {
+  id                     String              @id @default(cuid())
+  entityType             PetroleumEntityType
+  entityNpdId            Int
+  entityName             String
+  updatedAtSource        DateTime?
+  recoverableOil         Float?
+  recoverableGas         Float?
+  recoverableNgl         Float?
+  recoverableCondensate  Float?
+  recoverableOe          Float?
+  remainingOil           Float?
+  remainingGas           Float?
+  remainingNgl           Float?
+  remainingCondensate    Float?
+  remainingOe            Float?
+  sourceSystem           String
+  sourceEntityType       String
+  sourceId               String
+  fetchedAt              DateTime
+  normalizedAt           DateTime
+  rawPayload             Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([entityType, entityNpdId])
+  @@index([entityType, remainingOe])
+}
+
+model PetroleumInvestmentSnapshot {
+  id                     String              @id @default(cuid())
+  entityType             PetroleumEntityType
+  entityNpdId            Int
+  entityName             String
+  expectedFutureInvestmentMillNok Int?
+  fixedYear              Int?
+  sourceSystem           String
+  sourceEntityType       String
+  sourceId               String
+  fetchedAt              DateTime
+  normalizedAt           DateTime
+  rawPayload             Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([entityType, entityNpdId])
+}
+
+model PetroleumEvent {
+  id                   String   @id @default(cuid())
+  externalId           String   @unique
+  source               String
+  eventType            String
+  title                String
+  summary              String?
+  publishedAt          DateTime?
+  detailUrl            String?
+  entityType           PetroleumEntityType?
+  entityNpdId          Int?
+  entityName           String?
+  relatedCompanyName   String?
+  relatedCompanyOrgNumber String?
+  relatedCompanySlug   String?
+  geometry             Json?
+  centroid             Json?
+  tags                 Json?
+  metrics              Json?
+  sourceSystem         String
+  sourceEntityType     String
+  sourceId             String
+  fetchedAt            DateTime
+  normalizedAt         DateTime
+  rawPayload           Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([source, eventType, publishedAt])
+  @@index([entityType, entityNpdId])
 }
 
 model IndustryCode {
@@ -349,11 +906,170 @@ model DdRoom {
   updatedAt        DateTime    @updatedAt
   workspace        Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   primaryCompany   Company     @relation(fields: [primaryCompanyId], references: [id], onDelete: Restrict)
+  mandate          DdMandate?
+  tasks            DdTask[]
+  findings         DdFinding[]
+  conclusion       DdConclusion?
+  decisionLog      DdDecisionLogEntry[]
   posts            DdPost[]
   commentThreads   DdCommentThread[]
 
   @@index([workspaceId, status])
   @@index([primaryCompanyId, status])
+}
+
+model DdTask {
+  id              String         @id @default(cuid())
+  roomId          String
+  title           String
+  description     String?
+  stage           DdTaskStage
+  workstream      DdWorkstream?
+  status          DdTaskStatus   @default(TODO)
+  priority        DdTaskPriority @default(MEDIUM)
+  dueAt           DateTime?
+  completedAt     DateTime?
+  sortOrder       Int            @default(0)
+  assigneeUserId  String?
+  createdByUserId String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  room            DdRoom         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  assignee        User?          @relation("DdTaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  createdBy       User           @relation("DdTaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  findings        DdFinding[]
+  evidenceReferences DdFindingEvidence[]
+  commentThreads  DdCommentThread[]
+
+  @@index([roomId, stage, status])
+  @@index([assigneeUserId, status])
+}
+
+model DdMandate {
+  id               String   @id @default(cuid())
+  roomId           String   @unique
+  investmentCase   String?
+  thesis           String?
+  valueDrivers     String?
+  keyRisks         String?
+  timeHorizon      String?
+  decisionGoal     String?
+  createdByUserId  String
+  updatedByUserId  String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  room             DdRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdBy        User     @relation("DdMandateCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  updatedBy        User     @relation("DdMandateUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Cascade)
+}
+
+model DdFinding {
+  id              String            @id @default(cuid())
+  roomId          String
+  taskId          String?
+  title           String
+  description     String?
+  stage           DdTaskStage
+  workstream      DdWorkstream
+  severity        DdFindingSeverity @default(MEDIUM)
+  status          DdFindingStatus   @default(OPEN)
+  impact          DdFindingImpact   @default(NONE)
+  recommendedAction String?
+  isBlocking      Boolean           @default(false)
+  dueAt           DateTime?
+  resolvedAt      DateTime?
+  assigneeUserId  String?
+  handoffWatchId  String?
+  createdByUserId String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  room            DdRoom            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  task            DdTask?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  assignee        User?             @relation("DdFindingAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  createdBy       User              @relation("DdFindingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  evidence        DdFindingEvidence[]   @relation("FindingEvidence")
+  referencedByEvidence DdFindingEvidence[] @relation("FindingReferenceEvidence")
+  handoffWatch    WorkspaceWatch?   @relation(fields: [handoffWatchId], references: [id], onDelete: SetNull)
+  commentThreads  DdCommentThread[]
+
+  @@index([roomId, stage, workstream])
+  @@index([roomId, status, severity])
+  @@index([assigneeUserId, status])
+}
+
+model DdFindingEvidence {
+  id                            String                  @id @default(cuid())
+  findingId                     String
+  type                          DdFindingEvidenceType
+  label                         String
+  note                          String?
+  sourceSystem                  String
+  sourceEntityType              String
+  sourceId                      String
+  fetchedAt                     DateTime?
+  normalizedAt                  DateTime?
+  targetCompanyId               String?
+  targetFinancialStatementId    String?
+  targetTaskId                  String?
+  targetFindingId               String?
+  targetAnnouncementId          String?
+  targetAnnouncementSourceId    String?
+  targetAnnouncementSourceSystem String?
+  targetAnnouncementPublishedAt DateTime?
+  targetCompanyProfileField     DdCompanyProfileField?
+  createdByUserId               String
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+  finding                       DdFinding               @relation("FindingEvidence", fields: [findingId], references: [id], onDelete: Cascade)
+  targetCompany                 Company?                @relation(fields: [targetCompanyId], references: [id], onDelete: SetNull)
+  targetFinancialStatement      FinancialStatement?     @relation(fields: [targetFinancialStatementId], references: [id], onDelete: SetNull)
+  targetTask                    DdTask?                 @relation(fields: [targetTaskId], references: [id], onDelete: SetNull)
+  targetFinding                 DdFinding?              @relation("FindingReferenceEvidence", fields: [targetFindingId], references: [id], onDelete: SetNull)
+  createdBy                     User                    @relation("DdFindingEvidenceCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([findingId, type])
+}
+
+model DdConclusion {
+  id                    String            @id @default(cuid())
+  roomId                String            @unique
+  investmentCaseSummary String?
+  valueDriversSummary   String?
+  keyRisksSummary       String?
+  recommendationRationale String?
+  monitoringPlan        String?
+  outcome               DdDecisionOutcome?
+  isFinal               Boolean           @default(false)
+  createdByUserId       String
+  updatedByUserId       String
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  room                  DdRoom            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdBy             User              @relation("DdConclusionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  updatedBy             User              @relation("DdConclusionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Cascade)
+  decisionLog           DdDecisionLogEntry[]
+}
+
+model DdDecisionLogEntry {
+  id                    String            @id @default(cuid())
+  roomId                String
+  conclusionId          String?
+  outcome               DdDecisionOutcome?
+  isFinal               Boolean           @default(false)
+  investmentCaseSummary String?
+  valueDriversSummary   String?
+  keyRisksSummary       String?
+  recommendationRationale String?
+  monitoringPlan        String?
+  note                  String?
+  createdByUserId       String
+  createdAt             DateTime          @default(now())
+  room                  DdRoom            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  conclusion            DdConclusion?     @relation(fields: [conclusionId], references: [id], onDelete: SetNull)
+  createdBy             User              @relation("DdDecisionLogEntryCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+  @@index([conclusionId, createdAt])
 }
 
 model DdPost {
@@ -382,7 +1098,10 @@ model DdCommentThread {
   targetAnnouncementSourceSystem String?
   targetAnnouncementPublishedAt DateTime?
   targetFinancialStatementId    String?
+  targetFinancialMetricKey      String?
   targetPostId                  String?
+  targetFindingId               String?
+  targetTaskId                  String?
   createdByUserId               String
   createdAt                     DateTime                  @default(now())
   updatedAt                     DateTime                  @updatedAt
@@ -390,11 +1109,14 @@ model DdCommentThread {
   targetCompany                 Company?                  @relation(fields: [targetCompanyId], references: [id], onDelete: SetNull)
   targetFinancialStatement      FinancialStatement?       @relation(fields: [targetFinancialStatementId], references: [id], onDelete: SetNull)
   targetPost                    DdPost?                   @relation(fields: [targetPostId], references: [id], onDelete: SetNull)
+  targetFinding                 DdFinding?                @relation(fields: [targetFindingId], references: [id], onDelete: SetNull)
+  targetTask                    DdTask?                   @relation(fields: [targetTaskId], references: [id], onDelete: SetNull)
   createdBy                     User                      @relation("DdCommentThreadCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
   comments                      DdComment[]
 
   @@index([roomId, targetType])
   @@index([targetCompanyId, targetType])
+  @@index([targetFinancialStatementId, targetFinancialMetricKey, targetType])
 }
 
 model DdComment {
@@ -423,11 +1145,15 @@ model WorkspaceWatch {
   watchAnnouncements      Boolean             @default(true)
   watchFinancialStatements Boolean            @default(true)
   watchStatusChanges      Boolean             @default(true)
+  lastAnnouncementPublishedAt DateTime?
+  lastFinancialStatementYear Int?
+  lastObservedCompanyStatus CompanyStatus?
   archivedAt              DateTime?
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
   workspace               Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   company                 Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceFindings          DdFinding[]
   notifications           WorkspaceNotification[]
 
   @@unique([workspaceId, companyId])
@@ -467,6 +1193,7 @@ model WorkspaceMonitor {
   companyStatus      CompanyStatus?
   minimumDaysInStatus Int?
   unsupportedReason  String?
+  lastEvaluatedAt    DateTime?
   archivedAt         DateTime?
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt

@@ -7,9 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "vitest run",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "backfill:workspaces": "tsx scripts/backfill-workspaces.ts",
+    "sync:workspace-notifications": "tsx scripts/sync-workspace-notifications.ts",
+    "sync:distress": "tsx scripts/sync-distress-companies.ts",
+    "backfill:distress-financials": "tsx scripts/backfill-distress-financials.ts",
     "import:annual-reports": "tsx scripts/import-company-annual-reports.ts",
     "import:shareholding": "tsx scripts/import-shareholding-snapshot.ts",
     "postinstall": "prisma generate"
@@ -18,9 +22,12 @@
     "@auth/prisma-adapter": "^2.7.4",
     "@prisma/client": "^6.5.0",
     "bcryptjs": "^2.4.3",
+    "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "fast-xml-parser": "^5.5.9",
     "lucide-react": "^0.511.0",
+    "maplibre-gl": "^5.21.1",
     "next": "^15.2.2",
     "next-auth": "^5.0.0-beta.25",
     "pdf-parse": "^2.4.5",
@@ -43,6 +50,7 @@
     "prisma": "^6.5.0",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.3",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.4"
   }
 }

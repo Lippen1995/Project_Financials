@@ -13,6 +13,15 @@ export type DataAvailability = {
   sourceSystem?: string;
 };
 
+export type CompanyStatus = "ACTIVE" | "DISSOLVED" | "BANKRUPT";
+export type DistressStatus =
+  | "RECONSTRUCTION"
+  | "BANKRUPTCY"
+  | "LIQUIDATION"
+  | "FORCED_PROCESS"
+  | "FOREIGN_INSOLVENCY"
+  | "OTHER_DISTRESS";
+
 export type NormalizedIndustryCode = SourceMetadata & {
   code: string;
   title?: string | null;
@@ -164,6 +173,525 @@ export type CompanyProfile = {
   financialDocuments: NormalizedFinancialDocument[];
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;
+};
+
+export type PetroleumLayerId =
+  | "fields"
+  | "discoveries"
+  | "licences"
+  | "facilities"
+  | "tuf"
+  | "surveys"
+  | "regulatoryEvents"
+  | "gasscoEvents";
+
+export type PetroleumEntityType = "FIELD" | "DISCOVERY" | "LICENCE" | "FACILITY" | "TUF" | "SURVEY";
+export type PetroleumTimeSeriesEntityType = "field" | "operator" | "area";
+export type PetroleumTimeSeriesGranularity = "month" | "year";
+export type PetroleumTimeSeriesMeasure =
+  | "oil"
+  | "gas"
+  | "condensate"
+  | "ngl"
+  | "oe"
+  | "producedWater"
+  | "investments";
+
+export type PetroleumCoordinate = [number, number];
+export type PetroleumGeometry =
+  | {
+      type: "Point";
+      coordinates: PetroleumCoordinate;
+    }
+  | {
+      type: "LineString";
+      coordinates: PetroleumCoordinate[];
+    }
+  | {
+      type: "Polygon";
+      coordinates: PetroleumCoordinate[][];
+    }
+  | {
+      type: "MultiPolygon";
+      coordinates: PetroleumCoordinate[][][];
+    };
+
+export type PetroleumBbox = [number, number, number, number];
+
+export type PetroleumLinkedCompany = {
+  npdCompanyId?: number | null;
+  companyName: string;
+  orgNumber?: string | null;
+  slug?: string | null;
+  activeOnNcs?: boolean | null;
+};
+
+export type PetroleumEntityCompanyInterest = {
+  npdCompanyId?: number | null;
+  companyName: string;
+  orgNumber?: string | null;
+  slug?: string | null;
+  share?: number | null;
+  sdfiShare?: number | null;
+  validFrom?: Date | null;
+  validTo?: Date | null;
+  role?: string | null;
+};
+
+export type PetroleumMapFeature = SourceMetadata & {
+  id: string;
+  layerId: PetroleumLayerId;
+  entityType: PetroleumEntityType;
+  entityId: string;
+  entityNpdId?: number | null;
+  name: string;
+  geometry: PetroleumGeometry;
+  bbox?: PetroleumBbox | null;
+  centroid?: PetroleumCoordinate | null;
+  status?: string | null;
+  area?: string | null;
+  hcType?: string | null;
+  operator?: PetroleumLinkedCompany | null;
+  relatedFieldName?: string | null;
+  latestProductionOe?: number | null;
+  remainingOe?: number | null;
+  expectedFutureInvestmentNok?: number | null;
+  currentAreaSqKm?: number | null;
+  transferCount?: number | null;
+  facilityKind?: string | null;
+  detailUrl?: string | null;
+  factPageUrl?: string | null;
+  factMapUrl?: string | null;
+};
+
+export type PetroleumEventRow = SourceMetadata & {
+  id: string;
+  source: "HAVTIL" | "GASSCO" | "PETREG";
+  eventType: string;
+  title: string;
+  summary?: string | null;
+  publishedAt?: Date | null;
+  detailUrl?: string | null;
+  tags: string[];
+  entityType?: PetroleumEntityType | null;
+  entityId?: string | null;
+  entityNpdId?: number | null;
+  entityName?: string | null;
+  relatedCompany?: PetroleumLinkedCompany | null;
+  geometry?: PetroleumGeometry | null;
+  centroid?: PetroleumCoordinate | null;
+};
+
+export type PetroleumReserveSnapshot = {
+  entityType: PetroleumEntityType;
+  entityId: string;
+  entityNpdId: number;
+  entityName: string;
+  updatedAt?: Date | null;
+  recoverableOil?: number | null;
+  recoverableGas?: number | null;
+  recoverableNgl?: number | null;
+  recoverableCondensate?: number | null;
+  recoverableOe?: number | null;
+  remainingOil?: number | null;
+  remainingGas?: number | null;
+  remainingNgl?: number | null;
+  remainingCondensate?: number | null;
+  remainingOe?: number | null;
+};
+
+export type PetroleumInvestmentSnapshot = {
+  entityType: PetroleumEntityType;
+  entityId: string;
+  entityNpdId: number;
+  entityName: string;
+  expectedFutureInvestmentNok?: number | null;
+  fixedYear?: number | null;
+};
+
+export type PetroleumTimeSeriesPoint = {
+  key: string;
+  entityType: PetroleumTimeSeriesEntityType;
+  label: string;
+  year: number;
+  month?: number | null;
+  oil?: number | null;
+  gas?: number | null;
+  condensate?: number | null;
+  ngl?: number | null;
+  oe?: number | null;
+  producedWater?: number | null;
+  investments?: number | null;
+};
+
+export type PetroleumBenchmarkSummary = {
+  latestProductionYear?: number | null;
+  latestProductionOe?: number | null;
+  selectedProductionShareOfNcs?: number | null;
+  selectedRecoverableOe?: number | null;
+  selectedRemainingOe?: number | null;
+  selectedHistoricalInvestmentsNok?: number | null;
+  selectedFutureInvestmentsNok?: number | null;
+  totalFields: number;
+  totalLicences: number;
+  totalOperators: number;
+};
+
+export type PetroleumKpiSummary = {
+  activeFieldCount: number;
+  activeLicenceCount: number;
+  selectedLatestProductionOe?: number | null;
+  selectedRemainingOe?: number | null;
+  selectedOperatorCount: number;
+  recentEventCount: number;
+};
+
+export type PetroleumOperatorConcentrationRow = {
+  operatorName: string;
+  operatorOrgNumber?: string | null;
+  operatorSlug?: string | null;
+  oe?: number | null;
+  fieldCount: number;
+};
+
+export type PetroleumRankedFieldRow = {
+  entityId: string;
+  npdId: number;
+  name: string;
+  area?: string | null;
+  operatorName?: string | null;
+  operatorSlug?: string | null;
+  status?: string | null;
+  oe?: number | null;
+  remainingOe?: number | null;
+  expectedFutureInvestmentNok?: number | null;
+};
+
+export type PetroleumFilterOption = {
+  value: string;
+  label: string;
+  count: number;
+};
+
+export type PetroleumFilterOptions = {
+  statuses: PetroleumFilterOption[];
+  areas: PetroleumFilterOption[];
+  operators: PetroleumFilterOption[];
+  licensees: PetroleumFilterOption[];
+  hcTypes: PetroleumFilterOption[];
+};
+
+export type PetroleumSourceStatus = {
+  source: "SODIR" | "HAVTIL" | "GASSCO";
+  available: boolean;
+  message?: string;
+  lastSuccessAt?: Date | null;
+};
+
+export type PetroleumSummaryResponse = {
+  kpis: PetroleumKpiSummary;
+  benchmark: PetroleumBenchmarkSummary;
+  topFields: PetroleumRankedFieldRow[];
+  operatorConcentration: PetroleumOperatorConcentrationRow[];
+  filterOptions: PetroleumFilterOptions;
+  sourceStatus: PetroleumSourceStatus[];
+  latestProductionYear?: number | null;
+};
+
+export type PetroleumTableMode = "fields" | "licences" | "operators";
+
+export type PetroleumTableRow =
+  | {
+      mode: "fields";
+      entityId: string;
+      npdId: number;
+      name: string;
+      area?: string | null;
+      status?: string | null;
+      hcType?: string | null;
+      operatorName?: string | null;
+      operatorSlug?: string | null;
+      latestProductionOe?: number | null;
+      remainingOe?: number | null;
+      expectedFutureInvestmentNok?: number | null;
+    }
+  | {
+      mode: "licences";
+      entityId: string;
+      npdId: number;
+      name: string;
+      area?: string | null;
+      status?: string | null;
+      currentPhase?: string | null;
+      operatorName?: string | null;
+      operatorSlug?: string | null;
+      currentAreaSqKm?: number | null;
+      originalAreaSqKm?: number | null;
+      transferCount: number;
+    }
+  | {
+      mode: "operators";
+      operatorId: string;
+      operatorName: string;
+      operatorOrgNumber?: string | null;
+      operatorSlug?: string | null;
+      fieldCount: number;
+      licenceCount: number;
+      latestProductionOe?: number | null;
+      remainingOe?: number | null;
+    };
+
+export type PetroleumTableResponse = {
+  mode: PetroleumTableMode;
+  items: PetroleumTableRow[];
+  page: number;
+  size: number;
+  totalCount: number;
+};
+
+export type PetroleumEntityDetail = {
+  id: string;
+  entityType: PetroleumEntityType;
+  entityNpdId: number;
+  name: string;
+  status?: string | null;
+  area?: string | null;
+  hcType?: string | null;
+  phase?: string | null;
+  geometry?: PetroleumGeometry | null;
+  centroid?: PetroleumCoordinate | null;
+  factPageUrl?: string | null;
+  factMapUrl?: string | null;
+  operator?: PetroleumLinkedCompany | null;
+  licensees: PetroleumEntityCompanyInterest[];
+  reserve?: PetroleumReserveSnapshot | null;
+  investment?: PetroleumInvestmentSnapshot | null;
+  timeseries: PetroleumTimeSeriesPoint[];
+  relatedEvents: PetroleumEventRow[];
+  relatedCompanyLinks: PetroleumLinkedCompany[];
+  metadata: Record<string, string | number | boolean | null>;
+};
+
+export type PetroleumMarketFilters = {
+  layers?: PetroleumLayerId[];
+  status?: string[];
+  areas?: string[];
+  operatorIds?: string[];
+  licenseeIds?: string[];
+  hcTypes?: string[];
+  bbox?: PetroleumBbox | null;
+  query?: string;
+  tableMode?: PetroleumTableMode;
+  page?: number;
+  size?: number;
+  sort?: string;
+};
+
+export type NormalizedDistressProfile = SourceMetadata & {
+  distressStatus: DistressStatus;
+  statusStartedAt?: Date | null;
+  statusObservedAt: Date;
+  daysInStatus?: number | null;
+  bankruptcyDate?: Date | null;
+  liquidationDate?: Date | null;
+  forcedProcessDate?: Date | null;
+  reconstructionDate?: Date | null;
+  foreignInsolvencyDate?: Date | null;
+  lastAnnouncementPublishedAt?: Date | null;
+  lastAnnouncementTitle?: string | null;
+};
+
+export type DistressFinancialSnapshotSummary = {
+  distressStatus: DistressStatus;
+  daysInStatus?: number | null;
+  industryCode?: string | null;
+  sectorCode?: string | null;
+  sectorLabel?: string | null;
+  lastReportedYear?: number | null;
+  revenue?: number | null;
+  ebit?: number | null;
+  netIncome?: number | null;
+  equityRatio?: number | null;
+  assets?: number | null;
+  interestBearingDebt?: number | null;
+  distressScore?: number | null;
+  scoreVersion?: string | null;
+  dataCoverage?: string | null;
+  updatedAt: Date;
+};
+
+export type DistressStatusSummary = {
+  status: DistressStatus;
+  label: string;
+  statusStartedAt?: Date | null;
+  statusObservedAt: Date;
+  daysInStatus?: number | null;
+  lastAnnouncementPublishedAt?: Date | null;
+  lastAnnouncementTitle?: string | null;
+};
+
+export type DistressAssetSnapshot = {
+  assets?: number | null;
+  fixedAssets?: number | null;
+  inventory?: number | null;
+  receivables?: number | null;
+  cash?: number | null;
+  interestBearingDebt?: number | null;
+  fiscalYear?: number | null;
+};
+
+export type DistressFinancialTrend = {
+  fiscalYear: number;
+  revenue?: number | null;
+  ebit?: number | null;
+  netIncome?: number | null;
+  equity?: number | null;
+  assets?: number | null;
+  equityRatio?: number | null;
+};
+
+export type DistressCoverageSummary = {
+  dataCoverage: string;
+  financialsAvailable: boolean;
+  latestFinancialYear?: number | null;
+  sourceNotes: string[];
+};
+
+export type DistressDocumentExcerpt = {
+  title: string;
+  text: string;
+  pageNumber?: number | null;
+  year: number;
+  documentUrl?: string | null;
+};
+
+export type DistressOperationsSummary = {
+  businessDescription: string;
+  employeeCount?: number | null;
+  foundedYear?: number | null;
+  latestRevenueChange?: number | null;
+  latestEbitMargin?: number | null;
+  latestNetMargin?: number | null;
+  profitableYearsCount: number;
+  lossMakingYearsCount: number;
+  documentYears: number[];
+  annualReportAvailable: boolean;
+  annualReportExtractStatus: string;
+  notesExtractStatus: string;
+  auditReportExtractStatus: string;
+  operatingSignals: string[];
+  documentNotes: string[];
+  documents: NormalizedFinancialDocument[];
+  annualReportExcerpts: DistressDocumentExcerpt[];
+  notesExcerpts: DistressDocumentExcerpt[];
+  auditExcerpts: DistressDocumentExcerpt[];
+};
+
+export type DistressCompanyRow = {
+  company: Pick<
+    NormalizedCompany,
+    "orgNumber" | "slug" | "name" | "legalForm" | "status" | "industryCode" | "municipality" | "addresses"
+  >;
+  distress: DistressStatusSummary;
+  sector?: {
+    code: string;
+    label?: string | null;
+  } | null;
+  financials: {
+    lastReportedYear?: number | null;
+    revenue?: number | null;
+    ebit?: number | null;
+    netIncome?: number | null;
+    equityRatio?: number | null;
+    assets?: number | null;
+    interestBearingDebt?: number | null;
+  };
+  distressScore?: number | null;
+  scoreVersion?: string | null;
+  dataCoverage: string;
+};
+
+export type DistressCompanyDetail = {
+  company: NormalizedCompany;
+  distress: DistressStatusSummary;
+  sector?: {
+    code: string;
+    label?: string | null;
+  } | null;
+  financials: {
+    snapshot: DistressFinancialSnapshotSummary | null;
+    trends: DistressFinancialTrend[];
+  };
+  assetSnapshot: DistressAssetSnapshot;
+  operations: DistressOperationsSummary;
+  coverage: DistressCoverageSummary;
+  announcements: NormalizedAnnouncement[];
+};
+
+export type DistressSortKey =
+  | "name_asc"
+  | "name_desc"
+  | "distressStatus_asc"
+  | "distressStatus_desc"
+  | "daysInStatus_desc"
+  | "daysInStatus_asc"
+  | "industryCode_asc"
+  | "industryCode_desc"
+  | "sector_asc"
+  | "sector_desc"
+  | "lastReportedYear_desc"
+  | "lastReportedYear_asc"
+  | "revenue_desc"
+  | "revenue_asc"
+  | "ebit_desc"
+  | "ebit_asc"
+  | "netIncome_desc"
+  | "netIncome_asc"
+  | "equityRatio_desc"
+  | "equityRatio_asc"
+  | "assets_desc"
+  | "assets_asc"
+  | "interestBearingDebt_desc"
+  | "interestBearingDebt_asc"
+  | "lastAnnouncementPublishedAt_desc"
+  | "lastAnnouncementPublishedAt_asc";
+
+export type DistressFilterOption = {
+  value: string;
+  label: string;
+  count: number;
+};
+
+export type DistressFilterOptions = {
+  statuses: DistressFilterOption[];
+  industryCodes: DistressFilterOption[];
+  sectors: DistressFilterOption[];
+};
+
+export type DistressViewMode = "BEST_FIT" | "ALL";
+
+export type DistressSearchFilters = {
+  status?: DistressStatus[];
+  minDaysInStatus?: number;
+  maxDaysInStatus?: number;
+  industryCodes?: string[];
+  industryCodePrefix?: string;
+  sectorCodes?: string[];
+  lastReportedYearFrom?: number;
+  lastReportedYearTo?: number;
+  page?: number;
+  size?: number;
+  sort?: DistressSortKey;
+  view?: DistressViewMode;
+};
+
+export type DistressScreeningResponse = {
+  items: DistressCompanyRow[];
+  totalCount: number;
+  totalUniverseCount: number;
+  page: number;
+  size: number;
+  view: DistressViewMode;
 };
 
 export type ShareholderType = "PERSON" | "COMPANY" | "UNKNOWN";
@@ -359,7 +887,54 @@ export type WorkspaceStatus = "ACTIVE" | "ARCHIVED";
 export type WorkspaceMemberRole = "OWNER" | "ADMIN" | "MEMBER";
 export type WorkspaceInvitationStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "EXPIRED" | "CANCELED";
 export type DdRoomStatus = "ACTIVE" | "ARCHIVED";
+export type DdTaskStage =
+  | "COLLECTION"
+  | "COMPANY_UNDERSTANDING"
+  | "MANAGEMENT_OWNERSHIP"
+  | "FINANCIAL_REVIEW"
+  | "LEGAL_REGULATORY"
+  | "RISK_ASSESSMENT"
+  | "CONCLUSION";
+export type DdTaskStatus = "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE";
+export type DdTaskPriority = "LOW" | "MEDIUM" | "HIGH";
+export type DdWorkstream = "FINANCIAL" | "COMMERCIAL" | "LEGAL" | "OPERATIONAL" | "REGULATORY" | "ESG";
+export type DdFindingSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type DdFindingStatus = "OPEN" | "IN_REVIEW" | "MITIGATED" | "ACCEPTED" | "CLOSED";
+export type DdFindingImpact =
+  | "NONE"
+  | "THESIS_RISK"
+  | "VALUATION"
+  | "DOWNSIDE"
+  | "UPSIDE"
+  | "MONITORING"
+  | "NO_GO";
+export type DdFindingEvidenceType =
+  | "COMPANY"
+  | "ANNOUNCEMENT"
+  | "FINANCIAL_STATEMENT"
+  | "COMPANY_PROFILE_FIELD"
+  | "TASK"
+  | "FINDING";
+export type DdCompanyProfileField =
+  | "STATUS"
+  | "LEGAL_FORM"
+  | "INDUSTRY_CODE"
+  | "EMPLOYEE_COUNT"
+  | "REVENUE"
+  | "DESCRIPTION";
+export type DdDecisionOutcome = "INVEST" | "INVEST_WITH_CONDITIONS" | "WATCH" | "PASS";
+export type DdCommentThreadTargetType =
+  | "ROOM_POST"
+  | "ANNOUNCEMENT"
+  | "FINANCIAL_STATEMENT"
+  | "FINDING"
+  | "TASK";
 export type WorkspaceWatchStatus = "ACTIVE" | "ARCHIVED";
+export type WorkspaceNotificationType =
+  | "ANNOUNCEMENT_NEW"
+  | "FINANCIAL_STATEMENT_NEW"
+  | "COMPANY_STATUS_CHANGED"
+  | "DISTRESS_MATCH";
 export type WorkspaceMonitorStatus = "ACTIVE" | "ARCHIVED";
 
 export type WorkspaceCapabilitySet = {
@@ -368,6 +943,9 @@ export type WorkspaceCapabilitySet = {
   canRemoveMembers: boolean;
   canCreateDdRoom: boolean;
   canManageWatches: boolean;
+  canManageMonitors: boolean;
+  canManageNotifications: boolean;
+  canPostToDdRoom: boolean;
 };
 
 export type WorkspaceMemberSummary = {
@@ -392,6 +970,336 @@ export type WorkspaceInvitationSummary = {
   invitedByEmail?: string | null;
 };
 
+export type DdRoomCompanySummary = {
+  id: string;
+  orgNumber: string;
+  slug: string;
+  name: string;
+  legalForm?: string | null;
+  status: "ACTIVE" | "DISSOLVED" | "BANKRUPT";
+  industryCode?: {
+    code: string;
+    title?: string | null;
+  } | null;
+};
+
+export type DdRoomSummary = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description?: string | null;
+  status: DdRoomStatus;
+  archivedAt?: Date | null;
+  lastActivityAt: Date;
+  createdAt: Date;
+  primaryCompany: DdRoomCompanySummary;
+  postCount: number;
+  commentThreadCount: number;
+};
+
+export type DdRoomActivityItem = {
+  id: string;
+  type: "ROOM_CREATED" | "ROOM_ARCHIVED" | "ROOM_REOPENED" | "ROOM_POSTED";
+  occurredAt: Date;
+  actorLabel: string;
+  message: string;
+};
+
+export type DdCommentSummary = {
+  id: string;
+  threadId: string;
+  parentCommentId?: string | null;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  author: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+};
+
+export type DdCommentThreadSummary = {
+  id: string;
+  roomId: string;
+  targetType: DdCommentThreadTargetType;
+  targetFinancialStatementId?: string | null;
+  targetFinancialMetricKey?: string | null;
+  targetPostId?: string | null;
+  targetFindingId?: string | null;
+  targetTaskId?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+  commentCount: number;
+  latestCommentAt?: Date | null;
+  comments: DdCommentSummary[];
+};
+
+export type DdPostSummary = {
+  id: string;
+  roomId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  author: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+  commentThread?: DdCommentThreadSummary | null;
+};
+
+export type DdTaskSummary = {
+  id: string;
+  roomId: string;
+  title: string;
+  description?: string | null;
+  stage: DdTaskStage;
+  workstream: DdWorkstream;
+  status: DdTaskStatus;
+  priority: DdTaskPriority;
+  dueAt?: Date | null;
+  completedAt?: Date | null;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+  assignee?: {
+    userId: string;
+    name: string | null;
+    email: string;
+  } | null;
+  createdBy: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+  commentThread?: DdCommentThreadSummary | null;
+};
+
+export type DdMandateSummary = {
+  roomId: string;
+  investmentCase?: string | null;
+  thesis?: string | null;
+  valueDrivers?: string | null;
+  keyRisks?: string | null;
+  timeHorizon?: string | null;
+  decisionGoal?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+  updatedBy: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+};
+
+export type DdFindingEvidenceSummary = {
+  id: string;
+  type: DdFindingEvidenceType;
+  label: string;
+  note?: string | null;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt?: Date | null;
+  normalizedAt?: Date | null;
+  targetCompanyId?: string | null;
+  targetFinancialStatementId?: string | null;
+  targetTaskId?: string | null;
+  targetFindingId?: string | null;
+  targetAnnouncementId?: string | null;
+  targetAnnouncementSourceId?: string | null;
+  targetAnnouncementSourceSystem?: string | null;
+  targetAnnouncementPublishedAt?: Date | null;
+  targetCompanyProfileField?: DdCompanyProfileField | null;
+  createdAt: Date;
+  createdBy: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+};
+
+export type DdFindingSummary = {
+  id: string;
+  roomId: string;
+  taskId?: string | null;
+  title: string;
+  description?: string | null;
+  stage: DdTaskStage;
+  workstream: DdWorkstream;
+  severity: DdFindingSeverity;
+  status: DdFindingStatus;
+  impact: DdFindingImpact;
+  recommendedAction?: string | null;
+  isBlocking: boolean;
+  dueAt?: Date | null;
+  resolvedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  assignee?: {
+    userId: string;
+    name: string | null;
+    email: string;
+  } | null;
+  createdBy: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+  linkedTask?: {
+    id: string;
+    title: string;
+  } | null;
+  evidence: DdFindingEvidenceSummary[];
+  commentThread?: DdCommentThreadSummary | null;
+  handoffWatch?: {
+    id: string;
+    status: WorkspaceWatchStatus;
+    companyId: string;
+    createdAt: Date;
+  } | null;
+};
+
+export type DdConclusionSummary = {
+  roomId: string;
+  investmentCaseSummary?: string | null;
+  valueDriversSummary?: string | null;
+  keyRisksSummary?: string | null;
+  recommendationRationale?: string | null;
+  monitoringPlan?: string | null;
+  outcome?: DdDecisionOutcome | null;
+  isFinal: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+  updatedBy: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+};
+
+export type DdDecisionLogEntrySummary = {
+  id: string;
+  roomId: string;
+  conclusionId?: string | null;
+  outcome?: DdDecisionOutcome | null;
+  isFinal: boolean;
+  investmentCaseSummary?: string | null;
+  valueDriversSummary?: string | null;
+  keyRisksSummary?: string | null;
+  recommendationRationale?: string | null;
+  monitoringPlan?: string | null;
+  note?: string | null;
+  createdAt: Date;
+  createdBy: {
+    userId: string;
+    name: string | null;
+    email: string;
+  };
+};
+
+export type DdWorkstreamSummary = {
+  workstream: DdWorkstream;
+  label: string;
+  description: string;
+  order: number;
+  taskCount: number;
+  openFindingCount: number;
+  blockingFindingCount: number;
+};
+
+export type DdEvidenceContext = {
+  company: {
+    id: string;
+    name: string;
+    orgNumber: string;
+    sourceSystem: string;
+    sourceEntityType: string;
+    sourceId: string;
+    fetchedAt: Date;
+    normalizedAt: Date;
+  };
+  financialStatements: Array<{
+    id: string;
+    fiscalYear: number;
+    sourceSystem: string;
+    sourceEntityType: string;
+    sourceId: string;
+    fetchedAt: Date;
+    normalizedAt: Date;
+  }>;
+  companyProfileFields: Array<{
+    field: DdCompanyProfileField;
+    label: string;
+    value: string;
+    sourceSystem: string;
+    sourceEntityType: string;
+    sourceId: string;
+    fetchedAt: Date;
+    normalizedAt: Date;
+  }>;
+};
+
+export type DdWorkflowStageSummary = {
+  stage: DdTaskStage;
+  label: string;
+  description: string;
+  order: number;
+  totalTasks: number;
+  completedTasks: number;
+  activeTasks: number;
+  blockedTasks: number;
+  completionRate: number;
+  tasks: DdTaskSummary[];
+};
+
+export type DdRoomDetail = {
+  room: DdRoomSummary;
+  workspace: Pick<CurrentWorkspaceSummary, "id" | "name" | "type" | "status" | "role" | "capabilities" | "members">;
+  activity: DdRoomActivityItem[];
+  posts: {
+    items: DdPostSummary[];
+    totalCount: number;
+  };
+  mandate?: DdMandateSummary | null;
+  workflow: {
+    stages: DdWorkflowStageSummary[];
+    workstreams: DdWorkstreamSummary[];
+    totalTasks: number;
+    completedTasks: number;
+    completionRate: number;
+    activeWorkstream?: DdWorkstream | null;
+  };
+  findings: {
+    items: DdFindingSummary[];
+    totalCount: number;
+    openCount: number;
+    blockingOpenCount: number;
+    criticalOpenCount: number;
+    monitoringReadyCount: number;
+    activeWorkstream?: DdWorkstream | null;
+  };
+  conclusion?: DdConclusionSummary | null;
+  decisionHistory: DdDecisionLogEntrySummary[];
+  evidenceContext: DdEvidenceContext;
+};
+
 export type WorkspaceSummary = {
   id: string;
   name: string;
@@ -406,8 +1314,104 @@ export type WorkspaceSummary = {
   unreadNotificationCount: number;
 };
 
+export type WorkspaceWatchSummary = {
+  id: string;
+  workspaceId: string;
+  status: WorkspaceWatchStatus;
+  watchAnnouncements: boolean;
+  watchFinancialStatements: boolean;
+  watchStatusChanges: boolean;
+  archivedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  company: DdRoomCompanySummary;
+};
+
+export type WorkspaceNotificationSummary = {
+  id: string;
+  workspaceId: string;
+  type: WorkspaceNotificationType;
+  title: string;
+  body: string;
+  createdAt: Date;
+  readAt?: Date | null;
+  metadata?: unknown;
+  company?: DdRoomCompanySummary | null;
+  watch?: {
+    id: string;
+    status: WorkspaceWatchStatus;
+  } | null;
+};
+
+export type WorkspaceMonitorMatchSummary = {
+  company: DdRoomCompanySummary;
+  matchedAt: Date;
+  statusObservedAt?: Date | null;
+};
+
+export type WorkspaceMonitorSummary = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  status: WorkspaceMonitorStatus;
+  industryCodePrefix?: string | null;
+  minEmployees?: number | null;
+  maxEmployees?: number | null;
+  minRevenue?: number | null;
+  maxRevenue?: number | null;
+  companyStatus?: CompanyStatus | null;
+  minimumDaysInStatus?: number | null;
+  unsupportedReason?: string | null;
+  archivedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  matchCount: number;
+  matches: WorkspaceMonitorMatchSummary[];
+};
+
 export type CurrentWorkspaceSummary = WorkspaceSummary & {
   capabilities: WorkspaceCapabilitySet;
   members: WorkspaceMemberSummary[];
   invitations: WorkspaceInvitationSummary[];
+  activeDdRooms: DdRoomSummary[];
+  archivedDdRooms: DdRoomSummary[];
+  activeWatches: WorkspaceWatchSummary[];
+  archivedWatches: WorkspaceWatchSummary[];
+  unreadNotifications: WorkspaceNotificationSummary[];
+  readNotifications: WorkspaceNotificationSummary[];
+  activeMonitors: WorkspaceMonitorSummary[];
+  archivedMonitors: WorkspaceMonitorSummary[];
+};
+
+export type CompanyDdDiscussionRoomSummary = {
+  id: string;
+  name: string;
+  workspaceId: string;
+  workspaceName: string;
+  workspaceType: WorkspaceType;
+  lastActivityAt: Date;
+};
+
+export type CompanyDdDiscussionContext = {
+  rooms: CompanyDdDiscussionRoomSummary[];
+  selectedRoomId: string;
+  selectedRoomName: string;
+};
+
+export type CompanyFinancialStatementDiscussionSummary = {
+  financialStatementId: string;
+  fiscalYear: number;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
+  thread?: DdCommentThreadSummary | null;
+};
+
+export type CompanyFinancialMetricDiscussionSummary = {
+  financialStatementId: string;
+  fiscalYear: number;
+  metricKey: string;
+  thread: DdCommentThreadSummary;
 };

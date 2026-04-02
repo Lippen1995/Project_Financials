@@ -23,6 +23,10 @@ ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeSc
 - Filtrering på sentrale virksomhetsfelt
 - Innlogging, registrering og enkel feature gating
 - Workspace-basert kontooversikt med personlig workspace, team-workspaces og invitasjoner
+- DD-rom med mandat, workflow, funn, evidens, beslutningshistorikk og frie romposter
+- Kommentartråder på oppgaver, funn, kunngjøringer og regnskap i riktig DD-romkontekst
+- Workspace-abonnementer, inbox-varsler og distress-monitorer
+- Markedsanalysemodul for olje og gass på `/market/oil-gas` med SODIR-masterdata, kartlag, produksjonsserier, reserver og investeringsoversikt
 - Lokal cache/persistens av hentede records med sporbarhet
 
 ## Datakilder
@@ -69,6 +73,16 @@ ProjectX støtter import av reelle aksjonærregisteruttrekk fra Skatteetatens le
 
 ProjectX kan også hente aksjonærdata direkte fra Skatteetatens `Aksjonær i virksomhet API` når Maskinporten-tilgang, rettighetspakke og bearer-token er konfigurert lokalt. Live API prioriteres foran importerte snapshots.
 
+### Sokkeldirektoratet, Havtil og Gassco
+
+Brukes i olje- og gassmodulen slik:
+
+- Sokkeldirektoratet (SODIR) er master for felt, funn, lisenser, innretninger, TUF/hovedrørledninger, survey, produksjonsserier, reserver og forventede investeringer
+- Havtil brukes som regulatorisk event-overlay for tilsynsrapporter, samtykker, samsvarsuttalelser og granskingsrapporter
+- Gassco er koblet som operasjonelt overlay, men vises foreløpig bare som kilde-status når offentlig UMM-henting ikke kan gjennomføres stabilt maskinelt
+
+Frontend i `/market/oil-gas` bruker kun normaliserte ProjectX-API-er under `app/api/market/oil-gas/*`, aldri rå SODIR-, Havtil- eller Gassco-responser.
+
 ## Viktige begrensninger
 
 - ProjectX viser regnskap fra Brregs offisielle PDF-kopier av årsregnskap.
@@ -80,6 +94,11 @@ ProjectX kan også hente aksjonærdata direkte fra Skatteetatens `Aksjonær i vi
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i ProjectX, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
 - AI-søk bruker OpenAI kun til å tolke søketeksten til strukturert intensjon. Kandidater hentes fortsatt fra Brreg, næringskoder berikes fra SSB, og sortering på størrelse bruker bare reelle inntektstall som finnes i lokal lagring/importerte regnskap.
 - Hvis `OPENAI_API_KEY` mangler, faller søket tilbake til en enklere regelbasert tolkning og UI-et markerer dette tydelig.
+- Distress-monitorer matcher bare selskaper som allerede finnes i ProjectX-lageret lokalt. ProjectX hevder ikke full nasjonal dekning dersom selskapet ikke er hentet eller lagret ennå.
+- Første sync for regnskapsvarsler etablerer en baseline for lagret watch for å unngå falske historiske "nye regnskap"-varsler.
+- DD-kommentarer på selskapsprofilen vises bare når profilen er åpnet fra et gyldig DD-rom med `ddRoom` i URL-en.
+- Gassco UMM-overlay i olje- og gassmodulen er ærlig markert som begrenset når disclaimer-/sessionflyten ikke lar seg hente stabilt maskinelt. ProjectX fyller ikke dette hullet med syntetiske hendelser.
+- Havtil-hendelser normaliseres fra åpne listesider og brukes som event-overlay, ikke som master for sokkelobjekter.
 
 ## Arkitektur
 
@@ -124,6 +143,12 @@ npm run backfill:workspaces
 npm run dev
 ```
 
+7. Hvis du vil synkronisere workspace-varsler manuelt lokalt:
+
+```bash
+npm run sync:workspace-notifications
+```
+
 Appen kjører da på [http://localhost:3000](http://localhost:3000).
 
 ## Auth
@@ -131,6 +156,8 @@ Appen kjører da på [http://localhost:3000](http://localhost:3000).
 Det finnes ingen seedede demo-brukere. Opprett en konto i UI for lokal bruk.
 
 Hver bruker får automatisk en personlig workspace ved registrering eller første innlogging etter schema-oppdateringen. Team-workspaces og medlemsinvitasjoner administreres fra dashboardet.
+
+Aktive workspaces kan, avhengig av tilgangsnivå, eie DD-rom, watches, inbox-varsler og distress-monitorer. Disse objektene er workspace-scopet, ikke bruker-scopet.
 
 Subscription-modellen finnes i databasen og brukes til enkel feature gating i produktet. Betalingsflyt er ikke ferdigstilt i denne iterasjonen.
 
@@ -174,6 +201,7 @@ Dette vil:
 - `BRREG_BASE_URL`: base-URL for Brreg virksomhetsdata
 - `BRREG_ROLES_BASE_URL`: base-URL for Brreg roller
 - `BRREG_COMPANY_LOOKUP_BASE_URL`: base-URL for Brreg virksomhetsoppslag brukt til åpne årsregnskapsmetadata
+- `BRREG_ANNOUNCEMENTS_BASE_URL`: base-URL for Brreg kunngjøringer
 - `BRREG_FINANCIALS_BASE_URL`: base-URL for Brreg Regnskapsregisterets åpne regnskaps-API
 - `SKATTEETATEN_SHAREHOLDING_BASE_URL`: base-URL for Skatteetatens Aksjonær i virksomhet API
 - `SKATTEETATEN_SHAREHOLDING_PACKAGE`: rettighetspakke for datasettet
@@ -183,6 +211,17 @@ Dette vil:
 - `PROJECTX_CACHE_HOURS`: antall timer før cache oppfriskes
 - `OPENAI_API_KEY`: API-nøkkel brukt til å tolke fritekstsøk
 - `OPENAI_SEARCH_MODEL`: modellnavn for søketolkning, standard `gpt-5-mini`
+- `WORKSPACE_SYNC_SECRET`: delt secret for intern workspace-sync-endepunkt i produksjon
+
+## Workspace-sync
+
+ProjectX kan synkronisere watches og distress-monitorer til workspace-inboxen via:
+
+```bash
+npm run sync:workspace-notifications
+```
+
+I produksjon er internruten `/api/internal/workspace-sync` satt opp for timebasert cron via [vercel.json](./vercel.json). Sett `WORKSPACE_SYNC_SECRET` i miljøet og kall ruten med `Authorization: Bearer <secret>` eller `x-workspace-sync-secret`.
 
 ## Provider-oversikt
 

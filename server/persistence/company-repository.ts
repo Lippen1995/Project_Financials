@@ -1,9 +1,27 @@
 import { AddressType, CompanyStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { NormalizedCompany, NormalizedIndustryCode, NormalizedRole } from "@/lib/types";
+import {
+  NormalizedCompany,
+  NormalizedFinancialStatement,
+  NormalizedIndustryCode,
+  NormalizedRole,
+} from "@/lib/types";
 
 export async function upsertCompanySnapshot(company: NormalizedCompany) {
+  const existingCompany = await prisma.company.findUnique({
+    where: { orgNumber: company.orgNumber },
+    select: {
+      id: true,
+      status: true,
+      statusObservedAt: true,
+    },
+  });
+  const nextStatusObservedAt =
+    !existingCompany || existingCompany.status !== company.status
+      ? company.fetchedAt
+      : existingCompany.statusObservedAt ?? company.fetchedAt;
+
   const industryCode =
     company.industryCode &&
     (await prisma.industryCode.upsert({
@@ -40,6 +58,7 @@ export async function upsertCompanySnapshot(company: NormalizedCompany) {
       name: company.name,
       legalForm: company.legalForm,
       status: company.status as CompanyStatus,
+      statusObservedAt: nextStatusObservedAt,
       registeredAt: company.registeredAt,
       foundedAt: company.foundedAt,
       website: company.website,
@@ -81,6 +100,7 @@ export async function upsertCompanySnapshot(company: NormalizedCompany) {
       name: company.name,
       legalForm: company.legalForm,
       status: company.status as CompanyStatus,
+      statusObservedAt: nextStatusObservedAt,
       registeredAt: company.registeredAt,
       foundedAt: company.foundedAt,
       website: company.website,
@@ -256,6 +276,61 @@ export async function upsertRolesSnapshot(companyOrgNumber: string, roles: Norma
         fetchedAt: role.fetchedAt,
         normalizedAt: role.normalizedAt,
         rawPayload: role.rawPayload as never,
+      },
+    });
+  }
+}
+
+export async function upsertFinancialStatementsSnapshot(
+  companyOrgNumber: string,
+  statements: NormalizedFinancialStatement[],
+) {
+  const company = await prisma.company.findUnique({
+    where: { orgNumber: companyOrgNumber },
+    select: { id: true },
+  });
+
+  if (!company || statements.length === 0) {
+    return;
+  }
+
+  for (const statement of statements) {
+    await prisma.financialStatement.upsert({
+      where: {
+        companyId_fiscalYear: {
+          companyId: company.id,
+          fiscalYear: statement.fiscalYear,
+        },
+      },
+      update: {
+        currency: statement.currency,
+        revenue: statement.revenue ?? null,
+        operatingProfit: statement.operatingProfit ?? null,
+        netIncome: statement.netIncome ?? null,
+        equity: statement.equity ?? null,
+        assets: statement.assets ?? null,
+        sourceSystem: statement.sourceSystem,
+        sourceEntityType: statement.sourceEntityType,
+        sourceId: statement.sourceId,
+        fetchedAt: statement.fetchedAt,
+        normalizedAt: statement.normalizedAt,
+        rawPayload: statement.rawPayload as never,
+      },
+      create: {
+        companyId: company.id,
+        fiscalYear: statement.fiscalYear,
+        currency: statement.currency,
+        revenue: statement.revenue ?? null,
+        operatingProfit: statement.operatingProfit ?? null,
+        netIncome: statement.netIncome ?? null,
+        equity: statement.equity ?? null,
+        assets: statement.assets ?? null,
+        sourceSystem: statement.sourceSystem,
+        sourceEntityType: statement.sourceEntityType,
+        sourceId: statement.sourceId,
+        fetchedAt: statement.fetchedAt,
+        normalizedAt: statement.normalizedAt,
+        rawPayload: statement.rawPayload as never,
       },
     });
   }

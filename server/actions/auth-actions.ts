@@ -15,6 +15,34 @@ const authSchema = z.object({
   name: z.string().min(2).optional(),
 });
 
+function isDatabaseUnavailableError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes("Can't reach database server") ||
+    error.message.includes("PrismaClientInitializationError") ||
+    error.message.includes("localhost:5432")
+  );
+}
+
+function getAuthActionErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof z.ZodError) {
+    return "Ugyldige felter.";
+  }
+
+  if (error instanceof AuthError) {
+    return "Innlogging feilet. Kontroller e-post og passord.";
+  }
+
+  if (isDatabaseUnavailableError(error)) {
+    return "Databasen er utilgjengelig akkurat nå. Start databaseforbindelsen og prøv igjen.";
+  }
+
+  return fallback;
+}
+
 export async function loginAction(_: unknown, formData: FormData) {
   try {
     const values = authSchema.parse({
@@ -41,11 +69,7 @@ export async function loginAction(_: unknown, formData: FormData) {
       redirect: false,
     });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Innlogging feilet. Kontroller e-post og passord." };
-    }
-
-    return { error: "Ugyldige felter." };
+    return { error: getAuthActionErrorMessage(error, "Innlogging feilet.") };
   }
 
   redirect("/dashboard");
@@ -86,8 +110,8 @@ export async function registerAction(_: unknown, formData: FormData) {
       password: values.password,
       redirect: false,
     });
-  } catch {
-    return { error: "Registrering feilet." };
+  } catch (error) {
+    return { error: getAuthActionErrorMessage(error, "Registrering feilet.") };
   }
 
   redirect("/dashboard");

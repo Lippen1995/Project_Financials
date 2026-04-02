@@ -42,22 +42,25 @@ export default async function SearchPage({
     });
   } catch {
     searchError =
-      "Søket mot virksomhetsregisteret feilet akkurat nå. Prøv igjen med selskapsnavn eller organisasjonsnummer.";
+      "Søket mot virksomhetsregisteret kunne ikke fullføres akkurat nå. Prøv igjen med selskapsnavn eller organisasjonsnummer.";
   }
+
+  const query =
+    typeof params.query === "string" && params.query.trim().length > 0 ? params.query.trim() : null;
 
   return (
     <main className="space-y-8 pb-10">
       <section className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.78)] xl:grid-cols-[minmax(0,1.45fr),340px]">
         <div className="p-8">
           <div className="data-label inline-flex rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-            Søkeflate
+            Søk
           </div>
           <h1 className="editorial-display mt-5 max-w-4xl text-[3rem] leading-[0.98] text-slate-950 sm:text-[4rem]">
-            Finn selskaper med skarpere treff.
+            Finn norske selskaper med mer presise treff.
           </h1>
           <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
-            Skriv vanlige søk, navn eller organisasjonsnummer. Resultatene tolkes for bedre treff,
-            men bygger fortsatt på reelle data fra Brreg, SSB og lagret regnskap.
+            Søk på selskapsnavn, person eller organisasjonsnummer. Resultatene er lagt opp for
+            rask vurdering, med tydelig filtrering og strukturert treffliste.
           </p>
           <div className="mt-6">
             <SearchForm compact />
@@ -65,13 +68,15 @@ export default async function SearchPage({
         </div>
 
         <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[#192536] p-8 text-white xl:border-l xl:border-t-0">
-          <div className="data-label text-[11px] font-semibold uppercase text-white/60">Arbeidsflyt</div>
+          <div className="data-label text-[11px] font-semibold uppercase text-white/60">
+            Arbeidsflate
+          </div>
           <div className="mt-4 text-[1.45rem] font-semibold leading-tight">
-            Trefflisten er bygget for vurdering
+            Trefflisten er laget for vurdering, ikke bare oppslag.
           </div>
           <p className="mt-4 text-sm leading-7 text-white/76">
-            AI brukes bare til å tolke søketeksten. Selve kandidatene og sorteringen bygger fortsatt
-            på reelle data fra Brreg, SSB og lagret regnskap.
+            Bruk fritekstsøk først, og snevr inn med filtrene når du vil vurdere geografi,
+            selskapsform, status eller bransje nærmere.
           </p>
         </aside>
       </section>
@@ -83,7 +88,7 @@ export default async function SearchPage({
               Filtrering
             </div>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              Innsnevr resultatene med feltene som er mest relevante for vurdering.
+              Innsnevr listen med de kriteriene som betyr mest for vurderingen.
             </p>
           </div>
           <FilterPanel searchParams={params} />
@@ -92,13 +97,15 @@ export default async function SearchPage({
         <div className="space-y-4">
           <div className="flex items-end justify-between gap-4 border-b border-[rgba(15,23,42,0.08)] pb-4">
             <div>
-              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Treff</div>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+                Treff
+              </div>
               <h2 className="mt-2 text-[1.8rem] font-semibold text-slate-950">
                 {searchResult.results.length} selskaper funnet
               </h2>
             </div>
             <div className="text-sm text-slate-500">
-              Søk: {typeof params.query === "string" && params.query ? params.query : "Ingen søketekst angitt"}
+              Søk: {query ?? "Ingen søketekst angitt"}
             </div>
           </div>
 
@@ -108,16 +115,19 @@ export default async function SearchPage({
             </div>
           ) : null}
 
-          {!searchError && typeof params.query === "string" && params.query ? (
+          {!searchError && query ? (
             <div className="border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.72)] p-5 text-sm text-slate-600">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-slate-900">
-                  {searchResult.interpretation.aiAssisted ? "AI-tolket søk" : "Fallback-søk"}
+                  {searchResult.interpretation.aiAssisted ? "Tolket søk" : "Direkte søk"}
                 </span>
                 {searchResult.interpretation.intentSummary ? (
                   <span>{searchResult.interpretation.intentSummary}</span>
-                ) : null}
+                ) : (
+                  <span>Trefflisten er strukturert ut fra registrerte virksomhetsdata.</span>
+                )}
               </div>
+
               <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
                 {searchResult.interpretation.matchedIndustryCodes.map((item) => (
                   <span

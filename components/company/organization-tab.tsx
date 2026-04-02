@@ -110,6 +110,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
     filteredActors.find((actor) => actor.id === selectedId) ??
     model.actors.find((actor) => actor.id === selectedId) ??
     null;
+
   const hoverGroups = {
     owners: filteredActors.filter((actor) => actor.primaryBucket === "owners"),
     board: filteredActors.filter((actor) => actor.primaryBucket === "board"),
@@ -145,6 +146,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               <div className="mt-1">Sist oppdatert {formatDate(model.company.fetchedAt)}</div>
             </div>
           </div>
+
           <div className="mt-5 grid gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
             {model.statusItems.map((item) => (
               <div key={item.label} className="border-b border-dashed border-[#E8EDF2] pb-3">
@@ -162,6 +164,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
             title="Organisasjonskart"
             description="Kartet samler styring, fullmakter og eksterne funksjoner i én rolig analyseflate."
           />
+
           <div className="mt-5 space-y-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="relative max-w-md flex-1">
@@ -173,6 +176,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                   className="w-full rounded-[1rem] border border-[#D7DEE7] bg-white px-10 py-2.5 text-sm text-[#101828] outline-none focus:border-[#98A2B3] focus:ring-2 focus:ring-[#D6E4FF]"
                 />
               </div>
+
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -332,6 +336,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               {profile.rolesAvailability.message}
             </div>
           ) : null}
+
           <div className="mt-5 space-y-5">
             <div className={cn("rounded-[1.4rem] border p-5", bucketClasses.owners)}>
               <div className="flex items-start justify-between gap-4">
@@ -608,6 +613,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                   {selected.approvalStatus ? <Badge muted>{selected.approvalStatus}</Badge> : null}
                 </div>
               </div>
+
               <div className="space-y-3">
                 {selected.roles.map((role) => (
                   <div

@@ -24,9 +24,11 @@ export function isCompanyTab(value: string | undefined): value is CompanyTabId {
 export function CompanyTabs({
   companySlug,
   activeTab,
+  activeDdRoomId,
 }: {
   companySlug: string;
   activeTab: CompanyTabId;
+  activeDdRoomId?: string | null;
 }) {
   return (
     <div className="sticky top-4 z-30 overflow-x-auto rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(247,247,245,0.86)] px-2 py-2 backdrop-blur-sm">
@@ -34,7 +36,7 @@ export function CompanyTabs({
         {tabs.map((tab) => (
           <Link
             key={tab.id}
-            href={`/companies/${companySlug}?tab=${tab.id}`}
+            href={`/companies/${companySlug}?tab=${tab.id}${activeDdRoomId ? `&ddRoom=${activeDdRoomId}` : ""}`}
             className={cn(
               "rounded-[0.8rem] px-4 py-2.5 text-sm font-medium transition",
               activeTab === tab.id

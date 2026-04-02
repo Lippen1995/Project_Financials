@@ -24,7 +24,7 @@ Retningen skal være langt unna:
 - startup-gradienter
 - katalog- eller portalestetikk
 - overfylt card-stabling
-- markedsføringsspråk og “growth UI”
+- markedsføringsspråk og growth-UI
 
 ## Kjerneprinsipper
 
@@ -88,8 +88,8 @@ Praktisk bruk:
 
 - bakgrunn: varm, lys, diskret off-white
 - hovedflater: hvit eller nesten hvit
-- tekst: mørk blåsvart / kull
-- aksent: dempet blågrå / marine
+- tekst: mørk blåsvart eller kull
+- aksent: dempet blågrå eller marine
 - sekundær dataserie i grafer: jordet brun
 - statusfarger skal være diskrete og funksjonelle
 
@@ -160,7 +160,7 @@ Vanlige mønstre:
 - sekundærinformasjon i sidekolonne eller nederst
 
 ### Sticky navigasjon
-Langselskapsprofiler skal bruke sticky lokal navigasjon når det gir mening, slik vi gjør i fanene på selskapsprofilen.
+Lange selskapsprofiler skal bruke sticky lokal navigasjon når det gir mening, slik vi gjør i fanene på selskapsprofilen.
 
 ## Komponentmønstre
 
@@ -197,7 +197,7 @@ Signalpaneler og sidepaneler skal være kompakte og tydelige.
 Eksempler:
 
 - analytisk sammendrag i oversikt
-- fakta-/statuspaneler i selskapsprofil
+- fakta- og statuspaneler i selskapsprofil
 - innsiktspanel i organisasjon
 
 Disse panelene skal:
@@ -240,7 +240,7 @@ Grafer skal ikke:
 - se ut som SaaS-widgets
 - bruke flashy gradients
 - bruke mange serier uten grunn
-- ha “playful” interaksjoner
+- ha playful interaksjoner
 
 ### 6. Struktur- og organisasjonsflater
 Disse skal se ut som analyseverktøy, ikke infografikk.
@@ -274,7 +274,7 @@ Teksten skal ikke være:
 ### Språkregler
 
 - bruk korrekt norsk alfabet: `Æ Ø Å`
-- unngå engelske produktord hvis det finnes god norsk form
+- unngå engelske produktord hvis det finnes en god norsk form
 - behold tekniske eller juridiske termer bare når de faktisk er best forstått slik
 
 Eksempler:
@@ -294,7 +294,7 @@ Bruk kildereferanser:
 Unngå:
 
 - å nevne kilder i hver ingress
-- å la “kildelogikk” dominere hovedbudskapet
+- å la kildelogikk dominere hovedbudskapet
 
 ## Interaksjon
 
@@ -303,7 +303,7 @@ Interaksjoner skal være subtile og funksjonelle.
 - diskrete hover-stater
 - små transformasjoner når de hjelper fokus
 - ingen unødige animasjoner
-- tydelig aktiv tilstand i tabs, filters og segment controls
+- tydelig aktiv tilstand i tabs, filtere og segmentkontroller
 
 ## Designmønstre som skal videreføres
 
@@ -324,7 +324,7 @@ Interaksjoner skal være subtile og funksjonelle.
 ### Selskapsprofil
 
 - tydelig header med juridisk navn og metadata
-- executive / hovedsignal-seksjon i toppen
+- hovedsignal-seksjon i toppen
 - sticky tabs
 - modulær seksjonsoppbygging
 - høyrekolonner for signaler eller fakta
@@ -344,7 +344,7 @@ Interaksjoner skal være subtile og funksjonelle.
 
 ### Login, pricing, dashboard
 
-- samme editorial hero / innledningsmønster
+- samme editorial hero og innledningsmønster
 - samme farge- og typografisystem
 - samme språkføring som resten av produktet
 
@@ -355,7 +355,7 @@ Interaksjoner skal være subtile og funksjonelle.
 - tilfeldige nye aksentfarger
 - inkonsistente radius-, border- eller shadow-mønstre
 - engelske labels i ellers norske flater
-- “MVP”, “mockdata”, “kildeoppslag” og annen intern formulering i synlig UI
+- `MVP`, `mockdata`, `kildeoppslag` og annen intern formulering i synlig UI
 - visuelle avvik mellom forside og underflater
 
 ## Praktisk sjekkliste før ny UI merges

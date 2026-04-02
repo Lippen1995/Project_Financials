@@ -8,12 +8,19 @@ import { randomUUID } from "crypto";
 
 import {
   CurrentWorkspaceSummary,
+  DdRoomSummary,
   WorkspaceCapabilitySet,
   WorkspaceInvitationSummary,
   WorkspaceMemberSummary,
   WorkspaceSummary,
 } from "@/lib/types";
 import { prisma } from "@/lib/prisma";
+import { getCollaborationEntitlements } from "@/server/billing/subscription";
+import {
+  listWorkspaceMonitors,
+  listWorkspaceNotifications,
+  listWorkspaceWatches,
+} from "@/server/services/workspace-collaboration-service";
 
 const INVITATION_TTL_DAYS = 14;
 
@@ -44,23 +51,115 @@ function getWorkspaceCapabilities(
   role: WorkspaceMemberRole,
   status: WorkspaceStatus,
   type: WorkspaceType,
+  entitlements: ReturnType<typeof getCollaborationEntitlements>,
 ): WorkspaceCapabilitySet {
   const active = status === WorkspaceStatus.ACTIVE;
   const canManageWorkspace = active && (role === WorkspaceMemberRole.OWNER || role === WorkspaceMemberRole.ADMIN);
-  const canInviteMembers = canManageWorkspace && type === WorkspaceType.TEAM;
+  const canInviteMembers =
+    canManageWorkspace && type === WorkspaceType.TEAM && entitlements.canUseTeamWorkspaces;
   const canRemoveMembers = canInviteMembers;
 
   return {
     canManageWorkspace,
     canInviteMembers,
     canRemoveMembers,
-    canCreateDdRoom: active,
-    canManageWatches: active,
+    canCreateDdRoom: active && entitlements.canUseDdRooms,
+    canManageWatches: active && entitlements.canUseWorkspaceWatches,
+    canManageMonitors: active && entitlements.canUseWorkspaceMonitors,
+    canManageNotifications: active && entitlements.canUseWorkspaceInbox,
+    canPostToDdRoom: active && entitlements.canUseDdRooms,
   };
+}
+
+export function resolveWorkspaceCapabilities(
+  role: WorkspaceMemberRole,
+  status: WorkspaceStatus,
+  type: WorkspaceType,
+  entitlements: ReturnType<typeof getCollaborationEntitlements>,
+) {
+  return getWorkspaceCapabilities(role, status, type, entitlements);
+}
+
+export async function getUserWorkspaceCapabilities(
+  userId: string,
+  role: WorkspaceMemberRole,
+  status: WorkspaceStatus,
+  type: WorkspaceType,
+) {
+  const subscription = await prisma.subscription.findUnique({
+    where: {
+      userId,
+    },
+    select: {
+      status: true,
+      plan: true,
+    },
+  });
+
+  return getWorkspaceCapabilities(
+    role,
+    status,
+    type,
+    getCollaborationEntitlements(subscription?.status, subscription?.plan),
+  );
 }
 
 function isManager(role: WorkspaceMemberRole) {
   return role === WorkspaceMemberRole.OWNER || role === WorkspaceMemberRole.ADMIN;
+}
+
+function toDdRoomSummary(room: {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string | null;
+  status: "ACTIVE" | "ARCHIVED";
+  archivedAt: Date | null;
+  lastActivityAt: Date;
+  createdAt: Date;
+  primaryCompany: {
+    id: string;
+    orgNumber: string;
+    slug: string;
+    name: string;
+    legalForm: string | null;
+    status: "ACTIVE" | "DISSOLVED" | "BANKRUPT";
+    industryCode: {
+      code: string;
+      title: string;
+    } | null;
+  };
+  _count: {
+    posts: number;
+    commentThreads: number;
+  };
+}): DdRoomSummary {
+  return {
+    id: room.id,
+    workspaceId: room.workspaceId,
+    name: room.name,
+    description: room.description,
+    status: room.status,
+    archivedAt: room.archivedAt,
+    lastActivityAt: room.lastActivityAt,
+    createdAt: room.createdAt,
+    primaryCompany: {
+      id: room.primaryCompany.id,
+      orgNumber: room.primaryCompany.orgNumber,
+      slug: room.primaryCompany.slug,
+      name: room.primaryCompany.name,
+      legalForm: room.primaryCompany.legalForm,
+      status: room.primaryCompany.status,
+      industryCode: room.primaryCompany.industryCode
+        ? {
+            code: room.primaryCompany.industryCode.code,
+            title: room.primaryCompany.industryCode.title,
+          }
+        : null,
+    },
+    postCount: room._count.posts,
+    commentThreadCount: room._count.commentThreads,
+  };
 }
 
 async function expireInvitationsForEmail(email: string) {
@@ -400,22 +499,64 @@ export async function getDashboardWorkspaceHome(
         take: 12,
       },
       ddRooms: {
-        select: {
-          status: true,
+        include: {
+          primaryCompany: {
+            include: {
+              industryCode: {
+                select: {
+                  code: true,
+                  title: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              posts: true,
+              commentThreads: true,
+            },
+          },
         },
+        orderBy: [{ status: "asc" }, { lastActivityAt: "desc" }],
       },
       watches: {
-        select: {
-          status: true,
+        include: {
+          company: {
+            include: {
+              industryCode: {
+                select: {
+                  code: true,
+                  title: true,
+                },
+              },
+            },
+          },
         },
       },
       notifications: {
-        where: {
-          readAt: null,
+        include: {
+          company: {
+            include: {
+              industryCode: {
+                select: {
+                  code: true,
+                  title: true,
+                },
+              },
+            },
+          },
+          watch: {
+            select: {
+              id: true,
+              status: true,
+            },
+          },
         },
-        select: {
-          id: true,
-        },
+        orderBy: [{ readAt: "asc" }, { createdAt: "desc" }],
+        take: 60,
+      },
+      monitors: {
+        orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
       },
     },
   });
@@ -448,16 +589,33 @@ export async function getDashboardWorkspaceHome(
     orderBy: [{ createdAt: "desc" }],
   });
 
+  const [workspaceWatches, workspaceNotifications, workspaceMonitors] = await Promise.all([
+    listWorkspaceWatches(userId, currentWorkspace.id),
+    listWorkspaceNotifications(userId, currentWorkspace.id),
+    listWorkspaceMonitors(userId, currentWorkspace.id),
+  ]);
+
   return {
     currentWorkspace: {
       ...currentSummary,
-      capabilities: getWorkspaceCapabilities(
+      capabilities: await getUserWorkspaceCapabilities(
+        userId,
         currentWorkspaceMembership.role,
         currentWorkspace.status,
         currentWorkspace.type,
       ),
       members: currentWorkspace.members.map((member) => toWorkspaceMemberSummary(member, userId)),
       invitations: currentWorkspace.invitations.map(toInvitationSummary),
+      activeDdRooms: currentWorkspace.ddRooms.filter((room) => room.status === "ACTIVE").map(toDdRoomSummary),
+      archivedDdRooms: currentWorkspace.ddRooms
+        .filter((room) => room.status === "ARCHIVED")
+        .map(toDdRoomSummary),
+      activeWatches: workspaceWatches.filter((watch) => watch.status === "ACTIVE"),
+      archivedWatches: workspaceWatches.filter((watch) => watch.status === "ARCHIVED"),
+      unreadNotifications: workspaceNotifications.filter((notification) => !notification.readAt),
+      readNotifications: workspaceNotifications.filter((notification) => Boolean(notification.readAt)),
+      activeMonitors: workspaceMonitors.filter((monitor) => monitor.status === "ACTIVE"),
+      archivedMonitors: workspaceMonitors.filter((monitor) => monitor.status === "ARCHIVED"),
     },
     workspaces: workspaceSummaries,
     incomingInvitations: incomingInvitations.map(toInvitationSummary),
@@ -508,7 +666,7 @@ export async function getSessionWorkspaceContext(userId: string): Promise<Sessio
   };
 }
 
-async function requireWorkspaceMembership(userId: string, workspaceId: string) {
+export async function requireWorkspaceMembership(userId: string, workspaceId: string) {
   const membership = await prisma.workspaceMember.findUnique({
     where: {
       workspaceId_userId: {
@@ -535,6 +693,14 @@ export async function createTeamWorkspace(userId: string, name: string) {
   }
 
   await ensureUserWorkspaceState(userId);
+  const subscription = await prisma.subscription.findUnique({
+    where: { userId },
+    select: { status: true, plan: true },
+  });
+  const entitlements = getCollaborationEntitlements(subscription?.status, subscription?.plan);
+  if (!entitlements.canUseTeamWorkspaces) {
+    throw new Error("Team-workspaces krever utvidet tilgang.");
+  }
 
   const workspace = await prisma.workspace.create({
     data: {
@@ -585,8 +751,14 @@ export async function inviteWorkspaceMember(
 ) {
   const normalizedEmail = normalizeEmail(email);
   const membership = await requireWorkspaceMembership(actorUserId, workspaceId);
+  const capabilities = await getUserWorkspaceCapabilities(
+    actorUserId,
+    membership.role,
+    membership.workspace.status,
+    membership.workspace.type,
+  );
 
-  if (!isManager(membership.role)) {
+  if (!isManager(membership.role) || !capabilities.canInviteMembers) {
     throw new Error("Du kan ikke invitere medlemmer til dette workspace-et.");
   }
 
@@ -803,7 +975,13 @@ export async function declineWorkspaceInvitation(userId: string, invitationId: s
 
 export async function removeWorkspaceMember(actorUserId: string, workspaceId: string, memberUserId: string) {
   const membership = await requireWorkspaceMembership(actorUserId, workspaceId);
-  if (!isManager(membership.role)) {
+  const capabilities = await getUserWorkspaceCapabilities(
+    actorUserId,
+    membership.role,
+    membership.workspace.status,
+    membership.workspace.type,
+  );
+  if (!isManager(membership.role) || !capabilities.canRemoveMembers) {
     throw new Error("Du kan ikke fjerne medlemmer fra dette workspace-et.");
   }
 

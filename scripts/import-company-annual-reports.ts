@@ -1,4 +1,4 @@
-import { importAnnualReportsForCompany } from "@/server/importers/annual-report-importer";
+import { importAndRefreshDistressFinancials } from "@/server/services/distress-analysis-service";
 import { prisma } from "@/lib/prisma";
 
 async function main() {
@@ -9,7 +9,7 @@ async function main() {
   }
 
   for (const orgNumber of orgNumbers) {
-    const result = await importAnnualReportsForCompany(orgNumber);
+    const result = await importAndRefreshDistressFinancials(orgNumber);
     console.log(
       JSON.stringify(
         {

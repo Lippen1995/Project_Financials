@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
+import { rethrowIfRedirectError } from "@/lib/redirect-error";
 import {
   acceptWorkspaceInvitation,
   createTeamWorkspace,
@@ -86,6 +87,7 @@ export async function createTeamWorkspaceAction(formData: FormData) {
     revalidatePath("/dashboard");
     redirect(buildDashboardUrl(workspace.id, "Teamet ble opprettet.") as never);
   } catch (error) {
+    rethrowIfRedirectError(error);
     const message = error instanceof Error ? error.message : "Kunne ikke opprette workspace.";
     redirect(buildDashboardUrl(null, undefined, message) as never);
   }
@@ -103,6 +105,7 @@ export async function switchWorkspaceAction(formData: FormData) {
     revalidatePath("/dashboard");
     redirect(buildDashboardUrl(values.workspaceId, "Workspace byttet.") as never);
   } catch (error) {
+    rethrowIfRedirectError(error);
     const message = error instanceof Error ? error.message : "Kunne ikke bytte workspace.";
     redirect(buildDashboardUrl(null, undefined, message) as never);
   }
@@ -122,6 +125,7 @@ export async function inviteWorkspaceMemberAction(formData: FormData) {
     revalidatePath("/dashboard");
     redirect(buildDashboardUrl(values.workspaceId, "Invitasjonen ble sendt.") as never);
   } catch (error) {
+    rethrowIfRedirectError(error);
     const workspaceId = String(formData.get("workspaceId") ?? "");
     const message = error instanceof Error ? error.message : "Kunne ikke sende invitasjon.";
     redirect(buildDashboardUrl(workspaceId || null, undefined, message) as never);
@@ -141,6 +145,7 @@ export async function acceptWorkspaceInvitationAction(formData: FormData) {
     revalidatePath("/dashboard");
     redirect(buildDashboardUrl(workspaceId, "Invitasjonen ble akseptert.") as never);
   } catch (error) {
+    rethrowIfRedirectError(error);
     const workspaceId = String(formData.get("workspaceId") ?? "");
     const message = error instanceof Error ? error.message : "Kunne ikke akseptere invitasjonen.";
     redirect(buildDashboardUrl(workspaceId || null, undefined, message) as never);
@@ -160,6 +165,7 @@ export async function declineWorkspaceInvitationAction(formData: FormData) {
     revalidatePath("/dashboard");
     redirect(buildDashboardUrl(values.workspaceId ?? null, "Invitasjonen ble avslått.") as never);
   } catch (error) {
+    rethrowIfRedirectError(error);
     const workspaceId = String(formData.get("workspaceId") ?? "");
     const message = error instanceof Error ? error.message : "Kunne ikke avslå invitasjonen.";
     redirect(buildDashboardUrl(workspaceId || null, undefined, message) as never);
@@ -178,6 +184,7 @@ export async function archiveWorkspaceAction(formData: FormData) {
     revalidatePath("/dashboard");
     redirect(buildDashboardUrl(null, "Workspace ble arkivert.") as never);
   } catch (error) {
+    rethrowIfRedirectError(error);
     const workspaceId = String(formData.get("workspaceId") ?? "");
     const message = error instanceof Error ? error.message : "Kunne ikke arkivere workspace.";
     redirect(buildDashboardUrl(workspaceId || null, undefined, message) as never);
@@ -196,6 +203,7 @@ export async function reopenWorkspaceAction(formData: FormData) {
     revalidatePath("/dashboard");
     redirect(buildDashboardUrl(values.workspaceId, "Workspace ble gjenåpnet.") as never);
   } catch (error) {
+    rethrowIfRedirectError(error);
     const workspaceId = String(formData.get("workspaceId") ?? "");
     const message = error instanceof Error ? error.message : "Kunne ikke gjenåpne workspace.";
     redirect(buildDashboardUrl(workspaceId || null, undefined, message) as never);
@@ -215,6 +223,7 @@ export async function removeWorkspaceMemberAction(formData: FormData) {
     revalidatePath("/dashboard");
     redirect(buildDashboardUrl(values.workspaceId, "Medlemmet ble fjernet.") as never);
   } catch (error) {
+    rethrowIfRedirectError(error);
     const workspaceId = String(formData.get("workspaceId") ?? "");
     const message = error instanceof Error ? error.message : "Kunne ikke fjerne medlemmet.";
     redirect(buildDashboardUrl(workspaceId || null, undefined, message) as never);
