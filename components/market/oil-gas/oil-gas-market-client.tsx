@@ -824,6 +824,14 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
     }));
   }, [features, filters.layers]);
   const isMapDrivingResults = Boolean(filters.bbox);
+  const gasscoRealtimeEvents = React.useMemo(
+    () => events.filter((event) => event.source === "GASSCO" && event.eventType === "REALTIME_NOMINATION"),
+    [events],
+  );
+  const marketEvents = React.useMemo(
+    () => events.filter((event) => !(event.source === "GASSCO" && event.eventType === "REALTIME_NOMINATION")),
+    [events],
+  );
   const selectedFeature = React.useMemo(
     () =>
       selectedEntityKey
@@ -1026,8 +1034,12 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               ? "Du ser den fulle markedsflaten med SODIR-masterdata, tidsserier og overlays."
               : "Visningen er aktiv, men er tydelig merket som premium-modul i denne første versjonen."}
           </p>
-          <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/82">
+          <div className="hidden mt-5 rounded-[1rem] border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/82">
             Gassco-overlay er koblet ærlig som utilgjengelig når UMM ikke lar seg hente stabilt maskinelt.
+          </div>
+          <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/82">
+            Gassco sanntidsnomineringer hentes nå fra direkte Atom-feed. Full UMM-dekning holdes fortsatt
+            konservativ til feedene er stabile over tid.
           </div>
         </aside>
       </section>
@@ -1669,16 +1681,40 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             </div>
           </Card>
 
+          {gasscoRealtimeEvents.length > 0 ? (
+            <Card className="p-5">
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Gassco Sanntid</div>
+              <div className="mt-4 space-y-3">
+                {gasscoRealtimeEvents.slice(0, 10).map((event) => (
+                  <div key={event.id} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-900">{event.title}</div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">
+                      {event.publishedAt ? `Oppdatert ${formatDate(event.publishedAt)}` : "Sanntidsfeed"}
+                    </div>
+                    <div className="mt-2 text-sm leading-6 text-slate-600">
+                      {event.summary ?? "Ingen sanntidssammendrag tilgjengelig."}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+
           <Card className="p-5">
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Hendelser</div>
             <div className="mt-4 space-y-3">
-              {events.slice(0, 8).map((event) => (
+              {marketEvents.slice(0, 8).map((event) => (
                 <div key={event.id} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
                   <div className="text-sm font-semibold text-slate-900">{event.title}</div>
                   <div className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">{event.source}</div>
                   <div className="mt-2 text-sm leading-6 text-slate-600">{event.summary ?? "Ingen sammendrag tilgjengelig."}</div>
                 </div>
               ))}
+              {marketEvents.length === 0 ? (
+                <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 text-sm text-slate-500">
+                  Ingen regulatoriske eller lisensrelaterte hendelser tilgjengelig for gjeldende utsnitt.
+                </div>
+              ) : null}
             </div>
           </Card>
         </div>

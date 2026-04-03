@@ -79,7 +79,7 @@ Brukes i olje- og gassmodulen slik:
 
 - Sokkeldirektoratet (SODIR) er master for felt, funn, lisenser, innretninger, TUF/hovedrørledninger, survey, produksjonsserier, reserver og forventede investeringer
 - Havtil brukes som regulatorisk event-overlay for tilsynsrapporter, samtykker, samsvarsuttalelser og granskingsrapporter
-- Gassco er koblet som operasjonelt overlay, men vises foreløpig bare som kilde-status når offentlig UMM-henting ikke kan gjennomføres stabilt maskinelt
+- Gassco brukes nå til sanntidsnomineringer via den offentlige `realTimeAtom.xml`-feed-en, mens generell UMM-feed fortsatt behandles konservativt fordi eventinnholdet kan være tomt eller variere over tid
 
 Frontend i `/market/oil-gas` bruker kun normaliserte ProjectX-API-er under `app/api/market/oil-gas/*`, aldri rå SODIR-, Havtil- eller Gassco-responser.
 
@@ -97,7 +97,7 @@ Frontend i `/market/oil-gas` bruker kun normaliserte ProjectX-API-er under `app/
 - Distress-monitorer matcher bare selskaper som allerede finnes i ProjectX-lageret lokalt. ProjectX hevder ikke full nasjonal dekning dersom selskapet ikke er hentet eller lagret ennå.
 - Første sync for regnskapsvarsler etablerer en baseline for lagret watch for å unngå falske historiske "nye regnskap"-varsler.
 - DD-kommentarer på selskapsprofilen vises bare når profilen er åpnet fra et gyldig DD-rom med `ddRoom` i URL-en.
-- Gassco UMM-overlay i olje- og gassmodulen er ærlig markert som begrenset når disclaimer-/sessionflyten ikke lar seg hente stabilt maskinelt. ProjectX fyller ikke dette hullet med syntetiske hendelser.
+- Gassco-integrasjonen i olje- og gassmodulen bruker ekte sanntidsnomineringer fra offentlig Atom-feed. ProjectX lover fortsatt ikke full Gassco-eventdekning dersom den generelle UMM-feed-en er tom eller ikke kan verifiseres i siste sync.
 - Havtil-hendelser normaliseres fra åpne listesider og brukes som event-overlay, ikke som master for sokkelobjekter.
 
 ## Arkitektur
