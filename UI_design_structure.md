@@ -5,6 +5,8 @@ Dette dokumentet beskriver den aktive designstrukturen i ProjectX slik produktet
 
 Dette er ikke en løs inspirasjonsliste. Det er en praktisk standard for hvordan ProjectX skal se ut, oppføre seg og kommunisere videre.
 
+`DESIGN.md` er nå hoveddokumentet for designretning. Denne filen fungerer som et mer praktisk arbeidsnotat og sjekkliste for videre UI-arbeid i repoet.
+
 ## Designretning
 ProjectX følger en stil som kombinerer:
 
@@ -15,8 +17,9 @@ ProjectX følger en stil som kombinerer:
 Referanseretningen er nær:
 
 - Linear for presisjon og disiplin
-- Bloomberg light for informasjonsstruktur
-- McKinsey for troverdighet og ro
+- Wise for tillit og kommersiell klarhet
+- Notion for editorial ro og lesbarhet
+- HashiCorp som enterprise-korrektiv
 
 Retningen skal være langt unna:
 
@@ -73,7 +76,7 @@ Selskapsanalyse er hovedsakelig en desktop-opplevelse. Mobil skal fungere godt, 
 ### Fargebruk
 Basen er lys og nøytral.
 
-Fra dagens implementasjon i [app/globals.css](C:\Users\simen\Project_Financials\app\globals.css):
+Fra dagens implementasjon i [globals.css](C:\Users\simen\Project_Financials\app\globals.css):
 
 - `--px-bg: #f5f4f0`
 - `--px-surface: rgba(255, 255, 255, 0.9)`
@@ -93,13 +96,6 @@ Praktisk bruk:
 - sekundær dataserie i grafer: jordet brun
 - statusfarger skal være diskrete og funksjonelle
 
-Unngå:
-
-- sterke metningsgrader
-- flerfargede aksentpaletter
-- lilla som standardaksent
-- mørk modus som primærretning
-
 ## Typografi
 
 ### Fontroller
@@ -109,19 +105,11 @@ ProjectX bruker tre tydelige typografiske roller:
 - sans for UI, lesetekst og tabeller
 - mono for metadata, seksjonslabeler og tabulære data
 
-Nåværende oppsett i [app/layout.tsx](C:\Users\simen\Project_Financials\app\layout.tsx):
+Nåværende oppsett i [layout.tsx](C:\Users\simen\Project_Financials\app\layout.tsx):
 
 - `Source Serif 4`
 - `IBM Plex Sans`
 - `IBM Plex Mono`
-
-### Regler
-
-- store overskrifter bruker serif og tett tracking
-- seksjonslabeler bruker mono og uppercase
-- tall skal bruke tabular numerals der det er mulig
-- lesetekst skal være rolig og saklig, ikke reklamepreget
-- overskrifter skal være korte og beslutningsorienterte
 
 ### Klassenavn som bør videreføres
 
@@ -143,21 +131,7 @@ Dette mønsteret brukes på:
 - selskapsprofil
 - oversikt
 - organisasjon
-
-### Seksjonscontainere
-Seksjoner skal normalt bruke:
-
-- tynn border
-- svak, lys flate
-- lav til moderat radius
-- lite eller ingen skygge
-- god intern padding
-
-Vanlige mønstre:
-
-- toppseksjon med border-bottom
-- innhold som følger i tydelige blokker
-- sekundærinformasjon i sidekolonne eller nederst
+- dashboard
 
 ### Sticky navigasjon
 Lange selskapsprofiler skal bruke sticky lokal navigasjon når det gir mening, slik vi gjør i fanene på selskapsprofilen.
@@ -200,12 +174,6 @@ Eksempler:
 - fakta- og statuspaneler i selskapsprofil
 - innsiktspanel i organisasjon
 
-Disse panelene skal:
-
-- prioritere tall og signaler
-- ha tydelig visuelt hierarki
-- ikke ligne widgets fra et admin-dashboard
-
 ### 4. Tabeller
 Tabeller er en kjernekomponent i produktet.
 
@@ -217,14 +185,8 @@ Tabeller skal:
 - ha høy lesbarhet i rader og negative tall
 - føles finansielle, ikke generiske
 
-Tabeller skal ikke:
-
-- ha tung zebra-striping
-- bruke dekorative farger
-- være tettpakket uten luft
-
 ### 5. Grafer
-Grafer skal være sober og analytiske.
+Grafer skal være sobere og analytiske.
 
 Regler:
 
@@ -234,13 +196,6 @@ Regler:
 - tydelig aktivt år eller valgt punkt
 - mørk marine for primær dataserie
 - dempet brun for sekundær eller alternativ serie
-
-Grafer skal ikke:
-
-- se ut som SaaS-widgets
-- bruke flashy gradients
-- bruke mange serier uten grunn
-- ha playful interaksjoner
 
 ### 6. Struktur- og organisasjonsflater
 Disse skal se ut som analyseverktøy, ikke infografikk.
@@ -264,13 +219,6 @@ All tekst skal være:
 - konkret
 - rolig
 
-Teksten skal ikke være:
-
-- intern
-- MVP-preget
-- markedsføringsfluffy
-- overforklarende
-
 ### Språkregler
 
 - bruk korrekt norsk alfabet: `Æ Ø Å`
@@ -280,73 +228,9 @@ Teksten skal ikke være:
 Eksempler:
 
 - bruk `Hovedsignaler` heller enn `Executive snapshot`
-- bruk `Tilgjengelighet` eller `Datagrunnlag` heller enn intern systemtekst
-- bruk `Åpne kunngjøringer` heller enn kildeorienterte CTA-er når kilden er underforstått
-
-### Forholdet mellom produkt og kilder
-Produktet skal være ærlig om data, men ikke overkommunisere kilder i alle synlige flater.
-
-Bruk kildereferanser:
-
-- når de faktisk hjelper brukeren å vurdere data
-- i metadata, detaljpaneler eller egne forklarende områder
-
-Unngå:
-
-- å nevne kilder i hver ingress
-- å la kildelogikk dominere hovedbudskapet
-
-## Interaksjon
-
-Interaksjoner skal være subtile og funksjonelle.
-
-- diskrete hover-stater
-- små transformasjoner når de hjelper fokus
-- ingen unødige animasjoner
-- tydelig aktiv tilstand i tabs, filtere og segmentkontroller
-
-## Designmønstre som skal videreføres
-
-### Forside
-
-- stor editorial hero
-- søk som primærhandling
-- mørk sekundærkolonne
-- tydelige seksjonsblokker under
-
-### Søk
-
-- samme hero-system som forsiden
-- filterpanel til venstre
-- stram resultatliste
-- fokus på vurdering, ikke katalog
-
-### Selskapsprofil
-
-- tydelig header med juridisk navn og metadata
-- hovedsignal-seksjon i toppen
-- sticky tabs
-- modulær seksjonsoppbygging
-- høyrekolonner for signaler eller fakta
-
-### Regnskap
-
-- én tydelig finansiell tidsserieflate
-- stramme tabeller
-- lesbare KPI-topper
-- dokumentmodul som følger samme struktur
-
-### Organisasjon og juridisk struktur
-
-- struktur som analyseflate
-- nøkkelroller og fullmakter lett tilgjengelig
-- interaktivitet kun der den forbedrer lesbarhet
-
-### Login, pricing, dashboard
-
-- samme editorial hero og innledningsmønster
-- samme farge- og typografisystem
-- samme språkføring som resten av produktet
+- bruk `arbeidsflate` heller enn `workspace` i synlig UI
+- bruk `administrator` heller enn `admin` i synlig UI når det passer
+- bruk `Åpne kunngjøringer`, `årsregnskap`, `regnskapsår`, `nøkkeltall`
 
 ## Hva vi aktivt skal unngå videre
 
@@ -362,32 +246,33 @@ Interaksjoner skal være subtile og funksjonelle.
 
 ### Visuell kontroll
 
-- Bruker siden samme typografiske hierarki som forsiden?
-- Følger siden samme farge- og border-system?
-- Ser modulen ut som en del av samme produkt som selskapsprofilen?
-- Er det for mange kort eller for mye dashboard-preget UI?
+- bruker siden samme typografiske hierarki som forsiden?
+- følger siden samme farge- og border-system?
+- ser modulen ut som en del av samme produkt som selskapsprofilen?
+- er det for mange kort eller for mye dashboard-preget UI?
 
 ### Språk
 
-- Er all tekst på korrekt norsk?
-- Finnes det mojibake eller ASCII-erstatninger for `Æ Ø Å`?
-- Høres teksten ut som et kommersielt analyseprodukt, ikke intern MVP-copy?
+- er all tekst på korrekt norsk?
+- finnes det mojibake eller ASCII-erstatninger for `Æ Ø Å`?
+- høres teksten ut som et kommersielt analyseprodukt, ikke intern MVP-copy?
 
 ### Data
 
-- Er data tydelig gruppert og lett å skanne?
-- Er hovedpoenget på skjermen klart innen få sekunder?
-- Er detaljer underordnet oversikten?
+- er data tydelig gruppert og lett å skanne?
+- er hovedpoenget på skjermen klart innen få sekunder?
+- er detaljer underordnet oversikten?
 
 ## Standard for videre arbeid
 Når nye flater bygges, skal de ta utgangspunkt i eksisterende mønstre i:
 
-- [app/page.tsx](C:\Users\simen\Project_Financials\app\page.tsx)
-- [app/search/page.tsx](C:\Users\simen\Project_Financials\app\search\page.tsx)
-- [app/companies/[slug]/page.tsx](C:\Users\simen\Project_Financials\app\companies\[slug]\page.tsx)
-- [components/company/overview-analytics.tsx](C:\Users\simen\Project_Financials\components\company\overview-analytics.tsx)
-- [components/company/financial-time-series-table.tsx](C:\Users\simen\Project_Financials\components\company\financial-time-series-table.tsx)
-- [components/company/organization-tab.tsx](C:\Users\simen\Project_Financials\components\company\organization-tab.tsx)
-- [app/globals.css](C:\Users\simen\Project_Financials\app\globals.css)
+- [page.tsx](C:\Users\simen\Project_Financials\app\page.tsx)
+- [page.tsx](C:\Users\simen\Project_Financials\app\search\page.tsx)
+- [page.tsx](C:\Users\simen\Project_Financials\app\companies\[slug]\page.tsx)
+- [overview-analytics.tsx](C:\Users\simen\Project_Financials\components\company\overview-analytics.tsx)
+- [financial-time-series-table.tsx](C:\Users\simen\Project_Financials\components\company\financial-time-series-table.tsx)
+- [organization-tab.tsx](C:\Users\simen\Project_Financials\components\company\organization-tab.tsx)
+- [globals.css](C:\Users\simen\Project_Financials\app\globals.css)
 
 Hvis en ny komponent bryter med disse mønstrene, skal det være et bevisst valg med tydelig grunn.
+
