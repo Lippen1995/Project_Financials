@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getCompanyAnnouncementDetail, getCompanyProfile } from "@/server/services/company-service";
+import { getCompanyAnnouncementDetail, getCompanyByReference } from "@/server/services/company-service";
 
 export async function GET(
   request: NextRequest,
@@ -8,7 +8,7 @@ export async function GET(
 ) {
   const { slug, announcementId } = await context.params;
   const orgNumberMatch = slug.match(/\d{9}/);
-  const orgNumber = orgNumberMatch?.[0] ?? (await getCompanyProfile(slug))?.company.orgNumber;
+  const orgNumber = orgNumberMatch?.[0] ?? (await getCompanyByReference(slug))?.orgNumber;
 
   if (!orgNumber) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

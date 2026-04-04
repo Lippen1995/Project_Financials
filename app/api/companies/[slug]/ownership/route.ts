@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getCompanyProfile } from "@/server/services/company-service";
+import { getCompanyByReference } from "@/server/services/company-service";
 import { getCompanyShareholdingOverview } from "@/server/shareholdings/shareholding-service";
 
 export async function GET(
@@ -11,11 +11,11 @@ export async function GET(
   const yearParam = request.nextUrl.searchParams.get("year");
   const requestedYear = yearParam ? Number.parseInt(yearParam, 10) : undefined;
 
-  const profile = await getCompanyProfile(slug);
-  if (!profile) {
+  const company = await getCompanyByReference(slug);
+  if (!company) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const data = await getCompanyShareholdingOverview(profile.company.orgNumber, requestedYear);
+  const data = await getCompanyShareholdingOverview(company.orgNumber, requestedYear);
   return NextResponse.json({ data });
 }

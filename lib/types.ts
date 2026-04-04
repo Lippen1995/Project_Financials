@@ -181,21 +181,43 @@ export type PetroleumLayerId =
   | "licences"
   | "facilities"
   | "tuf"
+  | "wellbores"
   | "surveys"
   | "regulatoryEvents"
   | "gasscoEvents";
 
-export type PetroleumEntityType = "FIELD" | "DISCOVERY" | "LICENCE" | "FACILITY" | "TUF" | "SURVEY";
-export type PetroleumTimeSeriesEntityType = "field" | "operator" | "area";
-export type PetroleumTimeSeriesGranularity = "month" | "year";
-export type PetroleumTimeSeriesMeasure =
+export type PetroleumEntityType =
+  | "FIELD"
+  | "DISCOVERY"
+  | "LICENCE"
+  | "FACILITY"
+  | "TUF"
+  | "SURVEY"
+  | "WELLBORE";
+export type PetroleumMarketTab =
+  | "market"
+  | "exploration"
+  | "wells"
+  | "infrastructure"
+  | "seismic"
+  | "seabed"
+  | "companies"
+  | "events"
+  | "concepts";
+export type PetroleumProductSeries =
   | "oil"
   | "gas"
-  | "condensate"
   | "ngl"
+  | "condensate"
+  | "liquids"
   | "oe"
-  | "producedWater"
-  | "investments";
+  | "producedWater";
+export type PetroleumMetricView = "volume" | "rate";
+export type PetroleumRateUnit = "boepd" | "msm3" | "billSm3" | "nok";
+export type PetroleumTimeSeriesEntityType = "field" | "operator" | "area";
+export type PetroleumTimeSeriesGranularity = "month" | "year";
+export type PetroleumTimeSeriesComparison = "none" | "yoy" | "ytd" | "forecast";
+export type PetroleumTimeSeriesMeasure = PetroleumProductSeries | "investments";
 
 export type PetroleumCoordinate = [number, number];
 export type PetroleumGeometry =
@@ -256,9 +278,25 @@ export type PetroleumMapFeature = SourceMetadata & {
   latestProductionOe?: number | null;
   remainingOe?: number | null;
   expectedFutureInvestmentNok?: number | null;
+  selectedProductionValue?: number | null;
+  selectedProductionUnit?: PetroleumRateUnit | null;
+  selectedProductionLabel?: string | null;
+  productionYoYPercent?: number | null;
   currentAreaSqKm?: number | null;
   transferCount?: number | null;
   facilityKind?: string | null;
+  category?: string | null;
+  subType?: string | null;
+  companyName?: string | null;
+  surveyYear?: number | null;
+  startedAt?: Date | null;
+  finalizedAt?: Date | null;
+  plannedFromDate?: Date | null;
+  plannedToDate?: Date | null;
+  wellType?: string | null;
+  purpose?: string | null;
+  waterDepth?: number | null;
+  totalDepth?: number | null;
   detailUrl?: string | null;
   factPageUrl?: string | null;
   factMapUrl?: string | null;
@@ -315,13 +353,70 @@ export type PetroleumTimeSeriesPoint = {
   label: string;
   year: number;
   month?: number | null;
+  dayCount?: number | null;
   oil?: number | null;
   gas?: number | null;
+  liquids?: number | null;
   condensate?: number | null;
   ngl?: number | null;
   oe?: number | null;
   producedWater?: number | null;
   investments?: number | null;
+  oilRate?: number | null;
+  gasRate?: number | null;
+  liquidsRate?: number | null;
+  condensateRate?: number | null;
+  nglRate?: number | null;
+  oeRate?: number | null;
+  producedWaterRate?: number | null;
+  selectedValue?: number | null;
+  selectedRate?: number | null;
+  selectedUnit?: PetroleumRateUnit | null;
+  forecastValue?: number | null;
+  forecastRate?: number | null;
+  forecastDeviation?: number | null;
+};
+
+export type PetroleumForecastSnapshot = SourceMetadata & {
+  id: string;
+  scope: "NCS" | "FILTERED";
+  sourceLabel: string;
+  title: string;
+  summary?: string | null;
+  publishedAt?: Date | null;
+  horizonLabel?: string | null;
+  appliesToProduct?: PetroleumProductSeries | null;
+  forecastScopeLabel?: string | null;
+  trendLabel?: string | null;
+  declineRatePercent?: number | null;
+  investmentLevelNok?: number | null;
+  keyPoints: string[];
+  detailUrl?: string | null;
+  backgroundDataUrl?: string | null;
+};
+
+export type PetroleumPublicationSnapshot = SourceMetadata & {
+  id: string;
+  category: "MONTHLY_PRODUCTION" | "SHELF_YEAR" | "RESOURCE_REPORT";
+  title: string;
+  summary?: string | null;
+  publishedAt?: Date | null;
+  detailUrl: string;
+  backgroundDataUrl?: string | null;
+  pdfUrl?: string | null;
+  sheetNames: string[];
+};
+
+export type PetroleumConceptEntry = {
+  id: string;
+  slug: string;
+  label: string;
+  shortDefinition: string;
+  explanation: string;
+  relatedConceptIds: string[];
+  relatedProducts?: PetroleumProductSeries[];
+  sourceLabel: string;
+  sourceUrl: string;
 };
 
 export type PetroleumBenchmarkSummary = {
@@ -344,6 +439,14 @@ export type PetroleumKpiSummary = {
   selectedRemainingOe?: number | null;
   selectedOperatorCount: number;
   recentEventCount: number;
+  selectedProduct?: PetroleumProductSeries;
+  selectedView?: PetroleumMetricView;
+  selectedLatestProductionValue?: number | null;
+  selectedLatestProductionUnit?: PetroleumRateUnit | null;
+  yoyYtdValue?: number | null;
+  yoyYtdDeltaPercent?: number | null;
+  currentMonthVsLastYearPercent?: number | null;
+  forecastDeviationPercent?: number | null;
 };
 
 export type PetroleumOperatorConcentrationRow = {
@@ -352,6 +455,8 @@ export type PetroleumOperatorConcentrationRow = {
   operatorSlug?: string | null;
   oe?: number | null;
   fieldCount: number;
+  latestProductionValue?: number | null;
+  latestProductionUnit?: PetroleumRateUnit | null;
 };
 
 export type PetroleumRankedFieldRow = {
@@ -365,6 +470,8 @@ export type PetroleumRankedFieldRow = {
   oe?: number | null;
   remainingOe?: number | null;
   expectedFutureInvestmentNok?: number | null;
+  latestProductionValue?: number | null;
+  latestProductionUnit?: PetroleumRateUnit | null;
 };
 
 export type PetroleumFilterOption = {
@@ -379,6 +486,66 @@ export type PetroleumFilterOptions = {
   operators: PetroleumFilterOption[];
   licensees: PetroleumFilterOption[];
   hcTypes: PetroleumFilterOption[];
+};
+
+export type PetroleumSeismicFilterOptions = {
+  categories: PetroleumFilterOption[];
+  statuses: PetroleumFilterOption[];
+  areas: PetroleumFilterOption[];
+  operators: PetroleumFilterOption[];
+  years: PetroleumFilterOption[];
+};
+
+export type PetroleumSeismicKpiSummary = {
+  surveyCount: number;
+  plannedSurveyCount: number;
+  ongoingSurveyCount: number;
+  completedSurveyCount: number;
+  wellboreCount: number;
+  explorationWellCount: number;
+  latestSurveyYear?: number | null;
+};
+
+export type PetroleumSeismicHighlight = {
+  entityType: "SURVEY" | "WELLBORE";
+  entityId: string;
+  npdId: number;
+  name: string;
+  status?: string | null;
+  category?: string | null;
+  area?: string | null;
+  operatorName?: string | null;
+  year?: number | null;
+};
+
+export type PetroleumSeismicSummaryResponse = {
+  kpis: PetroleumSeismicKpiSummary;
+  filterOptions: PetroleumSeismicFilterOptions;
+  sourceStatus: PetroleumSourceStatus[];
+  recentItems: PetroleumSeismicHighlight[];
+};
+
+export type PetroleumSeismicTableRow = {
+  entityType: "SURVEY" | "WELLBORE";
+  entityId: string;
+  npdId: number;
+  name: string;
+  status?: string | null;
+  category?: string | null;
+  area?: string | null;
+  operatorName?: string | null;
+  year?: number | null;
+  relatedFieldName?: string | null;
+  waterDepth?: number | null;
+  totalDepth?: number | null;
+  factPageUrl?: string | null;
+};
+
+export type PetroleumSeismicTableResponse = {
+  items: PetroleumSeismicTableRow[];
+  total: number;
+  page: number;
+  size: number;
 };
 
 export type PetroleumSourceStatus = {
@@ -396,6 +563,10 @@ export type PetroleumSummaryResponse = {
   filterOptions: PetroleumFilterOptions;
   sourceStatus: PetroleumSourceStatus[];
   latestProductionYear?: number | null;
+  selectedProduct: PetroleumProductSeries;
+  selectedView: PetroleumMetricView;
+  forecast: PetroleumForecastSnapshot | null;
+  publications: PetroleumPublicationSnapshot[];
 };
 
 export type PetroleumTableMode = "fields" | "licences" | "operators";
@@ -412,6 +583,8 @@ export type PetroleumTableRow =
       operatorName?: string | null;
       operatorSlug?: string | null;
       latestProductionOe?: number | null;
+      latestProductionValue?: number | null;
+      latestProductionUnit?: PetroleumRateUnit | null;
       remainingOe?: number | null;
       expectedFutureInvestmentNok?: number | null;
     }
@@ -438,6 +611,8 @@ export type PetroleumTableRow =
       fieldCount: number;
       licenceCount: number;
       latestProductionOe?: number | null;
+      latestProductionValue?: number | null;
+      latestProductionUnit?: PetroleumRateUnit | null;
       remainingOe?: number | null;
     };
 
@@ -469,18 +644,27 @@ export type PetroleumEntityDetail = {
   timeseries: PetroleumTimeSeriesPoint[];
   relatedEvents: PetroleumEventRow[];
   relatedCompanyLinks: PetroleumLinkedCompany[];
+  concepts?: PetroleumConceptEntry[];
   metadata: Record<string, string | number | boolean | null>;
 };
 
 export type PetroleumMarketFilters = {
+  tab?: PetroleumMarketTab;
   layers?: PetroleumLayerId[];
   status?: string[];
+  surveyStatuses?: string[];
+  surveyCategories?: string[];
   areas?: string[];
   operatorIds?: string[];
   licenseeIds?: string[];
   hcTypes?: string[];
+  surveyYearFrom?: number;
+  surveyYearTo?: number;
   bbox?: PetroleumBbox | null;
   query?: string;
+  product?: PetroleumProductSeries;
+  view?: PetroleumMetricView;
+  comparison?: PetroleumTimeSeriesComparison;
   tableMode?: PetroleumTableMode;
   page?: number;
   size?: number;

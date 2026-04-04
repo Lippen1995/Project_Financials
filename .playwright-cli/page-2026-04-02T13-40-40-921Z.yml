@@ -1,0 +1,90 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "ProjectX" [ref=e6] [cursor=pointer]:
+            - /url: /
+          - paragraph [ref=e7]: Skarp innsikt for kritiske forretningsbeslutninger.
+        - navigation [ref=e8]:
+          - link "Søk" [ref=e9] [cursor=pointer]:
+            - /url: /search
+          - link "Olje & gass" [ref=e10] [cursor=pointer]:
+            - /url: /market/oil-gas
+          - link "Tilgang" [ref=e11] [cursor=pointer]:
+            - /url: /pricing
+          - link "Logg inn" [ref=e12] [cursor=pointer]:
+            - /url: /login
+    - main [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]:
+            - generic [ref=e17]: Markedsanalyse
+            - heading "Norsk sokkel i ett arbeidsrom." [level=1] [ref=e18]
+            - paragraph [ref=e19]: Kart, produksjonsserier, reserver, investeringer og regulatoriske hendelser for felt, lisenser, innretninger og hovedinfrastruktur.
+          - complementary [ref=e20]:
+            - generic [ref=e21]: Premium analyseflate
+            - generic [ref=e22]: Preview-modus
+            - paragraph [ref=e23]: Visningen er aktiv, men er tydelig merket som premium-modul i denne første versjonen.
+            - generic [ref=e24]: Gassco-overlay er koblet ærlig som utilgjengelig når UMM ikke lar seg hente stabilt maskinelt.
+        - generic:
+          - generic:
+            - button "Lukk kartfokus" [ref=e817] [cursor=pointer]
+            - generic [ref=e88]:
+              - generic [ref=e90]:
+                - generic [ref=e91]:
+                  - generic [ref=e92]: Interaktivt kart
+                  - generic [ref=e93]: Kartet styrer analysen. Viser 153 objekter i gjeldende utsnitt.
+                - generic [ref=e94]: Oppdaterer utsnitt
+                - button "Nullstill utsnitt" [ref=e96] [cursor=pointer]
+                - button "Lukk kartfokus" [active] [ref=e818] [cursor=pointer]
+              - generic [ref=e98]:
+                - generic [ref=e99]:
+                  - region "Map" [ref=e205]
+                  - generic:
+                    - generic [ref=e206]:
+                      - button "Zoom in" [ref=e207] [cursor=pointer]
+                      - button "Zoom out" [ref=e209] [cursor=pointer]
+                      - button "Drag to rotate map, click to reset north" [ref=e211]
+                    - group [ref=e213]:
+                      - generic "Toggle attribution" [ref=e214] [cursor=pointer]
+                      - generic [ref=e215]:
+                        - text: © OpenStreetMap contributors |
+                        - link "MapLibre" [ref=e216] [cursor=pointer]:
+                          - /url: https://maplibre.org/
+                - generic: Oppdaterer kart og analyser…
+              - generic [ref=e100]:
+                - generic [ref=e819]:
+                  - generic [ref=e820]:
+                    - generic [ref=e821]: Kartfokus aktiv
+                    - generic [ref=e822]: Resten av analyseflaten er skjult mens du jobber i kartet.
+                  - generic [ref=e823]:
+                    - button "Eksporter CSV" [ref=e824] [cursor=pointer]
+                    - generic [ref=e825]: "Feltsammenligning: 0 valgt"
+                - generic [ref=e101]:
+                  - generic [ref=e102]: Aktive lag
+                  - generic [ref=e103]: Gjeldende kartutsnitt
+                - generic [ref=e104]:
+                  - generic [ref=e105]:
+                    - generic [ref=e107]: Felt
+                    - generic [ref=e108]: "12"
+                  - generic [ref=e109]:
+                    - generic [ref=e111]: Funn
+                    - generic [ref=e112]: "37"
+                  - generic [ref=e113]:
+                    - generic [ref=e115]: Lisenser
+                    - generic [ref=e116]: "48"
+                  - generic [ref=e117]:
+                    - generic [ref=e119]: Innretninger
+                    - generic [ref=e120]: "43"
+                  - generic [ref=e121]:
+                    - generic [ref=e123]: TUF / hovedrørledninger
+                    - generic [ref=e124]: "13"
+                - generic [ref=e125]:
+                  - generic [ref=e126]: Felt, funn og survey-flater
+                  - generic [ref=e128]: Lisenspolygoner
+                  - generic [ref=e130]: Enkelte innretninger og clusterbobler
+                  - generic [ref=e134]: TUF og hovedrørledninger
+  - button "Open Next.js Dev Tools" [ref=e812] [cursor=pointer]:
+    - img [ref=e813]
+  - alert [ref=e816]: Norsk sokkel i ett arbeidsrom.

@@ -49,7 +49,7 @@ function getLatestStatements(statements: NormalizedFinancialStatement[]) {
   };
 }
 
-function getControlSummary(roles: NormalizedRole[]) {
+function getControlSummary(roles: NormalizedRole[], rolesAvailability?: CompanyProfile["rolesAvailability"]) {
   const managingDirector = roles.find((role) => /daglig leder/i.test(role.title));
   const chair = roles.find((role) => /styreleder/i.test(role.title));
 
@@ -67,6 +67,10 @@ function getControlSummary(roles: NormalizedRole[]) {
 
   if (roles.length > 0) {
     return `${roles.length} registrerte roller er tilgjengelige`;
+  }
+
+  if (rolesAvailability && !rolesAvailability.available) {
+    return rolesAvailability.message ?? "Rolledetaljer er ikke lastet i denne visningen";
   }
 
   return "Ingen registrerte roller er tilgjengelige";
@@ -250,8 +254,8 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
 }
 
 function CompanyHeader({ profile }: { profile: CompanyProfile }) {
-  const { company, roles } = profile;
-  const controlSummary = getControlSummary(roles);
+  const { company, roles, rolesAvailability } = profile;
+  const controlSummary = getControlSummary(roles, rolesAvailability);
   const municipality = company.municipality ?? company.addresses[0]?.city ?? "Ikke tilgjengelig";
 
   return (
@@ -361,7 +365,15 @@ export default async function CompanyPage({
 
   const session = await safeAuth();
   const premium = isPremium(session?.user.subscriptionStatus, session?.user.subscriptionPlan);
-  const profile = await getCompanyProfile(slug);
+  const profile = await getCompanyProfile(slug, {
+    rolesMode: activeTab === "oversikt" || activeTab === "organisasjon" ? "full" : "none",
+    financialsMode:
+      activeTab === "regnskap"
+        ? "full"
+        : activeTab === "oversikt" || activeTab === "nokkeltall"
+          ? "summary"
+          : "none",
+  });
 
   if (!profile) {
     notFound();

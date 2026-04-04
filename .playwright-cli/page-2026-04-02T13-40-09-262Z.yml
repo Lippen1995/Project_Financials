@@ -1,0 +1,195 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "ProjectX" [ref=e6] [cursor=pointer]:
+          - /url: /
+        - paragraph [ref=e7]: Skarp innsikt for kritiske forretningsbeslutninger.
+      - navigation [ref=e8]:
+        - link "Søk" [ref=e9] [cursor=pointer]:
+          - /url: /search
+        - link "Olje & gass" [ref=e10] [cursor=pointer]:
+          - /url: /market/oil-gas
+        - link "Tilgang" [ref=e11] [cursor=pointer]:
+          - /url: /pricing
+        - link "Logg inn" [ref=e12] [cursor=pointer]:
+          - /url: /login
+  - main [ref=e13]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - generic [ref=e17]: Markedsanalyse
+          - heading "Norsk sokkel i ett arbeidsrom." [level=1] [ref=e18]
+          - paragraph [ref=e19]: Kart, produksjonsserier, reserver, investeringer og regulatoriske hendelser for felt, lisenser, innretninger og hovedinfrastruktur.
+        - complementary [ref=e20]:
+          - generic [ref=e21]: Premium analyseflate
+          - generic [ref=e22]: Preview-modus
+          - paragraph [ref=e23]: Visningen er aktiv, men er tydelig merket som premium-modul i denne første versjonen.
+          - generic [ref=e24]: Gassco-overlay er koblet ærlig som utilgjengelig når UMM ikke lar seg hente stabilt maskinelt.
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - generic [ref=e27]: Filtre
+          - generic [ref=e28]:
+            - textbox "Søk etter felt, lisens eller innretning" [ref=e29]
+            - generic [ref=e30]:
+              - generic [ref=e31]: Kartlag
+              - generic [ref=e32]:
+                - generic [ref=e33]:
+                  - checkbox "Felt" [checked] [ref=e34]
+                  - generic [ref=e35]: Felt
+                - generic [ref=e36]:
+                  - checkbox "Funn" [checked] [ref=e37]
+                  - generic [ref=e38]: Funn
+                - generic [ref=e39]:
+                  - checkbox "Lisenser" [checked] [ref=e40]
+                  - generic [ref=e41]: Lisenser
+                - generic [ref=e42]:
+                  - checkbox "Innretninger" [checked] [ref=e43]
+                  - generic [ref=e44]: Innretninger
+                - generic [ref=e45]:
+                  - checkbox "TUF / hovedrørledninger" [checked] [ref=e46]
+                  - generic [ref=e47]: TUF / hovedrørledninger
+                - generic [ref=e48]:
+                  - checkbox "Survey" [ref=e49]
+                  - generic [ref=e50]: Survey
+                - generic [ref=e51]:
+                  - checkbox "Havtil/Petreg" [ref=e52]
+                  - generic [ref=e53]: Havtil/Petreg
+                - generic [ref=e54]:
+                  - checkbox "Gassco" [ref=e55]
+                  - generic [ref=e56]: Gassco
+            - group [ref=e57]:
+              - generic "Status" [ref=e58] [cursor=pointer]
+            - group [ref=e59]:
+              - generic "Områder" [ref=e60] [cursor=pointer]
+            - group [ref=e61]:
+              - generic "Operatører" [ref=e62] [cursor=pointer]
+            - group [ref=e63]:
+              - generic "Rettighetshavere" [ref=e64] [cursor=pointer]
+            - group [ref=e65]:
+              - generic "Hydrokarbon" [ref=e66] [cursor=pointer]
+            - button "Nullstill filtre" [ref=e67] [cursor=pointer]
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - generic [ref=e71]: Aktive felt
+              - generic [ref=e72]: Ikke tilgjengelig
+            - generic [ref=e73]:
+              - generic [ref=e74]: Aktive lisenser
+              - generic [ref=e75]: Ikke tilgjengelig
+            - generic [ref=e76]:
+              - generic [ref=e77]: Produksjon
+              - generic [ref=e78]: Ikke tilgjengelig
+            - generic [ref=e79]:
+              - generic [ref=e80]: Gjenværende OE
+              - generic [ref=e81]: Ikke tilgjengelig
+            - generic [ref=e82]:
+              - generic [ref=e83]: Operatører
+              - generic [ref=e84]: Ikke tilgjengelig
+            - generic [ref=e85]:
+              - generic [ref=e86]: Hendelser 12 mnd
+              - generic [ref=e87]: Ikke tilgjengelig
+          - generic [ref=e88]:
+            - generic [ref=e90]:
+              - generic [ref=e91]:
+                - generic [ref=e92]: Interaktivt kart
+                - generic [ref=e93]: Kartet styrer analysen. Viser 0 objekter i gjeldende utsnitt.
+              - generic [ref=e94]: Oppdaterer utsnitt
+              - button "Nullstill utsnitt" [ref=e96] [cursor=pointer]
+              - button "Ekspander kart" [ref=e97] [cursor=pointer]
+            - generic [ref=e98]:
+              - generic: Oppdaterer kart og analyser…
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - generic [ref=e102]: Aktive lag
+                - generic [ref=e103]: Gjeldende kartutsnitt
+              - generic [ref=e104]:
+                - generic [ref=e105]:
+                  - generic [ref=e107]: Felt
+                  - generic [ref=e108]: "0"
+                - generic [ref=e109]:
+                  - generic [ref=e111]: Funn
+                  - generic [ref=e112]: "0"
+                - generic [ref=e113]:
+                  - generic [ref=e115]: Lisenser
+                  - generic [ref=e116]: "0"
+                - generic [ref=e117]:
+                  - generic [ref=e119]: Innretninger
+                  - generic [ref=e120]: "0"
+                - generic [ref=e121]:
+                  - generic [ref=e123]: TUF / hovedrørledninger
+                  - generic [ref=e124]: "0"
+              - generic [ref=e125]:
+                - generic [ref=e126]: Felt, funn og survey-flater
+                - generic [ref=e128]: Lisenspolygoner
+                - generic [ref=e130]: Enkelte innretninger og clusterbobler
+                - generic [ref=e134]: TUF og hovedrørledninger
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: Tidsserie
+              - heading "Produksjon og investeringer" [level=2] [ref=e139]
+              - paragraph [ref=e140]: Grønn linje viser oljeekvivalenter. Lyse søyler viser historiske investeringer.
+              - generic [ref=e142]: Produksjonsserier er ikke tilgjengelige for dette utvalget ennå.
+            - generic [ref=e143]:
+              - generic [ref=e144]: Markedssammendrag
+              - heading "Konsentrasjon og reserver" [level=2] [ref=e145]
+              - generic [ref=e147]:
+                - text: "Recoverable OE: Ikke tilgjengelig"
+                - text: "Historiske investeringer: Ikke tilgjengelig"
+                - text: "Forventede investeringer: Ikke tilgjengelig"
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - generic [ref=e150]:
+                - generic [ref=e151]: Sammenligning
+                - heading "Sammenlign utvikling" [level=2] [ref=e152]
+                - paragraph [ref=e153]: Sammenlign opptil tre felt eller operatører i det samme markedsutsnittet. Linjene viser oljeekvivalenter per år for valgte objekter.
+              - generic [ref=e154]:
+                - button "Felt" [ref=e155] [cursor=pointer]
+                - button "Operatører" [ref=e156] [cursor=pointer]
+            - generic [ref=e157]:
+              - generic [ref=e159]: Raske valg
+              - generic [ref=e160]:
+                - generic [ref=e161]: Felt 1
+                - combobox "Felt 1 Ingen valgt ennå" [ref=e162]:
+                  - option "Velg objekt" [selected]
+                - generic [ref=e163]: Ingen valgt ennå
+              - generic [ref=e164]:
+                - generic [ref=e165]: Felt 2
+                - combobox "Felt 2 Ingen valgt ennå" [ref=e166]:
+                  - option "Velg objekt" [selected]
+                - generic [ref=e167]: Ingen valgt ennå
+              - generic [ref=e168]:
+                - generic [ref=e169]: Felt 3
+                - combobox "Felt 3 Ingen valgt ennå" [ref=e170]:
+                  - option "Velg objekt" [selected]
+                - generic [ref=e171]: Ingen valgt ennå
+            - generic [ref=e172]:
+              - button "Nullstill sammenligning" [ref=e173] [cursor=pointer]
+              - generic [ref=e174]: 0 objekter valgt
+            - generic [ref=e176]: Velg opptil tre felt eller operatører for å sammenligne utviklingen over tid.
+          - generic [ref=e177]:
+            - generic [ref=e178]:
+              - generic [ref=e179]:
+                - generic [ref=e180]: Markedstabell
+                - heading "Sorterbart utvalg" [level=2] [ref=e181]
+              - generic [ref=e182]:
+                - button "Eksporter CSV" [ref=e183] [cursor=pointer]
+                - generic [ref=e184]:
+                  - button "Felt" [ref=e185] [cursor=pointer]
+                  - button "Lisenser" [ref=e186] [cursor=pointer]
+                  - button "Operatører" [ref=e187] [cursor=pointer]
+            - table [ref=e189]:
+              - rowgroup [ref=e190]:
+                - row "Navn Område Status Operatør Nøkkeltall" [ref=e191]:
+                  - columnheader "Navn" [ref=e192]
+                  - columnheader "Område" [ref=e193]
+                  - columnheader "Status" [ref=e194]
+                  - columnheader "Operatør" [ref=e195]
+                  - columnheader "Nøkkeltall" [ref=e196]
+              - rowgroup
+        - generic [ref=e197]:
+          - generic [ref=e198]:
+            - generic [ref=e199]: Detaljpanel
+            - generic [ref=e200]: Velg et felt, en lisens, en innretning eller en rørledning i kartet for å se produksjon, reserver, investeringer og tilknyttede selskaper.
+          - generic [ref=e202]: Datakilder
+          - generic [ref=e204]: Hendelser

@@ -7,32 +7,44 @@ import {
   PetroleumInvestmentSnapshot,
   PetroleumLicence,
   PetroleumProductionPoint,
+  PetroleumPublicationSnapshot,
   PetroleumReserveSnapshot,
   PetroleumSurvey,
   PetroleumSyncState,
   PetroleumTuf,
+  PetroleumWellbore,
+  PetroleumForecastSnapshot,
 } from "@prisma/client";
 
 import { fetchGasscoPetroleumEvents } from "@/integrations/gassco/gassco-market-provider";
 import { fetchHavtilPetroleumEvents } from "@/integrations/havtil/havtil-market-provider";
+import { fetchSodirPetroleumPublicationsData } from "@/integrations/sodir/sodir-publication-provider";
+import { getPetroleumConceptById } from "@/lib/petroleum-concepts";
 import {
   fetchSodirPetroleumCoreData,
   fetchSodirPetroleumMetricsData,
 } from "@/integrations/sodir/sodir-market-provider";
 import { normalizeLayerSelection } from "@/lib/petroleum-market";
 import {
+  PetroleumConceptEntry,
   PetroleumEntityCompanyInterest,
   PetroleumEntityDetail,
   PetroleumEventRow,
   PetroleumFilterOption,
   PetroleumFilterOptions,
+  PetroleumForecastSnapshot as PetroleumForecastSnapshotView,
   PetroleumLinkedCompany,
   PetroleumMapFeature,
   PetroleumMarketFilters,
+  PetroleumMetricView,
+  PetroleumProductSeries,
+  PetroleumPublicationSnapshot as PetroleumPublicationSnapshotView,
+  PetroleumRateUnit,
   PetroleumSourceStatus,
   PetroleumSummaryResponse,
   PetroleumTableMode,
   PetroleumTableResponse,
+  PetroleumTimeSeriesComparison,
   PetroleumTimeSeriesEntityType,
   PetroleumTimeSeriesGranularity,
   PetroleumTimeSeriesMeasure,
@@ -45,22 +57,27 @@ import {
   listPetroleumDiscoveries,
   listPetroleumEvents,
   listPetroleumFacilities,
+  listPetroleumForecastSnapshots,
   listPetroleumFields,
   listPetroleumInvestmentSnapshots,
   listPetroleumLicences,
+  listPetroleumPublicationSnapshots,
   listPetroleumProductionPoints,
   listPetroleumReserveSnapshots,
   listPetroleumSurveys,
   listPetroleumTufs,
+  listPetroleumWellbores,
   replacePetroleumCoreData,
   replacePetroleumEventsForSource,
   replacePetroleumMetricsData,
+  replacePetroleumPublicationData,
   upsertPetroleumSyncState,
 } from "@/server/persistence/petroleum-market-repository";
 import {
   PetroleumCoreSyncPayload,
   PetroleumEventsSyncPayload,
   PetroleumMetricsSyncPayload,
+  PetroleumPublicationsSyncPayload,
 } from "@/server/services/petroleum-market-types";
 
 type CoreDataset = {
@@ -71,6 +88,7 @@ type CoreDataset = {
   facilities: PetroleumFacility[];
   tufs: PetroleumTuf[];
   surveys: PetroleumSurvey[];
+  wellbores: PetroleumWellbore[];
 };
 
 type MetricsDataset = {
@@ -82,6 +100,7 @@ type MetricsDataset = {
 const SYNC_KEYS = {
   core: "petroleum-core",
   metrics: "petroleum-metrics",
+  publications: "petroleum-publications",
   havtil: "petroleum-events-havtil",
   gassco: "petroleum-events-gassco",
 } as const;
@@ -89,6 +108,7 @@ const SYNC_KEYS = {
 const MAX_AGE_HOURS = {
   core: 24,
   metrics: 24,
+  publications: 24,
   havtil: 6,
   gassco: 0.25,
 } as const;
@@ -262,6 +282,18 @@ async function enrichCorePayloadWithCompanyLinks(payload: PetroleumCoreSyncPaylo
       };
     }),
     surveys: payload.surveys,
+    wellbores: payload.wellbores.map((item) => {
+      const companyLink = item.drillingOperatorNpdCompanyId
+        ? companyLookup.get(item.drillingOperatorNpdCompanyId)
+        : undefined;
+
+      return {
+        ...item,
+        drillingOperatorOrgNumber:
+          companyLink?.linkedCompanyOrgNumber ?? item.drillingOperatorOrgNumber ?? null,
+        drillingOperatorSlug: companyLink?.linkedCompanySlug ?? item.drillingOperatorSlug ?? null,
+      };
+    }),
   } satisfies PetroleumCoreSyncPayload;
 }
 
@@ -304,6 +336,7 @@ async function syncCoreData() {
         facilities: enrichedPayload.facilities.length,
         tufs: enrichedPayload.tufs.length,
         surveys: enrichedPayload.surveys.length,
+        wellbores: enrichedPayload.wellbores.length,
       },
     });
   } catch (error) {
@@ -336,6 +369,31 @@ async function syncMetricsData() {
   } catch (error) {
     await upsertPetroleumSyncState({
       key: SYNC_KEYS.metrics,
+      status: "ERROR",
+      errorMessage: error instanceof Error ? error.message : "Unknown sync error",
+    });
+    throw error;
+  }
+}
+
+async function syncPublicationData() {
+  await upsertPetroleumSyncState({ key: SYNC_KEYS.publications, status: "RUNNING" });
+
+  try {
+    const payload = await fetchSodirPetroleumPublicationsData();
+    await replacePetroleumPublicationData(payload);
+    await upsertPetroleumSyncState({
+      key: SYNC_KEYS.publications,
+      status: "SUCCESS",
+      markSuccess: true,
+      metadata: {
+        forecasts: payload.forecasts.length,
+        publications: payload.publications.length,
+      },
+    });
+  } catch (error) {
+    await upsertPetroleumSyncState({
+      key: SYNC_KEYS.publications,
       status: "ERROR",
       errorMessage: error instanceof Error ? error.message : "Unknown sync error",
     });
@@ -390,6 +448,10 @@ async function ensureMetricsReady() {
   await ensureSyncFresh("metrics", MAX_AGE_HOURS.metrics, syncMetricsData);
 }
 
+async function ensurePublicationsReady() {
+  await ensureSyncFresh("publications", MAX_AGE_HOURS.publications, syncPublicationData);
+}
+
 async function ensureEventsReady() {
   await Promise.all([
     ensureSyncFresh("havtil", MAX_AGE_HOURS.havtil, () =>
@@ -404,7 +466,8 @@ async function ensureEventsReady() {
 async function getCoreDataset(): Promise<CoreDataset> {
   await ensureCoreReady();
 
-  const [companyLinks, fields, discoveries, licences, facilities, tufs, surveys] = await Promise.all([
+  const [companyLinks, fields, discoveries, licences, facilities, tufs, surveys, wellbores] =
+    await Promise.all([
     listPetroleumCompanyLinks(),
     listPetroleumFields(),
     listPetroleumDiscoveries(),
@@ -412,9 +475,18 @@ async function getCoreDataset(): Promise<CoreDataset> {
     listPetroleumFacilities(),
     listPetroleumTufs(),
     listPetroleumSurveys(),
-  ]);
+    listPetroleumWellbores(),
+    ]);
 
-  return { companyLinks, fields, discoveries, licences, facilities, tufs, surveys };
+  return { companyLinks, fields, discoveries, licences, facilities, tufs, surveys, wellbores };
+}
+
+export async function getPetroleumCoreDataset() {
+  return getCoreDataset();
+}
+
+export async function syncPetroleumCoreDataNow() {
+  await syncCoreData();
 }
 
 async function getMetricsDataset(): Promise<MetricsDataset> {
@@ -432,6 +504,17 @@ async function getMetricsDataset(): Promise<MetricsDataset> {
 async function getPersistedEvents() {
   await ensureEventsReady();
   return listPetroleumEvents();
+}
+
+async function getPublicationDataset() {
+  await ensurePublicationsReady();
+
+  const [forecasts, publications] = await Promise.all([
+    listPetroleumForecastSnapshots(),
+    listPetroleumPublicationSnapshots(),
+  ]);
+
+  return { forecasts, publications };
 }
 
 function buildCompanyLookup(companyLinks: PetroleumCompanyLink[]) {
@@ -600,15 +683,63 @@ function filterTufs(tufs: PetroleumTuf[], filters: PetroleumMarketFilters) {
   );
 }
 
+function getSurveyReferenceYear(item: PetroleumSurvey) {
+  return (
+    item.finalizedAt?.getUTCFullYear() ??
+    item.startedAt?.getUTCFullYear() ??
+    item.plannedFromDate?.getUTCFullYear() ??
+    item.plannedToDate?.getUTCFullYear() ??
+    null
+  );
+}
+
 function filterSurveys(surveys: PetroleumSurvey[], filters: PetroleumMarketFilters) {
-  return surveys.filter((item) =>
+  return surveys.filter((item) => {
+    if (
+      !matchesCommonFilters(filters, {
+        name: item.name,
+        bbox: item.bbox,
+        status: item.status,
+        area: item.geographicalArea,
+        operatorId: item.companyNpdId,
+        hcType: item.mainType,
+      })
+    ) {
+      return false;
+    }
+
+    if (filters.surveyStatuses?.length && !filters.surveyStatuses.includes(item.status ?? "")) {
+      return false;
+    }
+
+    if (filters.surveyCategories?.length) {
+      const categories = [item.category, item.mainType, item.subType].filter(Boolean);
+      if (!categories.some((value) => filters.surveyCategories?.includes(value ?? ""))) {
+        return false;
+      }
+    }
+
+    const referenceYear = getSurveyReferenceYear(item);
+    if (filters.surveyYearFrom && (!referenceYear || referenceYear < filters.surveyYearFrom)) {
+      return false;
+    }
+    if (filters.surveyYearTo && (!referenceYear || referenceYear > filters.surveyYearTo)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function filterWellbores(wellbores: PetroleumWellbore[], filters: PetroleumMarketFilters) {
+  return wellbores.filter((item) =>
     matchesCommonFilters(filters, {
       name: item.name,
       bbox: item.bbox,
-      status: item.status,
-      area: item.geographicalArea,
-      operatorId: item.companyNpdId,
-      hcType: item.mainType,
+      status: item.status ?? item.purpose,
+      area: item.mainArea,
+      operatorId: item.drillingOperatorNpdCompanyId,
+      hcType: item.content,
     }),
   );
 }
@@ -637,12 +768,234 @@ function getLatestAnnualPoint(points: PetroleumProductionPoint[]) {
     .sort((left, right) => right.year - left.year)[0] ?? null;
 }
 
+function getLatestMonthlyPoint(points: PetroleumProductionPoint[]) {
+  return [...points]
+    .filter((point) => point.period !== "year" && point.month)
+    .sort((left, right) =>
+      left.year === right.year ? (right.month ?? 0) - (left.month ?? 0) : right.year - left.year,
+    )[0] ?? null;
+}
+
+function getDaysInPeriod(year: number, month?: number | null) {
+  if (!month) {
+    return new Date(Date.UTC(year + 1, 0, 0)).getUTCDate() === 31 ? (isLeapYear(year) ? 366 : 365) : 365;
+  }
+
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function isLeapYear(year: number) {
+  return year % 400 === 0 || (year % 4 === 0 && year % 100 !== 0);
+}
+
+function getProductionVolume(point: PetroleumProductionPoint, product: PetroleumProductSeries) {
+  switch (product) {
+    case "oil":
+      return point.oilNetMillSm3 ?? null;
+    case "gas":
+      return point.gasNetBillSm3 ?? null;
+    case "ngl":
+      return point.nglNetMillSm3 ?? null;
+    case "condensate":
+      return point.condensateNetMillSm3 ?? null;
+    case "liquids":
+      return (point.oilNetMillSm3 ?? 0) + (point.nglNetMillSm3 ?? 0) + (point.condensateNetMillSm3 ?? 0);
+    case "oe":
+      return point.oeNetMillSm3 ?? null;
+    case "producedWater":
+      return point.producedWaterMillSm3 ?? null;
+    default:
+      return null;
+  }
+}
+
+function getRateUnit(product: PetroleumProductSeries, view: PetroleumMetricView): PetroleumRateUnit {
+  if (view === "volume") {
+    if (product === "gas") return "billSm3";
+    return "msm3";
+  }
+
+  if (product === "gas") {
+    return "billSm3";
+  }
+
+  if (product === "producedWater") {
+    return "msm3";
+  }
+
+  return "boepd";
+}
+
+function toRate(value: number | null, year: number, month: number | null | undefined, product: PetroleumProductSeries) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const days = getDaysInPeriod(year, month);
+  if (!days) {
+    return null;
+  }
+
+  if (product === "gas" || product === "producedWater") {
+    return value / days;
+  }
+
+  return (value * 1_000_000 * 6.2898) / days;
+}
+
+function getMetricValue(
+  point: PetroleumProductionPoint,
+  product: PetroleumProductSeries,
+  view: PetroleumMetricView,
+) {
+  const volume = getProductionVolume(point, product);
+  return view === "rate" ? toRate(volume, point.year, point.month, product) : volume;
+}
+
+function getMetricFromPointSet(
+  points: PetroleumProductionPoint[],
+  product: PetroleumProductSeries,
+  view: PetroleumMetricView,
+  period: "annual" | "monthly" = "annual",
+) {
+  const point = period === "annual" ? getLatestAnnualPoint(points) : getLatestMonthlyPoint(points);
+  if (!point) {
+    return {
+      value: null,
+      unit: getRateUnit(product, view),
+      point: null,
+    };
+  }
+
+  return {
+    value: getMetricValue(point, product, view),
+    unit: getRateUnit(product, view),
+    point,
+  };
+}
+
+function getYearToDateMetrics(
+  productionPoints: PetroleumProductionPoint[],
+  allowedFieldIds: Set<number>,
+  product: PetroleumProductSeries,
+  view: PetroleumMetricView,
+) {
+  const monthlyPoints = productionPoints
+    .filter((point) => point.entityType === "FIELD" && allowedFieldIds.has(point.entityNpdId) && point.month)
+    .sort((left, right) =>
+      left.year === right.year ? (left.month ?? 0) - (right.month ?? 0) : left.year - right.year,
+    );
+
+  const latestPoint = monthlyPoints[monthlyPoints.length - 1];
+  if (!latestPoint?.month) {
+    return {
+      latestMonth: null,
+      latestYear: null,
+      currentValue: null,
+      previousValue: null,
+      deltaPercent: null,
+      currentMonthValue: null,
+      previousSameMonthValue: null,
+      currentMonthDeltaPercent: null,
+    };
+  }
+
+  const latestYear = latestPoint.year;
+  const latestMonth = latestPoint.month;
+  const currentPeriodPoints = monthlyPoints.filter(
+    (point) => point.year === latestYear && (point.month ?? 0) <= latestMonth,
+  );
+  const previousPeriodPoints = monthlyPoints.filter(
+    (point) => point.year === latestYear - 1 && (point.month ?? 0) <= latestMonth,
+  );
+
+  const sumValue = (points: PetroleumProductionPoint[]) =>
+    points.reduce((sum, point) => sum + (getProductionVolume(point, product) ?? 0), 0);
+
+  const currentVolume = sumValue(currentPeriodPoints);
+  const previousVolume = sumValue(previousPeriodPoints);
+  const currentDays = currentPeriodPoints.reduce(
+    (sum, point) => sum + getDaysInPeriod(point.year, point.month),
+    0,
+  );
+  const previousDays = previousPeriodPoints.reduce(
+    (sum, point) => sum + getDaysInPeriod(point.year, point.month),
+    0,
+  );
+
+  const currentValue =
+    view === "rate"
+      ? currentDays > 0
+        ? toRate(currentVolume, latestYear, latestMonth, product) !== null
+          ? (product === "gas" || product === "producedWater"
+              ? currentVolume / currentDays
+              : (currentVolume * 1_000_000 * 6.2898) / currentDays)
+          : null
+        : null
+      : currentVolume;
+  const previousValue =
+    view === "rate"
+      ? previousDays > 0
+        ? product === "gas" || product === "producedWater"
+          ? previousVolume / previousDays
+          : (previousVolume * 1_000_000 * 6.2898) / previousDays
+        : null
+      : previousVolume;
+
+  const currentMonthPoints = monthlyPoints.filter(
+    (point) => point.year === latestYear && point.month === latestMonth,
+  );
+  const previousSameMonthPoints = monthlyPoints.filter(
+    (point) => point.year === latestYear - 1 && point.month === latestMonth,
+  );
+  const currentMonthVolume = sumValue(currentMonthPoints);
+  const previousSameMonthVolume = sumValue(previousSameMonthPoints);
+  const currentMonthDays = latestMonth ? getDaysInPeriod(latestYear, latestMonth) : 0;
+  const previousSameMonthDays = latestMonth ? getDaysInPeriod(latestYear - 1, latestMonth) : 0;
+
+  const currentMonthValue =
+    view === "rate"
+      ? currentMonthDays > 0
+        ? product === "gas" || product === "producedWater"
+          ? currentMonthVolume / currentMonthDays
+          : (currentMonthVolume * 1_000_000 * 6.2898) / currentMonthDays
+        : null
+      : currentMonthVolume;
+  const previousSameMonthValue =
+    view === "rate"
+      ? previousSameMonthDays > 0
+        ? product === "gas" || product === "producedWater"
+          ? previousSameMonthVolume / previousSameMonthDays
+          : (previousSameMonthVolume * 1_000_000 * 6.2898) / previousSameMonthDays
+        : null
+      : previousSameMonthVolume;
+
+  return {
+    latestMonth,
+    latestYear,
+    currentValue,
+    previousValue,
+    deltaPercent:
+      previousValue && previousValue !== 0 ? ((currentValue ?? 0) - previousValue) / previousValue : null,
+    currentMonthValue,
+    previousSameMonthValue,
+    currentMonthDeltaPercent:
+      previousSameMonthValue && previousSameMonthValue !== 0
+        ? ((currentMonthValue ?? 0) - previousSameMonthValue) / previousSameMonthValue
+        : null,
+  };
+}
+
 function mapFieldFeature(
   field: PetroleumField,
   metrics?: {
     latestProductionOe?: number | null;
     remainingOe?: number | null;
     expectedFutureInvestmentNok?: number | null;
+    selectedProductionValue?: number | null;
+    selectedProductionUnit?: PetroleumRateUnit | null;
+    selectedProductionLabel?: string | null;
+    productionYoYPercent?: number | null;
   },
 ): PetroleumMapFeature | null {
   return field.geometry
@@ -663,6 +1016,10 @@ function mapFieldFeature(
         latestProductionOe: metrics?.latestProductionOe ?? null,
         remainingOe: metrics?.remainingOe ?? null,
         expectedFutureInvestmentNok: metrics?.expectedFutureInvestmentNok ?? null,
+        selectedProductionValue: metrics?.selectedProductionValue ?? null,
+        selectedProductionUnit: metrics?.selectedProductionUnit ?? null,
+        selectedProductionLabel: metrics?.selectedProductionLabel ?? null,
+        productionYoYPercent: metrics?.productionYoYPercent ?? null,
         detailUrl: `/market/oil-gas?entity=FIELD:${field.slug}`,
         factPageUrl: field.factPageUrl,
         factMapUrl: field.factMapUrl,
@@ -803,7 +1160,53 @@ function mapSurveyFeature(item: PetroleumSurvey): PetroleumMapFeature | null {
         centroid: parseCoordinate(item.centroid as unknown) ?? undefined,
         status: item.status,
         area: item.geographicalArea,
+        category: item.category,
+        subType: item.subType,
+        companyName: item.companyName,
+        surveyYear: getSurveyReferenceYear(item),
+        startedAt: item.startedAt,
+        finalizedAt: item.finalizedAt,
+        plannedFromDate: item.plannedFromDate,
+        plannedToDate: item.plannedToDate,
         detailUrl: `/market/oil-gas?entity=SURVEY:${item.slug}`,
+        factPageUrl: item.factPageUrl,
+        sourceSystem: item.sourceSystem,
+        sourceEntityType: item.sourceEntityType,
+        sourceId: item.sourceId,
+        fetchedAt: item.fetchedAt,
+        normalizedAt: item.normalizedAt,
+      }
+    : null;
+}
+
+function mapWellboreFeature(item: PetroleumWellbore): PetroleumMapFeature | null {
+  return item.geometry
+    ? {
+        id: `WELLBORE:${item.slug}`,
+        layerId: "wellbores",
+        entityType: "WELLBORE",
+        entityId: item.slug,
+        entityNpdId: item.npdId,
+        name: item.name,
+        geometry: item.geometry as never,
+        bbox: parseBbox(item.bbox as unknown) ?? undefined,
+        centroid: parseCoordinate(item.centroid as unknown) ?? undefined,
+        status: item.status ?? item.purpose,
+        area: item.mainArea,
+        hcType: item.content,
+        operator: toLinkedCompany({
+          npdCompanyId: item.drillingOperatorNpdCompanyId,
+          companyName: item.drillingOperatorName,
+          orgNumber: item.drillingOperatorOrgNumber,
+          companySlug: item.drillingOperatorSlug,
+        }),
+        relatedFieldName: item.fieldName,
+        companyName: item.drillingOperatorName,
+        wellType: item.wellType,
+        purpose: item.purpose,
+        waterDepth: item.waterDepth,
+        totalDepth: item.totalDepth,
+        detailUrl: `/market/oil-gas?entity=WELLBORE:${item.slug}`,
         factPageUrl: item.factPageUrl,
         sourceSystem: item.sourceSystem,
         sourceEntityType: item.sourceEntityType,
@@ -876,6 +1279,82 @@ function mapPersistedEvent(event: PetroleumEvent): PetroleumEventRow {
   };
 }
 
+function mapPersistedForecast(
+  snapshot: PetroleumForecastSnapshot,
+  overrides?: Partial<PetroleumForecastSnapshotView>,
+): PetroleumForecastSnapshotView {
+  return {
+    id: snapshot.externalId,
+    scope: snapshot.scope === "FILTERED" ? "FILTERED" : "NCS",
+    sourceLabel: snapshot.sourceLabel,
+    title: snapshot.title,
+    summary: snapshot.summary,
+    publishedAt: snapshot.publishedAt,
+    horizonLabel: snapshot.horizonLabel,
+    appliesToProduct: (snapshot.appliesToProduct as PetroleumProductSeries | null) ?? null,
+    forecastScopeLabel: snapshot.forecastScopeLabel,
+    trendLabel: snapshot.trendLabel,
+    declineRatePercent: snapshot.declineRatePercent,
+    investmentLevelNok:
+      typeof snapshot.investmentLevelNok === "bigint" ? Number(snapshot.investmentLevelNok) : null,
+    keyPoints: parseJsonArray(snapshot.keyPoints).map((value) => String(value)),
+    detailUrl: snapshot.detailUrl,
+    backgroundDataUrl: snapshot.backgroundDataUrl,
+    sourceSystem: snapshot.sourceSystem,
+    sourceEntityType: snapshot.sourceEntityType,
+    sourceId: snapshot.sourceId,
+    fetchedAt: snapshot.fetchedAt,
+    normalizedAt: snapshot.normalizedAt,
+    rawPayload: snapshot.rawPayload,
+    ...overrides,
+  };
+}
+
+function mapPersistedPublication(
+  snapshot: PetroleumPublicationSnapshot,
+): PetroleumPublicationSnapshotView {
+  return {
+    id: snapshot.externalId,
+    category: snapshot.category as PetroleumPublicationSnapshotView["category"],
+    title: snapshot.title,
+    summary: snapshot.summary,
+    publishedAt: snapshot.publishedAt,
+    detailUrl: snapshot.detailUrl,
+    backgroundDataUrl: snapshot.backgroundDataUrl,
+    pdfUrl: snapshot.pdfUrl,
+    sheetNames: parseJsonArray(snapshot.sheetNames).map((value) => String(value)),
+    sourceSystem: snapshot.sourceSystem,
+    sourceEntityType: snapshot.sourceEntityType,
+    sourceId: snapshot.sourceId,
+    fetchedAt: snapshot.fetchedAt,
+    normalizedAt: snapshot.normalizedAt,
+    rawPayload: snapshot.rawPayload,
+  };
+}
+
+function attachEntityConcepts(
+  entityType: PetroleumEntityDetail["entityType"],
+): PetroleumConceptEntry[] {
+  const conceptIds =
+    entityType === "FIELD"
+      ? ["field", "licence", "development", "forecast"]
+      : entityType === "DISCOVERY"
+        ? ["discovery", "licence", "survey"]
+        : entityType === "LICENCE"
+          ? ["licence", "discovery", "field"]
+          : entityType === "FACILITY"
+            ? ["facility", "tuf", "development"]
+            : entityType === "TUF"
+              ? ["tuf", "facility", "field"]
+              : entityType === "WELLBORE"
+                ? ["survey", "development", "discovery"]
+                : ["survey", "discovery", "field"];
+
+  return conceptIds
+    .map((conceptId) => getPetroleumConceptById(conceptId))
+    .filter((value): value is PetroleumConceptEntry => Boolean(value));
+}
+
 async function buildSourceStatus(): Promise<PetroleumSourceStatus[]> {
   const [core, havtil, gassco] = await Promise.all([
     getPetroleumSyncState(SYNC_KEYS.core),
@@ -896,6 +1375,61 @@ async function buildSourceStatus(): Promise<PetroleumSourceStatus[]> {
   });
 
   return [makeStatus("SODIR", core), makeStatus("HAVTIL", havtil), makeStatus("GASSCO", gassco)];
+}
+
+function getFieldMetric(
+  productionLookup: Map<number, PetroleumProductionPoint[]>,
+  fieldNpdId: number,
+  product: PetroleumProductSeries,
+  view: PetroleumMetricView,
+) {
+  return getMetricFromPointSet(productionLookup.get(fieldNpdId) ?? [], product, view);
+}
+
+function getLatestNcsMetric(
+  productionPoints: PetroleumProductionPoint[],
+  product: PetroleumProductSeries,
+  view: PetroleumMetricView,
+) {
+  const annualPoints = productionPoints.filter((point) => point.period === "year");
+  const latestYear = annualPoints.reduce((latest, point) => Math.max(latest, point.year), 0);
+  if (!latestYear) {
+    return null;
+  }
+
+  const totalVolume = annualPoints
+    .filter((point) => point.year === latestYear)
+    .reduce((sum, point) => sum + (getProductionVolume(point, product) ?? 0), 0);
+
+  return view === "rate"
+    ? product === "gas" || product === "producedWater"
+      ? totalVolume / getDaysInPeriod(latestYear)
+      : (totalVolume * 1_000_000 * 6.2898) / getDaysInPeriod(latestYear)
+    : totalVolume;
+}
+
+function pickPrimaryForecast(forecasts: PetroleumForecastSnapshot[]) {
+  return forecasts.find((snapshot) => snapshot.sourceEntityType === "shelf_year_forecast") ?? forecasts[0] ?? null;
+}
+
+function pickMonthlyForecast(forecasts: PetroleumForecastSnapshot[]) {
+  return (
+    forecasts.find((snapshot) => snapshot.sourceEntityType === "monthly_production_forecast") ?? null
+  );
+}
+
+function deriveFilteredForecast(
+  baseForecast: PetroleumForecastSnapshot,
+  selectedShare: number | null,
+): PetroleumForecastSnapshotView {
+  return mapPersistedForecast(baseForecast, {
+    id: `${baseForecast.externalId}:filtered`,
+    scope: "FILTERED",
+    forecastScopeLabel: "Avledet fra siste sokkelforecast og valgt produksjonsandel",
+    summary: selectedShare
+      ? `Filtertilpasset forecast er avledet fra siste offisielle sokkelforecast og dagens utvalgsandel av produksjonen (${(selectedShare * 100).toFixed(1)} %).`
+      : "Filtertilpasset forecast kunne ikke beregnes sikkert og vises derfor fortsatt på sokkelnivå.",
+  });
 }
 
 function buildFilterOptions(core: CoreDataset): PetroleumFilterOptions {
@@ -952,6 +1486,19 @@ function buildFilterOptions(core: CoreDataset): PetroleumFilterOptions {
   for (const item of core.surveys) {
     bump(statusCounts, item.status);
     bump(areaCounts, item.geographicalArea);
+    bump(hcCounts, item.mainType);
+  }
+  for (const item of core.wellbores) {
+    bump(statusCounts, item.status ?? item.purpose);
+    bump(areaCounts, item.mainArea);
+    bump(hcCounts, item.content);
+    if (item.drillingOperatorNpdCompanyId && item.drillingOperatorName) {
+      const key = String(item.drillingOperatorNpdCompanyId);
+      operatorCounts.set(key, {
+        label: item.drillingOperatorName,
+        count: (operatorCounts.get(key)?.count ?? 0) + 1,
+      });
+    }
   }
 
   const toOptions = (map: Map<string, number>): PetroleumFilterOption[] =>
@@ -979,16 +1526,41 @@ export async function getPetroleumMarketFeatures(filters: PetroleumMarketFilters
   const productionLookup = buildFieldProductionLookup(metrics.productionPoints);
   const reserveLookup = buildReserveLookup(metrics.reserveSnapshots);
   const investmentLookup = buildInvestmentLookup(metrics.investmentSnapshots);
+  const selectedProduct = filters.product ?? "oe";
+  const selectedView = filters.view ?? "volume";
 
   if (layers.includes("fields")) {
     features.push(
       ...filterFields(core.fields, filters)
-        .map((field) =>
+        .map((field) => ({
+          field,
+          ytdMetrics: getYearToDateMetrics(
+            metrics.productionPoints,
+            new Set([field.npdId]),
+            selectedProduct,
+            selectedView,
+          ),
+        }))
+        .map(({ field, ytdMetrics }) =>
           mapFieldFeature(field, {
             latestProductionOe: getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? null,
             remainingOe: reserveLookup.get(field.npdId)?.remainingOe ?? null,
             expectedFutureInvestmentNok:
               (investmentLookup.get(field.npdId)?.expectedFutureInvestmentMillNok ?? 0) * 1_000_000,
+            selectedProductionValue: getFieldMetric(
+              productionLookup,
+              field.npdId,
+              selectedProduct,
+              selectedView,
+            ).value,
+            selectedProductionUnit: getFieldMetric(
+              productionLookup,
+              field.npdId,
+              selectedProduct,
+              selectedView,
+            ).unit,
+            selectedProductionLabel: selectedView === "rate" ? "boepd / dagrate" : "Siste volum",
+            productionYoYPercent: ytdMetrics.deltaPercent,
           }),
         )
         .filter(Boolean) as PetroleumMapFeature[],
@@ -1017,6 +1589,11 @@ export async function getPetroleumMarketFeatures(filters: PetroleumMarketFilters
   if (layers.includes("surveys")) {
     features.push(...filterSurveys(core.surveys, filters).map(mapSurveyFeature).filter(Boolean) as PetroleumMapFeature[]);
   }
+  if (layers.includes("wellbores")) {
+    features.push(
+      ...filterWellbores(core.wellbores, filters).map(mapWellboreFeature).filter(Boolean) as PetroleumMapFeature[],
+    );
+  }
 
   return features;
 }
@@ -1024,20 +1601,26 @@ export async function getPetroleumMarketFeatures(filters: PetroleumMarketFilters
 export async function getPetroleumMarketSummary(
   filters: PetroleumMarketFilters,
 ): Promise<PetroleumSummaryResponse> {
-  const [core, metrics, persistedEvents, sourceStatus] = await Promise.all([
+  const [core, metrics, persistedEvents, sourceStatus, publicationDataset] = await Promise.all([
     getCoreDataset(),
     getMetricsDataset(),
     getPersistedEvents(),
     buildSourceStatus(),
+    getPublicationDataset(),
   ]);
 
+  const selectedProduct = filters.product ?? "oe";
+  const selectedView = filters.view ?? "volume";
   const filteredFields = filterFields(core.fields, filters);
   const filteredLicences = filterLicences(core.licences, filters);
   const productionLookup = buildFieldProductionLookup(metrics.productionPoints);
   const reserveLookup = buildReserveLookup(metrics.reserveSnapshots);
   const investmentLookup = buildInvestmentLookup(metrics.investmentSnapshots);
+  const currentYear = new Date().getUTCFullYear();
   const latestProductionYear =
-    metrics.productionPoints.reduce((latest, point) => Math.max(latest, point.year), 0) || null;
+    metrics.productionPoints
+      .filter((point) => point.period === "year" && point.year <= currentYear)
+      .reduce((latest, point) => Math.max(latest, point.year), 0) || null;
   const filteredFieldIds = new Set(filteredFields.map((field) => field.npdId));
   const selectedAnnualOe = filteredFields.reduce(
     (sum, field) => sum + (getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? 0),
@@ -1063,6 +1646,7 @@ export async function getPetroleumMarketSummary(
     .filter((point) => point.year === latestProductionYear && point.period === "year")
     .reduce((sum, point) => sum + (point.oeNetMillSm3 ?? 0), 0);
   const operatorIds = new Set(filteredFields.map((field) => field.operatorNpdCompanyId).filter(Boolean));
+  const ytdMetrics = getYearToDateMetrics(metrics.productionPoints, filteredFieldIds, selectedProduct, selectedView);
   const recentEvents = [
     ...persistedEvents.map(mapPersistedEvent),
     ...derivePetregEvents(core.licences),
@@ -1086,6 +1670,18 @@ export async function getPetroleumMarketSummary(
       remainingOe: reserveLookup.get(field.npdId)?.remainingOe ?? null,
       expectedFutureInvestmentNok:
         (investmentLookup.get(field.npdId)?.expectedFutureInvestmentMillNok ?? 0) * 1_000_000,
+      latestProductionValue: getFieldMetric(
+        productionLookup,
+        field.npdId,
+        selectedProduct,
+        selectedView,
+      ).value,
+      latestProductionUnit: getFieldMetric(
+        productionLookup,
+        field.npdId,
+        selectedProduct,
+        selectedView,
+      ).unit,
     }))
     .sort((left, right) => (right.oe ?? 0) - (left.oe ?? 0))
     .slice(0, 8);
@@ -1105,10 +1701,42 @@ export async function getPetroleumMarketSummary(
         operatorSlug: reference?.operatorCompanySlug ?? null,
         oe,
         fieldCount: operatorFields.length,
+        latestProductionValue: operatorFields.reduce((sum, field) => {
+          const value = getFieldMetric(productionLookup, field.npdId, selectedProduct, selectedView).value;
+          return sum + (value ?? 0);
+        }, 0),
+        latestProductionUnit: getRateUnit(selectedProduct, selectedView),
       };
     })
     .sort((left, right) => (right.oe ?? 0) - (left.oe ?? 0))
     .slice(0, 8);
+
+  const mappedPublications = publicationDataset.publications.map(mapPersistedPublication);
+  const primaryForecastSnapshot = pickPrimaryForecast(publicationDataset.forecasts);
+  const monthlyForecastSnapshot = pickMonthlyForecast(publicationDataset.forecasts);
+  const selectedProductionShareOfNcs = latestNcsProductionOe > 0 ? selectedAnnualOe / latestNcsProductionOe : null;
+  const forecast =
+    primaryForecastSnapshot && (filters.areas?.length || filters.operatorIds?.length || filters.bbox || filters.query)
+      ? deriveFilteredForecast(primaryForecastSnapshot, selectedProductionShareOfNcs)
+      : primaryForecastSnapshot
+        ? mapPersistedForecast(primaryForecastSnapshot)
+        : null;
+
+  let forecastDeviationPercent: number | null = null;
+  const monthlyMetrics = monthlyForecastSnapshot?.rawPayload as
+    | {
+        metrics?: {
+          actual?: Partial<Record<PetroleumProductSeries, number>>;
+          forecast?: Partial<Record<PetroleumProductSeries, number>>;
+        };
+      }
+    | undefined;
+  const monthlyActual = monthlyMetrics?.metrics?.actual?.[selectedProduct === "liquids" ? "liquids" : selectedProduct];
+  const monthlyForecast =
+    monthlyMetrics?.metrics?.forecast?.[selectedProduct === "liquids" ? "liquids" : selectedProduct];
+  if (typeof monthlyActual === "number" && typeof monthlyForecast === "number" && monthlyForecast !== 0) {
+    forecastDeviationPercent = (monthlyActual - monthlyForecast) / monthlyForecast;
+  }
 
   return {
     kpis: {
@@ -1118,12 +1746,24 @@ export async function getPetroleumMarketSummary(
       selectedRemainingOe,
       selectedOperatorCount: operatorIds.size,
       recentEventCount: recentEvents.length,
+      selectedProduct,
+      selectedView,
+      selectedLatestProductionValue:
+        ytdMetrics.currentValue ??
+        filteredFields.reduce((sum, field) => {
+          const value = getFieldMetric(productionLookup, field.npdId, selectedProduct, selectedView).value;
+          return sum + (value ?? 0);
+        }, 0),
+      selectedLatestProductionUnit: getRateUnit(selectedProduct, selectedView),
+      yoyYtdValue: ytdMetrics.currentValue,
+      yoyYtdDeltaPercent: ytdMetrics.deltaPercent,
+      currentMonthVsLastYearPercent: ytdMetrics.currentMonthDeltaPercent,
+      forecastDeviationPercent,
     },
     benchmark: {
       latestProductionYear,
       latestProductionOe: latestNcsProductionOe,
-      selectedProductionShareOfNcs:
-        latestNcsProductionOe > 0 ? selectedAnnualOe / latestNcsProductionOe : null,
+      selectedProductionShareOfNcs,
       selectedRecoverableOe,
       selectedRemainingOe,
       selectedHistoricalInvestmentsNok,
@@ -1137,6 +1777,10 @@ export async function getPetroleumMarketSummary(
     filterOptions: buildFilterOptions(core),
     sourceStatus,
     latestProductionYear,
+    selectedProduct,
+    selectedView,
+    forecast,
+    publications: mappedPublications,
   };
 }
 
@@ -1146,14 +1790,24 @@ export async function getPetroleumMarketTimeseries(input: {
   entityIds?: string[];
   granularity: PetroleumTimeSeriesGranularity;
   measures: PetroleumTimeSeriesMeasure[];
+  product?: PetroleumProductSeries;
+  view?: PetroleumMetricView;
+  comparison?: PetroleumTimeSeriesComparison;
 }) {
   const [core, metrics] = await Promise.all([getCoreDataset(), getMetricsDataset()]);
+  const currentYear = new Date().getUTCFullYear();
   const fields = filterFields(core.fields, input.filters);
   const allowedFieldIds = new Set(fields.map((field) => field.npdId));
   const fieldLookup = new Map(fields.map((field) => [field.npdId, field]));
   const groups = new Map<string, PetroleumTimeSeriesPoint>();
+  const selectedProduct = input.product ?? input.filters.product ?? "oe";
+  const selectedView = input.view ?? input.filters.view ?? "volume";
 
   for (const point of metrics.productionPoints) {
+    if (point.year > currentYear) {
+      continue;
+    }
+
     if (point.entityType !== "FIELD" || !allowedFieldIds.has(point.entityNpdId)) {
       continue;
     }
@@ -1201,28 +1855,91 @@ export async function getPetroleumMarketTimeseries(input: {
       label,
       year: point.year,
       month: input.granularity === "month" ? point.month ?? null : null,
+      dayCount: getDaysInPeriod(point.year, input.granularity === "month" ? point.month : null),
       oil: 0,
       gas: 0,
+      liquids: 0,
       condensate: 0,
       ngl: 0,
       oe: 0,
       producedWater: 0,
       investments: 0,
+      oilRate: 0,
+      gasRate: 0,
+      liquidsRate: 0,
+      condensateRate: 0,
+      nglRate: 0,
+      oeRate: 0,
+      producedWaterRate: 0,
+      selectedValue: 0,
+      selectedRate: 0,
+      selectedUnit: getRateUnit(selectedProduct, selectedView),
     };
 
     current.oil = (current.oil ?? 0) + (point.oilNetMillSm3 ?? 0);
     current.gas = (current.gas ?? 0) + (point.gasNetBillSm3 ?? 0);
     current.condensate = (current.condensate ?? 0) + (point.condensateNetMillSm3 ?? 0);
     current.ngl = (current.ngl ?? 0) + (point.nglNetMillSm3 ?? 0);
+    current.liquids = (current.liquids ?? 0) + (point.oilNetMillSm3 ?? 0) + (point.nglNetMillSm3 ?? 0) + (point.condensateNetMillSm3 ?? 0);
     current.oe = (current.oe ?? 0) + (point.oeNetMillSm3 ?? 0);
     current.producedWater = (current.producedWater ?? 0) + (point.producedWaterMillSm3 ?? 0);
     current.investments = (current.investments ?? 0) + ((point.investmentsMillNok ?? 0) * 1_000_000);
+    current.oilRate = (current.oilRate ?? 0) + (toRate(point.oilNetMillSm3 ?? null, point.year, point.month, "oil") ?? 0);
+    current.gasRate = (current.gasRate ?? 0) + (toRate(point.gasNetBillSm3 ?? null, point.year, point.month, "gas") ?? 0);
+    current.liquidsRate =
+      (current.liquidsRate ?? 0) + (toRate(getProductionVolume(point, "liquids"), point.year, point.month, "liquids") ?? 0);
+    current.condensateRate =
+      (current.condensateRate ?? 0) +
+      (toRate(point.condensateNetMillSm3 ?? null, point.year, point.month, "condensate") ?? 0);
+    current.nglRate = (current.nglRate ?? 0) + (toRate(point.nglNetMillSm3 ?? null, point.year, point.month, "ngl") ?? 0);
+    current.oeRate = (current.oeRate ?? 0) + (toRate(point.oeNetMillSm3 ?? null, point.year, point.month, "oe") ?? 0);
+    current.producedWaterRate =
+      (current.producedWaterRate ?? 0) +
+      (toRate(point.producedWaterMillSm3 ?? null, point.year, point.month, "producedWater") ?? 0);
     groups.set(key, current);
   }
 
-  return [...groups.values()].sort((left, right) =>
-    left.year === right.year ? (left.month ?? 0) - (right.month ?? 0) : left.year - right.year,
-  );
+  return [...groups.values()]
+    .map((point) => {
+      const selectedValue =
+        selectedProduct === "oil"
+          ? point.oil
+          : selectedProduct === "gas"
+            ? point.gas
+            : selectedProduct === "ngl"
+              ? point.ngl
+              : selectedProduct === "condensate"
+                ? point.condensate
+                : selectedProduct === "liquids"
+                  ? point.liquids
+                  : selectedProduct === "producedWater"
+                    ? point.producedWater
+                    : point.oe;
+      const selectedRate =
+        selectedProduct === "oil"
+          ? point.oilRate
+          : selectedProduct === "gas"
+            ? point.gasRate
+            : selectedProduct === "ngl"
+              ? point.nglRate
+              : selectedProduct === "condensate"
+                ? point.condensateRate
+                : selectedProduct === "liquids"
+                  ? point.liquidsRate
+                  : selectedProduct === "producedWater"
+                    ? point.producedWaterRate
+                    : point.oeRate;
+
+      return {
+        ...point,
+        selectedValue,
+        selectedRate,
+        selectedUnit: getRateUnit(selectedProduct, selectedView),
+      };
+    })
+    .sort((left, right) =>
+      left.year === right.year ? (left.month ?? 0) - (right.month ?? 0) : left.year - right.year,
+    );
 }
 
 export async function getPetroleumMarketTable(filters: PetroleumMarketFilters): Promise<PetroleumTableResponse> {
@@ -1230,6 +1947,8 @@ export async function getPetroleumMarketTable(filters: PetroleumMarketFilters): 
   const mode = filters.tableMode ?? "fields";
   const page = filters.page ?? 0;
   const size = filters.size ?? 25;
+  const selectedProduct = filters.product ?? "oe";
+  const selectedView = filters.view ?? "volume";
   const productionLookup = buildFieldProductionLookup(metrics.productionPoints);
   const reserveLookup = buildReserveLookup(metrics.reserveSnapshots);
   const investmentLookup = buildInvestmentLookup(metrics.investmentSnapshots);
@@ -1274,6 +1993,11 @@ export async function getPetroleumMarketTable(filters: PetroleumMarketFilters): 
           (sum, field) => sum + (getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? 0),
           0,
         ),
+        latestProductionValue: operatorFields.reduce((sum, field) => {
+          const value = getFieldMetric(productionLookup, field.npdId, selectedProduct, selectedView).value;
+          return sum + (value ?? 0);
+        }, 0),
+        latestProductionUnit: getRateUnit(selectedProduct, selectedView),
         remainingOe: operatorFields.reduce(
           (sum, field) => sum + (reserveLookup.get(field.npdId)?.remainingOe ?? 0),
           0,
@@ -1292,6 +2016,18 @@ export async function getPetroleumMarketTable(filters: PetroleumMarketFilters): 
       operatorName: field.operatorCompanyName,
       operatorSlug: field.operatorCompanySlug,
       latestProductionOe: getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? null,
+      latestProductionValue: getFieldMetric(
+        productionLookup,
+        field.npdId,
+        selectedProduct,
+        selectedView,
+      ).value,
+      latestProductionUnit: getFieldMetric(
+        productionLookup,
+        field.npdId,
+        selectedProduct,
+        selectedView,
+      ).unit,
       remainingOe: reserveLookup.get(field.npdId)?.remainingOe ?? null,
       expectedFutureInvestmentNok:
         (investmentLookup.get(field.npdId)?.expectedFutureInvestmentMillNok ?? 0) * 1_000_000,
@@ -1318,7 +2054,8 @@ function resolveEntityType(value: string) {
     normalized === "LICENCE" ||
     normalized === "FACILITY" ||
     normalized === "TUF" ||
-    normalized === "SURVEY"
+    normalized === "SURVEY" ||
+    normalized === "WELLBORE"
   ) {
     return normalized as PetroleumEntityDetail["entityType"];
   }
@@ -1345,10 +2082,12 @@ export async function getPetroleumEntityDetailById(entityTypeInput: string, id: 
         ? core.discoveries
         : entityType === "LICENCE"
           ? core.licences
-          : entityType === "FACILITY"
-            ? core.facilities
-            : entityType === "TUF"
-              ? core.tufs
+        : entityType === "FACILITY"
+          ? core.facilities
+          : entityType === "TUF"
+            ? core.tufs
+            : entityType === "WELLBORE"
+              ? core.wellbores
               : core.surveys;
   const numericId = Number(id);
   const entity = collection.find((item) => item.slug === id || item.npdId === numericId);
@@ -1358,8 +2097,9 @@ export async function getPetroleumEntityDetailById(entityTypeInput: string, id: 
 
   const reserveLookup = buildReserveLookup(metrics.reserveSnapshots);
   const investmentLookup = buildInvestmentLookup(metrics.investmentSnapshots);
+  const currentYear = new Date().getUTCFullYear();
   const timeseries = metrics.productionPoints
-    .filter((point) => point.entityType === entityType && point.entityNpdId === entity.npdId)
+    .filter((point) => point.entityType === entityType && point.entityNpdId === entity.npdId && point.year <= currentYear)
     .map((point) => ({
       key: `${point.entityNpdId}:${point.year}:${point.month ?? 0}`,
       entityType: "field",
@@ -1389,7 +2129,14 @@ export async function getPetroleumEntityDetailById(entityTypeInput: string, id: 
         )
       : [];
   const relatedCompanyLinks = [
-    getEntityOperator(entity as PetroleumField | PetroleumDiscovery | PetroleumLicence | PetroleumFacility | PetroleumTuf),
+    entityType === "WELLBORE"
+      ? toLinkedCompany({
+          npdCompanyId: (entity as PetroleumWellbore).drillingOperatorNpdCompanyId,
+          companyName: (entity as PetroleumWellbore).drillingOperatorName,
+          orgNumber: (entity as PetroleumWellbore).drillingOperatorOrgNumber,
+          companySlug: (entity as PetroleumWellbore).drillingOperatorSlug,
+        })
+      : getEntityOperator(entity as PetroleumField | PetroleumDiscovery | PetroleumLicence | PetroleumFacility | PetroleumTuf),
     ...licenseeEntries.map((entry) =>
       toLinkedCompany({
         npdCompanyId: typeof entry.npdCompanyId === "number" ? entry.npdCompanyId : null,
@@ -1439,7 +2186,14 @@ export async function getPetroleumEntityDetailById(entityTypeInput: string, id: 
     operator:
       entityType === "SURVEY"
         ? null
-        : getEntityOperator(entity as PetroleumField | PetroleumDiscovery | PetroleumLicence | PetroleumFacility | PetroleumTuf),
+        : entityType === "WELLBORE"
+          ? toLinkedCompany({
+              npdCompanyId: (entity as PetroleumWellbore).drillingOperatorNpdCompanyId,
+              companyName: (entity as PetroleumWellbore).drillingOperatorName,
+              orgNumber: (entity as PetroleumWellbore).drillingOperatorOrgNumber,
+              companySlug: (entity as PetroleumWellbore).drillingOperatorSlug,
+            })
+          : getEntityOperator(entity as PetroleumField | PetroleumDiscovery | PetroleumLicence | PetroleumFacility | PetroleumTuf),
     licensees: licenseeEntries.map((entry) => ({
       npdCompanyId: typeof entry.npdCompanyId === "number" ? entry.npdCompanyId : null,
       companyName:
@@ -1487,10 +2241,24 @@ export async function getPetroleumEntityDetailById(entityTypeInput: string, id: 
     timeseries: timeseries.map((point) => ({ ...point, entityType: "field" })),
     relatedEvents,
     relatedCompanyLinks,
+    concepts: attachEntityConcepts(entityType),
     metadata: {
       sourceSystem: entity.sourceSystem,
       sourceEntityType: entity.sourceEntityType,
       sourceId: entity.sourceId,
+      ...("category" in entity ? { category: entity.category ?? null } : {}),
+      ...("mainType" in entity ? { mainType: entity.mainType ?? null } : {}),
+      ...("subType" in entity ? { subType: entity.subType ?? null } : {}),
+      ...("companyName" in entity ? { companyName: entity.companyName ?? null } : {}),
+      ...("startedAt" in entity ? { startedAt: entity.startedAt?.toISOString() ?? null } : {}),
+      ...("finalizedAt" in entity ? { finalizedAt: entity.finalizedAt?.toISOString() ?? null } : {}),
+      ...("plannedFromDate" in entity ? { plannedFromDate: entity.plannedFromDate?.toISOString() ?? null } : {}),
+      ...("plannedToDate" in entity ? { plannedToDate: entity.plannedToDate?.toISOString() ?? null } : {}),
+      ...("wellType" in entity ? { wellType: entity.wellType ?? null } : {}),
+      ...("purpose" in entity ? { purpose: entity.purpose ?? null } : {}),
+      ...("waterDepth" in entity ? { waterDepth: entity.waterDepth ?? null } : {}),
+      ...("totalDepth" in entity ? { totalDepth: entity.totalDepth ?? null } : {}),
+      ...("fieldName" in entity ? { fieldName: entity.fieldName ?? null } : {}),
     },
   };
 }

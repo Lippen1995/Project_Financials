@@ -195,6 +195,28 @@ export async function getCachedCompany(orgNumberOrSlug: string, maxAgeHours: num
   return ageMs <= maxAgeHours * 60 * 60 * 1000 ? company : null;
 }
 
+export async function getCachedCompanyCore(orgNumberOrSlug: string, maxAgeHours: number) {
+  const company = await prisma.company.findFirst({
+    where: {
+      AND: [
+        { sourceSystem: "BRREG" },
+        { OR: [{ orgNumber: orgNumberOrSlug }, { slug: orgNumberOrSlug }] },
+      ],
+    },
+    include: {
+      addresses: true,
+      industryCode: true,
+    },
+  });
+
+  if (!company) {
+    return null;
+  }
+
+  const ageMs = Date.now() - company.fetchedAt.getTime();
+  return ageMs <= maxAgeHours * 60 * 60 * 1000 ? company : null;
+}
+
 export async function getCachedRoles(orgNumber: string, maxAgeHours: number) {
   const company = await prisma.company.findUnique({
     where: { orgNumber },
@@ -216,6 +238,27 @@ export async function getCachedRoles(orgNumber: string, maxAgeHours: number) {
   );
   const ageMs = Date.now() - freshestRole.fetchedAt.getTime();
   return ageMs <= maxAgeHours * 60 * 60 * 1000 ? company.roles : null;
+}
+
+export async function getCachedFinancialStatements(orgNumber: string, maxAgeHours: number) {
+  const company = await prisma.company.findUnique({
+    where: { orgNumber },
+    select: {
+      financialStatements: {
+        orderBy: { fiscalYear: "desc" },
+      },
+    },
+  });
+
+  if (!company || company.financialStatements.length === 0) {
+    return null;
+  }
+
+  const freshestStatement = company.financialStatements.reduce((latest, statement) =>
+    statement.fetchedAt > latest.fetchedAt ? statement : latest,
+  );
+  const ageMs = Date.now() - freshestStatement.fetchedAt.getTime();
+  return ageMs <= maxAgeHours * 60 * 60 * 1000 ? company.financialStatements : null;
 }
 
 export async function upsertRolesSnapshot(companyOrgNumber: string, roles: NormalizedRole[]) {

@@ -4,6 +4,7 @@ import {
   PetroleumCoreSyncPayload,
   PetroleumEventsSyncPayload,
   PetroleumMetricsSyncPayload,
+  PetroleumPublicationsSyncPayload,
 } from "@/server/services/petroleum-market-types";
 
 const CHUNK_SIZE = 500;
@@ -88,6 +89,7 @@ export async function replacePetroleumCoreData(payload: PetroleumCoreSyncPayload
       await tx.petroleumLicence.deleteMany();
       await tx.petroleumDiscovery.deleteMany();
       await tx.petroleumField.deleteMany();
+      await tx.petroleumWellbore.deleteMany();
       await tx.petroleumCompanyLink.deleteMany();
 
       await createManyInChunks(payload.companyLinks, (chunk) =>
@@ -110,6 +112,9 @@ export async function replacePetroleumCoreData(payload: PetroleumCoreSyncPayload
       );
       await createManyInChunks(payload.surveys, (chunk) =>
         tx.petroleumSurvey.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+      await createManyInChunks(payload.wellbores, (chunk) =>
+        tx.petroleumWellbore.createMany({ data: chunk as never[], skipDuplicates: true }),
       );
     },
     {
@@ -164,6 +169,26 @@ export async function replacePetroleumEventsForSource(
   );
 }
 
+export async function replacePetroleumPublicationData(payload: PetroleumPublicationsSyncPayload) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.petroleumForecastSnapshot.deleteMany();
+      await tx.petroleumPublicationSnapshot.deleteMany();
+
+      await createManyInChunks(payload.forecasts, (chunk) =>
+        tx.petroleumForecastSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+      await createManyInChunks(payload.publications, (chunk) =>
+        tx.petroleumPublicationSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+    },
+    {
+      maxWait: 30_000,
+      timeout: 600_000,
+    },
+  );
+}
+
 export async function listPetroleumCompanyLinks() {
   return prisma.petroleumCompanyLink.findMany();
 }
@@ -192,6 +217,10 @@ export async function listPetroleumSurveys() {
   return prisma.petroleumSurvey.findMany();
 }
 
+export async function listPetroleumWellbores() {
+  return prisma.petroleumWellbore.findMany();
+}
+
 export async function listPetroleumProductionPoints() {
   return prisma.petroleumProductionPoint.findMany();
 }
@@ -212,6 +241,22 @@ export async function listPetroleumEvents() {
   });
 }
 
+export async function listPetroleumForecastSnapshots() {
+  return prisma.petroleumForecastSnapshot.findMany({
+    orderBy: {
+      publishedAt: "desc",
+    },
+  });
+}
+
+export async function listPetroleumPublicationSnapshots() {
+  return prisma.petroleumPublicationSnapshot.findMany({
+    orderBy: {
+      publishedAt: "desc",
+    },
+  });
+}
+
 export async function findPetroleumEntityDetail(entityType: PetroleumEntityType, entityNpdId: number) {
   switch (entityType) {
     case "FIELD":
@@ -226,6 +271,8 @@ export async function findPetroleumEntityDetail(entityType: PetroleumEntityType,
       return prisma.petroleumTuf.findUnique({ where: { npdId: entityNpdId } });
     case "SURVEY":
       return prisma.petroleumSurvey.findUnique({ where: { npdId: entityNpdId } });
+    case "WELLBORE":
+      return prisma.petroleumWellbore.findUnique({ where: { npdId: entityNpdId } });
     default:
       return null;
   }

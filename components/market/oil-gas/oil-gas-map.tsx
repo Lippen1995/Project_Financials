@@ -11,6 +11,7 @@ const LAYER_COLORS: Record<PetroleumLayerId, string> = {
   licences: "#2f5d8a",
   facilities: "#9b2226",
   tuf: "#14213d",
+  wellbores: "#0f766e",
   surveys: "#6b7280",
   regulatoryEvents: "#7c3aed",
   gasscoEvents: "#2563eb",
@@ -43,6 +44,7 @@ const RENDERED_LAYERS: PetroleumLayerId[] = [
   "licences",
   "facilities",
   "tuf",
+  "wellbores",
   "surveys",
 ];
 
@@ -56,13 +58,24 @@ type FeatureProperties = {
   area?: string | null;
   hcType?: string | null;
   operatorName?: string | null;
+  companyName?: string | null;
   relatedFieldName?: string | null;
   latestProductionOe?: number | null;
+  selectedProductionValue?: number | null;
+  selectedProductionUnit?: string | null;
+  selectedProductionLabel?: string | null;
   remainingOe?: number | null;
   expectedFutureInvestmentNok?: number | null;
   currentAreaSqKm?: number | null;
   transferCount?: number | null;
   facilityKind?: string | null;
+  category?: string | null;
+  subType?: string | null;
+  surveyYear?: number | null;
+  wellType?: string | null;
+  purpose?: string | null;
+  waterDepth?: number | null;
+  totalDepth?: number | null;
 };
 
 type HoverEvent = import("maplibre-gl").MapMouseEvent & {
@@ -115,6 +128,16 @@ function formatTooltipNok(value?: number | null) {
   }).format(value);
 }
 
+function formatTooltipMetric(value?: number | null, unit?: string | null) {
+  if (typeof value !== "number" || !unit) {
+    return "";
+  }
+
+  return `${new Intl.NumberFormat("nb-NO", {
+    maximumFractionDigits: unit === "boepd" ? 0 : 2,
+  }).format(value)} ${unit}`;
+}
+
 function toGeoJsonFeature(feature: PetroleumMapFeature) {
   return {
     type: "Feature",
@@ -130,13 +153,69 @@ function toGeoJsonFeature(feature: PetroleumMapFeature) {
       area: feature.area,
       hcType: feature.hcType,
       operatorName: feature.operator?.companyName ?? null,
+      companyName: feature.companyName ?? null,
       relatedFieldName: feature.relatedFieldName,
       latestProductionOe: feature.latestProductionOe ?? null,
+      selectedProductionValue: feature.selectedProductionValue ?? null,
+      selectedProductionUnit: feature.selectedProductionUnit ?? null,
+      selectedProductionLabel: feature.selectedProductionLabel ?? null,
       remainingOe: feature.remainingOe ?? null,
       expectedFutureInvestmentNok: feature.expectedFutureInvestmentNok ?? null,
       currentAreaSqKm: feature.currentAreaSqKm ?? null,
       transferCount: feature.transferCount ?? null,
       facilityKind: feature.facilityKind ?? null,
+      category: feature.category ?? null,
+      subType: feature.subType ?? null,
+      surveyYear: feature.surveyYear ?? null,
+      wellType: feature.wellType ?? null,
+      purpose: feature.purpose ?? null,
+      waterDepth: feature.waterDepth ?? null,
+      totalDepth: feature.totalDepth ?? null,
+    } satisfies FeatureProperties,
+  };
+}
+
+function toSurveyCentroidFeature(feature: PetroleumMapFeature) {
+  const coordinates = feature.centroid ?? null;
+  if (!coordinates) {
+    return null;
+  }
+
+  return {
+    type: "Feature",
+    id: `${feature.id}-centroid`,
+    geometry: {
+      type: "Point",
+      coordinates,
+    },
+    properties: {
+      id: feature.id,
+      layerId: feature.layerId,
+      entityId: feature.entityId,
+      entityType: feature.entityType,
+      name: feature.name,
+      status: feature.status,
+      area: feature.area,
+      hcType: feature.hcType,
+      operatorName: feature.operator?.companyName ?? null,
+      companyName: feature.companyName ?? null,
+      relatedFieldName: feature.relatedFieldName,
+      latestProductionOe: feature.latestProductionOe ?? null,
+      selectedProductionValue: feature.selectedProductionValue ?? null,
+      selectedProductionUnit: feature.selectedProductionUnit ?? null,
+      selectedProductionLabel: feature.selectedProductionLabel ?? null,
+      remainingOe: feature.remainingOe ?? null,
+      expectedFutureInvestmentNok: feature.expectedFutureInvestmentNok ?? null,
+      currentAreaSqKm: feature.currentAreaSqKm ?? null,
+      transferCount: feature.transferCount ?? null,
+      facilityKind: feature.facilityKind ?? null,
+      category: feature.category ?? null,
+      subType: feature.subType ?? null,
+      surveyYear: feature.surveyYear ?? null,
+      wellType: feature.wellType ?? null,
+      purpose: feature.purpose ?? null,
+      waterDepth: feature.waterDepth ?? null,
+      totalDepth: feature.totalDepth ?? null,
     } satisfies FeatureProperties,
   };
 }
@@ -157,6 +236,21 @@ function syncLayerSources(map: import("maplibre-gl").Map, features: PetroleumMap
 
     source.setData(toFeatureCollection(features.filter((feature) => feature.layerId === layerId)) as never);
   }
+
+  const surveyCentroidSource = map.getSource("petroleum-surveys-centroids") as
+    | import("maplibre-gl").GeoJSONSource
+    | undefined;
+  if (surveyCentroidSource) {
+    surveyCentroidSource.setData(
+      {
+        type: "FeatureCollection",
+        features: features
+          .filter((feature) => feature.layerId === "surveys")
+          .map(toSurveyCentroidFeature)
+          .filter(Boolean),
+      } as never,
+    );
+  }
 }
 
 function syncSelectionSource(map: import("maplibre-gl").Map, selectedFeature: PetroleumMapFeature | null) {
@@ -172,7 +266,7 @@ function renderTooltipHtml(properties: Partial<FeatureProperties> & { cluster?: 
   if (properties.cluster) {
     return `
       <div class="petroleum-map-tooltip">
-        <div class="petroleum-map-tooltip__eyebrow">Innretning-klynge</div>
+        <div class="petroleum-map-tooltip__eyebrow">Kartklynge</div>
         <div class="petroleum-map-tooltip__title">${properties.point_count ?? 0} objekter</div>
         <div class="petroleum-map-tooltip__meta">Zoom inn for å se enkeltnoder.</div>
       </div>
@@ -183,7 +277,18 @@ function renderTooltipHtml(properties: Partial<FeatureProperties> & { cluster?: 
     properties.status ? `<div><strong>Status:</strong> ${escapeHtml(properties.status)}</div>` : "",
     properties.area ? `<div><strong>Område:</strong> ${escapeHtml(properties.area)}</div>` : "",
     properties.operatorName ? `<div><strong>Operatør:</strong> ${escapeHtml(properties.operatorName)}</div>` : "",
+    properties.companyName && !properties.operatorName
+      ? `<div><strong>Selskap:</strong> ${escapeHtml(properties.companyName)}</div>`
+      : "",
     properties.hcType ? `<div><strong>Hydrokarbon:</strong> ${escapeHtml(properties.hcType)}</div>` : "",
+    properties.category ? `<div><strong>Kategori:</strong> ${escapeHtml(properties.category)}</div>` : "",
+    properties.subType ? `<div><strong>Subtype:</strong> ${escapeHtml(properties.subType)}</div>` : "",
+    typeof properties.surveyYear === "number"
+      ? `<div><strong>År:</strong> ${properties.surveyYear}</div>`
+      : "",
+    formatTooltipMetric(properties.selectedProductionValue, properties.selectedProductionUnit)
+      ? `<div><strong>${escapeHtml(properties.selectedProductionLabel ?? "Produksjon")}:</strong> ${formatTooltipMetric(properties.selectedProductionValue, properties.selectedProductionUnit)}</div>`
+      : "",
     formatTooltipOe(properties.latestProductionOe)
       ? `<div><strong>Produksjon:</strong> ${formatTooltipOe(properties.latestProductionOe)}</div>`
       : "",
@@ -200,6 +305,14 @@ function renderTooltipHtml(properties: Partial<FeatureProperties> & { cluster?: 
       ? `<div><strong>Overføringer:</strong> ${properties.transferCount}</div>`
       : "",
     properties.facilityKind ? `<div><strong>Type:</strong> ${escapeHtml(properties.facilityKind)}</div>` : "",
+    properties.wellType ? `<div><strong>Brønntype:</strong> ${escapeHtml(properties.wellType)}</div>` : "",
+    properties.purpose ? `<div><strong>Formål:</strong> ${escapeHtml(properties.purpose)}</div>` : "",
+    typeof properties.waterDepth === "number"
+      ? `<div><strong>Vanndyp:</strong> ${new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 0 }).format(properties.waterDepth)} m</div>`
+      : "",
+    typeof properties.totalDepth === "number"
+      ? `<div><strong>Totaldybde:</strong> ${new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 0 }).format(properties.totalDepth)} m</div>`
+      : "",
     properties.relatedFieldName ? `<div><strong>Relatert felt:</strong> ${escapeHtml(properties.relatedFieldName)}</div>` : "",
   ]
     .filter(Boolean)
@@ -327,7 +440,7 @@ export function OilGasMap({
         for (const layerId of RENDERED_LAYERS) {
           const sourceId = `petroleum-${layerId}`;
 
-          if (layerId === "facilities") {
+          if (layerId === "facilities" || layerId === "wellbores") {
             map.addSource(sourceId, {
               type: "geojson",
               data: toFeatureCollection([]) as never,
@@ -434,10 +547,17 @@ export function OilGasMap({
               id: `${sourceId}-fill`,
               type: "fill",
               source: sourceId,
+              minzoom: layerId === "surveys" ? 5.7 : undefined,
               paint: {
                 "fill-color": LAYER_COLORS[layerId],
                 "fill-opacity":
-                  layerId === "licences" ? 0.12 : layerId === "discoveries" ? 0.2 : layerId === "surveys" ? 0.09 : 0.17,
+                  layerId === "licences"
+                    ? 0.12
+                    : layerId === "discoveries"
+                      ? 0.2
+                      : layerId === "surveys"
+                        ? 0.035
+                        : 0.17,
               },
             });
 
@@ -445,10 +565,12 @@ export function OilGasMap({
               id: `${sourceId}-outline`,
               type: "line",
               source: sourceId,
+              minzoom: layerId === "surveys" ? 5.7 : undefined,
               paint: {
-                "line-width": layerId === "licences" ? 1.5 : layerId === "discoveries" ? 1.25 : 1.1,
+                "line-width":
+                  layerId === "licences" ? 1.5 : layerId === "discoveries" ? 1.25 : layerId === "surveys" ? 0.9 : 1.1,
                 "line-color": LAYER_COLORS[layerId],
-                "line-opacity": layerId === "surveys" ? 0.55 : 0.85,
+                "line-opacity": layerId === "surveys" ? 0.22 : 0.85,
                 ...(layerId === "licences" || layerId === "surveys"
                   ? {
                       "line-dasharray": [2, 2],
@@ -458,6 +580,38 @@ export function OilGasMap({
             });
           }
         }
+
+        map.addSource("petroleum-surveys-centroids", {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: [],
+          } as never,
+        });
+
+        map.addLayer({
+          id: "petroleum-surveys-centroids-circle",
+          type: "circle",
+          source: "petroleum-surveys-centroids",
+          maxzoom: 5.7,
+          paint: {
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              3,
+              3.2,
+              4.5,
+              4.8,
+              5.7,
+              6.2,
+            ] as never,
+            "circle-color": "#334155",
+            "circle-opacity": 0.72,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 1.3,
+          },
+        });
 
         map.addSource("petroleum-selection", {
           type: "geojson",
@@ -499,7 +653,7 @@ export function OilGasMap({
         for (const layerId of RENDERED_LAYERS) {
           const sourceId = `petroleum-${layerId}`;
 
-          if (layerId === "facilities") {
+          if (layerId === "facilities" || layerId === "wellbores") {
             map.on("click", `${sourceId}-clusters`, (event) => {
               const clusterFeature = event.features?.[0];
               const clusterId = clusterFeature?.properties?.cluster_id;
@@ -544,6 +698,17 @@ export function OilGasMap({
             map.on("mousemove", `${sourceId}-circle`, showPopup as never);
             map.on("mouseleave", `${sourceId}-circle`, hidePopup);
             continue;
+          }
+
+          if (layerId === "surveys") {
+            map.on("click", "petroleum-surveys-centroids-circle", (event) => {
+              const properties = event.features?.[0]?.properties as Partial<FeatureProperties> | undefined;
+              if (properties?.entityId && properties?.entityType) {
+                onSelectEntityRef.current(properties.entityType, properties.entityId);
+              }
+            });
+            map.on("mousemove", "petroleum-surveys-centroids-circle", showPopup as never);
+            map.on("mouseleave", "petroleum-surveys-centroids-circle", hidePopup);
           }
 
           for (const interactiveLayer of [`${sourceId}-fill`, `${sourceId}-outline`, `${sourceId}-line`]) {

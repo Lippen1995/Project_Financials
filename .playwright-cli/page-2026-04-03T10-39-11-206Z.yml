@@ -1,0 +1,23 @@
+- generic [active] [ref=e1]:
+  - heading "Gassco" [level=1] [ref=e5]:
+    - link "Gassco" [ref=e6] [cursor=pointer]:
+      - /url: https://www.gassco.no/
+      - img "Gassco" [ref=e7]
+  - generic [ref=e11]:
+    - heading "Terms & conditions" [level=2] [ref=e12]
+    - generic [ref=e13]:
+      - text: The content of the information on this page is based on information available to Gassco AS when published, hereunder information received from third parties. The principles for publication of information are described in the document
+      - link "pdf Principles for publication on umm.gassco.no." [ref=e14] [cursor=pointer]:
+        - /url: /resources/Principles%20for%20publication%20on%20umm.pdf
+        - img "pdf" [ref=e15]
+        - text: Principles for publication on umm.gassco.no.
+      - text: The information provided herein must not be construed as neither exhaustive nor complete and must not be used as legal and factual basis for any decision. Each user of this information should consult with and rely upon its own legal and business adviser as to legal and business advice to determine the consequences for the user of the information published.
+      - text: Irrespective of the
+      - link "Principles for publication on umm.gassco.no" [ref=e16] [cursor=pointer]:
+        - /url: /resources/Principles%20for%20publication%20on%20umm.pdf
+        - img [ref=e17]
+        - text: Principles for publication on umm.gassco.no
+      - text: ", neither Gassco AS nor Gassled accepts any responsibility as to the correctness of the contents of this information, or the timeliness of its publication."
+    - generic [ref=e18]:
+      - button "Accept" [ref=e19] [cursor=pointer]
+      - button "Decline" [ref=e20] [cursor=pointer]

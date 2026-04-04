@@ -202,6 +202,7 @@ enum PetroleumEntityType {
   FACILITY
   TUF
   SURVEY
+  WELLBORE
 }
 
 model User {
@@ -770,6 +771,52 @@ model PetroleumSurvey {
   @@index([companyNpdId])
 }
 
+model PetroleumWellbore {
+  id                           String   @id @default(cuid())
+  npdId                        Int      @unique
+  slug                         String   @unique
+  name                         String
+  wellName                     String?
+  drillingOperatorName         String?
+  drillingOperatorNpdCompanyId Int?
+  drillingOperatorOrgNumber    String?
+  drillingOperatorSlug         String?
+  productionLicence            String?
+  purpose                      String?
+  status                       String?
+  content                      String?
+  wellType                     String?
+  entryDate                    DateTime?
+  completionDate               DateTime?
+  fieldName                    String?
+  discoveryName                String?
+  drillPermit                  String?
+  totalDepth                   Float?
+  finalVerticalDepth           Float?
+  waterDepth                   Float?
+  mainArea                     String?
+  drillingFacility             String?
+  productionFacility           String?
+  licensingActivity            String?
+  factPageUrl                  String?
+  geometry                     Json?
+  bbox                         Json?
+  centroid                     Json?
+  sourceSystem                 String
+  sourceEntityType             String
+  sourceId                     String
+  fetchedAt                    DateTime
+  normalizedAt                 DateTime
+  rawPayload                   Json?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  @@index([status])
+  @@index([purpose])
+  @@index([mainArea])
+  @@index([drillingOperatorNpdCompanyId])
+}
+
 model PetroleumProductionPoint {
   id                String              @id @default(cuid())
   entityType        PetroleumEntityType
@@ -844,6 +891,59 @@ model PetroleumInvestmentSnapshot {
   updatedAt              DateTime @updatedAt
 
   @@unique([entityType, entityNpdId])
+}
+
+model PetroleumForecastSnapshot {
+  id                 String   @id @default(cuid())
+  externalId         String   @unique
+  scope              String
+  sourceLabel        String
+  title              String
+  summary            String?
+  publishedAt        DateTime?
+  horizonLabel       String?
+  appliesToProduct   String?
+  forecastScopeLabel String?
+  trendLabel         String?
+  declineRatePercent Float?
+  investmentLevelNok BigInt?
+  detailUrl          String?
+  backgroundDataUrl  String?
+  keyPoints          Json?
+  sourceSystem       String
+  sourceEntityType   String
+  sourceId           String
+  fetchedAt          DateTime
+  normalizedAt       DateTime
+  rawPayload         Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([publishedAt])
+  @@index([scope, publishedAt])
+}
+
+model PetroleumPublicationSnapshot {
+  id                String   @id @default(cuid())
+  externalId        String   @unique
+  category          String
+  title             String
+  summary           String?
+  publishedAt       DateTime?
+  detailUrl         String
+  backgroundDataUrl String?
+  pdfUrl            String?
+  sheetNames        Json?
+  sourceSystem      String
+  sourceEntityType  String
+  sourceId          String
+  fetchedAt         DateTime
+  normalizedAt      DateTime
+  rawPayload        Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([category, publishedAt])
 }
 
 model PetroleumEvent {

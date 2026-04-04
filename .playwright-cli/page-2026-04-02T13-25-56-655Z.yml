@@ -1,0 +1,616 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "ProjectX" [ref=e6] [cursor=pointer]:
+            - /url: /
+          - paragraph [ref=e7]: Skarp innsikt for kritiske forretningsbeslutninger.
+        - navigation [ref=e8]:
+          - link "Søk" [ref=e9] [cursor=pointer]:
+            - /url: /search
+          - link "Olje & gass" [ref=e10] [cursor=pointer]:
+            - /url: /market/oil-gas
+          - link "Tilgang" [ref=e11] [cursor=pointer]:
+            - /url: /pricing
+          - link "Logg inn" [ref=e12] [cursor=pointer]:
+            - /url: /login
+    - main [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]:
+            - generic [ref=e17]: Markedsanalyse
+            - heading "Norsk sokkel i ett arbeidsrom." [level=1] [ref=e18]
+            - paragraph [ref=e19]: Kart, produksjonsserier, reserver, investeringer og regulatoriske hendelser for felt, lisenser, innretninger og hovedinfrastruktur.
+          - complementary [ref=e20]:
+            - generic [ref=e21]: Premium analyseflate
+            - generic [ref=e22]: Preview-modus
+            - paragraph [ref=e23]: Visningen er aktiv, men er tydelig merket som premium-modul i denne første versjonen.
+            - generic [ref=e24]: Gassco-overlay er koblet ærlig som utilgjengelig når UMM ikke lar seg hente stabilt maskinelt.
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - generic [ref=e27]: Filtre
+            - generic [ref=e28]:
+              - textbox "Søk etter felt, lisens eller innretning" [ref=e29]
+              - generic [ref=e30]:
+                - generic [ref=e31]: Kartlag
+                - generic [ref=e32]:
+                  - generic [ref=e33]:
+                    - checkbox "Felt" [checked] [ref=e34]
+                    - generic [ref=e35]: Felt
+                  - generic [ref=e36]:
+                    - checkbox "Funn" [checked] [ref=e37]
+                    - generic [ref=e38]: Funn
+                  - generic [ref=e39]:
+                    - checkbox "Lisenser" [checked] [ref=e40]
+                    - generic [ref=e41]: Lisenser
+                  - generic [ref=e42]:
+                    - checkbox "Innretninger" [checked] [ref=e43]
+                    - generic [ref=e44]: Innretninger
+                  - generic [ref=e45]:
+                    - checkbox "TUF / hovedrørledninger" [checked] [ref=e46]
+                    - generic [ref=e47]: TUF / hovedrørledninger
+                  - generic [ref=e48]:
+                    - checkbox "Survey" [ref=e49]
+                    - generic [ref=e50]: Survey
+                  - generic [ref=e51]:
+                    - checkbox "Havtil/Petreg" [ref=e52]
+                    - generic [ref=e53]: Havtil/Petreg
+                  - generic [ref=e54]:
+                    - checkbox "Gassco" [ref=e55]
+                    - generic [ref=e56]: Gassco
+              - group [ref=e57]:
+                - generic "Status" [ref=e58] [cursor=pointer]
+              - group [ref=e59]:
+                - generic "Områder" [ref=e60] [cursor=pointer]
+              - group [ref=e61]:
+                - generic "Operatører" [ref=e62] [cursor=pointer]
+              - group [ref=e63]:
+                - generic "Rettighetshavere" [ref=e64] [cursor=pointer]
+              - group [ref=e65]:
+                - generic "Hydrokarbon" [ref=e66] [cursor=pointer]
+              - button "Nullstill filtre" [ref=e67] [cursor=pointer]
+          - generic [ref=e68]:
+            - generic [ref=e69]:
+              - generic [ref=e70]:
+                - generic [ref=e71]: Aktive felt
+                - generic [ref=e72]: "94"
+              - generic [ref=e73]:
+                - generic [ref=e74]: Aktive lisenser
+                - generic [ref=e75]: "526"
+              - generic [ref=e76]:
+                - generic [ref=e77]: Produksjon
+                - generic [ref=e78]: 11,4 mill. oe
+              - generic [ref=e79]:
+                - generic [ref=e80]: Gjenværende OE
+                - generic [ref=e81]: 2 713,8 mill. oe
+              - generic [ref=e82]:
+                - generic [ref=e83]: Operatører
+                - generic [ref=e84]: "12"
+              - generic [ref=e85]:
+                - generic [ref=e86]: Hendelser 12 mnd
+                - generic [ref=e87]: "818"
+            - generic [ref=e88]:
+              - generic [ref=e90]:
+                - generic [ref=e91]:
+                  - generic [ref=e92]: Interaktivt kart
+                  - generic [ref=e93]: Kartet styrer analysen. Viser 2 074 objekter i gjeldende utsnitt.
+                - generic [ref=e94]: Oppdaterer utsnitt
+                - button "Nullstill utsnitt" [ref=e96] [cursor=pointer]
+                - button "Ekspander kart" [ref=e97] [cursor=pointer]
+              - generic [ref=e98]:
+                - generic [ref=e99]:
+                  - region "Map" [ref=e204]
+                  - generic:
+                    - generic [ref=e205]:
+                      - button "Zoom in" [ref=e206] [cursor=pointer]
+                      - button "Zoom out" [ref=e208] [cursor=pointer]
+                      - button "Drag to rotate map, click to reset north" [ref=e210]
+                    - group [ref=e212]:
+                      - generic "Toggle attribution" [ref=e213] [cursor=pointer]
+                      - generic [ref=e214]:
+                        - text: © OpenStreetMap contributors |
+                        - link "MapLibre" [ref=e215] [cursor=pointer]:
+                          - /url: https://maplibre.org/
+                - generic: Oppdaterer kart og analyser…
+              - generic [ref=e100]:
+                - generic [ref=e101]:
+                  - generic [ref=e102]: Aktive lag
+                  - generic [ref=e103]: Gjeldende kartutsnitt
+                - generic [ref=e104]:
+                  - generic [ref=e105]:
+                    - generic [ref=e107]: Felt
+                    - generic [ref=e108]: "139"
+                  - generic [ref=e109]:
+                    - generic [ref=e111]: Funn
+                    - generic [ref=e112]: "520"
+                  - generic [ref=e113]:
+                    - generic [ref=e115]: Lisenser
+                    - generic [ref=e116]: "526"
+                  - generic [ref=e117]:
+                    - generic [ref=e119]: Innretninger
+                    - generic [ref=e120]: "820"
+                  - generic [ref=e121]:
+                    - generic [ref=e123]: TUF / hovedrørledninger
+                    - generic [ref=e124]: "69"
+                - generic [ref=e125]:
+                  - generic [ref=e126]: Felt, funn og survey-flater
+                  - generic [ref=e128]: Lisenspolygoner
+                  - generic [ref=e130]: Enkelte innretninger og clusterbobler
+                  - generic [ref=e134]: TUF og hovedrørledninger
+            - generic [ref=e135]:
+              - generic [ref=e136]:
+                - generic [ref=e137]: Tidsserie
+                - heading "Produksjon og investeringer" [level=2] [ref=e138]
+                - paragraph [ref=e139]: Grønn linje viser oljeekvivalenter. Lyse søyler viser historiske investeringer.
+                - img [ref=e216]:
+                  - generic [ref=e222]: "1970"
+                  - generic [ref=e226]: "1971"
+                  - generic [ref=e230]: "1972"
+                  - generic [ref=e234]: "1973"
+                  - generic [ref=e238]: "1974"
+                  - generic [ref=e242]: "1975"
+                  - generic [ref=e246]: "1976"
+                  - generic [ref=e250]: "1977"
+                  - generic [ref=e254]: "1978"
+                  - generic [ref=e258]: "1979"
+                  - generic [ref=e262]: "1980"
+                  - generic [ref=e266]: "1981"
+                  - generic [ref=e270]: "1982"
+                  - generic [ref=e274]: "1983"
+                  - generic [ref=e278]: "1984"
+                  - generic [ref=e282]: "1985"
+                  - generic [ref=e286]: "1986"
+                  - generic [ref=e290]: "1987"
+                  - generic [ref=e294]: "1988"
+                  - generic [ref=e298]: "1989"
+                  - generic [ref=e302]: "1990"
+                  - generic [ref=e306]: "1991"
+                  - generic [ref=e310]: "1992"
+                  - generic [ref=e314]: "1993"
+                  - generic [ref=e318]: "1994"
+                  - generic [ref=e322]: "1995"
+                  - generic [ref=e326]: "1996"
+                  - generic [ref=e330]: "1997"
+                  - generic [ref=e334]: "1998"
+                  - generic [ref=e338]: "1999"
+                  - generic [ref=e342]: "2000"
+                  - generic [ref=e346]: "2001"
+                  - generic [ref=e350]: "2002"
+                  - generic [ref=e354]: "2003"
+                  - generic [ref=e358]: "2004"
+                  - generic [ref=e362]: "2005"
+                  - generic [ref=e366]: "2006"
+                  - generic [ref=e370]: "2007"
+                  - generic [ref=e374]: "2008"
+                  - generic [ref=e378]: "2009"
+                  - generic [ref=e382]: "2010"
+                  - generic [ref=e386]: "2011"
+                  - generic [ref=e390]: "2012"
+                  - generic [ref=e394]: "2013"
+                  - generic [ref=e398]: "2014"
+                  - generic [ref=e402]: "2015"
+                  - generic [ref=e406]: "2016"
+                  - generic [ref=e410]: "2017"
+                  - generic [ref=e414]: "2018"
+                  - generic [ref=e418]: "2019"
+                  - generic [ref=e422]: "2020"
+                  - generic [ref=e426]: "2021"
+                  - generic [ref=e430]: "2022"
+                  - generic [ref=e434]: "2023"
+                  - generic [ref=e438]: "2024"
+                  - generic [ref=e442]: "2025"
+                  - generic [ref=e446]: "2026"
+                  - generic [ref=e450]: "2027"
+                  - generic [ref=e454]: "2028"
+                  - generic [ref=e458]: "2029"
+                  - generic [ref=e462]: "2030"
+                  - generic [ref=e466]: "2031"
+                  - generic [ref=e470]: "2032"
+                  - generic [ref=e474]: "2033"
+                  - generic [ref=e478]: "2034"
+                  - generic [ref=e482]: "2035"
+                  - generic [ref=e486]: "2036"
+                  - generic [ref=e490]: "2037"
+                  - generic [ref=e494]: "2038"
+                  - generic [ref=e498]: "2039"
+                  - generic [ref=e502]: "2040"
+                  - generic [ref=e506]: "2041"
+                  - generic [ref=e510]: "2042"
+                  - generic [ref=e514]: "2043"
+                  - generic [ref=e518]: "2044"
+                  - generic [ref=e522]: "2045"
+                  - generic [ref=e526]: "2046"
+                  - generic [ref=e530]: "2047"
+                  - generic [ref=e534]: "2048"
+                  - generic [ref=e538]: "2049"
+                  - generic [ref=e542]: "2050"
+                  - generic [ref=e546]: "2051"
+                  - generic [ref=e550]: "2052"
+                  - generic [ref=e554]: "2053"
+                  - generic [ref=e558]: "2054"
+                  - generic [ref=e562]: "2055"
+                  - generic [ref=e566]: "2056"
+                  - generic [ref=e570]: "2057"
+                  - generic [ref=e574]: "2058"
+                  - generic [ref=e578]: "2059"
+                  - generic [ref=e582]: "2060"
+                  - generic [ref=e586]: "2061"
+                  - generic [ref=e590]: "2062"
+                  - generic [ref=e594]: "2063"
+                  - generic [ref=e598]: "2064"
+                  - generic [ref=e602]: "2065"
+                  - generic [ref=e606]: "2066"
+                  - generic [ref=e610]: "2067"
+                  - generic [ref=e614]: "2068"
+                  - generic [ref=e618]: "2069"
+                  - generic [ref=e622]: "2070"
+                  - generic [ref=e626]: "2071"
+                  - generic [ref=e630]: "2072"
+                  - generic [ref=e634]: "2073"
+                  - generic [ref=e638]: "2074"
+                  - generic [ref=e642]: "2075"
+                  - generic [ref=e646]: "2076"
+                  - generic [ref=e650]: "2077"
+                  - generic [ref=e654]: "2078"
+                  - generic [ref=e658]: "2079"
+                  - generic [ref=e662]: "2080"
+                  - generic [ref=e666]: "2081"
+                  - generic [ref=e670]: "2082"
+                  - generic [ref=e674]: "2083"
+                  - generic [ref=e678]: "2084"
+                  - generic [ref=e682]: "2085"
+                  - generic [ref=e686]: "2086"
+                  - generic [ref=e690]: "2087"
+                  - generic [ref=e694]: "2088"
+                  - generic [ref=e698]: "2089"
+                  - generic [ref=e702]: "2090"
+                  - generic [ref=e706]: "2091"
+                  - generic [ref=e710]: "2092"
+                  - generic [ref=e714]: "2093"
+                  - generic [ref=e718]: "2094"
+                  - generic [ref=e722]: "2095"
+                  - generic [ref=e726]: "2096"
+                  - generic [ref=e730]: "2097"
+                  - generic [ref=e734]: "2098"
+                  - generic [ref=e738]: "2099"
+                  - generic [ref=e742]: "2100"
+              - generic [ref=e142]:
+                - generic [ref=e143]: Markedssammendrag
+                - heading "Konsentrasjon og reserver" [level=2] [ref=e144]
+                - generic [ref=e145]:
+                  - generic [ref=e744]:
+                    - generic [ref=e745]: Equinor Energy AS
+                    - generic [ref=e746]: 7,8 mill. oe
+                  - generic [ref=e750]:
+                    - generic [ref=e751]: A/S Norske Shell
+                    - generic [ref=e752]: 0,8 mill. oe
+                  - generic [ref=e756]:
+                    - generic [ref=e757]: Aker BP ASA
+                    - generic [ref=e758]: 0,8 mill. oe
+                  - generic [ref=e762]:
+                    - generic [ref=e763]: Vår Energi ASA
+                    - generic [ref=e764]: 0,8 mill. oe
+                  - generic [ref=e768]:
+                    - generic [ref=e769]: ConocoPhillips Skandinavia AS
+                    - generic [ref=e770]: 0,5 mill. oe
+                  - generic [ref=e774]:
+                    - generic [ref=e775]: Harbour Energy Norge AS
+                    - generic [ref=e776]: 0,4 mill. oe
+                  - generic [ref=e780]:
+                    - generic [ref=e781]: OKEA ASA
+                    - generic [ref=e782]: 0,2 mill. oe
+                  - generic [ref=e786]:
+                    - generic [ref=e787]: Repsol Norge AS
+                    - generic [ref=e788]: 0,1 mill. oe
+                  - generic [ref=e146]:
+                    - text: "Recoverable OE: 10 428,2 mill. oe"
+                    - text: "Historiske investeringer: kr 6,3 bill."
+                    - text: "Forventede investeringer: kr 792,9 mrd."
+            - generic [ref=e147]:
+              - generic [ref=e148]:
+                - generic [ref=e149]:
+                  - generic [ref=e150]: Sammenligning
+                  - heading "Compare mode" [level=2] [ref=e151]
+                  - paragraph [ref=e152]: Sammenlign opptil tre felt eller operatører i det samme markedsutsnittet. Linjene viser oljeekvivalenter per år for valgte objekter.
+                - generic [ref=e153]:
+                  - button "Felt" [ref=e154] [cursor=pointer]
+                  - button "Operatører" [ref=e155] [cursor=pointer]
+              - generic [ref=e156]:
+                - generic [ref=e157]:
+                  - generic [ref=e158]: Raske valg
+                  - generic [ref=e791]:
+                    - button "JOHAN SVERDRUP" [active] [ref=e792] [cursor=pointer]
+                    - button "ORMEN LANGE" [ref=e793] [cursor=pointer]
+                    - button "GULLFAKS SØR" [ref=e794] [cursor=pointer]
+                    - button "AASTA HANSTEEN" [ref=e795] [cursor=pointer]
+                    - button "BALDER" [ref=e796] [cursor=pointer]
+                    - button "BREIDABLIKK" [ref=e797] [cursor=pointer]
+                - generic [ref=e159]:
+                  - generic [ref=e160]: Felt 1
+                  - combobox "Felt 1 North sea · Vår Energi ASA" [ref=e1008]:
+                    - option "Velg objekt"
+                    - option "JOHAN SVERDRUP" [disabled]
+                    - option "ORMEN LANGE"
+                    - option "GULLFAKS SØR"
+                    - option "AASTA HANSTEEN"
+                    - option "BALDER" [selected]
+                    - option "BREIDABLIKK"
+                    - option "HEIDRUN"
+                    - option "EKOFISK"
+                  - generic [ref=e162]: North sea · Vår Energi ASA
+                - generic [ref=e163]:
+                  - generic [ref=e164]: Felt 2
+                  - combobox "Felt 2 North sea · Equinor Energy AS" [ref=e1009]:
+                    - option "Velg objekt"
+                    - option "JOHAN SVERDRUP" [selected]
+                    - option "ORMEN LANGE"
+                    - option "GULLFAKS SØR"
+                    - option "AASTA HANSTEEN"
+                    - option "BALDER" [disabled]
+                    - option "BREIDABLIKK"
+                    - option "HEIDRUN"
+                    - option "EKOFISK"
+                  - generic [ref=e166]: North sea · Equinor Energy AS
+                - generic [ref=e167]:
+                  - generic [ref=e168]: Felt 3
+                  - combobox "Felt 3 Ingen valgt ennå" [ref=e169]:
+                    - option "Velg objekt" [selected]
+                    - option "JOHAN SVERDRUP" [disabled]
+                    - option "ORMEN LANGE"
+                    - option "GULLFAKS SØR"
+                    - option "AASTA HANSTEEN"
+                    - option "BALDER" [disabled]
+                    - option "BREIDABLIKK"
+                    - option "HEIDRUN"
+                    - option "EKOFISK"
+                  - generic [ref=e170]: Ingen valgt ennå
+              - generic [ref=e171]:
+                - button "Nullstill sammenligning" [ref=e172] [cursor=pointer]
+                - generic [ref=e173]: Oppdaterer sammenligning...
+              - generic [ref=e175]: Velg opptil tre felt eller operatører for å sammenligne utviklingen over tid.
+              - generic [ref=e1010]:
+                - generic [ref=e1011]:
+                  - generic [ref=e1014]: BALDER
+                  - generic [ref=e1015]:
+                    - generic [ref=e1016]: "Operatør: Vår Energi ASA"
+                    - generic [ref=e1017]: "Produksjon: 0,4 mill. oe"
+                    - generic [ref=e1018]: "Gjenværende: 29,7 mill. oe"
+                    - generic [ref=e1019]: "Forv. investering: kr 29,7 mrd."
+                - generic [ref=e1020]:
+                  - generic [ref=e1023]: JOHAN SVERDRUP
+                  - generic [ref=e1024]:
+                    - generic [ref=e1025]: "Operatør: Equinor Energy AS"
+                    - generic [ref=e1026]: "Produksjon: 3,5 mill. oe"
+                    - generic [ref=e1027]: "Gjenværende: 232,1 mill. oe"
+                    - generic [ref=e1028]: "Forv. investering: kr 45,8 mrd."
+            - generic [ref=e176]:
+              - generic [ref=e177]:
+                - generic [ref=e178]:
+                  - generic [ref=e179]: Markedstabell
+                  - heading "Sorterbart utvalg" [level=2] [ref=e180]
+                - generic [ref=e181]:
+                  - button "Eksporter CSV" [ref=e182] [cursor=pointer]
+                  - generic [ref=e183]:
+                    - button "Felt" [ref=e184] [cursor=pointer]
+                    - button "Lisenser" [ref=e185] [cursor=pointer]
+                    - button "Operatører" [ref=e186] [cursor=pointer]
+              - table [ref=e188]:
+                - rowgroup [ref=e189]:
+                  - row "Navn Område Status Operatør Nøkkeltall" [ref=e190]:
+                    - columnheader "Navn" [ref=e191]
+                    - columnheader "Område" [ref=e192]
+                    - columnheader "Status" [ref=e193]
+                    - columnheader "Operatør" [ref=e194]
+                    - columnheader "Nøkkeltall" [ref=e195]
+                - rowgroup [ref=e798]:
+                  - row "ALBUSKJELL North sea Shut down ConocoPhillips Skandinavia AS 0 mill. oe" [ref=e799]:
+                    - cell "ALBUSKJELL" [ref=e800]
+                    - cell "North sea" [ref=e801]
+                    - cell "Shut down" [ref=e802]
+                    - cell "ConocoPhillips Skandinavia AS" [ref=e803]
+                    - cell "0 mill. oe" [ref=e804]
+                  - row "TOMMELITEN GAMMA North sea Shut down ConocoPhillips Skandinavia AS 0 mill. oe" [ref=e805]:
+                    - cell "TOMMELITEN GAMMA" [ref=e806]
+                    - cell "North sea" [ref=e807]
+                    - cell "Shut down" [ref=e808]
+                    - cell "ConocoPhillips Skandinavia AS" [ref=e809]
+                    - cell "0 mill. oe" [ref=e810]
+                  - row "VARG North sea Shut down — 0 mill. oe" [ref=e811]:
+                    - cell "VARG" [ref=e812]
+                    - cell "North sea" [ref=e813]
+                    - cell "Shut down" [ref=e814]
+                    - cell "—" [ref=e815]
+                    - cell "0 mill. oe" [ref=e816]
+                  - row "SLEIPNER VEST North sea Producing Equinor Energy AS 0 mill. oe" [ref=e817]:
+                    - cell "SLEIPNER VEST" [ref=e818]
+                    - cell "North sea" [ref=e819]
+                    - cell "Producing" [ref=e820]
+                    - cell "Equinor Energy AS" [ref=e821]
+                    - cell "0 mill. oe" [ref=e822]
+                  - row "GUNGNE North sea Producing Equinor Energy AS 0 mill. oe" [ref=e823]:
+                    - cell "GUNGNE" [ref=e824]
+                    - cell "North sea" [ref=e825]
+                    - cell "Producing" [ref=e826]
+                    - cell "Equinor Energy AS" [ref=e827]
+                    - cell "0 mill. oe" [ref=e828]
+                  - row "SLEIPNER ØST North sea Producing Equinor Energy AS 0 mill. oe" [ref=e829]:
+                    - cell "SLEIPNER ØST" [ref=e830]
+                    - cell "North sea" [ref=e831]
+                    - cell "Producing" [ref=e832]
+                    - cell "Equinor Energy AS" [ref=e833]
+                    - cell "0 mill. oe" [ref=e834]
+                  - row "HOD North sea Producing Aker BP ASA 0 mill. oe" [ref=e835]:
+                    - cell "HOD" [ref=e836]
+                    - cell "North sea" [ref=e837]
+                    - cell "Producing" [ref=e838]
+                    - cell "Aker BP ASA" [ref=e839]
+                    - cell "0 mill. oe" [ref=e840]
+                  - row "GYDA North sea Shut down — 0 mill. oe" [ref=e841]:
+                    - cell "GYDA" [ref=e842]
+                    - cell "North sea" [ref=e843]
+                    - cell "Shut down" [ref=e844]
+                    - cell "—" [ref=e845]
+                    - cell "0 mill. oe" [ref=e846]
+                  - row "EKOFISK North sea Producing ConocoPhillips Skandinavia AS 0,3 mill. oe" [ref=e847]:
+                    - cell "EKOFISK" [ref=e848]
+                    - cell "North sea" [ref=e849]
+                    - cell "Producing" [ref=e850]
+                    - cell "ConocoPhillips Skandinavia AS" [ref=e851]
+                    - cell "0,3 mill. oe" [ref=e852]
+                  - row "VEST EKOFISK North sea Shut down ConocoPhillips Skandinavia AS 0 mill. oe" [ref=e853]:
+                    - cell "VEST EKOFISK" [ref=e854]
+                    - cell "North sea" [ref=e855]
+                    - cell "Shut down" [ref=e856]
+                    - cell "ConocoPhillips Skandinavia AS" [ref=e857]
+                    - cell "0 mill. oe" [ref=e858]
+                  - row "TOR North sea Producing ConocoPhillips Skandinavia AS 0 mill. oe" [ref=e859]:
+                    - cell "TOR" [ref=e860]
+                    - cell "North sea" [ref=e861]
+                    - cell "Producing" [ref=e862]
+                    - cell "ConocoPhillips Skandinavia AS" [ref=e863]
+                    - cell "0 mill. oe" [ref=e864]
+                  - row "ELDFISK North sea Producing ConocoPhillips Skandinavia AS 0,2 mill. oe" [ref=e865]:
+                    - cell "ELDFISK" [ref=e866]
+                    - cell "North sea" [ref=e867]
+                    - cell "Producing" [ref=e868]
+                    - cell "ConocoPhillips Skandinavia AS" [ref=e869]
+                    - cell "0,2 mill. oe" [ref=e870]
+                  - row "EMBLA North sea Producing ConocoPhillips Skandinavia AS 0 mill. oe" [ref=e871]:
+                    - cell "EMBLA" [ref=e872]
+                    - cell "North sea" [ref=e873]
+                    - cell "Producing" [ref=e874]
+                    - cell "ConocoPhillips Skandinavia AS" [ref=e875]
+                    - cell "0 mill. oe" [ref=e876]
+                  - row "EDDA North sea Shut down ConocoPhillips Skandinavia AS 0 mill. oe" [ref=e877]:
+                    - cell "EDDA" [ref=e878]
+                    - cell "North sea" [ref=e879]
+                    - cell "Shut down" [ref=e880]
+                    - cell "ConocoPhillips Skandinavia AS" [ref=e881]
+                    - cell "0 mill. oe" [ref=e882]
+                  - row "VALHALL North sea Producing Aker BP ASA 0 mill. oe" [ref=e883]:
+                    - cell "VALHALL" [ref=e884]
+                    - cell "North sea" [ref=e885]
+                    - cell "Producing" [ref=e886]
+                    - cell "Aker BP ASA" [ref=e887]
+                    - cell "0 mill. oe" [ref=e888]
+                  - row "FRIGG North sea Shut down Aker BP ASA 0 mill. oe" [ref=e889]:
+                    - cell "FRIGG" [ref=e890]
+                    - cell "North sea" [ref=e891]
+                    - cell "Shut down" [ref=e892]
+                    - cell "Aker BP ASA" [ref=e893]
+                    - cell "0 mill. oe" [ref=e894]
+                  - row "BALDER North sea Producing Vår Energi ASA 0,4 mill. oe" [ref=e895]:
+                    - cell "BALDER" [ref=e896]
+                    - cell "North sea" [ref=e897]
+                    - cell "Producing" [ref=e898]
+                    - cell "Vår Energi ASA" [ref=e899]
+                    - cell "0,4 mill. oe" [ref=e900]
+                  - row "NORDØST FRIGG North sea Shut down Aker BP ASA 0 mill. oe" [ref=e901]:
+                    - cell "NORDØST FRIGG" [ref=e902]
+                    - cell "North sea" [ref=e903]
+                    - cell "Shut down" [ref=e904]
+                    - cell "Aker BP ASA" [ref=e905]
+                    - cell "0 mill. oe" [ref=e906]
+                  - row "ØST FRIGG North sea Shut down Aker BP ASA 0 mill. oe" [ref=e907]:
+                    - cell "ØST FRIGG" [ref=e908]
+                    - cell "North sea" [ref=e909]
+                    - cell "Shut down" [ref=e910]
+                    - cell "Aker BP ASA" [ref=e911]
+                    - cell "0 mill. oe" [ref=e912]
+                  - row "LILLE-FRIGG North sea Shut down Aker BP ASA Ikke tilgjengelig" [ref=e913]:
+                    - cell "LILLE-FRIGG" [ref=e914]
+                    - cell "North sea" [ref=e915]
+                    - cell "Shut down" [ref=e916]
+                    - cell "Aker BP ASA" [ref=e917]
+                    - cell "Ikke tilgjengelig" [ref=e918]
+                  - row "HEIMDAL North sea Shut down Aker BP ASA 0 mill. oe" [ref=e919]:
+                    - cell "HEIMDAL" [ref=e920]
+                    - cell "North sea" [ref=e921]
+                    - cell "Shut down" [ref=e922]
+                    - cell "Aker BP ASA" [ref=e923]
+                    - cell "0 mill. oe" [ref=e924]
+                  - row "FRØY North sea Shut down Aker BP ASA Ikke tilgjengelig" [ref=e925]:
+                    - cell "FRØY" [ref=e926]
+                    - cell "North sea" [ref=e927]
+                    - cell "Shut down" [ref=e928]
+                    - cell "Aker BP ASA" [ref=e929]
+                    - cell "Ikke tilgjengelig" [ref=e930]
+                  - row "JOTUN North sea Shut down Vår Energi ASA 0 mill. oe" [ref=e931]:
+                    - cell "JOTUN" [ref=e932]
+                    - cell "North sea" [ref=e933]
+                    - cell "Shut down" [ref=e934]
+                    - cell "Vår Energi ASA" [ref=e935]
+                    - cell "0 mill. oe" [ref=e936]
+                  - row "ODIN North sea Shut down Aker BP ASA 0 mill. oe" [ref=e937]:
+                    - cell "ODIN" [ref=e938]
+                    - cell "North sea" [ref=e939]
+                    - cell "Shut down" [ref=e940]
+                    - cell "Aker BP ASA" [ref=e941]
+                    - cell "0 mill. oe" [ref=e942]
+                  - row "VESLEFRIKK North sea Shut down Equinor Energy AS 0 mill. oe" [ref=e943]:
+                    - cell "VESLEFRIKK" [ref=e944]
+                    - cell "North sea" [ref=e945]
+                    - cell "Shut down" [ref=e946]
+                    - cell "Equinor Energy AS" [ref=e947]
+                    - cell "0 mill. oe" [ref=e948]
+          - generic [ref=e196]:
+            - generic [ref=e197]:
+              - generic [ref=e198]: Detaljpanel
+              - generic [ref=e199]: Velg et felt, en lisens, en innretning eller en rørledning i kartet for å se produksjon, reserver, investeringer og tilknyttede selskaper.
+            - generic [ref=e200]:
+              - generic [ref=e201]: Datakilder
+              - generic [ref=e949]:
+                - generic [ref=e950]:
+                  - generic [ref=e951]:
+                    - generic [ref=e952]: SODIR
+                    - generic [ref=e953]: Aktiv
+                  - generic [ref=e954]: Sist oppdatert 02. apr. 2026
+                - generic [ref=e955]:
+                  - generic [ref=e956]:
+                    - generic [ref=e957]: HAVTIL
+                    - generic [ref=e958]: Aktiv
+                  - generic [ref=e959]: Sist oppdatert 02. apr. 2026
+                - generic [ref=e960]:
+                  - generic [ref=e961]:
+                    - generic [ref=e962]: GASSCO
+                    - generic [ref=e963]: Aktiv
+                  - generic [ref=e964]: Gassco UMM krever i praksis en disclaimer/session-flyt som ikke er stabilt tilgjengelig for maskinell henting i denne versjonen.
+            - generic [ref=e202]:
+              - generic [ref=e203]: Hendelser
+              - generic [ref=e965]:
+                - generic [ref=e966]:
+                  - generic [ref=e967]: Gassco – Kalstø og Kårstø – styring av integritet og beredskap for rørledninger
+                  - generic [ref=e968]: HAVTIL
+                  - generic [ref=e969]: Havindustritilsynet (Havtil) har ført tilsyn med Gassco og deres styring av integritet og beredskap for rørledninger mellom Kalstø og Kårstø.
+                - generic [ref=e970]:
+                  - generic [ref=e971]: Repsol - Yme - materialhåndtering og arbeid i høyden
+                  - generic [ref=e972]: HAVTIL
+                  - generic [ref=e973]: Havindustritilsynet (Havtil) har ført tilsyn med Repsol Norge og deres styring av materialhåndtering og arbeid i høyden på Yme Inspirer.
+                - generic [ref=e974]:
+                  - generic [ref=e975]: Equinor – Statfjord C – brønnintegritet
+                  - generic [ref=e976]: HAVTIL
+                  - generic [ref=e977]: Havindustritilsynet (Havtil) har ført tilsyn med Equinor og deres oppfølging av brønnintegritet på Statfjord C og tilhørende satellitter.
+                - generic [ref=e978]:
+                  - generic [ref=e979]: "1208: Bortfall av tillatelse"
+                  - generic [ref=e980]: PETREG
+                  - generic [ref=e981]: Energidepartementet bekrefter i brev datert 27.03.2026 at utvinningstillatelse 1208 anses som bortfalt med virkning fra og med 15.03.2026, jf. utvinningstillatelsens pkt. 4b).
+                - generic [ref=e982]:
+                  - generic [ref=e983]: KCA Deutag Drilling– Askepott – beredskap
+                  - generic [ref=e984]: HAVTIL
+                  - generic [ref=e985]: Havindustritilsynet (Havtil) har ført tilsyn med KCA Deutag Drilling og beredskap på Askepott.
+                - generic [ref=e986]:
+                  - generic [ref=e987]: "1270: Overdragelse av tillatelse eller andel i tillatelse"
+                  - generic [ref=e988]: PETREG
+                  - generic [ref=e989]: DNO Norge AS har overdratt en 30 % andel i tillatelsen til Aker BP ASA. Iht. skjøte er gjennomføringsdato 26.03.2026 og virkningsdato 01.01.2026.
+                - generic [ref=e990]:
+                  - generic [ref=e991]: "1270: Overdragelse av tillatelse eller andel i tillatelse"
+                  - generic [ref=e992]: PETREG
+                  - generic [ref=e993]: DNO Norge AS har overdratt en 30 % andel i tillatelsen til OKEA ASA. Iht. skjøte er gjennomføringsdato 26.03.2026 og virkningsdato 01.01.2026.
+                - generic [ref=e994]:
+                  - generic [ref=e995]: Vår Energi – styring av materialintegritet
+                  - generic [ref=e996]: HAVTIL
+                  - generic [ref=e997]: Havindustritilsynet (Havtil) har ført tilsyn med Vår Energi og styring av forhold som påvirker materialenes integritet.
+  - button "Open Next.js Dev Tools" [ref=e1003] [cursor=pointer]:
+    - img [ref=e1004]
+  - alert [ref=e1007]

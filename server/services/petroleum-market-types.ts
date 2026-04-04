@@ -162,6 +162,35 @@ export type PetroleumSurveySnapshot = PetroleumEntitySnapshotBase & {
   centroid?: unknown;
 };
 
+export type PetroleumWellboreSnapshot = PetroleumEntitySnapshotBase & {
+  wellName?: string | null;
+  drillingOperatorName?: string | null;
+  drillingOperatorNpdCompanyId?: number | null;
+  drillingOperatorOrgNumber?: string | null;
+  drillingOperatorSlug?: string | null;
+  productionLicence?: string | null;
+  purpose?: string | null;
+  status?: string | null;
+  content?: string | null;
+  wellType?: string | null;
+  entryDate?: Date | null;
+  completionDate?: Date | null;
+  fieldName?: string | null;
+  discoveryName?: string | null;
+  drillPermit?: string | null;
+  totalDepth?: number | null;
+  finalVerticalDepth?: number | null;
+  waterDepth?: number | null;
+  mainArea?: string | null;
+  drillingFacility?: string | null;
+  productionFacility?: string | null;
+  licensingActivity?: string | null;
+  factPageUrl?: string | null;
+  geometry?: unknown;
+  bbox?: unknown;
+  centroid?: unknown;
+};
+
 export type PetroleumProductionPointSnapshot = {
   entityType: PetroleumEntityType;
   entityNpdId: number;
@@ -247,6 +276,48 @@ export type PetroleumEventSnapshot = {
   rawPayload?: unknown;
 };
 
+export type PetroleumForecastSnapshotRecord = {
+  externalId: string;
+  scope: string;
+  sourceLabel: string;
+  title: string;
+  summary?: string | null;
+  publishedAt?: Date | null;
+  horizonLabel?: string | null;
+  appliesToProduct?: string | null;
+  forecastScopeLabel?: string | null;
+  trendLabel?: string | null;
+  declineRatePercent?: number | null;
+  investmentLevelNok?: bigint | null;
+  detailUrl?: string | null;
+  backgroundDataUrl?: string | null;
+  keyPoints?: unknown;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
+  rawPayload?: unknown;
+};
+
+export type PetroleumPublicationSnapshotRecord = {
+  externalId: string;
+  category: string;
+  title: string;
+  summary?: string | null;
+  publishedAt?: Date | null;
+  detailUrl: string;
+  backgroundDataUrl?: string | null;
+  pdfUrl?: string | null;
+  sheetNames?: unknown;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
+  rawPayload?: unknown;
+};
+
 export type PetroleumCoreSyncPayload = {
   companyLinks: PetroleumCompanyLinkSnapshot[];
   fields: PetroleumFieldSnapshot[];
@@ -255,6 +326,7 @@ export type PetroleumCoreSyncPayload = {
   facilities: PetroleumFacilitySnapshot[];
   tufs: PetroleumTufSnapshot[];
   surveys: PetroleumSurveySnapshot[];
+  wellbores: PetroleumWellboreSnapshot[];
 };
 
 export type PetroleumMetricsSyncPayload = {
@@ -266,4 +338,9 @@ export type PetroleumMetricsSyncPayload = {
 export type PetroleumEventsSyncPayload = {
   events: PetroleumEventSnapshot[];
   availabilityMessage?: string | null;
+};
+
+export type PetroleumPublicationsSyncPayload = {
+  forecasts: PetroleumForecastSnapshotRecord[];
+  publications: PetroleumPublicationSnapshotRecord[];
 };

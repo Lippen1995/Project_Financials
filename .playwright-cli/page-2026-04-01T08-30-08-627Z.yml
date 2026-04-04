@@ -1,0 +1,87 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "ProjectX" [ref=e6] [cursor=pointer]:
+          - /url: /
+        - paragraph [ref=e7]: Skarp innsikt for kritiske forretningsbeslutninger.
+      - navigation [ref=e8]:
+        - link "Søk" [ref=e9] [cursor=pointer]:
+          - /url: /search
+        - link "Tilgang" [ref=e10] [cursor=pointer]:
+          - /url: /pricing
+        - link "Logg inn" [ref=e11] [cursor=pointer]:
+          - /url: /login
+  - main [ref=e12]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - generic [ref=e17]: Norsk selskapsanalyse
+          - generic [ref=e18]:
+            - heading "Skarp innsikt for kritiske forretningsbeslutninger." [level=1] [ref=e19]
+            - paragraph [ref=e20]: Søk i norske selskaper, personer og organisasjonsnumre med offisielle data fra Brønnøysundregistrene og SSB. ProjectX er bygget for team som trenger raske, etterprøvbare svar når vurderinger og beslutninger haster.
+        - generic [ref=e22]:
+          - textbox "Søk etter selskap, person eller organisasjonsnummer" [ref=e23]
+          - button "Søk selskaper" [ref=e24]
+        - generic [ref=e25]: Orgnr 928846466Daglig lederStyremedlemJuridisk navn
+      - complementary [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: Hva produktet gjør
+          - generic [ref=e29]: Fra registerdata til skarpere vurderinger.
+          - paragraph [ref=e30]: ProjectX er designet som et analyseverktøy, ikke en bedriftskatalog. Hver flate skal bidra til å vurdere et foretak raskt, presist og på et sporbart grunnlag.
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - generic [ref=e33]: Datagrunnlag
+            - generic [ref=e34]: Informasjonen er strukturert for vurdering og kontroll, med tydelig skille mellom det som er registrert, og det som ikke er tilgjengelig i offisielle kilder.
+          - generic [ref=e35]:
+            - generic [ref=e36]: Produktdisiplin
+            - generic [ref=e37]: Ingen plassholdere, ingen pyntede signaler og ingen snarveier når datagrunnlaget er tynt.
+    - generic [ref=e38]:
+      - generic [ref=e40]: Hva du kan avdekke
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]: "01"
+          - heading "Kontroll og beslutningsmyndighet" [level=2] [ref=e44]
+          - paragraph [ref=e45]: Se hvem som sitter i styret, hvem som leder foretaket og hvilke fullmakter som er registrert.
+        - generic [ref=e46]:
+          - generic [ref=e47]: "02"
+          - heading "Regnskap over tid" [level=2] [ref=e48]
+          - paragraph [ref=e49]: Les utviklingen i drift, resultat og balanse i et stramt finansielt format, ikke som katalogkort.
+        - generic [ref=e50]:
+          - generic [ref=e51]: "03"
+          - heading "Juridisk struktur" [level=2] [ref=e52]
+          - paragraph [ref=e53]: Forstå underenheter, registrerte relasjoner og formell struktur i én samlet analyseflate.
+    - generic [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - generic [ref=e58]: Produktets flater
+            - heading "Bygget for rask scanning og skarp analyse" [level=2] [ref=e59]
+          - link "Åpne søk" [ref=e60] [cursor=pointer]:
+            - /url: /search
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - generic [ref=e63]: Selskapsprofil
+            - generic [ref=e64]: Juridisk navn, status, bransje, kommune, hovedsignaler og sentrale vurderingspunkter i samme arbeidsflate.
+          - generic [ref=e65]:
+            - generic [ref=e66]: Regnskap
+            - generic [ref=e67]: Tidsserier, analyserbare tabeller og sober grafikk med tydelige årskolonner og lesbare negative tall.
+          - generic [ref=e68]:
+            - generic [ref=e69]: Organisasjon
+            - generic [ref=e70]: Roller, juridisk struktur, signatur og prokura presentert som formell kontrollinformasjon.
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]: Datagrunnlag
+          - heading "Tillit bygges i hvordan data brukes" [level=2] [ref=e74]
+        - generic [ref=e75]:
+          - generic [ref=e76]: Brønnøysundregistrene
+          - generic [ref=e77]: Virksomhetsdata, roller, juridisk struktur og kunngjøringer
+        - generic [ref=e78]:
+          - generic [ref=e79]: SSB
+          - generic [ref=e80]: Næringskodeverk og klassifikasjoner
+        - generic [ref=e81]:
+          - generic [ref=e82]: Produktlogikk
+          - generic [ref=e83]: Tomme tilstander når offisielle data mangler
+        - generic [ref=e84]:
+          - generic [ref=e85]: Videre bruk
+          - paragraph [ref=e86]: Avanserte funksjoner kan legges til senere, men kjerneinnholdet skal alltid beholde prioritet.

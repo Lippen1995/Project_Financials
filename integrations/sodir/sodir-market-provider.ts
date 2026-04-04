@@ -9,6 +9,7 @@ import {
   PetroleumMetricsSyncPayload,
   PetroleumProductionPointSnapshot,
   PetroleumReserveSnapshotRecord,
+  PetroleumWellboreSnapshot,
 } from "@/server/services/petroleum-market-types";
 
 type ArcGisFeature<T> = {
@@ -25,6 +26,10 @@ type ArcGisFeature<T> = {
 type ArcGisResponse<T> = {
   features?: ArcGisFeature<T>[];
   exceededTransferLimit?: boolean;
+};
+
+type ArcGisAttributesWithObjectId = {
+  OBJECTID?: number;
 };
 
 type CompanyAttributes = {
@@ -130,6 +135,7 @@ type PipelineAttributes = {
 };
 
 type SurveyAttributes = {
+  OBJECTID?: number;
   seaNpdidSurvey: number;
   seaName: string;
   seaStatus?: string | null;
@@ -144,6 +150,53 @@ type SurveyAttributes = {
   seaPlanFromDate?: number | null;
   seaPlanToDate?: number | null;
   seaFactPageUrl?: string | null;
+};
+
+type SurveyFootprintAttributes = {
+  OBJECTID?: number;
+  seaNpdidSurvey: number;
+  seaName?: string | null;
+  seaStatus?: string | null;
+  seaMarketAvailable?: string | null;
+  seaCompanyReported?: string | null;
+  seaSurveyTypeMain?: string | null;
+  seaSurveyTypePart?: string | null;
+  geoArea?: string | null;
+  seaPolygonKind?: string | null;
+  seaNetGross?: string | null;
+  seaPlanFromDate?: number | null;
+  seaPlanToDate?: number | null;
+  seaDateStarting?: number | null;
+  seaDateFinalized?: number | null;
+  seaFactMapUrl?: string | null;
+  seaFactPageUrl?: string | null;
+};
+
+type WellboreAttributes = {
+  OBJECTID?: number;
+  wlbNpdidWellbore: number;
+  wlbWellboreName: string;
+  wlbWell?: string | null;
+  wlbDrillingOperator?: string | null;
+  cmpNpdidCompany?: number | null;
+  wlbProductionLicence?: string | null;
+  wlbPurpose?: string | null;
+  wlbStatus?: string | null;
+  wlbContent?: string | null;
+  wlbWellType?: string | null;
+  wlbEntryDate?: number | null;
+  wlbCompletionDate?: number | null;
+  wlbField?: string | null;
+  wlbDrillPermit?: string | null;
+  wlbDiscovery?: string | null;
+  wlbFinalVerticalDepth?: number | null;
+  wlbTotalDepth?: number | null;
+  wlbWaterDepth?: number | null;
+  wlbMainArea?: string | null;
+  wlbDrillingFacility?: string | null;
+  wlbProductionFacility?: string | null;
+  wlbLicensingActivity?: string | null;
+  wlbFactPageUrl?: string | null;
 };
 
 type FieldOperatorAttributes = {
@@ -245,6 +298,7 @@ type InvestmentAttributes = {
 
 const PAGE_SIZE = 2000;
 const DATA_SERVICE_BASE = `${env.sodirFactmapsBaseUrl}/DataService/Data/FeatureServer`;
+const FACTMAPS_WGS84_BASE = `${env.sodirFactmapsBaseUrl}/Factmaps/FactMapsWGS84/MapServer`;
 
 function buildLayerQueryUrl(layerId: number, params: Record<string, string | number | undefined>) {
   const query = new URLSearchParams();
@@ -257,37 +311,89 @@ function buildLayerQueryUrl(layerId: number, params: Record<string, string | num
   return `${DATA_SERVICE_BASE}/${layerId}/query?${query.toString()}`;
 }
 
-async function queryLayer<T>(layerId: number, returnGeometry = false) {
+function buildMapLayerQueryUrl(layerId: number, params: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      query.set(key, `${value}`);
+    }
+  }
+
+  return `${FACTMAPS_WGS84_BASE}/${layerId}/query?${query.toString()}`;
+}
+
+async function queryArcGisLayer<T>(
+  buildUrl: (where: string) => string,
+) {
   const results: ArcGisFeature<T>[] = [];
-  let offset = 0;
+  let lastObjectId = -1;
 
   while (true) {
     const response = await fetchJson<ArcGisResponse<T>>(
-      buildLayerQueryUrl(layerId, {
-        where: "1=1",
-        outFields: "*",
-        f: "json",
-        outSR: returnGeometry ? 4326 : undefined,
-        returnGeometry: returnGeometry ? "true" : "false",
-        resultOffset: offset,
-        resultRecordCount: PAGE_SIZE,
-        orderByFields: "OBJECTID ASC",
-      }),
+      buildUrl(lastObjectId >= 0 ? `OBJECTID > ${lastObjectId}` : "1=1"),
       undefined,
       120_000,
     );
 
     const features = response.features ?? [];
+    if (features.length === 0) {
+      break;
+    }
+
     results.push(...features);
+
+    const objectIds = features
+      .map((feature) => {
+        const attributes = feature.attributes as ArcGisAttributesWithObjectId;
+        return typeof attributes.OBJECTID === "number" ? attributes.OBJECTID : null;
+      })
+      .filter((value): value is number => value !== null);
+    const nextObjectId = objectIds.length > 0 ? Math.max(...objectIds) : null;
+
+    if ((nextObjectId ?? -1) <= lastObjectId) {
+      break;
+    }
 
     if (features.length < PAGE_SIZE && !response.exceededTransferLimit) {
       break;
     }
 
-    offset += PAGE_SIZE;
+    if (nextObjectId === null) {
+      break;
+    }
+
+    lastObjectId = nextObjectId;
   }
 
   return results;
+}
+
+async function queryLayer<T>(layerId: number, returnGeometry = false) {
+  return queryArcGisLayer<T>((where) =>
+    buildLayerQueryUrl(layerId, {
+      where,
+      outFields: "*",
+      f: "json",
+      outSR: returnGeometry ? 4326 : undefined,
+      returnGeometry: returnGeometry ? "true" : "false",
+      resultRecordCount: PAGE_SIZE,
+      orderByFields: "OBJECTID ASC",
+    }),
+  );
+}
+
+async function queryMapLayer<T>(layerId: number, returnGeometry = false) {
+  return queryArcGisLayer<T>((where) =>
+    buildMapLayerQueryUrl(layerId, {
+      where,
+      outFields: "*",
+      f: "json",
+      outSR: returnGeometry ? 4326 : undefined,
+      returnGeometry: returnGeometry ? "true" : "false",
+      resultRecordCount: PAGE_SIZE,
+      orderByFields: "OBJECTID ASC",
+    }),
+  );
 }
 
 function toBoolean(value: string | number | boolean | null | undefined) {
@@ -347,20 +453,46 @@ function normalizeGeometry(geometry?: ArcGisFeature<unknown>["geometry"] | null)
 
 function flattenCoordinates(value: unknown): number[][] {
   if (!Array.isArray(value)) return [];
-  if (value.length === 2 && typeof value[0] === "number" && typeof value[1] === "number") {
-    return [[value[0], value[1]]];
+
+  const flattened: number[][] = [];
+  const stack: unknown[] = [value];
+
+  while (stack.length > 0) {
+    const next = stack.pop();
+    if (!Array.isArray(next)) {
+      continue;
+    }
+
+    if (next.length === 2 && typeof next[0] === "number" && typeof next[1] === "number") {
+      flattened.push([next[0], next[1]]);
+      continue;
+    }
+
+    for (let index = next.length - 1; index >= 0; index -= 1) {
+      stack.push(next[index]);
+    }
   }
 
-  return value.flatMap((entry) => flattenCoordinates(entry));
+  return flattened;
 }
 
 function getBbox(geometry: ReturnType<typeof normalizeGeometry>) {
   if (!geometry) return null;
   const coordinates = flattenCoordinates(geometry.coordinates);
   if (coordinates.length === 0) return null;
-  const xs = coordinates.map(([x]) => x);
-  const ys = coordinates.map(([, y]) => y);
-  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] as const;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const [x, y] of coordinates) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+
+  return [minX, minY, maxX, maxY] as const;
 }
 
 function getCentroid(geometry: ReturnType<typeof normalizeGeometry>) {
@@ -384,6 +516,20 @@ function dedupeById<T>(items: T[], getId: (item: T) => number) {
 
 function buildCompanyLinkLookup(links: PetroleumCompanyLinkSnapshot[]) {
   return new Map(links.map((item) => [item.npdCompanyId, item]));
+}
+
+function getSurveyFootprintPriority(attributes: SurveyFootprintAttributes) {
+  let priority = 0;
+
+  if (attributes.seaNetGross?.trim().toLowerCase() === "gross") {
+    priority += 10;
+  }
+
+  if (attributes.seaPolygonKind?.trim().toLowerCase().includes("inkludert")) {
+    priority += 2;
+  }
+
+  return priority;
 }
 
 function mapCompanyLink(feature: ArcGisFeature<CompanyAttributes>, fetchedAt: Date, normalizedAt: Date) {
@@ -425,6 +571,8 @@ export async function fetchSodirPetroleumCoreData(): Promise<PetroleumCoreSyncPa
     facilityFeatures,
     pipelineFeatures,
     surveyFeatures,
+    surveyFootprintFeatures,
+    wellboreFeatures,
     fieldOperatorFeatures,
     fieldLicenseeFeatures,
     licenceLicenseeFeatures,
@@ -437,7 +585,9 @@ export async function fetchSodirPetroleumCoreData(): Promise<PetroleumCoreSyncPa
     queryLayer<LicenceAttributes>(3000, true),
     queryLayer<FacilityAttributes>(6000, true),
     queryLayer<PipelineAttributes>(6100, true),
-    queryLayer<SurveyAttributes>(4000, true),
+    queryLayer<SurveyAttributes>(4000, false),
+    queryMapLayer<SurveyFootprintAttributes>(420, true),
+    queryLayer<WellboreAttributes>(5000, true),
     queryLayer<FieldOperatorAttributes>(7110),
     queryLayer<FieldLicenseeAttributes>(7108),
     queryLayer<LicenceLicenseeAttributes>(3007),
@@ -565,6 +715,38 @@ export async function fetchSodirPetroleumCoreData(): Promise<PetroleumCoreSyncPa
       messageGuid: attributes.ptlMessageGUID ?? null,
     });
     licenceMessages.set(attributes.prlNpdidLicence, next);
+  }
+
+  const surveyFootprints = new Map<
+    number,
+    {
+      geometry: ReturnType<typeof normalizeGeometry>;
+      bbox: ReturnType<typeof getBbox>;
+      centroid: ReturnType<typeof getCentroid>;
+      attributes: SurveyFootprintAttributes;
+    }
+  >();
+  for (const feature of surveyFootprintFeatures) {
+    const attributes = feature.attributes;
+    const geometry = normalizeGeometry(feature.geometry);
+    if (!geometry) continue;
+
+    const current = surveyFootprints.get(attributes.seaNpdidSurvey);
+    const candidate = {
+      geometry,
+      bbox: getBbox(geometry),
+      centroid: getCentroid(geometry),
+      attributes,
+    };
+
+    if (!current) {
+      surveyFootprints.set(attributes.seaNpdidSurvey, candidate);
+      continue;
+    }
+
+    if (getSurveyFootprintPriority(attributes) >= getSurveyFootprintPriority(current.attributes)) {
+      surveyFootprints.set(attributes.seaNpdidSurvey, candidate);
+    }
   }
 
   const fields = dedupeById(
@@ -781,34 +963,87 @@ export async function fetchSodirPetroleumCoreData(): Promise<PetroleumCoreSyncPa
   const surveys = dedupeById(
     surveyFeatures.map((feature) => {
       const attributes = feature.attributes;
-      const geometry = normalizeGeometry(feature.geometry);
+      const footprint = surveyFootprints.get(attributes.seaNpdidSurvey);
+      const geometry = footprint?.geometry ?? normalizeGeometry(feature.geometry);
 
       return {
         npdId: attributes.seaNpdidSurvey,
         slug: toSlug(attributes.seaName, attributes.seaNpdidSurvey),
         name: attributes.seaName,
-        status: attributes.seaStatus ?? null,
+        status: attributes.seaStatus ?? footprint?.attributes.seaStatus ?? null,
         category: attributes.seaCategory ?? null,
-        mainType: attributes.seaSurveyTypeMain ?? null,
-        subType: attributes.seaSurveyTypePart ?? null,
-        geographicalArea: attributes.seaGeographicalArea ?? null,
-        companyName: attributes.seaCompanyReported ?? null,
+        mainType: attributes.seaSurveyTypeMain ?? footprint?.attributes.seaSurveyTypeMain ?? null,
+        subType: attributes.seaSurveyTypePart ?? footprint?.attributes.seaSurveyTypePart ?? null,
+        geographicalArea: attributes.seaGeographicalArea ?? footprint?.attributes.geoArea ?? null,
+        companyName: attributes.seaCompanyReported ?? footprint?.attributes.seaCompanyReported ?? null,
         companyNpdId: attributes.cmpNpdidCompany ?? null,
-        startedAt: toDate(attributes.seaDateStarting),
-        finalizedAt: toDate(attributes.seaDateFinalized),
-        plannedFromDate: toDate(attributes.seaPlanFromDate),
-        plannedToDate: toDate(attributes.seaPlanToDate),
-        factPageUrl: attributes.seaFactPageUrl ?? null,
+        startedAt: toDate(attributes.seaDateStarting ?? footprint?.attributes.seaDateStarting ?? null),
+        finalizedAt: toDate(attributes.seaDateFinalized ?? footprint?.attributes.seaDateFinalized ?? null),
+        plannedFromDate: toDate(attributes.seaPlanFromDate ?? footprint?.attributes.seaPlanFromDate ?? null),
+        plannedToDate: toDate(attributes.seaPlanToDate ?? footprint?.attributes.seaPlanToDate ?? null),
+        factPageUrl: attributes.seaFactPageUrl ?? footprint?.attributes.seaFactPageUrl ?? null,
         geometry,
-        bbox: getBbox(geometry),
-        centroid: getCentroid(geometry),
+        bbox: footprint?.bbox ?? getBbox(geometry),
+        centroid: footprint?.centroid ?? getCentroid(geometry),
         sourceSystem: "SODIR",
         sourceEntityType: "survey",
         sourceId: toSourceId("survey", attributes.seaNpdidSurvey),
         fetchedAt,
         normalizedAt,
-        rawPayload: attributes,
+        rawPayload: {
+          inventory: attributes,
+          footprint: footprint?.attributes ?? null,
+        },
       };
+    }),
+    (item) => item.npdId,
+  );
+
+  const wellbores = dedupeById(
+    wellboreFeatures.map((feature) => {
+      const attributes = feature.attributes;
+      const geometry = normalizeGeometry(feature.geometry);
+      const companyLink = attributes.cmpNpdidCompany
+        ? companyLookup.get(attributes.cmpNpdidCompany)
+        : undefined;
+
+      return {
+        npdId: attributes.wlbNpdidWellbore,
+        slug: toSlug(attributes.wlbWellboreName, attributes.wlbNpdidWellbore),
+        name: attributes.wlbWellboreName,
+        wellName: attributes.wlbWell ?? null,
+        drillingOperatorName: attributes.wlbDrillingOperator ?? null,
+        drillingOperatorNpdCompanyId: attributes.cmpNpdidCompany ?? null,
+        drillingOperatorOrgNumber: companyLink?.orgNumber ?? null,
+        drillingOperatorSlug: companyLink?.linkedCompanySlug ?? null,
+        productionLicence: attributes.wlbProductionLicence ?? null,
+        purpose: attributes.wlbPurpose ?? null,
+        status: attributes.wlbStatus ?? null,
+        content: attributes.wlbContent ?? null,
+        wellType: attributes.wlbWellType ?? null,
+        entryDate: toDate(attributes.wlbEntryDate),
+        completionDate: toDate(attributes.wlbCompletionDate),
+        fieldName: attributes.wlbField ?? null,
+        discoveryName: attributes.wlbDiscovery ?? null,
+        drillPermit: attributes.wlbDrillPermit ?? null,
+        totalDepth: toNullableNumber(attributes.wlbTotalDepth),
+        finalVerticalDepth: toNullableNumber(attributes.wlbFinalVerticalDepth),
+        waterDepth: toNullableNumber(attributes.wlbWaterDepth),
+        mainArea: attributes.wlbMainArea ?? null,
+        drillingFacility: attributes.wlbDrillingFacility ?? null,
+        productionFacility: attributes.wlbProductionFacility ?? null,
+        licensingActivity: attributes.wlbLicensingActivity ?? null,
+        factPageUrl: attributes.wlbFactPageUrl ?? null,
+        geometry,
+        bbox: getBbox(geometry),
+        centroid: getCentroid(geometry),
+        sourceSystem: "SODIR",
+        sourceEntityType: "wellbore",
+        sourceId: toSourceId("wellbore", attributes.wlbNpdidWellbore),
+        fetchedAt,
+        normalizedAt,
+        rawPayload: attributes,
+      } satisfies PetroleumWellboreSnapshot;
     }),
     (item) => item.npdId,
   );
@@ -821,6 +1056,7 @@ export async function fetchSodirPetroleumCoreData(): Promise<PetroleumCoreSyncPa
     facilities,
     tufs,
     surveys,
+    wellbores,
   };
 }
 
