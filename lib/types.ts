@@ -176,61 +176,16 @@ export type CompanyProfile = {
   petroleum?: CompanyPetroleumProfile | null;
 };
 
-export type IPRightType = "patent" | "trademark" | "design";
-
-export type IPRightSummary = SourceMetadata & {
-  id: string;
-  companyOrgNumber: string;
-  type: IPRightType;
-  applicationNumber: string | null;
-  title: string | null;
-  status: string | null;
-  applicationDate: string | null;
-  registrationOrGrantDate: string | null;
-  publicationDate: string | null;
-  caseUrl: string | null;
-  owners: Array<{
-    name: string;
-    orgNumber?: string | null;
-  }>;
-  lastEventDate: string | null;
-  isActive: boolean | null;
-};
-
-export type IPRightDetail = IPRightSummary & {
-  events: Array<{
-    date: string | null;
-    label: string;
-    description?: string | null;
-  }>;
-  classifications?: string[];
-  inventors?: string[];
-  representatives?: string[];
-  trademarkClasses?: string[];
-  trademarkKind?: string | null;
-  designCount?: number | null;
-};
-
-export type CompanyIpOverview = {
-  total: number;
-  patents: number;
-  trademarks: number;
-  designs: number;
-  active: number;
-  latestActivityDate: string | null;
-};
-
-export type CompanyIpTabVisibility = {
-  available: boolean;
-  reason: string | null;
-  reliable: boolean;
-  overview?: CompanyIpOverview;
-};
-
 export type CompanyPetroleumTabVisibility = {
   available: boolean;
   reason?: string | null;
   matchedBy: string[];
+  strength: "NONE" | "WEAK" | "CORE";
+  hasOperatorRole: boolean;
+  hasLicenseeRole: boolean;
+  hasAssets: boolean;
+  hasMeaningfulSnapshot: boolean;
+  hasRelevantEvents: boolean;
 };
 
 export type CompanyPetroleumSnapshot = {
@@ -317,6 +272,34 @@ export type CompanyPetroleumTopExposureRow = {
   valueSecondary?: string;
 };
 
+export type CompanyPetroleumBreakdownRow = {
+  label: string;
+  value: number;
+  sharePercent?: number | null;
+};
+
+export type CompanyPetroleumTopAssetBreakdown = {
+  byProduction: CompanyPetroleumFieldRow[];
+  byReserves: CompanyPetroleumFieldRow[];
+  byInvestment: CompanyPetroleumFieldRow[];
+};
+
+export type CompanyPetroleumPipelineAsset = {
+  entityType: "FIELD" | "LICENCE" | "DISCOVERY" | "FACILITY" | "TUF";
+  entityId: string;
+  name: string;
+  status?: string | null;
+  area?: string | null;
+  investmentNok?: number | null;
+};
+
+export type CompanyPetroleumPipeline = {
+  developmentAssets: CompanyPetroleumPipelineAsset[];
+  discoveryPipeline: CompanyPetroleumDiscoveryRow[];
+  futureInvestmentSignals: CompanyPetroleumPipelineAsset[];
+  insights: string[];
+};
+
 export type CompanyPetroleumEventSummary = {
   id: string;
   source: string;
@@ -332,11 +315,17 @@ export type CompanyPetroleumEventSummary = {
 export type CompanyPetroleumProfile = {
   visibility: CompanyPetroleumTabVisibility;
   snapshot: CompanyPetroleumSnapshot | null;
+  executiveSummary: string[];
   fields: CompanyPetroleumFieldRow[];
   licences: CompanyPetroleumLicenceRow[];
   discoveries: CompanyPetroleumDiscoveryRow[];
   infrastructure: CompanyPetroleumInfrastructureRow[];
+  areaBreakdown: CompanyPetroleumBreakdownRow[];
+  hydrocarbonBreakdown: CompanyPetroleumBreakdownRow[];
+  roleBreakdown: CompanyPetroleumBreakdownRow[];
+  topAssetBreakdown: CompanyPetroleumTopAssetBreakdown;
   topExposure: CompanyPetroleumTopExposureRow[];
+  pipeline: CompanyPetroleumPipeline | null;
   recentEvents: CompanyPetroleumEventSummary[];
   sourceStatus: PetroleumSourceStatus[];
   marketModuleUrl?: string | null;

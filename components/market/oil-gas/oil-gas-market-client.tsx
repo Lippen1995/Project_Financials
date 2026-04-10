@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -106,7 +106,7 @@ function formatMeters(value?: number | null) {
 
 function formatAreaSqKm(value?: number | null) {
   if (value === null || value === undefined) return "Ikke tilgjengelig";
-  return `${new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 1 }).format(value)} kmÂ²`;
+  return `${new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 1 }).format(value)} km²`;
 }
 
 function formatDeltaPercent(value?: number | null) {
@@ -229,7 +229,7 @@ function getCompactInspectorRows(
           null,
       },
       {
-        label: "Ã…r",
+        label: "År",
         value:
           typeof selectedFeature?.surveyYear === "number"
             ? new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 0 }).format(selectedFeature.surveyYear)
@@ -243,7 +243,7 @@ function getCompactInspectorRows(
         ),
       },
       {
-        label: "GjennomfÃ¸rt",
+        label: "Gjennomført",
         value: formatDateRangeLabel(
           typeof detail?.metadata.startedAt === "string" ? detail.metadata.startedAt : null,
           typeof detail?.metadata.finalizedAt === "string" ? detail.metadata.finalizedAt : null,
@@ -253,18 +253,18 @@ function getCompactInspectorRows(
   } else if (entityType === "WELLBORE") {
     rows.push(
       {
-        label: "OperatÃ¸r",
+        label: "Operatør",
         value: detail?.operator?.companyName ?? selectedFeature?.operator?.companyName ?? null,
       },
       {
-        label: "BrÃ¸nntype",
+        label: "Brønntype",
         value:
           (typeof detail?.metadata.wellType === "string" ? detail.metadata.wellType : null) ??
           selectedFeature?.wellType ??
           null,
       },
       {
-        label: "FormÃ¥l",
+        label: "Formål",
         value:
           (typeof detail?.metadata.purpose === "string" ? detail.metadata.purpose : null) ??
           selectedFeature?.purpose ??
@@ -297,7 +297,7 @@ function getCompactInspectorRows(
   } else {
     rows.push(
       {
-        label: "OperatÃ¸r",
+        label: "Operatør",
         value: detail?.operator?.companyName ?? selectedFeature?.operator?.companyName ?? null,
       },
       {
@@ -315,7 +315,7 @@ function getCompactInspectorRows(
         ),
       },
       {
-        label: "GjenvÃ¦rende",
+        label: "Gjenværende",
         value: formatOe(detail?.reserve?.remainingOe ?? selectedFeature?.remainingOe ?? null),
       },
       {
@@ -341,7 +341,7 @@ function getPublicationCategoryLabel(category: PetroleumPublicationSnapshot["cat
     case "MONTHLY_PRODUCTION":
       return "Produksjonstall";
     case "SHELF_YEAR":
-      return "SokkelÃ¥ret";
+      return "Sokkelåret";
     case "RESOURCE_REPORT":
       return "Ressursrapport";
     default:
@@ -362,13 +362,13 @@ function buildTableCsv(table: PetroleumTableResponse) {
   if (table.mode === "fields") {
     const headers = [
       "Navn",
-      "OmrÃ¥de",
+      "Område",
       "Status",
       "Hydrokarbon",
-      "OperatÃ¸r",
+      "Operatør",
       "Produksjon",
       "Produksjonsenhet",
-      "GjenvÃ¦rende (mill. oe)",
+      "Gjenværende (mill. oe)",
       "Forventet investering (NOK)",
     ];
     const rows = table.items.map((row) => {
@@ -394,13 +394,13 @@ function buildTableCsv(table: PetroleumTableResponse) {
   if (table.mode === "licences") {
     const headers = [
       "Navn",
-      "OmrÃ¥de",
+      "Område",
       "Status",
       "Fase",
-      "OperatÃ¸r",
-      "NÃ¥vÃ¦rende areal (km2)",
+      "Operatør",
+      "Nåværende areal (km2)",
       "Opprinnelig areal (km2)",
-      "Antall overfÃ¸ringer",
+      "Antall overføringer",
     ];
     const rows = table.items.map((row) => [
       "name" in row ? row.name : "",
@@ -419,13 +419,13 @@ function buildTableCsv(table: PetroleumTableResponse) {
   }
 
   const headers = [
-    "OperatÃ¸r",
+    "Operatør",
     "Orgnummer",
     "Felt",
     "Lisenser",
     "Produksjon",
     "Produksjonsenhet",
-    "GjenvÃ¦rende (mill. oe)",
+    "Gjenværende (mill. oe)",
   ];
   const rows = table.items.map((row) => {
     const item = row as OperatorTableRow;
@@ -509,7 +509,7 @@ function OptionChecklist({
       </summary>
       <div className="max-h-72 space-y-2 overflow-y-auto border-t border-[rgba(15,23,42,0.08)] px-4 py-3">
         {options.length === 0 ? (
-          <div className="text-sm text-slate-500">Ingen valg tilgjengelig ennÃ¥.</div>
+          <div className="text-sm text-slate-500">Ingen valg tilgjengelig ennå.</div>
         ) : (
           options.map((option) => (
             <label key={option.value} className="flex items-start gap-3 text-sm text-slate-700">
@@ -541,7 +541,7 @@ function SimpleTimeseriesChart({
   unit?: PetroleumRateUnit | null;
 }) {
   if (points.length === 0) {
-    return <div className="text-sm text-slate-500">Produksjonsserier er ikke tilgjengelige for dette utvalget ennÃ¥.</div>;
+    return <div className="text-sm text-slate-500">Produksjonsserier er ikke tilgjengelige for dette utvalget ennå.</div>;
   }
 
   const ordered = [...points].sort((left, right) =>
@@ -617,7 +617,7 @@ function CompareTimeseriesChart({
   if (points.length === 0) {
     return (
       <div className="text-sm text-slate-500">
-        Velg opptil tre felt eller operatÃ¸rer for Ã¥ sammenligne utviklingen over tid.
+        Velg opptil tre felt eller operatører for å sammenligne utviklingen over tid.
       </div>
     );
   }
@@ -774,7 +774,7 @@ function ForecastPanel({ summary }: { summary: PetroleumSummaryResponse | null }
     return (
       <Card className="p-5">
         <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Forecast</div>
-        <div className="mt-3 text-sm text-slate-500">Siste offisielle forecast er ikke tilgjengelig ennÃ¥.</div>
+        <div className="mt-3 text-sm text-slate-500">Siste offisielle forecast er ikke tilgjengelig ennå.</div>
       </Card>
     );
   }
@@ -846,7 +846,7 @@ function ForecastPanel({ summary }: { summary: PetroleumSummaryResponse | null }
             rel="noreferrer"
             className="inline-flex items-center rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-xs font-semibold text-slate-700"
           >
-            Ã…pne forecast-kilde
+            pne forecast-kilde
           </a>
         ) : null}
         {forecast.backgroundDataUrl ? (
@@ -1615,7 +1615,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       resolvedFieldCompareRows.map((row) => ({
         value: row.entityId,
         label: row.name,
-        detail: [row.area, row.operatorName].filter(Boolean).join(" Â· "),
+        detail: [row.area, row.operatorName].filter(Boolean).join(" · "),
       })),
     [resolvedFieldCompareRows],
   );
@@ -1624,7 +1624,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       resolvedOperatorCompareRows.map((row) => ({
         value: row.operatorId,
         label: row.operatorName,
-        detail: `${row.fieldCount} felt Â· ${row.licenceCount} lisenser`,
+        detail: `${row.fieldCount} felt · ${row.licenceCount} lisenser`,
       })),
     [resolvedOperatorCompareRows],
   );
@@ -1787,9 +1787,9 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <thead className="bg-[#F8FAFC] text-slate-600">
               <tr>
                 <th className="px-4 py-3 font-medium">Navn</th>
-                <th className="px-4 py-3 font-medium">OmrÃ¥de</th>
+                <th className="px-4 py-3 font-medium">Område</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">OperatÃ¸r</th>
+                <th className="px-4 py-3 font-medium">Operatør</th>
                 <th className="px-4 py-3 font-medium">{selectedMetricLabel}</th>
               </tr>
             </thead>
@@ -1802,16 +1802,16 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   <td className="px-4 py-3 text-slate-900">
                     {("name" in item ? item.name : item.operatorName) ?? "Ikke tilgjengelig"}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{("area" in item ? item.area : null) ?? "â€”"}</td>
-                  <td className="px-4 py-3 text-slate-600">{("status" in item ? item.status : null) ?? "â€”"}</td>
+                  <td className="px-4 py-3 text-slate-600">{("area" in item ? item.area : null) ?? ""}</td>
+                  <td className="px-4 py-3 text-slate-600">{("status" in item ? item.status : null) ?? ""}</td>
                   <td className="px-4 py-3 text-slate-600">
-                    {("operatorName" in item ? item.operatorName : item.operatorName) ?? "â€”"}
+                    {("operatorName" in item ? item.operatorName : item.operatorName) ?? ""}
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {item.mode === "fields"
                       ? formatRateOrVolume(item.latestProductionValue, item.latestProductionUnit)
                       : item.mode === "licences"
-                        ? `${item.transferCount} overfÃ¸ringer`
+                        ? `${item.transferCount} overføringer`
                         : formatRateOrVolume(item.latestProductionValue, item.latestProductionUnit)}
                   </td>
                 </tr>
@@ -1832,7 +1832,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Sammenligning</div>
             <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Sammenlign utvikling</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Sammenlign opptil tre felt eller operatÃ¸rer i det samme markedsutsnittet.
+              Sammenlign opptil tre felt eller operatører i det samme markedsutsnittet.
             </p>
           </div>
           <SegmentedControl
@@ -1840,7 +1840,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             onChange={setCompareMode}
             options={[
               { value: "field", label: "Felt" },
-              { value: "operator", label: "OperatÃ¸rer" },
+              { value: "operator", label: "Operatører" },
             ]}
           />
         </div>
@@ -1877,7 +1877,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 className="rounded-[0.95rem] border border-[rgba(15,23,42,0.1)] bg-white p-4"
               >
                 <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                  {compareMode === "field" ? `Felt ${index + 1}` : `OperatÃ¸r ${index + 1}`}
+                  {compareMode === "field" ? `Felt ${index + 1}` : `Operatør ${index + 1}`}
                 </div>
                 <select
                   value={currentValue}
@@ -1896,7 +1896,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   ))}
                 </select>
                 <div className="mt-2 min-h-[1.25rem] text-xs text-slate-500">
-                  {options.find((option) => option.value === currentValue)?.detail ?? "Ingen valgt ennÃ¥"}
+                  {options.find((option) => option.value === currentValue)?.detail ?? "Ingen valgt ennå"}
                 </div>
               </label>
             );
@@ -1966,7 +1966,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   rel="noreferrer"
                   className="inline-flex items-center rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-xs font-semibold text-slate-700"
                 >
-                  Ã…pne rapport
+                  pne rapport
                 </a>
                 {publication.backgroundDataUrl ? (
                   <a
@@ -1999,7 +1999,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Tidsserie</div>
               <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Produksjon og investeringer</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Linjen fÃ¸lger valgt produkt og visningsenhet. SÃ¸ylene viser historiske investeringer.
+                Linjen følger valgt produkt og visningsenhet. Søylene viser historiske investeringer.
               </p>
               <div className="mt-5">
                 <SimpleTimeseriesChart points={timeseries} view={selectedView} unit={selectedMetricUnit} />
@@ -2051,13 +2051,13 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
           <div className="grid gap-6 lg:grid-cols-2">
             <Card className="p-5">
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Leting & funn</div>
-              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Funn nÃ¦r infrastruktur</h2>
+              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Funn nær infrastruktur</h2>
               <div className="mt-5 space-y-3">
                 {discoveryFeatures.slice(0, 10).map((feature) => (
                   <div key={feature.id} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
                     <div className="text-sm font-semibold text-slate-900">{feature.name}</div>
                     <div className="mt-1 text-sm text-slate-600">
-                      {feature.area ?? "OmrÃ¥de ikke tilgjengelig"} Â· {feature.status ?? "Status ikke tilgjengelig"}
+                      {feature.area ?? "Område ikke tilgjengelig"} · {feature.status ?? "Status ikke tilgjengelig"}
                     </div>
                   </div>
                 ))}
@@ -2068,15 +2068,15 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             </Card>
             <Card className="p-5">
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Lisenssignal</div>
-              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Modenhet og overfÃ¸ringer</h2>
+              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Modenhet og overføringer</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Bruk lisenslaget i kartet sammen med markedstabellen for Ã¥ vurdere modne omrÃ¥der, Petreg-meldinger og
+                Bruk lisenslaget i kartet sammen med markedstabellen for å vurdere modne områder, Petreg-meldinger og
                 aktivitet rundt funn som kan knyttes til eksisterende infrastruktur.
               </p>
               <div className="mt-5 rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
                 Aktive lisenser: {formatNumber(summary?.kpis.activeLicenceCount)}
                 <br />
-                OperatÃ¸rer i utvalget: {formatNumber(summary?.kpis.selectedOperatorCount)}
+                Operatører i utvalget: {formatNumber(summary?.kpis.selectedOperatorCount)}
                 <br />
                 Regulatoriske hendelser: {formatNumber(summary?.kpis.recentEventCount)}
               </div>
@@ -2084,7 +2084,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
           </div>
           {renderTableSection()}
           {renderPublicationsSection(
-            "SokkelÃ¥ret og ressursgrunnlag",
+            "Sokkelåret og ressursgrunnlag",
             publications.filter((publication) => publication.category !== "MONTHLY_PRODUCTION"),
           )}
         </>
@@ -2097,10 +2097,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
           <Card className="p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="data-label text-[11px] font-semibold uppercase text-slate-500">BrÃ¸nner & boring</div>
+                <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Brønner & boring</div>
                 <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Wellbore-aktivitet i kartutsnittet</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  SlÃ¥ pÃ¥ laget `BrÃ¸nner` for Ã¥ se wellbores i kartet. Listen under bygger pÃ¥ normaliserte SODIR-wellbores,
+                  Slå på laget `Brønner` for å se wellbores i kartet. Listen under bygger på normaliserte SODIR-wellbores,
                   uten syntetisk berikelse.
                 </p>
               </div>
@@ -2110,7 +2110,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   onClick={() => toggleArrayValue("layers", "wellbores")}
                   className="inline-flex items-center rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-3.5 py-2 text-xs font-semibold text-slate-700"
                 >
-                  Vis brÃ¸nner i kartet
+                  Vis brønner i kartet
                 </button>
               ) : null}
             </div>
@@ -2125,10 +2125,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 >
                   <div className="text-sm font-semibold text-slate-900">{feature.name}</div>
                   <div className="mt-2 text-sm text-slate-600">
-                    {feature.status ?? "Status ikke tilgjengelig"} Â· {feature.area ?? "OmrÃ¥de ikke tilgjengelig"}
+                    {feature.status ?? "Status ikke tilgjengelig"} · {feature.area ?? "Område ikke tilgjengelig"}
                   </div>
                   <div className="mt-2 text-xs text-slate-500">
-                    OperatÃ¸r: {feature.operator?.companyName ?? "Ikke tilgjengelig"}
+                    Operatør: {feature.operator?.companyName ?? "Ikke tilgjengelig"}
                   </div>
                 </button>
               ))}
@@ -2170,7 +2170,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 <br />
                 Funn i utsnitt: {formatNumber(discoveryFeatures.length)}
                 <br />
-                Kartet brukes som hovedflate for Ã¥ se hvilke funn som ligger nÃ¦r eksisterende anlegg og rÃ¸r.
+                Kartet brukes som hovedflate for å se hvilke funn som ligger nær eksisterende anlegg og rør.
               </div>
             </Card>
           </div>
@@ -2186,11 +2186,11 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <Card className="p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Seismikk & undersÃ¸kelser</div>
+                  <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Seismikk & undersøkelser</div>
                   <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Surveydekning og borekontekst</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Denne fanen bruker Ã¥pne SODIR-surveys og wellbores som screeningflate for datadekning,
-                    aktivitetsnivÃ¥ og hvor det er naturlig Ã¥ grave videre i letemodning.
+                    Denne fanen bruker åpne SODIR-surveys og wellbores som screeningflate for datadekning,
+                    aktivitetsnivå og hvor det er naturlig å grave videre i letemodning.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -2209,7 +2209,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                       onClick={() => toggleArrayValue("layers", "wellbores")}
                       className="inline-flex items-center rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-3.5 py-2 text-xs font-semibold text-slate-700"
                     >
-                      Vis brÃ¸nner i kartet
+                      Vis brønner i kartet
                     </button>
                   ) : null}
                 </div>
@@ -2218,7 +2218,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <KpiTile label="Survey i utsnitt" value={formatNumber(seismicSummary?.kpis.surveyCount)} />
                 <KpiTile
-                  label="Planlagt / pÃ¥gÃ¥ende"
+                  label="Planlagt / pågående"
                   value={`${formatNumber(seismicSummary?.kpis.plannedSurveyCount)} / ${formatNumber(seismicSummary?.kpis.ongoingSurveyCount)}`}
                 />
                 <KpiTile
@@ -2245,7 +2245,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="rounded-[0.95rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm text-slate-700">
-                  <div className="mb-2 font-medium">Fra Ã¥r</div>
+                  <div className="mb-2 font-medium">Fra år</div>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -2262,7 +2262,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   />
                 </label>
                 <label className="rounded-[0.95rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm text-slate-700">
-                  <div className="mb-2 font-medium">Til Ã¥r</div>
+                  <div className="mb-2 font-medium">Til år</div>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -2281,15 +2281,15 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               </div>
 
               <div className="mt-4 rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
-                Siste surveyÃ¥r i gjeldende utsnitt:{" "}
+                Siste surveyår i gjeldende utsnitt:{" "}
                 <span className="font-semibold text-slate-900">
                   {seismicSummary?.kpis.latestSurveyYear ?? "Ikke tilgjengelig"}
                 </span>
                 <br />
-                Surveyinventaret og footprintene kommer fra Ã¥pne SODIR-data. Kartlaget bruker offisielle
-                survey-polygone fra FactMaps der SODIR publiserer geometri, mens inventaret fortsatt kan vÃ¦re
-                stÃ¸rre enn kartlaget for poster uten publisert polygon. PÃ¥ lav zoom viser kartet enklere
-                survey-markÃ¸rer, og nÃ¥r du zoomer inn fÃ¥r du de fulle footprintene. Aktive survey-geometrier i kartet nÃ¥:{" "}
+                Surveyinventaret og footprintene kommer fra åpne SODIR-data. Kartlaget bruker offisielle
+                survey-polygone fra FactMaps der SODIR publiserer geometri, mens inventaret fortsatt kan være
+                større enn kartlaget for poster uten publisert polygon. På lav zoom viser kartet enklere
+                survey-markører, og når du zoomer inn får du de fulle footprintene. Aktive survey-geometrier i kartet nå:{" "}
                 <span className="font-semibold text-slate-900">{formatNumber(surveyMapFeatureCount)}</span>.
               </div>
             </Card>
@@ -2309,18 +2309,18 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                       <div>
                         <div className="text-sm font-semibold text-slate-900">{item.name}</div>
                         <div className="mt-1 text-sm text-slate-600">
-                          {[item.category, item.status, item.area].filter(Boolean).join(" Â· ") || "Ingen ekstra metadata"}
+                          {[item.category, item.status, item.area].filter(Boolean).join(" · ") || "Ingen ekstra metadata"}
                         </div>
                       </div>
                       <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                        {item.year ?? "Ukjent Ã¥r"}
+                        {item.year ?? "Ukjent år"}
                       </div>
                     </div>
                   </button>
                 ))}
                 {seismicRecentItems.length === 0 ? (
                   <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[#F8FAFC] p-4 text-sm text-slate-500">
-                    Ingen surveys eller wellbores matcher gjeldende utsnitt og filtre ennÃ¥.
+                    Ingen surveys eller wellbores matcher gjeldende utsnitt og filtre ennå.
                   </div>
                 ) : null}
               </div>
@@ -2331,10 +2331,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Survey inventory</div>
-                <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Surveys og brÃ¸nner i samme arbeidsflate</h2>
+                <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Surveys og brønner i samme arbeidsflate</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Tabellen under er normalisert fra Ã¥pne SODIR-data og er ment som screening for dekning,
-                  aktivitet og nÃ¦rliggende borekontekst.
+                  Tabellen under er normalisert fra åpne SODIR-data og er ment som screening for dekning,
+                  aktivitet og nærliggende borekontekst.
                 </p>
               </div>
               <div className="text-sm text-slate-500">
@@ -2349,9 +2349,9 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">Objekt</th>
                     <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">Type</th>
                     <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">Status</th>
-                    <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">OmrÃ¥de</th>
-                    <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">OperatÃ¸r</th>
-                    <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">Ã…r</th>
+                    <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">Område</th>
+                    <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">Operatør</th>
+                    <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">r</th>
                     <th className="border-b border-[rgba(15,23,42,0.08)] px-3 py-3">Dybde / felt</th>
                   </tr>
                 </thead>
@@ -2368,7 +2368,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                         </button>
                       </td>
                       <td className="border-b border-[rgba(15,23,42,0.06)] px-3 py-3">
-                        {row.entityType === "SURVEY" ? row.category ?? "Survey" : row.category ?? "BrÃ¸nn"}
+                        {row.entityType === "SURVEY" ? row.category ?? "Survey" : row.category ?? "Brønn"}
                       </td>
                       <td className="border-b border-[rgba(15,23,42,0.06)] px-3 py-3">{row.status ?? "Ikke tilgjengelig"}</td>
                       <td className="border-b border-[rgba(15,23,42,0.06)] px-3 py-3">{row.area ?? "Ikke tilgjengelig"}</td>
@@ -2380,7 +2380,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                         {row.entityType === "WELLBORE"
                           ? [row.relatedFieldName, row.totalDepth ? formatMeters(row.totalDepth) : null]
                               .filter(Boolean)
-                              .join(" Â· ") || "Ikke tilgjengelig"
+                              .join(" · ") || "Ikke tilgjengelig"
                           : row.relatedFieldName ?? "Ikke tilgjengelig"}
                       </td>
                     </tr>
@@ -2403,15 +2403,15 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       return (
         <>
           <Card className="p-5">
-            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Havbunn & nye nÃ¦ringer</div>
-            <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Publikasjonsgrunnlag fÃ¸rst</h2>
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Havbunn & nye næringer</div>
+            <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Publikasjonsgrunnlag først</h2>
             <div className="mt-4 rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
-              Vi viser forelÃ¸pig rapport- og begrepsgrunnlaget for havbunn, CO2 og nye nÃ¦ringer mens egne objektlag fra
+              Vi viser foreløpig rapport- og begrepsgrunnlaget for havbunn, CO2 og nye næringer mens egne objektlag fra
               SODIR bygges inn som separate domeneobjekter. Kartet beholdes, men vi fyller ikke denne fanen med
               uverifisert eller syntetisk innhold.
             </div>
           </Card>
-          {renderPublicationsSection("SokkelÃ¥ret og ressursgrunnlag", publications)}
+          {renderPublicationsSection("Sokkelåret og ressursgrunnlag", publications)}
         </>
       );
     }
@@ -2421,8 +2421,8 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
         <>
           <div className="grid gap-6 lg:grid-cols-2">
             <Card className="p-5">
-              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">OperatÃ¸rer</div>
-              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">OperatÃ¸rbilde</h2>
+              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Operatører</div>
+              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Operatørbilde</h2>
               <div className="mt-5 space-y-4">
                 {summary?.operatorConcentration.map((row) => (
                   <div key={row.operatorName} className="space-y-2">
@@ -2450,7 +2450,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   >
                     <div className="text-sm font-semibold text-slate-900">{field.name}</div>
                     <div className="mt-1 text-sm text-slate-600">
-                      {field.operatorName ?? "OperatÃ¸r ikke tilgjengelig"} Â· {field.area ?? "OmrÃ¥de ikke tilgjengelig"}
+                      {field.operatorName ?? "Operatør ikke tilgjengelig"} · {field.area ?? "Område ikke tilgjengelig"}
                     </div>
                   </button>
                 ))}
@@ -2540,13 +2540,13 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
           <p className="mt-4 text-sm leading-7 text-white/78">
             {premium
               ? "Du ser den fulle markedsflaten med SODIR-masterdata, tidsserier og overlays."
-              : "Visningen er aktiv, men er tydelig merket som premium-modul i denne fÃ¸rste versjonen."}
+              : "Visningen er aktiv, men er tydelig merket som premium-modul i denne første versjonen."}
           </p>
           <div className="hidden mt-5 rounded-[1rem] border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/82">
-            Gassco-overlay er koblet Ã¦rlig som utilgjengelig nÃ¥r UMM ikke lar seg hente stabilt maskinelt.
+            Gassco-overlay er koblet ærlig som utilgjengelig når UMM ikke lar seg hente stabilt maskinelt.
           </div>
           <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/82">
-            Gassco sanntidsnomineringer hentes nÃ¥ fra direkte Atom-feed. Full UMM-dekning holdes fortsatt
+            Gassco sanntidsnomineringer hentes nå fra direkte Atom-feed. Full UMM-dekning holdes fortsatt
             konservativ til feedene er stabile over tid.
           </div>
         </aside>
@@ -2595,11 +2595,11 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
           </div>
         </div>
         <div className="rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">NÃ¥ valgt</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Nå valgt</div>
           <div className="mt-2 text-lg font-semibold text-slate-950">{selectedMetricLabel}</div>
           <div className="mt-2 text-sm leading-6 text-slate-600">
             {selectedView === "rate"
-              ? "Dagrate gjÃ¸r det enklere Ã¥ sammenligne tempo mot fjorÃ¥ret fÃ¸r Ã¥ret er ferdig."
+              ? "Dagrate gjør det enklere å sammenligne tempo mot fjoråret før året er ferdig."
               : "Volum viser offisielle rapporterte mengder fra SODIR som grunnlag for marked og forecast."}
           </div>
         </div>
@@ -2612,7 +2612,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <input
               value={queryInput}
               onChange={(event) => setQueryInput(event.target.value)}
-              placeholder="SÃ¸k etter felt, lisens eller innretning"
+              placeholder="Søk etter felt, lisens eller innretning"
               className="w-full rounded-[0.9rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[#31495f]"
             />
 
@@ -2640,13 +2640,13 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               onToggle={(value) => toggleArrayValue("status", value)}
             />
             <OptionChecklist
-              title="OmrÃ¥der"
+              title="Områder"
               options={summary?.filterOptions.areas ?? []}
               selectedValues={filters.areas ?? []}
               onToggle={(value) => toggleArrayValue("areas", value)}
             />
             <OptionChecklist
-              title="OperatÃ¸rer"
+              title="Operatører"
               options={summary?.filterOptions.operators ?? []}
               selectedValues={filters.operatorIds ?? []}
               onToggle={(value) => toggleArrayValue("operatorIds", value)}
@@ -2703,12 +2703,12 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     detail={selectedMetricLabel}
                   />
                   <KpiTile label="YoY YTD" value={formatDeltaPercent(summary?.kpis.yoyYtdDeltaPercent)} />
-                  <KpiTile label="MÃ¥ned vs i fjor" value={formatDeltaPercent(summary?.kpis.currentMonthVsLastYearPercent)} />
+                  <KpiTile label="Måned vs i fjor" value={formatDeltaPercent(summary?.kpis.currentMonthVsLastYearPercent)} />
                   <KpiTile label="Forecast-avvik" value={formatDeltaPercent(summary?.kpis.forecastDeviationPercent)} />
                 </>
               ) : activeTab === "wells" ? (
                 <>
-                  <KpiTile label="BrÃ¸nner i utsnitt" value={formatNumber(wellboreFeatures.length)} />
+                  <KpiTile label="Brønner i utsnitt" value={formatNumber(wellboreFeatures.length)} />
                   <KpiTile label="Aktive felt" value={formatNumber(summary?.kpis.activeFieldCount)} />
                   <KpiTile label="Hendelser" value={formatNumber(summary?.kpis.recentEventCount)} />
                 </>
@@ -2716,17 +2716,17 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 <>
                   <KpiTile label="Infrastruktur" value={formatNumber(infrastructureFeatures.length)} />
                   <KpiTile label="Aktive lisenser" value={formatNumber(summary?.kpis.activeLicenceCount)} />
-                  <KpiTile label="OperatÃ¸rer" value={formatNumber(summary?.kpis.selectedOperatorCount)} />
+                  <KpiTile label="Operatører" value={formatNumber(summary?.kpis.selectedOperatorCount)} />
                 </>
               ) : activeTab === "seismic" ? (
                 <>
                   <KpiTile label="Survey i utsnitt" value={formatNumber(seismicSummary?.kpis.surveyCount)} />
-                  <KpiTile label="PÃ¥gÃ¥ende" value={formatNumber(seismicSummary?.kpis.ongoingSurveyCount)} />
+                  <KpiTile label="Pågående" value={formatNumber(seismicSummary?.kpis.ongoingSurveyCount)} />
                   <KpiTile label="Wellbores" value={formatNumber(seismicSummary?.kpis.wellboreCount)} />
                 </>
               ) : activeTab === "companies" ? (
                 <>
-                  <KpiTile label="OperatÃ¸rer" value={formatNumber(summary?.kpis.selectedOperatorCount)} />
+                  <KpiTile label="Operatører" value={formatNumber(summary?.kpis.selectedOperatorCount)} />
                   <KpiTile label="Aktive felt" value={formatNumber(summary?.kpis.activeFieldCount)} />
                   <KpiTile
                     label="Produksjon"
@@ -2741,13 +2741,13 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 <>
                   <KpiTile label="Hendelser 12 mnd" value={formatNumber(summary?.kpis.recentEventCount)} />
                   <KpiTile label="Gassco sanntid" value={formatNumber(gasscoRealtimeEvents.length)} />
-                  <KpiTile label="Ã˜vrige hendelser" value={formatNumber(marketEvents.length)} />
+                  <KpiTile label="vrige hendelser" value={formatNumber(marketEvents.length)} />
                 </>
               ) : (
                 <>
                   <KpiTile label="Aktive felt" value={formatNumber(summary?.kpis.activeFieldCount)} />
                   <KpiTile label="Aktive lisenser" value={formatNumber(summary?.kpis.activeLicenceCount)} />
-                  <KpiTile label="OperatÃ¸rer" value={formatNumber(summary?.kpis.selectedOperatorCount)} />
+                  <KpiTile label="Operatører" value={formatNumber(summary?.kpis.selectedOperatorCount)} />
                 </>
               )}
             </div>
@@ -2777,7 +2777,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   <div className="mt-2 text-sm text-slate-600">
                     {isMapDrivingResults
                       ? `Kartet styrer analysen. Viser ${formatNumber(features.length)} objekter i gjeldende utsnitt.`
-                      : "Panorer og zoom for Ã¥ avgrense hele analysesiden til valgt kartutsnitt."}
+                      : "Panorer og zoom for å avgrense hele analysesiden til valgt kartutsnitt."}
                   </div>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(15,23,42,0.1)] bg-[#F8FAFC] px-3 py-2 text-xs font-semibold text-slate-600">
@@ -2822,13 +2822,13 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 <div className="absolute bottom-4 left-4 z-[2] w-[20rem] max-w-[calc(100%-2rem)] rounded-[1rem] border border-white/80 bg-white/95 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.14)] backdrop-blur">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="data-label text-[10px] font-semibold uppercase text-slate-500">KartinspektÃ¸r</div>
+                      <div className="data-label text-[10px] font-semibold uppercase text-slate-500">Kartinspektør</div>
                       <div className="mt-2 text-lg font-semibold text-slate-950">
                         {detail?.name ?? selectedFeature?.name ?? "Valgt objekt"}
                       </div>
                       <div className="mt-1 text-sm text-slate-500">
-                        {detail?.status ?? selectedFeature?.status ?? "Status ikke tilgjengelig"} Â·{" "}
-                        {detail?.area ?? selectedFeature?.area ?? "OmrÃ¥de ikke tilgjengelig"}
+                        {detail?.status ?? selectedFeature?.status ?? "Status ikke tilgjengelig"} ·{" "}
+                        {detail?.area ?? selectedFeature?.area ?? "Område ikke tilgjengelig"}
                       </div>
                     </div>
                     <button
@@ -2848,12 +2848,12 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                           </div>
                         ))
                       ) : (
-                        <div>Ingen objekttilpassede nÃ¸kkeltall tilgjengelig ennÃ¥.</div>
+                        <div>Ingen objekttilpassede nøkkeltall tilgjengelig ennå.</div>
                       )}
                     </div>
                   ) : (
                     <div className="mt-4 space-y-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-3 text-sm text-slate-700">
-                    <div>OperatÃ¸r: {detail?.operator?.companyName ?? selectedFeature?.operator?.companyName ?? "Ikke tilgjengelig"}</div>
+                    <div>Operatør: {detail?.operator?.companyName ?? selectedFeature?.operator?.companyName ?? "Ikke tilgjengelig"}</div>
                     <div>Hydrokarbon: {detail?.hcType ?? selectedFeature?.hcType ?? "Ikke tilgjengelig"}</div>
                     <div>
                       {selectedMetricLabel}:{" "}
@@ -2865,7 +2865,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                         selectedFeature?.selectedProductionUnit ?? detail?.timeseries.at(-1)?.selectedUnit ?? selectedMetricUnit,
                       )}
                     </div>
-                    <div>GjenvÃ¦rende: {formatOe(detail?.reserve?.remainingOe ?? selectedFeature?.remainingOe ?? null)}</div>
+                    <div>Gjenværende: {formatOe(detail?.reserve?.remainingOe ?? selectedFeature?.remainingOe ?? null)}</div>
                     <div>Forv. investering: {formatCompactNok(detail?.investment?.expectedFutureInvestmentNok ?? selectedFeature?.expectedFutureInvestmentNok ?? null)}</div>
                     </div>
                   )}
@@ -2909,7 +2909,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               ) : null}
               {loading || isViewportPending ? (
                 <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-white/70 bg-white/92 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
-                  Oppdaterer kart og analyserâ€¦
+                  Oppdaterer kart og analyser
                 </div>
               ) : null}
             </div>
@@ -2931,7 +2931,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                       {isExporting ? "Eksporterer CSV..." : "Eksporter CSV"}
                     </button>
                     <div className="inline-flex items-center rounded-full border border-[rgba(15,23,42,0.1)] bg-[#F8FAFC] px-3 py-2 text-xs font-semibold text-slate-600">
-                      {compareMode === "field" ? "Feltsammenligning" : "OperatÃ¸rsammenligning"}:{" "}
+                      {compareMode === "field" ? "Feltsammenligning" : "Operatørsammenligning"}:{" "}
                       {formatNumber(compareSummaryCount)} valgt
                     </div>
                     {selectedEntityKey ? (
@@ -2997,7 +2997,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 </div>
                 <div className="flex items-center gap-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2">
                   <span className="h-0.5 w-6 bg-[#14213d]" />
-                  TUF og hovedrÃ¸rledninger
+                  TUF og hovedrørledninger
                 </div>
                 <div className="flex items-center gap-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2">
                   <span className="relative flex h-4 w-6 items-center justify-center">
@@ -3018,7 +3018,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Detaljpanel</div>
             {!detail ? (
               <div className="mt-4 text-sm leading-7 text-slate-600">
-                Velg et objekt i kartet for Ã¥ se produksjon, survey- eller brÃ¸nnkontekst,
+                Velg et objekt i kartet for å se produksjon, survey- eller brønnkontekst,
                 reserver, investeringer og tilknyttede selskaper.
               </div>
             ) : (
@@ -3026,7 +3026,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 <div>
                   <div className="text-[1.4rem] font-semibold text-slate-950">{detail.name}</div>
                   <div className="mt-1 text-sm text-slate-500">
-                    {detail.status ?? "Status ikke tilgjengelig"} Â· {detail.area ?? "OmrÃ¥de ikke tilgjengelig"}
+                    {detail.status ?? "Status ikke tilgjengelig"} · {detail.area ?? "Område ikke tilgjengelig"}
                   </div>
                 </div>
                 <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-700">
@@ -3061,7 +3061,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     ) : (
                       detail.licensees.map((licensee, index) => (
                         <div key={`${licensee.companyName}-${index}`} className="rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2 text-sm text-slate-700">
-                          {licensee.companyName ?? "Ukjent"} Â· {licensee.share ?? "â€”"}%
+                          {licensee.companyName ?? "Ukjent"} · {licensee.share ?? ""}%
                         </div>
                       ))
                     )}
