@@ -986,6 +986,111 @@ function getYearToDateMetrics(
   };
 }
 
+function getFieldYearToDateMetrics(
+  points: PetroleumProductionPoint[],
+  product: PetroleumProductSeries,
+  view: PetroleumMetricView,
+) {
+  const monthlyPoints = points.filter((point) => point.entityType === "FIELD" && point.month);
+
+  const latestPoint = monthlyPoints[monthlyPoints.length - 1];
+  if (!latestPoint?.month) {
+    return {
+      latestMonth: null,
+      latestYear: null,
+      currentValue: null,
+      previousValue: null,
+      deltaPercent: null,
+      currentMonthValue: null,
+      previousSameMonthValue: null,
+      currentMonthDeltaPercent: null,
+    };
+  }
+
+  const latestYear = latestPoint.year;
+  const latestMonth = latestPoint.month;
+  const currentPeriodPoints = monthlyPoints.filter(
+    (point) => point.year === latestYear && (point.month ?? 0) <= latestMonth,
+  );
+  const previousPeriodPoints = monthlyPoints.filter(
+    (point) => point.year === latestYear - 1 && (point.month ?? 0) <= latestMonth,
+  );
+
+  const sumValue = (entries: PetroleumProductionPoint[]) =>
+    entries.reduce((sum, point) => sum + (getProductionVolume(point, product) ?? 0), 0);
+
+  const currentVolume = sumValue(currentPeriodPoints);
+  const previousVolume = sumValue(previousPeriodPoints);
+  const currentDays = currentPeriodPoints.reduce(
+    (sum, point) => sum + getDaysInPeriod(point.year, point.month),
+    0,
+  );
+  const previousDays = previousPeriodPoints.reduce(
+    (sum, point) => sum + getDaysInPeriod(point.year, point.month),
+    0,
+  );
+
+  const currentValue =
+    view === "rate"
+      ? currentDays > 0
+        ? product === "gas" || product === "producedWater"
+          ? currentVolume / currentDays
+          : (currentVolume * 1_000_000 * 6.2898) / currentDays
+        : null
+      : currentVolume;
+  const previousValue =
+    view === "rate"
+      ? previousDays > 0
+        ? product === "gas" || product === "producedWater"
+          ? previousVolume / previousDays
+          : (previousVolume * 1_000_000 * 6.2898) / previousDays
+        : null
+      : previousVolume;
+
+  const currentMonthPoints = monthlyPoints.filter(
+    (point) => point.year === latestYear && point.month === latestMonth,
+  );
+  const previousSameMonthPoints = monthlyPoints.filter(
+    (point) => point.year === latestYear - 1 && point.month === latestMonth,
+  );
+  const currentMonthVolume = sumValue(currentMonthPoints);
+  const previousSameMonthVolume = sumValue(previousSameMonthPoints);
+  const currentMonthDays = latestMonth ? getDaysInPeriod(latestYear, latestMonth) : 0;
+  const previousSameMonthDays = latestMonth ? getDaysInPeriod(latestYear - 1, latestMonth) : 0;
+
+  const currentMonthValue =
+    view === "rate"
+      ? currentMonthDays > 0
+        ? product === "gas" || product === "producedWater"
+          ? currentMonthVolume / currentMonthDays
+          : (currentMonthVolume * 1_000_000 * 6.2898) / currentMonthDays
+        : null
+      : currentMonthVolume;
+  const previousSameMonthValue =
+    view === "rate"
+      ? previousSameMonthDays > 0
+        ? product === "gas" || product === "producedWater"
+          ? previousSameMonthVolume / previousSameMonthDays
+          : (previousSameMonthVolume * 1_000_000 * 6.2898) / previousSameMonthDays
+        : null
+      : previousSameMonthVolume;
+
+  return {
+    latestMonth,
+    latestYear,
+    currentValue,
+    previousValue,
+    deltaPercent:
+      previousValue && previousValue !== 0 ? ((currentValue ?? 0) - previousValue) / previousValue : null,
+    currentMonthValue,
+    previousSameMonthValue,
+    currentMonthDeltaPercent:
+      previousSameMonthValue && previousSameMonthValue !== 0
+        ? ((currentMonthValue ?? 0) - previousSameMonthValue) / previousSameMonthValue
+        : null,
+  };
+}
+
 function mapFieldFeature(
   field: PetroleumField,
   metrics?: {
@@ -1532,37 +1637,22 @@ export async function getPetroleumMarketFeatures(filters: PetroleumMarketFilters
   if (layers.includes("fields")) {
     features.push(
       ...filterFields(core.fields, filters)
-        .map((field) => ({
-          field,
-          ytdMetrics: getYearToDateMetrics(
-            metrics.productionPoints,
-            new Set([field.npdId]),
-            selectedProduct,
-            selectedView,
-          ),
-        }))
-        .map(({ field, ytdMetrics }) =>
-          mapFieldFeature(field, {
-            latestProductionOe: getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? null,
+        .map((field) => {
+          const fieldPoints = productionLookup.get(field.npdId) ?? [];
+          const fieldMetric = getMetricFromPointSet(fieldPoints, selectedProduct, selectedView, "annual");
+          const ytdMetrics = getFieldYearToDateMetrics(fieldPoints, selectedProduct, selectedView);
+
+          return mapFieldFeature(field, {
+            latestProductionOe: getLatestAnnualPoint(fieldPoints)?.oeNetMillSm3 ?? null,
             remainingOe: reserveLookup.get(field.npdId)?.remainingOe ?? null,
             expectedFutureInvestmentNok:
               (investmentLookup.get(field.npdId)?.expectedFutureInvestmentMillNok ?? 0) * 1_000_000,
-            selectedProductionValue: getFieldMetric(
-              productionLookup,
-              field.npdId,
-              selectedProduct,
-              selectedView,
-            ).value,
-            selectedProductionUnit: getFieldMetric(
-              productionLookup,
-              field.npdId,
-              selectedProduct,
-              selectedView,
-            ).unit,
+            selectedProductionValue: fieldMetric.value,
+            selectedProductionUnit: fieldMetric.unit,
             selectedProductionLabel: selectedView === "rate" ? "boepd / dagrate" : "Siste volum",
             productionYoYPercent: ytdMetrics.deltaPercent,
-          }),
-        )
+          });
+        })
         .filter(Boolean) as PetroleumMapFeature[],
     );
   }

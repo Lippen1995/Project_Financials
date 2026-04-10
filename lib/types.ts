@@ -173,6 +173,162 @@ export type CompanyProfile = {
   financialDocuments: NormalizedFinancialDocument[];
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;
+  petroleum?: CompanyPetroleumProfile | null;
+};
+
+export type CompanyPetroleumTabVisibility = {
+  available: boolean;
+  reason?: string | null;
+  matchedBy: string[];
+  strength: "NONE" | "WEAK" | "CORE";
+  hasOperatorRole: boolean;
+  hasLicenseeRole: boolean;
+  hasAssets: boolean;
+  hasMeaningfulSnapshot: boolean;
+  hasRelevantEvents: boolean;
+};
+
+export type CompanyPetroleumSnapshot = {
+  operatorFieldCount: number;
+  licenceCount: number;
+  discoveryCount: number;
+  facilityCount: number;
+  tufCount: number;
+  operatedProductionOe?: number | null;
+  attributableProductionOe?: number | null;
+  remainingReservesOe?: number | null;
+  expectedFutureInvestmentNok?: number | null;
+  mainAreas: string[];
+  mainHydrocarbonTypes: string[];
+  npdCompanyId?: number | null;
+};
+
+export type CompanyPetroleumRowRole = "OPERATOR" | "LICENSEE";
+
+export type CompanyPetroleumFieldRow = {
+  entityId: string;
+  npdId: number;
+  name: string;
+  status?: string | null;
+  area?: string | null;
+  hcType?: string | null;
+  role: CompanyPetroleumRowRole;
+  operatorName?: string | null;
+  operatorSlug?: string | null;
+  latestProductionValue?: number | null;
+  latestProductionUnit?: PetroleumRateUnit | null;
+  remainingOe?: number | null;
+  expectedFutureInvestmentNok?: number | null;
+  factPageUrl?: string | null;
+  detailUrl?: string | null;
+};
+
+export type CompanyPetroleumLicenceRow = {
+  entityId: string;
+  npdId: number;
+  name: string;
+  status?: string | null;
+  currentPhase?: string | null;
+  area?: string | null;
+  role: CompanyPetroleumRowRole;
+  operatorName?: string | null;
+  operatorSlug?: string | null;
+  currentAreaSqKm?: number | null;
+  transferCount?: number | null;
+  factPageUrl?: string | null;
+  detailUrl?: string | null;
+};
+
+export type CompanyPetroleumDiscoveryRow = {
+  entityId: string;
+  npdId: number;
+  name: string;
+  status?: string | null;
+  area?: string | null;
+  hcType?: string | null;
+  role: CompanyPetroleumRowRole;
+  relatedFieldName?: string | null;
+  factPageUrl?: string | null;
+  detailUrl?: string | null;
+};
+
+export type CompanyPetroleumInfrastructureRow = {
+  entityId: string;
+  npdId: number;
+  name: string;
+  entityType: "FACILITY" | "TUF";
+  status?: string | null;
+  area?: string | null;
+  kindOrMedium?: string | null;
+  role: CompanyPetroleumRowRole;
+  factPageUrl?: string | null;
+  detailUrl?: string | null;
+};
+
+export type CompanyPetroleumTopExposureRow = {
+  label: string;
+  type: "field" | "area" | "hydrocarbon" | "infrastructure";
+  valuePrimary: string;
+  valueSecondary?: string;
+};
+
+export type CompanyPetroleumBreakdownRow = {
+  label: string;
+  value: number;
+  sharePercent?: number | null;
+};
+
+export type CompanyPetroleumTopAssetBreakdown = {
+  byProduction: CompanyPetroleumFieldRow[];
+  byReserves: CompanyPetroleumFieldRow[];
+  byInvestment: CompanyPetroleumFieldRow[];
+};
+
+export type CompanyPetroleumPipelineAsset = {
+  entityType: "FIELD" | "LICENCE" | "DISCOVERY" | "FACILITY" | "TUF";
+  entityId: string;
+  name: string;
+  status?: string | null;
+  area?: string | null;
+  investmentNok?: number | null;
+};
+
+export type CompanyPetroleumPipeline = {
+  developmentAssets: CompanyPetroleumPipelineAsset[];
+  discoveryPipeline: CompanyPetroleumDiscoveryRow[];
+  futureInvestmentSignals: CompanyPetroleumPipelineAsset[];
+  insights: string[];
+};
+
+export type CompanyPetroleumEventSummary = {
+  id: string;
+  source: string;
+  eventType: string;
+  title: string;
+  summary?: string | null;
+  publishedAt?: Date | null;
+  detailUrl?: string | null;
+  entityType?: PetroleumEntityType | null;
+  entityName?: string | null;
+};
+
+export type CompanyPetroleumProfile = {
+  visibility: CompanyPetroleumTabVisibility;
+  snapshot: CompanyPetroleumSnapshot | null;
+  executiveSummary: string[];
+  fields: CompanyPetroleumFieldRow[];
+  licences: CompanyPetroleumLicenceRow[];
+  discoveries: CompanyPetroleumDiscoveryRow[];
+  infrastructure: CompanyPetroleumInfrastructureRow[];
+  areaBreakdown: CompanyPetroleumBreakdownRow[];
+  hydrocarbonBreakdown: CompanyPetroleumBreakdownRow[];
+  roleBreakdown: CompanyPetroleumBreakdownRow[];
+  topAssetBreakdown: CompanyPetroleumTopAssetBreakdown;
+  topExposure: CompanyPetroleumTopExposureRow[];
+  pipeline: CompanyPetroleumPipeline | null;
+  recentEvents: CompanyPetroleumEventSummary[];
+  sourceStatus: PetroleumSourceStatus[];
+  marketModuleUrl?: string | null;
 };
 
 export type PetroleumLayerId =
@@ -549,10 +705,71 @@ export type PetroleumSeismicTableResponse = {
 };
 
 export type PetroleumSourceStatus = {
-  source: "SODIR" | "HAVTIL" | "GASSCO";
+  source: "SODIR" | "HAVTIL" | "GASSCO" | "EIA" | "SSB" | "FISCAL" | "COMPANY_EXPOSURE";
   available: boolean;
   message?: string;
   lastSuccessAt?: Date | null;
+};
+
+export type PetroleumMarketSeriesSummary = SourceMetadata & {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  region?: string | null;
+  countryCode?: string | null;
+  product?: string | null;
+  unit: string;
+  frequency: string;
+};
+
+export type PetroleumMarketObservationPoint = {
+  seriesId: string;
+  observationDate: Date;
+  year?: number | null;
+  month?: number | null;
+  quarter?: number | null;
+  value?: number | null;
+  valueText?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type PetroleumFiscalSnapshot = SourceMetadata & {
+  id: string;
+  jurisdiction: string;
+  effectiveDate: Date;
+  title: string;
+  summary?: string | null;
+  taxRate?: number | null;
+  specialTaxRate?: number | null;
+  normPriceReference?: string | null;
+  detailUrl?: string | null;
+};
+
+export type PetroleumCompanyExposureSnapshotView = {
+  id: string;
+  companyId: string;
+  npdCompanyId?: number | null;
+  operatorFieldCount: number;
+  licenceCount: number;
+  operatedProductionOe?: number | null;
+  attributableProductionOe?: number | null;
+  remainingReservesOe?: number | null;
+  expectedFutureInvestmentNok?: number | null;
+  mainAreas: string[];
+  metadata?: Record<string, unknown> | null;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
+};
+
+export type PetroleumMacroSummaryResponse = {
+  series: PetroleumMarketSeriesSummary[];
+  latestObservations: PetroleumMarketObservationPoint[];
+  fiscalSnapshots: PetroleumFiscalSnapshot[];
+  sourceStatus: PetroleumSourceStatus[];
 };
 
 export type PetroleumSummaryResponse = {
