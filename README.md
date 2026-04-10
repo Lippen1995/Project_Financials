@@ -19,6 +19,7 @@ ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeSc
 - Roller og styre når de er tilgjengelige fra Brønnøysundregistrene
 - Årsbundet selskapsstruktur basert på importerte aksjonærregisterdata fra Skatteetaten når snapshot er tilgjengelig
 - Faner for Oversikt, Regnskap, Nøkkeltall, Organisasjon og Kunngjøringer
+- Dynamisk fane for "Immaterielle rettigheter" (patent, varemerke, design) når selskapet har treff hos Patentstyret
 - Næringskodeberiking fra SSB Klass
 - Filtrering på sentrale virksomhetsfelt
 - Innlogging, registrering og enkel feature gating
@@ -85,6 +86,15 @@ Brukes i olje- og gassmodulen slik:
 - Gassco brukes nå til sanntidsnomineringer via den offentlige `realTimeAtom.xml`-feed-en, mens generell UMM-feed fortsatt behandles konservativt fordi eventinnholdet kan være tomt eller variere over tid
 
 Frontend i `/market/oil-gas` bruker kun normaliserte ProjectX-API-er under `app/api/market/oil-gas/*`, aldri rå SODIR-, Havtil- eller Gassco-responser.
+
+### Patentstyret
+
+Brukes som kilde for:
+
+- patent-, varemerke- og designportefølje på selskapsprofil
+- detaljoppslag per IP-sak
+
+ProjectX bruker Patentstyrets Open Data-endepunkter med organisasjonsnummer som primær identifikator for portefølje.
 
 ## Viktige begrensninger
 
@@ -208,6 +218,9 @@ Dette vil:
 - `BRREG_COMPANY_LOOKUP_BASE_URL`: base-URL for Brreg virksomhetsoppslag brukt til åpne årsregnskapsmetadata
 - `BRREG_ANNOUNCEMENTS_BASE_URL`: base-URL for Brreg kunngjøringer
 - `BRREG_FINANCIALS_BASE_URL`: base-URL for Brreg Regnskapsregisterets åpne regnskaps-API
+- `PATENTSTYRET_BASE_URL`: base-URL for Patentstyrets Open Data API
+- `PATENTSTYRET_SUBSCRIPTION_KEY`: subscription key for Patentstyret (sendes kun server-side)
+- `PATENTSTYRET_ORGNUMBER_PARAM`: query-parameter brukt i `/register/v1/IprCasesByCompany` (standard `orgNumber`)
 - `SKATTEETATEN_SHAREHOLDING_BASE_URL`: base-URL for Skatteetatens Aksjonær i virksomhet API
 - `SKATTEETATEN_SHAREHOLDING_PACKAGE`: rettighetspakke for datasettet
 - `SKATTEETATEN_SHAREHOLDING_TOKEN`: bearer-token med scope `skatteetaten:aksjonaer`
