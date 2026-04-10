@@ -27,6 +27,9 @@ ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeSc
 - Kommentartråder på oppgaver, funn, kunngjøringer og regnskap i riktig DD-romkontekst
 - Workspace-abonnementer, inbox-varsler og distress-monitorer
 - Markedsanalysemodul for olje og gass på `/market/oil-gas` med SODIR-masterdata, kartlag, produksjonsserier, reserver og investeringsoversikt
+- Distress-modul med todelt flyt:
+  - oversikt på `/workspaces/[workspaceId]/distress`
+  - screener på `/workspaces/[workspaceId]/distress/search`
 - Lokal cache/persistens av hentede records med sporbarhet
 
 ## Datakilder
@@ -95,6 +98,8 @@ Frontend i `/market/oil-gas` bruker kun normaliserte ProjectX-API-er under `app/
 - AI-søk bruker OpenAI kun til å tolke søketeksten til strukturert intensjon. Kandidater hentes fortsatt fra Brreg, næringskoder berikes fra SSB, og sortering på størrelse bruker bare reelle inntektstall som finnes i lokal lagring/importerte regnskap.
 - Hvis `OPENAI_API_KEY` mangler, faller søket tilbake til en enklere regelbasert tolkning og UI-et markerer dette tydelig.
 - Distress-monitorer matcher bare selskaper som allerede finnes i ProjectX-lageret lokalt. ProjectX hevder ikke full nasjonal dekning dersom selskapet ikke er hentet eller lagret ennå.
+- Distress-tidslinjen på oversiktssiden bruker `lastAnnouncementPublishedAt` (siste registrerte kunngjøringsdato per profil), ikke full historikk av alle kunngjøringer.
+- Distress-KPI for regnskapsdekning teller profiler med dataCoverage `FINANCIALS_AVAILABLE` eller `FINANCIALS_PARTIAL`.
 - Første sync for regnskapsvarsler etablerer en baseline for lagret watch for å unngå falske historiske "nye regnskap"-varsler.
 - DD-kommentarer på selskapsprofilen vises bare når profilen er åpnet fra et gyldig DD-rom med `ddRoom` i URL-en.
 - Gassco-integrasjonen i olje- og gassmodulen bruker ekte sanntidsnomineringer fra offentlig Atom-feed. ProjectX lover fortsatt ikke full Gassco-eventdekning dersom den generelle UMM-feed-en er tom eller ikke kan verifiseres i siste sync.

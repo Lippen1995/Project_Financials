@@ -22,6 +22,7 @@ import {
   DistressCompanyRow,
   DistressFilterOptions,
   DistressFinancialSnapshotSummary,
+  DistressOverviewResponse,
   DistressScreeningResponse,
   DistressSearchFilters,
 } from "@/lib/types";
@@ -30,6 +31,11 @@ import {
   countDistressProfiles,
   deleteCompanyDistressData,
   getDistressCompanyRecord,
+  getDistressOverviewCounts,
+  getDistressRecentAnnouncements,
+  getDistressSectorOverview,
+  getDistressStatusDistribution,
+  getDistressTimelineByMonth,
   getDistressSyncState,
   listDistressFilterOptions,
   listDistressCompanyRecords,
@@ -862,6 +868,11 @@ function buildBestFitRows(rows: DistressCompanyRow[]) {
     .slice(0, DISTRESS_BEST_FIT_LIMIT);
 }
 
+function buildDistressSearchHref(workspaceId: string, params: Record<string, string>) {
+  const searchParams = new URLSearchParams(params);
+  return `/workspaces/${workspaceId}/distress/search?${searchParams.toString()}`;
+}
+
 export async function listDistressCompaniesForWorkspace(
   actorUserId: string,
   workspaceId: string,
@@ -911,6 +922,124 @@ export async function getDistressFilterOptionsForWorkspace(
       ...option,
       label: option.label && option.label !== option.value ? `${option.value} ${option.label}` : option.value,
     })),
+  };
+}
+
+export async function getDistressOverviewForWorkspace(
+  actorUserId: string,
+  workspaceId: string,
+): Promise<DistressOverviewResponse> {
+  await requireWorkspaceMembership(actorUserId, workspaceId);
+  await ensureDistressCoverage();
+
+  const [counts, statusDistribution, sectors, timeline, recentAnnouncements] = await Promise.all([
+    getDistressOverviewCounts(),
+    getDistressStatusDistribution(),
+    getDistressSectorOverview(),
+    getDistressTimelineByMonth(12),
+    getDistressRecentAnnouncements(8),
+  ]);
+
+  const financialsCoverageRate =
+    counts.totalActiveCases > 0 ? (counts.withFinancialCoverageCount / counts.totalActiveCases) * 100 : null;
+
+  const mappedStatuses = statusDistribution.map((row) => ({
+    status: row.distressStatus,
+    label: getDistressStatusLabel(row.distressStatus),
+    count: row._count._all,
+  }));
+
+  const mappedAnnouncements = recentAnnouncements.map((row) => ({
+    orgNumber: row.company.orgNumber,
+    companyName: row.company.name,
+    status: row.distressStatus,
+    statusLabel: getDistressStatusLabel(row.distressStatus),
+    title: row.lastAnnouncementTitle,
+    publishedAt: row.lastAnnouncementPublishedAt,
+  }));
+
+  const topSector = sectors[0] ?? null;
+  const opportunities = [
+    {
+      key: "reconstruction",
+      title: "Rekonstruksjonssaker",
+      description: "Saker med aktiv rekonstruksjonsprosess.",
+      href: buildDistressSearchHref(workspaceId, {
+        status: "RECONSTRUCTION",
+        view: "ALL",
+      }),
+      count: counts.reconstructions,
+    },
+    {
+      key: "bankruptcy",
+      title: "Konkurser",
+      description: "Konkursprofiler sortert i full universvisning.",
+      href: buildDistressSearchHref(workspaceId, {
+        status: "BANKRUPTCY",
+        view: "ALL",
+      }),
+      count: counts.bankruptcies,
+    },
+    {
+      key: "forced-process",
+      title: "Tvangsprosesser",
+      description: "Foretak med tvangsoppløsning eller annen tvangsprosess.",
+      href: buildDistressSearchHref(workspaceId, {
+        status: "FORCED_PROCESS",
+        view: "ALL",
+      }),
+      count: counts.forcedProcesses,
+    },
+    {
+      key: "recent-signals",
+      title: "Nye signaler siste 30 dager",
+      description: "Siste kunngjøringer med ferske distress-hendelser.",
+      href: buildDistressSearchHref(workspaceId, {
+        sort: "lastAnnouncementPublishedAt_desc",
+        view: "ALL",
+      }),
+      count: counts.recentAnnouncements30d,
+    },
+    {
+      key: "financial-coverage",
+      title: "Med regnskapsdekning",
+      description: "Kandidater med tilgjengelige eller delvise finansielle signaler.",
+      href: buildDistressSearchHref(workspaceId, {
+        view: "BEST_FIT",
+      }),
+      count: counts.withFinancialCoverageCount,
+    },
+    {
+      key: "top-sector",
+      title: topSector ? `Sektor ${topSector.sectorCode}` : "Sektorinnsikt",
+      description: topSector
+        ? `Sektoren med flest distress-profiler akkurat nå (${topSector.sectorLabel}).`
+        : "Åpne screeneren med sektorfilter.",
+      href: topSector
+        ? buildDistressSearchHref(workspaceId, {
+            sectorCode: topSector.sectorCode,
+            view: "ALL",
+          })
+        : buildDistressSearchHref(workspaceId, { view: "ALL" }),
+      count: topSector?.companyCount ?? 0,
+    },
+  ];
+
+  return {
+    kpis: {
+      totalActiveCases: counts.totalActiveCases,
+      recentAnnouncements30d: counts.recentAnnouncements30d,
+      bankruptcies: counts.bankruptcies,
+      liquidations: counts.liquidations,
+      reconstructions: counts.reconstructions,
+      forcedProcesses: counts.forcedProcesses,
+      financialsCoverageRate,
+    },
+    statusDistribution: mappedStatuses,
+    sectors,
+    timeline,
+    recentAnnouncements: mappedAnnouncements,
+    opportunities,
   };
 }
 
