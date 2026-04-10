@@ -140,6 +140,43 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="grid gap-6 xl:grid-cols-[260px,minmax(0,1fr)]">
+        <div className="border-t border-[rgba(15,23,42,0.12)] pt-4">
+          <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+            Moduler
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link
+            href="/market/oil-gas"
+            className="group rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-6 hover:border-[rgba(15,23,42,0.18)]"
+          >
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Marked</div>
+            <h2 className="mt-3 text-[1.4rem] font-semibold text-slate-950">Olje &amp; gass</h2>
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              Følg felt, operatører, hendelser og makrosignaler i én samlet markedsflate.
+            </p>
+            <div className="mt-4 text-sm font-semibold text-slate-800 group-hover:text-slate-950">
+              Åpne modul
+            </div>
+          </Link>
+
+          <Link
+            href="/market/distress"
+            className="group rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-6 hover:border-[rgba(15,23,42,0.18)]"
+          >
+            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Analyse</div>
+            <h2 className="mt-3 text-[1.4rem] font-semibold text-slate-950">Distress</h2>
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              Screen selskaper i distress med status, varighet og siste tilgjengelige regnskapssignaler.
+            </p>
+            <div className="mt-4 text-sm font-semibold text-slate-800 group-hover:text-slate-950">
+              Åpne modul
+            </div>
+          </Link>
+        </div>
+      </section>
+
       <section className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr),420px]">
         <div className="border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.72)] p-7">
           <div className="flex items-end justify-between gap-4 border-b border-[rgba(15,23,42,0.08)] pb-5">

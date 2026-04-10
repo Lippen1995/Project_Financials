@@ -1,9 +1,11 @@
-import { DistressStatus, Prisma } from "@prisma/client";
+import { DistressStatus as PrismaDistressStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
   DistressFilterOptions,
   DistressFinancialSnapshotSummary,
+  DistressOverviewSectorRow,
+  DistressOverviewTimelinePoint,
   DistressSearchFilters,
   NormalizedDistressProfile,
 } from "@/lib/types";
@@ -25,7 +27,7 @@ export async function upsertCompanyDistressProfile(companyOrgNumber: string, pro
   return prisma.companyDistressProfile.upsert({
     where: { companyId: company.id },
     update: {
-      distressStatus: profile.distressStatus as DistressStatus,
+      distressStatus: profile.distressStatus as PrismaDistressStatus,
       statusStartedAt: toNullableDate(profile.statusStartedAt),
       statusObservedAt: profile.statusObservedAt,
       daysInStatus: profile.daysInStatus ?? null,
@@ -45,7 +47,7 @@ export async function upsertCompanyDistressProfile(companyOrgNumber: string, pro
     },
     create: {
       companyId: company.id,
-      distressStatus: profile.distressStatus as DistressStatus,
+      distressStatus: profile.distressStatus as PrismaDistressStatus,
       statusStartedAt: toNullableDate(profile.statusStartedAt),
       statusObservedAt: profile.statusObservedAt,
       daysInStatus: profile.daysInStatus ?? null,
@@ -102,7 +104,7 @@ export async function upsertDistressFinancialSnapshot(
   return prisma.distressFinancialSnapshot.upsert({
     where: { companyId: company.id },
     update: {
-      distressStatus: snapshot.distressStatus as DistressStatus,
+      distressStatus: snapshot.distressStatus as PrismaDistressStatus,
       daysInStatus: snapshot.daysInStatus ?? null,
       industryCode: snapshot.industryCode ?? null,
       sectorCode: snapshot.sectorCode ?? null,
@@ -126,7 +128,7 @@ export async function upsertDistressFinancialSnapshot(
     },
     create: {
       companyId: company.id,
-      distressStatus: snapshot.distressStatus as DistressStatus,
+      distressStatus: snapshot.distressStatus as PrismaDistressStatus,
       daysInStatus: snapshot.daysInStatus ?? null,
       industryCode: snapshot.industryCode ?? null,
       sectorCode: snapshot.sectorCode ?? null,
@@ -203,7 +205,7 @@ function buildDistressWhere(filters: DistressSearchFilters): Prisma.CompanyDistr
   const hasSectorFilter = Boolean(filters.sectorCodes && filters.sectorCodes.length > 0);
 
   return {
-    distressStatus: hasStatusFilter ? { in: filters.status as DistressStatus[] } : undefined,
+    distressStatus: hasStatusFilter ? { in: filters.status as PrismaDistressStatus[] } : undefined,
     daysInStatus: {
       gte: filters.minDaysInStatus ?? undefined,
       lte: filters.maxDaysInStatus ?? undefined,
@@ -388,4 +390,244 @@ export async function listDistressFilterOptions(): Promise<DistressFilterOptions
       }))
       .sort((left, right) => left.value.localeCompare(right.value, "nb-NO")),
   };
+}
+
+export async function getDistressOverviewCounts() {
+  const recentCutoff = new Date();
+  recentCutoff.setDate(recentCutoff.getDate() - 30);
+
+  const [totalActiveCases, statusCounts, withFinancialCoverageCount, recentAnnouncements30d] = await Promise.all([
+    prisma.companyDistressProfile.count(),
+    prisma.companyDistressProfile.groupBy({
+      by: ["distressStatus"],
+      _count: {
+        _all: true,
+      },
+    }),
+    prisma.distressFinancialSnapshot.count({
+      where: {
+        dataCoverage: {
+          in: ["FINANCIALS_AVAILABLE", "FINANCIALS_PARTIAL"],
+        },
+      },
+    }),
+    prisma.companyDistressProfile.count({
+      where: {
+        lastAnnouncementPublishedAt: {
+          gte: recentCutoff,
+        },
+      },
+    }),
+  ]);
+
+  const getStatusCount = (status: PrismaDistressStatus) =>
+    statusCounts.find((item) => item.distressStatus === status)?._count._all ?? 0;
+
+  return {
+    totalActiveCases,
+    bankruptcies: getStatusCount("BANKRUPTCY"),
+    liquidations: getStatusCount("LIQUIDATION"),
+    reconstructions: getStatusCount("RECONSTRUCTION"),
+    forcedProcesses: getStatusCount("FORCED_PROCESS"),
+    withFinancialCoverageCount,
+    recentAnnouncements30d,
+  };
+}
+
+export async function getDistressStatusDistribution() {
+  return prisma.companyDistressProfile.groupBy({
+    by: ["distressStatus"],
+    _count: {
+      _all: true,
+    },
+    orderBy: {
+      distressStatus: "asc",
+    },
+  });
+}
+
+export async function getDistressSectorOverview(limit = 8): Promise<DistressOverviewSectorRow[]> {
+  const recentCutoff = new Date();
+  recentCutoff.setDate(recentCutoff.getDate() - 30);
+
+  const [totalUniverseCount, snapshots] = await Promise.all([
+    prisma.companyDistressProfile.count(),
+    prisma.distressFinancialSnapshot.findMany({
+      where: {
+        sectorCode: {
+          not: null,
+        },
+        company: {
+          distressProfile: {
+            isNot: null,
+          },
+        },
+      },
+      select: {
+        sectorCode: true,
+        sectorLabel: true,
+        dataCoverage: true,
+        companyId: true,
+        company: {
+          select: {
+            distressProfile: {
+              select: {
+                daysInStatus: true,
+                lastAnnouncementPublishedAt: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const aggregate = new Map<
+    string,
+    {
+      sectorCode: string;
+      sectorLabel: string;
+      companyIds: Set<string>;
+      withFinancialsCount: number;
+      recentAnnouncementsCount: number;
+      daysTotal: number;
+      daysCount: number;
+    }
+  >();
+
+  for (const snapshot of snapshots) {
+    if (!snapshot.sectorCode) {
+      continue;
+    }
+
+    const row = aggregate.get(snapshot.sectorCode) ?? {
+      sectorCode: snapshot.sectorCode,
+      sectorLabel: snapshot.sectorLabel ?? snapshot.sectorCode,
+      companyIds: new Set<string>(),
+      withFinancialsCount: 0,
+      recentAnnouncementsCount: 0,
+      daysTotal: 0,
+      daysCount: 0,
+    };
+
+    if (!row.companyIds.has(snapshot.companyId)) {
+      row.companyIds.add(snapshot.companyId);
+
+      const profile = snapshot.company.distressProfile;
+      if (profile?.daysInStatus !== null && profile?.daysInStatus !== undefined) {
+        row.daysTotal += profile.daysInStatus;
+        row.daysCount += 1;
+      }
+
+      if (profile?.lastAnnouncementPublishedAt && profile.lastAnnouncementPublishedAt >= recentCutoff) {
+        row.recentAnnouncementsCount += 1;
+      }
+    }
+
+    if (snapshot.dataCoverage && snapshot.dataCoverage !== "NO_FINANCIALS") {
+      row.withFinancialsCount += 1;
+    }
+
+    aggregate.set(snapshot.sectorCode, row);
+  }
+
+  return [...aggregate.values()]
+    .map((row) => ({
+      sectorCode: row.sectorCode,
+      sectorLabel: row.sectorLabel,
+      companyCount: row.companyIds.size,
+      shareOfUniverse: totalUniverseCount > 0 ? row.companyIds.size / totalUniverseCount : 0,
+      avgDaysInStatus: row.daysCount > 0 ? row.daysTotal / row.daysCount : null,
+      withFinancialsCount: row.withFinancialsCount,
+      latestAnnouncementCount30d: row.recentAnnouncementsCount,
+    }))
+    .sort((left, right) => right.companyCount - left.companyCount || left.sectorCode.localeCompare(right.sectorCode, "nb-NO"))
+    .slice(0, limit);
+}
+
+export async function getDistressRecentAnnouncements(limit = 8) {
+  return prisma.companyDistressProfile.findMany({
+    where: {
+      lastAnnouncementPublishedAt: {
+        not: null,
+      },
+    },
+    select: {
+      distressStatus: true,
+      lastAnnouncementTitle: true,
+      lastAnnouncementPublishedAt: true,
+      company: {
+        select: {
+          orgNumber: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      lastAnnouncementPublishedAt: "desc",
+    },
+    take: limit,
+  });
+}
+
+export async function getDistressTimelineByMonth(months = 12): Promise<DistressOverviewTimelinePoint[]> {
+  const safeMonths = Math.max(1, Math.min(months, 36));
+  const startMonth = new Date();
+  startMonth.setUTCDate(1);
+  startMonth.setUTCHours(0, 0, 0, 0);
+  startMonth.setUTCMonth(startMonth.getUTCMonth() - (safeMonths - 1));
+
+  const records = await prisma.companyDistressProfile.findMany({
+    where: {
+      lastAnnouncementPublishedAt: {
+        gte: startMonth,
+      },
+    },
+    select: {
+      lastAnnouncementPublishedAt: true,
+      distressStatus: true,
+    },
+  });
+
+  const bucketMap = new Map<string, DistressOverviewTimelinePoint>();
+
+  for (let index = 0; index < safeMonths; index += 1) {
+    const bucketDate = new Date(Date.UTC(startMonth.getUTCFullYear(), startMonth.getUTCMonth() + index, 1));
+    const bucket = `${bucketDate.getUTCFullYear()}-${String(bucketDate.getUTCMonth() + 1).padStart(2, "0")}`;
+    bucketMap.set(bucket, {
+      bucket,
+      total: 0,
+      bankruptcies: 0,
+      liquidations: 0,
+      reconstructions: 0,
+      forcedProcesses: 0,
+    });
+  }
+
+  for (const record of records) {
+    if (!record.lastAnnouncementPublishedAt) {
+      continue;
+    }
+
+    const bucket = `${record.lastAnnouncementPublishedAt.getUTCFullYear()}-${String(
+      record.lastAnnouncementPublishedAt.getUTCMonth() + 1,
+    ).padStart(2, "0")}`;
+    const timelinePoint = bucketMap.get(bucket);
+    if (!timelinePoint) {
+      continue;
+    }
+
+    timelinePoint.total += 1;
+    if (record.distressStatus === "BANKRUPTCY") {
+      timelinePoint.bankruptcies += 1;
+    } else if (record.distressStatus === "LIQUIDATION") {
+      timelinePoint.liquidations += 1;
+    } else if (record.distressStatus === "RECONSTRUCTION") {
+      timelinePoint.reconstructions += 1;
+    } else if (record.distressStatus === "FORCED_PROCESS") {
+      timelinePoint.forcedProcesses += 1;
+    }
+  }
+
+  return [...bucketMap.values()];
 }

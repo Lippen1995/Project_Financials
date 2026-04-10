@@ -188,7 +188,7 @@ function SortableHeader({
   return (
     <th className="data-label px-5 py-4 font-medium">
       <Link
-        href={`/workspaces/${workspaceId}/distress?${queryString}`}
+        href={`/workspaces/${workspaceId}/distress/search?${queryString}`}
         className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-950"
       >
         <span>{label}</span>

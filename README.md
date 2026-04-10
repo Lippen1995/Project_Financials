@@ -19,6 +19,7 @@ ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeSc
 - Roller og styre når de er tilgjengelige fra Brønnøysundregistrene
 - Årsbundet selskapsstruktur basert på importerte aksjonærregisterdata fra Skatteetaten når snapshot er tilgjengelig
 - Faner for Oversikt, Regnskap, Nøkkeltall, Organisasjon og Kunngjøringer
+- Dynamisk fane for "Immaterielle rettigheter" (patent, varemerke, design) når selskapet har treff hos Patentstyret
 - Næringskodeberiking fra SSB Klass
 - Filtrering på sentrale virksomhetsfelt
 - Innlogging, registrering og enkel feature gating
@@ -27,6 +28,9 @@ ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeSc
 - Kommentartråder på oppgaver, funn, kunngjøringer og regnskap i riktig DD-romkontekst
 - Workspace-abonnementer, inbox-varsler og distress-monitorer
 - Markedsanalysemodul for olje og gass på `/market/oil-gas` med SODIR-masterdata, kartlag, produksjonsserier, reserver og investeringsoversikt
+- Distress-modul med todelt flyt:
+  - oversikt på `/workspaces/[workspaceId]/distress`
+  - screener på `/workspaces/[workspaceId]/distress/search`
 - Lokal cache/persistens av hentede records med sporbarhet
 
 ## Datakilder
@@ -83,6 +87,15 @@ Brukes i olje- og gassmodulen slik:
 
 Frontend i `/market/oil-gas` bruker kun normaliserte ProjectX-API-er under `app/api/market/oil-gas/*`, aldri rå SODIR-, Havtil- eller Gassco-responser.
 
+### Patentstyret
+
+Brukes som kilde for:
+
+- patent-, varemerke- og designportefølje på selskapsprofil
+- detaljoppslag per IP-sak
+
+ProjectX bruker Patentstyrets Open Data-endepunkter med organisasjonsnummer som primær identifikator for portefølje.
+
 ## Viktige begrensninger
 
 - ProjectX viser regnskap fra Brregs offisielle PDF-kopier av årsregnskap.
@@ -95,6 +108,8 @@ Frontend i `/market/oil-gas` bruker kun normaliserte ProjectX-API-er under `app/
 - AI-søk bruker OpenAI kun til å tolke søketeksten til strukturert intensjon. Kandidater hentes fortsatt fra Brreg, næringskoder berikes fra SSB, og sortering på størrelse bruker bare reelle inntektstall som finnes i lokal lagring/importerte regnskap.
 - Hvis `OPENAI_API_KEY` mangler, faller søket tilbake til en enklere regelbasert tolkning og UI-et markerer dette tydelig.
 - Distress-monitorer matcher bare selskaper som allerede finnes i ProjectX-lageret lokalt. ProjectX hevder ikke full nasjonal dekning dersom selskapet ikke er hentet eller lagret ennå.
+- Distress-tidslinjen på oversiktssiden bruker `lastAnnouncementPublishedAt` (siste registrerte kunngjøringsdato per profil), ikke full historikk av alle kunngjøringer.
+- Distress-KPI for regnskapsdekning teller profiler med dataCoverage `FINANCIALS_AVAILABLE` eller `FINANCIALS_PARTIAL`.
 - Første sync for regnskapsvarsler etablerer en baseline for lagret watch for å unngå falske historiske "nye regnskap"-varsler.
 - DD-kommentarer på selskapsprofilen vises bare når profilen er åpnet fra et gyldig DD-rom med `ddRoom` i URL-en.
 - Gassco-integrasjonen i olje- og gassmodulen bruker ekte sanntidsnomineringer fra offentlig Atom-feed. ProjectX lover fortsatt ikke full Gassco-eventdekning dersom den generelle UMM-feed-en er tom eller ikke kan verifiseres i siste sync.
@@ -203,6 +218,9 @@ Dette vil:
 - `BRREG_COMPANY_LOOKUP_BASE_URL`: base-URL for Brreg virksomhetsoppslag brukt til åpne årsregnskapsmetadata
 - `BRREG_ANNOUNCEMENTS_BASE_URL`: base-URL for Brreg kunngjøringer
 - `BRREG_FINANCIALS_BASE_URL`: base-URL for Brreg Regnskapsregisterets åpne regnskaps-API
+- `PATENTSTYRET_BASE_URL`: base-URL for Patentstyrets Open Data API
+- `PATENTSTYRET_SUBSCRIPTION_KEY`: subscription key for Patentstyret (sendes kun server-side)
+- `PATENTSTYRET_ORGNUMBER_PARAM`: query-parameter brukt i `/register/v1/IprCasesByCompany` (standard `orgNumber`)
 - `SKATTEETATEN_SHAREHOLDING_BASE_URL`: base-URL for Skatteetatens Aksjonær i virksomhet API
 - `SKATTEETATEN_SHAREHOLDING_PACKAGE`: rettighetspakke for datasettet
 - `SKATTEETATEN_SHAREHOLDING_TOKEN`: bearer-token med scope `skatteetaten:aksjonaer`

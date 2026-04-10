@@ -1029,6 +1029,67 @@ export type DistressCompanyDetail = {
   announcements: NormalizedAnnouncement[];
 };
 
+export type DistressOverviewKpis = {
+  totalActiveCases: number;
+  recentAnnouncements30d: number;
+  bankruptcies: number;
+  liquidations: number;
+  reconstructions: number;
+  forcedProcesses: number;
+  financialsCoverageRate?: number | null;
+};
+
+export type DistressOverviewStatusRow = {
+  status: DistressStatus;
+  label: string;
+  count: number;
+};
+
+export type DistressOverviewSectorRow = {
+  sectorCode: string;
+  sectorLabel: string;
+  companyCount: number;
+  shareOfUniverse: number;
+  avgDaysInStatus?: number | null;
+  withFinancialsCount: number;
+  latestAnnouncementCount30d: number;
+};
+
+export type DistressOverviewTimelinePoint = {
+  bucket: string;
+  total: number;
+  bankruptcies: number;
+  liquidations: number;
+  reconstructions: number;
+  forcedProcesses: number;
+};
+
+export type DistressOverviewRecentAnnouncement = {
+  orgNumber: string;
+  companyName: string;
+  status: DistressStatus;
+  statusLabel: string;
+  title?: string | null;
+  publishedAt?: Date | null;
+};
+
+export type DistressOpportunityCluster = {
+  key: string;
+  title: string;
+  description: string;
+  href: string;
+  count: number;
+};
+
+export type DistressOverviewResponse = {
+  kpis: DistressOverviewKpis;
+  statusDistribution: DistressOverviewStatusRow[];
+  sectors: DistressOverviewSectorRow[];
+  timeline: DistressOverviewTimelinePoint[];
+  recentAnnouncements: DistressOverviewRecentAnnouncement[];
+  opportunities: DistressOpportunityCluster[];
+};
+
 export type DistressSortKey =
   | "name_asc"
   | "name_desc"
