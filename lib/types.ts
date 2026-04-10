@@ -549,10 +549,71 @@ export type PetroleumSeismicTableResponse = {
 };
 
 export type PetroleumSourceStatus = {
-  source: "SODIR" | "HAVTIL" | "GASSCO";
+  source: "SODIR" | "HAVTIL" | "GASSCO" | "EIA" | "SSB" | "FISCAL" | "COMPANY_EXPOSURE";
   available: boolean;
   message?: string;
   lastSuccessAt?: Date | null;
+};
+
+export type PetroleumMarketSeriesSummary = SourceMetadata & {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  region?: string | null;
+  countryCode?: string | null;
+  product?: string | null;
+  unit: string;
+  frequency: string;
+};
+
+export type PetroleumMarketObservationPoint = {
+  seriesId: string;
+  observationDate: Date;
+  year?: number | null;
+  month?: number | null;
+  quarter?: number | null;
+  value?: number | null;
+  valueText?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type PetroleumFiscalSnapshot = SourceMetadata & {
+  id: string;
+  jurisdiction: string;
+  effectiveDate: Date;
+  title: string;
+  summary?: string | null;
+  taxRate?: number | null;
+  specialTaxRate?: number | null;
+  normPriceReference?: string | null;
+  detailUrl?: string | null;
+};
+
+export type PetroleumCompanyExposureSnapshotView = {
+  id: string;
+  companyId: string;
+  npdCompanyId?: number | null;
+  operatorFieldCount: number;
+  licenceCount: number;
+  operatedProductionOe?: number | null;
+  attributableProductionOe?: number | null;
+  remainingReservesOe?: number | null;
+  expectedFutureInvestmentNok?: number | null;
+  mainAreas: string[];
+  metadata?: Record<string, unknown> | null;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
+};
+
+export type PetroleumMacroSummaryResponse = {
+  series: PetroleumMarketSeriesSummary[];
+  latestObservations: PetroleumMarketObservationPoint[];
+  fiscalSnapshots: PetroleumFiscalSnapshot[];
+  sourceStatus: PetroleumSourceStatus[];
 };
 
 export type PetroleumSummaryResponse = {

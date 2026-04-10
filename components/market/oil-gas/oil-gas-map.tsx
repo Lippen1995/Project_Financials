@@ -228,13 +228,23 @@ function toFeatureCollection(features: PetroleumMapFeature[]) {
 }
 
 function syncLayerSources(map: import("maplibre-gl").Map, features: PetroleumMapFeature[]) {
+  const featuresByLayer = new Map<PetroleumLayerId, PetroleumMapFeature[]>();
+  for (const feature of features) {
+    const existing = featuresByLayer.get(feature.layerId);
+    if (existing) {
+      existing.push(feature);
+    } else {
+      featuresByLayer.set(feature.layerId, [feature]);
+    }
+  }
+
   for (const layerId of RENDERED_LAYERS) {
     const source = map.getSource(`petroleum-${layerId}`) as import("maplibre-gl").GeoJSONSource | undefined;
     if (!source) {
       continue;
     }
 
-    source.setData(toFeatureCollection(features.filter((feature) => feature.layerId === layerId)) as never);
+    source.setData(toFeatureCollection(featuresByLayer.get(layerId) ?? []) as never);
   }
 
   const surveyCentroidSource = map.getSource("petroleum-surveys-centroids") as
@@ -244,8 +254,7 @@ function syncLayerSources(map: import("maplibre-gl").Map, features: PetroleumMap
     surveyCentroidSource.setData(
       {
         type: "FeatureCollection",
-        features: features
-          .filter((feature) => feature.layerId === "surveys")
+        features: (featuresByLayer.get("surveys") ?? [])
           .map(toSurveyCentroidFeature)
           .filter(Boolean),
       } as never,

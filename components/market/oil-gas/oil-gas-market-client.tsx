@@ -471,8 +471,8 @@ function normalizeFiltersForUi(filters: PetroleumMarketFilters): PetroleumMarket
   };
 }
 
-async function fetchApi<T>(url: string) {
-  const response = await fetch(url);
+async function fetchApi<T>(url: string, init?: RequestInit) {
+  const response = await fetch(url, init);
   if (!response.ok) {
     throw new Error(`Request failed with status ${response.status}`);
   }
@@ -974,6 +974,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
   const [error, setError] = React.useState<string | null>(null);
   const [isViewportPending, startViewportTransition] = React.useTransition();
   const activeTab = filters.tab ?? PETROLEUM_DEFAULT_TAB;
+  const isOverviewTab = activeTab === "market";
   const selectedProduct = filters.product ?? PETROLEUM_DEFAULT_PRODUCT;
   const selectedView = filters.view ?? PETROLEUM_DEFAULT_VIEW;
   const selectedComparison = filters.comparison ?? PETROLEUM_DEFAULT_COMPARISON;
@@ -1128,12 +1129,16 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
     const params = buildPetroleumSearchParams(filters);
     const requestId = latestRequestIdRef.current + 1;
     latestRequestIdRef.current = requestId;
+    const abortController = new AbortController();
 
     async function load() {
       setLoading(true);
       setError(null);
 
-      const summaryPromise = fetchApi<PetroleumSummaryResponse>(`/api/market/oil-gas/summary?${params.toString()}`)
+      const summaryPromise = fetchApi<PetroleumSummaryResponse>(
+        `/api/market/oil-gas/summary?${params.toString()}`,
+        { signal: abortController.signal },
+      )
         .then((value) => {
           if (
             isMountedRef.current &&
@@ -1143,11 +1148,18 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             lastAppliedRequestRef.current.summary = requestId;
           }
 
-          return { ok: true as const };
+          return { ok: true as const, aborted: false as const };
         })
-        .catch(() => ({ ok: false as const }));
+        .catch((error: unknown) =>
+          error instanceof Error && error.name === "AbortError"
+            ? ({ ok: false as const, aborted: true as const })
+            : ({ ok: false as const, aborted: false as const }),
+        );
 
-      const featuresPromise = fetchApi<PetroleumMapFeature[]>(`/api/market/oil-gas/features?${params.toString()}`)
+      const featuresPromise = fetchApi<PetroleumMapFeature[]>(
+        `/api/market/oil-gas/features?${params.toString()}`,
+        { signal: abortController.signal },
+      )
         .then((value) => {
           if (
             isMountedRef.current &&
@@ -1157,11 +1169,17 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             lastAppliedRequestRef.current.features = requestId;
           }
 
-          return { ok: true as const };
+          return { ok: true as const, aborted: false as const };
         })
-        .catch(() => ({ ok: false as const }));
+        .catch((error: unknown) =>
+          error instanceof Error && error.name === "AbortError"
+            ? ({ ok: false as const, aborted: true as const })
+            : ({ ok: false as const, aborted: false as const }),
+        );
 
-      const tablePromise = fetchApi<PetroleumTableResponse>(`/api/market/oil-gas/table?${params.toString()}`)
+      const tablePromise = fetchApi<PetroleumTableResponse>(`/api/market/oil-gas/table?${params.toString()}`, {
+        signal: abortController.signal,
+      })
         .then((value) => {
           if (
             isMountedRef.current &&
@@ -1171,9 +1189,13 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             lastAppliedRequestRef.current.table = requestId;
           }
 
-          return { ok: true as const };
+          return { ok: true as const, aborted: false as const };
         })
-        .catch(() => ({ ok: false as const }));
+        .catch((error: unknown) =>
+          error instanceof Error && error.name === "AbortError"
+            ? ({ ok: false as const, aborted: true as const })
+            : ({ ok: false as const, aborted: false as const }),
+        );
 
       const timeseriesPromise = fetchApi<PetroleumTimeSeriesPoint[]>(
         `/api/market/oil-gas/timeseries?${buildPetroleumSearchParams(filters, {
@@ -1184,6 +1206,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
           view: selectedView,
           comparison: selectedComparison,
         }).toString()}`,
+        { signal: abortController.signal },
       )
         .then((value) => {
           if (
@@ -1194,11 +1217,18 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             lastAppliedRequestRef.current.timeseries = requestId;
           }
 
-          return { ok: true as const };
+          return { ok: true as const, aborted: false as const };
         })
-        .catch(() => ({ ok: false as const }));
+        .catch((error: unknown) =>
+          error instanceof Error && error.name === "AbortError"
+            ? ({ ok: false as const, aborted: true as const })
+            : ({ ok: false as const, aborted: false as const }),
+        );
 
-      const eventsPromise = fetchApi<PetroleumEventRow[]>(`/api/market/oil-gas/events?${params.toString()}&limit=40`)
+      const eventsPromise = fetchApi<PetroleumEventRow[]>(
+        `/api/market/oil-gas/events?${params.toString()}&limit=40`,
+        { signal: abortController.signal },
+      )
         .then((value) => {
           if (
             isMountedRef.current &&
@@ -1208,14 +1238,18 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             lastAppliedRequestRef.current.events = requestId;
           }
 
-          return { ok: true as const };
+          return { ok: true as const, aborted: false as const };
         })
-        .catch(() => ({ ok: false as const }));
+        .catch((error: unknown) =>
+          error instanceof Error && error.name === "AbortError"
+            ? ({ ok: false as const, aborted: true as const })
+            : ({ ok: false as const, aborted: false as const }),
+        );
 
       const [summaryResult, featuresResult] = await Promise.all([summaryPromise, featuresPromise]);
 
       if (isMountedRef.current && requestId === latestRequestIdRef.current) {
-        if (!summaryResult.ok && !featuresResult.ok) {
+        if (!summaryResult.ok && !featuresResult.ok && !summaryResult.aborted && !featuresResult.aborted) {
           setError("Kunne ikke laste olje- og gassmodulen.");
         }
 
@@ -1238,7 +1272,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
         tableResult,
         timeseriesResult,
         eventsResult,
-      ].filter((result) => !result.ok).length;
+      ].filter((result) => !result.ok && !result.aborted).length;
 
       if (failedCount === 5) {
         setError("Kunne ikke laste olje- og gassmodulen.");
@@ -1248,6 +1282,9 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
     }
 
     void load();
+    return () => {
+      abortController.abort();
+    };
   }, [filters, selectedComparison, selectedProduct, selectedView]);
 
   React.useEffect(() => {
@@ -2650,7 +2687,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
         </Card>
 
         <div className={cn("space-y-6", isMapExpanded && "xl:col-span-3")}>
-          {!isMapExpanded ? (
+          {isOverviewTab && !isMapExpanded ? (
             <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
               {activeTab === "market" ? (
                 <>
@@ -2716,7 +2753,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             </div>
           ) : null}
 
-          {isMapExpanded ? (
+          {isOverviewTab && isMapExpanded ? (
             <button
               type="button"
               aria-label="Lukk kartfokus"
@@ -2728,6 +2765,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
           <Card
             className={cn(
               "overflow-hidden p-0",
+              !isOverviewTab && "hidden",
               isMapExpanded &&
                 "fixed inset-4 z-50 max-h-[calc(100vh-2rem)] overflow-hidden border-[rgba(15,23,42,0.18)] shadow-[0_28px_90px_rgba(15,23,42,0.28)]",
             )}
@@ -2777,7 +2815,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 resetViewNonce={resetViewNonce}
                 className={cn(
                   "w-full bg-[#E8EEF2]",
-                  isMapExpanded ? "h-[72vh] xl:h-[78vh]" : "h-[40rem] xl:h-[48rem]",
+                  isMapExpanded ? "h-[72vh] xl:h-[78vh]" : "h-[62vh] xl:h-[78vh]",
                 )}
               />
               {selectedEntityKey ? (
@@ -2972,10 +3010,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             </div>
           </Card>
 
-          {!isMapExpanded ? renderTabPanels() : null}
+          {!isMapExpanded && !isOverviewTab ? renderTabPanels() : null}
         </div>
 
-        <div className={cn("space-y-6", isMapExpanded && "hidden")}>
+        <div className={cn("space-y-6", (isMapExpanded || !isOverviewTab) && "hidden")}>
           <Card className="p-5">
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Detaljpanel</div>
             {!detail ? (
