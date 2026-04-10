@@ -120,12 +120,6 @@ function WorkspaceOverviewCard({ workspace }: { workspace: WorkspaceSummary }) {
             </button>
           </form>
 
-          <Link
-            href={`/workspaces/${workspace.id}/distress`}
-            className="rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-[rgba(15,23,42,0.2)] hover:text-slate-950"
-          >
-            Distress
-          </Link>
 
           {workspace.type === "TEAM" && (workspace.role === "OWNER" || workspace.role === "ADMIN") ? (
             <form action={action}>
