@@ -51,7 +51,7 @@ export const PETROLEUM_ENTITY_TYPE_LABELS: Record<PetroleumEntityType, string> =
 };
 
 export const PETROLEUM_TAB_LABELS: Record<PetroleumMarketTab, string> = {
-  market: "Marked",
+  market: "Oversikt",
   exploration: "Leting & Funn",
   wells: "Brønner & Boring",
   infrastructure: "Infrastruktur",
