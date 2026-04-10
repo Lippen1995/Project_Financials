@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 
 import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
 import { CompanyFinancialDiscussions } from "@/components/company/company-financial-discussions";
-import { CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
+import { CompanyPetroleumTab } from "@/components/company/company-petroleum-tab";
+import { CompanyTabId, CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
 import { FinancialDocuments } from "@/components/company/financial-documents";
 import { FinancialTimeSeriesTable } from "@/components/company/financial-time-series-table";
 import { KeyFiguresGrid } from "@/components/company/key-figures-grid";
@@ -18,6 +19,10 @@ import { CompanyProfile, NormalizedFinancialStatement, NormalizedRole } from "@/
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { isPremium } from "@/server/billing/subscription";
 import { getCompanyDdDiscussionContext } from "@/server/services/company-dd-discussion-service";
+import {
+  getCompanyPetroleumProfile,
+  getCompanyPetroleumTabVisibility,
+} from "@/server/services/company-petroleum-service";
 import {
   getCompanyAnnouncementDetail,
   getCompanyAnnouncements,
@@ -358,7 +363,7 @@ export default async function CompanyPage({
   const { slug } = await params;
   const query = await searchParams;
   const requestedTab = typeof query.tab === "string" ? query.tab : undefined;
-  const activeTab = isCompanyTab(requestedTab) ? requestedTab : "oversikt";
+  const parsedTab = isCompanyTab(requestedTab) ? requestedTab : "oversikt";
   const notice = typeof query.notice === "string" ? query.notice : null;
   const error = typeof query.error === "string" ? query.error : null;
   const requestedDdRoomId = typeof query.ddRoom === "string" ? query.ddRoom : null;
@@ -366,11 +371,11 @@ export default async function CompanyPage({
   const session = await safeAuth();
   const premium = isPremium(session?.user.subscriptionStatus, session?.user.subscriptionPlan);
   const profile = await getCompanyProfile(slug, {
-    rolesMode: activeTab === "oversikt" || activeTab === "organisasjon" ? "full" : "none",
+    rolesMode: parsedTab === "oversikt" || parsedTab === "organisasjon" ? "full" : "none",
     financialsMode:
-      activeTab === "regnskap"
+      parsedTab === "regnskap"
         ? "full"
-        : activeTab === "oversikt" || activeTab === "nokkeltall"
+        : parsedTab === "oversikt" || parsedTab === "nokkeltall"
           ? "summary"
           : "none",
   });
@@ -389,6 +394,22 @@ export default async function CompanyPage({
     regulatoryAvailability,
   } = profile;
   const visibleRoles = premium ? roles : roles.slice(0, 5);
+  const petroleumVisibility = await getCompanyPetroleumTabVisibility(company);
+  const availableTabs: Array<{ id: CompanyTabId; label: string }> = [
+    { id: "oversikt", label: "Oversikt" },
+    { id: "regnskap", label: "Regnskap" },
+    { id: "nokkeltall", label: "Nøkkeltall" },
+    { id: "organisasjon", label: "Organisasjon" },
+    { id: "kunngjoringer", label: "Kunngjøringer" },
+    ...(petroleumVisibility.available ? [{ id: "sokkeleksponering", label: "Sokkeleksponering" }] : []),
+  ];
+  const activeTab =
+    parsedTab === "sokkeleksponering" && !petroleumVisibility.available ? "oversikt" : parsedTab;
+  const petroleumProfile =
+    activeTab === "sokkeleksponering" && petroleumVisibility.available
+      ? await getCompanyPetroleumProfile(company)
+      : null;
+
   const legalStructure = activeTab === "organisasjon" ? await getLegalStructure(company.orgNumber) : null;
   const announcementsData =
     activeTab === "kunngjoringer" ? await getCompanyAnnouncements(company.orgNumber) : null;
@@ -425,6 +446,7 @@ export default async function CompanyPage({
         companySlug={company.orgNumber}
         activeTab={activeTab}
         activeDdRoomId={discussionContext?.selectedRoomId ?? requestedDdRoomId}
+        tabs={availableTabs}
       />
 
       {notice ? (
@@ -642,6 +664,10 @@ export default async function CompanyPage({
             </div>
           </Card>
         </div>
+      ) : null}
+
+      {activeTab === "sokkeleksponering" && petroleumProfile ? (
+        <CompanyPetroleumTab petroleum={petroleumProfile} />
       ) : null}
     </main>
   );

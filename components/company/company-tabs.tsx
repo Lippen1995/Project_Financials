@@ -7,28 +7,32 @@ export type CompanyTabId =
   | "regnskap"
   | "nokkeltall"
   | "organisasjon"
-  | "kunngjoringer";
+  | "kunngjoringer"
+  | "sokkeleksponering";
 
-const tabs: { id: CompanyTabId; label: string }[] = [
+export const defaultCompanyTabs: { id: CompanyTabId; label: string }[] = [
   { id: "oversikt", label: "Oversikt" },
   { id: "regnskap", label: "Regnskap" },
   { id: "nokkeltall", label: "Nøkkeltall" },
   { id: "organisasjon", label: "Organisasjon" },
   { id: "kunngjoringer", label: "Kunngjøringer" },
+  { id: "sokkeleksponering", label: "Sokkeleksponering" },
 ];
 
 export function isCompanyTab(value: string | undefined): value is CompanyTabId {
-  return tabs.some((tab) => tab.id === value);
+  return defaultCompanyTabs.some((tab) => tab.id === value);
 }
 
 export function CompanyTabs({
   companySlug,
   activeTab,
   activeDdRoomId,
+  tabs = defaultCompanyTabs,
 }: {
   companySlug: string;
   activeTab: CompanyTabId;
   activeDdRoomId?: string | null;
+  tabs?: Array<{ id: CompanyTabId; label: string }>;
 }) {
   return (
     <div className="sticky top-4 z-30 overflow-x-auto rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(247,247,245,0.86)] px-2 py-2 backdrop-blur-sm">

@@ -257,6 +257,136 @@ export async function listPetroleumPublicationSnapshots() {
   });
 }
 
+export async function replacePetroleumMarketSeriesData(input: {
+  series: Array<Record<string, unknown>>;
+  observations: Array<Record<string, unknown>>;
+}) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.petroleumMarketObservation.deleteMany();
+      await tx.petroleumMarketSeries.deleteMany();
+
+      await createManyInChunks(input.series, (chunk) =>
+        tx.petroleumMarketSeries.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+      const persistedSeries = await tx.petroleumMarketSeries.findMany({
+        select: { id: true, slug: true },
+      });
+      const seriesIdBySlug = new Map(persistedSeries.map((item) => [item.slug, item.id]));
+      const observationRows = input.observations
+        .map((item) => {
+          const row = item as Record<string, unknown> & { seriesSlug?: string };
+          const seriesSlug = row.seriesSlug;
+          if (!seriesSlug) {
+            return null;
+          }
+
+          const seriesId = seriesIdBySlug.get(seriesSlug);
+          if (!seriesId) {
+            return null;
+          }
+
+          const next = { ...row, seriesId };
+          delete (next as { seriesSlug?: string }).seriesSlug;
+          return next;
+        })
+        .filter((item): item is Record<string, unknown> => Boolean(item));
+
+      await createManyInChunks(observationRows, (chunk) =>
+        tx.petroleumMarketObservation.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+    },
+    {
+      maxWait: 30_000,
+      timeout: 600_000,
+    },
+  );
+}
+
+export async function listPetroleumMarketSeries(filters?: {
+  category?: string;
+  region?: string;
+  product?: string;
+}) {
+  return prisma.petroleumMarketSeries.findMany({
+    where: {
+      category: filters?.category ?? undefined,
+      region: filters?.region ?? undefined,
+      product: filters?.product ?? undefined,
+    },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+  });
+}
+
+export async function listPetroleumMarketObservations(input?: {
+  seriesId?: string;
+  from?: Date;
+  to?: Date;
+}) {
+  return prisma.petroleumMarketObservation.findMany({
+    where: {
+      seriesId: input?.seriesId ?? undefined,
+      observationDate: input?.from || input?.to ? { gte: input?.from, lte: input?.to } : undefined,
+    },
+    orderBy: {
+      observationDate: "asc",
+    },
+  });
+}
+
+export async function replacePetroleumFiscalSnapshots(input: {
+  snapshots: Array<Record<string, unknown>>;
+}) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.petroleumFiscalRegimeSnapshot.deleteMany();
+      await createManyInChunks(input.snapshots, (chunk) =>
+        tx.petroleumFiscalRegimeSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+    },
+    {
+      maxWait: 30_000,
+      timeout: 600_000,
+    },
+  );
+}
+
+export async function listPetroleumFiscalSnapshots(jurisdiction?: string) {
+  return prisma.petroleumFiscalRegimeSnapshot.findMany({
+    where: {
+      jurisdiction: jurisdiction ?? undefined,
+    },
+    orderBy: {
+      effectiveDate: "desc",
+    },
+  });
+}
+
+export async function replacePetroleumCompanyExposureSnapshots(input: {
+  snapshots: Array<Record<string, unknown>>;
+}) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.petroleumCompanyExposureSnapshot.deleteMany();
+      await createManyInChunks(input.snapshots, (chunk) =>
+        tx.petroleumCompanyExposureSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+    },
+    {
+      maxWait: 30_000,
+      timeout: 600_000,
+    },
+  );
+}
+
+export async function listPetroleumCompanyExposureSnapshots() {
+  return prisma.petroleumCompanyExposureSnapshot.findMany({
+    orderBy: {
+      operatorFieldCount: "desc",
+    },
+  });
+}
+
 export async function findPetroleumEntityDetail(entityType: PetroleumEntityType, entityNpdId: number) {
   switch (entityType) {
     case "FIELD":
