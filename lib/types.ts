@@ -176,6 +176,57 @@ export type CompanyProfile = {
   petroleum?: CompanyPetroleumProfile | null;
 };
 
+export type IPRightType = "patent" | "trademark" | "design";
+
+export type IPRightSummary = SourceMetadata & {
+  id: string;
+  companyOrgNumber: string;
+  type: IPRightType;
+  applicationNumber: string | null;
+  title: string | null;
+  status: string | null;
+  applicationDate: string | null;
+  registrationOrGrantDate: string | null;
+  publicationDate: string | null;
+  caseUrl: string | null;
+  owners: Array<{
+    name: string;
+    orgNumber?: string | null;
+  }>;
+  lastEventDate: string | null;
+  isActive: boolean | null;
+};
+
+export type IPRightDetail = IPRightSummary & {
+  events: Array<{
+    date: string | null;
+    label: string;
+    description?: string | null;
+  }>;
+  classifications?: string[];
+  inventors?: string[];
+  representatives?: string[];
+  trademarkClasses?: string[];
+  trademarkKind?: string | null;
+  designCount?: number | null;
+};
+
+export type CompanyIpOverview = {
+  total: number;
+  patents: number;
+  trademarks: number;
+  designs: number;
+  active: number;
+  latestActivityDate: string | null;
+};
+
+export type CompanyIpTabVisibility = {
+  available: boolean;
+  reason: string | null;
+  reliable: boolean;
+  overview?: CompanyIpOverview;
+};
+
 export type CompanyPetroleumTabVisibility = {
   available: boolean;
   reason?: string | null;

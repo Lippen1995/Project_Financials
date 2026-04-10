@@ -9,6 +9,9 @@ const env = {
     process.env.BRREG_ANNOUNCEMENTS_BASE_URL ?? "https://w2.brreg.no/kunngjoring",
   brregFinancialsBaseUrl:
     process.env.BRREG_FINANCIALS_BASE_URL ?? "https://data.brreg.no/regnskapsregisteret/regnskap",
+  patentstyretBaseUrl: process.env.PATENTSTYRET_BASE_URL ?? "https://api.patentstyret.no",
+  patentstyretSubscriptionKey: process.env.PATENTSTYRET_SUBSCRIPTION_KEY ?? "",
+  patentstyretOrgNumberParam: process.env.PATENTSTYRET_ORGNUMBER_PARAM ?? "orgNumber",
   sodirFactmapsBaseUrl:
     process.env.SODIR_FACTMAPS_BASE_URL ?? "https://factmaps.sodir.no/api/rest/services",
   havtilBaseUrl: process.env.HAVTIL_BASE_URL ?? "https://www.havtil.no",

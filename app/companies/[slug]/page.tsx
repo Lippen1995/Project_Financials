@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
 import { CompanyFinancialDiscussions } from "@/components/company/company-financial-discussions";
+import { CompanyIpTab } from "@/components/company/company-ip-tab";
 import { CompanyPetroleumTab } from "@/components/company/company-petroleum-tab";
 import { CompanyTabId, CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
 import { FinancialDocuments } from "@/components/company/financial-documents";
@@ -23,6 +24,11 @@ import {
   getCompanyPetroleumProfile,
   getCompanyPetroleumTabVisibility,
 } from "@/server/services/company-petroleum-service";
+import {
+  getCompanyIPOverview,
+  getCompanyIPPortfolio,
+  getCompanyIpTabVisibility,
+} from "@/server/services/company-ip-service";
 import {
   getCompanyAnnouncementDetail,
   getCompanyAnnouncements,
@@ -395,6 +401,7 @@ export default async function CompanyPage({
   } = profile;
   const visibleRoles = premium ? roles : roles.slice(0, 5);
   const petroleumVisibility = await getCompanyPetroleumTabVisibility(company);
+  const ipTabVisibility = await getCompanyIpTabVisibility(company.orgNumber);
   const availableTabs: Array<{ id: CompanyTabId; label: string }> = [
     { id: "oversikt", label: "Oversikt" },
     { id: "regnskap", label: "Regnskap" },
@@ -402,12 +409,26 @@ export default async function CompanyPage({
     { id: "organisasjon", label: "Organisasjon" },
     { id: "kunngjoringer", label: "Kunngjøringer" },
     ...(petroleumVisibility.available ? [{ id: "sokkeleksponering", label: "Sokkeleksponering" }] : []),
+    ...(ipTabVisibility.available
+      ? [{ id: "immaterielle-rettigheter", label: "Immaterielle rettigheter" }]
+      : []),
   ];
   const activeTab =
-    parsedTab === "sokkeleksponering" && !petroleumVisibility.available ? "oversikt" : parsedTab;
+    (parsedTab === "sokkeleksponering" && !petroleumVisibility.available) ||
+    (parsedTab === "immaterielle-rettigheter" && !ipTabVisibility.available)
+      ? "oversikt"
+      : parsedTab;
   const petroleumProfile =
     activeTab === "sokkeleksponering" && petroleumVisibility.available
       ? await getCompanyPetroleumProfile(company)
+      : null;
+  const ipPortfolio =
+    activeTab === "immaterielle-rettigheter" && ipTabVisibility.available
+      ? await getCompanyIPPortfolio(company.orgNumber)
+      : null;
+  const ipOverview =
+    activeTab === "immaterielle-rettigheter" && ipTabVisibility.available
+      ? await getCompanyIPOverview(company.orgNumber)
       : null;
 
   const legalStructure = activeTab === "organisasjon" ? await getLegalStructure(company.orgNumber) : null;
@@ -668,6 +689,14 @@ export default async function CompanyPage({
 
       {activeTab === "sokkeleksponering" && petroleumProfile ? (
         <CompanyPetroleumTab petroleum={petroleumProfile} />
+      ) : null}
+
+      {activeTab === "immaterielle-rettigheter" && ipPortfolio && ipOverview ? (
+        <CompanyIpTab
+          companySlug={company.orgNumber}
+          initialRights={ipPortfolio}
+          initialOverview={ipOverview}
+        />
       ) : null}
     </main>
   );
