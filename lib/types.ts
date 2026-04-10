@@ -173,6 +173,122 @@ export type CompanyProfile = {
   financialDocuments: NormalizedFinancialDocument[];
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;
+  petroleum?: CompanyPetroleumProfile | null;
+};
+
+export type CompanyPetroleumTabVisibility = {
+  available: boolean;
+  reason?: string | null;
+  matchedBy: string[];
+};
+
+export type CompanyPetroleumSnapshot = {
+  operatorFieldCount: number;
+  licenceCount: number;
+  discoveryCount: number;
+  facilityCount: number;
+  tufCount: number;
+  operatedProductionOe?: number | null;
+  attributableProductionOe?: number | null;
+  remainingReservesOe?: number | null;
+  expectedFutureInvestmentNok?: number | null;
+  mainAreas: string[];
+  mainHydrocarbonTypes: string[];
+  npdCompanyId?: number | null;
+};
+
+export type CompanyPetroleumRowRole = "OPERATOR" | "LICENSEE";
+
+export type CompanyPetroleumFieldRow = {
+  entityId: string;
+  npdId: number;
+  name: string;
+  status?: string | null;
+  area?: string | null;
+  hcType?: string | null;
+  role: CompanyPetroleumRowRole;
+  operatorName?: string | null;
+  operatorSlug?: string | null;
+  latestProductionValue?: number | null;
+  latestProductionUnit?: PetroleumRateUnit | null;
+  remainingOe?: number | null;
+  expectedFutureInvestmentNok?: number | null;
+  factPageUrl?: string | null;
+  detailUrl?: string | null;
+};
+
+export type CompanyPetroleumLicenceRow = {
+  entityId: string;
+  npdId: number;
+  name: string;
+  status?: string | null;
+  currentPhase?: string | null;
+  area?: string | null;
+  role: CompanyPetroleumRowRole;
+  operatorName?: string | null;
+  operatorSlug?: string | null;
+  currentAreaSqKm?: number | null;
+  transferCount?: number | null;
+  factPageUrl?: string | null;
+  detailUrl?: string | null;
+};
+
+export type CompanyPetroleumDiscoveryRow = {
+  entityId: string;
+  npdId: number;
+  name: string;
+  status?: string | null;
+  area?: string | null;
+  hcType?: string | null;
+  role: CompanyPetroleumRowRole;
+  relatedFieldName?: string | null;
+  factPageUrl?: string | null;
+  detailUrl?: string | null;
+};
+
+export type CompanyPetroleumInfrastructureRow = {
+  entityId: string;
+  npdId: number;
+  name: string;
+  entityType: "FACILITY" | "TUF";
+  status?: string | null;
+  area?: string | null;
+  kindOrMedium?: string | null;
+  role: CompanyPetroleumRowRole;
+  factPageUrl?: string | null;
+  detailUrl?: string | null;
+};
+
+export type CompanyPetroleumTopExposureRow = {
+  label: string;
+  type: "field" | "area" | "hydrocarbon" | "infrastructure";
+  valuePrimary: string;
+  valueSecondary?: string;
+};
+
+export type CompanyPetroleumEventSummary = {
+  id: string;
+  source: string;
+  eventType: string;
+  title: string;
+  summary?: string | null;
+  publishedAt?: Date | null;
+  detailUrl?: string | null;
+  entityType?: PetroleumEntityType | null;
+  entityName?: string | null;
+};
+
+export type CompanyPetroleumProfile = {
+  visibility: CompanyPetroleumTabVisibility;
+  snapshot: CompanyPetroleumSnapshot | null;
+  fields: CompanyPetroleumFieldRow[];
+  licences: CompanyPetroleumLicenceRow[];
+  discoveries: CompanyPetroleumDiscoveryRow[];
+  infrastructure: CompanyPetroleumInfrastructureRow[];
+  topExposure: CompanyPetroleumTopExposureRow[];
+  recentEvents: CompanyPetroleumEventSummary[];
+  sourceStatus: PetroleumSourceStatus[];
+  marketModuleUrl?: string | null;
 };
 
 export type PetroleumLayerId =
