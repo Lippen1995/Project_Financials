@@ -401,8 +401,10 @@ export default async function CompanyPage({
     { id: "nokkeltall", label: "Nøkkeltall" },
     { id: "organisasjon", label: "Organisasjon" },
     { id: "kunngjoringer", label: "Kunngjøringer" },
-    ...(petroleumVisibility.available ? [{ id: "sokkeleksponering", label: "Sokkeleksponering" }] : []),
   ];
+  if (petroleumVisibility.available) {
+    availableTabs.push({ id: "sokkeleksponering", label: "Sokkeleksponering" });
+  }
   const activeTab =
     parsedTab === "sokkeleksponering" && !petroleumVisibility.available ? "oversikt" : parsedTab;
   const petroleumProfile =

@@ -13,8 +13,11 @@ const credentialSchema = z.object({
   password: z.string().min(6),
 });
 
+const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  secret: authSecret,
   session: {
     strategy: "jwt",
   },

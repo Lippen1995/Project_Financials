@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/prisma";
 import {
   listPetroleumCompanyLinks,
   listPetroleumFields,
@@ -6,6 +5,7 @@ import {
   listPetroleumLicences,
   listPetroleumProductionPoints,
   listPetroleumReserveSnapshots,
+  listPetroleumCompanyExposureSnapshots,
   replacePetroleumCompanyExposureSnapshots,
 } from "@/server/persistence/petroleum-market-repository";
 import { PetroleumCompanyExposureSnapshotView } from "@/lib/types";
@@ -152,9 +152,7 @@ export async function syncPetroleumCompanyExposureSnapshots() {
 }
 
 export async function getPetroleumCompanyExposureSnapshots(): Promise<PetroleumCompanyExposureSnapshotView[]> {
-  const rows = await prisma.petroleumCompanyExposureSnapshot.findMany({
-    orderBy: [{ operatorFieldCount: "desc" }, { licenceCount: "desc" }],
-  });
+  const rows = await listPetroleumCompanyExposureSnapshots();
 
   return rows.map((row) => ({
     id: row.id,

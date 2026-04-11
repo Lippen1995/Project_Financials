@@ -9,6 +9,32 @@ import {
 
 const CHUNK_SIZE = 500;
 
+type PetroleumCompanyExposureSnapshotRow = {
+  id: string;
+  companyId: string;
+  npdCompanyId: number;
+  operatorFieldCount: number;
+  licenceCount: number;
+  operatedProductionOe: number | null;
+  attributableProductionOe: number | null;
+  remainingReservesOe: number | null;
+  expectedFutureInvestmentNok: bigint | null;
+  mainAreas: unknown;
+  metadata: unknown;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
+};
+
+type ExposureSnapshotDelegate = {
+  deleteMany: (args?: unknown) => Promise<unknown>;
+  createMany: (args: { data: never[]; skipDuplicates?: boolean }) => Promise<unknown>;
+  findMany: (args?: unknown) => Promise<PetroleumCompanyExposureSnapshotRow[]>;
+  findUnique: (args: { where: { companyId: string } }) => Promise<PetroleumCompanyExposureSnapshotRow | null>;
+};
+
 function chunkArray<T>(items: T[], size = CHUNK_SIZE) {
   const chunks: T[][] = [];
 
@@ -23,6 +49,29 @@ async function createManyInChunks<T>(items: T[], run: (chunk: T[]) => Promise<un
   for (const chunk of chunkArray(items)) {
     await run(chunk);
   }
+}
+
+function getExposureSnapshotDelegate(client: unknown): ExposureSnapshotDelegate | null {
+  if (!client || typeof client !== "object") {
+    return null;
+  }
+
+  const candidate = (client as Record<string, unknown>).petroleumCompanyExposureSnapshot;
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+
+  const delegate = candidate as Record<string, unknown>;
+  if (
+    typeof delegate.findUnique !== "function" ||
+    typeof delegate.findMany !== "function" ||
+    typeof delegate.deleteMany !== "function" ||
+    typeof delegate.createMany !== "function"
+  ) {
+    return null;
+  }
+
+  return candidate as ExposureSnapshotDelegate;
 }
 
 export async function getCompanySlugLookup(orgNumbers: string[]) {
@@ -365,11 +414,21 @@ export async function listPetroleumFiscalSnapshots(jurisdiction?: string) {
 export async function replacePetroleumCompanyExposureSnapshots(input: {
   snapshots: Array<Record<string, unknown>>;
 }) {
+  const delegate = getExposureSnapshotDelegate(prisma);
+  if (!delegate) {
+    return;
+  }
+
   await prisma.$transaction(
     async (tx) => {
-      await tx.petroleumCompanyExposureSnapshot.deleteMany();
+      const txDelegate = getExposureSnapshotDelegate(tx);
+      if (!txDelegate) {
+        return;
+      }
+
+      await txDelegate.deleteMany();
       await createManyInChunks(input.snapshots, (chunk) =>
-        tx.petroleumCompanyExposureSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+        txDelegate.createMany({ data: chunk as never[], skipDuplicates: true }),
       );
     },
     {
@@ -380,10 +439,26 @@ export async function replacePetroleumCompanyExposureSnapshots(input: {
 }
 
 export async function listPetroleumCompanyExposureSnapshots() {
-  return prisma.petroleumCompanyExposureSnapshot.findMany({
+  const delegate = getExposureSnapshotDelegate(prisma);
+  if (!delegate) {
+    return [] as PetroleumCompanyExposureSnapshotRow[];
+  }
+
+  return delegate.findMany({
     orderBy: {
       operatorFieldCount: "desc",
     },
+  });
+}
+
+export async function findPetroleumCompanyExposureSnapshotByCompanyId(companyId: string) {
+  const delegate = getExposureSnapshotDelegate(prisma);
+  if (!delegate) {
+    return null;
+  }
+
+  return delegate.findUnique({
+    where: { companyId },
   });
 }
 

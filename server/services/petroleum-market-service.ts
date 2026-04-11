@@ -33,6 +33,7 @@ import {
   PetroleumFilterOption,
   PetroleumFilterOptions,
   PetroleumForecastSnapshot as PetroleumForecastSnapshotView,
+  PetroleumLayerId,
   PetroleumLinkedCompany,
   PetroleumMapFeature,
   PetroleumMarketFilters,
@@ -113,6 +114,20 @@ const MAX_AGE_HOURS = {
   gassco: 0.25,
 } as const;
 
+const FEATURE_LIMITS: Record<PetroleumLayerId, number> = {
+  fields: 160,
+  discoveries: 260,
+  licences: 320,
+  facilities: 220,
+  tuf: 120,
+  wellbores: 350,
+  surveys: 220,
+  regulatoryEvents: 0,
+  gasscoEvents: 0,
+};
+
+const syncPromises = new Map<string, Promise<void>>();
+
 function hoursSince(date?: Date | null) {
   if (!date) {
     return Number.POSITIVE_INFINITY;
@@ -144,6 +159,19 @@ function parseBbox(value: unknown): [number, number, number, number] | null {
     value.every((entry) => typeof entry === "number")
     ? [value[0], value[1], value[2], value[3]]
     : null;
+}
+
+function scheduleSync(key: string, run: () => Promise<void>) {
+  const current = syncPromises.get(key);
+  if (current) {
+    return current;
+  }
+
+  const promise = run().finally(() => {
+    syncPromises.delete(key);
+  });
+  syncPromises.set(key, promise);
+  return promise;
 }
 
 function bboxIntersects(
@@ -432,11 +460,20 @@ async function syncEventSource(
 
 async function ensureSyncFresh(key: keyof typeof SYNC_KEYS, maxAgeHours: number, run: () => Promise<void>) {
   const state = await getPetroleumSyncState(SYNC_KEYS[key]);
+  if (state?.status === "RUNNING") {
+    return;
+  }
+
   if (hoursSince(state?.lastSuccessAt) <= maxAgeHours) {
     return;
   }
 
-  await run();
+  if (state?.lastSuccessAt) {
+    void scheduleSync(SYNC_KEYS[key], run).catch(() => undefined);
+    return;
+  }
+
+  await scheduleSync(SYNC_KEYS[key], run);
 }
 
 async function ensureCoreReady() {
@@ -479,6 +516,56 @@ async function getCoreDataset(): Promise<CoreDataset> {
     ]);
 
   return { companyLinks, fields, discoveries, licences, facilities, tufs, surveys, wellbores };
+}
+
+async function getFeatureDataset(layers: PetroleumLayerId[]) {
+  await ensureCoreReady();
+
+  const needsFields = layers.includes("fields");
+  const needsDiscoveries = layers.includes("discoveries");
+  const needsLicences = layers.includes("licences");
+  const needsFacilities = layers.includes("facilities");
+  const needsTufs = layers.includes("tuf");
+  const needsSurveys = layers.includes("surveys");
+  const needsWellbores = layers.includes("wellbores");
+  const needsMetrics = needsFields;
+
+  const [
+    fields,
+    discoveries,
+    licences,
+    facilities,
+    tufs,
+    surveys,
+    wellbores,
+    productionPoints,
+    reserveSnapshots,
+    investmentSnapshots,
+  ] = await Promise.all([
+    needsFields ? listPetroleumFields() : Promise.resolve([] as PetroleumField[]),
+    needsDiscoveries ? listPetroleumDiscoveries() : Promise.resolve([] as PetroleumDiscovery[]),
+    needsLicences ? listPetroleumLicences() : Promise.resolve([] as PetroleumLicence[]),
+    needsFacilities ? listPetroleumFacilities() : Promise.resolve([] as PetroleumFacility[]),
+    needsTufs ? listPetroleumTufs() : Promise.resolve([] as PetroleumTuf[]),
+    needsSurveys ? listPetroleumSurveys() : Promise.resolve([] as PetroleumSurvey[]),
+    needsWellbores ? listPetroleumWellbores() : Promise.resolve([] as PetroleumWellbore[]),
+    needsMetrics ? listPetroleumProductionPoints() : Promise.resolve([] as PetroleumProductionPoint[]),
+    needsMetrics ? listPetroleumReserveSnapshots() : Promise.resolve([] as PetroleumReserveSnapshot[]),
+    needsMetrics ? listPetroleumInvestmentSnapshots() : Promise.resolve([] as PetroleumInvestmentSnapshot[]),
+  ]);
+
+  return {
+    fields,
+    discoveries,
+    licences,
+    facilities,
+    tufs,
+    surveys,
+    wellbores,
+    productionPoints,
+    reserveSnapshots,
+    investmentSnapshots,
+  };
 }
 
 export async function getPetroleumCoreDataset() {
@@ -691,6 +778,89 @@ function getSurveyReferenceYear(item: PetroleumSurvey) {
     item.plannedToDate?.getUTCFullYear() ??
     null
   );
+}
+
+function limitLayerItems<T>(items: T[], layerId: PetroleumLayerId) {
+  const limit = FEATURE_LIMITS[layerId];
+  if (!limit || items.length <= limit) {
+    return items;
+  }
+
+  return items.slice(0, limit);
+}
+
+function sortFieldsForMap(items: PetroleumField[]) {
+  return [...items].sort((left, right) => {
+    const producingDelta =
+      Number(normalizeText(right.activityStatus).includes("producing")) -
+      Number(normalizeText(left.activityStatus).includes("producing"));
+    if (producingDelta !== 0) {
+      return producingDelta;
+    }
+
+    return left.name.localeCompare(right.name, "nb");
+  });
+}
+
+function sortDiscoveriesForMap(items: PetroleumDiscovery[]) {
+  return [...items].sort((left, right) => {
+    const yearDelta = (right.discoveryYear ?? 0) - (left.discoveryYear ?? 0);
+    if (yearDelta !== 0) {
+      return yearDelta;
+    }
+
+    return left.name.localeCompare(right.name, "nb");
+  });
+}
+
+function sortLicencesForMap(items: PetroleumLicence[]) {
+  return [...items].sort((left, right) => {
+    const activeDelta = Number(Boolean(right.active)) - Number(Boolean(left.active));
+    if (activeDelta !== 0) {
+      return activeDelta;
+    }
+
+    return left.name.localeCompare(right.name, "nb");
+  });
+}
+
+function sortFacilitiesForMap(items: PetroleumFacility[]) {
+  return [...items].sort((left, right) => {
+    const startupDelta = (right.startupDate?.getTime() ?? 0) - (left.startupDate?.getTime() ?? 0);
+    if (startupDelta !== 0) {
+      return startupDelta;
+    }
+
+    return left.name.localeCompare(right.name, "nb");
+  });
+}
+
+function sortTufsForMap(items: PetroleumTuf[]) {
+  return [...items].sort((left, right) => left.name.localeCompare(right.name, "nb"));
+}
+
+function sortSurveysForMap(items: PetroleumSurvey[]) {
+  return [...items].sort((left, right) => {
+    const yearDelta = (getSurveyReferenceYear(right) ?? 0) - (getSurveyReferenceYear(left) ?? 0);
+    if (yearDelta !== 0) {
+      return yearDelta;
+    }
+
+    return left.name.localeCompare(right.name, "nb");
+  });
+}
+
+function sortWellboresForMap(items: PetroleumWellbore[]) {
+  return [...items].sort((left, right) => {
+    const dateDelta =
+      (right.completionDate?.getTime() ?? right.entryDate?.getTime() ?? 0) -
+      (left.completionDate?.getTime() ?? left.entryDate?.getTime() ?? 0);
+    if (dateDelta !== 0) {
+      return dateDelta;
+    }
+
+    return left.name.localeCompare(right.name, "nb");
+  });
 }
 
 function filterSurveys(surveys: PetroleumSurvey[], filters: PetroleumMarketFilters) {
@@ -1625,22 +1795,22 @@ function buildFilterOptions(core: CoreDataset): PetroleumFilterOptions {
 }
 
 export async function getPetroleumMarketFeatures(filters: PetroleumMarketFilters) {
-  const [core, metrics] = await Promise.all([getCoreDataset(), getMetricsDataset()]);
   const layers = normalizeLayerSelection(filters.layers);
+  const featureDataset = await getFeatureDataset(layers);
   const features: PetroleumMapFeature[] = [];
-  const productionLookup = buildFieldProductionLookup(metrics.productionPoints);
-  const reserveLookup = buildReserveLookup(metrics.reserveSnapshots);
-  const investmentLookup = buildInvestmentLookup(metrics.investmentSnapshots);
+  const productionLookup = buildFieldProductionLookup(featureDataset.productionPoints);
+  const reserveLookup = buildReserveLookup(featureDataset.reserveSnapshots);
+  const investmentLookup = buildInvestmentLookup(featureDataset.investmentSnapshots);
   const selectedProduct = filters.product ?? "oe";
   const selectedView = filters.view ?? "volume";
 
   if (layers.includes("fields")) {
     features.push(
-      ...filterFields(core.fields, filters)
-        .map((field) => {
-          const fieldPoints = productionLookup.get(field.npdId) ?? [];
-          const fieldMetric = getMetricFromPointSet(fieldPoints, selectedProduct, selectedView, "annual");
-          const ytdMetrics = getFieldYearToDateMetrics(fieldPoints, selectedProduct, selectedView);
+      ...limitLayerItems(sortFieldsForMap(filterFields(featureDataset.fields, filters)), "fields")
+          .map((field) => {
+            const fieldPoints = productionLookup.get(field.npdId) ?? [];
+            const fieldMetric = getMetricFromPointSet(fieldPoints, selectedProduct, selectedView, "annual");
+            const ytdMetrics = getFieldYearToDateMetrics(fieldPoints, selectedProduct, selectedView);
 
           return mapFieldFeature(field, {
             latestProductionOe: getLatestAnnualPoint(fieldPoints)?.oeNetMillSm3 ?? null,
@@ -1658,31 +1828,58 @@ export async function getPetroleumMarketFeatures(filters: PetroleumMarketFilters
   }
   if (layers.includes("discoveries")) {
     features.push(
-      ...filterDiscoveries(core.discoveries, filters)
-        .map(mapDiscoveryFeature)
-        .filter(Boolean) as PetroleumMapFeature[],
+      ...limitLayerItems(
+        sortDiscoveriesForMap(filterDiscoveries(featureDataset.discoveries, filters)),
+        "discoveries",
+      )
+          .map(mapDiscoveryFeature)
+          .filter(Boolean) as PetroleumMapFeature[],
     );
   }
   if (layers.includes("licences")) {
-    features.push(...filterLicences(core.licences, filters).map(mapLicenceFeature).filter(Boolean) as PetroleumMapFeature[]);
-  }
-  if (layers.includes("facilities")) {
     features.push(
-      ...filterFacilities(core.facilities, filters)
-        .map(mapFacilityFeature)
+      ...limitLayerItems(sortLicencesForMap(filterLicences(featureDataset.licences, filters)), "licences")
+        .map(mapLicenceFeature)
         .filter(Boolean) as PetroleumMapFeature[],
     );
   }
+  if (layers.includes("facilities")) {
+    features.push(
+      ...limitLayerItems(
+        sortFacilitiesForMap(filterFacilities(featureDataset.facilities, filters)),
+        "facilities",
+      )
+          .map(mapFacilityFeature)
+          .filter(Boolean) as PetroleumMapFeature[],
+    );
+  }
   if (layers.includes("tuf")) {
-    features.push(...filterTufs(core.tufs, filters).map(mapTufFeature).filter(Boolean) as PetroleumMapFeature[]);
+    features.push(
+      ...limitLayerItems(sortTufsForMap(filterTufs(featureDataset.tufs, filters)), "tuf")
+        .map(mapTufFeature)
+        .filter(Boolean) as PetroleumMapFeature[],
+    );
   }
   if (layers.includes("surveys")) {
-    features.push(...filterSurveys(core.surveys, filters).map(mapSurveyFeature).filter(Boolean) as PetroleumMapFeature[]);
+    if (filters.bbox) {
+      features.push(
+        ...limitLayerItems(sortSurveysForMap(filterSurveys(featureDataset.surveys, filters)), "surveys")
+          .map(mapSurveyFeature)
+          .filter(Boolean) as PetroleumMapFeature[],
+      );
+    }
   }
   if (layers.includes("wellbores")) {
-    features.push(
-      ...filterWellbores(core.wellbores, filters).map(mapWellboreFeature).filter(Boolean) as PetroleumMapFeature[],
-    );
+    if (filters.bbox) {
+      features.push(
+        ...limitLayerItems(
+          sortWellboresForMap(filterWellbores(featureDataset.wellbores, filters)),
+          "wellbores",
+        )
+          .map(mapWellboreFeature)
+          .filter(Boolean) as PetroleumMapFeature[],
+      );
+    }
   }
 
   return features;

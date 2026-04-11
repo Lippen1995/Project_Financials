@@ -865,7 +865,8 @@ async function downloadAnnualReportPdf(orgNumber: string, year: number) {
     headers: {
       Accept: "application/octet-stream",
     },
-    next: { revalidate: 3600 },
+    // OCR input PDFs can exceed Next.js fetch-cache limits, so fetch them directly.
+    cache: "no-store",
   });
 
   if (!response.ok) {

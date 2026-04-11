@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { LoginForm } from "@/components/auth/login-form";
+import { LoginForm, RegisterForm } from "@/components/auth/login-form";
 import { Card } from "@/components/ui/card";
 
 export default function LoginPage() {
@@ -20,7 +20,7 @@ export default function LoginPage() {
           </p>
         </div>
         <div className="border-t border-[rgba(15,23,42,0.08)] p-8">
-          <LoginForm mode="login" />
+          <LoginForm />
         </div>
       </section>
 
@@ -32,7 +32,7 @@ export default function LoginPage() {
           kilder faktisk støtter det.
         </p>
         <div className="mt-8 rounded-[0.95rem] border border-white/10 bg-white/5 p-6">
-          <LoginForm mode="register" />
+          <RegisterForm />
         </div>
         <Link
           href="/pricing"

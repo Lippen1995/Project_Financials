@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { findPetroleumCompanyExposureSnapshotByCompanyId } from "@/server/persistence/petroleum-market-repository";
 import {
   CompanyPetroleumBreakdownRow,
   CompanyPetroleumDiscoveryRow,
@@ -204,7 +205,7 @@ export async function getCompanyPetroleumTabVisibility(company: NormalizedCompan
       prisma.petroleumFacility.count({ where: { currentOperatorNpdId: { in: npdCompanyIds } } }),
       prisma.petroleumTuf.count({ where: { operatorNpdCompanyId: { in: npdCompanyIds } } }),
     ]).then((counts) => counts.reduce((sum, count) => sum + count, 0)),
-    prisma.petroleumCompanyExposureSnapshot.findUnique({ where: { companyId: dbCompany.id } }),
+    findPetroleumCompanyExposureSnapshotByCompanyId(dbCompany.id),
     prisma.petroleumEvent.count({
       where: {
         OR: [{ relatedCompanyOrgNumber: company.orgNumber }, { relatedCompanySlug: company.slug }],
@@ -361,7 +362,7 @@ export async function getCompanyPetroleumProfile(company: NormalizedCompany): Pr
   const npdCompanyIds = links.map((link) => link.npdCompanyId);
 
   const [exposure, fields, licences, discoveries, facilities, tufs, events, syncStates, productionPoints, reserves, investments] = await Promise.all([
-    prisma.petroleumCompanyExposureSnapshot.findUnique({ where: { companyId: dbCompany.id } }),
+    findPetroleumCompanyExposureSnapshotByCompanyId(dbCompany.id),
     prisma.petroleumField.findMany(),
     prisma.petroleumLicence.findMany(),
     prisma.petroleumDiscovery.findMany({ where: { operatorNpdCompanyId: { in: npdCompanyIds } } }),

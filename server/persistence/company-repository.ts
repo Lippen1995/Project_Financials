@@ -51,6 +51,13 @@ export async function upsertCompanySnapshot(company: NormalizedCompany) {
       },
     }));
 
+  const industryCodeUpdate = industryCode
+    ? { connect: { id: industryCode.id } }
+    : { disconnect: true };
+  const industryCodeCreate = industryCode
+    ? { connect: { id: industryCode.id } }
+    : undefined;
+
   await prisma.company.upsert({
     where: { orgNumber: company.orgNumber },
     update: {
@@ -74,7 +81,7 @@ export async function upsertCompanySnapshot(company: NormalizedCompany) {
       fetchedAt: company.fetchedAt,
       normalizedAt: company.normalizedAt,
       rawPayload: company.rawPayload as never,
-      industryCodeId: industryCode?.id,
+      industryCode: industryCodeUpdate,
       addresses: {
         deleteMany: {},
         create: company.addresses.map((address) => ({
@@ -116,7 +123,7 @@ export async function upsertCompanySnapshot(company: NormalizedCompany) {
       fetchedAt: company.fetchedAt,
       normalizedAt: company.normalizedAt,
       rawPayload: company.rawPayload as never,
-      industryCodeId: industryCode?.id,
+      industryCode: industryCodeCreate,
       addresses: {
         create: company.addresses.map((address) => ({
           type: AddressType.BUSINESS,

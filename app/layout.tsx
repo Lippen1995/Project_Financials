@@ -55,6 +55,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                     Søk
                   </Link>
                   <Link
+                    href="/market/distress"
+                    className="rounded-full px-3 py-2 hover:bg-white hover:text-slate-950"
+                  >
+                    Distress
+                  </Link>
+                  <Link
                     href="/market/oil-gas"
                     className="rounded-full px-3 py-2 hover:bg-white hover:text-slate-950"
                   >

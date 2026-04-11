@@ -55,6 +55,7 @@ export class SsbIndustryCodeProvider implements IndustryCodeProvider {
 
     const response = await fetchJson<SsbCodesResponse>(
       `${env.ssbKlassBaseUrl}/classifications/${classificationId}/codesAt?${params.toString()}`,
+      includeNotes ? { cache: "no-store" } : undefined,
     );
 
     return response.codes ?? [];

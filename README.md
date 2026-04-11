@@ -211,8 +211,10 @@ Dette vil:
 ## Miljøvariabler
 
 - `DATABASE_URL`: PostgreSQL-tilkobling
+- `AUTH_SECRET`: primær secret for Auth.js/NextAuth-sesjoner
 - `NEXTAUTH_SECRET`: secret for auth-sesjoner
 - `NEXTAUTH_URL`: lokal base-URL
+- `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`: stabil base64-nøkkel for Server Actions lokalt og i deploy
 - `BRREG_BASE_URL`: base-URL for Brreg virksomhetsdata
 - `BRREG_ROLES_BASE_URL`: base-URL for Brreg roller
 - `BRREG_COMPANY_LOOKUP_BASE_URL`: base-URL for Brreg virksomhetsoppslag brukt til åpne årsregnskapsmetadata

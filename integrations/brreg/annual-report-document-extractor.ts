@@ -164,7 +164,8 @@ async function downloadPdf(documentUrl: string) {
     headers: {
       Accept: "application/octet-stream",
     },
-    next: { revalidate: 3600 },
+    // Large annual report PDFs are cached in ProjectX's own flows, not Next's fetch cache.
+    cache: "no-store",
   });
 
   if (!response.ok) {

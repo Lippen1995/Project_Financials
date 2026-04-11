@@ -331,7 +331,9 @@ async function queryArcGisLayer<T>(
   while (true) {
     const response = await fetchJson<ArcGisResponse<T>>(
       buildUrl(lastObjectId >= 0 ? `OBJECTID > ${lastObjectId}` : "1=1"),
-      undefined,
+      {
+        cache: "no-store",
+      },
       120_000,
     );
 

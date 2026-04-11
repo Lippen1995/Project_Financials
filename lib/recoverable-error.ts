@@ -5,7 +5,7 @@ export function logRecoverableError(
   error: unknown,
   context?: RecoverableErrorContext,
 ) {
-  console.error(`[${scope}] recoverable error`, {
+  console.warn(`[${scope}] recoverable error`, {
     message: error instanceof Error ? error.message : "Unknown error",
     stack: error instanceof Error ? error.stack : undefined,
     context,

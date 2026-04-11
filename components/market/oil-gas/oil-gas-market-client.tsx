@@ -972,7 +972,6 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
   const [isExporting, setIsExporting] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [isViewportPending, startViewportTransition] = React.useTransition();
   const activeTab = filters.tab ?? PETROLEUM_DEFAULT_TAB;
   const isOverviewTab = activeTab === "market";
   const selectedProduct = filters.product ?? PETROLEUM_DEFAULT_PRODUCT;
@@ -1106,30 +1105,15 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
   }, [filters, pathname, queryInput, router, searchParamsString, selectedEntityKey]);
 
   React.useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      startViewportTransition(() => {
-        setFilters((current) => {
-          if (sameBbox(current.bbox ?? null, viewportBbox)) {
-            return current;
-          }
-
-          return {
-            ...current,
-            bbox: viewportBbox,
-            page: 0,
-          };
-        });
-      });
-    }, 350);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [viewportBbox]);
-
-  React.useEffect(() => {
     const params = buildPetroleumSearchParams(filters);
     const requestId = latestRequestIdRef.current + 1;
     latestRequestIdRef.current = requestId;
     const abortController = new AbortController();
+    const featureBbox = viewportBbox ?? filters.bbox ?? null;
+    const shouldFetchMapFeatures = Boolean(featureBbox);
+    const featureParams = buildPetroleumSearchParams(filters, {
+      bbox: featureBbox?.join(","),
+    });
 
     async function load() {
       setLoading(true);
@@ -1156,28 +1140,40 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             : ({ ok: false as const, aborted: false as const }),
         );
 
-      const featuresPromise = fetchApi<PetroleumMapFeature[]>(
-        `/api/market/oil-gas/features?${params.toString()}`,
-        { signal: abortController.signal },
-      )
-        .then((value) => {
-          if (
-            isMountedRef.current &&
-            requestId >= lastAppliedRequestRef.current.features
-          ) {
-            setFeatures(value);
-            lastAppliedRequestRef.current.features = requestId;
-          }
+      const featuresPromise = shouldFetchMapFeatures
+        ? fetchApi<PetroleumMapFeature[]>(
+            `/api/market/oil-gas/features?${featureParams.toString()}`,
+            { signal: abortController.signal },
+          )
+            .then((value) => {
+              if (
+                isMountedRef.current &&
+                requestId >= lastAppliedRequestRef.current.features
+              ) {
+                setFeatures(value);
+                lastAppliedRequestRef.current.features = requestId;
+              }
 
-          return { ok: true as const, aborted: false as const };
-        })
-        .catch((error: unknown) =>
-          error instanceof Error && error.name === "AbortError"
-            ? ({ ok: false as const, aborted: true as const })
-            : ({ ok: false as const, aborted: false as const }),
-        );
+              return { ok: true as const, aborted: false as const };
+            })
+            .catch((error: unknown) =>
+              error instanceof Error && error.name === "AbortError"
+                ? ({ ok: false as const, aborted: true as const })
+                : ({ ok: false as const, aborted: false as const }),
+            )
+        : Promise.resolve({ ok: true as const, aborted: false as const });
 
-      const tablePromise = fetchApi<PetroleumTableResponse>(`/api/market/oil-gas/table?${params.toString()}`, {
+      const [summaryResult, featuresResult] = await Promise.all([summaryPromise, featuresPromise]);
+
+      if (isMountedRef.current && requestId === latestRequestIdRef.current) {
+        if (!summaryResult.ok && !featuresResult.ok && !summaryResult.aborted && !featuresResult.aborted) {
+          setError("Kunne ikke laste olje- og gassmodulen.");
+        }
+
+        setLoading(false);
+      }
+
+      const tableResult = await fetchApi<PetroleumTableResponse>(`/api/market/oil-gas/table?${params.toString()}`, {
         signal: abortController.signal,
       })
         .then((value) => {
@@ -1197,7 +1193,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             : ({ ok: false as const, aborted: false as const }),
         );
 
-      const timeseriesPromise = fetchApi<PetroleumTimeSeriesPoint[]>(
+      const timeseriesResult = await fetchApi<PetroleumTimeSeriesPoint[]>(
         `/api/market/oil-gas/timeseries?${buildPetroleumSearchParams(filters, {
           entityType: "area",
           granularity: "year",
@@ -1225,7 +1221,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             : ({ ok: false as const, aborted: false as const }),
         );
 
-      const eventsPromise = fetchApi<PetroleumEventRow[]>(
+      const eventsResult = await fetchApi<PetroleumEventRow[]>(
         `/api/market/oil-gas/events?${params.toString()}&limit=40`,
         { signal: abortController.signal },
       )
@@ -1245,22 +1241,6 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             ? ({ ok: false as const, aborted: true as const })
             : ({ ok: false as const, aborted: false as const }),
         );
-
-      const [summaryResult, featuresResult] = await Promise.all([summaryPromise, featuresPromise]);
-
-      if (isMountedRef.current && requestId === latestRequestIdRef.current) {
-        if (!summaryResult.ok && !featuresResult.ok && !summaryResult.aborted && !featuresResult.aborted) {
-          setError("Kunne ikke laste olje- og gassmodulen.");
-        }
-
-        setLoading(false);
-      }
-
-      const [tableResult, timeseriesResult, eventsResult] = await Promise.all([
-        tablePromise,
-        timeseriesPromise,
-        eventsPromise,
-      ]);
 
       if (!isMountedRef.current || requestId !== latestRequestIdRef.current) {
         return;
@@ -1285,7 +1265,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
     return () => {
       abortController.abort();
     };
-  }, [filters, selectedComparison, selectedProduct, selectedView]);
+  }, [filters, selectedComparison, selectedProduct, selectedView, viewportBbox]);
 
   React.useEffect(() => {
     if (activeTab !== "seismic") {
@@ -1372,59 +1352,6 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
   }, [isMapExpanded]);
 
   React.useEffect(() => {
-    let cancelled = false;
-    const fieldParams = buildPetroleumSearchParams({
-      ...filters,
-      tableMode: "fields",
-      page: 0,
-      size: 500,
-    });
-    const operatorParams = buildPetroleumSearchParams({
-      ...filters,
-      tableMode: "operators",
-      page: 0,
-      size: 500,
-    });
-
-    Promise.all([
-      fetchApi<PetroleumTableResponse>(`/api/market/oil-gas/table?${fieldParams.toString()}`),
-      fetchApi<PetroleumTableResponse>(`/api/market/oil-gas/table?${operatorParams.toString()}`),
-    ])
-      .then(([fieldTable, operatorTable]) => {
-        if (cancelled) {
-          return;
-        }
-
-        setFieldCompareRows(fieldTable.items.filter((item): item is FieldTableRow => item.mode === "fields"));
-        setOperatorCompareRows(
-          operatorTable.items.filter((item): item is OperatorTableRow => item.mode === "operators"),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setFieldCompareRows([]);
-          setOperatorCompareRows([]);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [filters]);
-
-  React.useEffect(() => {
-    setCompareFieldIds((current) =>
-      current.filter((id) => fieldCompareRows.some((row) => row.entityId === id)),
-    );
-  }, [fieldCompareRows]);
-
-  React.useEffect(() => {
-    setCompareOperatorIds((current) =>
-      current.filter((id) => operatorCompareRows.some((row) => row.operatorId === id)),
-    );
-  }, [operatorCompareRows]);
-
-  React.useEffect(() => {
     if (compareIds.length === 0) {
       setCompareSeries([]);
       return;
@@ -1509,7 +1436,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       count: counts.get(layerId) ?? 0,
     }));
   }, [features, filters.layers]);
-  const isMapDrivingResults = Boolean(filters.bbox);
+  const isMapDrivingResults = Boolean(viewportBbox ?? filters.bbox);
   const gasscoRealtimeEvents = React.useMemo(
     () => events.filter((event) => event.source === "GASSCO" && event.eventType === "REALTIME_NOMINATION"),
     [events],
@@ -2784,10 +2711,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   <span
                     className={cn(
                       "h-2.5 w-2.5 rounded-full",
-                      loading || isViewportPending ? "bg-amber-500" : "bg-emerald-500",
+                      loading ? "bg-amber-500" : "bg-emerald-500",
                     )}
                   />
-                  {loading || isViewportPending ? "Oppdaterer utsnitt" : "Utsnitt synkronisert"}
+                  {loading ? "Oppdaterer utsnitt" : "Utsnitt synkronisert"}
                 </div>
                 <button
                   type="button"
@@ -2907,10 +2834,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   </div>
                 </div>
               ) : null}
-              {loading || isViewportPending ? (
-                <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-white/70 bg-white/92 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
-                  Oppdaterer kart og analyser
-                </div>
+                {loading ? (
+                  <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-white/70 bg-white/92 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
+                    Oppdaterer kart og analyser
+                  </div>
               ) : null}
             </div>
             <div className="border-t border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] px-5 py-4">
