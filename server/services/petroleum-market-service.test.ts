@@ -3,20 +3,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const repositoryMocks = vi.hoisted(() => ({
   countPetroleumFieldSnapshots: vi.fn(),
   countPetroleumLicenceSnapshots: vi.fn(),
+  findPetroleumEntityDetailBySlugOrNpdId: vi.fn(),
+  findPetroleumInvestmentSnapshotForEntity: vi.fn(),
+  findPetroleumReserveSnapshotForEntity: vi.fn(),
   getCompanySlugLookup: vi.fn(),
   getPetroleumSyncState: vi.fn(),
   listPetroleumCompanyLinks: vi.fn(),
   listPetroleumDiscoveries: vi.fn(),
   listPetroleumEvents: vi.fn(),
+  listPetroleumEventsFiltered: vi.fn(),
   listPetroleumFacilities: vi.fn(),
   listPetroleumForecastSnapshots: vi.fn(),
   listPetroleumFieldSnapshots: vi.fn(),
   listPetroleumFields: vi.fn(),
   listPetroleumInvestmentSnapshots: vi.fn(),
   listPetroleumLicenceSnapshots: vi.fn(),
+  listPetroleumLicencesByNpdIds: vi.fn(),
   listPetroleumLicences: vi.fn(),
   listPetroleumOperatorSnapshots: vi.fn(),
   listPetroleumProductionPoints: vi.fn(),
+  listPetroleumProductionPointsForEntity: vi.fn(),
   listPetroleumProductionPointsForEntities: vi.fn(),
   listPetroleumPublicationSnapshots: vi.fn(),
   listPetroleumReserveSnapshots: vi.fn(),
@@ -54,8 +60,11 @@ vi.mock("@/integrations/gassco/gassco-market-provider", () => ({
 }));
 
 import {
+  getPetroleumEntityDetailById,
+  getPetroleumEvents,
   getPetroleumMarketSummary,
   getPetroleumMarketTable,
+  getPetroleumMarketTimeseries,
 } from "@/server/services/petroleum-market-service";
 
 function makeSyncState() {
@@ -73,7 +82,9 @@ describe("petroleum market read path", () => {
 
     repositoryMocks.getPetroleumSyncState.mockResolvedValue(makeSyncState());
     repositoryMocks.listPetroleumEvents.mockResolvedValue([]);
+    repositoryMocks.listPetroleumEventsFiltered.mockResolvedValue([]);
     repositoryMocks.listPetroleumLicences.mockResolvedValue([]);
+    repositoryMocks.listPetroleumLicencesByNpdIds.mockResolvedValue([]);
     repositoryMocks.listPetroleumForecastSnapshots.mockResolvedValue([]);
     repositoryMocks.listPetroleumPublicationSnapshots.mockResolvedValue([]);
     repositoryMocks.listPetroleumCompanyLinks.mockResolvedValue([
@@ -144,6 +155,62 @@ describe("petroleum market read path", () => {
     });
     repositoryMocks.countPetroleumFieldSnapshots.mockResolvedValue(1);
     repositoryMocks.countPetroleumLicenceSnapshots.mockResolvedValue(1);
+    repositoryMocks.findPetroleumEntityDetailBySlugOrNpdId.mockResolvedValue({
+      npdId: 100,
+      slug: "field-a",
+      name: "Field A",
+      activityStatus: "Producing",
+      mainArea: "Nordsjøen",
+      hydrocarbonType: "Oil",
+      geometry: null,
+      centroid: [1, 2],
+      factPageUrl: "https://example.com/field-a",
+      factMapUrl: "https://example.com/map/field-a",
+      operatorNpdCompanyId: 10,
+      operatorCompanyName: "Operator One",
+      operatorOrgNumber: "123456789",
+      operatorCompanySlug: "operator-one",
+      licensees: [],
+      sourceSystem: "SODIR",
+      sourceEntityType: "FIELD",
+      sourceId: "100",
+    });
+    repositoryMocks.findPetroleumReserveSnapshotForEntity.mockResolvedValue({
+      entityNpdId: 100,
+      entityName: "Field A",
+      updatedAtSource: new Date("2026-01-01T00:00:00.000Z"),
+      recoverableOe: 120,
+      remainingOe: 80,
+      recoverableOil: 70,
+      recoverableGas: 20,
+      recoverableNgl: 10,
+      recoverableCondensate: 5,
+      remainingOil: 50,
+      remainingGas: 15,
+      remainingNgl: 8,
+      remainingCondensate: 4,
+    });
+    repositoryMocks.findPetroleumInvestmentSnapshotForEntity.mockResolvedValue({
+      entityNpdId: 100,
+      entityName: "Field A",
+      expectedFutureInvestmentMillNok: 250,
+      fixedYear: 2026,
+    });
+    repositoryMocks.listPetroleumProductionPointsForEntity.mockResolvedValue([
+      {
+        entityType: "FIELD",
+        entityNpdId: 100,
+        year: 2025,
+        month: null,
+        oilNetMillSm3: 10,
+        gasNetBillSm3: 5,
+        condensateNetMillSm3: 1,
+        nglNetMillSm3: 2,
+        oeNetMillSm3: 18,
+        producedWaterMillSm3: 3,
+        investmentsMillNok: 100,
+      },
+    ]);
     repositoryMocks.listPetroleumProductionPointsForEntities.mockImplementation(async (input?: { period?: string }) => {
       if (input?.period === "year") {
         return [
@@ -209,6 +276,20 @@ describe("petroleum market read path", () => {
         },
       ];
     });
+    repositoryMocks.listPetroleumEventsFiltered.mockResolvedValue([
+      {
+        externalId: "havtil-1",
+        source: "HAVTIL",
+        eventType: "inspection",
+        title: "Inspection event",
+        summary: "Summary",
+        publishedAt: new Date("2026-03-01T00:00:00.000Z"),
+        detailUrl: "https://example.com/event/1",
+        entityType: "FIELD",
+        entityNpdId: 100,
+        entityName: "Field A",
+      },
+    ]);
   });
 
   it("builds market summary from snapshots without triggering heavy sync", async () => {
@@ -255,5 +336,52 @@ describe("petroleum market read path", () => {
     expect(summary.topFields).toEqual([]);
     expect(table.items).toEqual([]);
     expect(providerMocks.fetchSodirPetroleumCoreData).not.toHaveBeenCalled();
+  });
+
+  it("builds timeseries from filtered snapshots and narrow production queries", async () => {
+    const series = await getPetroleumMarketTimeseries({
+      filters: {},
+      entityType: "field",
+      entityIds: ["field-a"],
+      granularity: "year",
+      measures: ["oe"],
+    });
+
+    expect(series).toHaveLength(1);
+    expect(series[0]).toMatchObject({
+      key: "field-a:2025",
+      label: "Field A",
+      oe: 18,
+      selectedValue: 18,
+    });
+    expect(providerMocks.fetchSodirPetroleumMetricsData).not.toHaveBeenCalled();
+  });
+
+  it("builds entity detail from targeted entity queries", async () => {
+    const detail = await getPetroleumEntityDetailById("field", "field-a");
+
+    expect(detail).not.toBeNull();
+    expect(detail?.name).toBe("Field A");
+    expect(detail?.reserve?.remainingOe).toBe(80);
+    expect(detail?.investment?.expectedFutureInvestmentNok).toBe(250_000_000);
+    expect(detail?.relatedEvents[0]?.title).toBe("Inspection event");
+    expect(providerMocks.fetchSodirPetroleumCoreData).not.toHaveBeenCalled();
+  });
+
+  it("builds events from filtered snapshots without triggering sync", async () => {
+    repositoryMocks.listPetroleumLicencesByNpdIds.mockResolvedValue([
+      {
+        npdId: 200,
+        slug: "lic-a",
+        name: "Licence A",
+        registerMessages: [],
+      },
+    ]);
+
+    const events = await getPetroleumEvents({}, 10);
+
+    expect(events[0]?.title).toBe("Inspection event");
+    expect(providerMocks.fetchHavtilPetroleumEvents).not.toHaveBeenCalled();
+    expect(providerMocks.fetchGasscoPetroleumEvents).not.toHaveBeenCalled();
   });
 });

@@ -858,6 +858,7 @@ model PetroleumProductionPoint {
   updatedAt            DateTime            @updatedAt
 
   @@index([entityType, entityNpdId, year, month])
+  @@index([entityType, entityNpdId, period, year, month])
   @@index([entityType, year])
 }
 
@@ -1107,6 +1108,9 @@ model PetroleumEvent {
 
   @@index([source, eventType, publishedAt])
   @@index([entityType, entityNpdId])
+  @@index([relatedCompanyOrgNumber])
+  @@index([relatedCompanySlug])
+  @@index([publishedAt])
 }
 
 model PetroleumMarketSeries {

@@ -56,6 +56,9 @@ import {
 import {
   countPetroleumFieldSnapshots,
   countPetroleumLicenceSnapshots,
+  findPetroleumEntityDetailBySlugOrNpdId,
+  findPetroleumInvestmentSnapshotForEntity,
+  findPetroleumReserveSnapshotForEntity,
   getCompanySlugLookup,
   getPetroleumSyncState,
   PetroleumFieldSnapshotListInput,
@@ -68,11 +71,14 @@ import {
   listPetroleumFieldSnapshots,
   listPetroleumFields,
   listPetroleumInvestmentSnapshots,
+  listPetroleumEventsFiltered,
   listPetroleumLicenceSnapshots,
+  listPetroleumLicencesByNpdIds,
   listPetroleumLicences,
   listPetroleumOperatorSnapshots,
   listPetroleumPublicationSnapshots,
   listPetroleumProductionPoints,
+  listPetroleumProductionPointsForEntity,
   listPetroleumProductionPointsForEntities,
   listPetroleumReserveSnapshots,
   listPetroleumSurveys,
@@ -2112,21 +2118,30 @@ export async function getPetroleumMarketTimeseries(input: {
   view?: PetroleumMetricView;
   comparison?: PetroleumTimeSeriesComparison;
 }) {
-  const [core, metrics] = await Promise.all([getCoreDataset(), getMetricsDataset()]);
+  const fieldSnapshots = await listPetroleumFieldSnapshots(buildFieldSnapshotQuery(input.filters));
   const currentYear = new Date().getUTCFullYear();
-  const fields = filterFields(core.fields, input.filters);
-  const allowedFieldIds = new Set(fields.map((field) => field.npdId));
-  const fieldLookup = new Map(fields.map((field) => [field.npdId, field]));
+  const fieldLookup = new Map(
+    fieldSnapshots.map((field) => [
+      field.fieldNpdId,
+      {
+        ...field,
+        operatorCompanyName: field.operatorName,
+        mainArea: field.area,
+      },
+    ]),
+  );
   const groups = new Map<string, PetroleumTimeSeriesPoint>();
   const selectedProduct = input.product ?? input.filters.product ?? "oe";
   const selectedView = input.view ?? input.filters.view ?? "volume";
+  const productionPoints = await listPetroleumProductionPointsForEntities({
+    entityType: "FIELD",
+    entityNpdIds: fieldSnapshots.map((field) => field.fieldNpdId),
+    yearTo: currentYear,
+    period: input.granularity === "month" ? "month" : "year",
+  });
 
-  for (const point of metrics.productionPoints) {
-    if (point.year > currentYear) {
-      continue;
-    }
-
-    if (point.entityType !== "FIELD" || !allowedFieldIds.has(point.entityNpdId)) {
+  for (const point of productionPoints) {
+    if (point.entityType !== "FIELD") {
       continue;
     }
 
@@ -2139,10 +2154,10 @@ export async function getPetroleumMarketTimeseries(input: {
     let label = "Valgt utvalg";
 
     if (input.entityType === "field") {
-      if (input.entityIds?.length && !input.entityIds.includes(field.slug)) {
+      if (input.entityIds?.length && !input.entityIds.includes(field.fieldSlug)) {
         continue;
       }
-      groupKey = field.slug;
+      groupKey = field.fieldSlug;
       label = field.name;
     } else if (input.entityType === "operator") {
       const operatorId = field.operatorNpdCompanyId ? String(field.operatorNpdCompanyId) : "unknown";
@@ -2437,37 +2452,26 @@ export async function getPetroleumEntityDetailById(entityTypeInput: string, id: 
     return null;
   }
 
-  const [core, metrics, persistedEvents] = await Promise.all([
-    getCoreDataset(),
-    getMetricsDataset(),
-    getPersistedEvents(),
-  ]);
-
-  const collection =
-    entityType === "FIELD"
-      ? core.fields
-      : entityType === "DISCOVERY"
-        ? core.discoveries
-        : entityType === "LICENCE"
-          ? core.licences
-        : entityType === "FACILITY"
-          ? core.facilities
-          : entityType === "TUF"
-            ? core.tufs
-            : entityType === "WELLBORE"
-              ? core.wellbores
-              : core.surveys;
-  const numericId = Number(id);
-  const entity = collection.find((item) => item.slug === id || item.npdId === numericId);
+  const entity = await findPetroleumEntityDetailBySlugOrNpdId(entityType, id);
   if (!entity) {
     return null;
   }
 
-  const reserveLookup = buildReserveLookup(metrics.reserveSnapshots);
-  const investmentLookup = buildInvestmentLookup(metrics.investmentSnapshots);
   const currentYear = new Date().getUTCFullYear();
-  const timeseries = metrics.productionPoints
-    .filter((point) => point.entityType === entityType && point.entityNpdId === entity.npdId && point.year <= currentYear)
+  const [reserve, investment, productionPoints, persistedEvents] = await Promise.all([
+    findPetroleumReserveSnapshotForEntity(entityType, entity.npdId),
+    findPetroleumInvestmentSnapshotForEntity(entityType, entity.npdId),
+    listPetroleumProductionPointsForEntity({
+      entityType,
+      entityNpdId: entity.npdId,
+      yearTo: currentYear,
+    }),
+    listPetroleumEventsFiltered({
+      entityRefs: [{ entityType, entityNpdIds: [entity.npdId] }],
+      take: 50,
+    }),
+  ]);
+  const timeseries = productionPoints
     .map((point) => ({
       key: `${point.entityNpdId}:${point.year}:${point.month ?? 0}`,
       entityType: "field",
@@ -2576,34 +2580,33 @@ export async function getPetroleumEntityDetailById(entityTypeInput: string, id: 
         typeof entry.validFrom === "string" && entry.validFrom ? new Date(entry.validFrom) : null,
       validTo: typeof entry.validTo === "string" && entry.validTo ? new Date(entry.validTo) : null,
     })),
-    reserve: reserveLookup.has(entity.npdId)
+    reserve: reserve
       ? {
           entityType,
           entityId: entity.slug,
           entityNpdId: entity.npdId,
-          entityName: reserveLookup.get(entity.npdId)?.entityName ?? entity.name,
-          updatedAt: reserveLookup.get(entity.npdId)?.updatedAtSource ?? null,
-          recoverableOil: reserveLookup.get(entity.npdId)?.recoverableOil ?? null,
-          recoverableGas: reserveLookup.get(entity.npdId)?.recoverableGas ?? null,
-          recoverableNgl: reserveLookup.get(entity.npdId)?.recoverableNgl ?? null,
-          recoverableCondensate: reserveLookup.get(entity.npdId)?.recoverableCondensate ?? null,
-          recoverableOe: reserveLookup.get(entity.npdId)?.recoverableOe ?? null,
-          remainingOil: reserveLookup.get(entity.npdId)?.remainingOil ?? null,
-          remainingGas: reserveLookup.get(entity.npdId)?.remainingGas ?? null,
-          remainingNgl: reserveLookup.get(entity.npdId)?.remainingNgl ?? null,
-          remainingCondensate: reserveLookup.get(entity.npdId)?.remainingCondensate ?? null,
-          remainingOe: reserveLookup.get(entity.npdId)?.remainingOe ?? null,
+          entityName: reserve.entityName ?? entity.name,
+          updatedAt: reserve.updatedAtSource ?? null,
+          recoverableOil: reserve.recoverableOil ?? null,
+          recoverableGas: reserve.recoverableGas ?? null,
+          recoverableNgl: reserve.recoverableNgl ?? null,
+          recoverableCondensate: reserve.recoverableCondensate ?? null,
+          recoverableOe: reserve.recoverableOe ?? null,
+          remainingOil: reserve.remainingOil ?? null,
+          remainingGas: reserve.remainingGas ?? null,
+          remainingNgl: reserve.remainingNgl ?? null,
+          remainingCondensate: reserve.remainingCondensate ?? null,
+          remainingOe: reserve.remainingOe ?? null,
         }
       : null,
-    investment: investmentLookup.has(entity.npdId)
+    investment: investment
       ? {
           entityType,
           entityId: entity.slug,
           entityNpdId: entity.npdId,
-          entityName: investmentLookup.get(entity.npdId)?.entityName ?? entity.name,
-          expectedFutureInvestmentNok:
-            (investmentLookup.get(entity.npdId)?.expectedFutureInvestmentMillNok ?? 0) * 1_000_000,
-          fixedYear: investmentLookup.get(entity.npdId)?.fixedYear ?? null,
+          entityName: investment.entityName ?? entity.name,
+          expectedFutureInvestmentNok: (investment.expectedFutureInvestmentMillNok ?? 0) * 1_000_000,
+          fixedYear: investment.fixedYear ?? null,
         }
       : null,
     timeseries: timeseries.map((point) => ({ ...point, entityType: "field" })),
@@ -2635,15 +2638,42 @@ export async function getPetroleumEvents(
   filters: PetroleumMarketFilters,
   limit = 100,
 ): Promise<PetroleumEventRow[]> {
-  const [core, persistedEvents] = await Promise.all([getCoreDataset(), getPersistedEvents()]);
-  const filteredLicences = filterLicences(core.licences, filters);
-  const licenceIds = new Set(filteredLicences.map((licence) => licence.npdId));
+  const [fieldSnapshots, licenceSnapshots] = await Promise.all([
+    listPetroleumFieldSnapshots(buildFieldSnapshotQuery(filters)),
+    listPetroleumLicenceSnapshots(buildLicenceSnapshotQuery(filters)),
+  ]);
+  const licenceIds = licenceSnapshots.map((licence) => licence.licenceNpdId);
+  const hasEventFilters = Boolean(
+    filters.query ||
+      filters.status?.length ||
+      filters.areas?.length ||
+      filters.operatorIds?.length ||
+      filters.licenseeIds?.length ||
+      filters.hcTypes?.length,
+  );
+  const [persistedEvents, filteredLicences] = await Promise.all([
+    hasEventFilters
+      ? listPetroleumEventsFiltered({
+          entityRefs: [
+            ...(fieldSnapshots.length
+              ? [{ entityType: "FIELD" as const, entityNpdIds: fieldSnapshots.map((field) => field.fieldNpdId) }]
+              : []),
+            ...(licenceIds.length
+              ? [{ entityType: "LICENCE" as const, entityNpdIds: licenceIds }]
+              : []),
+          ],
+          take: limit * 3,
+        })
+      : listPetroleumEventsFiltered({ take: limit * 3 }),
+    listPetroleumLicencesByNpdIds(licenceIds),
+  ]);
+  const allowedLicenceIds = new Set(licenceIds);
 
   return [
     ...persistedEvents.map(mapPersistedEvent),
     ...derivePetregEvents(filteredLicences),
   ]
-    .filter((event) => !event.entityNpdId || !event.entityType || licenceIds.has(event.entityNpdId))
+    .filter((event) => !event.entityNpdId || !event.entityType || event.entityType !== "LICENCE" || allowedLicenceIds.has(event.entityNpdId))
     .sort((left, right) => (right.publishedAt?.getTime() ?? 0) - (left.publishedAt?.getTime() ?? 0))
     .slice(0, limit);
 }

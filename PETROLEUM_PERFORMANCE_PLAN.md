@@ -150,3 +150,14 @@ Dette gir et tydelig skille mellom:
 
 - ingest/refresh-operasjoner
 - vanlige brukerrequests
+
+## Phase 2 Follow-up
+
+Fase 2 bygger videre på samme arkitektur, men flytter flere tunge read-paths bort fra brede råtabell-lesninger:
+
+- `timeseries` leser filtrerte field snapshots og smale produksjonsspørringer per entitet/periode
+- `entity detail` leser valgt entitet direkte, sammen med smale reserve-/investment-/production-/event-spørringer
+- `events` leser filtrerte entity-referanser i stedet for å laste hele eventtabellen inn i minnet
+- company petroleum-tab bruker snapshot-inputs og målrettede operator-/company-spørringer i stedet for å laste alle felt, lisenser, produksjonspunkter, reserver og investeringer
+
+Dette er fortsatt ikke en full sluttarkitektur. Kart-/feature-read path og flere detaljhistorikker kan optimaliseres videre i neste fase.

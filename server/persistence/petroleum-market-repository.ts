@@ -66,6 +66,15 @@ export type PetroleumAreaSnapshotListInput = {
     | Prisma.PetroleumAreaSnapshotOrderByWithRelationInput[];
 };
 
+export type PetroleumEventListInput = {
+  sources?: string[];
+  entityRefs?: Array<{ entityType: PetroleumEntityType; entityNpdIds: number[] }>;
+  relatedCompanyOrgNumber?: string;
+  relatedCompanySlug?: string;
+  take?: number;
+  skip?: number;
+};
+
 type PetroleumCompanyExposureSnapshotRow = {
   id: string;
   companyId: string;
@@ -204,6 +213,27 @@ function buildAreaSnapshotWhere(input?: PetroleumAreaSnapshotListInput): Prisma.
 
   return {
     area: input?.areas?.length ? { in: input.areas } : query ? { contains: query, mode: "insensitive" } : undefined,
+  };
+}
+
+function buildPetroleumEventWhere(input?: PetroleumEventListInput): Prisma.PetroleumEventWhereInput | undefined {
+  if (!input) {
+    return undefined;
+  }
+
+  const entityRefs = (input.entityRefs ?? []).filter((item) => item.entityNpdIds.length > 0);
+  const or: Prisma.PetroleumEventWhereInput[] = [
+    ...entityRefs.map((item) => ({
+      entityType: item.entityType,
+      entityNpdId: { in: item.entityNpdIds },
+    })),
+    ...(input.relatedCompanyOrgNumber ? [{ relatedCompanyOrgNumber: input.relatedCompanyOrgNumber }] : []),
+    ...(input.relatedCompanySlug ? [{ relatedCompanySlug: input.relatedCompanySlug }] : []),
+  ];
+
+  return {
+    source: input.sources?.length ? { in: input.sources } : undefined,
+    OR: or.length ? or : undefined,
   };
 }
 
@@ -375,24 +405,128 @@ export async function listPetroleumCompanyLinks() {
   return prisma.petroleumCompanyLink.findMany();
 }
 
+export async function listPetroleumCompanyLinksForOrgNumber(orgNumber: string) {
+  return prisma.petroleumCompanyLink.findMany({
+    where: {
+      OR: [{ linkedCompanyOrgNumber: orgNumber }, { orgNumber }],
+    },
+  });
+}
+
 export async function listPetroleumFields() {
   return prisma.petroleumField.findMany();
+}
+
+export async function listPetroleumFieldsByNpdIds(npdIds: number[]) {
+  if (npdIds.length === 0) {
+    return [] as Awaited<ReturnType<typeof listPetroleumFields>>;
+  }
+
+  return prisma.petroleumField.findMany({
+    where: {
+      npdId: { in: npdIds },
+    },
+  });
 }
 
 export async function listPetroleumDiscoveries() {
   return prisma.petroleumDiscovery.findMany();
 }
 
+export async function listPetroleumDiscoveriesByOperatorCompanyIds(npdCompanyIds: number[]) {
+  if (npdCompanyIds.length === 0) {
+    return [] as Awaited<ReturnType<typeof listPetroleumDiscoveries>>;
+  }
+
+  return prisma.petroleumDiscovery.findMany({
+    where: {
+      operatorNpdCompanyId: { in: npdCompanyIds },
+    },
+  });
+}
+
+export async function countPetroleumDiscoveriesByOperatorCompanyIds(npdCompanyIds: number[]) {
+  if (npdCompanyIds.length === 0) {
+    return 0;
+  }
+
+  return prisma.petroleumDiscovery.count({
+    where: {
+      operatorNpdCompanyId: { in: npdCompanyIds },
+    },
+  });
+}
+
 export async function listPetroleumLicences() {
   return prisma.petroleumLicence.findMany();
+}
+
+export async function listPetroleumLicencesByNpdIds(npdIds: number[]) {
+  if (npdIds.length === 0) {
+    return [] as Awaited<ReturnType<typeof listPetroleumLicences>>;
+  }
+
+  return prisma.petroleumLicence.findMany({
+    where: {
+      npdId: { in: npdIds },
+    },
+  });
 }
 
 export async function listPetroleumFacilities() {
   return prisma.petroleumFacility.findMany();
 }
 
+export async function listPetroleumFacilitiesByOperatorCompanyIds(npdCompanyIds: number[]) {
+  if (npdCompanyIds.length === 0) {
+    return [] as Awaited<ReturnType<typeof listPetroleumFacilities>>;
+  }
+
+  return prisma.petroleumFacility.findMany({
+    where: {
+      currentOperatorNpdId: { in: npdCompanyIds },
+    },
+  });
+}
+
+export async function countPetroleumFacilitiesByOperatorCompanyIds(npdCompanyIds: number[]) {
+  if (npdCompanyIds.length === 0) {
+    return 0;
+  }
+
+  return prisma.petroleumFacility.count({
+    where: {
+      currentOperatorNpdId: { in: npdCompanyIds },
+    },
+  });
+}
+
 export async function listPetroleumTufs() {
   return prisma.petroleumTuf.findMany();
+}
+
+export async function listPetroleumTufsByOperatorCompanyIds(npdCompanyIds: number[]) {
+  if (npdCompanyIds.length === 0) {
+    return [] as Awaited<ReturnType<typeof listPetroleumTufs>>;
+  }
+
+  return prisma.petroleumTuf.findMany({
+    where: {
+      operatorNpdCompanyId: { in: npdCompanyIds },
+    },
+  });
+}
+
+export async function countPetroleumTufsByOperatorCompanyIds(npdCompanyIds: number[]) {
+  if (npdCompanyIds.length === 0) {
+    return 0;
+  }
+
+  return prisma.petroleumTuf.count({
+    where: {
+      operatorNpdCompanyId: { in: npdCompanyIds },
+    },
+  });
 }
 
 export async function listPetroleumSurveys() {
@@ -564,12 +698,56 @@ export async function listPetroleumProductionPointsForEntities(input: {
   });
 }
 
+export async function listPetroleumProductionPointsForEntity(input: {
+  entityType: PetroleumEntityType;
+  entityNpdId: number;
+  yearFrom?: number;
+  yearTo?: number;
+  period?: string;
+}) {
+  return prisma.petroleumProductionPoint.findMany({
+    where: {
+      entityType: input.entityType,
+      entityNpdId: input.entityNpdId,
+      year:
+        input.yearFrom !== undefined || input.yearTo !== undefined
+          ? { gte: input.yearFrom, lte: input.yearTo }
+          : undefined,
+      period: input.period ?? undefined,
+    },
+    orderBy: [{ year: "asc" }, { month: "asc" }],
+  });
+}
+
 export async function listPetroleumEvents() {
   return prisma.petroleumEvent.findMany({
     orderBy: {
       publishedAt: "desc",
     },
   });
+}
+
+export async function listPetroleumEventsFiltered(input?: PetroleumEventListInput) {
+  return prisma.petroleumEvent.findMany({
+    where: buildPetroleumEventWhere(input),
+    orderBy: {
+      publishedAt: "desc",
+    },
+    take: input?.take,
+    skip: input?.skip,
+  });
+}
+
+export async function countPetroleumEventsByCompanyReference(input: {
+  relatedCompanyOrgNumber?: string;
+  relatedCompanySlug?: string;
+}) {
+  const where = buildPetroleumEventWhere({
+    relatedCompanyOrgNumber: input.relatedCompanyOrgNumber,
+    relatedCompanySlug: input.relatedCompanySlug,
+  });
+
+  return prisma.petroleumEvent.count({ where });
 }
 
 export async function listPetroleumForecastSnapshots() {
@@ -743,6 +921,17 @@ export async function findPetroleumCompanyExposureSnapshotByCompanyId(companyId:
   });
 }
 
+export async function listPetroleumSyncStates(keys: string[]) {
+  return prisma.petroleumSyncState.findMany({
+    where: {
+      key: {
+        in: keys,
+      },
+    },
+    select: { key: true, status: true, errorMessage: true, lastSuccessAt: true },
+  });
+}
+
 export async function findPetroleumEntityDetail(entityType: PetroleumEntityType, entityNpdId: number) {
   switch (entityType) {
     case "FIELD":
@@ -762,4 +951,69 @@ export async function findPetroleumEntityDetail(entityType: PetroleumEntityType,
     default:
       return null;
   }
+}
+
+export async function findPetroleumEntityDetailBySlugOrNpdId(entityType: PetroleumEntityType, id: string) {
+  const numericId = Number(id);
+
+  switch (entityType) {
+    case "FIELD":
+      return prisma.petroleumField.findFirst({
+        where: Number.isFinite(numericId) ? { OR: [{ slug: id }, { npdId: numericId }] } : { slug: id },
+      });
+    case "DISCOVERY":
+      return prisma.petroleumDiscovery.findFirst({
+        where: Number.isFinite(numericId) ? { OR: [{ slug: id }, { npdId: numericId }] } : { slug: id },
+      });
+    case "LICENCE":
+      return prisma.petroleumLicence.findFirst({
+        where: Number.isFinite(numericId) ? { OR: [{ slug: id }, { npdId: numericId }] } : { slug: id },
+      });
+    case "FACILITY":
+      return prisma.petroleumFacility.findFirst({
+        where: Number.isFinite(numericId) ? { OR: [{ slug: id }, { npdId: numericId }] } : { slug: id },
+      });
+    case "TUF":
+      return prisma.petroleumTuf.findFirst({
+        where: Number.isFinite(numericId) ? { OR: [{ slug: id }, { npdId: numericId }] } : { slug: id },
+      });
+    case "SURVEY":
+      return prisma.petroleumSurvey.findFirst({
+        where: Number.isFinite(numericId) ? { OR: [{ slug: id }, { npdId: numericId }] } : { slug: id },
+      });
+    case "WELLBORE":
+      return prisma.petroleumWellbore.findFirst({
+        where: Number.isFinite(numericId) ? { OR: [{ slug: id }, { npdId: numericId }] } : { slug: id },
+      });
+    default:
+      return null;
+  }
+}
+
+export async function findPetroleumReserveSnapshotForEntity(
+  entityType: PetroleumEntityType,
+  entityNpdId: number,
+) {
+  return prisma.petroleumReserveSnapshot.findUnique({
+    where: {
+      entityType_entityNpdId: {
+        entityType,
+        entityNpdId,
+      },
+    },
+  });
+}
+
+export async function findPetroleumInvestmentSnapshotForEntity(
+  entityType: PetroleumEntityType,
+  entityNpdId: number,
+) {
+  return prisma.petroleumInvestmentSnapshot.findUnique({
+    where: {
+      entityType_entityNpdId: {
+        entityType,
+        entityNpdId,
+      },
+    },
+  });
 }

@@ -1,5 +1,23 @@
 import { prisma } from "@/lib/prisma";
-import { findPetroleumCompanyExposureSnapshotByCompanyId } from "@/server/persistence/petroleum-market-repository";
+import {
+  countPetroleumDiscoveriesByOperatorCompanyIds,
+  countPetroleumFacilitiesByOperatorCompanyIds,
+  countPetroleumFieldSnapshots,
+  countPetroleumEventsByCompanyReference,
+  countPetroleumLicenceSnapshots,
+  countPetroleumTufsByOperatorCompanyIds,
+  findPetroleumCompanyExposureSnapshotByCompanyId,
+  listPetroleumCompanyLinksForOrgNumber,
+  listPetroleumDiscoveriesByOperatorCompanyIds,
+  listPetroleumFacilitiesByOperatorCompanyIds,
+  listPetroleumFieldsByNpdIds,
+  listPetroleumFieldSnapshots,
+  listPetroleumLicenceSnapshots,
+  listPetroleumLicencesByNpdIds,
+  listPetroleumEventsFiltered,
+  listPetroleumSyncStates,
+  listPetroleumTufsByOperatorCompanyIds,
+} from "@/server/persistence/petroleum-market-repository";
 import {
   CompanyPetroleumBreakdownRow,
   CompanyPetroleumDiscoveryRow,
@@ -19,22 +37,6 @@ import {
   PetroleumSourceStatus,
 } from "@/lib/types";
 
-function parseCompanyIdsFromInterests(value: unknown) {
-  if (!Array.isArray(value)) return [] as number[];
-  return value
-    .map((item) =>
-      item && typeof item === "object" && typeof (item as Record<string, unknown>).npdCompanyId === "number"
-        ? ((item as Record<string, unknown>).npdCompanyId as number)
-        : null,
-    )
-    .filter((item): item is number => item !== null);
-}
-
-function dedupeByEntityId<T extends { entityId: string }>(rows: T[]) {
-  const map = new Map(rows.map((row) => [row.entityId, row]));
-  return [...map.values()];
-}
-
 function normalizeStatus(value?: string | null) {
   return value?.toLowerCase().trim() ?? "";
 }
@@ -47,7 +49,7 @@ function hasDevelopmentSignal(status?: string | null) {
 }
 
 function sumNumber(values: Array<number | null | undefined>) {
-  return values.reduce((sum, value) => sum + (value ?? 0), 0);
+  return values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 }
 
 function mapCountBreakdown(values: string[]): CompanyPetroleumBreakdownRow[] {
@@ -177,12 +179,7 @@ function toSourceStatus(syncStates: Array<{ key: string; status: string | null; 
 export async function getCompanyPetroleumTabVisibility(company: NormalizedCompany): Promise<CompanyPetroleumTabVisibility> {
   const [dbCompany, links] = await Promise.all([
     prisma.company.findUnique({ where: { orgNumber: company.orgNumber }, select: { id: true } }),
-    prisma.petroleumCompanyLink.findMany({
-      where: {
-        OR: [{ linkedCompanyOrgNumber: company.orgNumber }, { orgNumber: company.orgNumber }],
-      },
-      select: { npdCompanyId: true },
-    }),
+    listPetroleumCompanyLinksForOrgNumber(company.orgNumber),
   ]);
 
   if (!dbCompany || links.length === 0) {
@@ -197,27 +194,27 @@ export async function getCompanyPetroleumTabVisibility(company: NormalizedCompan
 
   const npdCompanyIds = links.map((link) => link.npdCompanyId);
 
-  const [operatorAssetsCount, exposure, eventsCount, fields, licences] = await Promise.all([
+  const [operatorAssetsCount, exposure, eventsCount, operatorFieldCount, licenseeFieldCount, operatorLicenceCount, licenseeLicenceCount] = await Promise.all([
     Promise.all([
-      prisma.petroleumField.count({ where: { operatorNpdCompanyId: { in: npdCompanyIds } } }),
-      prisma.petroleumDiscovery.count({ where: { operatorNpdCompanyId: { in: npdCompanyIds } } }),
-      prisma.petroleumLicence.count({ where: { operatorNpdCompanyId: { in: npdCompanyIds } } }),
-      prisma.petroleumFacility.count({ where: { currentOperatorNpdId: { in: npdCompanyIds } } }),
-      prisma.petroleumTuf.count({ where: { operatorNpdCompanyId: { in: npdCompanyIds } } }),
+      countPetroleumFieldSnapshots({ operatorNpdCompanyIds: npdCompanyIds }),
+      countPetroleumDiscoveriesByOperatorCompanyIds(npdCompanyIds),
+      countPetroleumLicenceSnapshots({ operatorNpdCompanyIds: npdCompanyIds }),
+      countPetroleumFacilitiesByOperatorCompanyIds(npdCompanyIds),
+      countPetroleumTufsByOperatorCompanyIds(npdCompanyIds),
     ]).then((counts) => counts.reduce((sum, count) => sum + count, 0)),
     findPetroleumCompanyExposureSnapshotByCompanyId(dbCompany.id),
-    prisma.petroleumEvent.count({
-      where: {
-        OR: [{ relatedCompanyOrgNumber: company.orgNumber }, { relatedCompanySlug: company.slug }],
-      },
+    countPetroleumEventsByCompanyReference({
+      relatedCompanyOrgNumber: company.orgNumber,
+      relatedCompanySlug: company.slug,
     }),
-    prisma.petroleumField.findMany({ select: { licensees: true } }),
-    prisma.petroleumLicence.findMany({ select: { licensees: true } }),
+    countPetroleumFieldSnapshots({ operatorNpdCompanyIds: npdCompanyIds }),
+    countPetroleumFieldSnapshots({ licenseeCompanyIds: npdCompanyIds }),
+    countPetroleumLicenceSnapshots({ operatorNpdCompanyIds: npdCompanyIds }),
+    countPetroleumLicenceSnapshots({ licenseeCompanyIds: npdCompanyIds }),
   ]);
 
-  const hasLicenseeRole = [...fields, ...licences].some((row) =>
-    parseCompanyIdsFromInterests(row.licensees).some((id) => npdCompanyIds.includes(id)),
-  );
+  const hasOperatorRole = operatorFieldCount + operatorLicenceCount > 0 || operatorAssetsCount > 0;
+  const hasLicenseeRole = licenseeFieldCount + licenseeLicenceCount > 0;
   const hasMeaningfulSnapshot = Boolean(
     exposure &&
       (exposure.operatorFieldCount > 0 ||
@@ -228,7 +225,7 @@ export async function getCompanyPetroleumTabVisibility(company: NormalizedCompan
 
   return evaluatePetroleumVisibilityFromSignals({
     hasLink: true,
-    hasOperatorRole: operatorAssetsCount > 0,
+    hasOperatorRole,
     hasLicenseeRole,
     hasMeaningfulSnapshot,
     hasRelevantEvents: eventsCount > 0,
@@ -327,9 +324,7 @@ export async function getCompanyPetroleumProfile(company: NormalizedCompany): Pr
 
   const [dbCompany, links] = await Promise.all([
     prisma.company.findUnique({ where: { orgNumber: company.orgNumber }, select: { id: true } }),
-    prisma.petroleumCompanyLink.findMany({
-      where: { OR: [{ linkedCompanyOrgNumber: company.orgNumber }, { orgNumber: company.orgNumber }] },
-    }),
+    listPetroleumCompanyLinksForOrgNumber(company.orgNumber),
   ]);
 
   if (!dbCompany || links.length === 0) {
@@ -361,92 +356,153 @@ export async function getCompanyPetroleumProfile(company: NormalizedCompany): Pr
 
   const npdCompanyIds = links.map((link) => link.npdCompanyId);
 
-  const [exposure, fields, licences, discoveries, facilities, tufs, events, syncStates, productionPoints, reserves, investments] = await Promise.all([
+  const [
+    exposure,
+    operatorFieldSnapshots,
+    licenseeFieldSnapshots,
+    operatorLicenceSnapshots,
+    licenseeLicenceSnapshots,
+    discoveries,
+    facilities,
+    tufs,
+    events,
+    syncStates,
+  ] = await Promise.all([
     findPetroleumCompanyExposureSnapshotByCompanyId(dbCompany.id),
-    prisma.petroleumField.findMany(),
-    prisma.petroleumLicence.findMany(),
-    prisma.petroleumDiscovery.findMany({ where: { operatorNpdCompanyId: { in: npdCompanyIds } } }),
-    prisma.petroleumFacility.findMany({ where: { currentOperatorNpdId: { in: npdCompanyIds } } }),
-    prisma.petroleumTuf.findMany({ where: { operatorNpdCompanyId: { in: npdCompanyIds } } }),
-    prisma.petroleumEvent.findMany({
-      where: { OR: [{ relatedCompanyOrgNumber: company.orgNumber }, { relatedCompanySlug: company.slug }] },
-      orderBy: { publishedAt: "desc" },
+    listPetroleumFieldSnapshots({ operatorNpdCompanyIds: npdCompanyIds }),
+    listPetroleumFieldSnapshots({ licenseeCompanyIds: npdCompanyIds }),
+    listPetroleumLicenceSnapshots({ operatorNpdCompanyIds: npdCompanyIds }),
+    listPetroleumLicenceSnapshots({ licenseeCompanyIds: npdCompanyIds }),
+    listPetroleumDiscoveriesByOperatorCompanyIds(npdCompanyIds),
+    listPetroleumFacilitiesByOperatorCompanyIds(npdCompanyIds),
+    listPetroleumTufsByOperatorCompanyIds(npdCompanyIds),
+    listPetroleumEventsFiltered({
+      relatedCompanyOrgNumber: company.orgNumber,
+      relatedCompanySlug: company.slug,
       take: 30,
     }),
-    prisma.petroleumSyncState.findMany({
-      where: {
-        key: {
-          in: ["petroleum-core", "petroleum-events-havtil", "petroleum-events-gassco", "petroleum-company-exposure"],
-        },
-      },
-      select: { key: true, status: true, errorMessage: true, lastSuccessAt: true },
-    }),
-    prisma.petroleumProductionPoint.findMany({ where: { entityType: "FIELD", period: "year" } }),
-    prisma.petroleumReserveSnapshot.findMany({ where: { entityType: "FIELD" } }),
-    prisma.petroleumInvestmentSnapshot.findMany({ where: { entityType: "FIELD" } }),
+    listPetroleumSyncStates([
+      "petroleum-core",
+      "petroleum-events-havtil",
+      "petroleum-events-gassco",
+      "petroleum-company-exposure",
+    ]),
   ]);
 
-  const productionByField = new Map<number, { value: number; unit: PetroleumRateUnit }>();
-  for (const point of productionPoints) {
-    const current = productionByField.get(point.entityNpdId);
-    if (!current || (point.oeNetMillSm3 ?? 0) > current.value) {
-      productionByField.set(point.entityNpdId, { value: point.oeNetMillSm3 ?? 0, unit: "msm3" });
-    }
-  }
-  const reserveByField = new Map(reserves.map((row) => [row.entityNpdId, row.remainingOe]));
-  const investmentByField = new Map(investments.map((row) => [row.entityNpdId, (row.expectedFutureInvestmentMillNok ?? 0) * 1_000_000]));
+  const fieldIds = [
+    ...new Set([
+      ...operatorFieldSnapshots.map((field) => field.fieldNpdId),
+      ...licenseeFieldSnapshots.map((field) => field.fieldNpdId),
+    ]),
+  ];
+  const licenceIds = [
+    ...new Set([
+      ...operatorLicenceSnapshots.map((licence) => licence.licenceNpdId),
+      ...licenseeLicenceSnapshots.map((licence) => licence.licenceNpdId),
+    ]),
+  ];
 
-  const fieldRows: CompanyPetroleumFieldRow[] = dedupeByEntityId(
-    fields.flatMap((field) => {
-      const isOperator = npdCompanyIds.includes(field.operatorNpdCompanyId ?? -1);
-      const isLicensee = parseCompanyIdsFromInterests(field.licensees).some((id) => npdCompanyIds.includes(id));
-      if (!isOperator && !isLicensee) return [];
-      return [{
-        entityId: field.slug,
-        npdId: field.npdId,
-        name: field.name,
-        status: field.activityStatus,
-        area: field.mainArea,
-        hcType: field.hydrocarbonType,
-        role: isOperator ? "OPERATOR" : "LICENSEE",
-        operatorName: field.operatorCompanyName,
-        operatorSlug: field.operatorCompanySlug,
-        latestProductionValue: productionByField.get(field.npdId)?.value ?? null,
-        latestProductionUnit: productionByField.get(field.npdId)?.unit ?? null,
-        remainingOe: reserveByField.get(field.npdId) ?? null,
-        expectedFutureInvestmentNok: investmentByField.get(field.npdId) ?? null,
-        factPageUrl: field.factPageUrl,
-        detailUrl: buildEntityUrl("FIELD", field.slug),
-      }];
-    }),
-  ).sort((a, b) =>
+  const [fieldDetails, licenceDetails] = await Promise.all([
+    listPetroleumFieldsByNpdIds(fieldIds),
+    listPetroleumLicencesByNpdIds(licenceIds),
+  ]);
+
+  const fieldDetailByNpdId = new Map(fieldDetails.map((field) => [field.npdId, field]));
+  const licenceDetailByNpdId = new Map(licenceDetails.map((licence) => [licence.npdId, licence]));
+
+  const fieldRowsMap = new Map<string, CompanyPetroleumFieldRow>();
+  for (const field of operatorFieldSnapshots) {
+    const detail = fieldDetailByNpdId.get(field.fieldNpdId);
+    fieldRowsMap.set(field.fieldSlug, {
+      entityId: field.fieldSlug,
+      npdId: field.fieldNpdId,
+      name: field.name,
+      status: field.status,
+      area: field.area,
+      hcType: field.hcType,
+      role: "OPERATOR",
+      operatorName: field.operatorName,
+      operatorSlug: field.operatorSlug,
+      latestProductionValue: field.latestAnnualOe ?? null,
+      latestProductionUnit: field.latestAnnualOe != null ? ("msm3" as PetroleumRateUnit) : null,
+      remainingOe: field.remainingOe ?? null,
+      expectedFutureInvestmentNok:
+        typeof field.expectedFutureInvestmentNok === "bigint" ? Number(field.expectedFutureInvestmentNok) : null,
+      factPageUrl: detail?.factPageUrl ?? null,
+      detailUrl: buildEntityUrl("FIELD", field.fieldSlug),
+    });
+  }
+  for (const field of licenseeFieldSnapshots) {
+    if (fieldRowsMap.has(field.fieldSlug)) {
+      continue;
+    }
+    const detail = fieldDetailByNpdId.get(field.fieldNpdId);
+    fieldRowsMap.set(field.fieldSlug, {
+      entityId: field.fieldSlug,
+      npdId: field.fieldNpdId,
+      name: field.name,
+      status: field.status,
+      area: field.area,
+      hcType: field.hcType,
+      role: "LICENSEE",
+      operatorName: field.operatorName,
+      operatorSlug: field.operatorSlug,
+      latestProductionValue: field.latestAnnualOe ?? null,
+      latestProductionUnit: field.latestAnnualOe != null ? ("msm3" as PetroleumRateUnit) : null,
+      remainingOe: field.remainingOe ?? null,
+      expectedFutureInvestmentNok:
+        typeof field.expectedFutureInvestmentNok === "bigint" ? Number(field.expectedFutureInvestmentNok) : null,
+      factPageUrl: detail?.factPageUrl ?? null,
+      detailUrl: buildEntityUrl("FIELD", field.fieldSlug),
+    });
+  }
+  const fieldRows = [...fieldRowsMap.values()].sort((a, b) =>
     (b.latestProductionValue ?? 0) - (a.latestProductionValue ?? 0) ||
     (b.remainingOe ?? 0) - (a.remainingOe ?? 0) ||
     (b.expectedFutureInvestmentNok ?? 0) - (a.expectedFutureInvestmentNok ?? 0),
   );
 
-  const licenceRows: CompanyPetroleumLicenceRow[] = dedupeByEntityId(
-    licences.flatMap((licence) => {
-      const isOperator = npdCompanyIds.includes(licence.operatorNpdCompanyId ?? -1);
-      const isLicensee = parseCompanyIdsFromInterests(licence.licensees).some((id) => npdCompanyIds.includes(id));
-      if (!isOperator && !isLicensee) return [];
-      return [{
-        entityId: licence.slug,
-        npdId: licence.npdId,
-        name: licence.name,
-        status: licence.status,
-        currentPhase: licence.currentPhase,
-        area: licence.mainArea,
-        role: isOperator ? "OPERATOR" : "LICENSEE",
-        operatorName: licence.operatorCompanyName,
-        operatorSlug: licence.operatorCompanySlug,
-        currentAreaSqKm: licence.currentAreaSqKm,
-        transferCount: Array.isArray(licence.transfers) ? licence.transfers.length : 0,
-        factPageUrl: licence.factPageUrl,
-        detailUrl: buildEntityUrl("LICENCE", licence.slug),
-      }];
-    }),
-  ).sort((a, b) =>
+  const licenceRowsMap = new Map<string, CompanyPetroleumLicenceRow>();
+  for (const licence of operatorLicenceSnapshots) {
+    const detail = licenceDetailByNpdId.get(licence.licenceNpdId);
+    licenceRowsMap.set(licence.licenceSlug, {
+      entityId: licence.licenceSlug,
+      npdId: licence.licenceNpdId,
+      name: licence.name,
+      status: licence.status,
+      currentPhase: licence.currentPhase,
+      area: licence.area,
+      role: "OPERATOR",
+      operatorName: licence.operatorName,
+      operatorSlug: licence.operatorSlug,
+      currentAreaSqKm: licence.currentAreaSqKm,
+      transferCount: licence.transferCount,
+      factPageUrl: detail?.factPageUrl ?? null,
+      detailUrl: buildEntityUrl("LICENCE", licence.licenceSlug),
+    });
+  }
+  for (const licence of licenseeLicenceSnapshots) {
+    if (licenceRowsMap.has(licence.licenceSlug)) {
+      continue;
+    }
+    const detail = licenceDetailByNpdId.get(licence.licenceNpdId);
+    licenceRowsMap.set(licence.licenceSlug, {
+      entityId: licence.licenceSlug,
+      npdId: licence.licenceNpdId,
+      name: licence.name,
+      status: licence.status,
+      currentPhase: licence.currentPhase,
+      area: licence.area,
+      role: "LICENSEE",
+      operatorName: licence.operatorName,
+      operatorSlug: licence.operatorSlug,
+      currentAreaSqKm: licence.currentAreaSqKm,
+      transferCount: licence.transferCount,
+      factPageUrl: detail?.factPageUrl ?? null,
+      detailUrl: buildEntityUrl("LICENCE", licence.licenceSlug),
+    });
+  }
+  const licenceRows = [...licenceRowsMap.values()].sort((a, b) =>
     (a.role === "OPERATOR" ? -1 : 1) - (b.role === "OPERATOR" ? -1 : 1) ||
     (b.currentAreaSqKm ?? 0) - (a.currentAreaSqKm ?? 0),
   );
@@ -561,7 +617,7 @@ export async function getCompanyPetroleumProfile(company: NormalizedCompany): Pr
     visibility,
     snapshot,
     executiveSummary: buildExecutiveSummary(snapshot, pipeline),
-    fields,
+    fields: fieldRows,
     licences: licenceRows,
     discoveries: discoveryRows,
     infrastructure: infraRows,
