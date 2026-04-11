@@ -243,6 +243,28 @@ npm run sync:workspace-notifications
 
 I produksjon er internruten `/api/internal/workspace-sync` satt opp for timebasert cron via [vercel.json](./vercel.json). Sett `WORKSPACE_SYNC_SECRET` i miljøet og kall ruten med `Authorization: Bearer <secret>` eller `x-workspace-sync-secret`.
 
+## Petroleum-sync
+
+Petroleum-ingest og petroleum read-model refresh skal ikke lenger trigges fra vanlige brukerrequests. Kjør dem via script eller interne ruter:
+
+```bash
+npm run sync:petroleum -- scheduled
+npm run sync:petroleum -- bootstrap-all
+npm run sync:petroleum -- refresh-snapshots
+npm run sync:petroleum -- refresh-company-exposure
+```
+
+Interne ruter:
+
+- `/api/internal/petroleum-sync?job=bootstrap-all`
+- `/api/internal/petroleum-sync?job=refresh-snapshots`
+- `/api/internal/petroleum-sync?job=refresh-company-exposure`
+- `/api/internal/petroleum-sync/scheduled`
+
+Ruten bruker samme `WORKSPACE_SYNC_SECRET`-mekanisme som workspace-sync og kan kalles med `Authorization: Bearer <secret>` eller `x-workspace-sync-secret`.
+
+Den planlagte petroleum-ruten i [vercel.json](./vercel.json) er ment som første fase av scheduled ingest/read-model refresh. Snapshot-tabellene brukes nå for raske read-paths i markedssammendrag og tabeller, mens rå petroleum-tabeller fortsatt er intern source of truth for normaliserte records.
+
 ## Provider-oversikt
 
 - `BrregCompanyProvider`: søker og henter virksomheter

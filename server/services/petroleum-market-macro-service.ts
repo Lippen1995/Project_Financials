@@ -24,82 +24,6 @@ const SYNC_KEYS = {
   fiscal: "petroleum-market-fiscal",
 } as const;
 
-function hoursSince(date?: Date | null) {
-  if (!date) return Number.POSITIVE_INFINITY;
-  return (Date.now() - date.getTime()) / 3_600_000;
-}
-
-async function ensureSyncFresh(key: keyof typeof SYNC_KEYS, maxAgeHours: number, run: () => Promise<void>) {
-  const state = await getPetroleumSyncState(SYNC_KEYS[key]);
-  if (hoursSince(state?.lastSuccessAt) <= maxAgeHours) {
-    return;
-  }
-
-  await run();
-}
-
-async function syncEiaPrices() {
-  await upsertPetroleumSyncState({ key: SYNC_KEYS.prices, status: "RUNNING" });
-
-  try {
-    const payload = await fetchEiaPetroleumMarketSeries();
-    await replacePetroleumMarketSeriesData({
-      series: payload.series,
-      observations: payload.observations,
-    });
-
-    await upsertPetroleumSyncState({
-      key: SYNC_KEYS.prices,
-      status: "SUCCESS",
-      markSuccess: true,
-      metadata: {
-        seriesCount: payload.series.length,
-        observationCount: payload.observations.length,
-        availabilityMessage: payload.availabilityMessage ?? null,
-      },
-    });
-  } catch (error) {
-    await upsertPetroleumSyncState({
-      key: SYNC_KEYS.prices,
-      status: "ERROR",
-      errorMessage: error instanceof Error ? error.message : "Unknown sync error",
-    });
-    throw error;
-  }
-}
-
-async function syncSsbNorwayExport() {
-  await upsertPetroleumSyncState({ key: SYNC_KEYS.norwayExport, status: "RUNNING" });
-
-  try {
-    const payload = await fetchSsbPetroleumMarketSeries();
-    if (payload.series.length > 0 || payload.observations.length > 0) {
-      await replacePetroleumMarketSeriesData({
-        series: payload.series,
-        observations: payload.observations,
-      });
-    }
-
-    await upsertPetroleumSyncState({
-      key: SYNC_KEYS.norwayExport,
-      status: "SUCCESS",
-      markSuccess: true,
-      metadata: {
-        seriesCount: payload.series.length,
-        observationCount: payload.observations.length,
-        availabilityMessage: payload.availabilityMessage ?? null,
-      },
-    });
-  } catch (error) {
-    await upsertPetroleumSyncState({
-      key: SYNC_KEYS.norwayExport,
-      status: "ERROR",
-      errorMessage: error instanceof Error ? error.message : "Unknown sync error",
-    });
-    throw error;
-  }
-}
-
 async function syncFiscalSnapshots() {
   await upsertPetroleumSyncState({ key: SYNC_KEYS.fiscal, status: "RUNNING" });
 
@@ -123,14 +47,6 @@ async function syncFiscalSnapshots() {
     });
     throw error;
   }
-}
-
-async function ensureMacroReady() {
-  await Promise.all([
-    ensureSyncFresh("prices", 6, syncEiaPrices),
-    ensureSyncFresh("norwayExport", 12, syncSsbNorwayExport),
-    ensureSyncFresh("fiscal", 24, syncFiscalSnapshots),
-  ]);
 }
 
 function toSeriesSummary(rows: Awaited<ReturnType<typeof listPetroleumMarketSeries>>): PetroleumMarketSeriesSummary[] {
@@ -217,8 +133,6 @@ async function buildSourceStatus(): Promise<PetroleumSourceStatus[]> {
 }
 
 export async function getPetroleumMacroSummary(): Promise<PetroleumMacroSummaryResponse> {
-  await ensureMacroReady();
-
   const [seriesRows, fiscalRows, sourceStatus] = await Promise.all([
     listPetroleumMarketSeries(),
     listPetroleumFiscalSnapshots("NO"),
@@ -243,7 +157,6 @@ export async function getPetroleumMacroSummary(): Promise<PetroleumMacroSummaryR
 }
 
 export async function getPetroleumMarketSeriesTimeseries(slug: string) {
-  await ensureMacroReady();
   const series = await listPetroleumMarketSeries();
   const selected = series.find((item) => item.slug === slug);
   if (!selected) {
@@ -255,7 +168,70 @@ export async function getPetroleumMarketSeriesTimeseries(slug: string) {
 }
 
 export async function getPetroleumFiscalSnapshots(jurisdiction = "NO") {
-  await ensureMacroReady();
   const rows = await listPetroleumFiscalSnapshots(jurisdiction);
   return toFiscalSnapshots(rows);
+}
+
+export async function syncPetroleumMacroDataNow() {
+  await Promise.all([
+    upsertPetroleumSyncState({ key: SYNC_KEYS.prices, status: "RUNNING" }),
+    upsertPetroleumSyncState({ key: SYNC_KEYS.norwayExport, status: "RUNNING" }),
+  ]);
+
+  try {
+    const [eiaPayload, ssbPayload] = await Promise.all([
+      fetchEiaPetroleumMarketSeries(),
+      fetchSsbPetroleumMarketSeries(),
+    ]);
+
+    const combinedSeries = [...eiaPayload.series, ...ssbPayload.series];
+    const combinedObservations = [...eiaPayload.observations, ...ssbPayload.observations];
+
+    if (combinedSeries.length > 0 || combinedObservations.length > 0) {
+      await replacePetroleumMarketSeriesData({
+        series: combinedSeries,
+        observations: combinedObservations,
+      });
+    }
+
+    await Promise.all([
+      upsertPetroleumSyncState({
+        key: SYNC_KEYS.prices,
+        status: "SUCCESS",
+        markSuccess: true,
+        metadata: {
+          seriesCount: eiaPayload.series.length,
+          observationCount: eiaPayload.observations.length,
+          availabilityMessage: eiaPayload.availabilityMessage ?? null,
+        },
+      }),
+      upsertPetroleumSyncState({
+        key: SYNC_KEYS.norwayExport,
+        status: "SUCCESS",
+        markSuccess: true,
+        metadata: {
+          seriesCount: ssbPayload.series.length,
+          observationCount: ssbPayload.observations.length,
+          availabilityMessage: ssbPayload.availabilityMessage ?? null,
+        },
+      }),
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown sync error";
+    await Promise.all([
+      upsertPetroleumSyncState({
+        key: SYNC_KEYS.prices,
+        status: "ERROR",
+        errorMessage: message,
+      }),
+      upsertPetroleumSyncState({
+        key: SYNC_KEYS.norwayExport,
+        status: "ERROR",
+        errorMessage: message,
+      }),
+    ]);
+    throw error;
+  }
+
+  await syncFiscalSnapshots();
 }

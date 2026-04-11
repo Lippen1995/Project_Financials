@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 import { PetroleumEntityType } from "@/lib/types";
 import {
@@ -8,6 +10,61 @@ import {
 } from "@/server/services/petroleum-market-types";
 
 const CHUNK_SIZE = 500;
+
+export type PetroleumFieldSnapshotListInput = {
+  areas?: string[];
+  statuses?: string[];
+  hcTypes?: string[];
+  operatorNpdCompanyIds?: number[];
+  operatorOrgNumbers?: string[];
+  licenseeCompanyIds?: number[];
+  fieldNpdIds?: number[];
+  query?: string;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumFieldSnapshotOrderByWithRelationInput
+    | Prisma.PetroleumFieldSnapshotOrderByWithRelationInput[];
+};
+
+export type PetroleumLicenceSnapshotListInput = {
+  areas?: string[];
+  statuses?: string[];
+  currentPhases?: string[];
+  operatorNpdCompanyIds?: number[];
+  operatorOrgNumbers?: string[];
+  licenseeCompanyIds?: number[];
+  licenceNpdIds?: number[];
+  query?: string;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumLicenceSnapshotOrderByWithRelationInput
+    | Prisma.PetroleumLicenceSnapshotOrderByWithRelationInput[];
+};
+
+export type PetroleumOperatorSnapshotListInput = {
+  npdCompanyIds?: number[];
+  orgNumbers?: string[];
+  areas?: string[];
+  hcTypes?: string[];
+  query?: string;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumOperatorSnapshotOrderByWithRelationInput
+    | Prisma.PetroleumOperatorSnapshotOrderByWithRelationInput[];
+};
+
+export type PetroleumAreaSnapshotListInput = {
+  areas?: string[];
+  query?: string;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumAreaSnapshotOrderByWithRelationInput
+    | Prisma.PetroleumAreaSnapshotOrderByWithRelationInput[];
+};
 
 type PetroleumCompanyExposureSnapshotRow = {
   id: string;
@@ -72,6 +129,82 @@ function getExposureSnapshotDelegate(client: unknown): ExposureSnapshotDelegate 
   }
 
   return candidate as ExposureSnapshotDelegate;
+}
+
+function buildFieldSnapshotWhere(input?: PetroleumFieldSnapshotListInput): Prisma.PetroleumFieldSnapshotWhereInput {
+  const query = input?.query?.trim();
+
+  return {
+    area: input?.areas?.length ? { in: input.areas } : undefined,
+    status: input?.statuses?.length ? { in: input.statuses } : undefined,
+    hcType: input?.hcTypes?.length ? { in: input.hcTypes } : undefined,
+    operatorNpdCompanyId: input?.operatorNpdCompanyIds?.length
+      ? { in: input.operatorNpdCompanyIds }
+      : undefined,
+    operatorOrgNumber: input?.operatorOrgNumbers?.length ? { in: input.operatorOrgNumbers } : undefined,
+    fieldNpdId: input?.fieldNpdIds?.length ? { in: input.fieldNpdIds } : undefined,
+    licenseeCompanyIds: input?.licenseeCompanyIds?.length ? { hasSome: input.licenseeCompanyIds } : undefined,
+    OR: query
+      ? [
+          { name: { contains: query, mode: "insensitive" } },
+          { fieldSlug: { contains: query, mode: "insensitive" } },
+          { operatorName: { contains: query, mode: "insensitive" } },
+        ]
+      : undefined,
+  };
+}
+
+function buildLicenceSnapshotWhere(
+  input?: PetroleumLicenceSnapshotListInput,
+): Prisma.PetroleumLicenceSnapshotWhereInput {
+  const query = input?.query?.trim();
+
+  return {
+    area: input?.areas?.length ? { in: input.areas } : undefined,
+    status: input?.statuses?.length ? { in: input.statuses } : undefined,
+    currentPhase: input?.currentPhases?.length ? { in: input.currentPhases } : undefined,
+    operatorNpdCompanyId: input?.operatorNpdCompanyIds?.length
+      ? { in: input.operatorNpdCompanyIds }
+      : undefined,
+    operatorOrgNumber: input?.operatorOrgNumbers?.length ? { in: input.operatorOrgNumbers } : undefined,
+    licenceNpdId: input?.licenceNpdIds?.length ? { in: input.licenceNpdIds } : undefined,
+    licenseeCompanyIds: input?.licenseeCompanyIds?.length ? { hasSome: input.licenseeCompanyIds } : undefined,
+    OR: query
+      ? [
+          { name: { contains: query, mode: "insensitive" } },
+          { licenceSlug: { contains: query, mode: "insensitive" } },
+          { operatorName: { contains: query, mode: "insensitive" } },
+        ]
+      : undefined,
+  };
+}
+
+function buildOperatorSnapshotWhere(
+  input?: PetroleumOperatorSnapshotListInput,
+): Prisma.PetroleumOperatorSnapshotWhereInput {
+  const query = input?.query?.trim();
+
+  return {
+    npdCompanyId: input?.npdCompanyIds?.length ? { in: input.npdCompanyIds } : undefined,
+    orgNumber: input?.orgNumbers?.length ? { in: input.orgNumbers } : undefined,
+    mainAreas: input?.areas?.length ? { hasSome: input.areas } : undefined,
+    mainHydrocarbonTypes: input?.hcTypes?.length ? { hasSome: input.hcTypes } : undefined,
+    OR: query
+      ? [
+          { operatorName: { contains: query, mode: "insensitive" } },
+          { slug: { contains: query, mode: "insensitive" } },
+          { orgNumber: { contains: query, mode: "insensitive" } },
+        ]
+      : undefined,
+  };
+}
+
+function buildAreaSnapshotWhere(input?: PetroleumAreaSnapshotListInput): Prisma.PetroleumAreaSnapshotWhereInput {
+  const query = input?.query?.trim();
+
+  return {
+    area: input?.areas?.length ? { in: input.areas } : query ? { contains: query, mode: "insensitive" } : undefined,
+  };
 }
 
 export async function getCompanySlugLookup(orgNumbers: string[]) {
@@ -282,6 +415,155 @@ export async function listPetroleumInvestmentSnapshots() {
   return prisma.petroleumInvestmentSnapshot.findMany();
 }
 
+export async function replacePetroleumFieldSnapshots(input: {
+  snapshots: Array<Record<string, unknown>>;
+}) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.petroleumFieldSnapshot.deleteMany();
+      await createManyInChunks(input.snapshots, (chunk) =>
+        tx.petroleumFieldSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+    },
+    {
+      maxWait: 30_000,
+      timeout: 600_000,
+    },
+  );
+}
+
+export async function replacePetroleumLicenceSnapshots(input: {
+  snapshots: Array<Record<string, unknown>>;
+}) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.petroleumLicenceSnapshot.deleteMany();
+      await createManyInChunks(input.snapshots, (chunk) =>
+        tx.petroleumLicenceSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+    },
+    {
+      maxWait: 30_000,
+      timeout: 600_000,
+    },
+  );
+}
+
+export async function replacePetroleumOperatorSnapshots(input: {
+  snapshots: Array<Record<string, unknown>>;
+}) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.petroleumOperatorSnapshot.deleteMany();
+      await createManyInChunks(input.snapshots, (chunk) =>
+        tx.petroleumOperatorSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+    },
+    {
+      maxWait: 30_000,
+      timeout: 600_000,
+    },
+  );
+}
+
+export async function replacePetroleumAreaSnapshots(input: {
+  snapshots: Array<Record<string, unknown>>;
+}) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.petroleumAreaSnapshot.deleteMany();
+      await createManyInChunks(input.snapshots, (chunk) =>
+        tx.petroleumAreaSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+    },
+    {
+      maxWait: 30_000,
+      timeout: 600_000,
+    },
+  );
+}
+
+export async function listPetroleumFieldSnapshots(input?: PetroleumFieldSnapshotListInput) {
+  return prisma.petroleumFieldSnapshot.findMany({
+    where: buildFieldSnapshotWhere(input),
+    orderBy: input?.orderBy ?? [{ latestAnnualOe: "desc" }, { name: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
+}
+
+export async function countPetroleumFieldSnapshots(input?: PetroleumFieldSnapshotListInput) {
+  return prisma.petroleumFieldSnapshot.count({
+    where: buildFieldSnapshotWhere(input),
+  });
+}
+
+export async function listPetroleumLicenceSnapshots(input?: PetroleumLicenceSnapshotListInput) {
+  return prisma.petroleumLicenceSnapshot.findMany({
+    where: buildLicenceSnapshotWhere(input),
+    orderBy: input?.orderBy ?? [{ name: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
+}
+
+export async function countPetroleumLicenceSnapshots(input?: PetroleumLicenceSnapshotListInput) {
+  return prisma.petroleumLicenceSnapshot.count({
+    where: buildLicenceSnapshotWhere(input),
+  });
+}
+
+export async function listPetroleumOperatorSnapshots(input?: PetroleumOperatorSnapshotListInput) {
+  return prisma.petroleumOperatorSnapshot.findMany({
+    where: buildOperatorSnapshotWhere(input),
+    orderBy: input?.orderBy ?? [{ latestProductionOe: "desc" }, { operatorName: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
+}
+
+export async function countPetroleumOperatorSnapshots(input?: PetroleumOperatorSnapshotListInput) {
+  return prisma.petroleumOperatorSnapshot.count({
+    where: buildOperatorSnapshotWhere(input),
+  });
+}
+
+export async function listPetroleumAreaSnapshots(input?: PetroleumAreaSnapshotListInput) {
+  return prisma.petroleumAreaSnapshot.findMany({
+    where: buildAreaSnapshotWhere(input),
+    orderBy: input?.orderBy ?? [{ latestProductionOe: "desc" }, { area: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
+}
+
+export async function countPetroleumAreaSnapshots(input?: PetroleumAreaSnapshotListInput) {
+  return prisma.petroleumAreaSnapshot.count({
+    where: buildAreaSnapshotWhere(input),
+  });
+}
+
+export async function listPetroleumProductionPointsForEntities(input: {
+  entityType?: PetroleumEntityType;
+  entityNpdIds?: number[];
+  yearFrom?: number;
+  yearTo?: number;
+  period?: string;
+}) {
+  return prisma.petroleumProductionPoint.findMany({
+    where: {
+      entityType: input.entityType ?? undefined,
+      entityNpdId: input.entityNpdIds?.length ? { in: input.entityNpdIds } : undefined,
+      year:
+        input.yearFrom !== undefined || input.yearTo !== undefined
+          ? { gte: input.yearFrom, lte: input.yearTo }
+          : undefined,
+      period: input.period ?? undefined,
+    },
+    orderBy: [{ entityNpdId: "asc" }, { year: "asc" }, { month: "asc" }],
+  });
+}
+
 export async function listPetroleumEvents() {
   return prisma.petroleumEvent.findMany({
     orderBy: {
@@ -322,24 +604,23 @@ export async function replacePetroleumMarketSeriesData(input: {
         select: { id: true, slug: true },
       });
       const seriesIdBySlug = new Map(persistedSeries.map((item) => [item.slug, item.id]));
-      const observationRows = input.observations
-        .map((item) => {
-          const row = item as Record<string, unknown> & { seriesSlug?: string };
-          const seriesSlug = row.seriesSlug;
-          if (!seriesSlug) {
-            return null;
-          }
+      const observationRows = input.observations.reduce<Record<string, unknown>[]>((acc, item) => {
+        const row = item as Record<string, unknown> & { seriesSlug?: string };
+        const seriesSlug = row.seriesSlug;
+        if (!seriesSlug) {
+          return acc;
+        }
 
-          const seriesId = seriesIdBySlug.get(seriesSlug);
-          if (!seriesId) {
-            return null;
-          }
+        const seriesId = seriesIdBySlug.get(seriesSlug);
+        if (!seriesId) {
+          return acc;
+        }
 
-          const next = { ...row, seriesId };
-          delete (next as { seriesSlug?: string }).seriesSlug;
-          return next;
-        })
-        .filter((item): item is Record<string, unknown> => Boolean(item));
+        const next = { ...row, seriesId };
+        delete (next as { seriesSlug?: string }).seriesSlug;
+        acc.push(next);
+        return acc;
+      }, []);
 
       await createManyInChunks(observationRows, (chunk) =>
         tx.petroleumMarketObservation.createMany({ data: chunk as never[], skipDuplicates: true }),

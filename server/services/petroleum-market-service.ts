@@ -4,8 +4,10 @@ import {
   PetroleumEvent,
   PetroleumFacility,
   PetroleumField,
+  PetroleumFieldSnapshot,
   PetroleumInvestmentSnapshot,
   PetroleumLicence,
+  PetroleumLicenceSnapshot,
   PetroleumProductionPoint,
   PetroleumPublicationSnapshot,
   PetroleumReserveSnapshot,
@@ -52,18 +54,26 @@ import {
   PetroleumTimeSeriesPoint,
 } from "@/lib/types";
 import {
+  countPetroleumFieldSnapshots,
+  countPetroleumLicenceSnapshots,
   getCompanySlugLookup,
   getPetroleumSyncState,
+  PetroleumFieldSnapshotListInput,
+  PetroleumLicenceSnapshotListInput,
   listPetroleumCompanyLinks,
   listPetroleumDiscoveries,
   listPetroleumEvents,
   listPetroleumFacilities,
   listPetroleumForecastSnapshots,
+  listPetroleumFieldSnapshots,
   listPetroleumFields,
   listPetroleumInvestmentSnapshots,
+  listPetroleumLicenceSnapshots,
   listPetroleumLicences,
+  listPetroleumOperatorSnapshots,
   listPetroleumPublicationSnapshots,
   listPetroleumProductionPoints,
+  listPetroleumProductionPointsForEntities,
   listPetroleumReserveSnapshots,
   listPetroleumSurveys,
   listPetroleumTufs,
@@ -106,14 +116,6 @@ const SYNC_KEYS = {
   gassco: "petroleum-events-gassco",
 } as const;
 
-const MAX_AGE_HOURS = {
-  core: 24,
-  metrics: 24,
-  publications: 24,
-  havtil: 6,
-  gassco: 0.25,
-} as const;
-
 const FEATURE_LIMITS: Record<PetroleumLayerId, number> = {
   fields: 160,
   discoveries: 260,
@@ -126,15 +128,6 @@ const FEATURE_LIMITS: Record<PetroleumLayerId, number> = {
   gasscoEvents: 0,
 };
 
-const syncPromises = new Map<string, Promise<void>>();
-
-function hoursSince(date?: Date | null) {
-  if (!date) {
-    return Number.POSITIVE_INFINITY;
-  }
-
-  return (Date.now() - date.getTime()) / 3_600_000;
-}
 
 function normalizeText(value?: string | null) {
   return value?.trim().toLowerCase() ?? "";
@@ -159,19 +152,6 @@ function parseBbox(value: unknown): [number, number, number, number] | null {
     value.every((entry) => typeof entry === "number")
     ? [value[0], value[1], value[2], value[3]]
     : null;
-}
-
-function scheduleSync(key: string, run: () => Promise<void>) {
-  const current = syncPromises.get(key);
-  if (current) {
-    return current;
-  }
-
-  const promise = run().finally(() => {
-    syncPromises.delete(key);
-  });
-  syncPromises.set(key, promise);
-  return promise;
 }
 
 function bboxIntersects(
@@ -458,51 +438,7 @@ async function syncEventSource(
   }
 }
 
-async function ensureSyncFresh(key: keyof typeof SYNC_KEYS, maxAgeHours: number, run: () => Promise<void>) {
-  const state = await getPetroleumSyncState(SYNC_KEYS[key]);
-  if (state?.status === "RUNNING") {
-    return;
-  }
-
-  if (hoursSince(state?.lastSuccessAt) <= maxAgeHours) {
-    return;
-  }
-
-  if (state?.lastSuccessAt) {
-    void scheduleSync(SYNC_KEYS[key], run).catch(() => undefined);
-    return;
-  }
-
-  await scheduleSync(SYNC_KEYS[key], run);
-}
-
-async function ensureCoreReady() {
-  await ensureSyncFresh("core", MAX_AGE_HOURS.core, syncCoreData);
-}
-
-async function ensureMetricsReady() {
-  await ensureCoreReady();
-  await ensureSyncFresh("metrics", MAX_AGE_HOURS.metrics, syncMetricsData);
-}
-
-async function ensurePublicationsReady() {
-  await ensureSyncFresh("publications", MAX_AGE_HOURS.publications, syncPublicationData);
-}
-
-async function ensureEventsReady() {
-  await Promise.all([
-    ensureSyncFresh("havtil", MAX_AGE_HOURS.havtil, () =>
-      syncEventSource("havtil", "HAVTIL", fetchHavtilPetroleumEvents),
-    ),
-    ensureSyncFresh("gassco", MAX_AGE_HOURS.gassco, () =>
-      syncEventSource("gassco", "GASSCO", fetchGasscoPetroleumEvents),
-    ),
-  ]);
-}
-
 async function getCoreDataset(): Promise<CoreDataset> {
-  await ensureCoreReady();
-
   const [companyLinks, fields, discoveries, licences, facilities, tufs, surveys, wellbores] =
     await Promise.all([
     listPetroleumCompanyLinks(),
@@ -519,8 +455,6 @@ async function getCoreDataset(): Promise<CoreDataset> {
 }
 
 async function getFeatureDataset(layers: PetroleumLayerId[]) {
-  await ensureCoreReady();
-
   const needsFields = layers.includes("fields");
   const needsDiscoveries = layers.includes("discoveries");
   const needsLicences = layers.includes("licences");
@@ -576,9 +510,22 @@ export async function syncPetroleumCoreDataNow() {
   await syncCoreData();
 }
 
-async function getMetricsDataset(): Promise<MetricsDataset> {
-  await ensureMetricsReady();
+export async function syncPetroleumMetricsDataNow() {
+  await syncMetricsData();
+}
 
+export async function syncPetroleumPublicationDataNow() {
+  await syncPublicationData();
+}
+
+export async function syncPetroleumEventsNow() {
+  await Promise.all([
+    syncEventSource("havtil", "HAVTIL", fetchHavtilPetroleumEvents),
+    syncEventSource("gassco", "GASSCO", fetchGasscoPetroleumEvents),
+  ]);
+}
+
+async function getMetricsDataset(): Promise<MetricsDataset> {
   const [productionPoints, reserveSnapshots, investmentSnapshots] = await Promise.all([
     listPetroleumProductionPoints(),
     listPetroleumReserveSnapshots(),
@@ -589,23 +536,16 @@ async function getMetricsDataset(): Promise<MetricsDataset> {
 }
 
 async function getPersistedEvents() {
-  await ensureEventsReady();
   return listPetroleumEvents();
 }
 
 async function getPublicationDataset() {
-  await ensurePublicationsReady();
-
   const [forecasts, publications] = await Promise.all([
     listPetroleumForecastSnapshots(),
     listPetroleumPublicationSnapshots(),
   ]);
 
   return { forecasts, publications };
-}
-
-function buildCompanyLookup(companyLinks: PetroleumCompanyLink[]) {
-  return new Map(companyLinks.map((item) => [item.npdCompanyId, item]));
 }
 
 function buildReserveLookup(reserves: PetroleumReserveSnapshot[]) {
@@ -645,6 +585,33 @@ function getEntityLicenseeIds(entity: PetroleumField | PetroleumLicence) {
         : null,
     )
     .filter((value): value is string => Boolean(value));
+}
+
+function parseNumericFilterValues(values?: string[]) {
+  return (values ?? [])
+    .map((value) => Number(value))
+    .filter((value): value is number => Number.isFinite(value));
+}
+
+function buildFieldSnapshotQuery(filters: PetroleumMarketFilters): PetroleumFieldSnapshotListInput {
+  return {
+    areas: filters.areas,
+    statuses: filters.status,
+    hcTypes: filters.hcTypes,
+    operatorNpdCompanyIds: parseNumericFilterValues(filters.operatorIds),
+    licenseeCompanyIds: parseNumericFilterValues(filters.licenseeIds),
+    query: filters.query,
+  };
+}
+
+function buildLicenceSnapshotQuery(filters: PetroleumMarketFilters): PetroleumLicenceSnapshotListInput {
+  return {
+    areas: filters.areas,
+    statuses: filters.status,
+    operatorNpdCompanyIds: parseNumericFilterValues(filters.operatorIds),
+    licenseeCompanyIds: parseNumericFilterValues(filters.licenseeIds),
+    query: filters.query,
+  };
 }
 
 function matchesCommonFilters(
@@ -1683,6 +1650,54 @@ function getLatestNcsMetric(
     : totalVolume;
 }
 
+function getSnapshotProductionVolume(
+  snapshot: PetroleumFieldSnapshot,
+  product: PetroleumProductSeries,
+) {
+  switch (product) {
+    case "oil":
+      return snapshot.latestSelectedProductionOil ?? null;
+    case "gas":
+      return snapshot.latestSelectedProductionGas ?? null;
+    case "liquids":
+      return snapshot.latestSelectedProductionLiquids ?? null;
+    case "oe":
+      return snapshot.latestSelectedProductionOe ?? snapshot.latestAnnualOe ?? null;
+    default:
+      return null;
+  }
+}
+
+function getSnapshotMetric(
+  snapshot: PetroleumFieldSnapshot,
+  productionLookup: Map<number, PetroleumProductionPoint[]>,
+  product: PetroleumProductSeries,
+  view: PetroleumMetricView,
+) {
+  const fromPoints = getFieldMetric(productionLookup, snapshot.fieldNpdId, product, view);
+  if (fromPoints.value !== null && fromPoints.value !== undefined) {
+    return fromPoints;
+  }
+
+  const volume = getSnapshotProductionVolume(snapshot, product);
+  if (volume === null || volume === undefined) {
+    return { value: null, unit: getRateUnit(product, view), point: null };
+  }
+
+  const value =
+    view === "rate"
+      ? product === "gas" || product === "producedWater"
+        ? volume / 365
+        : (volume * 1_000_000 * 6.2898) / 365
+      : volume;
+
+  return {
+    value,
+    unit: getRateUnit(product, view),
+    point: null,
+  };
+}
+
 function pickPrimaryForecast(forecasts: PetroleumForecastSnapshot[]) {
   return forecasts.find((snapshot) => snapshot.sourceEntityType === "shelf_year_forecast") ?? forecasts[0] ?? null;
 }
@@ -1707,12 +1722,19 @@ function deriveFilteredForecast(
   });
 }
 
-function buildFilterOptions(core: CoreDataset): PetroleumFilterOptions {
+function buildFilterOptions(
+  fieldSnapshots: PetroleumFieldSnapshot[],
+  licenceSnapshots: PetroleumLicenceSnapshot[],
+  companyLinks: PetroleumCompanyLink[],
+): PetroleumFilterOptions {
   const statusCounts = new Map<string, number>();
   const areaCounts = new Map<string, number>();
   const operatorCounts = new Map<string, { label: string; count: number }>();
   const licenseeCounts = new Map<string, { label: string; count: number }>();
   const hcCounts = new Map<string, number>();
+  const companyLabelByNpd = new Map(
+    companyLinks.map((link) => [String(link.npdCompanyId), link.companyName] as const),
+  );
 
   const bump = (map: Map<string, number>, value?: string | null) => {
     const key = value?.trim();
@@ -1720,58 +1742,41 @@ function buildFilterOptions(core: CoreDataset): PetroleumFilterOptions {
     map.set(key, (map.get(key) ?? 0) + 1);
   };
 
-  for (const field of core.fields) {
-    bump(statusCounts, field.activityStatus);
-    bump(areaCounts, field.mainArea);
-    bump(hcCounts, field.hydrocarbonType);
-    if (field.operatorNpdCompanyId && field.operatorCompanyName) {
+  for (const field of fieldSnapshots) {
+    bump(statusCounts, field.status);
+    bump(areaCounts, field.area);
+    bump(hcCounts, field.hcType);
+    if (field.operatorNpdCompanyId && field.operatorName) {
       const key = String(field.operatorNpdCompanyId);
       operatorCounts.set(key, {
-        label: field.operatorCompanyName,
+        label: field.operatorName,
         count: (operatorCounts.get(key)?.count ?? 0) + 1,
       });
     }
-    for (const entry of parseJsonArray(field.licensees)) {
-      if (entry && typeof entry === "object" && typeof (entry as Record<string, unknown>).npdCompanyId === "number") {
-        const key = String((entry as Record<string, unknown>).npdCompanyId);
-        licenseeCounts.set(key, {
-          label: String((entry as Record<string, unknown>).companyName ?? key),
-          count: (licenseeCounts.get(key)?.count ?? 0) + 1,
-        });
-      }
+    for (const companyId of field.licenseeCompanyIds) {
+      const key = String(companyId);
+      licenseeCounts.set(key, {
+        label: companyLabelByNpd.get(key) ?? key,
+        count: (licenseeCounts.get(key)?.count ?? 0) + 1,
+      });
     }
   }
 
-  for (const item of core.discoveries) {
-    bump(statusCounts, item.activityStatus);
-    bump(areaCounts, item.areaName);
-    bump(hcCounts, item.hydrocarbonType);
-  }
-  for (const item of core.licences) {
+  for (const item of licenceSnapshots) {
     bump(statusCounts, item.status ?? item.currentPhase);
-    bump(areaCounts, item.mainArea);
-  }
-  for (const item of core.facilities) {
-    bump(statusCounts, item.phase);
-  }
-  for (const item of core.tufs) {
-    bump(statusCounts, item.currentPhase);
-    bump(hcCounts, item.medium);
-  }
-  for (const item of core.surveys) {
-    bump(statusCounts, item.status);
-    bump(areaCounts, item.geographicalArea);
-    bump(hcCounts, item.mainType);
-  }
-  for (const item of core.wellbores) {
-    bump(statusCounts, item.status ?? item.purpose);
-    bump(areaCounts, item.mainArea);
-    bump(hcCounts, item.content);
-    if (item.drillingOperatorNpdCompanyId && item.drillingOperatorName) {
-      const key = String(item.drillingOperatorNpdCompanyId);
+    bump(areaCounts, item.area);
+    if (item.operatorNpdCompanyId && item.operatorName) {
+      const key = String(item.operatorNpdCompanyId);
       operatorCounts.set(key, {
-        label: item.drillingOperatorName,
+        label: item.operatorName,
         count: (operatorCounts.get(key)?.count ?? 0) + 1,
+      });
+    }
+    for (const companyId of item.licenseeCompanyIds) {
+      const key = String(companyId);
+      licenseeCounts.set(key, {
+        label: companyLabelByNpd.get(key) ?? key,
+        count: (licenseeCounts.get(key)?.count ?? 0) + 1,
       });
     }
   }
@@ -1888,109 +1893,134 @@ export async function getPetroleumMarketFeatures(filters: PetroleumMarketFilters
 export async function getPetroleumMarketSummary(
   filters: PetroleumMarketFilters,
 ): Promise<PetroleumSummaryResponse> {
-  const [core, metrics, persistedEvents, sourceStatus, publicationDataset] = await Promise.all([
-    getCoreDataset(),
-    getMetricsDataset(),
+  const selectedProduct = filters.product ?? "oe";
+  const selectedView = filters.view ?? "volume";
+  const fieldQuery = buildFieldSnapshotQuery(filters);
+  const licenceQuery = buildLicenceSnapshotQuery(filters);
+
+  const [
+    filteredFields,
+    filteredLicences,
+    allFieldSnapshots,
+    allLicenceSnapshots,
+    operatorSnapshots,
+    companyLinks,
+    persistedEvents,
+    sourceStatus,
+    publicationDataset,
+    rawLicences,
+    allAnnualPoints,
+  ] = await Promise.all([
+    listPetroleumFieldSnapshots(fieldQuery),
+    listPetroleumLicenceSnapshots(licenceQuery),
+    listPetroleumFieldSnapshots(),
+    listPetroleumLicenceSnapshots(),
+    listPetroleumOperatorSnapshots(),
+    listPetroleumCompanyLinks(),
     getPersistedEvents(),
     buildSourceStatus(),
     getPublicationDataset(),
+    listPetroleumLicences(),
+    listPetroleumProductionPointsForEntities({ entityType: "FIELD", period: "year" }),
   ]);
 
-  const selectedProduct = filters.product ?? "oe";
-  const selectedView = filters.view ?? "volume";
-  const filteredFields = filterFields(core.fields, filters);
-  const filteredLicences = filterLicences(core.licences, filters);
-  const productionLookup = buildFieldProductionLookup(metrics.productionPoints);
-  const reserveLookup = buildReserveLookup(metrics.reserveSnapshots);
-  const investmentLookup = buildInvestmentLookup(metrics.investmentSnapshots);
-  const currentYear = new Date().getUTCFullYear();
+  const filteredFieldIds = filteredFields.map((field) => field.fieldNpdId);
+  const filteredFieldIdSet = new Set(filteredFieldIds);
+  const filteredLicenceIdSet = new Set(filteredLicences.map((licence) => licence.licenceNpdId));
+  const filteredProductionPoints =
+    filteredFieldIds.length > 0
+      ? await listPetroleumProductionPointsForEntities({
+          entityType: "FIELD",
+          entityNpdIds: filteredFieldIds,
+        })
+      : [];
+  const productionLookup = buildFieldProductionLookup(filteredProductionPoints);
   const latestProductionYear =
-    metrics.productionPoints
-      .filter((point) => point.period === "year" && point.year <= currentYear)
-      .reduce((latest, point) => Math.max(latest, point.year), 0) || null;
-  const filteredFieldIds = new Set(filteredFields.map((field) => field.npdId));
-  const selectedAnnualOe = filteredFields.reduce(
-    (sum, field) => sum + (getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? 0),
+    allAnnualPoints.reduce((latest, point) => Math.max(latest, point.year), 0) || null;
+  const latestNcsProductionOe = latestProductionYear
+    ? allAnnualPoints
+        .filter((point) => point.year === latestProductionYear)
+        .reduce((sum, point) => sum + (point.oeNetMillSm3 ?? 0), 0)
+    : null;
+  const selectedAnnualOe = filteredFields.reduce((sum, field) => sum + (field.latestAnnualOe ?? 0), 0);
+  const selectedRemainingOe = filteredFields.reduce((sum, field) => sum + (field.remainingOe ?? 0), 0);
+  const selectedRecoverableOe = filteredFields.reduce((sum, field) => sum + (field.recoverableOe ?? 0), 0);
+  const selectedHistoricalInvestmentsNok = filteredProductionPoints.reduce(
+    (sum, point) => sum + ((point.investmentsMillNok ?? 0) * 1_000_000),
     0,
   );
-  const selectedRemainingOe = filteredFields.reduce(
-    (sum, field) => sum + (reserveLookup.get(field.npdId)?.remainingOe ?? 0),
-    0,
-  );
-  const selectedRecoverableOe = filteredFields.reduce(
-    (sum, field) => sum + (reserveLookup.get(field.npdId)?.recoverableOe ?? 0),
-    0,
-  );
-  const selectedHistoricalInvestmentsNok = filteredFields.reduce((sum, field) => {
-    const points = productionLookup.get(field.npdId) ?? [];
-    return sum + points.reduce((inner, point) => inner + ((point.investmentsMillNok ?? 0) * 1_000_000), 0);
+  const selectedFutureInvestmentsNok = filteredFields.reduce((sum, field) => {
+    const next =
+      typeof field.expectedFutureInvestmentNok === "bigint" ? Number(field.expectedFutureInvestmentNok) : 0;
+    return sum + next;
   }, 0);
-  const selectedFutureInvestmentsNok = filteredFields.reduce(
-    (sum, field) => sum + ((investmentLookup.get(field.npdId)?.expectedFutureInvestmentMillNok ?? 0) * 1_000_000),
-    0,
+  const operatorIds = new Set(
+    filteredFields
+      .map((field) => field.operatorNpdCompanyId)
+      .filter((value): value is number => typeof value === "number"),
   );
-  const latestNcsProductionOe = metrics.productionPoints
-    .filter((point) => point.year === latestProductionYear && point.period === "year")
-    .reduce((sum, point) => sum + (point.oeNetMillSm3 ?? 0), 0);
-  const operatorIds = new Set(filteredFields.map((field) => field.operatorNpdCompanyId).filter(Boolean));
-  const ytdMetrics = getYearToDateMetrics(metrics.productionPoints, filteredFieldIds, selectedProduct, selectedView);
+  const ytdMetrics = getYearToDateMetrics(
+    filteredProductionPoints,
+    filteredFieldIdSet,
+    selectedProduct,
+    selectedView,
+  );
   const recentEvents = [
     ...persistedEvents.map(mapPersistedEvent),
-    ...derivePetregEvents(core.licences),
+    ...derivePetregEvents(
+      rawLicences.filter(
+        (licence) =>
+          filteredLicenceIdSet.has(licence.npdId) ||
+          (licence.operatorNpdCompanyId && operatorIds.has(licence.operatorNpdCompanyId)),
+      ),
+    ),
   ].filter((event) => {
     const publishedAt = event.publishedAt?.getTime();
     if (!publishedAt) return false;
     if (Date.now() - publishedAt > 365 * 24 * 3_600_000) return false;
-    return !event.entityNpdId || filteredFieldIds.has(event.entityNpdId) || filteredLicences.some((licence) => licence.npdId === event.entityNpdId);
+    if (!event.entityNpdId) return true;
+    return filteredFieldIdSet.has(event.entityNpdId) || filteredLicenceIdSet.has(event.entityNpdId);
   });
 
   const topFields = filteredFields
-    .map((field) => ({
-      entityId: field.slug,
-      npdId: field.npdId,
-      name: field.name,
-      area: field.mainArea,
-      operatorName: field.operatorCompanyName,
-      operatorSlug: field.operatorCompanySlug,
-      status: field.activityStatus,
-      oe: getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? null,
-      remainingOe: reserveLookup.get(field.npdId)?.remainingOe ?? null,
-      expectedFutureInvestmentNok:
-        (investmentLookup.get(field.npdId)?.expectedFutureInvestmentMillNok ?? 0) * 1_000_000,
-      latestProductionValue: getFieldMetric(
-        productionLookup,
-        field.npdId,
-        selectedProduct,
-        selectedView,
-      ).value,
-      latestProductionUnit: getFieldMetric(
-        productionLookup,
-        field.npdId,
-        selectedProduct,
-        selectedView,
-      ).unit,
-    }))
+    .map((field) => {
+      const metric = getSnapshotMetric(field, productionLookup, selectedProduct, selectedView);
+
+      return {
+        entityId: field.fieldSlug,
+        npdId: field.fieldNpdId,
+        name: field.name,
+        area: field.area,
+        operatorName: field.operatorName,
+        operatorSlug: field.operatorSlug,
+        status: field.status,
+        oe: field.latestAnnualOe ?? null,
+        remainingOe: field.remainingOe ?? null,
+        expectedFutureInvestmentNok:
+          typeof field.expectedFutureInvestmentNok === "bigint" ? Number(field.expectedFutureInvestmentNok) : null,
+        latestProductionValue: metric.value,
+        latestProductionUnit: metric.unit,
+      };
+    })
     .sort((left, right) => (right.oe ?? 0) - (left.oe ?? 0))
     .slice(0, 8);
 
   const operatorConcentration = [...operatorIds]
     .map((operatorNpdId) => {
       const operatorFields = filteredFields.filter((field) => field.operatorNpdCompanyId === operatorNpdId);
-      const oe = operatorFields.reduce(
-        (sum, field) => sum + (getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? 0),
-        0,
-      );
-      const reference = operatorFields[0];
+      const fieldReference = operatorFields[0];
+      const operatorReference = operatorSnapshots.find((item) => item.npdCompanyId === operatorNpdId);
 
       return {
-        operatorName: reference?.operatorCompanyName ?? `Operator ${operatorNpdId}`,
-        operatorOrgNumber: reference?.operatorOrgNumber ?? null,
-        operatorSlug: reference?.operatorCompanySlug ?? null,
-        oe,
+        operatorName:
+          fieldReference?.operatorName ?? operatorReference?.operatorName ?? `Operator ${operatorNpdId}`,
+        operatorOrgNumber: fieldReference?.operatorOrgNumber ?? operatorReference?.orgNumber ?? null,
+        operatorSlug: fieldReference?.operatorSlug ?? operatorReference?.slug ?? null,
+        oe: operatorFields.reduce((sum, field) => sum + (field.latestAnnualOe ?? 0), 0),
         fieldCount: operatorFields.length,
         latestProductionValue: operatorFields.reduce((sum, field) => {
-          const value = getFieldMetric(productionLookup, field.npdId, selectedProduct, selectedView).value;
-          return sum + (value ?? 0);
+          const metric = getSnapshotMetric(field, productionLookup, selectedProduct, selectedView);
+          return sum + (metric.value ?? 0);
         }, 0),
         latestProductionUnit: getRateUnit(selectedProduct, selectedView),
       };
@@ -2001,7 +2031,8 @@ export async function getPetroleumMarketSummary(
   const mappedPublications = publicationDataset.publications.map(mapPersistedPublication);
   const primaryForecastSnapshot = pickPrimaryForecast(publicationDataset.forecasts);
   const monthlyForecastSnapshot = pickMonthlyForecast(publicationDataset.forecasts);
-  const selectedProductionShareOfNcs = latestNcsProductionOe > 0 ? selectedAnnualOe / latestNcsProductionOe : null;
+  const selectedProductionShareOfNcs =
+    latestNcsProductionOe && latestNcsProductionOe > 0 ? selectedAnnualOe / latestNcsProductionOe : null;
   const forecast =
     primaryForecastSnapshot && (filters.areas?.length || filters.operatorIds?.length || filters.bbox || filters.query)
       ? deriveFilteredForecast(primaryForecastSnapshot, selectedProductionShareOfNcs)
@@ -2027,8 +2058,8 @@ export async function getPetroleumMarketSummary(
 
   return {
     kpis: {
-      activeFieldCount: filteredFields.filter((field) => normalizeText(field.activityStatus).includes("producing")).length,
-      activeLicenceCount: filteredLicences.filter((licence) => licence.active).length,
+      activeFieldCount: filteredFields.filter((field) => normalizeText(field.status).includes("producing")).length,
+      activeLicenceCount: filteredLicences.filter((licence) => Boolean(licence.active)).length,
       selectedLatestProductionOe: selectedAnnualOe,
       selectedRemainingOe,
       selectedOperatorCount: operatorIds.size,
@@ -2038,8 +2069,8 @@ export async function getPetroleumMarketSummary(
       selectedLatestProductionValue:
         ytdMetrics.currentValue ??
         filteredFields.reduce((sum, field) => {
-          const value = getFieldMetric(productionLookup, field.npdId, selectedProduct, selectedView).value;
-          return sum + (value ?? 0);
+          const metric = getSnapshotMetric(field, productionLookup, selectedProduct, selectedView);
+          return sum + (metric.value ?? 0);
         }, 0),
       selectedLatestProductionUnit: getRateUnit(selectedProduct, selectedView),
       yoyYtdValue: ytdMetrics.currentValue,
@@ -2055,13 +2086,13 @@ export async function getPetroleumMarketSummary(
       selectedRemainingOe,
       selectedHistoricalInvestmentsNok,
       selectedFutureInvestmentsNok,
-      totalFields: core.fields.length,
-      totalLicences: core.licences.length,
-      totalOperators: new Set(core.fields.map((field) => field.operatorNpdCompanyId).filter(Boolean)).size,
+      totalFields: allFieldSnapshots.length,
+      totalLicences: allLicenceSnapshots.length,
+      totalOperators: operatorSnapshots.length,
     },
     topFields,
     operatorConcentration,
-    filterOptions: buildFilterOptions(core),
+    filterOptions: buildFilterOptions(allFieldSnapshots, allLicenceSnapshots, companyLinks),
     sourceStatus,
     latestProductionYear,
     selectedProduct,
@@ -2230,107 +2261,157 @@ export async function getPetroleumMarketTimeseries(input: {
 }
 
 export async function getPetroleumMarketTable(filters: PetroleumMarketFilters): Promise<PetroleumTableResponse> {
-  const [core, metrics] = await Promise.all([getCoreDataset(), getMetricsDataset()]);
   const mode = filters.tableMode ?? "fields";
   const page = filters.page ?? 0;
   const size = filters.size ?? 25;
   const selectedProduct = filters.product ?? "oe";
   const selectedView = filters.view ?? "volume";
-  const productionLookup = buildFieldProductionLookup(metrics.productionPoints);
-  const reserveLookup = buildReserveLookup(metrics.reserveSnapshots);
-  const investmentLookup = buildInvestmentLookup(metrics.investmentSnapshots);
   let items: PetroleumTableResponse["items"] = [];
 
   if (mode === "licences") {
-    items = filterLicences(core.licences, filters).map((licence) => ({
+    const licenceQuery = buildLicenceSnapshotQuery(filters);
+    const [totalCount, licenceRows] = await Promise.all([
+      countPetroleumLicenceSnapshots(licenceQuery),
+      listPetroleumLicenceSnapshots({
+        ...licenceQuery,
+        skip: page * size,
+        take: size,
+        orderBy: [{ name: "asc" }],
+      }),
+    ]);
+
+    items = licenceRows.map((licence) => ({
       mode,
-      entityId: licence.slug,
-      npdId: licence.npdId,
+      entityId: licence.licenceSlug,
+      npdId: licence.licenceNpdId,
       name: licence.name,
-      area: licence.mainArea,
+      area: licence.area,
       status: licence.status,
       currentPhase: licence.currentPhase,
-      operatorName: licence.operatorCompanyName,
-      operatorSlug: licence.operatorCompanySlug,
+      operatorName: licence.operatorName,
+      operatorSlug: licence.operatorSlug,
       currentAreaSqKm: licence.currentAreaSqKm,
       originalAreaSqKm: licence.originalAreaSqKm,
-      transferCount: parseJsonArray(licence.transfers).length,
+      transferCount: licence.transferCount,
     }));
+
+    return {
+      mode,
+      items,
+      page,
+      size,
+      totalCount,
+    };
   } else if (mode === "operators") {
-    const fields = filterFields(core.fields, filters);
-    const licences = filterLicences(core.licences, filters);
+    const fieldRows = await listPetroleumFieldSnapshots(buildFieldSnapshotQuery(filters));
+    const licenceRows = await listPetroleumLicenceSnapshots(buildLicenceSnapshotQuery(filters));
+    const productionPoints =
+      fieldRows.length > 0
+        ? await listPetroleumProductionPointsForEntities({
+            entityType: "FIELD",
+            entityNpdIds: fieldRows.map((field) => field.fieldNpdId),
+          })
+        : [];
+    const productionLookup = buildFieldProductionLookup(productionPoints);
     const operatorIds = new Set([
-      ...fields.map((field) => field.operatorNpdCompanyId).filter(Boolean),
-      ...licences.map((licence) => licence.operatorNpdCompanyId).filter(Boolean),
+      ...fieldRows
+        .map((field) => field.operatorNpdCompanyId)
+        .filter((value): value is number => typeof value === "number"),
+      ...licenceRows
+        .map((licence) => licence.operatorNpdCompanyId)
+        .filter((value): value is number => typeof value === "number"),
     ]);
 
     items = [...operatorIds].map((operatorId) => {
-      const operatorFields = fields.filter((field) => field.operatorNpdCompanyId === operatorId);
-      const operatorLicences = licences.filter((licence) => licence.operatorNpdCompanyId === operatorId);
+      const operatorFields = fieldRows.filter((field) => field.operatorNpdCompanyId === operatorId);
+      const operatorLicences = licenceRows.filter((licence) => licence.operatorNpdCompanyId === operatorId);
       const reference = operatorFields[0] ?? operatorLicences[0];
       return {
         mode,
         operatorId: String(operatorId),
-        operatorName: reference?.operatorCompanyName ?? `Operator ${operatorId}`,
+        operatorName: reference?.operatorName ?? `Operator ${operatorId}`,
         operatorOrgNumber: reference?.operatorOrgNumber ?? null,
-        operatorSlug: reference?.operatorCompanySlug ?? null,
+        operatorSlug: reference?.operatorSlug ?? null,
         fieldCount: operatorFields.length,
         licenceCount: operatorLicences.length,
-        latestProductionOe: operatorFields.reduce(
-          (sum, field) => sum + (getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? 0),
-          0,
-        ),
+        latestProductionOe: operatorFields.reduce((sum, field) => sum + (field.latestAnnualOe ?? 0), 0),
         latestProductionValue: operatorFields.reduce((sum, field) => {
-          const value = getFieldMetric(productionLookup, field.npdId, selectedProduct, selectedView).value;
-          return sum + (value ?? 0);
+          const metric = getSnapshotMetric(field, productionLookup, selectedProduct, selectedView);
+          return sum + (metric.value ?? 0);
         }, 0),
         latestProductionUnit: getRateUnit(selectedProduct, selectedView),
-        remainingOe: operatorFields.reduce(
-          (sum, field) => sum + (reserveLookup.get(field.npdId)?.remainingOe ?? 0),
-          0,
-        ),
+        remainingOe: operatorFields.reduce((sum, field) => sum + (field.remainingOe ?? 0), 0),
       };
     });
-  } else {
-    items = filterFields(core.fields, filters).map((field) => ({
+    items.sort(
+      (left, right) =>
+        ((right.mode === "operators" ? right.latestProductionOe : 0) ?? 0) -
+          ((left.mode === "operators" ? left.latestProductionOe : 0) ?? 0) ||
+        ("operatorName" in left && "operatorName" in right
+          ? (left.operatorName ?? "").localeCompare(right.operatorName ?? "", "nb-NO")
+          : 0),
+    );
+
+    const totalCount = items.length;
+    const pagedItems = items.slice(page * size, page * size + size);
+
+    return {
       mode,
-      entityId: field.slug,
-      npdId: field.npdId,
-      name: field.name,
-      area: field.mainArea,
-      status: field.activityStatus,
-      hcType: field.hydrocarbonType,
-      operatorName: field.operatorCompanyName,
-      operatorSlug: field.operatorCompanySlug,
-      latestProductionOe: getLatestAnnualPoint(productionLookup.get(field.npdId) ?? [])?.oeNetMillSm3 ?? null,
-      latestProductionValue: getFieldMetric(
-        productionLookup,
-        field.npdId,
-        selectedProduct,
-        selectedView,
-      ).value,
-      latestProductionUnit: getFieldMetric(
-        productionLookup,
-        field.npdId,
-        selectedProduct,
-        selectedView,
-      ).unit,
-      remainingOe: reserveLookup.get(field.npdId)?.remainingOe ?? null,
-      expectedFutureInvestmentNok:
-        (investmentLookup.get(field.npdId)?.expectedFutureInvestmentMillNok ?? 0) * 1_000_000,
-    }));
+      items: pagedItems,
+      page,
+      size,
+      totalCount,
+    };
+  } else {
+    const fieldQuery = buildFieldSnapshotQuery(filters);
+    const [totalCount, fieldRows] = await Promise.all([
+      countPetroleumFieldSnapshots(fieldQuery),
+      listPetroleumFieldSnapshots({
+        ...fieldQuery,
+        skip: page * size,
+        take: size,
+        orderBy: [{ latestAnnualOe: "desc" }, { name: "asc" }],
+      }),
+    ]);
+    const productionPoints =
+      fieldRows.length > 0
+        ? await listPetroleumProductionPointsForEntities({
+            entityType: "FIELD",
+            entityNpdIds: fieldRows.map((field) => field.fieldNpdId),
+          })
+        : [];
+    const productionLookup = buildFieldProductionLookup(productionPoints);
+
+    items = fieldRows.map((field) => {
+      const metric = getSnapshotMetric(field, productionLookup, selectedProduct, selectedView);
+
+      return {
+        mode,
+        entityId: field.fieldSlug,
+        npdId: field.fieldNpdId,
+        name: field.name,
+        area: field.area,
+        status: field.status,
+        hcType: field.hcType,
+        operatorName: field.operatorName,
+        operatorSlug: field.operatorSlug,
+        latestProductionOe: field.latestAnnualOe ?? null,
+        latestProductionValue: metric.value,
+        latestProductionUnit: metric.unit,
+        remainingOe: field.remainingOe ?? null,
+        expectedFutureInvestmentNok:
+          typeof field.expectedFutureInvestmentNok === "bigint" ? Number(field.expectedFutureInvestmentNok) : null,
+      };
+    });
+
+    return {
+      mode,
+      items,
+      page,
+      size,
+      totalCount,
+    };
   }
-
-  const totalCount = items.length;
-  const pagedItems = items.slice(page * size, page * size + size);
-
-  return {
-    mode,
-    items: pagedItems,
-    page,
-    size,
-    totalCount,
-  };
 }
 
 function resolveEntityType(value: string) {

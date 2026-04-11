@@ -3,6 +3,10 @@
     {
       "path": "/api/internal/workspace-sync",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/internal/petroleum-sync/scheduled",
+      "schedule": "15 * * * *"
     }
   ]
 }

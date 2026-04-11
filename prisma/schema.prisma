@@ -909,6 +909,121 @@ model PetroleumInvestmentSnapshot {
   @@unique([entityType, entityNpdId])
 }
 
+model PetroleumFieldSnapshot {
+  id                              String   @id @default(cuid())
+  fieldNpdId                      Int      @unique
+  fieldSlug                       String   @unique
+  name                            String
+  area                            String?
+  status                          String?
+  hcType                          String?
+  operatorNpdCompanyId            Int?
+  operatorName                    String?
+  operatorOrgNumber               String?
+  operatorSlug                    String?
+  licenseeCompanyIds              Int[]    @default([])
+  latestAnnualOe                  Float?
+  latestMonthlyOe                 Float?
+  latestSelectedProductionOil     Float?
+  latestSelectedProductionGas     Float?
+  latestSelectedProductionLiquids Float?
+  latestSelectedProductionOe      Float?
+  remainingOe                     Float?
+  recoverableOe                   Float?
+  expectedFutureInvestmentNok     BigInt?
+  yoyYtdDeltaPercent              Float?
+  currentMonthDeltaPercent        Float?
+  sourceSystem                    String
+  sourceEntityType                String
+  sourceId                        String
+  computedAt                      DateTime
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+
+  @@index([area])
+  @@index([status])
+  @@index([hcType])
+  @@index([operatorNpdCompanyId])
+  @@index([operatorOrgNumber])
+  @@index([latestAnnualOe])
+}
+
+model PetroleumLicenceSnapshot {
+  id                  String   @id @default(cuid())
+  licenceNpdId        Int      @unique
+  licenceSlug         String   @unique
+  name                String
+  area                String?
+  status              String?
+  active              Boolean?
+  currentPhase        String?
+  operatorNpdCompanyId Int?
+  operatorName        String?
+  operatorOrgNumber   String?
+  operatorSlug        String?
+  licenseeCompanyIds  Int[]    @default([])
+  currentAreaSqKm     Float?
+  originalAreaSqKm    Float?
+  transferCount       Int      @default(0)
+  licenseeCount       Int      @default(0)
+  sourceSystem        String
+  sourceEntityType    String
+  sourceId            String
+  computedAt          DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([area])
+  @@index([status])
+  @@index([currentPhase])
+  @@index([operatorNpdCompanyId])
+  @@index([operatorOrgNumber])
+}
+
+model PetroleumOperatorSnapshot {
+  id                         String   @id @default(cuid())
+  npdCompanyId               Int      @unique
+  operatorName               String
+  orgNumber                  String?
+  slug                       String?
+  fieldCount                 Int      @default(0)
+  licenceCount               Int      @default(0)
+  discoveryCount             Int      @default(0)
+  facilityCount              Int      @default(0)
+  latestProductionOe         Float?
+  remainingOe                Float?
+  expectedFutureInvestmentNok BigInt?
+  mainAreas                  String[] @default([])
+  mainHydrocarbonTypes       String[] @default([])
+  sourceSystem               String
+  sourceEntityType           String
+  sourceId                   String
+  computedAt                 DateTime
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@index([orgNumber])
+  @@index([slug])
+  @@index([latestProductionOe])
+}
+
+model PetroleumAreaSnapshot {
+  id                         String   @id @default(cuid())
+  area                       String   @unique
+  fieldCount                 Int      @default(0)
+  licenceCount               Int      @default(0)
+  operatorCount              Int      @default(0)
+  latestProductionOe         Float?
+  remainingOe                Float?
+  expectedFutureInvestmentNok BigInt?
+  sourceSystem               String
+  sourceEntityType           String
+  sourceId                   String
+  computedAt                 DateTime
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
 model PetroleumForecastSnapshot {
   id                 String    @id @default(cuid())
   externalId         String    @unique
