@@ -1025,6 +1025,65 @@ model PetroleumAreaSnapshot {
   updatedAt                  DateTime @updatedAt
 }
 
+model PetroleumMapFeatureSnapshot {
+  id                         String   @id @default(cuid())
+  layerId                    String
+  entityType                 String
+  entityNpdId                Int
+  entitySlug                 String
+  name                       String
+  status                     String?
+  area                       String?
+  hcType                     String?
+  operatorNpdCompanyId       Int?
+  operatorName               String?
+  operatorOrgNumber          String?
+  operatorSlug               String?
+  relatedFieldName           String?
+  latestProductionOe         Float?
+  latestProductionOil        Float?
+  latestProductionGas        Float?
+  latestProductionLiquids    Float?
+  remainingOe                Float?
+  expectedFutureInvestmentNok BigInt?
+  productionYoYPercent       Float?
+  currentAreaSqKm            Float?
+  transferCount              Int?
+  facilityKind               String?
+  category                   String?
+  subType                    String?
+  companyName                String?
+  surveyYear                 Int?
+  startedAt                  DateTime?
+  finalizedAt                DateTime?
+  plannedFromDate            DateTime?
+  plannedToDate              DateTime?
+  wellType                   String?
+  purpose                    String?
+  waterDepth                 Float?
+  totalDepth                 Float?
+  detailUrl                  String?
+  factPageUrl                String?
+  factMapUrl                 String?
+  geometry                   Json
+  bbox                       Json?
+  centroid                   Json?
+  sourceSystem               String
+  sourceEntityType           String
+  sourceId                   String
+  computedAt                 DateTime
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@unique([entityType, entityNpdId])
+  @@index([layerId])
+  @@index([layerId, status])
+  @@index([layerId, area])
+  @@index([layerId, operatorNpdCompanyId])
+  @@index([layerId, hcType])
+  @@index([layerId, surveyYear])
+}
+
 model PetroleumForecastSnapshot {
   id                 String    @id @default(cuid())
   externalId         String    @unique

@@ -3,19 +3,35 @@
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import {
+  getCompactInspectorRows,
+  getCompactInspectorSubtitle,
+} from "@/components/market/oil-gas/oil-gas-inspector";
+import { buildPetroleumMapLegendItems } from "@/components/market/oil-gas/oil-gas-map-legend";
+import {
+  getFeatureKey,
+  getFeatureTypeLabel,
+  sortInteractiveFeatures,
+} from "@/components/market/oil-gas/oil-gas-map-interactions";
 import { OilGasMap } from "@/components/market/oil-gas/oil-gas-map";
 import { Card } from "@/components/ui/card";
 import { PETROLEUM_CONCEPTS } from "@/lib/petroleum-concepts";
 import {
+  ALL_PETROLEUM_LAYERS,
   PETROLEUM_COMPARISON_LABELS,
   DEFAULT_PETROLEUM_LAYERS,
   PETROLEUM_DEFAULT_COMPARISON,
+  PETROLEUM_DEFAULT_EVENT_WINDOW_DAYS,
+  PETROLEUM_DEFAULT_MAP_DETAIL_MODE,
+  PETROLEUM_DEFAULT_MAP_MODE,
   PETROLEUM_DEFAULT_PRODUCT,
   PETROLEUM_DEFAULT_TAB,
   PETROLEUM_DEFAULT_VIEW,
-  OPTIONAL_PETROLEUM_LAYERS,
+  getDefaultLayersForMapMode,
   PETROLEUM_PRODUCT_LABELS,
   PETROLEUM_TAB_LABELS,
+  PETROLEUM_MAP_DETAIL_LABELS,
+  PETROLEUM_MAP_MODE_LABELS,
   PETROLEUM_LAYER_LABELS,
   PETROLEUM_TABLE_MODE_LABELS,
   PETROLEUM_VIEW_LABELS,
@@ -30,7 +46,9 @@ import {
   PetroleumFilterOption,
   PetroleumMapFeature,
   PetroleumMarketFilters,
+  PetroleumMapDetailMode,
   PetroleumLayerId,
+  PetroleumMapMode,
   PetroleumMarketTab,
   PetroleumMetricView,
   PetroleumProductSeries,
@@ -52,8 +70,10 @@ const LAYER_SWATCHS: Record<PetroleumLayerId, string> = {
   discoveries: "#bc6c25",
   licences: "#2f5d8a",
   facilities: "#9b2226",
+  subsea: "#0f766e",
+  terminals: "#7c4f00",
   tuf: "#14213d",
-  wellbores: "#0f766e",
+  wellbores: "#0369a1",
   surveys: "#6b7280",
   regulatoryEvents: "#7c3aed",
   gasscoEvents: "#2563eb",
@@ -104,11 +124,6 @@ function formatMeters(value?: number | null) {
   return `${new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 0 }).format(value)} m`;
 }
 
-function formatAreaSqKm(value?: number | null) {
-  if (value === null || value === undefined) return "Ikke tilgjengelig";
-  return `${new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 1 }).format(value)} km²`;
-}
-
 function formatDeltaPercent(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(value)) return "Ikke tilgjengelig";
   const sign = value > 0 ? "+" : "";
@@ -156,178 +171,6 @@ function formatMetricHeadline(
   }
 
   return formatOe(fallbackOe);
-}
-
-function formatOptionalDate(value?: string | Date | null) {
-  if (!value) {
-    return null;
-  }
-
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : formatDate(date);
-}
-
-function formatDateRangeLabel(from?: string | Date | null, to?: string | Date | null) {
-  const fromLabel = formatOptionalDate(from);
-  const toLabel = formatOptionalDate(to);
-
-  if (fromLabel && toLabel) {
-    return `${fromLabel} - ${toLabel}`;
-  }
-
-  return fromLabel ?? toLabel ?? null;
-}
-
-function getDisplayEntityType(
-  detail: PetroleumEntityDetail | null,
-  selectedFeature: PetroleumMapFeature | null,
-) {
-  return (detail?.entityType ?? selectedFeature?.entityType ?? null) as
-    | "FIELD"
-    | "DISCOVERY"
-    | "LICENCE"
-    | "FACILITY"
-    | "TUF"
-    | "SURVEY"
-    | "WELLBORE"
-    | null;
-}
-
-function getCompactInspectorRows(
-  detail: PetroleumEntityDetail | null,
-  selectedFeature: PetroleumMapFeature | null,
-  options: {
-    selectedMetricLabel: string;
-    selectedMetricUnit?: PetroleumRateUnit | null;
-    selectedView: PetroleumMetricView;
-  },
-) {
-  const entityType = getDisplayEntityType(detail, selectedFeature);
-  const rows: Array<{ label: string; value: string | null }> = [];
-
-  if (entityType === "SURVEY") {
-    rows.push(
-      {
-        label: "Rapportert av",
-        value:
-          (typeof detail?.metadata.companyName === "string" ? detail.metadata.companyName : null) ??
-          selectedFeature?.companyName ??
-          null,
-      },
-      {
-        label: "Kategori",
-        value:
-          (typeof detail?.metadata.category === "string" ? detail.metadata.category : null) ??
-          selectedFeature?.category ??
-          null,
-      },
-      {
-        label: "Subtype",
-        value:
-          (typeof detail?.metadata.subType === "string" ? detail.metadata.subType : null) ??
-          selectedFeature?.subType ??
-          null,
-      },
-      {
-        label: "År",
-        value:
-          typeof selectedFeature?.surveyYear === "number"
-            ? new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 0 }).format(selectedFeature.surveyYear)
-            : null,
-      },
-      {
-        label: "Planperiode",
-        value: formatDateRangeLabel(
-          typeof detail?.metadata.plannedFromDate === "string" ? detail.metadata.plannedFromDate : null,
-          typeof detail?.metadata.plannedToDate === "string" ? detail.metadata.plannedToDate : null,
-        ),
-      },
-      {
-        label: "Gjennomført",
-        value: formatDateRangeLabel(
-          typeof detail?.metadata.startedAt === "string" ? detail.metadata.startedAt : null,
-          typeof detail?.metadata.finalizedAt === "string" ? detail.metadata.finalizedAt : null,
-        ),
-      },
-    );
-  } else if (entityType === "WELLBORE") {
-    rows.push(
-      {
-        label: "Operatør",
-        value: detail?.operator?.companyName ?? selectedFeature?.operator?.companyName ?? null,
-      },
-      {
-        label: "Brønntype",
-        value:
-          (typeof detail?.metadata.wellType === "string" ? detail.metadata.wellType : null) ??
-          selectedFeature?.wellType ??
-          null,
-      },
-      {
-        label: "Formål",
-        value:
-          (typeof detail?.metadata.purpose === "string" ? detail.metadata.purpose : null) ??
-          selectedFeature?.purpose ??
-          null,
-      },
-      {
-        label: "Felt",
-        value:
-          (typeof detail?.metadata.fieldName === "string" ? detail.metadata.fieldName : null) ??
-          selectedFeature?.relatedFieldName ??
-          null,
-      },
-      {
-        label: "Vanndyp",
-        value: formatMeters(
-          typeof detail?.metadata.waterDepth === "number"
-            ? detail.metadata.waterDepth
-            : selectedFeature?.waterDepth ?? null,
-        ),
-      },
-      {
-        label: "Totaldybde",
-        value: formatMeters(
-          typeof detail?.metadata.totalDepth === "number"
-            ? detail.metadata.totalDepth
-            : selectedFeature?.totalDepth ?? null,
-        ),
-      },
-    );
-  } else {
-    rows.push(
-      {
-        label: "Operatør",
-        value: detail?.operator?.companyName ?? selectedFeature?.operator?.companyName ?? null,
-      },
-      {
-        label: "Hydrokarbon",
-        value: detail?.hcType ?? selectedFeature?.hcType ?? null,
-      },
-      {
-        label: options.selectedMetricLabel,
-        value: formatRateOrVolume(
-          selectedFeature?.selectedProductionValue ??
-            (options.selectedView === "rate"
-              ? detail?.timeseries.at(-1)?.selectedRate ?? null
-              : detail?.timeseries.at(-1)?.selectedValue ?? detail?.timeseries.at(-1)?.oe ?? null),
-          selectedFeature?.selectedProductionUnit ?? detail?.timeseries.at(-1)?.selectedUnit ?? options.selectedMetricUnit,
-        ),
-      },
-      {
-        label: "Gjenværende",
-        value: formatOe(detail?.reserve?.remainingOe ?? selectedFeature?.remainingOe ?? null),
-      },
-      {
-        label: "Forv. investering",
-        value: formatCompactNok(
-          detail?.investment?.expectedFutureInvestmentNok ?? selectedFeature?.expectedFutureInvestmentNok ?? null,
-        ),
-      },
-    );
-  }
-
-  return rows.filter((row) => row.value && row.value !== "Ikke tilgjengelig");
 }
 
 function getTimeseriesDisplayValue(point: PetroleumTimeSeriesPoint, view: PetroleumMetricView) {
@@ -464,11 +307,31 @@ function normalizeFiltersForUi(filters: PetroleumMarketFilters): PetroleumMarket
     product: filters.product ?? PETROLEUM_DEFAULT_PRODUCT,
     view: filters.view ?? PETROLEUM_DEFAULT_VIEW,
     comparison: filters.comparison ?? PETROLEUM_DEFAULT_COMPARISON,
-    layers: filters.layers?.length ? filters.layers : DEFAULT_PETROLEUM_LAYERS,
+    mapMode: filters.mapMode ?? PETROLEUM_DEFAULT_MAP_MODE,
+    mapDetailMode: filters.mapDetailMode ?? PETROLEUM_DEFAULT_MAP_DETAIL_MODE,
+    eventWindowDays: filters.eventWindowDays ?? PETROLEUM_DEFAULT_EVENT_WINDOW_DAYS,
+    layers:
+      filters.layers?.length
+        ? filters.layers
+        : getDefaultLayersForMapMode(filters.mapMode ?? PETROLEUM_DEFAULT_MAP_MODE),
     tableMode: filters.tableMode ?? "fields",
     page: filters.page ?? 0,
     size: filters.size ?? 15,
   };
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number) {
+  const [debouncedValue, setDebouncedValue] = React.useState(value);
+
+  React.useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedValue(value);
+    }, delayMs);
+
+    return () => window.clearTimeout(timeout);
+  }, [delayMs, value]);
+
+  return debouncedValue;
 }
 
 async function fetchApi<T>(url: string, init?: RequestInit) {
@@ -939,6 +802,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
   }, [searchParamsString]);
   const isMountedRef = React.useRef(true);
   const latestRequestIdRef = React.useRef(0);
+  const latestFeatureRequestIdRef = React.useRef(0);
   const lastUrlWriteRef = React.useRef<string | null>(null);
   const lastAppliedRequestRef = React.useRef({
     summary: 0,
@@ -959,7 +823,9 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
   const [events, setEvents] = React.useState<PetroleumEventRow[]>([]);
   const [detail, setDetail] = React.useState<PetroleumEntityDetail | null>(null);
   const [selectedEntityKey, setSelectedEntityKey] = React.useState<string | null>(initialUrlState.entity);
+  const [selectionCandidateKeys, setSelectionCandidateKeys] = React.useState<string[]>([]);
   const [viewportBbox, setViewportBbox] = React.useState<PetroleumBbox | null>(null);
+  const [viewportZoom, setViewportZoom] = React.useState<number | null>(null);
   const [resetViewNonce, setResetViewNonce] = React.useState(0);
   const [isMapExpanded, setIsMapExpanded] = React.useState(false);
   const [compareMode, setCompareMode] = React.useState<CompareMode>("field");
@@ -970,17 +836,82 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
   const [compareSeries, setCompareSeries] = React.useState<PetroleumTimeSeriesPoint[]>([]);
   const [compareLoading, setCompareLoading] = React.useState(false);
   const [isExporting, setIsExporting] = React.useState(false);
-  const [loading, setLoading] = React.useState(true);
+  const [isMapLoading, setIsMapLoading] = React.useState(true);
+  const [isAnalysisLoading, setIsAnalysisLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const loading = isMapLoading || isAnalysisLoading;
   const activeTab = filters.tab ?? PETROLEUM_DEFAULT_TAB;
   const isOverviewTab = activeTab === "market";
   const selectedProduct = filters.product ?? PETROLEUM_DEFAULT_PRODUCT;
   const selectedView = filters.view ?? PETROLEUM_DEFAULT_VIEW;
   const selectedComparison = filters.comparison ?? PETROLEUM_DEFAULT_COMPARISON;
+  const selectedMapMode = filters.mapMode ?? PETROLEUM_DEFAULT_MAP_MODE;
+  const selectedMapDetailMode = filters.mapDetailMode ?? PETROLEUM_DEFAULT_MAP_DETAIL_MODE;
+  const selectedEventWindowDays = filters.eventWindowDays ?? PETROLEUM_DEFAULT_EVENT_WINDOW_DAYS;
+  const liveFeatureBbox = viewportBbox ?? filters.bbox ?? null;
+  const debouncedFeatureBbox = useDebouncedValue(liveFeatureBbox, 180);
+  const debouncedAnalysisBbox = useDebouncedValue(liveFeatureBbox, 340);
+  const mapFeatureParamsString = React.useMemo(
+    () =>
+      buildPetroleumSearchParams({
+        tab: filters.tab,
+        layers: filters.layers,
+        mapMode: filters.mapMode,
+        mapDetailMode: filters.mapDetailMode,
+        status: filters.status,
+        surveyStatuses: filters.surveyStatuses,
+        surveyCategories: filters.surveyCategories,
+        areas: filters.areas,
+        operatorIds: filters.operatorIds,
+        licenseeIds: filters.licenseeIds,
+        hcTypes: filters.hcTypes,
+        surveyYearFrom: filters.surveyYearFrom,
+        surveyYearTo: filters.surveyYearTo,
+        bbox: debouncedFeatureBbox,
+        query: filters.query,
+        product: filters.product,
+        view: filters.view,
+        eventWindowDays: filters.eventWindowDays,
+        mapZoom: viewportZoom ?? filters.mapZoom,
+        selectedEntity: selectedEntityKey ?? undefined,
+      }).toString(),
+    [
+      debouncedFeatureBbox,
+      filters.areas,
+      filters.eventWindowDays,
+      filters.hcTypes,
+      filters.layers,
+      filters.licenseeIds,
+      filters.mapDetailMode,
+      filters.mapMode,
+      filters.mapZoom,
+      filters.operatorIds,
+      filters.product,
+      filters.query,
+      filters.status,
+      filters.surveyCategories,
+      filters.surveyStatuses,
+      filters.surveyYearFrom,
+      filters.surveyYearTo,
+      filters.tab,
+      filters.view,
+      selectedEntityKey,
+      viewportZoom,
+    ],
+  );
   const compareIds = compareMode === "field" ? compareFieldIds : compareOperatorIds;
-  const handleSelectEntity = React.useCallback((entityType: string, entityId: string) => {
-    setSelectedEntityKey(`${entityType}:${entityId}`);
-  }, []);
+  const handleSelectEntity = React.useCallback(
+    (entityType: string, entityId: string, candidateKeys?: string[]) => {
+      const nextKey = `${entityType}:${entityId}`;
+      setSelectedEntityKey(nextKey);
+      setSelectionCandidateKeys(
+        candidateKeys?.length
+          ? Array.from(new Set(candidateKeys.filter(Boolean)))
+          : [],
+      );
+    },
+    [],
+  );
   const handleSelectTab = React.useCallback((tab: PetroleumMarketTab) => {
     setFilters((current) => ({
       ...current,
@@ -1009,15 +940,48 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       page: 0,
     }));
   }, []);
-  const handleViewportChange = React.useCallback((bbox: PetroleumBbox) => {
-    setViewportBbox((current) => (sameBbox(current, bbox) ? current : bbox));
+  const handleSelectMapMode = React.useCallback((mapMode: PetroleumMapMode) => {
+    setFilters((current) => {
+      const nextLayers = getDefaultLayersForMapMode(mapMode);
+      const nextOperatorIds =
+        mapMode === "company" || current.operatorIds?.length ? current.operatorIds : current.operatorIds;
+      return {
+        ...current,
+        mapMode,
+        mapDetailMode: mapMode === "infrastructure" ? "detail" : PETROLEUM_DEFAULT_MAP_DETAIL_MODE,
+        layers: nextLayers,
+        operatorIds: nextOperatorIds,
+        page: 0,
+      };
+    });
+  }, []);
+  const handleSelectMapDetailMode = React.useCallback((mapDetailMode: PetroleumMapDetailMode) => {
+    setFilters((current) => ({
+      ...current,
+      mapDetailMode,
+      page: 0,
+    }));
+  }, []);
+  const handleSelectEventWindow = React.useCallback((eventWindowDays: number) => {
+    setFilters((current) => ({
+      ...current,
+      eventWindowDays,
+      page: 0,
+    }));
+  }, []);
+  const handleViewportChange = React.useCallback((viewport: { bbox: PetroleumBbox; zoom: number }) => {
+    setViewportBbox((current) => (sameBbox(current, viewport.bbox) ? current : viewport.bbox));
+    setViewportZoom((current) => (current === viewport.zoom ? current : viewport.zoom));
   }, []);
   const handleResetViewport = React.useCallback(() => {
     setSelectedEntityKey(null);
+    setSelectionCandidateKeys([]);
     setViewportBbox(null);
+    setViewportZoom(null);
     setFilters((current) => ({
       ...current,
       bbox: null,
+      mapZoom: undefined,
       page: 0,
     }));
     setResetViewNonce((current) => current + 1);
@@ -1064,6 +1028,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       const next = normalizeFiltersForUi(parsePetroleumFilters(new URLSearchParams(searchParamsString))).bbox ?? null;
       return sameBbox(current, next) ? current : next;
     });
+    setViewportZoom((current) => {
+      const next = normalizeFiltersForUi(parsePetroleumFilters(new URLSearchParams(searchParamsString))).mapZoom ?? null;
+      return current === next ? current : next;
+    });
 
     const nextQuery = new URLSearchParams(searchParamsString).get("query")?.trim() ?? "";
     setQueryInput((current) => (current === nextQuery ? current : nextQuery));
@@ -1082,6 +1050,23 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       return { ...current, query: nextQuery, page: 0 };
     });
   }, [deferredQuery]);
+
+  React.useEffect(() => {
+    if (viewportZoom === null || viewportZoom === undefined) {
+      return;
+    }
+
+    setFilters((current) => {
+      if (current.mapZoom === viewportZoom) {
+        return current;
+      }
+
+      return {
+        ...current,
+        mapZoom: viewportZoom,
+      };
+    });
+  }, [viewportZoom]);
 
   React.useEffect(() => {
     const params = buildPetroleumSearchParams(filters, {
@@ -1105,29 +1090,67 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
   }, [filters, pathname, queryInput, router, searchParamsString, selectedEntityKey]);
 
   React.useEffect(() => {
-    const params = buildPetroleumSearchParams(filters);
+    const featureBbox = debouncedFeatureBbox;
+    if (!featureBbox) {
+      setFeatures([]);
+      setIsMapLoading(false);
+      return;
+    }
+
+    const requestId = latestFeatureRequestIdRef.current + 1;
+    latestFeatureRequestIdRef.current = requestId;
+    const abortController = new AbortController();
+
+    async function loadMapFeatures() {
+      setIsMapLoading(true);
+
+      try {
+        const value = await fetchApi<PetroleumMapFeature[]>(
+          `/api/market/oil-gas/features?${mapFeatureParamsString}`,
+          { signal: abortController.signal },
+        );
+
+        if (isMountedRef.current && requestId >= lastAppliedRequestRef.current.features) {
+          setFeatures(value);
+          lastAppliedRequestRef.current.features = requestId;
+        }
+      } catch (error) {
+        if (!(error instanceof Error && error.name === "AbortError")) {
+          setError((current) => current ?? "Kartet svarte ikke på gjeldende utsnitt.");
+        }
+      } finally {
+        if (isMountedRef.current && requestId === latestFeatureRequestIdRef.current) {
+          setIsMapLoading(false);
+        }
+      }
+    }
+
+    void loadMapFeatures();
+    return () => {
+      abortController.abort();
+    };
+  }, [debouncedFeatureBbox, mapFeatureParamsString]);
+
+  React.useEffect(() => {
     const requestId = latestRequestIdRef.current + 1;
     latestRequestIdRef.current = requestId;
     const abortController = new AbortController();
-    const featureBbox = viewportBbox ?? filters.bbox ?? null;
-    const shouldFetchMapFeatures = Boolean(featureBbox);
-    const featureParams = buildPetroleumSearchParams(filters, {
-      bbox: featureBbox?.join(","),
+    const analysisParams = buildPetroleumSearchParams({
+      ...filters,
+      bbox: debouncedAnalysisBbox,
+      mapZoom: viewportZoom ?? filters.mapZoom,
     });
 
-    async function load() {
-      setLoading(true);
+    async function loadAnalysis() {
+      setIsAnalysisLoading(true);
       setError(null);
 
       const summaryPromise = fetchApi<PetroleumSummaryResponse>(
-        `/api/market/oil-gas/summary?${params.toString()}`,
+        `/api/market/oil-gas/summary?${analysisParams.toString()}`,
         { signal: abortController.signal },
       )
         .then((value) => {
-          if (
-            isMountedRef.current &&
-            requestId >= lastAppliedRequestRef.current.summary
-          ) {
+          if (isMountedRef.current && requestId >= lastAppliedRequestRef.current.summary) {
             setSummary(value);
             lastAppliedRequestRef.current.summary = requestId;
           }
@@ -1140,47 +1163,11 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             : ({ ok: false as const, aborted: false as const }),
         );
 
-      const featuresPromise = shouldFetchMapFeatures
-        ? fetchApi<PetroleumMapFeature[]>(
-            `/api/market/oil-gas/features?${featureParams.toString()}`,
-            { signal: abortController.signal },
-          )
-            .then((value) => {
-              if (
-                isMountedRef.current &&
-                requestId >= lastAppliedRequestRef.current.features
-              ) {
-                setFeatures(value);
-                lastAppliedRequestRef.current.features = requestId;
-              }
-
-              return { ok: true as const, aborted: false as const };
-            })
-            .catch((error: unknown) =>
-              error instanceof Error && error.name === "AbortError"
-                ? ({ ok: false as const, aborted: true as const })
-                : ({ ok: false as const, aborted: false as const }),
-            )
-        : Promise.resolve({ ok: true as const, aborted: false as const });
-
-      const [summaryResult, featuresResult] = await Promise.all([summaryPromise, featuresPromise]);
-
-      if (isMountedRef.current && requestId === latestRequestIdRef.current) {
-        if (!summaryResult.ok && !featuresResult.ok && !summaryResult.aborted && !featuresResult.aborted) {
-          setError("Kunne ikke laste olje- og gassmodulen.");
-        }
-
-        setLoading(false);
-      }
-
-      const tableResult = await fetchApi<PetroleumTableResponse>(`/api/market/oil-gas/table?${params.toString()}`, {
+      const tablePromise = fetchApi<PetroleumTableResponse>(`/api/market/oil-gas/table?${analysisParams.toString()}`, {
         signal: abortController.signal,
       })
         .then((value) => {
-          if (
-            isMountedRef.current &&
-            requestId >= lastAppliedRequestRef.current.table
-          ) {
+          if (isMountedRef.current && requestId >= lastAppliedRequestRef.current.table) {
             setTable(value);
             lastAppliedRequestRef.current.table = requestId;
           }
@@ -1193,22 +1180,26 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             : ({ ok: false as const, aborted: false as const }),
         );
 
-      const timeseriesResult = await fetchApi<PetroleumTimeSeriesPoint[]>(
-        `/api/market/oil-gas/timeseries?${buildPetroleumSearchParams(filters, {
-          entityType: "area",
-          granularity: "year",
-          measures: `${selectedProduct},investments`,
-          product: selectedProduct,
-          view: selectedView,
-          comparison: selectedComparison,
-        }).toString()}`,
+      const timeseriesPromise = fetchApi<PetroleumTimeSeriesPoint[]>(
+        `/api/market/oil-gas/timeseries?${buildPetroleumSearchParams(
+          {
+            ...filters,
+            bbox: debouncedAnalysisBbox,
+            mapZoom: viewportZoom ?? filters.mapZoom,
+          },
+          {
+            entityType: "area",
+            granularity: "year",
+            measures: `${selectedProduct},investments`,
+            product: selectedProduct,
+            view: selectedView,
+            comparison: selectedComparison,
+          },
+        ).toString()}`,
         { signal: abortController.signal },
       )
         .then((value) => {
-          if (
-            isMountedRef.current &&
-            requestId >= lastAppliedRequestRef.current.timeseries
-          ) {
+          if (isMountedRef.current && requestId >= lastAppliedRequestRef.current.timeseries) {
             setTimeseries(value);
             lastAppliedRequestRef.current.timeseries = requestId;
           }
@@ -1221,15 +1212,13 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             : ({ ok: false as const, aborted: false as const }),
         );
 
-      const eventsResult = await fetchApi<PetroleumEventRow[]>(
-        `/api/market/oil-gas/events?${params.toString()}&limit=40`,
+      const eventsLimit = selectedMapDetailMode === "detail" || selectedEntityKey ? 90 : 40;
+      const eventsPromise = fetchApi<PetroleumEventRow[]>(
+        `/api/market/oil-gas/events?${analysisParams.toString()}&limit=${eventsLimit}`,
         { signal: abortController.signal },
       )
         .then((value) => {
-          if (
-            isMountedRef.current &&
-            requestId >= lastAppliedRequestRef.current.events
-          ) {
+          if (isMountedRef.current && requestId >= lastAppliedRequestRef.current.events) {
             setEvents(value);
             lastAppliedRequestRef.current.events = requestId;
           }
@@ -1242,30 +1231,44 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             : ({ ok: false as const, aborted: false as const }),
         );
 
+      const [summaryResult, tableResult, timeseriesResult, eventsResult] = await Promise.all([
+        summaryPromise,
+        tablePromise,
+        timeseriesPromise,
+        eventsPromise,
+      ]);
+
       if (!isMountedRef.current || requestId !== latestRequestIdRef.current) {
         return;
       }
 
-      const failedCount = [
-        summaryResult,
-        featuresResult,
-        tableResult,
-        timeseriesResult,
-        eventsResult,
-      ].filter((result) => !result.ok && !result.aborted).length;
+      const failedCount = [summaryResult, tableResult, timeseriesResult, eventsResult].filter(
+        (result) => !result.ok && !result.aborted,
+      ).length;
 
-      if (failedCount === 5) {
+      if (failedCount === 4) {
         setError("Kunne ikke laste olje- og gassmodulen.");
       } else if (failedCount > 0) {
         setError("Noen datakilder svarte ikke, men resten av flaten er lastet.");
       }
+
+      setIsAnalysisLoading(false);
     }
 
-    void load();
+    void loadAnalysis();
     return () => {
       abortController.abort();
     };
-  }, [filters, selectedComparison, selectedProduct, selectedView, viewportBbox]);
+  }, [
+    debouncedAnalysisBbox,
+    filters,
+    selectedComparison,
+    selectedEntityKey,
+    selectedMapDetailMode,
+    selectedProduct,
+    selectedView,
+    viewportZoom,
+  ]);
 
   React.useEffect(() => {
     if (activeTab !== "seismic") {
@@ -1425,17 +1428,44 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
     ...(summary?.operatorConcentration.map((item) => item.oe ?? 0) ?? [1]),
     1,
   );
+  const effectiveMapDetailMode: PetroleumMapDetailMode =
+    selectedEntityKey || (viewportZoom ?? filters.mapZoom ?? 0) >= 6.8 ? "detail" : selectedMapDetailMode;
+  const mapRenderableEvents = React.useMemo(
+    () =>
+      events.filter((event) => {
+        const wantsRegulatory = (filters.layers ?? DEFAULT_PETROLEUM_LAYERS).includes("regulatoryEvents");
+        const wantsGassco = (filters.layers ?? DEFAULT_PETROLEUM_LAYERS).includes("gasscoEvents");
+        if (event.source === "GASSCO") {
+          return wantsGassco && Boolean(event.centroid || event.geometry);
+        }
+
+        return wantsRegulatory && Boolean(event.centroid || event.geometry);
+      }),
+    [events, filters.layers],
+  );
   const activeLayerCounts = React.useMemo(() => {
     const counts = new Map<PetroleumLayerId, number>();
     for (const feature of features) {
       counts.set(feature.layerId, (counts.get(feature.layerId) ?? 0) + 1);
+    }
+    for (const event of mapRenderableEvents) {
+      const layerId: PetroleumLayerId = event.source === "GASSCO" ? "gasscoEvents" : "regulatoryEvents";
+      counts.set(layerId, (counts.get(layerId) ?? 0) + 1);
     }
 
     return (filters.layers ?? DEFAULT_PETROLEUM_LAYERS).map((layerId) => ({
       layerId,
       count: counts.get(layerId) ?? 0,
     }));
-  }, [features, filters.layers]);
+  }, [features, filters.layers, mapRenderableEvents]);
+  const visibleLayerCounts = React.useMemo(
+    () => activeLayerCounts.filter(({ count }) => count > 0),
+    [activeLayerCounts],
+  );
+  const dynamicLegendItems = React.useMemo(
+    () => buildPetroleumMapLegendItems({ activeLayers: visibleLayerCounts, zoom: viewportZoom }),
+    [viewportZoom, visibleLayerCounts],
+  );
   const isMapDrivingResults = Boolean(viewportBbox ?? filters.bbox);
   const gasscoRealtimeEvents = React.useMemo(
     () => events.filter((event) => event.source === "GASSCO" && event.eventType === "REALTIME_NOMINATION"),
@@ -1452,10 +1482,19 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
         : null,
     [features, selectedEntityKey],
   );
-  const selectedEntityType = React.useMemo(
-    () => getDisplayEntityType(detail, selectedFeature),
-    [detail, selectedFeature],
-  );
+  const overlappingSelectionFeatures = React.useMemo(() => {
+    if (!selectedEntityKey || selectionCandidateKeys.length <= 1) {
+      return [] as PetroleumMapFeature[];
+    }
+
+    const featureLookup = new Map(features.map((feature) => [getFeatureKey(feature), feature] as const));
+    const candidates = selectionCandidateKeys
+      .filter((key) => key !== selectedEntityKey)
+      .map((key) => featureLookup.get(key) ?? null)
+      .filter((feature): feature is PetroleumMapFeature => Boolean(feature));
+
+    return sortInteractiveFeatures(candidates);
+  }, [features, selectedEntityKey, selectionCandidateKeys]);
   const selectedMetricUnit = summary?.kpis.selectedLatestProductionUnit ?? timeseries.at(-1)?.selectedUnit ?? null;
   const selectedMetricLabel =
     selectedView === "rate"
@@ -1470,6 +1509,27 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       }),
     [detail, selectedFeature, selectedMetricLabel, selectedMetricUnit, selectedView],
   );
+  const compactInspectorSubtitle = React.useMemo(
+    () => getCompactInspectorSubtitle(detail, selectedFeature),
+    [detail, selectedFeature],
+  );
+  React.useEffect(() => {
+    setSelectionCandidateKeys((current) => {
+      if (!selectedEntityKey) {
+        return current.length === 0 ? current : [];
+      }
+
+      const featureKeys = new Set(features.map((feature) => getFeatureKey(feature)));
+      const filtered = current.filter((key) => featureKeys.has(key));
+      if (!filtered.includes(selectedEntityKey)) {
+        return [];
+      }
+
+      return filtered.length === current.length && filtered.every((key, index) => key === current[index])
+        ? current
+        : filtered;
+    });
+  }, [features, selectedEntityKey]);
   const wellboreFeatures = React.useMemo(
     () => features.filter((feature) => feature.layerId === "wellbores"),
     [features],
@@ -1483,13 +1543,63 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
   const surveyLayerVisible = (filters.layers ?? DEFAULT_PETROLEUM_LAYERS).includes("surveys");
   const wellboreLayerVisible = (filters.layers ?? DEFAULT_PETROLEUM_LAYERS).includes("wellbores");
   const infrastructureFeatures = React.useMemo(
-    () => features.filter((feature) => feature.layerId === "facilities" || feature.layerId === "tuf"),
+    () =>
+      features.filter(
+        (feature) =>
+          feature.layerId === "facilities" ||
+          feature.layerId === "subsea" ||
+          feature.layerId === "terminals" ||
+          feature.layerId === "tuf",
+      ),
     [features],
   );
   const discoveryFeatures = React.useMemo(
     () => features.filter((feature) => feature.layerId === "discoveries"),
     [features],
   );
+  const relatedMapFeatures = React.useMemo(() => {
+    if (!selectedFeature) {
+      return [];
+    }
+
+    const sameOperatorId = selectedFeature.operator?.npdCompanyId ?? null;
+    const relatedFieldName = selectedFeature.relatedFieldName ?? null;
+
+    return features
+      .filter((feature) => feature.id !== selectedFeature.id)
+      .filter((feature) => {
+        if (selectedMapMode === "company" && sameOperatorId) {
+          return feature.operator?.npdCompanyId === sameOperatorId;
+        }
+
+        if (selectedFeature.layerId === "discoveries" && relatedFieldName) {
+          return feature.layerId === "fields" && feature.name === relatedFieldName;
+        }
+
+        if (selectedFeature.layerId === "fields" && sameOperatorId) {
+          return (
+            feature.operator?.npdCompanyId === sameOperatorId ||
+            feature.layerId === "facilities" ||
+            feature.layerId === "subsea" ||
+            feature.layerId === "terminals" ||
+            feature.layerId === "tuf"
+          );
+        }
+
+        if (
+          (selectedFeature.layerId === "facilities" ||
+            selectedFeature.layerId === "subsea" ||
+            selectedFeature.layerId === "terminals" ||
+            selectedFeature.layerId === "tuf") &&
+          sameOperatorId
+        ) {
+          return feature.operator?.npdCompanyId === sameOperatorId || feature.layerId === "fields";
+        }
+
+        return false;
+      })
+      .slice(0, 8);
+  }, [features, selectedFeature, selectedMapMode]);
   const conceptEntries = detail?.concepts?.length ? detail.concepts : PETROLEUM_CONCEPTS;
   const detailMetadataEntries = React.useMemo(
     () =>
@@ -2519,6 +2629,26 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 label: PETROLEUM_COMPARISON_LABELS[comparison],
               }))}
             />
+            <SegmentedControl
+              value={selectedMapMode}
+              onChange={handleSelectMapMode}
+              options={(
+                ["production", "reserves", "development", "infrastructure", "company"] as PetroleumMapMode[]
+              ).map((mapMode) => ({
+                value: mapMode,
+                label: PETROLEUM_MAP_MODE_LABELS[mapMode],
+              }))}
+            />
+            <SegmentedControl
+              value={selectedMapDetailMode}
+              onChange={handleSelectMapDetailMode}
+              options={(
+                ["overview", "detail"] as PetroleumMapDetailMode[]
+              ).map((mapDetailMode) => ({
+                value: mapDetailMode,
+                label: PETROLEUM_MAP_DETAIL_LABELS[mapDetailMode],
+              }))}
+            />
           </div>
         </div>
         <div className="rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
@@ -2528,6 +2658,11 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             {selectedView === "rate"
               ? "Dagrate gjør det enklere å sammenligne tempo mot fjoråret før året er ferdig."
               : "Volum viser offisielle rapporterte mengder fra SODIR som grunnlag for marked og forecast."}
+          </div>
+          <div className="mt-3 text-xs leading-6 text-slate-500">
+            Kartmodus: <span className="font-semibold text-slate-700">{PETROLEUM_MAP_MODE_LABELS[selectedMapMode]}</span>
+            {" · "}
+            Kartnivå: <span className="font-semibold text-slate-700">{PETROLEUM_MAP_DETAIL_LABELS[effectiveMapDetailMode]}</span>
           </div>
         </div>
       </section>
@@ -2546,7 +2681,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3">
               <div className="text-sm font-medium text-slate-700">Kartlag</div>
               <div className="mt-3 space-y-2">
-                {[...DEFAULT_PETROLEUM_LAYERS, ...OPTIONAL_PETROLEUM_LAYERS].map((layer) => (
+                {ALL_PETROLEUM_LAYERS.map((layer) => (
                   <label key={layer} className="flex items-start gap-3 text-sm text-slate-700">
                     <input
                       type="checkbox"
@@ -2595,9 +2730,12 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               type="button"
               onClick={() =>
                 setFilters((current) => ({
-                  layers: DEFAULT_PETROLEUM_LAYERS,
+                  layers: getDefaultLayersForMapMode(current.mapMode ?? PETROLEUM_DEFAULT_MAP_MODE),
                   bbox: current.bbox ?? null,
                   tab: current.tab ?? PETROLEUM_DEFAULT_TAB,
+                  mapMode: current.mapMode ?? PETROLEUM_DEFAULT_MAP_MODE,
+                  mapDetailMode: current.mapDetailMode ?? PETROLEUM_DEFAULT_MAP_DETAIL_MODE,
+                  eventWindowDays: current.eventWindowDays ?? PETROLEUM_DEFAULT_EVENT_WINDOW_DAYS,
                   product: current.product ?? PETROLEUM_DEFAULT_PRODUCT,
                   view: current.view ?? PETROLEUM_DEFAULT_VIEW,
                   comparison: current.comparison ?? PETROLEUM_DEFAULT_COMPARISON,
@@ -2706,6 +2844,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                       ? `Kartet styrer analysen. Viser ${formatNumber(features.length)} objekter i gjeldende utsnitt.`
                       : "Panorer og zoom for å avgrense hele analysesiden til valgt kartutsnitt."}
                   </div>
+                  <div className="mt-2 text-xs text-slate-500">
+                    {PETROLEUM_MAP_MODE_LABELS[selectedMapMode]} Â· {PETROLEUM_MAP_DETAIL_LABELS[effectiveMapDetailMode]}
+                    {selectedFeature?.geometryMode === "centroid" ? " Â· centroid i overview" : ""}
+                  </div>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(15,23,42,0.1)] bg-[#F8FAFC] px-3 py-2 text-xs font-semibold text-slate-600">
                   <span
@@ -2714,7 +2856,26 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                       loading ? "bg-amber-500" : "bg-emerald-500",
                     )}
                   />
-                  {loading ? "Oppdaterer utsnitt" : "Utsnitt synkronisert"}
+                  {isMapLoading
+                    ? "Oppdaterer kart"
+                    : isAnalysisLoading
+                      ? "Oppdaterer analyse"
+                      : "Utsnitt synkronisert"}
+                </div>
+                <div className="inline-flex rounded-full border border-[rgba(15,23,42,0.1)] bg-[#F4F6F8] p-1">
+                  {[30, 90, 365].map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => handleSelectEventWindow(days)}
+                      className={cn(
+                        "rounded-full px-3 py-2 text-xs font-semibold",
+                        selectedEventWindowDays === days ? "bg-[#172535] text-white" : "text-slate-600",
+                      )}
+                    >
+                      {days} d events
+                    </button>
+                  ))}
                 </div>
                 <button
                   type="button"
@@ -2735,6 +2896,11 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <div className="relative">
               <OilGasMap
                 features={features}
+                events={mapRenderableEvents}
+                relatedFeatures={relatedMapFeatures}
+                mapMode={selectedMapMode}
+                mapDetailMode={effectiveMapDetailMode}
+                currentZoom={viewportZoom}
                 selectedEntityKey={selectedEntityKey}
                 onSelectEntity={handleSelectEntity}
                 onViewportChange={handleViewportChange}
@@ -2753,49 +2919,47 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                       <div className="mt-2 text-lg font-semibold text-slate-950">
                         {detail?.name ?? selectedFeature?.name ?? "Valgt objekt"}
                       </div>
-                      <div className="mt-1 text-sm text-slate-500">
-                        {detail?.status ?? selectedFeature?.status ?? "Status ikke tilgjengelig"} ·{" "}
-                        {detail?.area ?? selectedFeature?.area ?? "Område ikke tilgjengelig"}
-                      </div>
+                      {compactInspectorSubtitle ? (
+                        <div className="mt-1 text-sm text-slate-500">{compactInspectorSubtitle}</div>
+                      ) : null}
                     </div>
                     <button
                       type="button"
-                      onClick={() => setSelectedEntityKey(null)}
+                      onClick={() => {
+                        setSelectedEntityKey(null);
+                        setSelectionCandidateKeys([]);
+                      }}
                       className="rounded-full border border-[rgba(15,23,42,0.1)] px-2.5 py-1 text-xs font-semibold text-slate-600"
                     >
                       Lukk
                     </button>
                   </div>
-                  {selectedEntityType === "SURVEY" || selectedEntityType === "WELLBORE" ? (
-                    <div className="mt-4 space-y-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-3 text-sm text-slate-700">
-                      {compactInspectorRows.length > 0 ? (
-                        compactInspectorRows.map((row) => (
-                          <div key={row.label}>
-                            {row.label}: {row.value}
+                  <div className="mt-4 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-3">
+                    {compactInspectorRows.length > 0 ? (
+                      <div className="space-y-2">
+                        {compactInspectorRows.map((row) => (
+                          <div
+                            key={row.label}
+                            className="flex items-start justify-between gap-4 border-b border-[rgba(15,23,42,0.06)] pb-2 text-sm last:border-b-0 last:pb-0"
+                          >
+                            <div className="text-slate-500">{row.label}</div>
+                            <div className="max-w-[11.5rem] text-right font-medium text-slate-800">
+                              {row.value}
+                            </div>
                           </div>
-                        ))
-                      ) : (
-                        <div>Ingen objekttilpassede nøkkeltall tilgjengelig ennå.</div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-4 space-y-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-3 text-sm text-slate-700">
-                    <div>Operatør: {detail?.operator?.companyName ?? selectedFeature?.operator?.companyName ?? "Ikke tilgjengelig"}</div>
-                    <div>Hydrokarbon: {detail?.hcType ?? selectedFeature?.hcType ?? "Ikke tilgjengelig"}</div>
-                    <div>
-                      {selectedMetricLabel}:{" "}
-                      {formatRateOrVolume(
-                        selectedFeature?.selectedProductionValue ??
-                          (selectedView === "rate"
-                            ? detail?.timeseries.at(-1)?.selectedRate ?? null
-                            : detail?.timeseries.at(-1)?.selectedValue ?? detail?.timeseries.at(-1)?.oe ?? null),
-                        selectedFeature?.selectedProductionUnit ?? detail?.timeseries.at(-1)?.selectedUnit ?? selectedMetricUnit,
-                      )}
-                    </div>
-                    <div>Gjenværende: {formatOe(detail?.reserve?.remainingOe ?? selectedFeature?.remainingOe ?? null)}</div>
-                    <div>Forv. investering: {formatCompactNok(detail?.investment?.expectedFutureInvestmentNok ?? selectedFeature?.expectedFutureInvestmentNok ?? null)}</div>
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-600">
+                        Datadekningen for dette objektet er begrenset foreløpig.
+                      </div>
+                    )}
+                    {compactInspectorRows.length > 0 && compactInspectorRows.length < 3 ? (
+                      <div className="mt-3 text-xs text-slate-500">
+                        Datadekningen for dette objektet er foreløpig begrenset.
+                      </div>
+                    ) : null}
+                  </div>
                   {detail?.concepts?.length ? (
                     <div className="mt-4 flex flex-wrap gap-2">
                       {detail.concepts.slice(0, 3).map((concept) => (
@@ -2808,6 +2972,52 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                           {concept.label}
                         </button>
                       ))}
+                    </div>
+                  ) : null}
+                  {overlappingSelectionFeatures.length > 0 ? (
+                    <div className="mt-4 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[#EEF2FF] p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                        Andre treff under samme punkt
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {overlappingSelectionFeatures.slice(0, 6).map((feature) => (
+                          <button
+                            key={feature.id}
+                            type="button"
+                            onClick={() =>
+                              handleSelectEntity(
+                                feature.entityType,
+                                feature.entityId,
+                                selectionCandidateKeys,
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                          >
+                            <span>{getFeatureTypeLabel(feature)}</span>
+                            <span className="text-slate-400">·</span>
+                            <span>{feature.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {relatedMapFeatures.length > 0 ? (
+                    <div className="mt-4 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[#FFF7ED] p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                        Relaterte objekter
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {relatedMapFeatures.slice(0, 6).map((feature) => (
+                          <button
+                            key={feature.id}
+                            type="button"
+                            onClick={() => handleSelectEntity(feature.entityType, feature.entityId)}
+                            className="inline-flex items-center rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                          >
+                            {feature.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   ) : null}
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -2864,7 +3074,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     {selectedEntityKey ? (
                       <button
                         type="button"
-                        onClick={() => setSelectedEntityKey(null)}
+                        onClick={() => {
+                          setSelectedEntityKey(null);
+                          setSelectionCandidateKeys([]);
+                        }}
                         className="inline-flex items-center rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-3.5 py-2 text-xs font-semibold text-slate-700"
                       >
                         Lukk valgt objekt
@@ -2892,7 +3105,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2.5">
-                {activeLayerCounts.map(({ layerId, count }) => (
+                {visibleLayerCounts.map(({ layerId, count }) => (
                   <div
                     key={layerId}
                     className="inline-flex items-center gap-2 rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-2 text-xs font-medium text-slate-700"
@@ -2906,34 +3119,50 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="flex items-center gap-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2">
-                  <span className="h-2.5 w-5 rounded-sm bg-[#165d52]/70" />
-                  Felt, funn og survey-flater
+              {dynamicLegendItems.length > 0 ? (
+                <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
+                  {dynamicLegendItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2"
+                    >
+                      {item.symbol === "line" ? (
+                        <span className="h-0.5 w-6" style={{ backgroundColor: item.color }} />
+                      ) : item.symbol === "fill" ? (
+                        <span className="h-2.5 w-5 rounded-sm" style={{ backgroundColor: `${item.color}B3` }} />
+                      ) : item.symbol === "dashed-fill" ? (
+                        <span
+                          className="h-2.5 w-5 rounded-sm border"
+                          style={{ borderColor: item.color, borderStyle: "dashed" }}
+                        />
+                      ) : item.symbol === "centroid" ? (
+                        <span className="relative flex h-4 w-6 items-center justify-center">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                          <span
+                            className="absolute h-4 w-4 rounded-full border"
+                            style={{ borderColor: `${item.color}55` }}
+                          />
+                        </span>
+                      ) : item.symbol === "cluster" ? (
+                        <span className="relative flex h-4 w-6 items-center justify-center">
+                          <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: item.color }} />
+                          <span className="absolute inset-0 rounded-full border border-white/80" />
+                        </span>
+                      ) : (
+                        <span className="relative flex h-4 w-6 items-center justify-center">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                          <span className="absolute h-4 w-4 rounded-full border border-white/70" />
+                        </span>
+                      )}
+                      {item.label}
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2">
-                  <span className="h-2.5 w-5 rounded-sm border border-dashed border-[#2f5d8a]" />
-                  Lisenspolygoner
+              ) : (
+                <div className="mt-4 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-3 text-xs text-slate-500">
+                  Legend oppdateres nÃ¥r kartet har synlige objekter i valgt utsnitt.
                 </div>
-                <div className="flex items-center gap-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2">
-                  <span className="relative flex h-4 w-6 items-center justify-center">
-                    <span className="h-3.5 w-3.5 rounded-full bg-[#9b2226]" />
-                    <span className="absolute inset-0 rounded-full border border-white/80" />
-                  </span>
-                  Enkelte innretninger og clusterbobler
-                </div>
-                <div className="flex items-center gap-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2">
-                  <span className="h-0.5 w-6 bg-[#14213d]" />
-                  TUF og hovedrørledninger
-                </div>
-                <div className="flex items-center gap-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2">
-                  <span className="relative flex h-4 w-6 items-center justify-center">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[#0f766e]" />
-                    <span className="absolute h-4 w-4 rounded-full border border-[#0f766e]/30" />
-                  </span>
-                  Wellbores og borepunkter
-                </div>
-              </div>
+              )}
             </div>
           </Card>
 

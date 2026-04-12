@@ -161,3 +161,62 @@ Fase 2 bygger videre på samme arkitektur, men flytter flere tunge read-paths bo
 - company petroleum-tab bruker snapshot-inputs og målrettede operator-/company-spørringer i stedet for å laste alle felt, lisenser, produksjonspunkter, reserver og investeringer
 
 Dette er fortsatt ikke en full sluttarkitektur. Kart-/feature-read path og flere detaljhistorikker kan optimaliseres videre i neste fase.
+
+## Phase 3 Follow-up
+
+Fase 3 flytter de tre siste tunge petroleum-read-pathene over på smalere query-baserte reads:
+
+- `features/map` laster nå bare valgte lag, bruker snapshots til å finne riktig delmengde for felt og lisenser, og henter rå geometri bare for kandidater som faktisk skal vises
+- `timeseries` bygger først riktig feltutvalg via snapshots eller entitetsreferanser og henter deretter bare relevante produksjonspunkter for valgte felt/operatorer/områder
+- `entity detail` bruker entitetsspesifikke repository-kall for reserve, investering, produksjon og events i stedet for brede `core`-/`metrics`-load helpers
+
+Dette betyr at:
+
+- `summary` og `table` fortsatt er snapshot-baserte slik de ble i tidligere fase
+- `features`, `timeseries` og `detail` ikke lenger trenger brede dataset-loads som hovedstrategi
+- bbox kan fortsatt postfiltreres i app-laget der geometrifunksjoner ikke er tilgjengelige direkte i DB-laget, men dette skjer nå på en langt snevrere kandidatmengde
+
+## What Still Remains for Phase 4
+
+Fase 4 bør ta de neste strukturelle gevinstene uten å overdesigne:
+
+- egne read-modeller eller generaliserte geometrier for kartlag med svært store geometriobjekter
+- mer inkrementell ingest/upsert for rådata som fortsatt bruker `replace-all`
+- videre innsnevring av publication/macro/detail-historikk der enkelte kall fortsatt leser bredere enn ønskelig
+- eventuelle DB-nære bbox-/geometrioptimaliseringer hvis repoet senere får mer moden geostakk
+
+## Phase 4 Follow-up
+
+Fase 4 tar første konkrete steg på kart/read-model-siden:
+
+- en egen `PetroleumMapFeatureSnapshot` brukes som lettvekts read-model for kart/features
+- snapshot-refresh bygger nå kartsnapshotter sammen med de øvrige petroleum-snapshottene
+- `features/map` leser disse snapshottene direkte i stedet for å kombinere felt-/lisenssnapshots, rå entiteter og produksjonsoppslag per request
+
+Dette reduserer request-arbeid i kartflaten ved å:
+
+- unngå rå entity-loads med store payloads når vi bare trenger kartmetadata og geometri
+- unngå ekstra produksjonsoppslag for felt bare for karttooltip/feature-kort
+- holde eksisterende frontend-kontrakt stabil, siden API-et fortsatt returnerer samme `PetroleumMapFeature`-format
+
+Det som fortsatt gjenstår etter fase 4:
+
+- eventuell geometri-generalisering per zoomnivå hvis enkelte lag fortsatt er tunge med full geometri
+- mer DB-nær bbox/interseksjon hvis repoet senere får bedre geostøtte
+- videre overgang fra `replace-all` til mer inkrementelle refresh-mønstre for store snapshotsett
+## Map Value Guardrails
+
+Videre kartoptimalisering skal ikke redusere brukerens objektforstÃ¥else for kjernegeometri.
+
+Det betyr at:
+
+- `fields`, `licences` og `tuf` beholdes som full geometri i standard kartvisning
+- overlapp mellom felt og lisenser lÃ¸ses med eksplisitt interaksjonsprioritet og layer-switching, ikke ved Ã¥ fjerne geometri
+- lettere representasjon er fortsatt akseptabel for tette sekundÃ¦rlag som `surveys`, men ikke for kjerneflaten brukeren analyserer
+
+Ytelsesarbeid etter fase 4 bÃ¸r derfor primÃ¦rt fokusere pÃ¥:
+
+- prebuilt map snapshots og read-optimaliserte DTO-er
+- viewport-baserte feature-kall
+- request-cancellation og cachelag
+- mer effektiv geometri-lagring og eventuell ekstern leveranse/cache av tunge map payloads

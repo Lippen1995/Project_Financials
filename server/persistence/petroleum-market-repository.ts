@@ -19,6 +19,7 @@ export type PetroleumFieldSnapshotListInput = {
   operatorOrgNumbers?: string[];
   licenseeCompanyIds?: number[];
   fieldNpdIds?: number[];
+  fieldSlugs?: string[];
   query?: string;
   take?: number;
   skip?: number;
@@ -66,6 +67,24 @@ export type PetroleumAreaSnapshotListInput = {
     | Prisma.PetroleumAreaSnapshotOrderByWithRelationInput[];
 };
 
+export type PetroleumMapFeatureSnapshotListInput = {
+  layerIds?: string[];
+  statuses?: string[];
+  areas?: string[];
+  hcTypes?: string[];
+  operatorNpdCompanyIds?: number[];
+  logicalFacilityLayer?: "facilities" | "subsea" | "terminals";
+  query?: string;
+  surveyCategories?: string[];
+  surveyYearFrom?: number;
+  surveyYearTo?: number;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumMapFeatureSnapshotOrderByWithRelationInput
+    | Prisma.PetroleumMapFeatureSnapshotOrderByWithRelationInput[];
+};
+
 export type PetroleumEventListInput = {
   sources?: string[];
   entityRefs?: Array<{ entityType: PetroleumEntityType; entityNpdIds: number[] }>;
@@ -73,6 +92,70 @@ export type PetroleumEventListInput = {
   relatedCompanySlug?: string;
   take?: number;
   skip?: number;
+};
+
+export type PetroleumDiscoveryListInput = {
+  areas?: string[];
+  statuses?: string[];
+  hcTypes?: string[];
+  operatorNpdCompanyIds?: number[];
+  query?: string;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumDiscoveryOrderByWithRelationInput
+    | Prisma.PetroleumDiscoveryOrderByWithRelationInput[];
+};
+
+export type PetroleumFacilityListInput = {
+  areas?: string[];
+  statuses?: string[];
+  operatorNpdCompanyIds?: number[];
+  query?: string;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumFacilityOrderByWithRelationInput
+    | Prisma.PetroleumFacilityOrderByWithRelationInput[];
+};
+
+export type PetroleumTufListInput = {
+  areas?: string[];
+  statuses?: string[];
+  hcTypes?: string[];
+  operatorNpdCompanyIds?: number[];
+  query?: string;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumTufOrderByWithRelationInput
+    | Prisma.PetroleumTufOrderByWithRelationInput[];
+};
+
+export type PetroleumSurveyListInput = {
+  areas?: string[];
+  statuses?: string[];
+  categories?: string[];
+  companyNpdIds?: number[];
+  query?: string;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumSurveyOrderByWithRelationInput
+    | Prisma.PetroleumSurveyOrderByWithRelationInput[];
+};
+
+export type PetroleumWellboreListInput = {
+  areas?: string[];
+  statuses?: string[];
+  hcTypes?: string[];
+  operatorNpdCompanyIds?: number[];
+  query?: string;
+  take?: number;
+  skip?: number;
+  orderBy?:
+    | Prisma.PetroleumWellboreOrderByWithRelationInput
+    | Prisma.PetroleumWellboreOrderByWithRelationInput[];
 };
 
 type PetroleumCompanyExposureSnapshotRow = {
@@ -152,6 +235,7 @@ function buildFieldSnapshotWhere(input?: PetroleumFieldSnapshotListInput): Prism
       : undefined,
     operatorOrgNumber: input?.operatorOrgNumbers?.length ? { in: input.operatorOrgNumbers } : undefined,
     fieldNpdId: input?.fieldNpdIds?.length ? { in: input.fieldNpdIds } : undefined,
+    fieldSlug: input?.fieldSlugs?.length ? { in: input.fieldSlugs } : undefined,
     licenseeCompanyIds: input?.licenseeCompanyIds?.length ? { hasSome: input.licenseeCompanyIds } : undefined,
     OR: query
       ? [
@@ -216,6 +300,88 @@ function buildAreaSnapshotWhere(input?: PetroleumAreaSnapshotListInput): Prisma.
   };
 }
 
+function buildMapFeatureSnapshotWhere(
+  input?: PetroleumMapFeatureSnapshotListInput,
+): Prisma.PetroleumMapFeatureSnapshotWhereInput {
+  const query = input?.query?.trim();
+  const and: Prisma.PetroleumMapFeatureSnapshotWhereInput[] = [];
+  const facilityLogicalWhere =
+    input?.logicalFacilityLayer === "subsea"
+      ? {
+          OR: [
+            { facilityKind: { equals: "SUBSEA STRUCTURE", mode: "insensitive" } },
+            { facilityKind: { equals: "MULTI WELL TEMPLATE", mode: "insensitive" } },
+            { facilityKind: { equals: "SINGLE WELL TEMPLATE", mode: "insensitive" } },
+          ],
+        }
+      : input?.logicalFacilityLayer === "terminals"
+        ? {
+            OR: [
+              { facilityKind: { equals: "ONSHORE FACILITY", mode: "insensitive" } },
+              { facilityKind: { equals: "LANDFALL", mode: "insensitive" } },
+              { name: { contains: "terminal", mode: "insensitive" } },
+              { area: { contains: "terminal", mode: "insensitive" } },
+              { name: { contains: "landanlegg", mode: "insensitive" } },
+            ],
+          }
+        : input?.logicalFacilityLayer === "facilities"
+          ? {
+              NOT: {
+                OR: [
+                  { facilityKind: { equals: "SUBSEA STRUCTURE", mode: "insensitive" } },
+                  { facilityKind: { equals: "MULTI WELL TEMPLATE", mode: "insensitive" } },
+                  { facilityKind: { equals: "SINGLE WELL TEMPLATE", mode: "insensitive" } },
+                  { facilityKind: { equals: "ONSHORE FACILITY", mode: "insensitive" } },
+                  { facilityKind: { equals: "LANDFALL", mode: "insensitive" } },
+                  { facilityKind: { contains: "vessel", mode: "insensitive" } },
+                  { facilityKind: { contains: "offshore wind", mode: "insensitive" } },
+                ],
+              },
+            }
+          : null;
+
+  if (facilityLogicalWhere) {
+    and.push(facilityLogicalWhere);
+  }
+
+  if (input?.surveyCategories?.length) {
+    and.push({
+      OR: [
+        { category: { in: input.surveyCategories } },
+        { subType: { in: input.surveyCategories } },
+        { hcType: { in: input.surveyCategories } },
+      ],
+    });
+  }
+
+  if (input?.surveyYearFrom !== undefined || input?.surveyYearTo !== undefined) {
+    and.push({
+      surveyYear: {
+        gte: input?.surveyYearFrom,
+        lte: input?.surveyYearTo,
+      },
+    });
+  }
+
+  return {
+    layerId: input?.layerIds?.length ? { in: input.layerIds } : undefined,
+    status: input?.statuses?.length ? { in: input.statuses } : undefined,
+    area: input?.areas?.length ? { in: input.areas } : undefined,
+    hcType: input?.hcTypes?.length ? { in: input.hcTypes } : undefined,
+    operatorNpdCompanyId: input?.operatorNpdCompanyIds?.length ? { in: input.operatorNpdCompanyIds } : undefined,
+    OR: query
+      ? [
+          { name: { contains: query, mode: "insensitive" } },
+          { entitySlug: { contains: query, mode: "insensitive" } },
+          { operatorName: { contains: query, mode: "insensitive" } },
+          { relatedFieldName: { contains: query, mode: "insensitive" } },
+          { companyName: { contains: query, mode: "insensitive" } },
+        ]
+      : undefined,
+    AND: and.length ? and : undefined,
+  };
+}
+
 function buildPetroleumEventWhere(input?: PetroleumEventListInput): Prisma.PetroleumEventWhereInput | undefined {
   if (!input) {
     return undefined;
@@ -234,6 +400,127 @@ function buildPetroleumEventWhere(input?: PetroleumEventListInput): Prisma.Petro
   return {
     source: input.sources?.length ? { in: input.sources } : undefined,
     OR: or.length ? or : undefined,
+  };
+}
+
+function buildDiscoveryWhere(input?: PetroleumDiscoveryListInput): Prisma.PetroleumDiscoveryWhereInput {
+  const query = input?.query?.trim();
+
+  return {
+    areaName: input?.areas?.length ? { in: input.areas } : undefined,
+    activityStatus: input?.statuses?.length ? { in: input.statuses } : undefined,
+    hydrocarbonType: input?.hcTypes?.length ? { in: input.hcTypes } : undefined,
+    operatorNpdCompanyId: input?.operatorNpdCompanyIds?.length ? { in: input.operatorNpdCompanyIds } : undefined,
+    OR: query
+      ? [
+          { name: { contains: query, mode: "insensitive" } },
+          { slug: { contains: query, mode: "insensitive" } },
+          { relatedFieldName: { contains: query, mode: "insensitive" } },
+          { operatorCompanyName: { contains: query, mode: "insensitive" } },
+        ]
+      : undefined,
+  };
+}
+
+function buildFacilityWhere(input?: PetroleumFacilityListInput): Prisma.PetroleumFacilityWhereInput {
+  const query = input?.query?.trim();
+
+  return {
+    belongsToName: input?.areas?.length ? { in: input.areas } : undefined,
+    phase: input?.statuses?.length ? { in: input.statuses } : undefined,
+    currentOperatorNpdId: input?.operatorNpdCompanyIds?.length ? { in: input.operatorNpdCompanyIds } : undefined,
+    OR: query
+      ? [
+          { name: { contains: query, mode: "insensitive" } },
+          { slug: { contains: query, mode: "insensitive" } },
+          { kind: { contains: query, mode: "insensitive" } },
+          { currentOperatorName: { contains: query, mode: "insensitive" } },
+        ]
+      : undefined,
+  };
+}
+
+function buildTufWhere(input?: PetroleumTufListInput): Prisma.PetroleumTufWhereInput {
+  const query = input?.query?.trim();
+
+  return {
+    belongsToName: input?.areas?.length ? { in: input.areas } : undefined,
+    currentPhase: input?.statuses?.length ? { in: input.statuses } : undefined,
+    medium: input?.hcTypes?.length ? { in: input.hcTypes } : undefined,
+    operatorNpdCompanyId: input?.operatorNpdCompanyIds?.length ? { in: input.operatorNpdCompanyIds } : undefined,
+    OR: query
+      ? [
+          { name: { contains: query, mode: "insensitive" } },
+          { slug: { contains: query, mode: "insensitive" } },
+          { medium: { contains: query, mode: "insensitive" } },
+          { operatorCompanyName: { contains: query, mode: "insensitive" } },
+        ]
+      : undefined,
+  };
+}
+
+function buildSurveyWhere(input?: PetroleumSurveyListInput): Prisma.PetroleumSurveyWhereInput {
+  const query = input?.query?.trim();
+
+  return {
+    geographicalArea: input?.areas?.length ? { in: input.areas } : undefined,
+    status: input?.statuses?.length ? { in: input.statuses } : undefined,
+    companyNpdId: input?.companyNpdIds?.length ? { in: input.companyNpdIds } : undefined,
+    OR: query
+      ? [
+          { name: { contains: query, mode: "insensitive" } },
+          { slug: { contains: query, mode: "insensitive" } },
+          { category: { contains: query, mode: "insensitive" } },
+          { mainType: { contains: query, mode: "insensitive" } },
+          { subType: { contains: query, mode: "insensitive" } },
+          { companyName: { contains: query, mode: "insensitive" } },
+        ]
+      : undefined,
+    ...(input?.categories?.length
+      ? {
+          AND: [
+            {
+              OR: [
+                { category: { in: input.categories } },
+                { mainType: { in: input.categories } },
+                { subType: { in: input.categories } },
+              ],
+            },
+          ],
+        }
+      : {}),
+  };
+}
+
+function buildWellboreWhere(input?: PetroleumWellboreListInput): Prisma.PetroleumWellboreWhereInput {
+  const query = input?.query?.trim();
+
+  return {
+    mainArea: input?.areas?.length ? { in: input.areas } : undefined,
+    drillingOperatorNpdCompanyId: input?.operatorNpdCompanyIds?.length
+      ? { in: input.operatorNpdCompanyIds }
+      : undefined,
+    content: input?.hcTypes?.length ? { in: input.hcTypes } : undefined,
+    OR: query
+      ? [
+          { name: { contains: query, mode: "insensitive" } },
+          { slug: { contains: query, mode: "insensitive" } },
+          { fieldName: { contains: query, mode: "insensitive" } },
+          { drillingOperatorName: { contains: query, mode: "insensitive" } },
+        ]
+      : undefined,
+    ...(input?.statuses?.length
+      ? {
+          AND: [
+            {
+              OR: [
+                { status: { in: input.statuses } },
+                { purpose: { in: input.statuses } },
+              ],
+            },
+          ],
+        }
+      : {}),
   };
 }
 
@@ -433,6 +720,15 @@ export async function listPetroleumDiscoveries() {
   return prisma.petroleumDiscovery.findMany();
 }
 
+export async function listPetroleumDiscoveriesFiltered(input?: PetroleumDiscoveryListInput) {
+  return prisma.petroleumDiscovery.findMany({
+    where: buildDiscoveryWhere(input),
+    orderBy: input?.orderBy ?? [{ discoveryYear: "desc" }, { name: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
+}
+
 export async function listPetroleumDiscoveriesByOperatorCompanyIds(npdCompanyIds: number[]) {
   if (npdCompanyIds.length === 0) {
     return [] as Awaited<ReturnType<typeof listPetroleumDiscoveries>>;
@@ -477,6 +773,15 @@ export async function listPetroleumFacilities() {
   return prisma.petroleumFacility.findMany();
 }
 
+export async function listPetroleumFacilitiesFiltered(input?: PetroleumFacilityListInput) {
+  return prisma.petroleumFacility.findMany({
+    where: buildFacilityWhere(input),
+    orderBy: input?.orderBy ?? [{ startupDate: "desc" }, { name: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
+}
+
 export async function listPetroleumFacilitiesByOperatorCompanyIds(npdCompanyIds: number[]) {
   if (npdCompanyIds.length === 0) {
     return [] as Awaited<ReturnType<typeof listPetroleumFacilities>>;
@@ -503,6 +808,15 @@ export async function countPetroleumFacilitiesByOperatorCompanyIds(npdCompanyIds
 
 export async function listPetroleumTufs() {
   return prisma.petroleumTuf.findMany();
+}
+
+export async function listPetroleumTufsFiltered(input?: PetroleumTufListInput) {
+  return prisma.petroleumTuf.findMany({
+    where: buildTufWhere(input),
+    orderBy: input?.orderBy ?? [{ name: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
 }
 
 export async function listPetroleumTufsByOperatorCompanyIds(npdCompanyIds: number[]) {
@@ -533,8 +847,26 @@ export async function listPetroleumSurveys() {
   return prisma.petroleumSurvey.findMany();
 }
 
+export async function listPetroleumSurveysFiltered(input?: PetroleumSurveyListInput) {
+  return prisma.petroleumSurvey.findMany({
+    where: buildSurveyWhere(input),
+    orderBy: input?.orderBy ?? [{ finalizedAt: "desc" }, { startedAt: "desc" }, { name: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
+}
+
 export async function listPetroleumWellbores() {
   return prisma.petroleumWellbore.findMany();
+}
+
+export async function listPetroleumWellboresFiltered(input?: PetroleumWellboreListInput) {
+  return prisma.petroleumWellbore.findMany({
+    where: buildWellboreWhere(input),
+    orderBy: input?.orderBy ?? [{ completionDate: "desc" }, { entryDate: "desc" }, { name: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
 }
 
 export async function listPetroleumProductionPoints() {
@@ -617,6 +949,23 @@ export async function replacePetroleumAreaSnapshots(input: {
   );
 }
 
+export async function replacePetroleumMapFeatureSnapshots(input: {
+  snapshots: Array<Record<string, unknown>>;
+}) {
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.petroleumMapFeatureSnapshot.deleteMany();
+      await createManyInChunks(input.snapshots, (chunk) =>
+        tx.petroleumMapFeatureSnapshot.createMany({ data: chunk as never[], skipDuplicates: true }),
+      );
+    },
+    {
+      maxWait: 30_000,
+      timeout: 600_000,
+    },
+  );
+}
+
 export async function listPetroleumFieldSnapshots(input?: PetroleumFieldSnapshotListInput) {
   return prisma.petroleumFieldSnapshot.findMany({
     where: buildFieldSnapshotWhere(input),
@@ -677,6 +1026,15 @@ export async function countPetroleumAreaSnapshots(input?: PetroleumAreaSnapshotL
   });
 }
 
+export async function listPetroleumMapFeatureSnapshots(input?: PetroleumMapFeatureSnapshotListInput) {
+  return prisma.petroleumMapFeatureSnapshot.findMany({
+    where: buildMapFeatureSnapshotWhere(input),
+    orderBy: input?.orderBy ?? [{ layerId: "asc" }, { name: "asc" }],
+    take: input?.take,
+    skip: input?.skip,
+  });
+}
+
 export async function listPetroleumProductionPointsForEntities(input: {
   entityType?: PetroleumEntityType;
   entityNpdIds?: number[];
@@ -684,6 +1042,10 @@ export async function listPetroleumProductionPointsForEntities(input: {
   yearTo?: number;
   period?: string;
 }) {
+  if (input.entityNpdIds && input.entityNpdIds.length === 0) {
+    return [] as Awaited<ReturnType<typeof prisma.petroleumProductionPoint.findMany>>;
+  }
+
   return prisma.petroleumProductionPoint.findMany({
     where: {
       entityType: input.entityType ?? undefined,

@@ -391,6 +391,8 @@ export type PetroleumLayerId =
   | "discoveries"
   | "licences"
   | "facilities"
+  | "subsea"
+  | "terminals"
   | "tuf"
   | "wellbores"
   | "surveys"
@@ -425,6 +427,13 @@ export type PetroleumProductSeries =
   | "producedWater";
 export type PetroleumMetricView = "volume" | "rate";
 export type PetroleumRateUnit = "boepd" | "msm3" | "billSm3" | "nok";
+export type PetroleumMapMode =
+  | "production"
+  | "reserves"
+  | "development"
+  | "infrastructure"
+  | "company";
+export type PetroleumMapDetailMode = "overview" | "detail";
 export type PetroleumTimeSeriesEntityType = "field" | "operator" | "area";
 export type PetroleumTimeSeriesGranularity = "month" | "year";
 export type PetroleumTimeSeriesComparison = "none" | "yoy" | "ytd" | "forecast";
@@ -492,6 +501,9 @@ export type PetroleumMapFeature = SourceMetadata & {
   selectedProductionValue?: number | null;
   selectedProductionUnit?: PetroleumRateUnit | null;
   selectedProductionLabel?: string | null;
+  geometryMode?: "centroid" | "full";
+  operatorSummary?: string | null;
+  rankingValue?: number | null;
   productionYoYPercent?: number | null;
   currentAreaSqKm?: number | null;
   transferCount?: number | null;
@@ -923,6 +935,8 @@ export type PetroleumEntityDetail = {
 export type PetroleumMarketFilters = {
   tab?: PetroleumMarketTab;
   layers?: PetroleumLayerId[];
+  mapMode?: PetroleumMapMode;
+  mapDetailMode?: PetroleumMapDetailMode;
   status?: string[];
   surveyStatuses?: string[];
   surveyCategories?: string[];
@@ -932,6 +946,9 @@ export type PetroleumMarketFilters = {
   hcTypes?: string[];
   surveyYearFrom?: number;
   surveyYearTo?: number;
+  eventWindowDays?: number;
+  mapZoom?: number;
+  selectedEntity?: string;
   bbox?: PetroleumBbox | null;
   query?: string;
   product?: PetroleumProductSeries;

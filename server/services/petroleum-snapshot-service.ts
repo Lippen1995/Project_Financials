@@ -7,9 +7,13 @@ import {
   listPetroleumLicences,
   listPetroleumProductionPoints,
   listPetroleumReserveSnapshots,
+  listPetroleumSurveys,
+  listPetroleumTufs,
+  listPetroleumWellbores,
   replacePetroleumAreaSnapshots,
   replacePetroleumFieldSnapshots,
   replacePetroleumLicenceSnapshots,
+  replacePetroleumMapFeatureSnapshots,
   replacePetroleumOperatorSnapshots,
   upsertPetroleumSyncState,
 } from "@/server/persistence/petroleum-market-repository";
@@ -19,6 +23,9 @@ type FieldRow = Awaited<ReturnType<typeof listPetroleumFields>>[number];
 type DiscoveryRow = Awaited<ReturnType<typeof listPetroleumDiscoveries>>[number];
 type LicenceRow = Awaited<ReturnType<typeof listPetroleumLicences>>[number];
 type FacilityRow = Awaited<ReturnType<typeof listPetroleumFacilities>>[number];
+type TufRow = Awaited<ReturnType<typeof listPetroleumTufs>>[number];
+type SurveyRow = Awaited<ReturnType<typeof listPetroleumSurveys>>[number];
+type WellboreRow = Awaited<ReturnType<typeof listPetroleumWellbores>>[number];
 type ProductionPointRow = Awaited<ReturnType<typeof listPetroleumProductionPoints>>[number];
 type ReserveSnapshotRow = Awaited<ReturnType<typeof listPetroleumReserveSnapshots>>[number];
 type InvestmentSnapshotRow = Awaited<ReturnType<typeof listPetroleumInvestmentSnapshots>>[number];
@@ -29,6 +36,9 @@ type SnapshotSourceDataset = {
   discoveries: DiscoveryRow[];
   licences: LicenceRow[];
   facilities: FacilityRow[];
+  tufs: TufRow[];
+  surveys: SurveyRow[];
+  wellbores: WellboreRow[];
   productionPoints: ProductionPointRow[];
   reserveSnapshots: ReserveSnapshotRow[];
   investmentSnapshots: InvestmentSnapshotRow[];
@@ -129,6 +139,16 @@ function toInvestmentBigInt(snapshot?: InvestmentSnapshotRow | null) {
 
 function uniqueStrings(values: Array<string | null | undefined>) {
   return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))];
+}
+
+function getSurveyReferenceYear(item: SurveyRow) {
+  return (
+    item.finalizedAt?.getUTCFullYear() ??
+    item.startedAt?.getUTCFullYear() ??
+    item.plannedFromDate?.getUTCFullYear() ??
+    item.plannedToDate?.getUTCFullYear() ??
+    null
+  );
 }
 
 function loadProductionLookup(rows: ProductionPointRow[]) {
@@ -358,14 +378,259 @@ export function buildPetroleumAreaSnapshotRows(input: SnapshotSourceDataset, com
   });
 }
 
+export function buildPetroleumMapFeatureSnapshotRows(input: SnapshotSourceDataset, computedAt = new Date()) {
+  const fieldSnapshots = buildPetroleumFieldSnapshotRows(input, computedAt);
+  const fieldSnapshotByNpdId = new Map(fieldSnapshots.map((row) => [row.fieldNpdId, row] as const));
+  const licenceSnapshots = buildPetroleumLicenceSnapshotRows(input, computedAt);
+  const licenceSnapshotByNpdId = new Map(licenceSnapshots.map((row) => [row.licenceNpdId, row] as const));
+
+  const fieldRows = input.fields
+    .filter((field) => Boolean(field.geometry))
+    .map((field) => {
+      const snapshot = fieldSnapshotByNpdId.get(field.npdId);
+      return {
+        layerId: "fields",
+        entityType: "FIELD",
+        entityNpdId: field.npdId,
+        entitySlug: field.slug,
+        name: field.name,
+        status: field.activityStatus,
+        area: field.mainArea,
+        hcType: field.hydrocarbonType,
+        operatorNpdCompanyId: field.operatorNpdCompanyId,
+        operatorName: field.operatorCompanyName,
+        operatorOrgNumber: field.operatorOrgNumber,
+        operatorSlug: field.operatorCompanySlug,
+        latestProductionOe: snapshot?.latestAnnualOe ?? null,
+        latestProductionOil: snapshot?.latestSelectedProductionOil ?? null,
+        latestProductionGas: snapshot?.latestSelectedProductionGas ?? null,
+        latestProductionLiquids: snapshot?.latestSelectedProductionLiquids ?? null,
+        remainingOe: snapshot?.remainingOe ?? null,
+        expectedFutureInvestmentNok: snapshot?.expectedFutureInvestmentNok ?? null,
+        productionYoYPercent: snapshot?.yoyYtdDeltaPercent ?? null,
+        detailUrl: `/market/oil-gas?entity=FIELD:${field.slug}`,
+        factPageUrl: field.factPageUrl,
+        factMapUrl: field.factMapUrl,
+        geometry: field.geometry,
+        bbox: field.bbox,
+        centroid: field.centroid,
+        sourceSystem: field.sourceSystem,
+        sourceEntityType: field.sourceEntityType,
+        sourceId: field.sourceId,
+        computedAt,
+      };
+    });
+
+  const discoveryRows = input.discoveries
+    .filter((item) => Boolean(item.geometry))
+    .map((item) => ({
+      layerId: "discoveries",
+      entityType: "DISCOVERY",
+      entityNpdId: item.npdId,
+      entitySlug: item.slug,
+      name: item.name,
+      status: item.activityStatus,
+      area: item.areaName,
+      hcType: item.hydrocarbonType,
+      operatorNpdCompanyId: item.operatorNpdCompanyId,
+      operatorName: item.operatorCompanyName,
+      operatorOrgNumber: item.operatorOrgNumber,
+      operatorSlug: item.operatorCompanySlug,
+      relatedFieldName: item.relatedFieldName,
+      detailUrl: `/market/oil-gas?entity=DISCOVERY:${item.slug}`,
+      factPageUrl: item.factPageUrl,
+      factMapUrl: item.factMapUrl,
+      geometry: item.geometry,
+      bbox: item.bbox,
+      centroid: item.centroid,
+      sourceSystem: item.sourceSystem,
+      sourceEntityType: item.sourceEntityType,
+      sourceId: item.sourceId,
+      computedAt,
+    }));
+
+  const licenceRows = input.licences
+    .filter((item) => Boolean(item.geometry))
+    .map((item) => {
+      const snapshot = licenceSnapshotByNpdId.get(item.npdId);
+      return {
+        layerId: "licences",
+        entityType: "LICENCE",
+        entityNpdId: item.npdId,
+        entitySlug: item.slug,
+        name: item.name,
+        status: item.status ?? item.currentPhase,
+        area: item.mainArea,
+        operatorNpdCompanyId: item.operatorNpdCompanyId,
+        operatorName: item.operatorCompanyName,
+        operatorOrgNumber: item.operatorOrgNumber,
+        operatorSlug: item.operatorCompanySlug,
+        currentAreaSqKm: snapshot?.currentAreaSqKm ?? item.currentAreaSqKm ?? null,
+        transferCount: snapshot?.transferCount ?? countJsonItems(item.transfers),
+        detailUrl: `/market/oil-gas?entity=LICENCE:${item.slug}`,
+        factPageUrl: item.factPageUrl,
+        factMapUrl: item.factMapUrl,
+        geometry: item.geometry,
+        bbox: item.bbox,
+        centroid: item.centroid,
+        sourceSystem: item.sourceSystem,
+        sourceEntityType: item.sourceEntityType,
+        sourceId: item.sourceId,
+        computedAt,
+      };
+    });
+
+  const facilityRows = input.facilities
+    .filter((item) => Boolean(item.geometry))
+    .map((item) => ({
+      layerId: "facilities",
+      entityType: "FACILITY",
+      entityNpdId: item.npdId,
+      entitySlug: item.slug,
+      name: item.name,
+      status: item.phase,
+      area: item.belongsToName,
+      operatorNpdCompanyId: item.currentOperatorNpdId,
+      operatorName: item.currentOperatorName,
+      operatorOrgNumber: item.currentOperatorOrgNumber,
+      operatorSlug: item.currentOperatorSlug,
+      facilityKind: item.kind,
+      detailUrl: `/market/oil-gas?entity=FACILITY:${item.slug}`,
+      factPageUrl: item.factPageUrl,
+      factMapUrl: item.factMapUrl,
+      geometry: item.geometry,
+      bbox: item.bbox,
+      centroid: item.centroid,
+      sourceSystem: item.sourceSystem,
+      sourceEntityType: item.sourceEntityType,
+      sourceId: item.sourceId,
+      computedAt,
+    }));
+
+  const tufRows = input.tufs
+    .filter((item) => Boolean(item.geometry))
+    .map((item) => ({
+      layerId: "tuf",
+      entityType: "TUF",
+      entityNpdId: item.npdId,
+      entitySlug: item.slug,
+      name: item.name,
+      status: item.currentPhase,
+      area: item.belongsToName,
+      hcType: item.medium,
+      operatorNpdCompanyId: item.operatorNpdCompanyId,
+      operatorName: item.operatorCompanyName,
+      operatorOrgNumber: item.operatorOrgNumber,
+      operatorSlug: item.operatorCompanySlug,
+      detailUrl: `/market/oil-gas?entity=TUF:${item.slug}`,
+      factPageUrl: item.factPageUrl,
+      factMapUrl: item.factMapUrl,
+      geometry: item.geometry,
+      bbox: item.bbox,
+      centroid: item.centroid,
+      sourceSystem: item.sourceSystem,
+      sourceEntityType: item.sourceEntityType,
+      sourceId: item.sourceId,
+      computedAt,
+    }));
+
+  const surveyRows = input.surveys
+    .filter((item) => Boolean(item.geometry))
+    .map((item) => ({
+      layerId: "surveys",
+      entityType: "SURVEY",
+      entityNpdId: item.npdId,
+      entitySlug: item.slug,
+      name: item.name,
+      status: item.status,
+      area: item.geographicalArea,
+      hcType: item.mainType,
+      operatorNpdCompanyId: item.companyNpdId,
+      companyName: item.companyName,
+      category: item.category,
+      subType: item.subType,
+      surveyYear: getSurveyReferenceYear(item),
+      startedAt: item.startedAt,
+      finalizedAt: item.finalizedAt,
+      plannedFromDate: item.plannedFromDate,
+      plannedToDate: item.plannedToDate,
+      detailUrl: `/market/oil-gas?entity=SURVEY:${item.slug}`,
+      factPageUrl: item.factPageUrl,
+      geometry: item.geometry,
+      bbox: item.bbox,
+      centroid: item.centroid,
+      sourceSystem: item.sourceSystem,
+      sourceEntityType: item.sourceEntityType,
+      sourceId: item.sourceId,
+      computedAt,
+    }));
+
+  const wellboreRows = input.wellbores
+    .filter((item) => Boolean(item.geometry))
+    .map((item) => ({
+      layerId: "wellbores",
+      entityType: "WELLBORE",
+      entityNpdId: item.npdId,
+      entitySlug: item.slug,
+      name: item.name,
+      status: item.status ?? item.purpose,
+      area: item.mainArea,
+      hcType: item.content,
+      operatorNpdCompanyId: item.drillingOperatorNpdCompanyId,
+      operatorName: item.drillingOperatorName,
+      operatorOrgNumber: item.drillingOperatorOrgNumber,
+      operatorSlug: item.drillingOperatorSlug,
+      relatedFieldName: item.fieldName,
+      companyName: item.drillingOperatorName,
+      wellType: item.wellType,
+      purpose: item.purpose,
+      waterDepth: item.waterDepth,
+      totalDepth: item.totalDepth,
+      detailUrl: `/market/oil-gas?entity=WELLBORE:${item.slug}`,
+      factPageUrl: item.factPageUrl,
+      geometry: item.geometry,
+      bbox: item.bbox,
+      centroid: item.centroid,
+      sourceSystem: item.sourceSystem,
+      sourceEntityType: item.sourceEntityType,
+      sourceId: item.sourceId,
+      computedAt,
+    }));
+
+  return [
+    ...fieldRows,
+    ...discoveryRows,
+    ...licenceRows,
+    ...facilityRows,
+    ...tufRows,
+    ...surveyRows,
+    ...wellboreRows,
+  ];
+}
+
 async function loadSnapshotSourceDataset(): Promise<SnapshotSourceDataset> {
-  const [companyLinks, fields, discoveries, licences, facilities, productionPoints, reserveSnapshots, investmentSnapshots] =
+  const [
+    companyLinks,
+    fields,
+    discoveries,
+    licences,
+    facilities,
+    tufs,
+    surveys,
+    wellbores,
+    productionPoints,
+    reserveSnapshots,
+    investmentSnapshots,
+  ] =
     await Promise.all([
       listPetroleumCompanyLinks(),
       listPetroleumFields(),
       listPetroleumDiscoveries(),
       listPetroleumLicences(),
       listPetroleumFacilities(),
+      listPetroleumTufs(),
+      listPetroleumSurveys(),
+      listPetroleumWellbores(),
       listPetroleumProductionPoints(),
       listPetroleumReserveSnapshots(),
       listPetroleumInvestmentSnapshots(),
@@ -377,6 +642,9 @@ async function loadSnapshotSourceDataset(): Promise<SnapshotSourceDataset> {
     discoveries,
     licences,
     facilities,
+    tufs,
+    surveys,
+    wellbores,
     productionPoints,
     reserveSnapshots,
     investmentSnapshots,
@@ -425,12 +693,14 @@ export async function refreshPetroleumSnapshotsNow() {
     const licenceSnapshots = buildPetroleumLicenceSnapshotRows(dataset, computedAt);
     const operatorSnapshots = buildPetroleumOperatorSnapshotRows(dataset, computedAt);
     const areaSnapshots = buildPetroleumAreaSnapshotRows(dataset, computedAt);
+    const mapFeatureSnapshots = buildPetroleumMapFeatureSnapshotRows(dataset, computedAt);
 
     await Promise.all([
       replacePetroleumFieldSnapshots({ snapshots: fieldSnapshots }),
       replacePetroleumLicenceSnapshots({ snapshots: licenceSnapshots }),
       replacePetroleumOperatorSnapshots({ snapshots: operatorSnapshots }),
       replacePetroleumAreaSnapshots({ snapshots: areaSnapshots }),
+      replacePetroleumMapFeatureSnapshots({ snapshots: mapFeatureSnapshots }),
     ]);
 
     await upsertPetroleumSyncState({
@@ -442,6 +712,7 @@ export async function refreshPetroleumSnapshotsNow() {
         licenceSnapshots: licenceSnapshots.length,
         operatorSnapshots: operatorSnapshots.length,
         areaSnapshots: areaSnapshots.length,
+        mapFeatureSnapshots: mapFeatureSnapshots.length,
       },
     });
 
@@ -451,6 +722,7 @@ export async function refreshPetroleumSnapshotsNow() {
       licenceSnapshots: licenceSnapshots.length,
       operatorSnapshots: operatorSnapshots.length,
       areaSnapshots: areaSnapshots.length,
+      mapFeatureSnapshots: mapFeatureSnapshots.length,
     };
   } catch (error) {
     await upsertPetroleumSyncState({

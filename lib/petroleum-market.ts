@@ -1,5 +1,7 @@
 import {
   PetroleumBbox,
+  PetroleumMapDetailMode,
+  PetroleumMapMode,
   PetroleumEntityType,
   PetroleumLayerId,
   PetroleumMarketFilters,
@@ -17,22 +19,31 @@ export const DEFAULT_PETROLEUM_LAYERS: PetroleumLayerId[] = [
   "fields",
   "discoveries",
   "licences",
-  "facilities",
   "tuf",
 ];
 
 export const OPTIONAL_PETROLEUM_LAYERS: PetroleumLayerId[] = [
+  "facilities",
+  "subsea",
+  "terminals",
   "wellbores",
   "surveys",
   "regulatoryEvents",
   "gasscoEvents",
 ];
 
+export const ALL_PETROLEUM_LAYERS: PetroleumLayerId[] = [
+  ...DEFAULT_PETROLEUM_LAYERS,
+  ...OPTIONAL_PETROLEUM_LAYERS,
+];
+
 export const PETROLEUM_LAYER_LABELS: Record<PetroleumLayerId, string> = {
   fields: "Felt",
   discoveries: "Funn",
   licences: "Lisenser",
-  facilities: "Innretninger",
+  facilities: "Plattformer / FPSO",
+  subsea: "Subsea-installasjoner",
+  terminals: "Landanlegg / terminaler",
   tuf: "TUF / hovedrørledninger",
   wellbores: "Brønner",
   surveys: "Survey",
@@ -77,6 +88,19 @@ export const PETROLEUM_VIEW_LABELS: Record<PetroleumMetricView, string> = {
   rate: "Rate",
 };
 
+export const PETROLEUM_MAP_MODE_LABELS: Record<PetroleumMapMode, string> = {
+  production: "Production",
+  reserves: "Reserves",
+  development: "Pipeline / Development",
+  infrastructure: "Infrastructure",
+  company: "Company exposure",
+};
+
+export const PETROLEUM_MAP_DETAIL_LABELS: Record<PetroleumMapDetailMode, string> = {
+  overview: "Overview",
+  detail: "Detail",
+};
+
 export const PETROLEUM_COMPARISON_LABELS: Record<PetroleumTimeSeriesComparison, string> = {
   none: "Standard",
   yoy: "YoY",
@@ -104,6 +128,9 @@ export const PETROLEUM_TIME_SERIES_MEASURE_LABELS: Record<PetroleumTimeSeriesMea
 export const PETROLEUM_DEFAULT_TAB: PetroleumMarketTab = "market";
 export const PETROLEUM_DEFAULT_PRODUCT: PetroleumProductSeries = "oe";
 export const PETROLEUM_DEFAULT_VIEW: PetroleumMetricView = "volume";
+export const PETROLEUM_DEFAULT_MAP_MODE: PetroleumMapMode = "production";
+export const PETROLEUM_DEFAULT_MAP_DETAIL_MODE: PetroleumMapDetailMode = "overview";
+export const PETROLEUM_DEFAULT_EVENT_WINDOW_DAYS = 90;
 export const PETROLEUM_DEFAULT_TABLE_MODE: PetroleumTableMode = "fields";
 export const PETROLEUM_DEFAULT_SERIES_ENTITY_TYPE: PetroleumTimeSeriesEntityType = "area";
 export const PETROLEUM_DEFAULT_GRANULARITY: PetroleumTimeSeriesGranularity = "year";
@@ -162,6 +189,11 @@ export function parsePetroleumFilters(searchParams: URLSearchParams): PetroleumM
   return {
     tab: (searchParams.get("tab") as PetroleumMarketTab | null) ?? PETROLEUM_DEFAULT_TAB,
     layers: parseArrayParam(searchParams.get("layers")) as PetroleumLayerId[],
+    mapMode:
+      (searchParams.get("mapMode") as PetroleumMapMode | null) ?? PETROLEUM_DEFAULT_MAP_MODE,
+    mapDetailMode:
+      (searchParams.get("mapDetailMode") as PetroleumMapDetailMode | null) ??
+      PETROLEUM_DEFAULT_MAP_DETAIL_MODE,
     status: parseArrayParam(searchParams.get("status")),
     surveyStatuses: parseArrayParam(searchParams.get("surveyStatuses")),
     surveyCategories: parseArrayParam(searchParams.get("surveyCategories")),
@@ -175,6 +207,13 @@ export function parsePetroleumFilters(searchParams: URLSearchParams): PetroleumM
     surveyYearTo: searchParams.get("surveyYearTo")
       ? parseNumberParam(searchParams.get("surveyYearTo"), 0)
       : undefined,
+    eventWindowDays: searchParams.get("eventWindowDays")
+      ? parseNumberParam(searchParams.get("eventWindowDays"), PETROLEUM_DEFAULT_EVENT_WINDOW_DAYS)
+      : PETROLEUM_DEFAULT_EVENT_WINDOW_DAYS,
+    mapZoom: searchParams.get("mapZoom")
+      ? parseNumberParam(searchParams.get("mapZoom"), 0)
+      : undefined,
+    selectedEntity: searchParams.get("entity")?.trim() || undefined,
     bbox: parseBboxParam(searchParams.get("bbox")),
     query: searchParams.get("query")?.trim() || undefined,
     product:
@@ -198,6 +237,8 @@ export function buildPetroleumSearchParams(
   const values: Array<[string, string | number | undefined | null]> = [
     ["tab", filters.tab],
     ["layers", filters.layers?.join(",")],
+    ["mapMode", filters.mapMode],
+    ["mapDetailMode", filters.mapDetailMode],
     ["status", filters.status?.join(",")],
     ["surveyStatuses", filters.surveyStatuses?.join(",")],
     ["surveyCategories", filters.surveyCategories?.join(",")],
@@ -207,6 +248,9 @@ export function buildPetroleumSearchParams(
     ["hcTypes", filters.hcTypes?.join(",")],
     ["surveyYearFrom", filters.surveyYearFrom],
     ["surveyYearTo", filters.surveyYearTo],
+    ["eventWindowDays", filters.eventWindowDays],
+    ["mapZoom", filters.mapZoom],
+    ["entity", filters.selectedEntity],
     ["bbox", serializeBbox(filters.bbox)],
     ["query", filters.query],
     ["product", filters.product],
@@ -234,4 +278,20 @@ export function isLayerSelected(filters: PetroleumMarketFilters, layerId: Petrol
 
 export function normalizeLayerSelection(layers?: PetroleumLayerId[]) {
   return layers?.length ? layers : DEFAULT_PETROLEUM_LAYERS;
+}
+
+export function getDefaultLayersForMapMode(mapMode: PetroleumMapMode): PetroleumLayerId[] {
+  switch (mapMode) {
+    case "reserves":
+      return ["fields", "discoveries", "licences", "tuf"];
+    case "development":
+      return ["discoveries", "fields", "licences", "tuf"];
+    case "infrastructure":
+      return ["fields", "licences", "facilities", "subsea", "terminals", "tuf"];
+    case "company":
+      return ["fields", "discoveries", "licences", "tuf"];
+    case "production":
+    default:
+      return ["fields", "discoveries", "licences", "tuf"];
+  }
 }

@@ -263,7 +263,7 @@ Interne ruter:
 
 Ruten bruker samme `WORKSPACE_SYNC_SECRET`-mekanisme som workspace-sync og kan kalles med `Authorization: Bearer <secret>` eller `x-workspace-sync-secret`.
 
-Den planlagte petroleum-ruten i [vercel.json](./vercel.json) er ment som første fase av scheduled ingest/read-model refresh. Snapshot-tabellene brukes nå for raske read-paths i markedssammendrag og tabeller, mens rå petroleum-tabeller fortsatt er intern source of truth for normaliserte records.
+Den planlagte petroleum-ruten i [vercel.json](./vercel.json) er ment som første fase av scheduled ingest/read-model refresh. Snapshot-tabellene brukes nå for raske read-paths i markedssammendrag, tabeller og kart/features, mens rå petroleum-tabeller fortsatt er intern source of truth for normaliserte records.
 
 ## Provider-oversikt
 

@@ -7,6 +7,7 @@ import {
   PETROLEUM_DEFAULT_SERIES_ENTITY_TYPE,
   PETROLEUM_DEFAULT_VIEW,
   parseArrayParam,
+  parseNumberParam,
   parsePetroleumFilters,
 } from "@/lib/petroleum-market";
 import { getPetroleumMarketTimeseries } from "@/server/services/petroleum-market-service";
@@ -41,6 +42,12 @@ export async function GET(request: NextRequest) {
     comparison:
       (searchParams.get("comparison") as "none" | "yoy" | "ytd" | "forecast" | null) ??
       PETROLEUM_DEFAULT_COMPARISON,
+    yearFrom: searchParams.get("yearFrom")
+      ? parseNumberParam(searchParams.get("yearFrom"), 0)
+      : undefined,
+    yearTo: searchParams.get("yearTo")
+      ? parseNumberParam(searchParams.get("yearTo"), 0)
+      : undefined,
   });
 
   return NextResponse.json({ data });

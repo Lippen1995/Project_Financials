@@ -26,7 +26,13 @@ import {
   fetchSodirPetroleumCoreData,
   fetchSodirPetroleumMetricsData,
 } from "@/integrations/sodir/sodir-market-provider";
-import { normalizeLayerSelection } from "@/lib/petroleum-market";
+import {
+  getDefaultLayersForMapMode,
+  PETROLEUM_DEFAULT_EVENT_WINDOW_DAYS,
+  PETROLEUM_DEFAULT_MAP_DETAIL_MODE,
+  PETROLEUM_DEFAULT_MAP_MODE,
+} from "@/lib/petroleum-market";
+import { classifyFacilityMapLayer } from "@/lib/petroleum-map-layering";
 import {
   PetroleumConceptEntry,
   PetroleumEntityCompanyInterest,
@@ -37,8 +43,10 @@ import {
   PetroleumForecastSnapshot as PetroleumForecastSnapshotView,
   PetroleumLayerId,
   PetroleumLinkedCompany,
+  PetroleumMapDetailMode,
   PetroleumMapFeature,
   PetroleumMarketFilters,
+  PetroleumMapMode,
   PetroleumMetricView,
   PetroleumProductSeries,
   PetroleumPublicationSnapshot as PetroleumPublicationSnapshotView,
@@ -65,8 +73,10 @@ import {
   PetroleumLicenceSnapshotListInput,
   listPetroleumCompanyLinks,
   listPetroleumDiscoveries,
+  listPetroleumDiscoveriesFiltered,
   listPetroleumEvents,
   listPetroleumFacilities,
+  listPetroleumFacilitiesFiltered,
   listPetroleumForecastSnapshots,
   listPetroleumFieldSnapshots,
   listPetroleumFields,
@@ -75,6 +85,7 @@ import {
   listPetroleumLicenceSnapshots,
   listPetroleumLicencesByNpdIds,
   listPetroleumLicences,
+  listPetroleumMapFeatureSnapshots,
   listPetroleumOperatorSnapshots,
   listPetroleumPublicationSnapshots,
   listPetroleumProductionPoints,
@@ -82,8 +93,11 @@ import {
   listPetroleumProductionPointsForEntities,
   listPetroleumReserveSnapshots,
   listPetroleumSurveys,
+  listPetroleumSurveysFiltered,
   listPetroleumTufs,
+  listPetroleumTufsFiltered,
   listPetroleumWellbores,
+  listPetroleumWellboresFiltered,
   replacePetroleumCoreData,
   replacePetroleumEventsForSource,
   replacePetroleumMetricsData,
@@ -114,6 +128,8 @@ type MetricsDataset = {
   investmentSnapshots: PetroleumInvestmentSnapshot[];
 };
 
+type PetroleumMapFeatureSnapshotRow = Awaited<ReturnType<typeof listPetroleumMapFeatureSnapshots>>[number];
+
 const SYNC_KEYS = {
   core: "petroleum-core",
   metrics: "petroleum-metrics",
@@ -127,12 +143,109 @@ const FEATURE_LIMITS: Record<PetroleumLayerId, number> = {
   discoveries: 260,
   licences: 320,
   facilities: 220,
+  subsea: 260,
+  terminals: 120,
   tuf: 120,
   wellbores: 350,
   surveys: 220,
   regulatoryEvents: 0,
   gasscoEvents: 0,
 };
+
+const DETAIL_MODE_ZOOM_THRESHOLD = 6.8;
+const LAYER_MIN_ZOOM: Partial<Record<PetroleumLayerId, number>> = {
+  subsea: 7.1,
+  surveys: 6.2,
+  wellbores: 7.2,
+};
+const OVERVIEW_POINT_LAYERS = new Set<PetroleumLayerId>(["surveys"]);
+const INFRASTRUCTURE_PRIORITY_LAYERS = new Set<PetroleumLayerId>(["facilities", "tuf", "fields"]);
+const COMPANY_PRIORITY_LAYERS = new Set<PetroleumLayerId>(["fields", "discoveries", "licences", "facilities", "tuf"]);
+
+function getFeatureCandidateTake(layerId: PetroleumLayerId, filters: PetroleumMarketFilters) {
+  const limit = FEATURE_LIMITS[layerId];
+  if (!limit) {
+    return undefined;
+  }
+
+  const expandedLimit =
+    layerId === "facilities" || layerId === "subsea" || layerId === "terminals"
+      ? limit * 2
+      : limit;
+
+  const detailMode = getEffectiveMapDetailMode(filters);
+
+  if (filters.query?.trim()) {
+    return Math.min(expandedLimit * 6, 2_000);
+  }
+
+  if (detailMode === "detail") {
+    return Math.min(expandedLimit * 4, 1_500);
+  }
+
+  if (filters.bbox) {
+    return Math.min(expandedLimit * 5, 1_500);
+  }
+
+  return Math.min(expandedLimit * 2, 700);
+}
+
+function getEffectiveMapMode(filters: PetroleumMarketFilters): PetroleumMapMode {
+  return filters.mapMode ?? PETROLEUM_DEFAULT_MAP_MODE;
+}
+
+function getEffectiveMapDetailMode(filters: PetroleumMarketFilters): PetroleumMapDetailMode {
+  if (filters.mapDetailMode === "detail") {
+    return "detail";
+  }
+
+  if (filters.selectedEntity?.trim()) {
+    return "detail";
+  }
+
+  if ((filters.mapZoom ?? 0) >= DETAIL_MODE_ZOOM_THRESHOLD) {
+    return "detail";
+  }
+
+  return PETROLEUM_DEFAULT_MAP_DETAIL_MODE;
+}
+
+function getEffectiveMapLayers(filters: PetroleumMarketFilters) {
+  const explicitLayers = filters.layers?.length ? filters.layers : getDefaultLayersForMapMode(getEffectiveMapMode(filters));
+  const detailMode = getEffectiveMapDetailMode(filters);
+  const zoom = filters.mapZoom ?? 0;
+  const selectedEntity = filters.selectedEntity ?? null;
+  const mapMode = getEffectiveMapMode(filters);
+
+  return explicitLayers.filter((layerId) => {
+    if ((layerId === "surveys" || layerId === "wellbores") && !filters.bbox) {
+      return false;
+    }
+
+    if (detailMode === "detail") {
+      return true;
+    }
+
+    if (mapMode === "infrastructure" && INFRASTRUCTURE_PRIORITY_LAYERS.has(layerId)) {
+      return true;
+    }
+
+    if (mapMode === "company" && COMPANY_PRIORITY_LAYERS.has(layerId)) {
+      return true;
+    }
+
+    const minZoom = LAYER_MIN_ZOOM[layerId];
+    if (typeof minZoom === "number" && zoom < minZoom) {
+      return false;
+    }
+
+    if (!selectedEntity && (layerId === "wellbores" || layerId === "surveys")) {
+      return false;
+    }
+
+    return true;
+  });
+}
 
 
 function normalizeText(value?: string | null) {
@@ -617,6 +730,302 @@ function buildLicenceSnapshotQuery(filters: PetroleumMarketFilters): PetroleumLi
     operatorNpdCompanyIds: parseNumericFilterValues(filters.operatorIds),
     licenseeCompanyIds: parseNumericFilterValues(filters.licenseeIds),
     query: filters.query,
+  };
+}
+
+function buildDiscoveryQuery(filters: PetroleumMarketFilters) {
+  return {
+    areas: filters.areas,
+    statuses: filters.status,
+    hcTypes: filters.hcTypes,
+    operatorNpdCompanyIds: parseNumericFilterValues(filters.operatorIds),
+    query: filters.query,
+  };
+}
+
+function buildFacilityQuery(filters: PetroleumMarketFilters) {
+  return {
+    areas: filters.areas,
+    statuses: filters.status,
+    operatorNpdCompanyIds: parseNumericFilterValues(filters.operatorIds),
+    query: filters.query,
+  };
+}
+
+function buildTufQuery(filters: PetroleumMarketFilters) {
+  return {
+    areas: filters.areas,
+    statuses: filters.status,
+    hcTypes: filters.hcTypes,
+    operatorNpdCompanyIds: parseNumericFilterValues(filters.operatorIds),
+    query: filters.query,
+  };
+}
+
+function buildSurveyQuery(filters: PetroleumMarketFilters) {
+  return {
+    areas: filters.areas,
+    statuses: filters.surveyStatuses?.length ? filters.surveyStatuses : filters.status,
+    categories: filters.surveyCategories,
+    companyNpdIds: parseNumericFilterValues(filters.operatorIds),
+    query: filters.query,
+  };
+}
+
+function buildWellboreQuery(filters: PetroleumMarketFilters) {
+  return {
+    areas: filters.areas,
+    statuses: filters.status,
+    hcTypes: filters.hcTypes,
+    operatorNpdCompanyIds: parseNumericFilterValues(filters.operatorIds),
+    query: filters.query,
+  };
+}
+
+function buildMapFeatureSnapshotQuery(layerId: PetroleumLayerId, filters: PetroleumMarketFilters) {
+  const snapshotLayerIds =
+    layerId === "facilities" || layerId === "subsea" || layerId === "terminals"
+      ? ["facilities"]
+      : [layerId];
+
+  return {
+    layerIds: snapshotLayerIds,
+    logicalFacilityLayer:
+      layerId === "facilities" || layerId === "subsea" || layerId === "terminals"
+        ? layerId
+        : undefined,
+    statuses: layerId === "surveys" && filters.surveyStatuses?.length ? filters.surveyStatuses : filters.status,
+    areas: filters.areas,
+    hcTypes: filters.hcTypes,
+    operatorNpdCompanyIds: parseNumericFilterValues(filters.operatorIds),
+    query: filters.query,
+    surveyCategories: layerId === "surveys" ? filters.surveyCategories : undefined,
+    surveyYearFrom: layerId === "surveys" ? filters.surveyYearFrom : undefined,
+    surveyYearTo: layerId === "surveys" ? filters.surveyYearTo : undefined,
+  };
+}
+
+function getFeatureOrderBy(
+  layerId: PetroleumLayerId,
+  filters: PetroleumMarketFilters,
+): PetroleumFieldSnapshotListInput["orderBy"] {
+  const mapMode = getEffectiveMapMode(filters);
+
+  if (layerId === "fields") {
+    if (mapMode === "reserves") {
+      return [{ remainingOe: "desc" }, { name: "asc" }];
+    }
+
+    if (mapMode === "development") {
+      return [{ expectedFutureInvestmentNok: "desc" }, { latestProductionOe: "desc" }, { name: "asc" }];
+    }
+
+    return [{ latestProductionOe: "desc" }, { name: "asc" }];
+  }
+
+  if (layerId === "discoveries") {
+    if (mapMode === "development") {
+      return [{ relatedFieldName: "asc" }, { name: "asc" }];
+    }
+
+    return [{ name: "asc" }];
+  }
+
+  if (layerId === "licences") {
+    return [{ currentAreaSqKm: "desc" }, { name: "asc" }];
+  }
+
+  if (layerId === "facilities") {
+    return [{ latestProductionOe: "desc" }, { name: "asc" }];
+  }
+
+  if (layerId === "subsea") {
+    return [{ area: "asc" }, { name: "asc" }];
+  }
+
+  if (layerId === "terminals") {
+    return [{ operatorName: "asc" }, { name: "asc" }];
+  }
+
+  if (layerId === "surveys") {
+    return [{ surveyYear: "desc" }, { name: "asc" }];
+  }
+
+  return [{ name: "asc" }];
+}
+
+function shouldUseCentroidGeometry(
+  item: PetroleumMapFeatureSnapshotRow,
+  filters: PetroleumMarketFilters,
+  detailMode: PetroleumMapDetailMode,
+) {
+  if (detailMode === "detail") {
+    return false;
+  }
+
+  if (filters.selectedEntity?.trim() === `${item.entityType}:${item.entitySlug}`) {
+    return false;
+  }
+
+  return OVERVIEW_POINT_LAYERS.has(item.layerId as PetroleumLayerId) && Boolean(parseCoordinate(item.centroid as unknown));
+}
+
+function matchesMapFeatureSnapshotFilters(
+  item: PetroleumMapFeatureSnapshotRow,
+  filters: PetroleumMarketFilters,
+) {
+  return bboxIntersects(parseBbox(item.bbox as unknown), filters.bbox);
+}
+
+function getSnapshotLogicalLayerId(item: PetroleumMapFeatureSnapshotRow): PetroleumLayerId | null {
+  if (item.layerId !== "facilities") {
+    return item.layerId as PetroleumLayerId;
+  }
+
+  return classifyFacilityMapLayer({
+    facilityKind: item.facilityKind,
+    name: item.name,
+    area: item.area,
+  });
+}
+
+function getSnapshotFeatureSelectedMetric(
+  snapshot: PetroleumMapFeatureSnapshotRow,
+  product: PetroleumProductSeries,
+  view: PetroleumMetricView,
+) {
+  const volume =
+    product === "oil"
+      ? snapshot.latestProductionOil
+      : product === "gas"
+        ? snapshot.latestProductionGas
+        : product === "liquids"
+          ? snapshot.latestProductionLiquids
+          : product === "oe"
+            ? snapshot.latestProductionOe
+            : null;
+
+  if (volume === null || volume === undefined) {
+    return {
+      value: null,
+      unit: getRateUnit(product, view),
+    };
+  }
+
+  const value =
+    view === "rate"
+      ? product === "gas" || product === "producedWater"
+        ? volume / 365
+        : (volume * 1_000_000 * 6.2898) / 365
+      : volume;
+
+  return {
+    value,
+    unit: getRateUnit(product, view),
+  };
+}
+
+function mapMapFeatureSnapshot(
+  item: PetroleumMapFeatureSnapshotRow,
+  product: PetroleumProductSeries,
+  view: PetroleumMetricView,
+  options: {
+    detailMode: PetroleumMapDetailMode;
+    mapMode: PetroleumMapMode;
+    selectedEntity?: string | null;
+  },
+): PetroleumMapFeature | null {
+  const logicalLayerId = getSnapshotLogicalLayerId(item);
+  if (!logicalLayerId) {
+    return null;
+  }
+
+  const centroid = parseCoordinate(item.centroid as unknown) ?? undefined;
+  const useCentroidGeometry = shouldUseCentroidGeometry(
+    { ...item, layerId: logicalLayerId },
+    {
+      mapDetailMode: options.detailMode,
+      mapMode: options.mapMode,
+      selectedEntity: options.selectedEntity ?? undefined,
+    },
+    options.detailMode,
+  );
+  const geometry =
+    useCentroidGeometry && centroid
+      ? ({
+          type: "Point",
+          coordinates: centroid,
+        } as const)
+      : (item.geometry as PetroleumMapFeature["geometry"]);
+
+  if (!geometry) {
+    return null;
+  }
+
+  const selectedMetric = getSnapshotFeatureSelectedMetric(item, product, view);
+  const rankingValue =
+    options.mapMode === "reserves"
+      ? item.remainingOe ?? null
+      : options.mapMode === "development"
+        ? typeof item.expectedFutureInvestmentNok === "bigint"
+          ? Number(item.expectedFutureInvestmentNok)
+          : null
+        : selectedMetric.value;
+
+  return {
+    id: `${item.entityType}:${item.entitySlug}`,
+    layerId: logicalLayerId,
+    entityType: item.entityType as PetroleumMapFeature["entityType"],
+    entityId: item.entitySlug,
+    entityNpdId: item.entityNpdId,
+    name: item.name,
+    geometry,
+    bbox: parseBbox(item.bbox as unknown) ?? undefined,
+    centroid,
+    status: item.status,
+    area: item.area,
+    hcType: item.hcType,
+    operator: toLinkedCompany({
+      npdCompanyId: item.operatorNpdCompanyId,
+      companyName: item.operatorName,
+      orgNumber: item.operatorOrgNumber,
+      companySlug: item.operatorSlug,
+    }),
+    operatorSummary: item.operatorName ?? item.companyName ?? null,
+    relatedFieldName: item.relatedFieldName,
+    latestProductionOe: item.latestProductionOe ?? null,
+    remainingOe: item.remainingOe ?? null,
+    expectedFutureInvestmentNok:
+      typeof item.expectedFutureInvestmentNok === "bigint" ? Number(item.expectedFutureInvestmentNok) : null,
+    selectedProductionValue: selectedMetric.value,
+    selectedProductionUnit: selectedMetric.unit,
+    selectedProductionLabel: view === "rate" ? "boepd / dagrate" : "Siste volum",
+    geometryMode: useCentroidGeometry ? "centroid" : "full",
+    rankingValue,
+    productionYoYPercent: item.productionYoYPercent ?? null,
+    currentAreaSqKm: item.currentAreaSqKm ?? null,
+    transferCount: item.transferCount ?? null,
+    facilityKind: item.facilityKind ?? null,
+    category: item.category ?? null,
+    subType: item.subType ?? null,
+    companyName: item.companyName ?? null,
+    surveyYear: item.surveyYear ?? null,
+    startedAt: item.startedAt ?? null,
+    finalizedAt: item.finalizedAt ?? null,
+    plannedFromDate: item.plannedFromDate ?? null,
+    plannedToDate: item.plannedToDate ?? null,
+    wellType: item.wellType ?? null,
+    purpose: item.purpose ?? null,
+    waterDepth: item.waterDepth ?? null,
+    totalDepth: item.totalDepth ?? null,
+    detailUrl: item.detailUrl ?? null,
+    factPageUrl: item.factPageUrl ?? null,
+    factMapUrl: item.factMapUrl ?? null,
+    sourceSystem: item.sourceSystem,
+    sourceEntityType: item.sourceEntityType,
+    sourceId: item.sourceId,
+    fetchedAt: item.computedAt,
+    normalizedAt: item.computedAt,
   };
 }
 
@@ -1519,6 +1928,8 @@ function mapPersistedEvent(event: PetroleumEvent): PetroleumEventRow {
       companySlug: event.relatedCompanySlug,
     }),
     tags: parseJsonArray(event.tags).map((tag) => String(tag)),
+    geometry: (event.geometry as PetroleumEventRow["geometry"]) ?? null,
+    centroid: parseCoordinate(event.centroid as unknown) ?? null,
     sourceSystem: event.sourceSystem,
     sourceEntityType: event.sourceEntityType,
     sourceId: event.sourceId,
@@ -1806,91 +2217,47 @@ function buildFilterOptions(
 }
 
 export async function getPetroleumMarketFeatures(filters: PetroleumMarketFilters) {
-  const layers = normalizeLayerSelection(filters.layers);
-  const featureDataset = await getFeatureDataset(layers);
+  const layers = getEffectiveMapLayers(filters);
   const features: PetroleumMapFeature[] = [];
-  const productionLookup = buildFieldProductionLookup(featureDataset.productionPoints);
-  const reserveLookup = buildReserveLookup(featureDataset.reserveSnapshots);
-  const investmentLookup = buildInvestmentLookup(featureDataset.investmentSnapshots);
   const selectedProduct = filters.product ?? "oe";
   const selectedView = filters.view ?? "volume";
+  const mapMode = getEffectiveMapMode(filters);
+  const detailMode = getEffectiveMapDetailMode(filters);
+  const candidateTakeByLayer = new Map(
+    layers.map((layerId) => [layerId, getFeatureCandidateTake(layerId, filters)] as const),
+  );
+  const snapshotRowsByLayer = new Map<PetroleumLayerId, PetroleumMapFeatureSnapshotRow[]>();
 
-  if (layers.includes("fields")) {
-    features.push(
-      ...limitLayerItems(sortFieldsForMap(filterFields(featureDataset.fields, filters)), "fields")
-          .map((field) => {
-            const fieldPoints = productionLookup.get(field.npdId) ?? [];
-            const fieldMetric = getMetricFromPointSet(fieldPoints, selectedProduct, selectedView, "annual");
-            const ytdMetrics = getFieldYearToDateMetrics(fieldPoints, selectedProduct, selectedView);
-
-          return mapFieldFeature(field, {
-            latestProductionOe: getLatestAnnualPoint(fieldPoints)?.oeNetMillSm3 ?? null,
-            remainingOe: reserveLookup.get(field.npdId)?.remainingOe ?? null,
-            expectedFutureInvestmentNok:
-              (investmentLookup.get(field.npdId)?.expectedFutureInvestmentMillNok ?? 0) * 1_000_000,
-            selectedProductionValue: fieldMetric.value,
-            selectedProductionUnit: fieldMetric.unit,
-            selectedProductionLabel: selectedView === "rate" ? "boepd / dagrate" : "Siste volum",
-            productionYoYPercent: ytdMetrics.deltaPercent,
-          });
-        })
-        .filter(Boolean) as PetroleumMapFeature[],
-    );
-  }
-  if (layers.includes("discoveries")) {
-    features.push(
-      ...limitLayerItems(
-        sortDiscoveriesForMap(filterDiscoveries(featureDataset.discoveries, filters)),
-        "discoveries",
-      )
-          .map(mapDiscoveryFeature)
-          .filter(Boolean) as PetroleumMapFeature[],
-    );
-  }
-  if (layers.includes("licences")) {
-    features.push(
-      ...limitLayerItems(sortLicencesForMap(filterLicences(featureDataset.licences, filters)), "licences")
-        .map(mapLicenceFeature)
-        .filter(Boolean) as PetroleumMapFeature[],
-    );
-  }
-  if (layers.includes("facilities")) {
-    features.push(
-      ...limitLayerItems(
-        sortFacilitiesForMap(filterFacilities(featureDataset.facilities, filters)),
-        "facilities",
-      )
-          .map(mapFacilityFeature)
-          .filter(Boolean) as PetroleumMapFeature[],
-    );
-  }
-  if (layers.includes("tuf")) {
-    features.push(
-      ...limitLayerItems(sortTufsForMap(filterTufs(featureDataset.tufs, filters)), "tuf")
-        .map(mapTufFeature)
-        .filter(Boolean) as PetroleumMapFeature[],
-    );
-  }
-  if (layers.includes("surveys")) {
-    if (filters.bbox) {
-      features.push(
-        ...limitLayerItems(sortSurveysForMap(filterSurveys(featureDataset.surveys, filters)), "surveys")
-          .map(mapSurveyFeature)
-          .filter(Boolean) as PetroleumMapFeature[],
-      );
+  for (const layerId of layers) {
+    let snapshotRows = snapshotRowsByLayer.get(layerId);
+    if (!snapshotRows) {
+      snapshotRows = await listPetroleumMapFeatureSnapshots({
+        ...buildMapFeatureSnapshotQuery(layerId, filters),
+        take: candidateTakeByLayer.get(layerId),
+        orderBy: getFeatureOrderBy(layerId, filters),
+      });
+      snapshotRowsByLayer.set(layerId, snapshotRows);
     }
-  }
-  if (layers.includes("wellbores")) {
-    if (filters.bbox) {
-      features.push(
-        ...limitLayerItems(
-          sortWellboresForMap(filterWellbores(featureDataset.wellbores, filters)),
-          "wellbores",
+
+    const visibleRows = limitLayerItems(
+      snapshotRows.filter(
+        (item) =>
+          matchesMapFeatureSnapshotFilters(item, filters) && getSnapshotLogicalLayerId(item) === layerId,
+      ),
+      layerId,
+    );
+
+    features.push(
+      ...visibleRows
+        .map((item) =>
+          mapMapFeatureSnapshot(item, selectedProduct, selectedView, {
+            detailMode,
+            mapMode,
+            selectedEntity: filters.selectedEntity ?? null,
+          }),
         )
-          .map(mapWellboreFeature)
-          .filter(Boolean) as PetroleumMapFeature[],
-      );
-    }
+        .filter(Boolean) as PetroleumMapFeature[],
+    );
   }
 
   return features;
@@ -2117,9 +2484,29 @@ export async function getPetroleumMarketTimeseries(input: {
   product?: PetroleumProductSeries;
   view?: PetroleumMetricView;
   comparison?: PetroleumTimeSeriesComparison;
+  yearFrom?: number;
+  yearTo?: number;
 }) {
-  const fieldSnapshots = await listPetroleumFieldSnapshots(buildFieldSnapshotQuery(input.filters));
   const currentYear = new Date().getUTCFullYear();
+  const yearTo = input.yearTo ?? currentYear;
+  const fieldQuery = buildFieldSnapshotQuery(input.filters);
+  if (input.entityType === "field" && input.entityIds?.length) {
+    fieldQuery.fieldSlugs = input.entityIds;
+  } else if (input.entityType === "operator" && input.entityIds?.length) {
+    const operatorIds = parseNumericFilterValues(input.entityIds);
+    if (operatorIds.length === 0) {
+      return [] as PetroleumTimeSeriesPoint[];
+    }
+    fieldQuery.operatorNpdCompanyIds = operatorIds;
+  } else if (input.entityType === "area" && input.entityIds?.length) {
+    fieldQuery.areas = input.entityIds;
+  }
+
+  const fieldSnapshots = await listPetroleumFieldSnapshots(fieldQuery);
+  if (fieldSnapshots.length === 0) {
+    return [] as PetroleumTimeSeriesPoint[];
+  }
+
   const fieldLookup = new Map(
     fieldSnapshots.map((field) => [
       field.fieldNpdId,
@@ -2136,7 +2523,8 @@ export async function getPetroleumMarketTimeseries(input: {
   const productionPoints = await listPetroleumProductionPointsForEntities({
     entityType: "FIELD",
     entityNpdIds: fieldSnapshots.map((field) => field.fieldNpdId),
-    yearTo: currentYear,
+    yearFrom: input.yearFrom,
+    yearTo,
     period: input.granularity === "month" ? "month" : "year",
   });
 
@@ -2638,6 +3026,8 @@ export async function getPetroleumEvents(
   filters: PetroleumMarketFilters,
   limit = 100,
 ): Promise<PetroleumEventRow[]> {
+  const eventWindowDays = filters.eventWindowDays ?? PETROLEUM_DEFAULT_EVENT_WINDOW_DAYS;
+  const publishedAfter = Date.now() - eventWindowDays * 24 * 3_600_000;
   const [fieldSnapshots, licenceSnapshots] = await Promise.all([
     listPetroleumFieldSnapshots(buildFieldSnapshotQuery(filters)),
     listPetroleumLicenceSnapshots(buildLicenceSnapshotQuery(filters)),
@@ -2673,6 +3063,10 @@ export async function getPetroleumEvents(
     ...persistedEvents.map(mapPersistedEvent),
     ...derivePetregEvents(filteredLicences),
   ]
+    .filter((event) => {
+      const publishedAt = event.publishedAt?.getTime();
+      return !publishedAt || publishedAt >= publishedAfter;
+    })
     .filter((event) => !event.entityNpdId || !event.entityType || event.entityType !== "LICENCE" || allowedLicenceIds.has(event.entityNpdId))
     .sort((left, right) => (right.publishedAt?.getTime() ?? 0) - (left.publishedAt?.getTime() ?? 0))
     .slice(0, limit);

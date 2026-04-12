@@ -4,6 +4,7 @@ import {
   buildPetroleumAreaSnapshotRows,
   buildPetroleumFieldSnapshotRows,
   buildPetroleumLicenceSnapshotRows,
+  buildPetroleumMapFeatureSnapshotRows,
   buildPetroleumOperatorSnapshotRows,
 } from "@/server/services/petroleum-snapshot-service";
 
@@ -33,6 +34,14 @@ function makeDataset() {
         operatorOrgNumber: "123456789",
         operatorCompanySlug: "operator-one",
         licensees: [{ npdCompanyId: 10, share: 70 }, { npdCompanyId: 20, share: 30 }],
+        factPageUrl: "https://example.com/field-a",
+        factMapUrl: "https://example.com/map/field-a",
+        geometry: { type: "Point", coordinates: [2, 60] },
+        bbox: [1, 59, 3, 61],
+        centroid: [2, 60],
+        sourceSystem: "SODIR",
+        sourceEntityType: "FIELD",
+        sourceId: "100",
       },
     ],
     discoveries: [
@@ -44,6 +53,14 @@ function makeDataset() {
         operatorCompanyName: "Operator One",
         operatorOrgNumber: "123456789",
         operatorCompanySlug: "operator-one",
+        factPageUrl: "https://example.com/discovery-a",
+        factMapUrl: "https://example.com/map/discovery-a",
+        geometry: { type: "Point", coordinates: [2.5, 60.5] },
+        bbox: [2, 60, 3, 61],
+        centroid: [2.5, 60.5],
+        sourceSystem: "SODIR",
+        sourceEntityType: "DISCOVERY",
+        sourceId: "300",
       },
     ],
     licences: [
@@ -63,6 +80,14 @@ function makeDataset() {
         originalAreaSqKm: 33.2,
         licensees: [{ npdCompanyId: 10 }, { npdCompanyId: 20 }],
         transfers: [{ id: 1 }, { id: 2 }],
+        factPageUrl: "https://example.com/lic-a",
+        factMapUrl: "https://example.com/map/lic-a",
+        geometry: { type: "Polygon", coordinates: [[[2, 60], [3, 60], [3, 61], [2, 61], [2, 60]]] },
+        bbox: [2, 60, 3, 61],
+        centroid: [2.5, 60.5],
+        sourceSystem: "SODIR",
+        sourceEntityType: "LICENCE",
+        sourceId: "200",
       },
     ],
     facilities: [
@@ -74,6 +99,85 @@ function makeDataset() {
         currentOperatorName: "Operator One",
         currentOperatorOrgNumber: "123456789",
         currentOperatorSlug: "operator-one",
+        factPageUrl: "https://example.com/fac-a",
+        factMapUrl: "https://example.com/map/fac-a",
+        geometry: { type: "Point", coordinates: [2.2, 60.2] },
+        bbox: [2.1, 60.1, 2.3, 60.3],
+        centroid: [2.2, 60.2],
+        sourceSystem: "SODIR",
+        sourceEntityType: "FACILITY",
+        sourceId: "400",
+      },
+    ],
+    tufs: [
+      {
+        npdId: 500,
+        slug: "tuf-a",
+        name: "TUF A",
+        currentPhase: "Operating",
+        medium: "Gas",
+        belongsToName: "NordsjÃ¸en",
+        operatorNpdCompanyId: 10,
+        operatorCompanyName: "Operator One",
+        operatorOrgNumber: "123456789",
+        operatorCompanySlug: "operator-one",
+        geometry: { type: "LineString", coordinates: [[2, 60], [3, 61]] },
+        bbox: [2, 60, 3, 61],
+        centroid: [2.5, 60.5],
+        factPageUrl: "https://example.com/tuf-a",
+        factMapUrl: "https://example.com/map/tuf-a",
+        sourceSystem: "SODIR",
+        sourceEntityType: "TUF",
+        sourceId: "500",
+      },
+    ],
+    surveys: [
+      {
+        npdId: 600,
+        slug: "survey-a",
+        name: "Survey A",
+        status: "Finished",
+        category: "Seismic",
+        mainType: "3D",
+        subType: "Marine",
+        geographicalArea: "NordsjÃ¸en",
+        companyName: "Operator One",
+        companyNpdId: 10,
+        startedAt: new Date("2025-01-01T00:00:00.000Z"),
+        finalizedAt: new Date("2025-06-01T00:00:00.000Z"),
+        factPageUrl: "https://example.com/survey-a",
+        geometry: { type: "Polygon", coordinates: [[[2, 60], [3, 60], [3, 61], [2, 61], [2, 60]]] },
+        bbox: [2, 60, 3, 61],
+        centroid: [2.5, 60.5],
+        sourceSystem: "SODIR",
+        sourceEntityType: "SURVEY",
+        sourceId: "600",
+      },
+    ],
+    wellbores: [
+      {
+        npdId: 700,
+        slug: "well-a",
+        name: "Well A",
+        drillingOperatorName: "Operator One",
+        drillingOperatorNpdCompanyId: 10,
+        drillingOperatorOrgNumber: "123456789",
+        drillingOperatorSlug: "operator-one",
+        purpose: "Exploration",
+        status: "Completed",
+        content: "Oil",
+        wellType: "Wildcat",
+        fieldName: "Field A",
+        waterDepth: 123,
+        totalDepth: 4567,
+        mainArea: "NordsjÃ¸en",
+        factPageUrl: "https://example.com/well-a",
+        geometry: { type: "Point", coordinates: [2.7, 60.7] },
+        bbox: [2.7, 60.7, 2.7, 60.7],
+        centroid: [2.7, 60.7],
+        sourceSystem: "SODIR",
+        sourceEntityType: "WELLBORE",
+        sourceId: "700",
       },
     ],
     productionPoints: [
@@ -180,5 +284,33 @@ describe("petroleum snapshot builders", () => {
     expect(areas[0]?.licenceCount).toBe(1);
     expect(areas[0]?.operatorCount).toBe(1);
     expect(areas[0]?.latestProductionOe).toBe(18);
+  });
+
+  it("builds map feature snapshots for the lightweight map read path", () => {
+    const dataset = makeDataset();
+    const rows = buildPetroleumMapFeatureSnapshotRows(dataset, computedAt);
+
+    expect(rows.some((row) => row.layerId === "fields" && row.entityNpdId === 100)).toBe(true);
+    expect(rows.some((row) => row.layerId === "licences" && row.entityNpdId === 200)).toBe(true);
+    expect(rows.some((row) => row.layerId === "discoveries" && row.entityNpdId === 300)).toBe(true);
+    expect(rows.some((row) => row.layerId === "facilities" && row.entityNpdId === 400)).toBe(true);
+    expect(rows.some((row) => row.layerId === "tuf" && row.entityNpdId === 500)).toBe(true);
+    expect(rows.some((row) => row.layerId === "surveys" && row.entityNpdId === 600)).toBe(true);
+    expect(rows.some((row) => row.layerId === "wellbores" && row.entityNpdId === 700)).toBe(true);
+
+    const fieldRow = rows.find(
+      (row) => row.layerId === "fields" && row.entityNpdId === 100,
+    ) as
+      | {
+          latestProductionOe?: number | null;
+          remainingOe?: number | null;
+          expectedFutureInvestmentNok?: bigint | null;
+          productionYoYPercent?: number | null;
+        }
+      | undefined;
+    expect(fieldRow?.latestProductionOe).toBe(18);
+    expect(fieldRow?.remainingOe).toBe(80);
+    expect(fieldRow?.expectedFutureInvestmentNok).toBe(250000000n);
+    expect(fieldRow?.productionYoYPercent).not.toBeNull();
   });
 });
