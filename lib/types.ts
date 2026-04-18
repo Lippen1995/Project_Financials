@@ -24,6 +24,7 @@ export type DistressStatus =
 export type AnnualReportFilingStatus =
   | "DISCOVERED"
   | "DOWNLOADED"
+  | "PROCESSING"
   | "PREFLIGHTED"
   | "EXTRACTED"
   | "VALIDATED"

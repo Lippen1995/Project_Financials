@@ -221,12 +221,21 @@ enum PetroleumWatchEntityType {
 enum AnnualReportFilingStatus {
   DISCOVERED
   DOWNLOADED
+  PROCESSING
   PREFLIGHTED
   EXTRACTED
   VALIDATED
   PUBLISHED
   FAILED
   MANUAL_REVIEW
+}
+
+enum AnnualReportReviewStatus {
+  PENDING_REVIEW
+  ACCEPTED
+  REJECTED
+  REPROCESS_REQUESTED
+  RESOLVED_BY_NEW_RUN
 }
 
 enum AnnualReportArtifactType {
@@ -420,6 +429,7 @@ model Company {
   financialExtractionRuns   FinancialExtractionRun[]
   financialFacts            FinancialFact[]
   financialValidationIssues FinancialValidationIssue[]
+  annualReportReviews       AnnualReportReview[]
   shareholdingSnapshots     ShareholdingSnapshot[]
   linkedShareholders        Shareholder[]
   ownerships                Ownership[]
@@ -597,6 +607,13 @@ model AnnualReportFiling {
   sourceDocumentType       String
   discoveredAt             DateTime
   downloadedAt             DateTime?
+  processingStartedAt      DateTime?
+  preflightedAt            DateTime?
+  extractedAt              DateTime?
+  validatedAt              DateTime?
+  publishedSnapshotAt      DateTime?
+  manualReviewAt           DateTime?
+  failedAt                 DateTime?
   status                   AnnualReportFilingStatus @default(DISCOVERED)
   unitHints                Json?
   metadata                 Json?
@@ -610,6 +627,7 @@ model AnnualReportFiling {
   extractionRuns           FinancialExtractionRun[]
   facts                    FinancialFact[]
   validationIssues         FinancialValidationIssue[]
+  reviews                  AnnualReportReview[]
   publishedStatements      FinancialStatement[]     @relation("PublishedStatementFiling")
   coverageAsLatestSuccess  CompanyFinancialCoverage[] @relation("CoverageLatestSuccessfulFiling")
 
@@ -656,6 +674,7 @@ model FinancialExtractionRun {
   company          Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   facts            FinancialFact[]
   validationIssues FinancialValidationIssue[]
+  reviews          AnnualReportReview[]
   publishedStatements FinancialStatement[]      @relation("PublishedStatementExtractionRun")
 
   @@index([filingId, status, startedAt])
@@ -732,6 +751,33 @@ model CompanyFinancialCoverage {
 
   @@index([coverageStatus, nextCheckAt])
   @@index([latestPublishedFiscalYear])
+}
+
+model AnnualReportReview {
+  id                        String                   @id @default(cuid())
+  filingId                  String
+  extractionRunId           String?
+  companyId                 String
+  fiscalYear                Int
+  status                    AnnualReportReviewStatus @default(PENDING_REVIEW)
+  qualityScore              Float?
+  sourcePrecedenceAttempted String?
+  blockingIssueCount        Int                      @default(0)
+  blockingRuleCodes         String[]
+  pageReferences            Int[]
+  latestActionNote          String?
+  reviewPayload             Json?
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  resolvedAt                DateTime?
+  filing                    AnnualReportFiling       @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  extractionRun             FinancialExtractionRun?  @relation(fields: [extractionRunId], references: [id], onDelete: SetNull)
+  company                   Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([filingId, extractionRunId])
+  @@index([status, updatedAt])
+  @@index([companyId, status])
+  @@index([fiscalYear, status])
 }
 
 model Address {

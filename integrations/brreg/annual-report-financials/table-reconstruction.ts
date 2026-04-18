@@ -6,15 +6,17 @@ import {
 import {
   normalizeRowLabel,
   parseFinancialInteger,
+  repairOcrTokenBoundaries,
   stripDuplicateWhitespace,
 } from "@/integrations/brreg/annual-report-financials/text";
 
 function isNumericToken(token: string) {
-  return /^-?\d[\d\s.]*$/.test(token.trim());
+  return /^[(\-]?\d[\d\s.,)]*-?$/.test(token.trim());
 }
 
 function isHeaderOrNoiseLine(line: string, classification: PageClassification) {
-  const normalized = normalizeRowLabel(line);
+  const repaired = repairOcrTokenBoundaries(line);
+  const normalized = normalizeRowLabel(repaired);
   if (!normalized) {
     return true;
   }
@@ -23,15 +25,18 @@ function isHeaderOrNoiseLine(line: string, classification: PageClassification) {
     return true;
   }
 
-  if (/^(20\d{2}\s*){1,3}$/.test(line.trim())) {
+  if (/^(20\d{2}\s*){1,4}$/.test(repaired.trim())) {
     return true;
   }
 
   if (
     normalized.includes("belop i") ||
     normalized.includes("alle tall") ||
-    normalized.includes("note ") ||
-    normalized.includes("regnskapsprinsipper")
+    normalized.includes("regnskapsprinsipper") ||
+    normalized.includes("org nr") ||
+    normalized.includes("organisasjonsnummer") ||
+    normalized.startsWith("side ") ||
+    /^[-_=]{3,}$/.test(repaired.trim())
   ) {
     return true;
   }
@@ -49,7 +54,20 @@ function inferNoteReference(tokens: string[], firstNumericIndex: number) {
     return noteCandidate;
   }
 
+  const mergedCandidate = tokens[firstNumericIndex]?.trim() ?? "";
+  const mergedMatch = mergedCandidate.match(/^(\d{1,2})([-(]?\d.*)$/);
+  if (mergedMatch) {
+    return mergedMatch[1];
+  }
+
   return null;
+}
+
+function splitMergedTokens(token: string) {
+  return repairOcrTokenBoundaries(token)
+    .split(/\s+/)
+    .flatMap((part) => part.split(/(?<=\))(?=\d)|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z(])/))
+    .filter(Boolean);
 }
 
 function tokenizeLine(page: PageTextLayer, lineIndex: number) {
@@ -59,19 +77,23 @@ function tokenizeLine(page: PageTextLayer, lineIndex: number) {
   }
 
   if (line.words.length > 0) {
-    return line.words.map((word) => ({
-      token: word.text.trim(),
-      x: word.x,
-    }));
+    return line.words.flatMap((word) =>
+      splitMergedTokens(word.text.trim()).map((token, tokenIndex) => ({
+        token,
+        x: word.x + tokenIndex * 12,
+      })),
+    );
   }
 
   return line.text
     .split(/\s{2,}|\t+|\s+/)
     .filter(Boolean)
-    .map((token, tokenIndex) => ({
-      token,
-      x: tokenIndex * 100,
-    }));
+    .flatMap((token, tokenIndex) =>
+      splitMergedTokens(token).map((part, partIndex) => ({
+        token: part,
+        x: tokenIndex * 100 + partIndex * 12,
+      })),
+    );
 }
 
 function buildRowsForPage(page: PageTextLayer, classification: PageClassification) {
@@ -93,7 +115,7 @@ function buildRowsForPage(page: PageTextLayer, classification: PageClassificatio
 
     const tokens = tokenizeLine(page, lineIndex)
       .map((item) => item.token)
-      .filter(Boolean);
+      .filter((token) => token !== "-" && token !== "_");
     const numericIndexes = tokens
       .map((token, index) => ({ token, index }))
       .filter((candidate) => isNumericToken(candidate.token));
@@ -116,8 +138,9 @@ function buildRowsForPage(page: PageTextLayer, classification: PageClassificatio
       continue;
     }
 
+    const valueSlots = Math.max(2, classification.yearHeaderYears.length || 2);
     const values = numericIndexes
-      .slice(-Math.max(2, classification.yearHeaderYears.length || 2))
+      .slice(-valueSlots)
       .map(({ token, index }, valueIndex) => ({
         value: parseFinancialInteger(token),
         columnIndex: valueIndex,

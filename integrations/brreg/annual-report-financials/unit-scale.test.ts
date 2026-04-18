@@ -4,14 +4,30 @@ import { detectUnitScale } from "@/integrations/brreg/annual-report-financials/u
 
 describe("detectUnitScale", () => {
   it("detects whole NOK declarations", () => {
-    const result = detectUnitScale("Beløp i: NOK Resultatregnskap for 2024");
+    const result = detectUnitScale("Belop i: NOK Resultatregnskap for 2024");
 
     expect(result.unitScale).toBe(1);
     expect(result.confidence).toBeGreaterThan(0.8);
   });
 
   it("detects NOK 1000 declarations", () => {
-    const result = detectUnitScale("Beløp i NOK 1 000. Balanse per 31.12.");
+    const result = detectUnitScale("Belop i NOK 1 000. Balanse per 31.12.");
+
+    expect(result.unitScale).toBe(1000);
+    expect(result.confidence).toBeGreaterThan(0.9);
+  });
+
+  it("detects TNOK shorthand declarations", () => {
+    const result = detectUnitScale("Resultatregnskap for 2024 TNOK");
+
+    expect(result.unitScale).toBe(1000);
+    expect(result.confidence).toBeGreaterThan(0.9);
+  });
+
+  it("detects note-level NOK 1.000 declarations", () => {
+    const result = detectUnitScale(
+      "Alle tall i notene er NOK 1.000 dersom annet ikke er oppgitt.",
+    );
 
     expect(result.unitScale).toBe(1000);
     expect(result.confidence).toBeGreaterThan(0.9);

@@ -49,6 +49,18 @@ const THOUSAND_PATTERNS: ScalePattern[] = [
     confidence: 0.9,
     source: "PAGE_BODY",
   },
+  {
+    unitScale: 1000,
+    regex: /\bt[\s-]?nok\b/,
+    confidence: 0.97,
+    source: "PAGE_HEADER",
+  },
+  {
+    unitScale: 1000,
+    regex: /nok\s*1[.\s]?000\b/,
+    confidence: 0.98,
+    source: "PAGE_HEADER",
+  },
 ];
 
 const WHOLE_NOK_PATTERNS: ScalePattern[] = [

@@ -1,4 +1,4 @@
-import { Prisma, AnnualReportFilingStatus } from "@prisma/client";
+import { Prisma, AnnualReportFilingStatus, AnnualReportReviewStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -303,6 +303,38 @@ export async function updateAnnualReportFiling(
   });
 }
 
+export async function claimAnnualReportFilingForProcessing(
+  filingId: string,
+  allowedStatuses: AnnualReportFilingStatus[] = [
+    "DISCOVERED",
+    "DOWNLOADED",
+    "PREFLIGHTED",
+    "FAILED",
+    "MANUAL_REVIEW",
+  ],
+) {
+  const claimed = await prisma.annualReportFiling.updateMany({
+    where: {
+      id: filingId,
+      status: {
+        in: allowedStatuses,
+      },
+    },
+    data: {
+      status: "PROCESSING",
+      processingStartedAt: new Date(),
+    },
+  });
+
+  if (claimed.count === 0) {
+    return null;
+  }
+
+  return prisma.annualReportFiling.findUnique({
+    where: { id: filingId },
+  });
+}
+
 export async function createAnnualReportArtifact(input: {
   filingId: string;
   artifactType: Prisma.AnnualReportArtifactUncheckedCreateInput["artifactType"];
@@ -463,73 +495,84 @@ export async function publishFinancialStatementSnapshot(input: {
   sourcePrecedence: Prisma.FinancialStatementUncheckedCreateInput["sourcePrecedence"];
   publishedAt: Date;
 }) {
-  const existing = await getPublishedFinancialStatementSnapshot({
-    companyId: input.companyId,
-    fiscalYear: input.fiscalYear,
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      const existing = await tx.financialStatement.findUnique({
+        where: {
+          companyId_fiscalYear: {
+            companyId: input.companyId,
+            fiscalYear: input.fiscalYear,
+          },
+        },
+      });
 
-  const canReplace =
-    !existing ||
-    existing.sourceFilingId === input.sourceFilingId ||
-    existing.qualityStatus !== "HIGH_CONFIDENCE" ||
-    (existing.qualityScore ?? 0) <= input.qualityScore;
+      const canReplace =
+        !existing ||
+        existing.sourceFilingId === input.sourceFilingId ||
+        existing.qualityStatus !== "HIGH_CONFIDENCE" ||
+        (existing.qualityScore ?? 0) <= input.qualityScore;
 
-  if (!canReplace) {
-    return existing;
-  }
+      if (!canReplace) {
+        return existing;
+      }
 
-  return prisma.financialStatement.upsert({
-    where: {
-      companyId_fiscalYear: {
-        companyId: input.companyId,
-        fiscalYear: input.fiscalYear,
-      },
+      return tx.financialStatement.upsert({
+        where: {
+          companyId_fiscalYear: {
+            companyId: input.companyId,
+            fiscalYear: input.fiscalYear,
+          },
+        },
+        update: {
+          currency: input.currency,
+          revenue: toBigInt(input.revenue),
+          operatingProfit: toBigInt(input.operatingProfit),
+          netIncome: toBigInt(input.netIncome),
+          equity: toBigInt(input.equity),
+          assets: toBigInt(input.assets),
+          sourceSystem: input.sourceSystem,
+          sourceEntityType: input.sourceEntityType,
+          sourceId: input.sourceId,
+          fetchedAt: input.fetchedAt,
+          normalizedAt: input.normalizedAt,
+          rawPayload: input.rawPayload,
+          sourceFilingId: input.sourceFilingId,
+          sourceExtractionRunId: input.sourceExtractionRunId,
+          qualityStatus: input.qualityStatus,
+          qualityScore: input.qualityScore,
+          unitScale: input.unitScale,
+          sourcePrecedence: input.sourcePrecedence,
+          publishedAt: input.publishedAt,
+        },
+        create: {
+          companyId: input.companyId,
+          fiscalYear: input.fiscalYear,
+          currency: input.currency,
+          revenue: toBigInt(input.revenue),
+          operatingProfit: toBigInt(input.operatingProfit),
+          netIncome: toBigInt(input.netIncome),
+          equity: toBigInt(input.equity),
+          assets: toBigInt(input.assets),
+          sourceSystem: input.sourceSystem,
+          sourceEntityType: input.sourceEntityType,
+          sourceId: input.sourceId,
+          fetchedAt: input.fetchedAt,
+          normalizedAt: input.normalizedAt,
+          rawPayload: input.rawPayload,
+          sourceFilingId: input.sourceFilingId,
+          sourceExtractionRunId: input.sourceExtractionRunId,
+          qualityStatus: input.qualityStatus,
+          qualityScore: input.qualityScore,
+          unitScale: input.unitScale,
+          sourcePrecedence: input.sourcePrecedence,
+          publishedAt: input.publishedAt,
+        },
+      });
     },
-    update: {
-      currency: input.currency,
-      revenue: toBigInt(input.revenue),
-      operatingProfit: toBigInt(input.operatingProfit),
-      netIncome: toBigInt(input.netIncome),
-      equity: toBigInt(input.equity),
-      assets: toBigInt(input.assets),
-      sourceSystem: input.sourceSystem,
-      sourceEntityType: input.sourceEntityType,
-      sourceId: input.sourceId,
-      fetchedAt: input.fetchedAt,
-      normalizedAt: input.normalizedAt,
-      rawPayload: input.rawPayload,
-      sourceFilingId: input.sourceFilingId,
-      sourceExtractionRunId: input.sourceExtractionRunId,
-      qualityStatus: input.qualityStatus,
-      qualityScore: input.qualityScore,
-      unitScale: input.unitScale,
-      sourcePrecedence: input.sourcePrecedence,
-      publishedAt: input.publishedAt,
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     },
-    create: {
-      companyId: input.companyId,
-      fiscalYear: input.fiscalYear,
-      currency: input.currency,
-      revenue: toBigInt(input.revenue),
-      operatingProfit: toBigInt(input.operatingProfit),
-      netIncome: toBigInt(input.netIncome),
-      equity: toBigInt(input.equity),
-      assets: toBigInt(input.assets),
-      sourceSystem: input.sourceSystem,
-      sourceEntityType: input.sourceEntityType,
-      sourceId: input.sourceId,
-      fetchedAt: input.fetchedAt,
-      normalizedAt: input.normalizedAt,
-      rawPayload: input.rawPayload,
-      sourceFilingId: input.sourceFilingId,
-      sourceExtractionRunId: input.sourceExtractionRunId,
-      qualityStatus: input.qualityStatus,
-      qualityScore: input.qualityScore,
-      unitScale: input.unitScale,
-      sourcePrecedence: input.sourcePrecedence,
-      publishedAt: input.publishedAt,
-    },
-  });
+  );
 }
 
 export async function upsertCompanyFinancialCoverage(input: {
@@ -565,6 +608,101 @@ export async function upsertCompanyFinancialCoverage(input: {
       failureCount: input.failureCount ?? 0,
       coverageStatus: input.coverageStatus,
       latestSuccessfulFilingId: input.latestSuccessfulFilingId ?? null,
+    },
+  });
+}
+
+export async function upsertAnnualReportReview(input: {
+  filingId: string;
+  extractionRunId?: string | null;
+  companyId: string;
+  fiscalYear: number;
+  status?: AnnualReportReviewStatus;
+  qualityScore?: number | null;
+  sourcePrecedenceAttempted?: string | null;
+  blockingRuleCodes: string[];
+  pageReferences?: number[];
+  latestActionNote?: string | null;
+  reviewPayload?: Prisma.InputJsonValue;
+}) {
+  const key =
+    input.extractionRunId === null || input.extractionRunId === undefined
+      ? undefined
+      : {
+          filingId_extractionRunId: {
+            filingId: input.filingId,
+            extractionRunId: input.extractionRunId,
+          },
+        };
+
+  if (key) {
+    return prisma.annualReportReview.upsert({
+      where: key,
+      update: {
+        status: input.status ?? "PENDING_REVIEW",
+        qualityScore: input.qualityScore ?? undefined,
+        sourcePrecedenceAttempted: input.sourcePrecedenceAttempted ?? undefined,
+        blockingIssueCount: input.blockingRuleCodes.length,
+        blockingRuleCodes: input.blockingRuleCodes,
+        pageReferences: input.pageReferences ?? [],
+        latestActionNote: input.latestActionNote ?? undefined,
+        reviewPayload: input.reviewPayload,
+        resolvedAt:
+          input.status && input.status !== "PENDING_REVIEW" ? new Date() : undefined,
+      },
+      create: {
+        filingId: input.filingId,
+        extractionRunId: input.extractionRunId,
+        companyId: input.companyId,
+        fiscalYear: input.fiscalYear,
+        status: input.status ?? "PENDING_REVIEW",
+        qualityScore: input.qualityScore ?? null,
+        sourcePrecedenceAttempted: input.sourcePrecedenceAttempted ?? null,
+        blockingIssueCount: input.blockingRuleCodes.length,
+        blockingRuleCodes: input.blockingRuleCodes,
+        pageReferences: input.pageReferences ?? [],
+        latestActionNote: input.latestActionNote ?? null,
+        reviewPayload: input.reviewPayload,
+        resolvedAt:
+          input.status && input.status !== "PENDING_REVIEW" ? new Date() : null,
+      },
+    });
+  }
+
+  return prisma.annualReportReview.create({
+    data: {
+      filingId: input.filingId,
+      extractionRunId: null,
+      companyId: input.companyId,
+      fiscalYear: input.fiscalYear,
+      status: input.status ?? "PENDING_REVIEW",
+      qualityScore: input.qualityScore ?? null,
+      sourcePrecedenceAttempted: input.sourcePrecedenceAttempted ?? null,
+      blockingIssueCount: input.blockingRuleCodes.length,
+      blockingRuleCodes: input.blockingRuleCodes,
+      pageReferences: input.pageReferences ?? [],
+      latestActionNote: input.latestActionNote ?? null,
+      reviewPayload: input.reviewPayload,
+      resolvedAt:
+        input.status && input.status !== "PENDING_REVIEW" ? new Date() : null,
+    },
+  });
+}
+
+export async function resolveAnnualReportReviewsForFiling(
+  filingId: string,
+  status: AnnualReportReviewStatus = "RESOLVED_BY_NEW_RUN",
+) {
+  return prisma.annualReportReview.updateMany({
+    where: {
+      filingId,
+      status: {
+        in: ["PENDING_REVIEW", "REPROCESS_REQUESTED"],
+      },
+    },
+    data: {
+      status,
+      resolvedAt: new Date(),
     },
   });
 }
@@ -618,6 +756,189 @@ export async function listLatestAnnualReportFilingsForCompany(companyId: string)
   });
 }
 
+export async function listAnnualReportFilingsForReprocessing(options?: {
+  filingIds?: string[];
+  orgNumbers?: string[];
+  fiscalYearFrom?: number;
+  fiscalYearTo?: number;
+  parserVersions?: string[];
+  maxQualityScore?: number;
+  limit?: number;
+}) {
+  const filings = await prisma.annualReportFiling.findMany({
+    where: {
+      ...(options?.filingIds?.length ? { id: { in: options.filingIds } } : {}),
+      ...(options?.orgNumbers?.length
+        ? {
+            company: {
+              orgNumber: {
+                in: options.orgNumbers,
+              },
+            },
+          }
+        : {}),
+      ...(options?.fiscalYearFrom !== undefined || options?.fiscalYearTo !== undefined
+        ? {
+            fiscalYear: {
+              ...(options?.fiscalYearFrom !== undefined ? { gte: options.fiscalYearFrom } : {}),
+              ...(options?.fiscalYearTo !== undefined ? { lte: options.fiscalYearTo } : {}),
+            },
+          }
+        : {}),
+      ...(options?.parserVersions?.length
+        ? {
+            extractionRuns: {
+              some: {
+                parserVersion: {
+                  in: options.parserVersions,
+                },
+              },
+            },
+          }
+        : {}),
+    },
+    include: {
+      company: {
+        select: {
+          orgNumber: true,
+          name: true,
+        },
+      },
+      extractionRuns: {
+        orderBy: { startedAt: "desc" },
+        take: 5,
+      },
+    },
+    orderBy: [{ companyId: "asc" }, { fiscalYear: "desc" }, { discoveredAt: "desc" }],
+    take: options?.limit,
+  });
+
+  if (options?.maxQualityScore === undefined) {
+    return filings;
+  }
+
+  return filings.filter((filing) => {
+    const latestRun = filing.extractionRuns[0];
+    if (!latestRun) {
+      return false;
+    }
+
+    return (latestRun.confidenceScore ?? 0) <= options.maxQualityScore!;
+  });
+}
+
+export async function listAnnualReportReviews(options?: {
+  statuses?: AnnualReportReviewStatus[];
+  ruleCodes?: string[];
+  orgNumbers?: string[];
+  limit?: number;
+}) {
+  return prisma.annualReportReview.findMany({
+    where: {
+      ...(options?.statuses?.length
+        ? {
+            status: {
+              in: options.statuses,
+            },
+          }
+        : {}),
+      ...(options?.ruleCodes?.length
+        ? {
+            blockingRuleCodes: {
+              hasSome: options.ruleCodes,
+            },
+          }
+        : {}),
+      ...(options?.orgNumbers?.length
+        ? {
+            company: {
+              orgNumber: {
+                in: options.orgNumbers,
+              },
+            },
+          }
+        : {}),
+    },
+    include: {
+      company: {
+        select: {
+          orgNumber: true,
+          name: true,
+          slug: true,
+        },
+      },
+      filing: true,
+      extractionRun: true,
+    },
+    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+    take: options?.limit,
+  });
+}
+
+export async function updateAnnualReportReviewStatus(input: {
+  reviewId: string;
+  status: AnnualReportReviewStatus;
+  latestActionNote?: string | null;
+}) {
+  return prisma.annualReportReview.update({
+    where: { id: input.reviewId },
+    data: {
+      status: input.status,
+      latestActionNote: input.latestActionNote ?? undefined,
+      resolvedAt: input.status === "PENDING_REVIEW" ? null : new Date(),
+    },
+    include: {
+      company: {
+        select: {
+          orgNumber: true,
+          name: true,
+        },
+      },
+      filing: true,
+      extractionRun: true,
+    },
+  });
+}
+
+export async function getAnnualReportPipelineMetrics() {
+  const [
+    filingStatusCounts,
+    runStatusCounts,
+    reviewStatusCounts,
+    incompleteCoverageCount,
+  ] = await prisma.$transaction([
+    prisma.annualReportFiling.groupBy({
+      by: ["status"],
+      orderBy: { status: "asc" },
+      _count: { _all: true },
+    }),
+    prisma.financialExtractionRun.groupBy({
+      by: ["status"],
+      orderBy: { status: "asc" },
+      _count: { _all: true },
+    }),
+    prisma.annualReportReview.groupBy({
+      by: ["status"],
+      orderBy: { status: "asc" },
+      _count: { _all: true },
+    }),
+    prisma.companyFinancialCoverage.count({
+      where: {
+        coverageStatus: {
+          in: ["DISCOVERED", "PARTIAL", "FAILED", "MANUAL_REVIEW"],
+        },
+      },
+    }),
+  ]);
+
+  return {
+    filings: filingStatusCounts,
+    runs: runStatusCounts,
+    reviews: reviewStatusCounts,
+    incompleteCoverageCount,
+  };
+}
+
 export async function getPublishedFinancialsForCompany(orgNumber: string) {
   return prisma.company.findUnique({
     where: { orgNumber },
@@ -650,6 +971,9 @@ export async function getAnnualReportFilingWithArtifacts(filingId: string) {
       artifacts: true,
       extractionRuns: {
         orderBy: { startedAt: "desc" },
+      },
+      reviews: {
+        orderBy: { updatedAt: "desc" },
       },
     },
   });

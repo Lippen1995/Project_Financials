@@ -212,6 +212,13 @@ npm run financials:process-pending-filings
 npm run financials:sync-new-filings
 npm run financials:reprocess-low-confidence
 npm run financials:validate-published-financials
+npm run financials:list-review-queue
+npm run financials:list-blocked-by-issue -- --rule=BS_TOTAL_BALANCES
+npm run financials:reprocess-filing -- <filingId>
+npm run financials:reprocess-runs -- --parser=annual-report-pipeline-v2 --max-quality=0.9
+npm run financials:inspect-coverage
+npm run financials:inspect-pending
+npm run financials:inspect-published-provenance -- <orgNumber> --fiscal-year=2024
 ```
 
 Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes selskaper som allerede finnes i ProjectX-databasen.
@@ -232,6 +239,22 @@ Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes s
 - filings i `FAILED` eller `MANUAL_REVIEW` reprocesses bare via eksplisitt low-confidence/retry-jobb
 - publiserte filings blir ikke destruktivt slettet og opprettet på nytt; nye extraction runs og artifacts beholdes som historikk
 
+### Manual review queue
+
+- filings som blokkeres av publish gate oppretter `AnnualReportReview` med status `PENDING_REVIEW`
+- review-raden peker til filing, extraction run, blocking rule codes, sidehenvisninger og et review-payload med klassifiseringer og utvalgte facts
+- operatører kan liste køen via `financials:list-review-queue` eller filtrere på regelkode via `financials:list-blocked-by-issue`
+- review-status oppdateres via backend-tjenesten eller internruten `/api/internal/annual-report-financials/reviews`
+- når en ny bedre extraction run publiseres for samme filing, tidligere åpne review-rader markeres som `RESOLVED_BY_NEW_RUN`
+
+### Reprocessing og parser-versjoner
+
+- hver extraction run lagrer `parserVersion`, OCR-engine, confidence score og valideringsscore
+- `financials:reprocess-filing` tvinger en enkelt filing gjennom pipeline-en igjen uten å slette tidligere runs eller publisert snapshot
+- `financials:reprocess-runs` kan velge filings per orgnummer, parser-versjon, årsintervall, quality score eller spesifikke filing-id-er
+- lav-confidence reprocessing bruker samme sikre flyt og kan ikke degradere et allerede publisert high-confidence snapshot
+- hvis samme regnskapsår oppdages med endret dokumenthash, opprettes en ny filing-versjon i stedet for å overskrive gammel provenance
+
 ### Hva blokkerer auto-publisering
 
 En filing publiseres ikke automatisk dersom ett eller flere av disse forholdene gjelder:
@@ -241,9 +264,20 @@ En filing publiseres ikke automatisk dersom ett eller flere av disse forholdene 
 - required primary metrics mangler
 - resultat- eller balanselikninger feiler materielt
 - duplikate statement-seksjoner ikke stemmer etter normalisering
+- note-tie-out eller skala/kolonnekontroller peker på mistenkelig konflikt
+- extraction confidence eller validation score er for lav
 - confidence score havner under terskel
 
 I slike tilfeller lagres fortsatt rå PDF, artifacts, extraction run, facts og validation issues, men filing-en merkes som `MANUAL_REVIEW` eller `FAILED`.
+
+### Operatør-runbook
+
+- bruk `financials:inspect-pending` for nye discoveries som ennå ikke er prosessert
+- bruk `financials:list-review-queue` for filings som trenger menneskelig gjennomgang
+- bruk `financials:inspect-coverage -- --only-due` for selskaper som skal sjekkes i neste inkrementelle sync
+- bruk `financials:inspect-published-provenance` for å se hvilken filing og extraction run som produserte publisert snapshot
+- hvis en filing sitter fast i `FAILED` eller `MANUAL_REVIEW`, kjør `financials:reprocess-filing -- <filingId>` eller `financials:reprocess-runs` med relevante filtre
+- intern overvåking kan lese `/api/internal/annual-report-financials/overview` og `/api/internal/annual-report-financials/reviews` med samme `WORKSPACE_SYNC_SECRET`-mekanisme som øvrige interne ruter
 
 ## Import av aksjonærdata
 

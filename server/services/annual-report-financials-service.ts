@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { AnnualReportFilingStatus, Prisma } from "@prisma/client";
+import { AnnualReportFilingStatus, AnnualReportReviewStatus, Prisma } from "@prisma/client";
 import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
 import { classifyPages } from "@/integrations/brreg/annual-report-financials/page-classification";
 import { buildNormalizedFinancialPayload } from "@/integrations/brreg/annual-report-financials/normalized-payload";
@@ -17,6 +17,7 @@ import { LocalAnnualReportArtifactStorage } from "@/server/financials/artifact-s
 import { toSafeNumber } from "@/server/financials/number-utils";
 import {
   completeFinancialExtractionRun,
+  claimAnnualReportFilingForProcessing,
   createAnnualReportArtifact,
   createAnnualReportFilingVersion,
   createFinancialExtractionRun,
@@ -24,12 +25,18 @@ import {
   createFinancialValidationIssues,
   findCompanyByOrgNumber,
   getAnnualReportFilingWithArtifacts,
+  getAnnualReportPipelineMetrics,
   getPublishedFinancialsForCompany,
   listCompaniesForFinancialSync,
+  listAnnualReportFilingsForReprocessing,
   listLatestAnnualReportFilingsForCompany,
   listPendingAnnualReportFilings,
+  listAnnualReportReviews,
   publishFinancialStatementSnapshot,
   registerAnnualReportHashVersion,
+  resolveAnnualReportReviewsForFiling,
+  updateAnnualReportReviewStatus,
+  upsertAnnualReportReview,
   upsertAnnualReportFilingDiscovery,
   upsertCompanyFinancialCoverage,
   updateAnnualReportFiling,
@@ -37,7 +44,7 @@ import {
 
 const provider = new BrregFinancialsProvider();
 const artifactStorage = new LocalAnnualReportArtifactStorage();
-export const ANNUAL_REPORT_PARSER_VERSION = "annual-report-pipeline-v2";
+export const ANNUAL_REPORT_PARSER_VERSION = "annual-report-pipeline-v3";
 
 const computeSha256 = (buffer: Buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
 const nextCheckDate = (hours: number) => new Date(Date.now() + hours * 60 * 60 * 1000);
@@ -182,6 +189,89 @@ async function persistJsonArtifact(input: { filingId: string; artifactType: "PRE
   await createAnnualReportArtifact({ filingId: input.filingId, artifactType: input.artifactType, storageKey: stored.storageKey, checksum, mimeType: "application/json", metadata: { filename: input.filename } });
 }
 
+function logPipelineEvent(event: string, payload: Record<string, unknown>) {
+  console.info(
+    JSON.stringify({
+      scope: "annual-report-financials",
+      event,
+      at: new Date().toISOString(),
+      ...payload,
+    }),
+  );
+}
+
+function buildReviewPayload(input: {
+  filingId: string;
+  extractionRunId?: string | null;
+  classifications: PageClassification[];
+  issues: ValidationIssueDraft[];
+  selectedFacts?: Map<string, CanonicalFactCandidate>;
+}) {
+  const pageReferences = Array.from(
+    new Set([
+      ...input.classifications.map((classification) => classification.pageNumber),
+      ...input.issues.flatMap((issue) => {
+        const pageNumber = issue.context?.pageNumber;
+        return typeof pageNumber === "number" ? [pageNumber] : [];
+      }),
+      ...(input.selectedFacts
+        ? Array.from(input.selectedFacts.values()).flatMap((fact) =>
+            typeof fact.sourcePage === "number" ? [fact.sourcePage] : [],
+          )
+        : []),
+    ]),
+  ).sort((left, right) => left - right);
+
+  const factSummary = input.selectedFacts
+    ? Array.from(input.selectedFacts.values()).map((fact) => ({
+        metricKey: fact.metricKey,
+        value: fact.value,
+        rawLabel: fact.rawLabel,
+        sourcePage: fact.sourcePage,
+        sourceSection: fact.sourceSection,
+        sourcePrecedence: fact.precedence,
+      }))
+    : [];
+
+  return {
+    pageReferences,
+    reviewPayload: {
+      filingId: input.filingId,
+      extractionRunId: input.extractionRunId ?? null,
+      blockingIssues: input.issues.map((issue) => ({
+        severity: issue.severity,
+        ruleCode: issue.ruleCode,
+        message: issue.message,
+        expectedValue: issue.expectedValue ?? null,
+        actualValue: issue.actualValue ?? null,
+        context: issue.context ?? null,
+      })),
+      selectedFacts: factSummary,
+      classifications: input.classifications.map((classification) => ({
+        pageNumber: classification.pageNumber,
+        type: classification.type,
+        confidence: classification.confidence,
+        unitScale: classification.unitScale,
+        unitScaleConfidence: classification.unitScaleConfidence,
+        reasons: classification.reasons,
+      })),
+    },
+  };
+}
+
+function summarizeBlockingReasons(reviewPayload: Record<string, any> | null | undefined) {
+  const blockingIssues = Array.isArray(reviewPayload?.blockingIssues)
+    ? reviewPayload.blockingIssues
+    : [];
+  return blockingIssues.map((issue) => ({
+    severity: issue?.severity ?? null,
+    ruleCode: issue?.ruleCode ?? null,
+    message: issue?.message ?? null,
+    pageNumber:
+      typeof issue?.context?.pageNumber === "number" ? issue.context.pageNumber : null,
+  }));
+}
+
 async function ensurePdfArtifact(filingId: string) {
   const filing = await getAnnualReportFilingWithArtifacts(filingId);
   if (!filing) throw new Error(`Fant ikke filing ${filingId}.`);
@@ -220,11 +310,42 @@ async function verifyLatestKnownFilingHashes(companyId: string) {
   return createdVersions;
 }
 
-export async function processAnnualReportFiling(filingId: string) {
+export async function processAnnualReportFiling(
+  filingId: string,
+  options?: { force?: boolean },
+) {
+  const claimed = await claimAnnualReportFilingForProcessing(
+    filingId,
+    options?.force
+      ? [
+          "DISCOVERED",
+          "DOWNLOADED",
+          "PREFLIGHTED",
+          "EXTRACTED",
+          "VALIDATED",
+          "FAILED",
+          "MANUAL_REVIEW",
+          "PUBLISHED",
+        ]
+      : undefined,
+  );
+  if (!claimed) {
+    const current = await getAnnualReportFilingWithArtifacts(filingId);
+    return {
+      filingId,
+      fiscalYear: current?.fiscalYear ?? null,
+      skipped: true,
+      reason: current ? `Filing is already in status ${current.status}` : "Filing not found",
+      published: current?.status === "PUBLISHED",
+    };
+  }
+
+  logPipelineEvent("filing.claimed", { filingId, fiscalYear: claimed.fiscalYear, status: claimed.status });
   const { filing, pdfBuffer } = await ensurePdfArtifact(filingId);
   const preflight = await preflightAnnualReportDocument(pdfBuffer);
   await persistJsonArtifact({ filingId: filing.id, artifactType: "PREFLIGHT_JSON", filename: "preflight.json", payload: preflight });
-  await updateAnnualReportFiling(filing.id, { status: "PREFLIGHTED", unitHints: { hasTextLayer: preflight.hasTextLayer, hasReliableTextLayer: preflight.hasReliableTextLayer }, parserVersionLastTried: ANNUAL_REPORT_PARSER_VERSION, lastError: null });
+  await updateAnnualReportFiling(filing.id, { preflightedAt: new Date(), unitHints: { hasTextLayer: preflight.hasTextLayer, hasReliableTextLayer: preflight.hasReliableTextLayer }, parserVersionLastTried: ANNUAL_REPORT_PARSER_VERSION, lastError: null });
+  logPipelineEvent("filing.preflighted", { filingId: filing.id, fiscalYear: filing.fiscalYear, hasReliableTextLayer: preflight.hasReliableTextLayer });
 
   const parsedPages = preflight.hasReliableTextLayer ? preflight.parsedPages : await extractOcrPages(pdfBuffer);
   const classifications = classifyPages(parsedPages);
@@ -234,10 +355,12 @@ export async function processAnnualReportFiling(filingId: string) {
 
   try {
     const rows = reconstructStatementRows(parsedPages, classifications);
+    await updateAnnualReportFiling(filing.id, { extractedAt: new Date() });
     const mapped = mapRowsToCanonicalFacts({ filingFiscalYear: filing.fiscalYear, classifications, rows });
     const validation = validateCanonicalFacts(mapped.facts);
     const classificationIssues = buildClassificationIssues(filing.fiscalYear, classifications);
     const issues = [...classificationIssues, ...mapped.issues, ...validation.issues];
+    await updateAnnualReportFiling(filing.id, { validatedAt: new Date() });
 
     await persistJsonArtifact({ filingId: filing.id, artifactType: "EXTRACTION_JSON", filename: "extraction.json", payload: { rows, mappedFacts: mapped.facts, validationStats: validation.stats } });
     await createFinancialFacts({ extractionRunId: extractionRun.id, filingId: filing.id, companyId: filing.company.id, facts: mapped.facts });
@@ -250,6 +373,8 @@ export async function processAnnualReportFiling(filingId: string) {
     const shouldPublish = canPublishAutomatically({ filingFiscalYear: filing.fiscalYear, classifications, selectedFacts, validationIssues: issues, confidenceScore });
     const sourcePrecedence = selectedFacts.get("revenue")?.precedence ?? selectedFacts.get("total_assets")?.precedence ?? "NOTE_DERIVED";
     const normalizedPayload = buildNormalizedFinancialPayload(filing.fiscalYear, selectedFacts);
+    const blockingRuleCodes = Array.from(new Set(issues.filter((issue) => issue.severity === "ERROR").map((issue) => issue.ruleCode)));
+    const reviewSummary = buildReviewPayload({ filingId: filing.id, extractionRunId: extractionRun.id, classifications, issues, selectedFacts });
 
     await persistJsonArtifact({ filingId: filing.id, artifactType: "NORMALIZED_JSON", filename: "normalized.json", payload: normalizedPayload });
     await completeFinancialExtractionRun(extractionRun.id, { status: shouldPublish ? "SUCCEEDED" : "MANUAL_REVIEW", finishedAt: new Date(), confidenceScore, validationScore: validation.validationScore, metricsCoverage: { selectedFactCount: selectedFacts.size, requiredMetricCount: requiredPublishMetricKeys.length, duplicateSupport, noteSupport }, rawSummary: { issues, classifications, validationStats: validation.stats } as unknown as Prisma.InputJsonValue });
@@ -257,18 +382,52 @@ export async function processAnnualReportFiling(filingId: string) {
     if (shouldPublish) {
       const publishedAt = new Date();
       await publishFinancialStatementSnapshot({ companyId: filing.company.id, fiscalYear: filing.fiscalYear, currency: "NOK", revenue: selectedFacts.get("revenue")?.value ?? selectedFacts.get("total_operating_income")?.value ?? null, operatingProfit: selectedFacts.get("operating_profit")?.value ?? null, netIncome: selectedFacts.get("net_income")?.value ?? null, equity: selectedFacts.get("total_equity")?.value ?? null, assets: selectedFacts.get("total_assets")?.value ?? null, sourceSystem: "BRREG", sourceEntityType: "financialStatement", sourceId: `${filing.company.orgNumber}-${filing.fiscalYear}-${filing.id}`, fetchedAt: publishedAt, normalizedAt: publishedAt, rawPayload: normalizedPayload as unknown as Prisma.InputJsonValue, sourceFilingId: filing.id, sourceExtractionRunId: extractionRun.id, qualityStatus: "HIGH_CONFIDENCE", qualityScore: confidenceScore, unitScale: selectedFacts.get("revenue")?.unitScale ?? selectedFacts.get("total_assets")?.unitScale ?? 1, sourcePrecedence, publishedAt });
-      await updateAnnualReportFiling(filing.id, { status: "PUBLISHED", unitHints: { classifications, hasKnownUnitScale: hasKnownUnitScale(classifications) } });
+      await updateAnnualReportFiling(filing.id, { status: "PUBLISHED", publishedSnapshotAt: publishedAt, unitHints: { classifications, hasKnownUnitScale: hasKnownUnitScale(classifications) } });
+      await resolveAnnualReportReviewsForFiling(filing.id);
       await upsertCompanyFinancialCoverage({ companyId: filing.company.id, latestDownloadedFiscalYear: filing.fiscalYear, latestPublishedFiscalYear: filing.fiscalYear, latestDiscoveredFiscalYear: filing.fiscalYear, lastCheckedAt: new Date(), nextCheckAt: nextCheckDate(24), coverageStatus: "PUBLISHED", latestSuccessfulFilingId: filing.id });
+      logPipelineEvent("filing.published", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore, sourcePrecedence });
     } else {
-      await updateAnnualReportFiling(filing.id, { status: "MANUAL_REVIEW", lastError: issues.map((issue) => `${issue.ruleCode}: ${issue.message}`).join(" | ").slice(0, 1_000) });
+      await updateAnnualReportFiling(filing.id, { status: "MANUAL_REVIEW", manualReviewAt: new Date(), lastError: issues.map((issue) => `${issue.ruleCode}: ${issue.message}`).join(" | ").slice(0, 1_000) });
+      await upsertAnnualReportReview({
+        filingId: filing.id,
+        extractionRunId: extractionRun.id,
+        companyId: filing.company.id,
+        fiscalYear: filing.fiscalYear,
+        status: "PENDING_REVIEW",
+        qualityScore: confidenceScore,
+        sourcePrecedenceAttempted: sourcePrecedence,
+        blockingRuleCodes,
+        pageReferences: reviewSummary.pageReferences,
+        latestActionNote: "Blocked by publish gate",
+        reviewPayload: reviewSummary.reviewPayload as unknown as Prisma.InputJsonValue,
+      });
       await upsertCompanyFinancialCoverage({ companyId: filing.company.id, latestDownloadedFiscalYear: filing.fiscalYear, latestDiscoveredFiscalYear: filing.fiscalYear, lastCheckedAt: new Date(), nextCheckAt: nextCheckDate(12), coverageStatus: "MANUAL_REVIEW" });
+      logPipelineEvent("filing.manual_review", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore, blockingRuleCodes });
     }
 
     return { filingId: filing.id, fiscalYear: filing.fiscalYear, confidenceScore, published: shouldPublish, issueCount: issues.length };
   } catch (error) {
     await completeFinancialExtractionRun(extractionRun.id, { status: "FAILED", finishedAt: new Date(), errorMessage: error instanceof Error ? error.message : "Unknown extraction error" });
-    await updateAnnualReportFiling(filing.id, { status: "FAILED", lastError: error instanceof Error ? error.message : "Unknown extraction error" });
+    await updateAnnualReportFiling(filing.id, { status: "FAILED", failedAt: new Date(), lastError: error instanceof Error ? error.message : "Unknown extraction error" });
+    await upsertAnnualReportReview({
+      filingId: filing.id,
+      extractionRunId: extractionRun.id,
+      companyId: filing.company.id,
+      fiscalYear: filing.fiscalYear,
+      status: "PENDING_REVIEW",
+      qualityScore: null,
+      sourcePrecedenceAttempted: null,
+      blockingRuleCodes: ["PIPELINE_EXCEPTION"],
+      pageReferences: [],
+      latestActionNote: error instanceof Error ? error.message : "Unknown extraction error",
+      reviewPayload: {
+        filingId: filing.id,
+        extractionRunId: extractionRun.id,
+        error: error instanceof Error ? error.message : "Unknown extraction error",
+      } as unknown as Prisma.InputJsonValue,
+    });
     await upsertCompanyFinancialCoverage({ companyId: filing.company.id, latestDownloadedFiscalYear: filing.fiscalYear, latestDiscoveredFiscalYear: filing.fiscalYear, lastCheckedAt: new Date(), nextCheckAt: nextCheckDate(6), coverageStatus: "FAILED" });
+    logPipelineEvent("filing.failed", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, error: error instanceof Error ? error.message : "Unknown extraction error" });
     throw error;
   }
 }
@@ -295,7 +454,13 @@ export async function discoverAnnualReportFilingsForCompany(orgNumber: string) {
         ? existingPublished.financialCoverage.coverageStatus
         : filings.length > 0
           ? "DISCOVERED"
-          : "UNCHECKED",
+        : "UNCHECKED",
+  });
+  logPipelineEvent("filing.discovery_completed", {
+    orgNumber,
+    companyId: company.id,
+    discoveredFilings: filings.length,
+    latestDiscoveredFiscalYear,
   });
   return { orgNumber, companyName: company.name, discoveredFilings: filings.length, fiscalYears: filings.map((filing) => filing.fiscalYear).sort((left, right) => right - left) };
 }
@@ -319,6 +484,11 @@ export async function backfillAnnualReportFilings(options?: { orgNumbers?: strin
   const discovered = [];
   for (const company of companies) discovered.push(await discoverAnnualReportFilingsForCompany(company.orgNumber));
   const processed = await processPendingAnnualReportFilings({ orgNumbers: options?.orgNumbers });
+  logPipelineEvent("backfill.completed", {
+    companyCount: companies.length,
+    discoveredCount: discovered.reduce((sum, item) => sum + item.discoveredFilings, 0),
+    processedCount: processed.length,
+  });
   return { discovered, processed };
 }
 
@@ -332,11 +502,276 @@ export async function syncNewAnnualReportFilings(options?: { orgNumbers?: string
     versionChecks.push(...(await verifyLatestKnownFilingHashes(company.id)));
   }
   const processed = await processPendingAnnualReportFilings({ orgNumbers: companies.map((company) => company.orgNumber) });
+  logPipelineEvent("sync.completed", {
+    checkedCompanies: companies.length,
+    discoveredCount: discovered.reduce((sum, item) => sum + item.discoveredFilings, 0),
+    versionCheckCount: versionChecks.length,
+    processedCount: processed.length,
+  });
   return { checkedCompanies: companies.length, discovered, versionChecks, processed };
 }
 
 export async function reprocessLowConfidenceAnnualReportFilings(options?: { orgNumbers?: string[]; limit?: number }) {
-  return processPendingAnnualReportFilings({ orgNumbers: options?.orgNumbers, limit: options?.limit, statuses: ["MANUAL_REVIEW", "FAILED"] });
+  return reprocessAnnualReportFilingsByCriteria({
+    orgNumbers: options?.orgNumbers,
+    maxQualityScore: 0.9,
+    limit: options?.limit,
+  });
+}
+
+export async function listAnnualReportReviewQueue(options?: {
+  statuses?: AnnualReportReviewStatus[];
+  ruleCodes?: string[];
+  orgNumbers?: string[];
+  limit?: number;
+}) {
+  const reviews = await listAnnualReportReviews({
+    statuses: options?.statuses ?? ["PENDING_REVIEW", "REPROCESS_REQUESTED"],
+    ruleCodes: options?.ruleCodes,
+    orgNumbers: options?.orgNumbers,
+    limit: options?.limit,
+  });
+
+  return reviews.map((review) => {
+    const payload =
+      review.reviewPayload && typeof review.reviewPayload === "object"
+        ? (review.reviewPayload as Record<string, any>)
+        : null;
+
+    return {
+      reviewId: review.id,
+      status: review.status,
+      company: review.company,
+      fiscalYear: review.fiscalYear,
+      filingId: review.filingId,
+      extractionRunId: review.extractionRunId,
+      filingStatus: review.filing.status,
+      qualityScore: review.qualityScore,
+      sourcePrecedenceAttempted: review.sourcePrecedenceAttempted,
+      blockingIssueCount: review.blockingIssueCount,
+      blockingRuleCodes: review.blockingRuleCodes,
+      blockingIssues: summarizeBlockingReasons(payload),
+      pageReferences: review.pageReferences,
+      latestActionNote: review.latestActionNote,
+      createdAt: review.createdAt,
+      updatedAt: review.updatedAt,
+      resolvedAt: review.resolvedAt,
+      selectedFacts: Array.isArray(payload?.selectedFacts) ? payload.selectedFacts : [],
+      classifications: Array.isArray(payload?.classifications) ? payload.classifications : [],
+    };
+  });
+}
+
+export async function updateAnnualReportReview(
+  reviewId: string,
+  status: AnnualReportReviewStatus,
+  latestActionNote?: string,
+) {
+  const review = await updateAnnualReportReviewStatus({ reviewId, status, latestActionNote });
+  logPipelineEvent("review.updated", {
+    reviewId,
+    filingId: review.filingId,
+    extractionRunId: review.extractionRunId,
+    status,
+  });
+  return review;
+}
+
+export async function reprocessAnnualReportFilingById(
+  filingId: string,
+  options?: { note?: string },
+) {
+  const filing = await getAnnualReportFilingWithArtifacts(filingId);
+  if (!filing) {
+    throw new Error(`Fant ikke filing ${filingId}.`);
+  }
+
+  if (filing.status === "PROCESSING") {
+    return {
+      filingId,
+      fiscalYear: filing.fiscalYear,
+      skipped: true,
+      reason: "Filing is already processing",
+      published: false,
+    };
+  }
+
+  const openReviews = filing.reviews.filter((review) =>
+    ["PENDING_REVIEW", "REPROCESS_REQUESTED"].includes(review.status),
+  );
+  for (const review of openReviews) {
+    await updateAnnualReportReviewStatus({
+      reviewId: review.id,
+      status: "REPROCESS_REQUESTED",
+      latestActionNote: options?.note ?? "Operator requested reprocessing",
+    });
+  }
+
+  await updateAnnualReportFiling(filing.id, {
+    parserVersionLastTried: ANNUAL_REPORT_PARSER_VERSION,
+    lastError: null,
+  });
+  logPipelineEvent("filing.reprocess_requested", {
+    filingId: filing.id,
+    fiscalYear: filing.fiscalYear,
+    openReviewCount: openReviews.length,
+  });
+  return processAnnualReportFiling(filing.id, { force: true });
+}
+
+export async function reprocessAnnualReportFilingsByCriteria(options?: {
+  filingIds?: string[];
+  orgNumbers?: string[];
+  fiscalYearFrom?: number;
+  fiscalYearTo?: number;
+  parserVersions?: string[];
+  maxQualityScore?: number;
+  limit?: number;
+  note?: string;
+}) {
+  const filings = await listAnnualReportFilingsForReprocessing(options);
+  const results = [];
+  for (const filing of filings) {
+    try {
+      results.push(
+        await reprocessAnnualReportFilingById(filing.id, { note: options?.note }),
+      );
+    } catch (error) {
+      logRecoverableError("annual-report-financials.reprocess", error, {
+        filingId: filing.id,
+        orgNumber: filing.company.orgNumber,
+        fiscalYear: filing.fiscalYear,
+      });
+      results.push({
+        filingId: filing.id,
+        fiscalYear: filing.fiscalYear,
+        published: false,
+        error: error instanceof Error ? error.message : "Unknown reprocessing error",
+      });
+    }
+  }
+
+  return {
+    matchedFilings: filings.map((filing) => ({
+      filingId: filing.id,
+      orgNumber: filing.company.orgNumber,
+      fiscalYear: filing.fiscalYear,
+      latestParserVersion: filing.extractionRuns[0]?.parserVersion ?? null,
+      latestConfidenceScore: filing.extractionRuns[0]?.confidenceScore ?? null,
+    })),
+    results,
+  };
+}
+
+export async function inspectCompanyFinancialCoverage(options?: {
+  orgNumbers?: string[];
+  limit?: number;
+  onlyDue?: boolean;
+}) {
+  const companies = await listCompaniesForFinancialSync({
+    orgNumbers: options?.orgNumbers,
+    limit: options?.limit,
+    onlyDue: options?.onlyDue,
+  });
+
+  return companies.map((company) => ({
+    companyId: company.id,
+    orgNumber: company.orgNumber,
+    name: company.name,
+    coverage: company.financialCoverage,
+  }));
+}
+
+export async function listNewlyDiscoveredPendingFilings(options?: {
+  orgNumbers?: string[];
+  limit?: number;
+}) {
+  const filings = await listPendingAnnualReportFilings({
+    orgNumbers: options?.orgNumbers,
+    limit: options?.limit,
+    statuses: ["DISCOVERED", "DOWNLOADED", "PREFLIGHTED"],
+  });
+
+  return filings.map((filing) => ({
+    filingId: filing.id,
+    orgNumber: filing.company.orgNumber,
+    companyName: filing.company.name,
+    fiscalYear: filing.fiscalYear,
+    status: filing.status,
+    discoveredAt: filing.discoveredAt,
+    downloadedAt: filing.downloadedAt,
+    sourceUrl: filing.sourceUrl,
+    sourceDocumentHash: filing.sourceDocumentHash,
+  }));
+}
+
+export async function getAnnualReportPipelineOverview(options?: {
+  orgNumbers?: string[];
+  sampleLimit?: number;
+}) {
+  const sampleLimit = options?.sampleLimit ?? 20;
+  const [metrics, reviewQueue, pendingFilings, dueCoverage] = await Promise.all([
+    getAnnualReportPipelineMetrics(),
+    listAnnualReportReviewQueue({
+      statuses: ["PENDING_REVIEW", "REPROCESS_REQUESTED"],
+      orgNumbers: options?.orgNumbers,
+      limit: sampleLimit,
+    }),
+    listNewlyDiscoveredPendingFilings({
+      orgNumbers: options?.orgNumbers,
+      limit: sampleLimit,
+    }),
+    inspectCompanyFinancialCoverage({
+      orgNumbers: options?.orgNumbers,
+      limit: sampleLimit,
+      onlyDue: true,
+    }),
+  ]);
+
+  return {
+    parserVersion: ANNUAL_REPORT_PARSER_VERSION,
+    metrics,
+    reviewQueue,
+    pendingFilings,
+    dueCoverage,
+  };
+}
+
+export async function getLatestPublishedStatementProvenance(
+  orgNumber: string,
+  fiscalYear?: number,
+) {
+  const record = await getPublishedFinancialsForCompany(orgNumber);
+  if (!record) {
+    throw new Error(`Fant ikke virksomhet ${orgNumber}.`);
+  }
+
+  const statement =
+    fiscalYear === undefined
+      ? record.financialStatements[0] ?? null
+      : record.financialStatements.find((item) => item.fiscalYear === fiscalYear) ?? null;
+
+  if (!statement) {
+    return null;
+  }
+
+  return {
+    company: {
+      id: record.id,
+      orgNumber: record.orgNumber,
+      name: record.name,
+    },
+    fiscalYear: statement.fiscalYear,
+    statementId: statement.id,
+    sourceFilingId: statement.sourceFilingId,
+    sourceExtractionRunId: statement.sourceExtractionRunId,
+    qualityStatus: statement.qualityStatus,
+    qualityScore: statement.qualityScore,
+    sourcePrecedence: statement.sourcePrecedence,
+    unitScale: statement.unitScale,
+    publishedAt: statement.publishedAt,
+    normalizedAt: statement.normalizedAt,
+  };
 }
 
 export async function getPublishedAnnualReportFinancials(orgNumber: string): Promise<{ statements: NormalizedFinancialStatement[]; documents: NormalizedFinancialDocument[]; availability: DataAvailability }> {

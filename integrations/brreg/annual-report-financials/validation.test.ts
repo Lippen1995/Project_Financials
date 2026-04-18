@@ -109,4 +109,46 @@ describe("validateCanonicalFacts", () => {
 
     expect(result.issues.some((issue) => issue.ruleCode === "SUSPICIOUS_UNIT_MISMATCH")).toBe(true);
   });
+
+  it("counts matching note tie-outs as validation support", () => {
+    const facts = [
+      buildFact("cash_and_cash_equivalents", 15_558_000),
+      {
+        ...buildFact("cash_and_cash_equivalents", 15_558_000),
+        precedence: "NOTE_DERIVED" as const,
+        statementType: "NOTE" as const,
+        sourceSection: "NOTE" as const,
+        sourcePage: 7,
+        noteReference: "8",
+      },
+    ];
+
+    const result = validateCanonicalFacts(facts);
+
+    expect(result.stats.noteComparisons).toBe(1);
+    expect(result.stats.noteMatches).toBe(1);
+    expect(result.issues.some((issue) => issue.ruleCode === "NOTE_TO_STATEMENT_MISMATCH")).toBe(
+      false,
+    );
+  });
+
+  it("raises note-to-statement mismatch when notes contradict face statements", () => {
+    const facts = [
+      buildFact("cash_and_cash_equivalents", 15_558_000),
+      {
+        ...buildFact("cash_and_cash_equivalents", 12_000_000),
+        precedence: "NOTE_DERIVED" as const,
+        statementType: "NOTE" as const,
+        sourceSection: "NOTE" as const,
+        sourcePage: 7,
+        noteReference: "8",
+      },
+    ];
+
+    const result = validateCanonicalFacts(facts);
+
+    expect(result.issues.some((issue) => issue.ruleCode === "NOTE_TO_STATEMENT_MISMATCH")).toBe(
+      true,
+    );
+  });
 });
