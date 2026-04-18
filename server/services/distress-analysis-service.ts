@@ -43,7 +43,7 @@ import {
   upsertDistressFinancialSnapshot,
   upsertDistressSyncState,
 } from "@/server/persistence/distress-repository";
-import { upsertCompanySnapshot, upsertFinancialStatementsSnapshot } from "@/server/persistence/company-repository";
+import { upsertCompanySnapshot } from "@/server/persistence/company-repository";
 import { importAnnualReportsForCompany } from "@/server/importers/annual-report-importer";
 import { getCompanyAnnouncements, getCompanyProfile } from "@/server/services/company-service";
 import { requireWorkspaceMembership } from "@/server/services/workspace-service";
@@ -103,6 +103,11 @@ function resolveSort(sort?: DistressSearchFilters["sort"] | null): SortKey | nul
 function toNumber(value: unknown) {
   if (value === null || value === undefined) {
     return null;
+  }
+
+  if (typeof value === "bigint") {
+    const converted = Number(value);
+    return Number.isSafeInteger(converted) ? converted : null;
   }
 
   if (typeof value === "number") {
@@ -752,12 +757,12 @@ function mapRow(record: Awaited<ReturnType<typeof listDistressCompanyRecords>>[n
       : null,
     financials: {
       lastReportedYear: snapshot?.lastReportedYear ?? null,
-      revenue: snapshot?.revenue ?? null,
-      ebit: snapshot?.ebit ?? null,
-      netIncome: snapshot?.netIncome ?? null,
+      revenue: toNumber(snapshot?.revenue),
+      ebit: toNumber(snapshot?.ebit),
+      netIncome: toNumber(snapshot?.netIncome),
       equityRatio: toNumber(snapshot?.equityRatio),
-      assets: snapshot?.assets ?? null,
-      interestBearingDebt: snapshot?.interestBearingDebt ?? null,
+      assets: toNumber(snapshot?.assets),
+      interestBearingDebt: toNumber(snapshot?.interestBearingDebt),
     },
     distressScore: snapshot?.distressScore ?? null,
     scoreVersion: snapshot?.scoreVersion ?? null,
@@ -1100,12 +1105,12 @@ export async function getDistressCompanyDetailForWorkspace(
           sectorCode: persistedSnapshot.sectorCode,
           sectorLabel: persistedSnapshot.sectorLabel,
           lastReportedYear: persistedSnapshot.lastReportedYear,
-          revenue: persistedSnapshot.revenue,
-          ebit: persistedSnapshot.ebit,
-          netIncome: persistedSnapshot.netIncome,
+          revenue: toNumber(persistedSnapshot.revenue),
+          ebit: toNumber(persistedSnapshot.ebit),
+          netIncome: toNumber(persistedSnapshot.netIncome),
           equityRatio: toNumber(persistedSnapshot.equityRatio),
-          assets: persistedSnapshot.assets,
-          interestBearingDebt: persistedSnapshot.interestBearingDebt,
+          assets: toNumber(persistedSnapshot.assets),
+          interestBearingDebt: toNumber(persistedSnapshot.interestBearingDebt),
           distressScore: persistedSnapshot.distressScore,
           scoreVersion: persistedSnapshot.scoreVersion,
           dataCoverage: persistedSnapshot.dataCoverage,

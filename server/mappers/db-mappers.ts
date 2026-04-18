@@ -15,6 +15,7 @@ import {
   buildRegisteredIndustryCode,
   mergeIndustryCodeClassification,
 } from "@/lib/industry-code";
+import { toSafeNumber } from "@/server/financials/number-utils";
 
 type CompanyWithRelations = Company & {
   addresses: Address[];
@@ -224,10 +225,17 @@ export function mapDbFinancialStatements(
     rawPayload: statement.rawPayload,
     fiscalYear: statement.fiscalYear,
     currency: statement.currency,
-    revenue: statement.revenue,
-    operatingProfit: statement.operatingProfit,
-    netIncome: statement.netIncome,
-    equity: statement.equity,
-    assets: statement.assets,
+    revenue: toSafeNumber(statement.revenue),
+    operatingProfit: toSafeNumber(statement.operatingProfit),
+    netIncome: toSafeNumber(statement.netIncome),
+    equity: toSafeNumber(statement.equity),
+    assets: toSafeNumber(statement.assets),
+    sourceFilingId: statement.sourceFilingId,
+    sourceExtractionRunId: statement.sourceExtractionRunId,
+    qualityStatus: statement.qualityStatus,
+    qualityScore: statement.qualityScore,
+    unitScale: statement.unitScale,
+    sourcePrecedence: statement.sourcePrecedence,
+    publishedAt: statement.publishedAt,
   }));
 }

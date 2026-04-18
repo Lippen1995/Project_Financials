@@ -15,17 +15,15 @@ import {
 import { prisma } from "@/lib/prisma";
 import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
-import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
 import {
   upsertCompanySnapshot,
-  upsertFinancialStatementsSnapshot,
 } from "@/server/persistence/company-repository";
+import { syncCompanyAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
 import { getCompanyProfile } from "@/server/services/company-service";
 import { getUserWorkspaceCapabilities } from "@/server/services/workspace-service";
 
 const announcementsProvider = new BrregAnnouncementsProvider();
 const companyProvider = new BrregCompanyProvider();
-const financialsProvider = new BrregFinancialsProvider();
 
 function toCompanySummary(company: {
   id: string;
@@ -683,8 +681,7 @@ async function syncWatchFinancials(watch: {
   company: { orgNumber: string; name: string };
   lastFinancialStatementYear: number | null;
 }) {
-  const financials = await financialsProvider.getFinancialStatements(watch.company.orgNumber);
-  await upsertFinancialStatementsSnapshot(watch.company.orgNumber, financials.statements);
+  const financials = await syncCompanyAnnualReportFinancials(watch.company.orgNumber);
 
   const fiscalYears = financials.statements.map((statement) => statement.fiscalYear);
   const latestYear = fiscalYears.length ? Math.max(...fiscalYears) : null;

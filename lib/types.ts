@@ -21,6 +21,24 @@ export type DistressStatus =
   | "FORCED_PROCESS"
   | "FOREIGN_INSOLVENCY"
   | "OTHER_DISTRESS";
+export type AnnualReportFilingStatus =
+  | "DISCOVERED"
+  | "DOWNLOADED"
+  | "PREFLIGHTED"
+  | "EXTRACTED"
+  | "VALIDATED"
+  | "PUBLISHED"
+  | "FAILED"
+  | "MANUAL_REVIEW";
+export type FinancialStatementQualityStatus =
+  | "HIGH_CONFIDENCE"
+  | "LOW_CONFIDENCE"
+  | "MANUAL_REVIEW";
+export type FinancialStatementSourcePrecedence =
+  | "MACHINE_READABLE"
+  | "STATUTORY_NOK"
+  | "SUPPLEMENTARY_NOK_THOUSANDS"
+  | "NOTE_DERIVED";
 
 export type NormalizedIndustryCode = SourceMetadata & {
   code: string;
@@ -66,10 +84,20 @@ export type NormalizedFinancialStatement = SourceMetadata & {
   netIncome?: number | null;
   equity?: number | null;
   assets?: number | null;
+  sourceFilingId?: string | null;
+  sourceExtractionRunId?: string | null;
+  qualityStatus?: FinancialStatementQualityStatus | null;
+  qualityScore?: number | null;
+  unitScale?: number | null;
+  sourcePrecedence?: FinancialStatementSourcePrecedence | null;
+  publishedAt?: Date | null;
 };
 
 export type NormalizedFinancialDocument = SourceMetadata & {
   year: number;
+  filingId?: string | null;
+  status?: AnnualReportFilingStatus | null;
+  downloadedAt?: Date | null;
   files: {
     type: string;
     id: string;
@@ -1448,7 +1476,10 @@ export type DdFindingEvidenceType =
   | "FINANCIAL_STATEMENT"
   | "COMPANY_PROFILE_FIELD"
   | "TASK"
-  | "FINDING";
+  | "FINDING"
+  | "PETROLEUM_ENTITY"
+  | "PETROLEUM_EVENT"
+  | "PETROLEUM_SERIES";
 export type DdCompanyProfileField =
   | "STATUS"
   | "LEGAL_FORM"

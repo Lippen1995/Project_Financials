@@ -14,7 +14,6 @@ import {
 } from "@/lib/types";
 import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
-import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
 import { OpenAiSearchIntentProvider } from "@/integrations/openai/openai-search-intent-provider";
 import { BrregRolesProvider } from "@/integrations/brreg/brreg-roles-provider";
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
@@ -25,15 +24,17 @@ import {
   getCachedRoles,
   getLatestFinancialsForCompanies,
   upsertCompanySnapshot,
-  upsertFinancialStatementsSnapshot,
   upsertIndustryCodeSnapshot,
   upsertRolesSnapshot,
 } from "@/server/persistence/company-repository";
+import {
+  getPublishedAnnualReportFinancials,
+  syncCompanyAnnualReportFinancials,
+} from "@/server/services/annual-report-financials-service";
 
 const companyProvider = new BrregCompanyProvider();
 const announcementsProvider = new BrregAnnouncementsProvider();
 const rolesProvider = new BrregRolesProvider();
-const financialsProvider = new BrregFinancialsProvider();
 const industryCodeProvider = new SsbIndustryCodeProvider();
 const searchIntentProvider = new OpenAiSearchIntentProvider();
 
@@ -445,7 +446,12 @@ export async function searchCompanies(filters: SearchFilters): Promise<CompanySe
 
 async function loadFinancialsFromProvider(orgNumber: string) {
   try {
-    return await financialsProvider.getFinancialStatements(orgNumber);
+    const published = await getPublishedAnnualReportFinancials(orgNumber);
+    if (published.statements.length > 0 || published.documents.length > 0) {
+      return published;
+    }
+
+    return await syncCompanyAnnualReportFinancials(orgNumber);
   } catch (error) {
     logRecoverableError("company-service.getCompanyProfile.financials", error, {
       orgNumber,
@@ -634,17 +640,6 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
     financials = await loadFinancialsFromProvider(company.orgNumber);
   }
 
-  if (financialsMode !== "none" && financials.statements.length > 0) {
-    try {
-      await upsertFinancialStatementsSnapshot(company.orgNumber, financials.statements);
-    } catch (error) {
-      logRecoverableError("company-service.getCompanyProfile.persistFinancials", error, {
-        orgNumber: company.orgNumber,
-        statementCount: financials.statements.length,
-      });
-    }
-  }
-
   return {
     company,
     roles,
@@ -673,7 +668,12 @@ export async function getCompanyRoles(orgNumber: string) {
 }
 
 export async function getCompanyFinancials(orgNumber: string) {
-  return financialsProvider.getFinancialStatements(orgNumber);
+  const published = await getPublishedAnnualReportFinancials(orgNumber);
+  if (published.statements.length > 0 || published.documents.length > 0) {
+    return published;
+  }
+
+  return syncCompanyAnnualReportFinancials(orgNumber);
 }
 
 export async function getCompanyAnnouncements(orgNumber: string) {

@@ -1,0 +1,20 @@
+import { prisma } from "@/lib/prisma";
+import { reprocessLowConfidenceAnnualReportFilings } from "@/server/services/annual-report-financials-service";
+
+async function main() {
+  const orgNumbers = process.argv.slice(2);
+  const result = await reprocessLowConfidenceAnnualReportFilings({
+    orgNumbers: orgNumbers.length > 0 ? orgNumbers : undefined,
+  });
+
+  console.log(JSON.stringify(result, null, 2));
+}
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

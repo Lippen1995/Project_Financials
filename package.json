@@ -16,6 +16,12 @@
     "sync:petroleum": "tsx scripts/sync-petroleum.ts",
     "backfill:distress-financials": "tsx scripts/backfill-distress-financials.ts",
     "import:annual-reports": "tsx scripts/import-company-annual-reports.ts",
+    "financials:discover-filings": "tsx scripts/discover-financial-filings.ts",
+    "financials:backfill-filings": "tsx scripts/backfill-financial-filings.ts",
+    "financials:process-pending-filings": "tsx scripts/process-pending-financial-filings.ts",
+    "financials:sync-new-filings": "tsx scripts/sync-new-financial-filings.ts",
+    "financials:reprocess-low-confidence": "tsx scripts/reprocess-low-confidence-financials.ts",
+    "financials:validate-published-financials": "tsx scripts/validate-published-financials.ts",
     "import:shareholding": "tsx scripts/import-shareholding-snapshot.ts",
     "postinstall": "prisma generate"
   },

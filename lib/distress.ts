@@ -33,6 +33,11 @@ function getAtPath(payload: Record<string, unknown>, path: string) {
 }
 
 function toNumber(value: unknown) {
+  if (typeof value === "bigint") {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) ? parsed : null;
+  }
+
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
   }

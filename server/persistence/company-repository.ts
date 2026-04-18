@@ -7,6 +7,11 @@ import {
   NormalizedIndustryCode,
   NormalizedRole,
 } from "@/lib/types";
+import { toSafeNumber } from "@/server/financials/number-utils";
+
+function toBigInt(value: number | null | undefined) {
+  return value === null || value === undefined ? null : BigInt(Math.round(value));
+}
 
 export async function upsertCompanySnapshot(company: NormalizedCompany) {
   const existingCompany = await prisma.company.findUnique({
@@ -354,33 +359,47 @@ export async function upsertFinancialStatementsSnapshot(
       },
       update: {
         currency: statement.currency,
-        revenue: statement.revenue ?? null,
-        operatingProfit: statement.operatingProfit ?? null,
-        netIncome: statement.netIncome ?? null,
-        equity: statement.equity ?? null,
-        assets: statement.assets ?? null,
+        revenue: toBigInt(statement.revenue),
+        operatingProfit: toBigInt(statement.operatingProfit),
+        netIncome: toBigInt(statement.netIncome),
+        equity: toBigInt(statement.equity),
+        assets: toBigInt(statement.assets),
         sourceSystem: statement.sourceSystem,
         sourceEntityType: statement.sourceEntityType,
         sourceId: statement.sourceId,
         fetchedAt: statement.fetchedAt,
         normalizedAt: statement.normalizedAt,
         rawPayload: statement.rawPayload as never,
+        sourceFilingId: statement.sourceFilingId ?? null,
+        sourceExtractionRunId: statement.sourceExtractionRunId ?? null,
+        qualityStatus: statement.qualityStatus ?? "MANUAL_REVIEW",
+        qualityScore: statement.qualityScore ?? null,
+        unitScale: statement.unitScale ?? null,
+        sourcePrecedence: statement.sourcePrecedence ?? null,
+        publishedAt: statement.publishedAt ?? null,
       },
       create: {
         companyId: company.id,
         fiscalYear: statement.fiscalYear,
         currency: statement.currency,
-        revenue: statement.revenue ?? null,
-        operatingProfit: statement.operatingProfit ?? null,
-        netIncome: statement.netIncome ?? null,
-        equity: statement.equity ?? null,
-        assets: statement.assets ?? null,
+        revenue: toBigInt(statement.revenue),
+        operatingProfit: toBigInt(statement.operatingProfit),
+        netIncome: toBigInt(statement.netIncome),
+        equity: toBigInt(statement.equity),
+        assets: toBigInt(statement.assets),
         sourceSystem: statement.sourceSystem,
         sourceEntityType: statement.sourceEntityType,
         sourceId: statement.sourceId,
         fetchedAt: statement.fetchedAt,
         normalizedAt: statement.normalizedAt,
         rawPayload: statement.rawPayload as never,
+        sourceFilingId: statement.sourceFilingId ?? null,
+        sourceExtractionRunId: statement.sourceExtractionRunId ?? null,
+        qualityStatus: statement.qualityStatus ?? "MANUAL_REVIEW",
+        qualityScore: statement.qualityScore ?? null,
+        unitScale: statement.unitScale ?? null,
+        sourcePrecedence: statement.sourcePrecedence ?? null,
+        publishedAt: statement.publishedAt ?? null,
       },
     });
   }
@@ -417,7 +436,7 @@ export async function getLatestFinancialsForCompanies(orgNumbers: string[]) {
     const orgNumber = statement.company.orgNumber;
     if (!lookup.has(orgNumber)) {
       lookup.set(orgNumber, {
-        revenue: statement.revenue,
+        revenue: toSafeNumber(statement.revenue),
         fiscalYear: statement.fiscalYear,
       });
     }

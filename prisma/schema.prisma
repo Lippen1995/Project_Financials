@@ -218,6 +218,72 @@ enum PetroleumWatchEntityType {
   COMPANY_EXPOSURE
 }
 
+enum AnnualReportFilingStatus {
+  DISCOVERED
+  DOWNLOADED
+  PREFLIGHTED
+  EXTRACTED
+  VALIDATED
+  PUBLISHED
+  FAILED
+  MANUAL_REVIEW
+}
+
+enum AnnualReportArtifactType {
+  PDF
+  PAGE_IMAGE
+  OCR_TEXT
+  OCR_TSV
+  TABLE_JSON
+  EXTRACTION_JSON
+  NORMALIZED_JSON
+  PREFLIGHT_JSON
+  CLASSIFICATION_JSON
+}
+
+enum FinancialExtractionRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  MANUAL_REVIEW
+}
+
+enum FinancialFactStatementType {
+  INCOME_STATEMENT
+  BALANCE_SHEET
+  CASH_FLOW
+  NOTE
+}
+
+enum FinancialValidationSeverity {
+  INFO
+  WARNING
+  ERROR
+}
+
+enum CompanyFinancialCoverageStatus {
+  UNCHECKED
+  DISCOVERED
+  PARTIAL
+  PUBLISHED
+  FAILED
+  MANUAL_REVIEW
+}
+
+enum FinancialStatementQualityStatus {
+  HIGH_CONFIDENCE
+  LOW_CONFIDENCE
+  MANUAL_REVIEW
+}
+
+enum FinancialStatementSourcePrecedence {
+  MACHINE_READABLE
+  STATUTORY_NOK
+  SUPPLEMENTARY_NOK_THOUSANDS
+  NOTE_DERIVED
+}
+
 model User {
   id                           String                @id @default(cuid())
   name                         String?
@@ -350,6 +416,10 @@ model Company {
   addresses                 Address[]
   roles                     Role[]
   financialStatements       FinancialStatement[]
+  annualReportFilings       AnnualReportFiling[]
+  financialExtractionRuns   FinancialExtractionRun[]
+  financialFacts            FinancialFact[]
+  financialValidationIssues FinancialValidationIssue[]
   shareholdingSnapshots     ShareholdingSnapshot[]
   linkedShareholders        Shareholder[]
   ownerships                Ownership[]
@@ -361,6 +431,7 @@ model Company {
   workspaceNotifications    WorkspaceNotification[]
   distressProfile           CompanyDistressProfile?
   distressFinancialSnapshot DistressFinancialSnapshot?
+  financialCoverage         CompanyFinancialCoverage?
   petroleumExposureSnapshot PetroleumCompanyExposureSnapshot?
   industryCodeId            String?
   industryCode              IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
@@ -407,12 +478,12 @@ model DistressFinancialSnapshot {
   sectorCode          String?
   sectorLabel         String?
   lastReportedYear    Int?
-  revenue             Int?
-  ebit                Int?
-  netIncome           Int?
+  revenue             BigInt?
+  ebit                BigInt?
+  netIncome           BigInt?
   equityRatio         Decimal?       @db.Decimal(8, 2)
-  assets              Int?
-  interestBearingDebt Int?
+  assets              BigInt?
+  interestBearingDebt BigInt?
   distressScore       Int?
   scoreVersion        String?
   dataCoverage        String?
@@ -478,29 +549,187 @@ model Role {
 }
 
 model FinancialStatement {
-  id                String              @id @default(cuid())
-  fiscalYear        Int
-  currency          String              @default("NOK")
-  revenue           Int?
-  operatingProfit   Int?
-  netIncome         Int?
-  equity            Int?
-  assets            Int?
-  sourceSystem      String
-  sourceEntityType  String
-  sourceId          String
-  fetchedAt         DateTime
-  normalizedAt      DateTime
-  rawPayload        Json?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  companyId         String
-  company           Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  ddCommentThreads  DdCommentThread[]
-  ddFindingEvidence DdFindingEvidence[]
+  id                    String                          @id @default(cuid())
+  fiscalYear            Int
+  currency              String                          @default("NOK")
+  revenue               BigInt?
+  operatingProfit       BigInt?
+  netIncome             BigInt?
+  equity                BigInt?
+  assets                BigInt?
+  sourceSystem          String
+  sourceEntityType      String
+  sourceId              String
+  fetchedAt             DateTime
+  normalizedAt          DateTime
+  rawPayload            Json?
+  sourceFilingId        String?
+  sourceExtractionRunId String?
+  qualityStatus         FinancialStatementQualityStatus @default(MANUAL_REVIEW)
+  qualityScore          Float?
+  unitScale             Int?
+  sourcePrecedence      FinancialStatementSourcePrecedence?
+  publishedAt           DateTime?
+  createdAt             DateTime                        @default(now())
+  updatedAt             DateTime                        @updatedAt
+  companyId             String
+  company               Company                         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceFiling          AnnualReportFiling?             @relation("PublishedStatementFiling", fields: [sourceFilingId], references: [id], onDelete: SetNull)
+  sourceExtractionRun   FinancialExtractionRun?         @relation("PublishedStatementExtractionRun", fields: [sourceExtractionRunId], references: [id], onDelete: SetNull)
+  ddCommentThreads      DdCommentThread[]
+  ddFindingEvidence     DdFindingEvidence[]
 
   @@unique([companyId, fiscalYear])
   @@index([companyId, fiscalYear])
+  @@index([sourceFilingId])
+  @@index([sourceExtractionRunId])
+}
+
+model AnnualReportFiling {
+  id                       String                   @id @default(cuid())
+  companyId                String
+  fiscalYear               Int
+  sourceSystem             String
+  sourceUrl                String
+  sourceIdempotencyKey     String                   @unique
+  sourceDocumentHash       String?
+  sourceDocumentType       String
+  discoveredAt             DateTime
+  downloadedAt             DateTime?
+  status                   AnnualReportFilingStatus @default(DISCOVERED)
+  unitHints                Json?
+  metadata                 Json?
+  parserVersionLastTried   String?
+  lastError                String?
+  isLatestForFiscalYear    Boolean                  @default(true)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  company                  Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  artifacts                AnnualReportArtifact[]
+  extractionRuns           FinancialExtractionRun[]
+  facts                    FinancialFact[]
+  validationIssues         FinancialValidationIssue[]
+  publishedStatements      FinancialStatement[]     @relation("PublishedStatementFiling")
+  coverageAsLatestSuccess  CompanyFinancialCoverage[] @relation("CoverageLatestSuccessfulFiling")
+
+  @@index([companyId, fiscalYear])
+  @@index([companyId, status, discoveredAt])
+  @@index([companyId, isLatestForFiscalYear])
+}
+
+model AnnualReportArtifact {
+  id           String                  @id @default(cuid())
+  filingId     String
+  artifactType AnnualReportArtifactType
+  storageKey   String
+  checksum     String
+  mimeType     String
+  metadata     Json?
+  createdAt    DateTime                @default(now())
+  filing       AnnualReportFiling      @relation(fields: [filingId], references: [id], onDelete: Cascade)
+
+  @@index([filingId, artifactType])
+  @@index([storageKey])
+  @@unique([filingId, artifactType, checksum])
+}
+
+model FinancialExtractionRun {
+  id               String                       @id @default(cuid())
+  filingId         String
+  companyId        String
+  parserVersion    String
+  ocrEngine        String?
+  ocrLanguage      String?
+  status           FinancialExtractionRunStatus @default(PENDING)
+  startedAt        DateTime
+  finishedAt       DateTime?
+  confidenceScore  Float?
+  validationScore  Float?
+  metricsCoverage  Json?
+  errorMessage     String?
+  rawSummary       Json?
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+  filing           AnnualReportFiling           @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company          Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  facts            FinancialFact[]
+  validationIssues FinancialValidationIssue[]
+  publishedStatements FinancialStatement[]      @relation("PublishedStatementExtractionRun")
+
+  @@index([filingId, status, startedAt])
+  @@index([companyId, startedAt])
+}
+
+model FinancialFact {
+  id              String                     @id @default(cuid())
+  extractionRunId String
+  filingId        String
+  companyId       String
+  fiscalYear      Int
+  statementType   FinancialFactStatementType
+  metricKey       String
+  rawLabel        String?
+  normalizedLabel String?
+  value           BigInt?
+  currency        String                     @default("NOK")
+  unitScale       Int                        @default(1)
+  sourcePage      Int?
+  sourceSection   String?
+  sourceRowText   String?
+  noteReference   String?
+  confidenceScore Float?
+  isDerived       Boolean                    @default(false)
+  rawPayload      Json?
+  createdAt       DateTime                   @default(now())
+  extractionRun   FinancialExtractionRun     @relation(fields: [extractionRunId], references: [id], onDelete: Cascade)
+  filing          AnnualReportFiling         @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company         Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([extractionRunId, metricKey])
+  @@index([companyId, fiscalYear, metricKey])
+  @@index([filingId, statementType])
+}
+
+model FinancialValidationIssue {
+  id              String                      @id @default(cuid())
+  extractionRunId String
+  filingId        String
+  companyId       String
+  fiscalYear      Int
+  severity        FinancialValidationSeverity
+  ruleCode        String
+  message         String
+  expectedValue   BigInt?
+  actualValue     BigInt?
+  context         Json?
+  createdAt       DateTime                    @default(now())
+  extractionRun   FinancialExtractionRun      @relation(fields: [extractionRunId], references: [id], onDelete: Cascade)
+  filing          AnnualReportFiling          @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company         Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([extractionRunId, severity])
+  @@index([companyId, fiscalYear, severity])
+  @@index([filingId, severity])
+}
+
+model CompanyFinancialCoverage {
+  id                        String                        @id @default(cuid())
+  companyId                 String                        @unique
+  latestDiscoveredFiscalYear Int?
+  latestDownloadedFiscalYear Int?
+  latestPublishedFiscalYear  Int?
+  lastCheckedAt             DateTime?
+  nextCheckAt               DateTime?
+  failureCount              Int                           @default(0)
+  coverageStatus            CompanyFinancialCoverageStatus @default(UNCHECKED)
+  latestSuccessfulFilingId  String?
+  createdAt                 DateTime                      @default(now())
+  updatedAt                 DateTime                      @updatedAt
+  company                   Company                       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  latestSuccessfulFiling    AnnualReportFiling?           @relation("CoverageLatestSuccessfulFiling", fields: [latestSuccessfulFilingId], references: [id], onDelete: SetNull)
+
+  @@index([coverageStatus, nextCheckAt])
+  @@index([latestPublishedFiscalYear])
 }
 
 model Address {

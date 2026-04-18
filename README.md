@@ -50,7 +50,7 @@ Brukes som source of truth for:
 ProjectX bruker åpne Brreg-endepunkter under `data.brreg.no/enhetsregisteret/api`.
 Registrert næringskode beholdes med Brreg som kildesporing i domenemodellen; SSB brukes bare til beskrivelse og kodeverksberiking.
 For regnskap bruker ProjectX Brregs offisielle PDF-kopier av årsregnskap under `data.brreg.no/regnskapsregisteret/regnskap/aarsregnskap/kopi/...`.
-Historikk bygges ved lokal OCR-parsing og normalisering av disse PDF-ene.
+Historikk bygges nå gjennom en kontrollert ingest-pipeline med filing discovery, rå artifact-lagring, preflight, sideklassifisering, ekstraksjonskjøringer, validering og publiserte snapshots med provenance.
 
 ### SSB Klass
 
@@ -98,9 +98,10 @@ ProjectX bruker Patentstyrets Open Data-endepunkter med organisasjonsnummer som 
 
 ## Viktige begrensninger
 
-- ProjectX viser regnskap fra Brregs offisielle PDF-kopier av årsregnskap.
-- Flerårshistorikk bygges fra OCR-parsing og normalisering av disse PDF-ene.
-- OCR-basert historikk er best effort og kan ha enkelte feil på vanskelig leste linjer; note-rader og summer valideres derfor defensivt, og ProjectX fyller fortsatt ikke hull med syntetiske tall.
+- ProjectX viser bare publiserte regnskapssnapshots når pipeline-en klarer å identifisere relevante sider, enhetsskala, primærmetrikker og nødvendige balansesjekker.
+- Rå PDF-er, preflight-data, klassifiseringer, ekstraksjonskjøringer, facts og valideringsfeil lagres separat før noe kan publiseres til `FinancialStatement`.
+- Filing-er som feiler på enhetsskala, sideklassifisering, required metrics eller regnskapslikninger blir stående i `MANUAL_REVIEW` eller `FAILED` i stedet for å skrive usikre tall til publisert snapshot.
+- Artifact-lagring bruker nå `output/annual-report-artifacts/` som lokal artifact-store i utvikling; database-rader peker til hvert lagret artifact slik at lagringen kan flyttes bak et annet storage-interface senere.
 - Regulatorisk overlay fra Finanstilsynet er ikke aktivert ennå.
 - Aksjonærdata krever et reelt Skatteetaten-uttrekk for aktuelt selskap og år. Hvis snapshot mangler, viser ProjectX en tydelig tomtilstand i stedet for en plassholdergraf.
 - Eierandeler beregnes bare når totalt antall aksjer finnes og er konsistent i den importerte leveransen.
@@ -176,20 +177,71 @@ Aktive workspaces kan, avhengig av tilgangsnivå, eie DD-rom, watches, inbox-var
 
 Subscription-modellen finnes i databasen og brukes til enkel feature gating i produktet. Betalingsflyt er ikke ferdigstilt i denne iterasjonen.
 
-## Import av årsrapporter
+## Import av årsrapporter og financial ingest
 
-ProjectX har en første importjobb som kan hente og lagre regnskap for konkrete virksomheter i databasen:
+ProjectX bruker nå en staged ingest for årsregnskap. I stedet for å OCR-e en PDF direkte inn i `FinancialStatement`, skjer flyten slik:
+
+- filing discovery per selskap og regnskapsår
+- nedlasting og lagring av rå PDF som artifact
+- preflight av tekstlag / sidegrunnlag
+- sideklassifisering og enhetsskala-detektering
+- ekstraksjonskjøring med persisted facts og valideringsfeil
+- publish gate som bare oppdaterer `FinancialStatement` når confidence og regnskapslikninger passerer
+
+For enkel enkeltselskaps-import finnes fortsatt:
 
 ```bash
 npm run import:annual-reports -- 928846466
 ```
 
-Dette vil:
+Dette vil nå:
 
 - hente virksomheten fra Brreg
-- hente tilgjengelige årsrapporter
-- parse regnskapstall fra offisielle Brreg-PDF-er
-- skrive normaliserte `FinancialStatement`-rader til PostgreSQL
+- oppdage tilgjengelige filings
+- laste ned og registrere rå årsrapport-artifacts
+- kjøre ekstraksjon, validering og publiseringsgate
+- oppdatere publiserte `FinancialStatement`-snapshots bare for filings som passerer kontrollene
+
+For operasjonell drift finnes også idempotente jobs:
+
+```bash
+npm run financials:discover-filings
+npm run financials:backfill-filings
+npm run financials:process-pending-filings
+npm run financials:sync-new-filings
+npm run financials:reprocess-low-confidence
+npm run financials:validate-published-financials
+```
+
+Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes selskaper som allerede finnes i ProjectX-databasen.
+
+### Historic backfill
+
+- `financials:backfill-filings` oppdager alle åpne årsrapporter for kjente selskaper
+- hver filing registreres separat med status, hash, artifacts, extraction runs og validation issues
+- bare filings som passerer publish gate oppdaterer publisert snapshot for sitt regnskapsår
+- `CompanyFinancialCoverage` oppdateres med siste discovered/downloaded/published år
+
+### Incremental sync for nye filings
+
+- `financials:sync-new-filings` går bare over selskaper som er due for ny sjekk via `CompanyFinancialCoverage.nextCheckAt`
+- nye filings oppdages via Brreg-årslisten og registreres idempotent
+- bare nye eller uferdige filings med status `DISCOVERED`, `DOWNLOADED` eller `PREFLIGHTED` prosesseres automatisk videre
+- filings i `FAILED` eller `MANUAL_REVIEW` reprocesses bare via eksplisitt low-confidence/retry-jobb
+- publiserte filings blir ikke destruktivt slettet og opprettet på nytt; nye extraction runs og artifacts beholdes som historikk
+
+### Hva blokkerer auto-publisering
+
+En filing publiseres ikke automatisk dersom ett eller flere av disse forholdene gjelder:
+
+- relevante inntekts- og balansesider kan ikke klassifiseres sikkert
+- enhetsskala (`NOK` vs `NOK 1000`) er ukjent eller inkonsistent
+- required primary metrics mangler
+- resultat- eller balanselikninger feiler materielt
+- duplikate statement-seksjoner ikke stemmer etter normalisering
+- confidence score havner under terskel
+
+I slike tilfeller lagres fortsatt rå PDF, artifacts, extraction run, facts og validation issues, men filing-en merkes som `MANUAL_REVIEW` eller `FAILED`.
 
 ## Import av aksjonærdata
 
@@ -269,7 +321,7 @@ Den planlagte petroleum-ruten i [vercel.json](./vercel.json) er ment som første
 
 - `BrregCompanyProvider`: søker og henter virksomheter
 - `BrregRolesProvider`: henter roller/styre
-- `BrregFinancialsProvider`: bygger regnskapstall fra offisielle PDF-kopier av årsregnskap og normaliserer dem for visning/import
+- `BrregFinancialsProvider`: discovery/download-provider for offisielle PDF-kopier av årsregnskap
 - `SsbIndustryCodeProvider`: beriker næringskode med SSB-beskrivelse
 
 ## Kjørbart resultat
