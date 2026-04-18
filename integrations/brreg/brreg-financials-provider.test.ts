@@ -21,6 +21,7 @@ describe("BrregFinancialsProvider", () => {
     expect(filings).toHaveLength(3);
     expect(filings[0]?.fiscalYear).toBe(2024);
     expect(filings[0]?.sourceUrl).toContain("/928846466/2024");
+    expect(filings[0]?.sourceDiscoveryKey).toBe("BRREG::928846466::2024::annual-report");
     expect(filings[2]?.fiscalYear).toBe(2022);
   });
 });

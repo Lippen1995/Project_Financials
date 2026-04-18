@@ -22,4 +22,11 @@ describe("detectUnitScale", () => {
 
     expect(result.unitScale).toBeNull();
   });
+
+  it("blocks conflicting whole-NOK and NOK-1000 declarations", () => {
+    const result = detectUnitScale("Belop i: NOK. Alle tall i notene er NOK 1 000.");
+
+    expect(result.unitScale).toBeNull();
+    expect(result.conflictingSignals).toBe(true);
+  });
 });

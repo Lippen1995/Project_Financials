@@ -101,6 +101,7 @@ ProjectX bruker Patentstyrets Open Data-endepunkter med organisasjonsnummer som 
 - ProjectX viser bare publiserte regnskapssnapshots når pipeline-en klarer å identifisere relevante sider, enhetsskala, primærmetrikker og nødvendige balansesjekker.
 - Rå PDF-er, preflight-data, klassifiseringer, ekstraksjonskjøringer, facts og valideringsfeil lagres separat før noe kan publiseres til `FinancialStatement`.
 - Filing-er som feiler på enhetsskala, sideklassifisering, required metrics eller regnskapslikninger blir stående i `MANUAL_REVIEW` eller `FAILED` i stedet for å skrive usikre tall til publisert snapshot.
+- Hvis samme regnskapsår senere dukker opp med endret dokumenthash, bevares filing-historikken som en ny filing-versjon i stedet for å overskrive den gamle raden blindt.
 - Artifact-lagring bruker nå `output/annual-report-artifacts/` som lokal artifact-store i utvikling; database-rader peker til hvert lagret artifact slik at lagringen kan flyttes bak et annet storage-interface senere.
 - Regulatorisk overlay fra Finanstilsynet er ikke aktivert ennå.
 - Aksjonærdata krever et reelt Skatteetaten-uttrekk for aktuelt selskap og år. Hvis snapshot mangler, viser ProjectX en tydelig tomtilstand i stedet for en plassholdergraf.
@@ -226,6 +227,7 @@ Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes s
 
 - `financials:sync-new-filings` går bare over selskaper som er due for ny sjekk via `CompanyFinancialCoverage.nextCheckAt`
 - nye filings oppdages via Brreg-årslisten og registreres idempotent
+- for de nyeste kjente filingene verifiserer sync-jobben også dokumenthash for å oppdage reviderte PDF-er på allerede kjente regnskapsår
 - bare nye eller uferdige filings med status `DISCOVERED`, `DOWNLOADED` eller `PREFLIGHTED` prosesseres automatisk videre
 - filings i `FAILED` eller `MANUAL_REVIEW` reprocesses bare via eksplisitt low-confidence/retry-jobb
 - publiserte filings blir ikke destruktivt slettet og opprettet på nytt; nye extraction runs og artifacts beholdes som historikk

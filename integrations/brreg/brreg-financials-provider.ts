@@ -49,7 +49,8 @@ export class BrregFinancialsProvider {
         document.files.find((file) => file.type === "aarsregnskap" && file.url)?.url ??
         `${env.brregFinancialsBaseUrl}/aarsregnskap/kopi/${orgNumber}/${document.year}`,
       sourceDocumentType: "ANNUAL_REPORT_PDF",
-      sourceIdempotencyKey: inferStringHashKey(["BRREG", orgNumber, document.year, "annual-report"]),
+      sourceDiscoveryKey: inferStringHashKey(["BRREG", orgNumber, document.year, "annual-report"]),
+      sourceIdempotencyKey: inferStringHashKey(["BRREG", orgNumber, document.year, "annual-report", "pending"]),
       discoveredAt,
       document,
     }));

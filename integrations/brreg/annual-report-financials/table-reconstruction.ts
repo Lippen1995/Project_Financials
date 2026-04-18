@@ -13,6 +13,32 @@ function isNumericToken(token: string) {
   return /^-?\d[\d\s.]*$/.test(token.trim());
 }
 
+function isHeaderOrNoiseLine(line: string, classification: PageClassification) {
+  const normalized = normalizeRowLabel(line);
+  if (!normalized) {
+    return true;
+  }
+
+  if (classification.heading && normalized === normalizeRowLabel(classification.heading)) {
+    return true;
+  }
+
+  if (/^(20\d{2}\s*){1,3}$/.test(line.trim())) {
+    return true;
+  }
+
+  if (
+    normalized.includes("belop i") ||
+    normalized.includes("alle tall") ||
+    normalized.includes("note ") ||
+    normalized.includes("regnskapsprinsipper")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function inferNoteReference(tokens: string[], firstNumericIndex: number) {
   if (firstNumericIndex <= 0) {
     return null;
@@ -26,6 +52,28 @@ function inferNoteReference(tokens: string[], firstNumericIndex: number) {
   return null;
 }
 
+function tokenizeLine(page: PageTextLayer, lineIndex: number) {
+  const line = page.lines[lineIndex];
+  if (!line) {
+    return [];
+  }
+
+  if (line.words.length > 0) {
+    return line.words.map((word) => ({
+      token: word.text.trim(),
+      x: word.x,
+    }));
+  }
+
+  return line.text
+    .split(/\s{2,}|\t+|\s+/)
+    .filter(Boolean)
+    .map((token, tokenIndex) => ({
+      token,
+      x: tokenIndex * 100,
+    }));
+}
+
 function buildRowsForPage(page: PageTextLayer, classification: PageClassification) {
   if (
     classification.type === "AUDITOR_REPORT" ||
@@ -35,65 +83,76 @@ function buildRowsForPage(page: PageTextLayer, classification: PageClassificatio
     return [] as ReconstructedRow[];
   }
 
-  return page.lines
-    .map((line) => {
-      const tokens = line.text.split(/\s{2,}|\t+/).flatMap((part) => part.split(/\s+/)).filter(Boolean);
-      const numericIndexes = tokens
-        .map((token, index) => ({ token, index }))
-        .filter((candidate) => isNumericToken(candidate.token));
+  const rows: ReconstructedRow[] = [];
 
-      if (numericIndexes.length === 0) {
-        return null;
-      }
+  for (let lineIndex = 0; lineIndex < page.lines.length; lineIndex += 1) {
+    const line = page.lines[lineIndex];
+    if (!line || isHeaderOrNoiseLine(line.text, classification)) {
+      continue;
+    }
 
-      const firstNumericIndex = numericIndexes[0]?.index ?? -1;
-      if (firstNumericIndex <= 0) {
-        return null;
-      }
+    const tokens = tokenizeLine(page, lineIndex)
+      .map((item) => item.token)
+      .filter(Boolean);
+    const numericIndexes = tokens
+      .map((token, index) => ({ token, index }))
+      .filter((candidate) => isNumericToken(candidate.token));
 
-      const noteReference = inferNoteReference(tokens, firstNumericIndex);
-      const labelTokens = tokens.slice(0, noteReference ? firstNumericIndex - 1 : firstNumericIndex);
-      const label = stripDuplicateWhitespace(labelTokens.join(" "));
-      const normalizedLabel = normalizeRowLabel(label);
+    if (numericIndexes.length === 0) {
+      continue;
+    }
 
-      if (!normalizedLabel || normalizedLabel.length < 3) {
-        return null;
-      }
+    const firstNumericIndex = numericIndexes[0]?.index ?? -1;
+    if (firstNumericIndex <= 0) {
+      continue;
+    }
 
-      const values = numericIndexes
-        .slice(-2)
-        .map(({ token }, valueIndex) => ({
-          value: parseFinancialInteger(token),
-          columnIndex: valueIndex,
-          x: line.x + valueIndex * 100,
-        }))
-        .filter((cell): cell is { value: number; columnIndex: number; x: number } => cell.value !== null);
+    const noteReference = inferNoteReference(tokens, firstNumericIndex);
+    const labelTokens = tokens.slice(0, noteReference ? firstNumericIndex - 1 : firstNumericIndex);
+    const label = stripDuplicateWhitespace(labelTokens.join(" "));
+    const normalizedLabel = normalizeRowLabel(label);
 
-      if (values.length === 0) {
-        return null;
-      }
+    if (!normalizedLabel || normalizedLabel.length < 3) {
+      continue;
+    }
 
-      return {
-        pageNumber: page.pageNumber,
-        sectionType: classification.type,
-        unitScale: classification.unitScale ?? 1,
-        label,
-        normalizedLabel,
-        noteReference,
-        rowText: line.text,
-        y: line.y,
-        confidence: Math.max(0.2, Math.min(0.99, line.confidence)),
-        values,
-      } satisfies ReconstructedRow;
-    })
-    .filter((row): row is ReconstructedRow => row !== null);
+    const values = numericIndexes
+      .slice(-Math.max(2, classification.yearHeaderYears.length || 2))
+      .map(({ token, index }, valueIndex) => ({
+        value: parseFinancialInteger(token),
+        columnIndex: valueIndex,
+        x: line.words[index]?.x ?? line.x + valueIndex * 100,
+      }))
+      .filter((cell): cell is { value: number; columnIndex: number; x: number } => cell.value !== null);
+
+    if (values.length === 0) {
+      continue;
+    }
+
+    rows.push({
+      pageNumber: page.pageNumber,
+      sectionType: classification.type,
+      unitScale: classification.unitScale ?? 1,
+      label,
+      normalizedLabel,
+      noteReference,
+      rowText: line.text,
+      y: line.y,
+      confidence: Math.max(0.25, Math.min(0.995, line.confidence)),
+      values,
+    });
+  }
+
+  return rows;
 }
 
 export function reconstructStatementRows(
   pages: PageTextLayer[],
   classifications: PageClassification[],
 ) {
-  const classificationByPage = new Map(classifications.map((classification) => [classification.pageNumber, classification]));
+  const classificationByPage = new Map(
+    classifications.map((classification) => [classification.pageNumber, classification]),
+  );
 
   return pages
     .flatMap((page) => {

@@ -5,6 +5,21 @@ import {
 
 export type AnnualReportUnitScale = 1 | 1000;
 
+export type UnitScaleSignal = {
+  unitScale: AnnualReportUnitScale;
+  confidence: number;
+  source: "PAGE_HEADER" | "PAGE_BODY" | "NOTE_DECLARATION";
+  matchedText: string;
+};
+
+export type UnitScaleDetectionResult = {
+  unitScale: AnnualReportUnitScale | null;
+  confidence: number;
+  reason: string | null;
+  conflictingSignals: boolean;
+  signals: UnitScaleSignal[];
+};
+
 export type ExtractedWord = {
   text: string;
   normalizedText: string;
@@ -40,7 +55,13 @@ export type PageClassification = {
   type: StatementSectionType;
   confidence: number;
   unitScale: AnnualReportUnitScale | null;
+  unitScaleConfidence: number;
+  hasConflictingUnitSignals: boolean;
   declaredYears: number[];
+  yearHeaderYears: number[];
+  heading: string | null;
+  numericRowCount: number;
+  tableLike: boolean;
   reasons: string[];
 };
 

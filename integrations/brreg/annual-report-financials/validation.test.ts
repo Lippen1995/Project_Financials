@@ -74,4 +74,39 @@ describe("validateCanonicalFacts", () => {
     expect(result.hasBlockingErrors).toBe(true);
     expect(result.issues.some((issue) => issue.ruleCode === "BS_TOTAL_BALANCES")).toBe(true);
   });
+
+  it("raises duplicate-section mismatch when statutory and supplementary sections disagree", () => {
+    const facts = [
+      buildFact("revenue", 103_097_000),
+      {
+        ...buildFact("revenue", 99_000_000),
+        precedence: "SUPPLEMENTARY_NOK_THOUSANDS" as const,
+        sourceSection: "SUPPLEMENTARY_INCOME" as const,
+        sourcePage: 5,
+        unitScale: 1000 as const,
+      },
+    ];
+
+    const result = validateCanonicalFacts(facts);
+
+    expect(result.issues.some((issue) => issue.ruleCode === "DUPLICATE_SECTION_MISMATCH")).toBe(true);
+    expect(result.hasBlockingErrors).toBe(true);
+  });
+
+  it("raises suspicious unit mismatch when duplicate sections differ by 1000x", () => {
+    const facts = [
+      buildFact("revenue", 103_097_000),
+      {
+        ...buildFact("revenue", 103_097),
+        precedence: "SUPPLEMENTARY_NOK_THOUSANDS" as const,
+        sourceSection: "SUPPLEMENTARY_INCOME" as const,
+        sourcePage: 5,
+        unitScale: 1 as const,
+      },
+    ];
+
+    const result = validateCanonicalFacts(facts);
+
+    expect(result.issues.some((issue) => issue.ruleCode === "SUSPICIOUS_UNIT_MISMATCH")).toBe(true);
+  });
 });

@@ -8,20 +8,15 @@ const providerState = {
       fiscalYear: 2024,
       sourceSystem: "BRREG",
       sourceUrl: "https://example.test/2024.pdf",
+      sourceDiscoveryKey: "BRREG::928846466::2024::annual-report",
+      sourceIdempotencyKey: "BRREG::928846466::2024::annual-report::pending",
       sourceDocumentType: "ANNUAL_REPORT_PDF",
-      sourceIdempotencyKey: "BRREG::928846466::2024::annual-report",
       discoveredAt: new Date("2026-04-17T08:00:00.000Z"),
       document: null,
     },
   ],
-  pdf: {
-    buffer: Buffer.from("fake-pdf"),
-    mimeType: "application/pdf",
-  },
-  downloadAnnualReportPdf: vi.fn(async () => ({
-    buffer: providerState.pdf.buffer,
-    mimeType: providerState.pdf.mimeType,
-  })),
+  pdf: { buffer: Buffer.from("fake-pdf"), mimeType: "application/pdf" },
+  downloadAnnualReportPdf: vi.fn(async () => ({ buffer: providerState.pdf.buffer, mimeType: providerState.pdf.mimeType })),
 };
 
 const repo = {
@@ -36,6 +31,9 @@ const repo = {
   createFinancialFacts: vi.fn(),
   createFinancialValidationIssues: vi.fn(),
   publishFinancialStatementSnapshot: vi.fn(),
+  registerAnnualReportHashVersion: vi.fn(),
+  createAnnualReportFilingVersion: vi.fn(),
+  listLatestAnnualReportFilingsForCompany: vi.fn(),
 };
 
 vi.mock("@/integrations/brreg/brreg-financials-provider", () => ({
@@ -52,10 +50,7 @@ vi.mock("@/integrations/brreg/brreg-financials-provider", () => ({
 vi.mock("@/server/financials/artifact-storage", () => ({
   LocalAnnualReportArtifactStorage: class {
     async putArtifact(input: { artifactType: string; filename: string }) {
-      return {
-        storageKey: `${input.artifactType}/${input.filename}`,
-        absolutePath: `/tmp/${input.filename}`,
-      };
+      return { storageKey: `${input.artifactType}/${input.filename}`, absolutePath: `/tmp/${input.filename}` };
     }
     async getArtifactBuffer() {
       return providerState.pdf.buffer;
@@ -76,6 +71,9 @@ vi.mock("@/server/persistence/annual-report-ingestion-repository", () => ({
   createFinancialFacts: repo.createFinancialFacts,
   createFinancialValidationIssues: repo.createFinancialValidationIssues,
   publishFinancialStatementSnapshot: repo.publishFinancialStatementSnapshot,
+  registerAnnualReportHashVersion: repo.registerAnnualReportHashVersion,
+  createAnnualReportFilingVersion: repo.createAnnualReportFilingVersion,
+  listLatestAnnualReportFilingsForCompany: repo.listLatestAnnualReportFilingsForCompany,
   listPendingAnnualReportFilings: vi.fn(),
   getPublishedFinancialsForCompany: vi.fn(),
 }));
@@ -91,22 +89,8 @@ vi.mock("@/integrations/brreg/annual-report-financials/preflight", () => ({
 
 vi.mock("@/integrations/brreg/annual-report-financials/page-classification", () => ({
   classifyPages: vi.fn(() => [
-    {
-      pageNumber: 2,
-      type: "STATUTORY_INCOME",
-      confidence: 0.95,
-      unitScale: 1,
-      declaredYears: [2024, 2023],
-      reasons: ["Resultatregnskap"],
-    },
-    {
-      pageNumber: 3,
-      type: "STATUTORY_BALANCE",
-      confidence: 0.95,
-      unitScale: 1,
-      declaredYears: [2024, 2023],
-      reasons: ["Balanse"],
-    },
+    { pageNumber: 2, type: "STATUTORY_INCOME", confidence: 0.95, unitScale: 1, unitScaleConfidence: 0.95, hasConflictingUnitSignals: false, declaredYears: [2024, 2023], yearHeaderYears: [2024, 2023], heading: "Resultatregnskap", numericRowCount: 8, tableLike: true, reasons: ["Resultatregnskap"] },
+    { pageNumber: 3, type: "STATUTORY_BALANCE", confidence: 0.95, unitScale: 1, unitScaleConfidence: 0.95, hasConflictingUnitSignals: false, declaredYears: [2024, 2023], yearHeaderYears: [2024, 2023], heading: "Balanse", numericRowCount: 8, tableLike: true, reasons: ["Balanse"] },
   ]),
 }));
 
@@ -115,132 +99,17 @@ vi.mock("@/integrations/brreg/annual-report-financials/table-reconstruction", ()
 }));
 
 const mappedFacts = [
-  {
-    fiscalYear: 2024,
-    statementType: "INCOME_STATEMENT",
-    metricKey: "revenue",
-    rawLabel: "Salgsinntekter",
-    normalizedLabel: "salgsinntekter",
-    value: 103_097_000,
-    currency: "NOK",
-    unitScale: 1,
-    sourcePage: 2,
-    sourceSection: "STATUTORY_INCOME",
-    sourceRowText: "Salgsinntekter 103097000",
-    noteReference: null,
-    confidenceScore: 0.96,
-    precedence: "STATUTORY_NOK",
-    isDerived: false,
-  },
-  {
-    fiscalYear: 2024,
-    statementType: "INCOME_STATEMENT",
-    metricKey: "operating_profit",
-    rawLabel: "Driftsresultat",
-    normalizedLabel: "driftsresultat",
-    value: 21_210_000,
-    currency: "NOK",
-    unitScale: 1,
-    sourcePage: 2,
-    sourceSection: "STATUTORY_INCOME",
-    sourceRowText: "Driftsresultat 21210000",
-    noteReference: null,
-    confidenceScore: 0.96,
-    precedence: "STATUTORY_NOK",
-    isDerived: false,
-  },
-  {
-    fiscalYear: 2024,
-    statementType: "INCOME_STATEMENT",
-    metricKey: "net_income",
-    rawLabel: "Årsresultat",
-    normalizedLabel: "arsresultat",
-    value: 18_221_000,
-    currency: "NOK",
-    unitScale: 1,
-    sourcePage: 2,
-    sourceSection: "STATUTORY_INCOME",
-    sourceRowText: "Årsresultat 18221000",
-    noteReference: null,
-    confidenceScore: 0.96,
-    precedence: "STATUTORY_NOK",
-    isDerived: false,
-  },
-  {
-    fiscalYear: 2024,
-    statementType: "BALANCE_SHEET",
-    metricKey: "total_assets",
-    rawLabel: "Sum eiendeler",
-    normalizedLabel: "sum eiendeler",
-    value: 92_155_000,
-    currency: "NOK",
-    unitScale: 1,
-    sourcePage: 3,
-    sourceSection: "STATUTORY_BALANCE",
-    sourceRowText: "Sum eiendeler 92155000",
-    noteReference: null,
-    confidenceScore: 0.96,
-    precedence: "STATUTORY_NOK",
-    isDerived: false,
-  },
-  {
-    fiscalYear: 2024,
-    statementType: "BALANCE_SHEET",
-    metricKey: "total_equity",
-    rawLabel: "Sum egenkapital",
-    normalizedLabel: "sum egenkapital",
-    value: 36_372_000,
-    currency: "NOK",
-    unitScale: 1,
-    sourcePage: 3,
-    sourceSection: "STATUTORY_BALANCE",
-    sourceRowText: "Sum egenkapital 36372000",
-    noteReference: null,
-    confidenceScore: 0.96,
-    precedence: "STATUTORY_NOK",
-    isDerived: false,
-  },
-  {
-    fiscalYear: 2024,
-    statementType: "BALANCE_SHEET",
-    metricKey: "total_liabilities",
-    rawLabel: "Sum gjeld",
-    normalizedLabel: "sum gjeld",
-    value: 55_783_000,
-    currency: "NOK",
-    unitScale: 1,
-    sourcePage: 3,
-    sourceSection: "STATUTORY_BALANCE",
-    sourceRowText: "Sum gjeld 55783000",
-    noteReference: null,
-    confidenceScore: 0.96,
-    precedence: "STATUTORY_NOK",
-    isDerived: false,
-  },
-  {
-    fiscalYear: 2024,
-    statementType: "BALANCE_SHEET",
-    metricKey: "total_equity_and_liabilities",
-    rawLabel: "Sum egenkapital og gjeld",
-    normalizedLabel: "sum egenkapital og gjeld",
-    value: 92_155_000,
-    currency: "NOK",
-    unitScale: 1,
-    sourcePage: 3,
-    sourceSection: "STATUTORY_BALANCE",
-    sourceRowText: "Sum egenkapital og gjeld 92155000",
-    noteReference: null,
-    confidenceScore: 0.96,
-    precedence: "STATUTORY_NOK",
-    isDerived: false,
-  },
-];
+  { fiscalYear: 2024, statementType: "INCOME_STATEMENT", metricKey: "revenue", rawLabel: "Salgsinntekter", normalizedLabel: "salgsinntekter", value: 103_097_000, currency: "NOK", unitScale: 1, sourcePage: 2, sourceSection: "STATUTORY_INCOME", sourceRowText: "Salgsinntekter 103097000", noteReference: null, confidenceScore: 0.96, precedence: "STATUTORY_NOK", isDerived: false },
+  { fiscalYear: 2024, statementType: "INCOME_STATEMENT", metricKey: "operating_profit", rawLabel: "Driftsresultat", normalizedLabel: "driftsresultat", value: 21_210_000, currency: "NOK", unitScale: 1, sourcePage: 2, sourceSection: "STATUTORY_INCOME", sourceRowText: "Driftsresultat 21210000", noteReference: null, confidenceScore: 0.96, precedence: "STATUTORY_NOK", isDerived: false },
+  { fiscalYear: 2024, statementType: "INCOME_STATEMENT", metricKey: "net_income", rawLabel: "Årsresultat", normalizedLabel: "arsresultat", value: 18_221_000, currency: "NOK", unitScale: 1, sourcePage: 2, sourceSection: "STATUTORY_INCOME", sourceRowText: "Årsresultat 18221000", noteReference: null, confidenceScore: 0.96, precedence: "STATUTORY_NOK", isDerived: false },
+  { fiscalYear: 2024, statementType: "BALANCE_SHEET", metricKey: "total_assets", rawLabel: "Sum eiendeler", normalizedLabel: "sum eiendeler", value: 92_155_000, currency: "NOK", unitScale: 1, sourcePage: 3, sourceSection: "STATUTORY_BALANCE", sourceRowText: "Sum eiendeler 92155000", noteReference: null, confidenceScore: 0.96, precedence: "STATUTORY_NOK", isDerived: false },
+  { fiscalYear: 2024, statementType: "BALANCE_SHEET", metricKey: "total_equity", rawLabel: "Sum egenkapital", normalizedLabel: "sum egenkapital", value: 36_372_000, currency: "NOK", unitScale: 1, sourcePage: 3, sourceSection: "STATUTORY_BALANCE", sourceRowText: "Sum egenkapital 36372000", noteReference: null, confidenceScore: 0.96, precedence: "STATUTORY_NOK", isDerived: false },
+  { fiscalYear: 2024, statementType: "BALANCE_SHEET", metricKey: "total_liabilities", rawLabel: "Sum gjeld", normalizedLabel: "sum gjeld", value: 55_783_000, currency: "NOK", unitScale: 1, sourcePage: 3, sourceSection: "STATUTORY_BALANCE", sourceRowText: "Sum gjeld 55783000", noteReference: null, confidenceScore: 0.96, precedence: "STATUTORY_NOK", isDerived: false },
+  { fiscalYear: 2024, statementType: "BALANCE_SHEET", metricKey: "total_equity_and_liabilities", rawLabel: "Sum egenkapital og gjeld", normalizedLabel: "sum egenkapital og gjeld", value: 92_155_000, currency: "NOK", unitScale: 1, sourcePage: 3, sourceSection: "STATUTORY_BALANCE", sourceRowText: "Sum egenkapital og gjeld 92155000", noteReference: null, confidenceScore: 0.96, precedence: "STATUTORY_NOK", isDerived: false },
+] as CanonicalFactCandidate[];
 
 vi.mock("@/integrations/brreg/annual-report-financials/canonical-mapping", () => ({
-  mapRowsToCanonicalFacts: vi.fn(() => ({
-    facts: mappedFacts,
-    issues: [],
-  })),
+  mapRowsToCanonicalFacts: vi.fn(() => ({ facts: mappedFacts, issues: [] })),
   chooseCanonicalFacts: vi.fn((facts) => new Map(facts.map((fact: typeof mappedFacts[number]) => [fact.metricKey, fact]))),
 }));
 
@@ -250,6 +119,7 @@ vi.mock("@/integrations/brreg/annual-report-financials/validation", () => ({
     issues: [],
     validationScore: 0.98,
     hasBlockingErrors: false,
+    stats: { duplicateComparisons: 1, duplicateMatches: 1, noteComparisons: 0, noteMatches: 0 },
   })),
 }));
 
@@ -266,24 +136,10 @@ describe("annual-report-financials-service", () => {
   beforeEach(() => {
     Object.values(repo).forEach((mocked) => mocked.mockReset());
     providerState.downloadAnnualReportPdf.mockClear();
-    repo.findCompanyByOrgNumber.mockResolvedValue({
-      id: "company-1",
-      orgNumber: "928846466",
-      name: "Example AS",
-      slug: "928846466-example-as",
-    });
-    repo.getAnnualReportFilingWithArtifacts.mockResolvedValue({
-      id: "filing-1",
-      company: {
-        id: "company-1",
-        orgNumber: "928846466",
-        name: "Example AS",
-      },
-      fiscalYear: 2024,
-      sourceUrl: "https://example.test/2024.pdf",
-      sourceDocumentHash: null,
-      artifacts: [],
-    });
+    repo.findCompanyByOrgNumber.mockResolvedValue({ id: "company-1", orgNumber: "928846466", name: "Example AS", slug: "928846466-example-as" });
+    repo.getAnnualReportFilingWithArtifacts.mockResolvedValue({ id: "filing-1", company: { id: "company-1", orgNumber: "928846466", name: "Example AS" }, fiscalYear: 2024, sourceUrl: "https://example.test/2024.pdf", sourceDocumentHash: null, artifacts: [], sourceDiscoveryKey: "BRREG::928846466::2024::annual-report" });
+    repo.registerAnnualReportHashVersion.mockResolvedValue({ id: "filing-1" });
+    repo.listLatestAnnualReportFilingsForCompany.mockResolvedValue([]);
     repo.createFinancialExtractionRun.mockResolvedValue({ id: "run-1" });
     repo.createAnnualReportArtifact.mockResolvedValue({ id: "artifact-1" });
     repo.updateAnnualReportFiling.mockResolvedValue({});
@@ -293,82 +149,68 @@ describe("annual-report-financials-service", () => {
     repo.publishFinancialStatementSnapshot.mockResolvedValue(undefined);
     repo.upsertCompanyFinancialCoverage.mockResolvedValue(undefined);
     repo.upsertAnnualReportFilingDiscovery.mockResolvedValue(undefined);
+    repo.createAnnualReportFilingVersion.mockResolvedValue({ id: "filing-2" });
   });
 
   it("discovers filings and updates company coverage", async () => {
-    const { discoverAnnualReportFilingsForCompany } = await import(
-      "@/server/services/annual-report-financials-service"
-    );
-
+    const { discoverAnnualReportFilingsForCompany } = await import("@/server/services/annual-report-financials-service");
     const result = await discoverAnnualReportFilingsForCompany("928846466");
-
     expect(result.discoveredFilings).toBe(1);
     expect(repo.upsertAnnualReportFilingDiscovery).toHaveBeenCalledTimes(1);
+    expect(repo.upsertAnnualReportFilingDiscovery.mock.calls[0][0].sourceDiscoveryKey).toBe("BRREG::928846466::2024::annual-report");
     expect(repo.upsertCompanyFinancialCoverage).toHaveBeenCalled();
   });
 
   it("publishes a validated snapshot when confidence and equations pass", async () => {
     const { processAnnualReportFiling } = await import("@/server/services/annual-report-financials-service");
-
     const result = await processAnnualReportFiling("filing-1");
-
     expect(result.published).toBe(true);
+    expect(repo.registerAnnualReportHashVersion).toHaveBeenCalledTimes(1);
     expect(repo.createFinancialFacts).toHaveBeenCalled();
     expect(repo.publishFinancialStatementSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it("reuses the stored pdf artifact instead of redownloading it", async () => {
-    repo.getAnnualReportFilingWithArtifacts.mockResolvedValueOnce({
-      id: "filing-1",
-      company: {
-        id: "company-1",
-        orgNumber: "928846466",
-        name: "Example AS",
-      },
-      fiscalYear: 2024,
-      sourceUrl: "https://example.test/2024.pdf",
-      sourceDocumentHash: "existing-hash",
-      artifacts: [
-        {
-          id: "artifact-1",
-          artifactType: "PDF",
-          storageKey: "PDF/928846466-2024.pdf",
-        },
-      ],
-    });
-
+    repo.getAnnualReportFilingWithArtifacts.mockResolvedValueOnce({ id: "filing-1", company: { id: "company-1", orgNumber: "928846466", name: "Example AS" }, fiscalYear: 2024, sourceUrl: "https://example.test/2024.pdf", sourceDocumentHash: "existing-hash", artifacts: [{ id: "artifact-1", artifactType: "PDF", storageKey: "PDF/928846466-2024.pdf" }] });
     const { processAnnualReportFiling } = await import("@/server/services/annual-report-financials-service");
-
     await processAnnualReportFiling("filing-1");
-
     expect(providerState.downloadAnnualReportPdf).not.toHaveBeenCalled();
   });
 
   it("does not publish when validation leaves a filing in manual review", async () => {
     const validationModule = await import("@/integrations/brreg/annual-report-financials/validation");
     vi.mocked(validationModule.validateCanonicalFacts).mockReturnValueOnce({
-      selectedFacts: new Map(
-        mappedFacts.map((fact) => [
-          fact.metricKey as CanonicalMetricKey,
-          fact as CanonicalFactCandidate,
-        ]),
-      ),
-      issues: [
-        {
-          severity: "ERROR",
-          ruleCode: "BS_TOTAL_BALANCES",
-          message: "Balance sheet is not balanced",
-        },
-      ],
+      selectedFacts: new Map(mappedFacts.map((fact) => [fact.metricKey as CanonicalMetricKey, fact as CanonicalFactCandidate])),
+      issues: [{ severity: "ERROR", ruleCode: "BS_TOTAL_BALANCES", message: "Balance sheet is not balanced" }],
       validationScore: 0.4,
       hasBlockingErrors: true,
+      stats: { duplicateComparisons: 1, duplicateMatches: 0, noteComparisons: 0, noteMatches: 0 },
     });
-
     const { processAnnualReportFiling } = await import("@/server/services/annual-report-financials-service");
     const result = await processAnnualReportFiling("filing-1");
-
     expect(result.published).toBe(false);
     expect(repo.publishFinancialStatementSnapshot).not.toHaveBeenCalled();
     expect(repo.updateAnnualReportFiling).toHaveBeenCalled();
+  });
+
+  it("creates a new filing version when sync detects a changed hash for an existing year", async () => {
+    repo.listLatestAnnualReportFilingsForCompany.mockResolvedValue([{ id: "filing-1", companyId: "company-1", fiscalYear: 2024, sourceUrl: "https://example.test/2024.pdf", sourceDocumentHash: "old-hash" }]);
+    providerState.downloadAnnualReportPdf.mockResolvedValueOnce({ buffer: Buffer.from("changed-pdf"), mimeType: "application/pdf" });
+    const repoModule = await import("@/server/persistence/annual-report-ingestion-repository");
+    vi.mocked(repoModule.listCompaniesForFinancialSync).mockResolvedValue([{ id: "company-1", orgNumber: "928846466", name: "Example AS", financialCoverage: { nextCheckAt: new Date("2026-04-17T00:00:00.000Z") } } as never]);
+    vi.mocked(repoModule.listPendingAnnualReportFilings).mockResolvedValue([]);
+    const { syncNewAnnualReportFilings } = await import("@/server/services/annual-report-financials-service");
+    const result = await syncNewAnnualReportFilings({ orgNumbers: ["928846466"] });
+    expect(repo.createAnnualReportFilingVersion).toHaveBeenCalledTimes(1);
+    expect(result.versionChecks).toHaveLength(1);
+  });
+
+  it("returns early when no companies are due for incremental sync", async () => {
+    const repoModule = await import("@/server/persistence/annual-report-ingestion-repository");
+    vi.mocked(repoModule.listCompaniesForFinancialSync).mockResolvedValue([]);
+    const { syncNewAnnualReportFilings } = await import("@/server/services/annual-report-financials-service");
+    const result = await syncNewAnnualReportFilings();
+    expect(result.checkedCompanies).toBe(0);
+    expect(result.processed).toEqual([]);
   });
 });

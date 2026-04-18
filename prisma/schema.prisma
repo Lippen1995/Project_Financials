@@ -591,6 +591,7 @@ model AnnualReportFiling {
   fiscalYear               Int
   sourceSystem             String
   sourceUrl                String
+  sourceDiscoveryKey       String
   sourceIdempotencyKey     String                   @unique
   sourceDocumentHash       String?
   sourceDocumentType       String
@@ -615,6 +616,7 @@ model AnnualReportFiling {
   @@index([companyId, fiscalYear])
   @@index([companyId, status, discoveredAt])
   @@index([companyId, isLatestForFiscalYear])
+  @@index([companyId, fiscalYear, sourceDiscoveryKey, discoveredAt])
 }
 
 model AnnualReportArtifact {

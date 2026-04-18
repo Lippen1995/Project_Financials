@@ -1,10 +1,17 @@
 import { Prisma, AnnualReportFilingStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { CanonicalFactCandidate, ValidationIssueDraft } from "@/integrations/brreg/annual-report-financials/types";
+import {
+  CanonicalFactCandidate,
+  ValidationIssueDraft,
+} from "@/integrations/brreg/annual-report-financials/types";
 
 function toBigInt(value: number | null | undefined) {
   return value === null || value === undefined ? null : BigInt(Math.round(value));
+}
+
+function buildHashVersionKey(sourceDiscoveryKey: string, checksum: string) {
+  return `${sourceDiscoveryKey}::${checksum}`;
 }
 
 export async function findCompanyByOrgNumber(orgNumber: string) {
@@ -56,31 +63,85 @@ export async function listCompaniesForFinancialSync(options?: {
   });
 }
 
+export async function findLatestAnnualReportFilingByDiscoveryKey(input: {
+  companyId: string;
+  fiscalYear: number;
+  sourceDiscoveryKey: string;
+}) {
+  return prisma.annualReportFiling.findFirst({
+    where: {
+      companyId: input.companyId,
+      fiscalYear: input.fiscalYear,
+      sourceDiscoveryKey: input.sourceDiscoveryKey,
+    },
+    orderBy: [{ isLatestForFiscalYear: "desc" }, { discoveredAt: "desc" }, { createdAt: "desc" }],
+  });
+}
+
+export async function findAnnualReportFilingByHashVersion(input: {
+  sourceDiscoveryKey: string;
+  checksum: string;
+}) {
+  return prisma.annualReportFiling.findUnique({
+    where: {
+      sourceIdempotencyKey: buildHashVersionKey(input.sourceDiscoveryKey, input.checksum),
+    },
+  });
+}
+
 export async function upsertAnnualReportFilingDiscovery(input: {
   companyId: string;
   fiscalYear: number;
   sourceSystem: string;
   sourceUrl: string;
+  sourceDiscoveryKey: string;
   sourceIdempotencyKey: string;
   sourceDocumentType: string;
   discoveredAt: Date;
 }) {
   return prisma.$transaction(async (tx) => {
-    const filing = await tx.annualReportFiling.upsert({
+    const existing = await tx.annualReportFiling.findFirst({
       where: {
-        sourceIdempotencyKey: input.sourceIdempotencyKey,
+        companyId: input.companyId,
+        fiscalYear: input.fiscalYear,
+        sourceDiscoveryKey: input.sourceDiscoveryKey,
       },
-      update: {
-        sourceUrl: input.sourceUrl,
-        sourceDocumentType: input.sourceDocumentType,
-        discoveredAt: input.discoveredAt,
-        isLatestForFiscalYear: true,
-      },
-      create: {
+      orderBy: [{ isLatestForFiscalYear: "desc" }, { discoveredAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    if (existing) {
+      const updated = await tx.annualReportFiling.update({
+        where: { id: existing.id },
+        data: {
+          sourceSystem: input.sourceSystem,
+          sourceUrl: input.sourceUrl,
+          sourceDocumentType: input.sourceDocumentType,
+          discoveredAt: input.discoveredAt,
+          isLatestForFiscalYear: true,
+        },
+      });
+
+      await tx.annualReportFiling.updateMany({
+        where: {
+          companyId: input.companyId,
+          fiscalYear: input.fiscalYear,
+          NOT: { id: updated.id },
+        },
+        data: {
+          isLatestForFiscalYear: false,
+        },
+      });
+
+      return updated;
+    }
+
+    const created = await tx.annualReportFiling.create({
+      data: {
         companyId: input.companyId,
         fiscalYear: input.fiscalYear,
         sourceSystem: input.sourceSystem,
         sourceUrl: input.sourceUrl,
+        sourceDiscoveryKey: input.sourceDiscoveryKey,
         sourceIdempotencyKey: input.sourceIdempotencyKey,
         sourceDocumentType: input.sourceDocumentType,
         discoveredAt: input.discoveredAt,
@@ -92,6 +153,69 @@ export async function upsertAnnualReportFilingDiscovery(input: {
       where: {
         companyId: input.companyId,
         fiscalYear: input.fiscalYear,
+        NOT: { id: created.id },
+      },
+      data: {
+        isLatestForFiscalYear: false,
+      },
+    });
+
+    return created;
+  });
+}
+
+export async function registerAnnualReportHashVersion(input: {
+  filingId: string;
+  checksum: string;
+  downloadedAt: Date;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const filing = await tx.annualReportFiling.findUnique({
+      where: { id: input.filingId },
+    });
+
+    if (!filing) {
+      throw new Error(`Fant ikke filing ${input.filingId}.`);
+    }
+
+    const hashVersionKey = buildHashVersionKey(filing.sourceDiscoveryKey, input.checksum);
+    const existingVersion = await tx.annualReportFiling.findUnique({
+      where: {
+        sourceIdempotencyKey: hashVersionKey,
+      },
+    });
+
+    if (existingVersion) {
+      await tx.annualReportFiling.updateMany({
+        where: {
+          companyId: filing.companyId,
+          fiscalYear: filing.fiscalYear,
+          NOT: { id: existingVersion.id },
+        },
+        data: {
+          isLatestForFiscalYear: false,
+        },
+      });
+
+      return tx.annualReportFiling.update({
+        where: { id: existingVersion.id },
+        data: {
+          sourceUrl: filing.sourceUrl,
+          sourceDocumentType: filing.sourceDocumentType,
+          discoveredAt: filing.discoveredAt,
+          downloadedAt: input.downloadedAt,
+          sourceDocumentHash: input.checksum,
+          status:
+            existingVersion.status === "DISCOVERED" ? "DOWNLOADED" : existingVersion.status,
+          isLatestForFiscalYear: true,
+        },
+      });
+    }
+
+    await tx.annualReportFiling.updateMany({
+      where: {
+        companyId: filing.companyId,
+        fiscalYear: filing.fiscalYear,
         NOT: { id: filing.id },
       },
       data: {
@@ -99,7 +223,73 @@ export async function upsertAnnualReportFilingDiscovery(input: {
       },
     });
 
-    return filing;
+    return tx.annualReportFiling.update({
+      where: { id: filing.id },
+      data: {
+        sourceIdempotencyKey: hashVersionKey,
+        sourceDocumentHash: input.checksum,
+        downloadedAt: input.downloadedAt,
+        status: filing.status === "DISCOVERED" ? "DOWNLOADED" : filing.status,
+        isLatestForFiscalYear: true,
+      },
+    });
+  });
+}
+
+export async function createAnnualReportFilingVersion(input: {
+  existingFilingId: string;
+  checksum: string;
+  downloadedAt: Date;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const filing = await tx.annualReportFiling.findUnique({
+      where: { id: input.existingFilingId },
+    });
+
+    if (!filing) {
+      throw new Error(`Fant ikke filing ${input.existingFilingId}.`);
+    }
+
+    const idempotencyKey = buildHashVersionKey(filing.sourceDiscoveryKey, input.checksum);
+    const existingVersion = await tx.annualReportFiling.findUnique({
+      where: { sourceIdempotencyKey: idempotencyKey },
+    });
+
+    if (existingVersion) {
+      return existingVersion;
+    }
+
+    await tx.annualReportFiling.updateMany({
+      where: {
+        companyId: filing.companyId,
+        fiscalYear: filing.fiscalYear,
+        NOT: { id: filing.id },
+      },
+      data: {
+        isLatestForFiscalYear: false,
+      },
+    });
+
+    return tx.annualReportFiling.create({
+      data: {
+        companyId: filing.companyId,
+        fiscalYear: filing.fiscalYear,
+        sourceSystem: filing.sourceSystem,
+        sourceUrl: filing.sourceUrl,
+        sourceDiscoveryKey: filing.sourceDiscoveryKey,
+        sourceIdempotencyKey: idempotencyKey,
+        sourceDocumentHash: input.checksum,
+        sourceDocumentType: filing.sourceDocumentType,
+        discoveredAt: new Date(),
+        downloadedAt: input.downloadedAt,
+        status: "DOWNLOADED",
+        isLatestForFiscalYear: true,
+        metadata:
+          filing.metadata === null
+            ? undefined
+            : (filing.metadata as Prisma.InputJsonValue | undefined),
+      },
+    });
   });
 }
 
@@ -236,6 +426,20 @@ export async function createFinancialValidationIssues(input: {
   });
 }
 
+export async function getPublishedFinancialStatementSnapshot(input: {
+  companyId: string;
+  fiscalYear: number;
+}) {
+  return prisma.financialStatement.findUnique({
+    where: {
+      companyId_fiscalYear: {
+        companyId: input.companyId,
+        fiscalYear: input.fiscalYear,
+      },
+    },
+  });
+}
+
 export async function publishFinancialStatementSnapshot(input: {
   companyId: string;
   fiscalYear: number;
@@ -259,6 +463,21 @@ export async function publishFinancialStatementSnapshot(input: {
   sourcePrecedence: Prisma.FinancialStatementUncheckedCreateInput["sourcePrecedence"];
   publishedAt: Date;
 }) {
+  const existing = await getPublishedFinancialStatementSnapshot({
+    companyId: input.companyId,
+    fiscalYear: input.fiscalYear,
+  });
+
+  const canReplace =
+    !existing ||
+    existing.sourceFilingId === input.sourceFilingId ||
+    existing.qualityStatus !== "HIGH_CONFIDENCE" ||
+    (existing.qualityScore ?? 0) <= input.qualityScore;
+
+  if (!canReplace) {
+    return existing;
+  }
+
   return prisma.financialStatement.upsert({
     where: {
       companyId_fiscalYear: {
@@ -358,11 +577,7 @@ export async function listPendingAnnualReportFilings(options?: {
   return prisma.annualReportFiling.findMany({
     where: {
       status: {
-        in: options?.statuses ?? [
-          "DISCOVERED",
-          "DOWNLOADED",
-          "PREFLIGHTED",
-        ],
+        in: options?.statuses ?? ["DISCOVERED", "DOWNLOADED", "PREFLIGHTED"],
       },
       ...(options?.orgNumbers?.length
         ? {
@@ -375,10 +590,11 @@ export async function listPendingAnnualReportFilings(options?: {
         : {}),
     },
     take: options?.limit,
-    orderBy: [{ companyId: "asc" }, { fiscalYear: "desc" }],
+    orderBy: [{ companyId: "asc" }, { fiscalYear: "desc" }, { discoveredAt: "desc" }],
     include: {
       company: {
         select: {
+          id: true,
           orgNumber: true,
           name: true,
         },
@@ -389,6 +605,16 @@ export async function listPendingAnnualReportFilings(options?: {
         take: 3,
       },
     },
+  });
+}
+
+export async function listLatestAnnualReportFilingsForCompany(companyId: string) {
+  return prisma.annualReportFiling.findMany({
+    where: {
+      companyId,
+      isLatestForFiscalYear: true,
+    },
+    orderBy: [{ fiscalYear: "desc" }, { discoveredAt: "desc" }],
   });
 }
 
