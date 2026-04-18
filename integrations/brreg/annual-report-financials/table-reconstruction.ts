@@ -55,7 +55,7 @@ function inferNoteReference(tokens: string[], firstNumericIndex: number) {
   }
 
   const mergedCandidate = tokens[firstNumericIndex]?.trim() ?? "";
-  const mergedMatch = mergedCandidate.match(/^(\d{1,2})([-(]?\d.*)$/);
+  const mergedMatch = mergedCandidate.match(/^(\d{1,2})([-(].*)$/);
   if (mergedMatch) {
     return mergedMatch[1];
   }
@@ -124,13 +124,39 @@ function buildRowsForPage(page: PageTextLayer, classification: PageClassificatio
       continue;
     }
 
-    const firstNumericIndex = numericIndexes[0]?.index ?? -1;
-    if (firstNumericIndex <= 0) {
+    let firstValueNumericIndex = numericIndexes[0]?.index ?? -1;
+    let labelStartIndex = 0;
+    let noteReference: string | null = null;
+
+    if (classification.type === "NOTE") {
+      const firstToken = tokens[0]?.trim() ?? "";
+      const secondToken = tokens[1]?.trim() ?? "";
+      const mergedNoteMatch = firstToken.match(/^note\s*(\d{1,2})$/i);
+
+      if (/^note$/i.test(firstToken) && /^\d{1,2}$/.test(secondToken)) {
+        noteReference = secondToken;
+        labelStartIndex = 2;
+        firstValueNumericIndex =
+          numericIndexes.find((candidate) => candidate.index > labelStartIndex)?.index ?? -1;
+      } else if (mergedNoteMatch) {
+        noteReference = mergedNoteMatch[1];
+        labelStartIndex = 1;
+        firstValueNumericIndex =
+          numericIndexes.find((candidate) => candidate.index >= labelStartIndex)?.index ?? -1;
+      }
+    }
+
+    if (firstValueNumericIndex <= labelStartIndex) {
       continue;
     }
 
-    const noteReference = inferNoteReference(tokens, firstNumericIndex);
-    const labelTokens = tokens.slice(0, noteReference ? firstNumericIndex - 1 : firstNumericIndex);
+    if (!noteReference) {
+      noteReference = inferNoteReference(tokens, firstValueNumericIndex);
+    }
+
+    const labelEndIndex =
+      noteReference && labelStartIndex === 0 ? firstValueNumericIndex - 1 : firstValueNumericIndex;
+    const labelTokens = tokens.slice(labelStartIndex, labelEndIndex);
     const label = stripDuplicateWhitespace(labelTokens.join(" "));
     const normalizedLabel = normalizeRowLabel(label);
 
@@ -140,6 +166,7 @@ function buildRowsForPage(page: PageTextLayer, classification: PageClassificatio
 
     const valueSlots = Math.max(2, classification.yearHeaderYears.length || 2);
     const values = numericIndexes
+      .filter((candidate) => candidate.index >= firstValueNumericIndex)
       .slice(-valueSlots)
       .map(({ token, index }, valueIndex) => ({
         value: parseFinancialInteger(token),

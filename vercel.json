@@ -7,6 +7,10 @@
     {
       "path": "/api/internal/petroleum-sync/scheduled",
       "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/internal/annual-report-financials/scheduled",
+      "schedule": "35 * * * *"
     }
   ]
 }

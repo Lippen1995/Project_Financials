@@ -219,6 +219,7 @@ npm run financials:reprocess-runs -- --parser=annual-report-pipeline-v2 --max-qu
 npm run financials:inspect-coverage
 npm run financials:inspect-pending
 npm run financials:inspect-published-provenance -- <orgNumber> --fiscal-year=2024
+npm run test:financial-regression
 ```
 
 Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes selskaper som allerede finnes i ProjectX-databasen.
@@ -239,6 +240,16 @@ Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes s
 - filings i `FAILED` eller `MANUAL_REVIEW` reprocesses bare via eksplisitt low-confidence/retry-jobb
 - publiserte filings blir ikke destruktivt slettet og opprettet på nytt; nye extraction runs og artifacts beholdes som historikk
 
+### Planlagt produksjons-sync
+
+- internruten `/api/internal/annual-report-financials/scheduled` kjører den inkrementelle annual-report-syncen i produksjon
+- ruten er beskyttet med `FINANCIALS_SYNC_SECRET` og aksepterer `Authorization: Bearer <secret>` eller `x-financials-sync-secret`
+- Vercel cron er koblet til denne ruten i [vercel.json](./vercel.json)
+- scheduleren kjører bare inkrementell discovery + pending processing, ikke full historisk backfill
+- en DB-basert lease (`PipelineJobLease`) hindrer overlappende cron-kjøringer i å prosessere samme batch samtidig
+- hvis en kjøring allerede holder lease, returnerer ruten en strukturert "skipped" respons i stedet for å starte dobbeltarbeid
+- scheduleren kan valgfritt trigge en liten low-confidence retry-batch via query-parameter `lowConfidenceRetryLimit`, men standard cron kjører konservativt uten dette
+
 ### Manual review queue
 
 - filings som blokkeres av publish gate oppretter `AnnualReportReview` med status `PENDING_REVIEW`
@@ -254,6 +265,19 @@ Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes s
 - `financials:reprocess-runs` kan velge filings per orgnummer, parser-versjon, årsintervall, quality score eller spesifikke filing-id-er
 - lav-confidence reprocessing bruker samme sikre flyt og kan ikke degradere et allerede publisert high-confidence snapshot
 - hvis samme regnskapsår oppdages med endret dokumenthash, opprettes en ny filing-versjon i stedet for å overskrive gammel provenance
+
+### Golden regression-fixtures
+
+- regression-fixturene ligger under `integrations/brreg/annual-report-financials/`
+- `annual-report-regression.test.ts` bruker representative dokumentfixturer med ekte PDF-preflight og golden forventninger for klassifisering, skala, canonical facts, validering og publish gate
+- OCR-/scan-lignende tilfeller dekkes med `ocrRegressionFixtures`, som bruker realistiske `PageTextLayer`-fixturer med tokeniserings- og formateringsstoy
+- suite dekker blant annet:
+  - statutory NOK + supplementary NOK 1000 i samme dokument
+  - multi-page balance continuation
+  - note tie-out
+  - ambiguous/manual-review blokkering
+  - parentheses negatives, blanks og OCR token-oddities
+- kjør lokalt eller i CI med `npm run test:financial-regression`
 
 ### Hva blokkerer auto-publisering
 
@@ -278,6 +302,8 @@ I slike tilfeller lagres fortsatt rå PDF, artifacts, extraction run, facts og v
 - bruk `financials:inspect-published-provenance` for å se hvilken filing og extraction run som produserte publisert snapshot
 - hvis en filing sitter fast i `FAILED` eller `MANUAL_REVIEW`, kjør `financials:reprocess-filing -- <filingId>` eller `financials:reprocess-runs` med relevante filtre
 - intern overvåking kan lese `/api/internal/annual-report-financials/overview` og `/api/internal/annual-report-financials/reviews` med samme `WORKSPACE_SYNC_SECRET`-mekanisme som øvrige interne ruter
+- den planlagte syncen kan overvåkes via `/api/internal/annual-report-financials/scheduled`, `financials:inspect-pending`, `financials:list-review-queue` og overview-endepunktet
+- roter `FINANCIALS_SYNC_SECRET` på samme måte som andre interne cron-hemmeligheter; oppdater både miljøvariabel i deploy og eventuelle kallende jobber samtidig
 
 ## Import av aksjonærdata
 
@@ -319,6 +345,7 @@ Dette vil:
 - `PROJECTX_CACHE_HOURS`: antall timer før cache oppfriskes
 - `OPENAI_API_KEY`: API-nøkkel brukt til å tolke fritekstsøk
 - `OPENAI_SEARCH_MODEL`: modellnavn for søketolkning, standard `gpt-5-mini`
+- `FINANCIALS_SYNC_SECRET`: delt secret for intern annual-report cron/scheduler
 - `WORKSPACE_SYNC_SECRET`: delt secret for intern workspace-sync-endepunkt i produksjon
 
 ## Workspace-sync

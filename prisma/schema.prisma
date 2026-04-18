@@ -521,6 +521,20 @@ model DistressSyncState {
   updatedAt       DateTime  @updatedAt
 }
 
+model PipelineJobLease {
+  id             String   @id @default(cuid())
+  jobKey         String   @unique
+  leaseOwner     String
+  leaseAcquiredAt DateTime
+  leaseExpiresAt DateTime
+  lastHeartbeatAt DateTime?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([jobKey, leaseExpiresAt])
+}
+
 model Person {
   id               String   @id @default(cuid())
   fullName         String

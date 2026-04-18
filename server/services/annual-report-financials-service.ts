@@ -2,6 +2,12 @@ import crypto from "node:crypto";
 import { AnnualReportFilingStatus, AnnualReportReviewStatus, Prisma } from "@prisma/client";
 import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
 import { classifyPages } from "@/integrations/brreg/annual-report-financials/page-classification";
+import {
+  buildClassificationIssues,
+  calculateConfidenceScore,
+  canPublishAutomatically,
+  hasKnownUnitScale,
+} from "@/integrations/brreg/annual-report-financials/publish-gate";
 import { buildNormalizedFinancialPayload } from "@/integrations/brreg/annual-report-financials/normalized-payload";
 import { extractOcrPages } from "@/integrations/brreg/annual-report-financials/ocr";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
@@ -107,34 +113,6 @@ function mapPublishedStatements(statements: Array<{ fiscalYear: number; currency
   }));
 }
 
-function primaryStatementPages(classifications: PageClassification[]) {
-  return classifications.filter((classification) => ["STATUTORY_INCOME", "STATUTORY_BALANCE", "STATUTORY_BALANCE_CONTINUATION", "SUPPLEMENTARY_INCOME", "SUPPLEMENTARY_BALANCE"].includes(classification.type));
-}
-
-function buildClassificationIssues(fiscalYear: number, classifications: PageClassification[]): ValidationIssueDraft[] {
-  const primaryPages = primaryStatementPages(classifications);
-  const issues: ValidationIssueDraft[] = [];
-  if (!primaryPages.some((page) => ["STATUTORY_INCOME", "SUPPLEMENTARY_INCOME"].includes(page.type))) issues.push({ severity: "ERROR", ruleCode: "PRIMARY_INCOME_PAGE_MISSING", message: "Could not classify a reliable income-statement page." });
-  if (!primaryPages.some((page) => ["STATUTORY_BALANCE", "STATUTORY_BALANCE_CONTINUATION", "SUPPLEMENTARY_BALANCE"].includes(page.type))) issues.push({ severity: "ERROR", ruleCode: "PRIMARY_BALANCE_PAGE_MISSING", message: "Could not classify a reliable balance-sheet page." });
-  for (const page of primaryPages) {
-    if (page.confidence < 0.74) issues.push({ severity: "ERROR", ruleCode: "PAGE_CLASSIFICATION_UNCERTAIN", message: `Statement page ${page.pageNumber} was classified with low confidence (${page.confidence}).`, context: { pageNumber: page.pageNumber, type: page.type, reasons: page.reasons } });
-    if (!page.tableLike || page.numericRowCount < 3) issues.push({ severity: "WARNING", ruleCode: "STATEMENT_TABLE_LAYOUT_WEAK", message: `Statement page ${page.pageNumber} does not look like a strong financial table.`, context: { pageNumber: page.pageNumber, type: page.type, numericRowCount: page.numericRowCount } });
-    if (page.hasConflictingUnitSignals) issues.push({ severity: "ERROR", ruleCode: "PAGE_UNIT_SCALE_CONFLICT", message: `Statement page ${page.pageNumber} contains conflicting unit-scale declarations.`, context: { pageNumber: page.pageNumber, type: page.type, reasons: page.reasons } });
-    if (page.unitScale === null || page.unitScaleConfidence < 0.8) issues.push({ severity: "ERROR", ruleCode: "PAGE_UNIT_SCALE_UNCERTAIN", message: `Statement page ${page.pageNumber} lacks a confident unit-scale declaration.`, context: { pageNumber: page.pageNumber, type: page.type, unitScale: page.unitScale, unitScaleConfidence: page.unitScaleConfidence } });
-    if (page.yearHeaderYears.length >= 2 && page.yearHeaderYears[0] !== fiscalYear) issues.push({ severity: "ERROR", ruleCode: "SUSPICIOUS_COLUMN_SWAP", message: `Page ${page.pageNumber} appears to start with year ${page.yearHeaderYears[0]} instead of ${fiscalYear}.`, context: { pageNumber: page.pageNumber, yearHeaderYears: page.yearHeaderYears } });
-  }
-  return issues;
-}
-
-function calculateConfidenceScore(input: { classifications: PageClassification[]; selectedFactCount: number; validationScore: number; duplicateSupport: number; noteSupport: number; issueCount: number }) {
-  const primaryPages = primaryStatementPages(input.classifications);
-  const classificationScore = primaryPages.length > 0 ? primaryPages.reduce((sum, page) => sum + page.confidence, 0) / primaryPages.length : 0;
-  const unitScore = primaryPages.length > 0 ? primaryPages.reduce((sum, page) => sum + page.unitScaleConfidence, 0) / primaryPages.length : 0;
-  const coverageScore = Math.min(1, input.selectedFactCount / requiredPublishMetricKeys.length);
-  const issuePenalty = Math.min(0.18, input.issueCount * 0.015);
-  return Number(Math.max(0, Math.min(0.995, classificationScore * 0.26 + unitScore * 0.18 + coverageScore * 0.22 + input.validationScore * 0.24 + input.duplicateSupport * 0.07 + input.noteSupport * 0.03 - issuePenalty)).toFixed(4));
-}
-
 function getNumberAtPath(payload: Record<string, any>, path: string[]) {
   const value = path.reduce<any>((current, key) => current?.[key], payload);
   return typeof value === "number" ? value : null;
@@ -164,22 +142,6 @@ function buildPublishedCanonicalFacts(payload: Record<string, any>, fiscalYear: 
     const value = getNumberAtPath(payload, definition.path);
     return value === null ? [] : [{ fiscalYear, statementType: definition.statementType, metricKey: definition.metricKey, rawLabel: definition.metricKey, normalizedLabel: definition.metricKey, value, currency: "NOK", unitScale: 1, sourcePage: 0, sourceSection: definition.statementType === "BALANCE_SHEET" ? "STATUTORY_BALANCE" : "STATUTORY_INCOME", sourceRowText: definition.path.join("."), noteReference: null, confidenceScore: 1, precedence: "STATUTORY_NOK", isDerived: false, rawPayload: { path: definition.path } } satisfies CanonicalFactCandidate];
   });
-}
-
-function hasKnownUnitScale(classifications: PageClassification[]) {
-  const primaryPages = primaryStatementPages(classifications);
-  return primaryPages.length > 0 && primaryPages.every((page) => page.unitScale !== null && page.unitScaleConfidence >= 0.8 && !page.hasConflictingUnitSignals);
-}
-
-function canPublishAutomatically(input: { filingFiscalYear: number; classifications: PageClassification[]; selectedFacts: ReturnType<typeof chooseCanonicalFacts>; validationIssues: ValidationIssueDraft[]; confidenceScore: number }) {
-  const primaryPages = primaryStatementPages(input.classifications);
-  const hasIncomePage = primaryPages.some((page) => ["STATUTORY_INCOME", "SUPPLEMENTARY_INCOME"].includes(page.type));
-  const hasBalancePage = primaryPages.some((page) => ["STATUTORY_BALANCE", "STATUTORY_BALANCE_CONTINUATION", "SUPPLEMENTARY_BALANCE"].includes(page.type));
-  const hasBlockingErrors = input.validationIssues.some((issue) => issue.severity === "ERROR");
-  const hasRequiredMetrics = requiredPublishMetricKeys.every((metricKey) => input.selectedFacts.has(metricKey));
-  const hasReliableClassifications = primaryPages.length >= 2 && primaryPages.every((page) => page.confidence >= 0.74);
-  const hasReliableYears = primaryPages.every((page) => page.yearHeaderYears.length === 0 || page.yearHeaderYears[0] === input.filingFiscalYear);
-  return hasIncomePage && hasBalancePage && hasRequiredMetrics && hasKnownUnitScale(input.classifications) && hasReliableClassifications && hasReliableYears && !hasBlockingErrors && input.confidenceScore >= 0.9;
 }
 
 async function persistJsonArtifact(input: { filingId: string; artifactType: "PREFLIGHT_JSON" | "CLASSIFICATION_JSON" | "EXTRACTION_JSON" | "NORMALIZED_JSON"; filename: string; payload: unknown }) {

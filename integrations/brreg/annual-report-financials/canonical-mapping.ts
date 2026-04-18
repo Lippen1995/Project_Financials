@@ -131,9 +131,24 @@ export function mapRowsToCanonicalFacts(input: {
   const yearOrderByPage = new Map<number, [number, number]>();
 
   for (const classification of input.classifications) {
-    const inferred = inferYearOrderForClassification(input.filingFiscalYear, classification);
-    yearOrderByPage.set(classification.pageNumber, inferred.yearOrder as [number, number]);
-    issues.push(...inferred.issues);
+    const requiresYearInference = [
+      "STATUTORY_INCOME",
+      "STATUTORY_BALANCE",
+      "STATUTORY_BALANCE_CONTINUATION",
+      "SUPPLEMENTARY_INCOME",
+      "SUPPLEMENTARY_BALANCE",
+    ].includes(classification.type);
+
+    if (requiresYearInference) {
+      const inferred = inferYearOrderForClassification(input.filingFiscalYear, classification);
+      yearOrderByPage.set(classification.pageNumber, inferred.yearOrder as [number, number]);
+      issues.push(...inferred.issues);
+    } else {
+      yearOrderByPage.set(classification.pageNumber, [
+        input.filingFiscalYear,
+        input.filingFiscalYear - 1,
+      ]);
+    }
 
     if (classification.hasConflictingUnitSignals) {
       issues.push({

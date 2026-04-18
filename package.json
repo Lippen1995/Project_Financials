@@ -29,6 +29,7 @@
     "financials:inspect-coverage": "tsx scripts/inspect-financial-coverage.ts",
     "financials:inspect-pending": "tsx scripts/inspect-pending-financial-filings.ts",
     "financials:inspect-published-provenance": "tsx scripts/inspect-published-financial-provenance.ts",
+    "test:financial-regression": "vitest run integrations/brreg/annual-report-financials/annual-report-regression.test.ts server/services/annual-report-financials-scheduler-service.test.ts app/api/internal/annual-report-financials/scheduled/route.test.ts",
     "import:shareholding": "tsx scripts/import-shareholding-snapshot.ts",
     "postinstall": "prisma generate"
   },

@@ -33,6 +33,8 @@ const env = {
   stripePriceId: process.env.STRIPE_PRICE_ID ?? "",
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   openAiSearchModel: process.env.OPENAI_SEARCH_MODEL ?? "gpt-5-mini",
+  financialsSyncSecret:
+    process.env.FINANCIALS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
   workspaceSyncSecret: process.env.WORKSPACE_SYNC_SECRET ?? "",
 };
 

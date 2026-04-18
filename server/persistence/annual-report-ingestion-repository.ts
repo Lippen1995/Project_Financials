@@ -14,6 +14,91 @@ function buildHashVersionKey(sourceDiscoveryKey: string, checksum: string) {
   return `${sourceDiscoveryKey}::${checksum}`;
 }
 
+export async function acquirePipelineJobLease(input: {
+  jobKey: string;
+  leaseOwner: string;
+  leaseSeconds: number;
+  metadata?: Prisma.InputJsonValue;
+}) {
+  const now = new Date();
+  const leaseExpiresAt = new Date(now.getTime() + input.leaseSeconds * 1000);
+
+  return prisma.$transaction(
+    async (tx) => {
+      const existing = await tx.pipelineJobLease.findUnique({
+        where: { jobKey: input.jobKey },
+      });
+
+      if (existing && existing.leaseExpiresAt > now && existing.leaseOwner !== input.leaseOwner) {
+        return {
+          acquired: false as const,
+          lease: existing,
+        };
+      }
+
+      const lease = existing
+        ? await tx.pipelineJobLease.update({
+            where: { id: existing.id },
+            data: {
+              leaseOwner: input.leaseOwner,
+              leaseAcquiredAt: now,
+              leaseExpiresAt,
+              lastHeartbeatAt: now,
+              metadata: input.metadata,
+            },
+          })
+        : await tx.pipelineJobLease.create({
+            data: {
+              jobKey: input.jobKey,
+              leaseOwner: input.leaseOwner,
+              leaseAcquiredAt: now,
+              leaseExpiresAt,
+              lastHeartbeatAt: now,
+              metadata: input.metadata,
+            },
+          });
+
+      return {
+        acquired: true as const,
+        lease,
+      };
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    },
+  );
+}
+
+export async function heartbeatPipelineJobLease(input: {
+  jobKey: string;
+  leaseOwner: string;
+  leaseSeconds: number;
+}) {
+  const now = new Date();
+  return prisma.pipelineJobLease.updateMany({
+    where: {
+      jobKey: input.jobKey,
+      leaseOwner: input.leaseOwner,
+    },
+    data: {
+      leaseExpiresAt: new Date(now.getTime() + input.leaseSeconds * 1000),
+      lastHeartbeatAt: now,
+    },
+  });
+}
+
+export async function releasePipelineJobLease(input: {
+  jobKey: string;
+  leaseOwner: string;
+}) {
+  return prisma.pipelineJobLease.deleteMany({
+    where: {
+      jobKey: input.jobKey,
+      leaseOwner: input.leaseOwner,
+    },
+  });
+}
+
 export async function findCompanyByOrgNumber(orgNumber: string) {
   return prisma.company.findUnique({
     where: { orgNumber },
