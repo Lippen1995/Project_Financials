@@ -33,6 +33,28 @@ const env = {
   stripePriceId: process.env.STRIPE_PRICE_ID ?? "",
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   openAiSearchModel: process.env.OPENAI_SEARCH_MODEL ?? "gpt-5-mini",
+  opendataloaderEnabled:
+    (process.env.OPENDATALOADER_ENABLED ?? "").trim().toLowerCase() === "true",
+  opendataloaderMode:
+    (process.env.OPENDATALOADER_MODE ?? "local").trim().toLowerCase(),
+  opendataloaderHybridBackend:
+    process.env.OPENDATALOADER_HYBRID_BACKEND ?? "docling-fast",
+  opendataloaderHybridUrl: process.env.OPENDATALOADER_HYBRID_URL ?? "",
+  opendataloaderForceOcr:
+    (process.env.OPENDATALOADER_FORCE_OCR ?? "").trim().toLowerCase() === "true",
+  opendataloaderUseStructTree:
+    (process.env.OPENDATALOADER_USE_STRUCT_TREE ?? "").trim().toLowerCase() === "true",
+  opendataloaderTimeoutMs: Number(process.env.OPENDATALOADER_TIMEOUT_MS ?? "120000"),
+  opendataloaderDualRun:
+    (process.env.OPENDATALOADER_DUAL_RUN ?? "").trim().toLowerCase() === "true",
+  opendataloaderStoreAnnotatedPdf:
+    process.env.OPENDATALOADER_STORE_ANNOTATED_PDF === undefined
+      ? true
+      : (process.env.OPENDATALOADER_STORE_ANNOTATED_PDF ?? "").trim().toLowerCase() === "true",
+  opendataloaderFallbackToLegacy:
+    process.env.OPENDATALOADER_FALLBACK_TO_LEGACY === undefined
+      ? true
+      : (process.env.OPENDATALOADER_FALLBACK_TO_LEGACY ?? "").trim().toLowerCase() === "true",
   financialsSyncSecret:
     process.env.FINANCIALS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
   workspaceSyncSecret: process.env.WORKSPACE_SYNC_SECRET ?? "",

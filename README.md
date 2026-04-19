@@ -250,6 +250,58 @@ Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes s
 - hvis en kjøring allerede holder lease, returnerer ruten en strukturert "skipped" respons i stedet for å starte dobbeltarbeid
 - scheduleren kan valgfritt trigge en liten low-confidence retry-batch via query-parameter `lowConfidenceRetryLimit`, men standard cron kjører konservativt uten dette
 
+### OpenDataLoader document-understanding
+
+Annual-report-pipelinen kan nå kjøre med OpenDataLoader som upstream document-understanding-engine. OpenDataLoader brukes bare til PDF-forståelse, OCR, leseorden og tabell-/layout-artifacts. ProjectX sin egen klassifisering, canonical mapping, validering, quality scoring og publish gate er fortsatt source of truth for hva som publiseres til `FinancialStatement`.
+
+Flyten er:
+
+- rå PDF artifact
+- OpenDataLoader parse
+- intern normalisering til nøytrale document blocks/pages
+- eksisterende financial extraction, validations og publish gate
+
+Konfigurasjon:
+
+- `OPENDATALOADER_ENABLED=false` holder integrasjonen av
+- `OPENDATALOADER_MODE=local|hybrid|auto` styrer ruting
+- `OPENDATALOADER_HYBRID_BACKEND` og `OPENDATALOADER_HYBRID_URL` brukes bare når hybrid er valgt
+- `OPENDATALOADER_FORCE_OCR=true` tvinger OCR-kapabel hybrid-flyt
+- `OPENDATALOADER_USE_STRUCT_TREE=true` prøver tagged PDF / structure-tree når preflight viser tekstlag
+- `OPENDATALOADER_DUAL_RUN=true` kjører shadow-sammenligning uten å gjøre OpenDataLoader til publiseringskilde
+- `OPENDATALOADER_STORE_ANNOTATED_PDF=true` lagrer annotert PDF artifact for review/debug
+- `OPENDATALOADER_FALLBACK_TO_LEGACY=true` lar pipelinen falle tilbake til legacy document path hvis OpenDataLoader feiler
+
+Ruting:
+
+- `local` er standard når PDF-en har pålitelig tekstlag
+- `hybrid` brukes eksplisitt eller når preflight peker på svak/manglende tekst
+- OCR kjøres via hybrid-banen for scan-/image-baserte PDF-er
+- structure-tree aktiveres bare når det er eksplisitt slått på og dokumentet faktisk har tekstlag
+
+Artifacts:
+
+- rå OpenDataLoader JSON lagres som annual-report artifact
+- Markdown-output lagres som annual-report artifact
+- annotert PDF lagres som annual-report artifact når aktivert
+- normalisert document-representasjon og eventuelle dual-run-sammenligninger lagres som egne artifacts / raw summaries
+- review payloads og review queue inkluderer referanser til artifactene slik at operatører kan inspisere hva engine-en faktisk så
+
+Driftskrav:
+
+- `@opendataloader/pdf` er installert som Node-avhengighet
+- lokal OpenDataLoader-kjøring krever Java 11+ i runtime-miljøet
+- hybrid backend må startes separat dersom `hybrid` brukes
+- integrasjonen er laget for bakgrunnskjøring, ikke tunge synkrone web-requests
+
+Verifikasjon:
+
+```bash
+npm run test:opendataloader-integration
+```
+
+Denne kjører OpenDataLoader-konfig, normalisering, artifact persistence, dual-run-sammenligning og annual-report service-integrasjonstester.
+
 ### Manual review queue
 
 - filings som blokkeres av publish gate oppretter `AnnualReportReview` med status `PENDING_REVIEW`

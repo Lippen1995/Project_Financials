@@ -1,0 +1,63 @@
+{
+  "elements": [
+    {
+      "type": "heading",
+      "id": 1,
+      "page number": 1,
+      "bounding box": [72, 730, 520, 760],
+      "heading level": 1,
+      "content": "Arsregnskap 2024"
+    },
+    {
+      "type": "paragraph",
+      "id": 2,
+      "page number": 1,
+      "bounding box": [72, 680, 520, 720],
+      "content": "Eksempel Finans AS"
+    },
+    {
+      "type": "heading",
+      "id": 10,
+      "page number": 2,
+      "bounding box": [72, 730, 520, 760],
+      "heading level": 1,
+      "content": "Resultatregnskap"
+    },
+    {
+      "type": "paragraph",
+      "id": 11,
+      "page number": 2,
+      "bounding box": [72, 705, 220, 722],
+      "content": "Belop i: NOK"
+    },
+    {
+      "type": "table",
+      "id": 12,
+      "page number": 2,
+      "bounding box": [72, 410, 520, 700],
+      "content": "2024 2023\nSalgsinntekter 103097000 95210000\nSum driftsinntekter 103097000 95210000\nSum driftskostnader 81887000 77500000\nDriftsresultat 21210000 17710000\nArsresultat 18221000 15060000"
+    },
+    {
+      "type": "heading",
+      "id": 20,
+      "page number": 3,
+      "bounding box": [72, 730, 520, 760],
+      "heading level": 1,
+      "content": "Balanse"
+    },
+    {
+      "type": "table",
+      "id": 21,
+      "page number": 3,
+      "bounding box": [72, 390, 520, 710],
+      "content": "2024 2023\nBankinnskudd, kontanter o.l. 15558000 14001000\nSum eiendeler 92155000 85701000\nSum egenkapital 36372000 31000000\nSum gjeld 55783000 54701000\nSum egenkapital og gjeld 92155000 85701000"
+    },
+    {
+      "type": "caption",
+      "id": 30,
+      "page number": 4,
+      "bounding box": [72, 730, 520, 760],
+      "content": "Note 8 Bankinnskudd, kontanter o.l. 15558 14001"
+    }
+  ]
+}

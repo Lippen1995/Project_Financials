@@ -19,6 +19,17 @@ import { chooseCanonicalFacts, mapRowsToCanonicalFacts } from "@/integrations/br
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { DataAvailability, NormalizedFinancialDocument, NormalizedFinancialStatement } from "@/lib/types";
 import { logRecoverableError } from "@/lib/recoverable-error";
+import { buildOpenDataLoaderComparisonSummary } from "@/server/document-understanding/opendataloader-comparison";
+import {
+  chooseOpenDataLoaderRoute,
+  resolveOpenDataLoaderConfig,
+} from "@/server/document-understanding/opendataloader-config";
+import { parseAnnualReportPdfWithOpenDataLoader } from "@/server/document-understanding/opendataloader-client";
+import {
+  OpenDataLoaderComparisonSummary,
+  OpenDataLoaderParseResult,
+  OpenDataLoaderPipelineSnapshot,
+} from "@/server/document-understanding/opendataloader-types";
 import { LocalAnnualReportArtifactStorage } from "@/server/financials/artifact-storage";
 import { toSafeNumber } from "@/server/financials/number-utils";
 import {
@@ -50,11 +61,37 @@ import {
 
 const provider = new BrregFinancialsProvider();
 const artifactStorage = new LocalAnnualReportArtifactStorage();
-export const ANNUAL_REPORT_PARSER_VERSION = "annual-report-pipeline-v3";
+export const ANNUAL_REPORT_PARSER_VERSION = "annual-report-pipeline-v4-opendataloader";
 
 const computeSha256 = (buffer: Buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
 const nextCheckDate = (hours: number) => new Date(Date.now() + hours * 60 * 60 * 1000);
 const serializeJsonBuffer = (value: unknown) => Buffer.from(JSON.stringify(value, null, 2), "utf8");
+
+type StoredArtifactReference = {
+  artifactType: string;
+  storageKey: string;
+  mimeType: string;
+  filename: string;
+};
+
+type FinancialPipelineComputation = {
+  engine: "LEGACY" | "OPENDATALOADER";
+  mode: "legacy" | "local" | "hybrid";
+  classifications: PageClassification[];
+  rows: ReturnType<typeof reconstructStatementRows>;
+  mapped: ReturnType<typeof mapRowsToCanonicalFacts>;
+  validation: ReturnType<typeof validateCanonicalFacts>;
+  issues: ValidationIssueDraft[];
+  selectedFacts: ReturnType<typeof chooseCanonicalFacts>;
+  duplicateSupport: number;
+  noteSupport: number;
+  confidenceScore: number;
+  shouldPublish: boolean;
+  sourcePrecedence: CanonicalFactCandidate["precedence"];
+  normalizedPayload: ReturnType<typeof buildNormalizedFinancialPayload>;
+  blockingRuleCodes: string[];
+  durationMs: number;
+};
 
 function buildAvailability(statements: NormalizedFinancialStatement[]): DataAvailability {
   return statements.length === 0
@@ -151,6 +188,229 @@ async function persistJsonArtifact(input: { filingId: string; artifactType: "PRE
   await createAnnualReportArtifact({ filingId: input.filingId, artifactType: input.artifactType, storageKey: stored.storageKey, checksum, mimeType: "application/json", metadata: { filename: input.filename } });
 }
 
+async function persistArtifactFile(input: {
+  filingId: string;
+  artifactType:
+    | "PDF"
+    | "PREFLIGHT_JSON"
+    | "CLASSIFICATION_JSON"
+    | "EXTRACTION_JSON"
+    | "NORMALIZED_JSON"
+    | "DOCUMENT_JSON"
+    | "DOCUMENT_MARKDOWN"
+    | "ANNOTATED_PDF"
+    | "DOCUMENT_NORMALIZED_JSON"
+    | "EXTRACTION_COMPARISON_JSON";
+  filename: string;
+  content: Buffer | string;
+  mimeType: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const buffer = typeof input.content === "string" ? Buffer.from(input.content, "utf8") : input.content;
+  const checksum = computeSha256(buffer);
+  const stored = await artifactStorage.putArtifact({
+    filingId: input.filingId,
+    artifactType: input.artifactType,
+    filename: input.filename,
+    content: buffer,
+  });
+  await createAnnualReportArtifact({
+    filingId: input.filingId,
+    artifactType: input.artifactType,
+    storageKey: stored.storageKey,
+    checksum,
+    mimeType: input.mimeType,
+    metadata: {
+      filename: input.filename,
+      ...input.metadata,
+    },
+  });
+
+  return {
+    artifactType: input.artifactType,
+    storageKey: stored.storageKey,
+    mimeType: input.mimeType,
+    filename: input.filename,
+  } satisfies StoredArtifactReference;
+}
+
+async function persistOpenDataLoaderArtifacts(
+  filingId: string,
+  result: OpenDataLoaderParseResult,
+) {
+  const storedArtifacts: StoredArtifactReference[] = [];
+
+  storedArtifacts.push(
+    await persistArtifactFile({
+      filingId,
+      artifactType: "DOCUMENT_JSON",
+      filename: result.artifacts.rawJson.filename,
+      content: result.artifacts.rawJson.content,
+      mimeType: result.artifacts.rawJson.mimeType,
+      metadata: {
+        engine: result.engine,
+        engineVersion: result.engineVersion,
+        mode: result.routing.executionMode,
+        reason: result.routing.reason,
+      },
+    }),
+  );
+
+  if (result.artifacts.markdown) {
+    storedArtifacts.push(
+      await persistArtifactFile({
+        filingId,
+        artifactType: "DOCUMENT_MARKDOWN",
+        filename: result.artifacts.markdown.filename,
+        content: result.artifacts.markdown.content,
+        mimeType: result.artifacts.markdown.mimeType,
+        metadata: {
+          engine: result.engine,
+          engineVersion: result.engineVersion,
+          mode: result.routing.executionMode,
+        },
+      }),
+    );
+  }
+
+  if (result.artifacts.annotatedPdf) {
+    storedArtifacts.push(
+      await persistArtifactFile({
+        filingId,
+        artifactType: "ANNOTATED_PDF",
+        filename: result.artifacts.annotatedPdf.filename,
+        content: result.artifacts.annotatedPdf.content,
+        mimeType: result.artifacts.annotatedPdf.mimeType,
+        metadata: {
+          engine: result.engine,
+          engineVersion: result.engineVersion,
+          mode: result.routing.executionMode,
+          reason: result.routing.reason,
+        },
+      }),
+    );
+  }
+
+  storedArtifacts.push(
+    await persistArtifactFile({
+      filingId,
+      artifactType: "DOCUMENT_NORMALIZED_JSON",
+      filename: "opendataloader-normalized-document.json",
+      content: serializeJsonBuffer({
+        routing: result.routing,
+        normalizedDocument: result.normalizedDocument,
+      }),
+      mimeType: "application/json",
+      metadata: {
+        engine: result.engine,
+        engineVersion: result.engineVersion,
+        mode: result.routing.executionMode,
+      },
+    }),
+  );
+
+  return storedArtifacts;
+}
+
+function buildPipelineSnapshot(input: {
+  engine: "LEGACY" | "OPENDATALOADER";
+  mode: "legacy" | "local" | "hybrid";
+  computation: FinancialPipelineComputation;
+}) {
+  return {
+    engine: input.engine,
+    mode: input.mode,
+    classifications: input.computation.classifications.map((classification) => ({
+      pageNumber: classification.pageNumber,
+      type: classification.type,
+      unitScale: classification.unitScale,
+    })),
+    selectedFacts: Array.from(input.computation.selectedFacts.values()).map((fact) => ({
+      metricKey: fact.metricKey,
+      value: fact.value,
+      sourcePage: fact.sourcePage,
+      sourceSection: fact.sourceSection,
+      precedence: fact.precedence,
+    })),
+    blockingRuleCodes: input.computation.blockingRuleCodes,
+    shouldPublish: input.computation.shouldPublish,
+    confidenceScore: input.computation.confidenceScore,
+    durationMs: input.computation.durationMs,
+  } satisfies OpenDataLoaderPipelineSnapshot;
+}
+
+function runFinancialPipeline(input: {
+  filingId: string;
+  extractionRunId: string;
+  fiscalYear: number;
+  parsedPages: Parameters<typeof classifyPages>[0];
+  engine: "LEGACY" | "OPENDATALOADER";
+  mode: "legacy" | "local" | "hybrid";
+}) {
+  const startedAt = Date.now();
+  const classifications = classifyPages(input.parsedPages);
+  const rows = reconstructStatementRows(input.parsedPages, classifications);
+  const mapped = mapRowsToCanonicalFacts({
+    filingFiscalYear: input.fiscalYear,
+    classifications,
+    rows,
+  });
+  const validation = validateCanonicalFacts(mapped.facts);
+  const classificationIssues = buildClassificationIssues(input.fiscalYear, classifications);
+  const issues = [...classificationIssues, ...mapped.issues, ...validation.issues];
+  const selectedFacts = validation.selectedFacts;
+  const duplicateSupport =
+    validation.stats.duplicateComparisons > 0
+      ? validation.stats.duplicateMatches / validation.stats.duplicateComparisons
+      : 0;
+  const noteSupport =
+    validation.stats.noteComparisons > 0
+      ? validation.stats.noteMatches / validation.stats.noteComparisons
+      : 0;
+  const confidenceScore = calculateConfidenceScore({
+    classifications,
+    selectedFactCount: selectedFacts.size,
+    validationScore: validation.validationScore,
+    duplicateSupport,
+    noteSupport,
+    issueCount: issues.length,
+  });
+  const shouldPublish = canPublishAutomatically({
+    filingFiscalYear: input.fiscalYear,
+    classifications,
+    selectedFacts,
+    validationIssues: issues,
+    confidenceScore,
+  });
+  const sourcePrecedence =
+    selectedFacts.get("revenue")?.precedence ??
+    selectedFacts.get("total_assets")?.precedence ??
+    "NOTE_DERIVED";
+  const normalizedPayload = buildNormalizedFinancialPayload(input.fiscalYear, selectedFacts);
+  const blockingRuleCodes = Array.from(
+    new Set(issues.filter((issue) => issue.severity === "ERROR").map((issue) => issue.ruleCode)),
+  );
+
+  return {
+    engine: input.engine,
+    mode: input.mode,
+    classifications,
+    rows,
+    mapped,
+    validation,
+    issues,
+    selectedFacts,
+    duplicateSupport,
+    noteSupport,
+    confidenceScore,
+    shouldPublish,
+    sourcePrecedence,
+    normalizedPayload,
+    blockingRuleCodes,
+    durationMs: Date.now() - startedAt,
+  } satisfies FinancialPipelineComputation;
+}
+
 function logPipelineEvent(event: string, payload: Record<string, unknown>) {
   console.info(
     JSON.stringify({
@@ -168,6 +428,9 @@ function buildReviewPayload(input: {
   classifications: PageClassification[];
   issues: ValidationIssueDraft[];
   selectedFacts?: Map<string, CanonicalFactCandidate>;
+  artifactReferences?: StoredArtifactReference[];
+  engineSummary?: Record<string, unknown>;
+  comparisonSummary?: OpenDataLoaderComparisonSummary | null;
 }) {
   const pageReferences = Array.from(
     new Set([
@@ -217,6 +480,9 @@ function buildReviewPayload(input: {
         unitScaleConfidence: classification.unitScaleConfidence,
         reasons: classification.reasons,
       })),
+      artifactReferences: input.artifactReferences ?? [],
+      engineSummary: input.engineSummary ?? null,
+      comparisonSummary: input.comparisonSummary ?? null,
     },
   };
 }
@@ -309,67 +575,324 @@ export async function processAnnualReportFiling(
   await updateAnnualReportFiling(filing.id, { preflightedAt: new Date(), unitHints: { hasTextLayer: preflight.hasTextLayer, hasReliableTextLayer: preflight.hasReliableTextLayer }, parserVersionLastTried: ANNUAL_REPORT_PARSER_VERSION, lastError: null });
   logPipelineEvent("filing.preflighted", { filingId: filing.id, fiscalYear: filing.fiscalYear, hasReliableTextLayer: preflight.hasReliableTextLayer });
 
-  const parsedPages = preflight.hasReliableTextLayer ? preflight.parsedPages : await extractOcrPages(pdfBuffer);
-  const classifications = classifyPages(parsedPages);
-  await persistJsonArtifact({ filingId: filing.id, artifactType: "CLASSIFICATION_JSON", filename: "classification.json", payload: classifications });
+  const legacyPages = preflight.hasReliableTextLayer
+    ? preflight.parsedPages
+    : await extractOcrPages(pdfBuffer);
+  const legacyOcrEngine = preflight.hasReliableTextLayer ? "EMBEDDED_TEXT" : "TESSERACT";
+  const openDataLoaderConfig = resolveOpenDataLoaderConfig();
+  const openDataLoaderRoute = chooseOpenDataLoaderRoute({
+    config: openDataLoaderConfig,
+    preflight,
+  });
 
-  const extractionRun = await createFinancialExtractionRun({ filingId: filing.id, companyId: filing.company.id, parserVersion: ANNUAL_REPORT_PARSER_VERSION, ocrEngine: preflight.hasReliableTextLayer ? "EMBEDDED_TEXT" : "TESSERACT", ocrLanguage: preflight.hasReliableTextLayer ? null : "nor+eng" });
+  const plannedPrimaryEngine =
+    openDataLoaderConfig.enabled && !openDataLoaderConfig.dualRun
+      ? "OPENDATALOADER"
+      : "LEGACY";
+  const plannedPrimaryMode =
+    plannedPrimaryEngine === "OPENDATALOADER"
+      ? openDataLoaderRoute.executionMode
+      : "legacy";
+
+  const extractionRun = await createFinancialExtractionRun({
+    filingId: filing.id,
+    companyId: filing.company.id,
+    parserVersion: ANNUAL_REPORT_PARSER_VERSION,
+    documentEngine: plannedPrimaryEngine,
+    documentEngineVersion: null,
+    documentEngineMode: plannedPrimaryMode,
+    ocrEngine:
+      plannedPrimaryEngine === "LEGACY"
+        ? legacyOcrEngine
+        : openDataLoaderRoute.requiresOcr
+          ? "OPENDATALOADER_HYBRID_OCR"
+          : openDataLoaderRoute.executionMode === "hybrid"
+            ? "OPENDATALOADER_HYBRID"
+            : "OPENDATALOADER_LOCAL",
+    ocrLanguage:
+      plannedPrimaryEngine === "LEGACY"
+        ? preflight.hasReliableTextLayer
+          ? null
+          : "nor+eng"
+        : openDataLoaderRoute.requiresOcr
+          ? "nor+eng"
+          : null,
+  });
+
+  let openDataLoaderResult: OpenDataLoaderParseResult | null = null;
+  let openDataLoaderError: Error | null = null;
+  let artifactReferences: StoredArtifactReference[] = [];
+  let comparisonSummary: OpenDataLoaderComparisonSummary | null = null;
 
   try {
-    const rows = reconstructStatementRows(parsedPages, classifications);
-    await updateAnnualReportFiling(filing.id, { extractedAt: new Date() });
-    const mapped = mapRowsToCanonicalFacts({ filingFiscalYear: filing.fiscalYear, classifications, rows });
-    const validation = validateCanonicalFacts(mapped.facts);
-    const classificationIssues = buildClassificationIssues(filing.fiscalYear, classifications);
-    const issues = [...classificationIssues, ...mapped.issues, ...validation.issues];
-    await updateAnnualReportFiling(filing.id, { validatedAt: new Date() });
+    if (openDataLoaderConfig.enabled) {
+      try {
+        openDataLoaderResult = await parseAnnualReportPdfWithOpenDataLoader({
+          pdfBuffer,
+          sourceFilename: `${filing.company.orgNumber}-${filing.fiscalYear}.pdf`,
+          preflight,
+          config: openDataLoaderConfig,
+        });
+        artifactReferences = await persistOpenDataLoaderArtifacts(
+          filing.id,
+          openDataLoaderResult,
+        );
+        logPipelineEvent("document_understanding.opendataloader_completed", {
+          filingId: filing.id,
+          extractionRunId: extractionRun.id,
+          mode: openDataLoaderResult.routing.executionMode,
+          requiresOcr: openDataLoaderResult.routing.requiresOcr,
+          durationMs: openDataLoaderResult.metrics.durationMs,
+          pageCount: openDataLoaderResult.metrics.pageCount,
+          blockCount: openDataLoaderResult.metrics.blockCount,
+        });
+      } catch (error) {
+        openDataLoaderError =
+          error instanceof Error
+            ? error
+            : new Error("Unknown OpenDataLoader execution error");
+        logRecoverableError("annual-report-financials.opendataloader", openDataLoaderError, {
+          filingId: filing.id,
+          fiscalYear: filing.fiscalYear,
+          extractionRunId: extractionRun.id,
+        });
+        logPipelineEvent("document_understanding.opendataloader_failed", {
+          filingId: filing.id,
+          extractionRunId: extractionRun.id,
+          reason: openDataLoaderError.message,
+          dualRun: openDataLoaderConfig.dualRun,
+          fallbackToLegacy: openDataLoaderConfig.fallbackToLegacy,
+        });
 
-    await persistJsonArtifact({ filingId: filing.id, artifactType: "EXTRACTION_JSON", filename: "extraction.json", payload: { rows, mappedFacts: mapped.facts, validationStats: validation.stats } });
-    await createFinancialFacts({ extractionRunId: extractionRun.id, filingId: filing.id, companyId: filing.company.id, facts: mapped.facts });
-    await createFinancialValidationIssues({ extractionRunId: extractionRun.id, filingId: filing.id, companyId: filing.company.id, fiscalYear: filing.fiscalYear, issues });
+        if (!openDataLoaderConfig.dualRun && !openDataLoaderConfig.fallbackToLegacy) {
+          throw openDataLoaderError;
+        }
+      }
+    }
 
-    const selectedFacts = validation.selectedFacts;
-    const duplicateSupport = validation.stats.duplicateComparisons > 0 ? validation.stats.duplicateMatches / validation.stats.duplicateComparisons : 0;
-    const noteSupport = validation.stats.noteComparisons > 0 ? validation.stats.noteMatches / validation.stats.noteComparisons : 0;
-    const confidenceScore = calculateConfidenceScore({ classifications, selectedFactCount: selectedFacts.size, validationScore: validation.validationScore, duplicateSupport, noteSupport, issueCount: issues.length });
-    const shouldPublish = canPublishAutomatically({ filingFiscalYear: filing.fiscalYear, classifications, selectedFacts, validationIssues: issues, confidenceScore });
-    const sourcePrecedence = selectedFacts.get("revenue")?.precedence ?? selectedFacts.get("total_assets")?.precedence ?? "NOTE_DERIVED";
-    const normalizedPayload = buildNormalizedFinancialPayload(filing.fiscalYear, selectedFacts);
-    const blockingRuleCodes = Array.from(new Set(issues.filter((issue) => issue.severity === "ERROR").map((issue) => issue.ruleCode)));
-    const reviewSummary = buildReviewPayload({ filingId: filing.id, extractionRunId: extractionRun.id, classifications, issues, selectedFacts });
+    const useLegacyPrimary = openDataLoaderConfig.dualRun || !openDataLoaderResult;
+    const primaryEngine = useLegacyPrimary ? "LEGACY" : "OPENDATALOADER";
+    const primaryOpenDataLoaderResult = useLegacyPrimary ? null : openDataLoaderResult;
+    const primaryMode = useLegacyPrimary
+      ? "legacy"
+      : primaryOpenDataLoaderResult!.routing.executionMode;
+    const primaryPages = useLegacyPrimary
+      ? legacyPages
+      : primaryOpenDataLoaderResult!.pageTextLayers;
 
-    await persistJsonArtifact({ filingId: filing.id, artifactType: "NORMALIZED_JSON", filename: "normalized.json", payload: normalizedPayload });
-    await completeFinancialExtractionRun(extractionRun.id, { status: shouldPublish ? "SUCCEEDED" : "MANUAL_REVIEW", finishedAt: new Date(), confidenceScore, validationScore: validation.validationScore, metricsCoverage: { selectedFactCount: selectedFacts.size, requiredMetricCount: requiredPublishMetricKeys.length, duplicateSupport, noteSupport }, rawSummary: { issues, classifications, validationStats: validation.stats } as unknown as Prisma.InputJsonValue });
+    const primaryComputation = runFinancialPipeline({
+      filingId: filing.id,
+      extractionRunId: extractionRun.id,
+      fiscalYear: filing.fiscalYear,
+      parsedPages: primaryPages,
+      engine: primaryEngine,
+      mode: primaryMode,
+    });
 
-    if (shouldPublish) {
+    if (openDataLoaderResult && openDataLoaderConfig.dualRun) {
+      const shadowComputation = runFinancialPipeline({
+        filingId: filing.id,
+        extractionRunId: extractionRun.id,
+        fiscalYear: filing.fiscalYear,
+        parsedPages: openDataLoaderResult.pageTextLayers,
+        engine: "OPENDATALOADER",
+        mode: openDataLoaderResult.routing.executionMode,
+      });
+
+      comparisonSummary = buildOpenDataLoaderComparisonSummary({
+        primary: buildPipelineSnapshot({
+          engine: "LEGACY",
+          mode: "legacy",
+          computation: primaryComputation,
+        }),
+        shadow: buildPipelineSnapshot({
+          engine: "OPENDATALOADER",
+          mode: openDataLoaderResult.routing.executionMode,
+          computation: shadowComputation,
+        }),
+      });
+
+      artifactReferences.push(
+        await persistArtifactFile({
+          filingId: filing.id,
+          artifactType: "EXTRACTION_COMPARISON_JSON",
+          filename: "opendataloader-dual-run-comparison.json",
+          content: serializeJsonBuffer({
+            comparisonSummary,
+            primary: buildPipelineSnapshot({
+              engine: "LEGACY",
+              mode: "legacy",
+              computation: primaryComputation,
+            }),
+            shadow: buildPipelineSnapshot({
+              engine: "OPENDATALOADER",
+              mode: openDataLoaderResult.routing.executionMode,
+              computation: shadowComputation,
+            }),
+          }),
+          mimeType: "application/json",
+          metadata: {
+            primaryEngine: "LEGACY",
+            shadowEngine: "OPENDATALOADER",
+          },
+        }),
+      );
+
+      logPipelineEvent("document_understanding.opendataloader_dual_run", {
+        filingId: filing.id,
+        extractionRunId: extractionRun.id,
+        materialDisagreement: comparisonSummary.materialDisagreement,
+        publishDecisionMismatch: comparisonSummary.publishDecisionMismatch,
+      });
+    }
+
+    await updateAnnualReportFiling(filing.id, {
+      extractedAt: new Date(),
+      validatedAt: new Date(),
+      metadata: {
+        documentUnderstanding: {
+          primaryEngine,
+          primaryMode,
+          dualRun: openDataLoaderConfig.dualRun,
+          openDataLoader: openDataLoaderResult
+            ? {
+                engineVersion: openDataLoaderResult.engineVersion,
+                route: openDataLoaderResult.routing,
+                metrics: openDataLoaderResult.metrics,
+              }
+            : {
+                route: openDataLoaderRoute,
+                error: openDataLoaderError?.message ?? null,
+              },
+        },
+      } as unknown as Prisma.InputJsonValue,
+    });
+
+    await persistJsonArtifact({
+      filingId: filing.id,
+      artifactType: "CLASSIFICATION_JSON",
+      filename: "classification.json",
+      payload: {
+        engine: primaryEngine,
+        mode: primaryMode,
+        classifications: primaryComputation.classifications,
+        comparisonSummary,
+      },
+    });
+    await persistJsonArtifact({
+      filingId: filing.id,
+      artifactType: "EXTRACTION_JSON",
+      filename: "extraction.json",
+      payload: {
+        engine: primaryEngine,
+        mode: primaryMode,
+        rows: primaryComputation.rows,
+        mappedFacts: primaryComputation.mapped.facts,
+        validationStats: primaryComputation.validation.stats,
+        comparisonSummary,
+      },
+    });
+    await createFinancialFacts({
+      extractionRunId: extractionRun.id,
+      filingId: filing.id,
+      companyId: filing.company.id,
+      facts: primaryComputation.mapped.facts,
+    });
+    await createFinancialValidationIssues({
+      extractionRunId: extractionRun.id,
+      filingId: filing.id,
+      companyId: filing.company.id,
+      fiscalYear: filing.fiscalYear,
+      issues: primaryComputation.issues,
+    });
+
+    const reviewSummary = buildReviewPayload({
+      filingId: filing.id,
+      extractionRunId: extractionRun.id,
+      classifications: primaryComputation.classifications,
+      issues: primaryComputation.issues,
+      selectedFacts: primaryComputation.selectedFacts,
+      artifactReferences,
+      engineSummary: {
+        primaryEngine,
+        primaryMode,
+        parserVersion: ANNUAL_REPORT_PARSER_VERSION,
+        openDataLoaderEngineVersion: openDataLoaderResult?.engineVersion ?? null,
+        route:
+          openDataLoaderResult?.routing ??
+          (openDataLoaderConfig.enabled ? openDataLoaderRoute : null),
+        openDataLoaderError: openDataLoaderError?.message ?? null,
+      },
+      comparisonSummary,
+    });
+
+    await persistJsonArtifact({
+      filingId: filing.id,
+      artifactType: "NORMALIZED_JSON",
+      filename: "normalized.json",
+      payload: primaryComputation.normalizedPayload,
+    });
+    await completeFinancialExtractionRun(extractionRun.id, {
+      documentEngine: primaryEngine,
+      documentEngineVersion: openDataLoaderResult?.engineVersion ?? null,
+      documentEngineMode: primaryMode,
+      status: primaryComputation.shouldPublish ? "SUCCEEDED" : "MANUAL_REVIEW",
+      finishedAt: new Date(),
+      confidenceScore: primaryComputation.confidenceScore,
+      validationScore: primaryComputation.validation.validationScore,
+      metricsCoverage: {
+        selectedFactCount: primaryComputation.selectedFacts.size,
+        requiredMetricCount: requiredPublishMetricKeys.length,
+        duplicateSupport: primaryComputation.duplicateSupport,
+        noteSupport: primaryComputation.noteSupport,
+        documentArtifactCount: artifactReferences.length,
+      },
+      rawSummary: {
+        issues: primaryComputation.issues,
+        classifications: primaryComputation.classifications,
+        validationStats: primaryComputation.validation.stats,
+        documentUnderstanding: {
+          primaryEngine,
+          primaryMode,
+          openDataLoaderRoute:
+            openDataLoaderResult?.routing ??
+            (openDataLoaderConfig.enabled ? openDataLoaderRoute : null),
+          openDataLoaderError: openDataLoaderError?.message ?? null,
+          comparisonSummary,
+          artifactReferences,
+        },
+      } as unknown as Prisma.InputJsonValue,
+    });
+
+    if (primaryComputation.shouldPublish) {
       const publishedAt = new Date();
-      await publishFinancialStatementSnapshot({ companyId: filing.company.id, fiscalYear: filing.fiscalYear, currency: "NOK", revenue: selectedFacts.get("revenue")?.value ?? selectedFacts.get("total_operating_income")?.value ?? null, operatingProfit: selectedFacts.get("operating_profit")?.value ?? null, netIncome: selectedFacts.get("net_income")?.value ?? null, equity: selectedFacts.get("total_equity")?.value ?? null, assets: selectedFacts.get("total_assets")?.value ?? null, sourceSystem: "BRREG", sourceEntityType: "financialStatement", sourceId: `${filing.company.orgNumber}-${filing.fiscalYear}-${filing.id}`, fetchedAt: publishedAt, normalizedAt: publishedAt, rawPayload: normalizedPayload as unknown as Prisma.InputJsonValue, sourceFilingId: filing.id, sourceExtractionRunId: extractionRun.id, qualityStatus: "HIGH_CONFIDENCE", qualityScore: confidenceScore, unitScale: selectedFacts.get("revenue")?.unitScale ?? selectedFacts.get("total_assets")?.unitScale ?? 1, sourcePrecedence, publishedAt });
-      await updateAnnualReportFiling(filing.id, { status: "PUBLISHED", publishedSnapshotAt: publishedAt, unitHints: { classifications, hasKnownUnitScale: hasKnownUnitScale(classifications) } });
+      await publishFinancialStatementSnapshot({ companyId: filing.company.id, fiscalYear: filing.fiscalYear, currency: "NOK", revenue: primaryComputation.selectedFacts.get("revenue")?.value ?? primaryComputation.selectedFacts.get("total_operating_income")?.value ?? null, operatingProfit: primaryComputation.selectedFacts.get("operating_profit")?.value ?? null, netIncome: primaryComputation.selectedFacts.get("net_income")?.value ?? null, equity: primaryComputation.selectedFacts.get("total_equity")?.value ?? null, assets: primaryComputation.selectedFacts.get("total_assets")?.value ?? null, sourceSystem: "BRREG", sourceEntityType: "financialStatement", sourceId: `${filing.company.orgNumber}-${filing.fiscalYear}-${filing.id}`, fetchedAt: publishedAt, normalizedAt: publishedAt, rawPayload: primaryComputation.normalizedPayload as unknown as Prisma.InputJsonValue, sourceFilingId: filing.id, sourceExtractionRunId: extractionRun.id, qualityStatus: "HIGH_CONFIDENCE", qualityScore: primaryComputation.confidenceScore, unitScale: primaryComputation.selectedFacts.get("revenue")?.unitScale ?? primaryComputation.selectedFacts.get("total_assets")?.unitScale ?? 1, sourcePrecedence: primaryComputation.sourcePrecedence, publishedAt });
+      await updateAnnualReportFiling(filing.id, { status: "PUBLISHED", publishedSnapshotAt: publishedAt, unitHints: { classifications: primaryComputation.classifications, hasKnownUnitScale: hasKnownUnitScale(primaryComputation.classifications), primaryEngine, primaryMode } });
       await resolveAnnualReportReviewsForFiling(filing.id);
       await upsertCompanyFinancialCoverage({ companyId: filing.company.id, latestDownloadedFiscalYear: filing.fiscalYear, latestPublishedFiscalYear: filing.fiscalYear, latestDiscoveredFiscalYear: filing.fiscalYear, lastCheckedAt: new Date(), nextCheckAt: nextCheckDate(24), coverageStatus: "PUBLISHED", latestSuccessfulFilingId: filing.id });
-      logPipelineEvent("filing.published", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore, sourcePrecedence });
+      logPipelineEvent("filing.published", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore: primaryComputation.confidenceScore, sourcePrecedence: primaryComputation.sourcePrecedence, primaryEngine, primaryMode });
     } else {
-      await updateAnnualReportFiling(filing.id, { status: "MANUAL_REVIEW", manualReviewAt: new Date(), lastError: issues.map((issue) => `${issue.ruleCode}: ${issue.message}`).join(" | ").slice(0, 1_000) });
+      await updateAnnualReportFiling(filing.id, { status: "MANUAL_REVIEW", manualReviewAt: new Date(), lastError: primaryComputation.issues.map((issue) => `${issue.ruleCode}: ${issue.message}`).join(" | ").slice(0, 1_000) });
       await upsertAnnualReportReview({
         filingId: filing.id,
         extractionRunId: extractionRun.id,
         companyId: filing.company.id,
         fiscalYear: filing.fiscalYear,
         status: "PENDING_REVIEW",
-        qualityScore: confidenceScore,
-        sourcePrecedenceAttempted: sourcePrecedence,
-        blockingRuleCodes,
+        qualityScore: primaryComputation.confidenceScore,
+        sourcePrecedenceAttempted: primaryComputation.sourcePrecedence,
+        blockingRuleCodes: primaryComputation.blockingRuleCodes,
         pageReferences: reviewSummary.pageReferences,
         latestActionNote: "Blocked by publish gate",
         reviewPayload: reviewSummary.reviewPayload as unknown as Prisma.InputJsonValue,
       });
       await upsertCompanyFinancialCoverage({ companyId: filing.company.id, latestDownloadedFiscalYear: filing.fiscalYear, latestDiscoveredFiscalYear: filing.fiscalYear, lastCheckedAt: new Date(), nextCheckAt: nextCheckDate(12), coverageStatus: "MANUAL_REVIEW" });
-      logPipelineEvent("filing.manual_review", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore, blockingRuleCodes });
+      logPipelineEvent("filing.manual_review", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore: primaryComputation.confidenceScore, blockingRuleCodes: primaryComputation.blockingRuleCodes, primaryEngine, primaryMode });
     }
 
-    return { filingId: filing.id, fiscalYear: filing.fiscalYear, confidenceScore, published: shouldPublish, issueCount: issues.length };
+    return { filingId: filing.id, fiscalYear: filing.fiscalYear, confidenceScore: primaryComputation.confidenceScore, published: primaryComputation.shouldPublish, issueCount: primaryComputation.issues.length };
   } catch (error) {
-    await completeFinancialExtractionRun(extractionRun.id, { status: "FAILED", finishedAt: new Date(), errorMessage: error instanceof Error ? error.message : "Unknown extraction error" });
+    await completeFinancialExtractionRun(extractionRun.id, { status: "FAILED", finishedAt: new Date(), errorMessage: error instanceof Error ? error.message : "Unknown extraction error", rawSummary: { openDataLoaderError: openDataLoaderError?.message ?? null, artifactReferences } as unknown as Prisma.InputJsonValue });
     await updateAnnualReportFiling(filing.id, { status: "FAILED", failedAt: new Date(), lastError: error instanceof Error ? error.message : "Unknown extraction error" });
     await upsertAnnualReportReview({
       filingId: filing.id,
@@ -386,6 +909,12 @@ export async function processAnnualReportFiling(
         filingId: filing.id,
         extractionRunId: extractionRun.id,
         error: error instanceof Error ? error.message : "Unknown extraction error",
+        artifactReferences,
+        engineSummary: {
+          plannedPrimaryEngine,
+          plannedPrimaryMode,
+          openDataLoaderError: openDataLoaderError?.message ?? null,
+        },
       } as unknown as Prisma.InputJsonValue,
     });
     await upsertCompanyFinancialCoverage({ companyId: filing.company.id, latestDownloadedFiscalYear: filing.fiscalYear, latestDiscoveredFiscalYear: filing.fiscalYear, lastCheckedAt: new Date(), nextCheckAt: nextCheckDate(6), coverageStatus: "FAILED" });
@@ -520,6 +1049,17 @@ export async function listAnnualReportReviewQueue(options?: {
       resolvedAt: review.resolvedAt,
       selectedFacts: Array.isArray(payload?.selectedFacts) ? payload.selectedFacts : [],
       classifications: Array.isArray(payload?.classifications) ? payload.classifications : [],
+      artifactReferences: Array.isArray(payload?.artifactReferences)
+        ? payload.artifactReferences
+        : [],
+      engineSummary:
+        payload?.engineSummary && typeof payload.engineSummary === "object"
+          ? payload.engineSummary
+          : null,
+      comparisonSummary:
+        payload?.comparisonSummary && typeof payload.comparisonSummary === "object"
+          ? payload.comparisonSummary
+          : null,
     };
   });
 }

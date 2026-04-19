@@ -248,6 +248,11 @@ enum AnnualReportArtifactType {
   NORMALIZED_JSON
   PREFLIGHT_JSON
   CLASSIFICATION_JSON
+  DOCUMENT_JSON
+  DOCUMENT_MARKDOWN
+  ANNOTATED_PDF
+  DOCUMENT_NORMALIZED_JSON
+  EXTRACTION_COMPARISON_JSON
 }
 
 enum FinancialExtractionRunStatus {
@@ -672,6 +677,9 @@ model FinancialExtractionRun {
   filingId         String
   companyId        String
   parserVersion    String
+  documentEngine   String?
+  documentEngineVersion String?
+  documentEngineMode String?
   ocrEngine        String?
   ocrLanguage      String?
   status           FinancialExtractionRunStatus @default(PENDING)

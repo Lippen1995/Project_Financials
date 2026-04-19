@@ -456,6 +456,9 @@ export async function createFinancialExtractionRun(input: {
   filingId: string;
   companyId: string;
   parserVersion: string;
+  documentEngine?: string | null;
+  documentEngineVersion?: string | null;
+  documentEngineMode?: string | null;
   ocrEngine?: string | null;
   ocrLanguage?: string | null;
 }) {
@@ -464,6 +467,9 @@ export async function createFinancialExtractionRun(input: {
       filingId: input.filingId,
       companyId: input.companyId,
       parserVersion: input.parserVersion,
+      documentEngine: input.documentEngine,
+      documentEngineVersion: input.documentEngineVersion,
+      documentEngineMode: input.documentEngineMode,
       ocrEngine: input.ocrEngine,
       ocrLanguage: input.ocrLanguage,
       status: "RUNNING",

@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
 import { CanonicalMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import {
+  OpenDataLoaderParseResult,
+  OpenDataLoaderResolvedConfig,
+  OpenDataLoaderRouteDecision,
+} from "@/server/document-understanding/opendataloader-types";
 
 const providerState = {
   filings: [
@@ -48,6 +53,86 @@ const repo = {
   listCompaniesForFinancialSync: vi.fn(),
   listPendingAnnualReportFilings: vi.fn(),
   getPublishedFinancialsForCompany: vi.fn(),
+};
+
+const openDataLoaderState: {
+  config: OpenDataLoaderResolvedConfig;
+  route: OpenDataLoaderRouteDecision;
+  parseResult: OpenDataLoaderParseResult;
+  parseAnnualReportPdfWithOpenDataLoader: ReturnType<typeof vi.fn>;
+} = {
+  config: {
+    enabled: false,
+    mode: "local",
+    hybridBackend: "docling-fast",
+    hybridUrl: null,
+    forceOcr: false,
+    useStructTree: false,
+    timeoutMs: 120000,
+    dualRun: false,
+    storeAnnotatedPdf: true,
+    fallbackToLegacy: true,
+  },
+  route: {
+    enabled: false,
+    executionMode: "local",
+    hybridMode: null,
+    useStructTree: false,
+    requiresOcr: false,
+    reasonCode: "DISABLED",
+    reason: "OpenDataLoader integration is disabled by configuration.",
+  },
+  parseResult: {
+    engine: "OPENDATALOADER",
+    engineVersion: "2.2.1",
+    routing: {
+      enabled: true,
+      executionMode: "local",
+      hybridMode: null,
+      useStructTree: true,
+      requiresOcr: false,
+      reasonCode: "STRUCT_TREE_PREFERRED",
+      reason: "Reliable text layer detected and structure-tree extraction was requested.",
+    },
+    preflight: {
+      pageCount: 2,
+      hasTextLayer: true,
+      hasReliableTextLayer: true,
+      parsedPages: [],
+    },
+    normalizedDocument: {
+      engine: "OPENDATALOADER",
+      engineVersion: "2.2.1",
+      pageCount: 2,
+      pages: [],
+    },
+    pageTextLayers: [],
+    artifacts: {
+      rawJson: {
+        filename: "odl.json",
+        mimeType: "application/json",
+        content: Buffer.from("{}"),
+        payload: { elements: [] },
+      },
+      markdown: {
+        filename: "odl.md",
+        mimeType: "text/markdown",
+        content: Buffer.from("# ODL"),
+      },
+      annotatedPdf: {
+        filename: "odl-annotated.pdf",
+        mimeType: "application/pdf",
+        content: Buffer.from("%PDF-1.4"),
+      },
+    },
+    metrics: {
+      durationMs: 250,
+      pageCount: 2,
+      blockCount: 10,
+      tableBlockCount: 2,
+    },
+  },
+  parseAnnualReportPdfWithOpenDataLoader: vi.fn(async () => openDataLoaderState.parseResult),
 };
 
 vi.mock("@/integrations/brreg/brreg-financials-provider", () => ({
@@ -100,6 +185,16 @@ vi.mock("@/server/persistence/annual-report-ingestion-repository", () => ({
   updateAnnualReportReviewStatus: repo.updateAnnualReportReviewStatus,
   getAnnualReportPipelineMetrics: repo.getAnnualReportPipelineMetrics,
   listAnnualReportFilingsForReprocessing: repo.listAnnualReportFilingsForReprocessing,
+}));
+
+vi.mock("@/server/document-understanding/opendataloader-config", () => ({
+  resolveOpenDataLoaderConfig: vi.fn(() => openDataLoaderState.config),
+  chooseOpenDataLoaderRoute: vi.fn(() => openDataLoaderState.route),
+}));
+
+vi.mock("@/server/document-understanding/opendataloader-client", () => ({
+  parseAnnualReportPdfWithOpenDataLoader:
+    openDataLoaderState.parseAnnualReportPdfWithOpenDataLoader,
 }));
 
 vi.mock("@/integrations/brreg/annual-report-financials/preflight", () => ({
@@ -304,6 +399,81 @@ describe("annual-report-financials-service", () => {
     vi.resetModules();
     Object.values(repo).forEach((mocked) => mocked.mockReset());
     providerState.downloadAnnualReportPdf.mockClear();
+    openDataLoaderState.parseAnnualReportPdfWithOpenDataLoader.mockClear();
+    openDataLoaderState.config = {
+      enabled: false,
+      mode: "local",
+      hybridBackend: "docling-fast",
+      hybridUrl: null,
+      forceOcr: false,
+      useStructTree: false,
+      timeoutMs: 120000,
+      dualRun: false,
+      storeAnnotatedPdf: true,
+      fallbackToLegacy: true,
+    };
+    openDataLoaderState.route = {
+      enabled: false,
+      executionMode: "local",
+      hybridMode: null,
+      useStructTree: false,
+      requiresOcr: false,
+      reasonCode: "DISABLED",
+      reason: "OpenDataLoader integration is disabled by configuration.",
+    };
+    openDataLoaderState.parseResult = {
+      engine: "OPENDATALOADER",
+      engineVersion: "2.2.1",
+      routing: {
+        enabled: true,
+        executionMode: "local",
+        hybridMode: null,
+        useStructTree: true,
+        requiresOcr: false,
+        reasonCode: "STRUCT_TREE_PREFERRED",
+        reason: "Reliable text layer detected and structure-tree extraction was requested.",
+      },
+      preflight: {
+        pageCount: 2,
+        hasTextLayer: true,
+        hasReliableTextLayer: true,
+        parsedPages: [],
+      },
+      normalizedDocument: {
+        engine: "OPENDATALOADER",
+        engineVersion: "2.2.1",
+        pageCount: 2,
+        pages: [],
+      },
+      pageTextLayers: [],
+      artifacts: {
+        rawJson: {
+          filename: "odl.json",
+          mimeType: "application/json",
+          content: Buffer.from("{}"),
+          payload: { elements: [] },
+        },
+        markdown: {
+          filename: "odl.md",
+          mimeType: "text/markdown",
+          content: Buffer.from("# ODL"),
+        },
+        annotatedPdf: {
+          filename: "odl-annotated.pdf",
+          mimeType: "application/pdf",
+          content: Buffer.from("%PDF-1.4"),
+        },
+      },
+      metrics: {
+        durationMs: 250,
+        pageCount: 2,
+        blockCount: 10,
+        tableBlockCount: 2,
+      },
+    };
+    openDataLoaderState.parseAnnualReportPdfWithOpenDataLoader.mockImplementation(
+      async () => openDataLoaderState.parseResult,
+    );
 
     repo.findCompanyByOrgNumber.mockResolvedValue({
       id: "company-1",
@@ -425,6 +595,23 @@ describe("annual-report-financials-service", () => {
     await processAnnualReportFiling("filing-1");
 
     expect(providerState.downloadAnnualReportPdf).not.toHaveBeenCalled();
+  });
+
+  it("persists OpenDataLoader artifacts when the integration is enabled as primary engine", async () => {
+    openDataLoaderState.config.enabled = true;
+    openDataLoaderState.config.dualRun = false;
+    openDataLoaderState.route = openDataLoaderState.parseResult.routing;
+
+    const { processAnnualReportFiling } = await import(
+      "@/server/services/annual-report-financials-service"
+    );
+    const result = await processAnnualReportFiling("filing-1");
+
+    expect(result.published).toBe(true);
+    expect(openDataLoaderState.parseAnnualReportPdfWithOpenDataLoader).toHaveBeenCalledTimes(1);
+    expect(repo.createAnnualReportArtifact.mock.calls.some((call) => call[0].artifactType === "DOCUMENT_JSON")).toBe(true);
+    expect(repo.createAnnualReportArtifact.mock.calls.some((call) => call[0].artifactType === "DOCUMENT_MARKDOWN")).toBe(true);
+    expect(repo.createAnnualReportArtifact.mock.calls.some((call) => call[0].artifactType === "ANNOTATED_PDF")).toBe(true);
   });
 
   it("populates the manual review queue instead of publishing invalid filings", async () => {
@@ -562,6 +749,48 @@ describe("annual-report-financials-service", () => {
     });
     expect(repo.claimAnnualReportFilingForProcessing.mock.calls[0][1]).toContain("PUBLISHED");
     expect(repo.publishFinancialStatementSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores a dual-run comparison artifact while keeping the legacy pipeline as publish source of truth", async () => {
+    openDataLoaderState.config.enabled = true;
+    openDataLoaderState.config.dualRun = true;
+    openDataLoaderState.route = openDataLoaderState.parseResult.routing;
+
+    const { processAnnualReportFiling } = await import(
+      "@/server/services/annual-report-financials-service"
+    );
+    const result = await processAnnualReportFiling("filing-1");
+
+    expect(result.published).toBe(true);
+    expect(repo.createAnnualReportArtifact.mock.calls.some((call) => call[0].artifactType === "EXTRACTION_COMPARISON_JSON")).toBe(true);
+    expect(repo.completeFinancialExtractionRun.mock.calls[0]?.[1]?.rawSummary).toBeTruthy();
+  });
+
+  it("falls back to the legacy path when OpenDataLoader fails and fallback is enabled", async () => {
+    openDataLoaderState.config.enabled = true;
+    openDataLoaderState.config.dualRun = false;
+    openDataLoaderState.config.fallbackToLegacy = true;
+    openDataLoaderState.route = {
+      enabled: true,
+      executionMode: "hybrid",
+      hybridMode: "full",
+      useStructTree: false,
+      requiresOcr: true,
+      reasonCode: "SCANNED_PDF",
+      reason: "Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected.",
+    };
+    openDataLoaderState.parseAnnualReportPdfWithOpenDataLoader.mockRejectedValueOnce(
+      new Error("OpenDataLoader hybrid backend timed out"),
+    );
+
+    const { processAnnualReportFiling } = await import(
+      "@/server/services/annual-report-financials-service"
+    );
+    const result = await processAnnualReportFiling("filing-1");
+
+    expect(result.published).toBe(true);
+    expect(repo.publishFinancialStatementSnapshot).toHaveBeenCalledTimes(1);
+    expect(repo.upsertAnnualReportReview).not.toHaveBeenCalled();
   });
 
   it("returns an operator overview with metrics, pending reviews, and pending filings", async () => {
