@@ -1,0 +1,12 @@
+{
+  "id": "manual-review-ambiguous",
+  "name": "Legacy ambiguous manual-review case",
+  "mode": "expected",
+  "orgNumber": "000000000",
+  "fiscalYear": 2024,
+  "notes": "Uses the existing regression fixture with unit-scale conflict and suspicious column swap that should stay blocked from publication.",
+  "legacySource": {
+    "kind": "document_regression",
+    "name": "manual-review-ambiguous"
+  }
+}

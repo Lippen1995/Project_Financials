@@ -1,0 +1,12 @@
+{
+  "id": "published-happy-path",
+  "name": "Legacy published happy path",
+  "mode": "expected",
+  "orgNumber": "000000000",
+  "fiscalYear": 2024,
+  "notes": "Uses the existing document regression fixture with statutory NOK pages, supplementary NOK 1000 sections, notes, auditor report, and board report.",
+  "legacySource": {
+    "kind": "document_regression",
+    "name": "published-happy-path"
+  }
+}

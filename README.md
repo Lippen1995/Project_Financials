@@ -331,6 +331,60 @@ Denne kjører OpenDataLoader-konfig, normalisering, artifact persistence, dual-r
   - parentheses negatives, blanks og OCR token-oddities
 - kjør lokalt eller i CI med `npm run test:financial-regression`
 
+### Annual-report benchmark / golden set
+
+Repoet har i tillegg et eget benchmark-lag for å sammenligne legacy annual-report-ekstraksjon mot OpenDataLoader-assistert flyt uten å endre publish-gaten.
+
+Case-definisjoner ligger under `benchmarks/annual-report-golden/cases/` og kan peke til:
+
+- eksisterende document-regression-fixturer
+- eksisterende OCR-regression-fixturer
+- inline PDF-sideinnhold for parrede benchmark-caser
+- captured OpenDataLoader JSON-artifacts i repoet
+- live PDF-input for OpenDataLoader dersom runtime senere er tilgjengelig
+
+Kjør benchmarken:
+
+```bash
+npm run financials:benchmark-annual-reports
+```
+
+Kjør én case:
+
+```bash
+npm run financials:benchmark-annual-reports -- --case paired-digital-happy-path
+```
+
+Oppsummer siste kjøring:
+
+```bash
+npm run financials:summarize-annual-report-benchmark
+```
+
+Outputs:
+
+- JSON-resultat under `output/benchmarks/annual-report-golden/`
+- Markdown-oppsummering under samme katalog
+- `latest.json` og `latest.md` peker alltid til siste benchmark-kjøring
+
+Benchmarken støtter to praktiske moduser:
+
+- expected-output mode: sammenligner pipeline-resultat mot golden forventninger når labels finnes
+- differential mode: sammenligner legacy og OpenDataLoader side om side og flagger materielle uenigheter selv når full labeling er begrenset
+
+Den rapporterer blant annet:
+
+- statement page selection accuracy
+- unit-scale accuracy
+- canonical fact accuracy
+- validation/pass-fail-utfall
+- publish vs `MANUAL_REVIEW`
+- runtime
+- artifact-generation status når live OpenDataLoader faktisk kjøres
+- disagreement-rate mellom legacy og OpenDataLoader
+
+I dagens repo er benchmarken fullt kjørbar med fixture-/captured-artifact mode. Live lokal OpenDataLoader-benchmark krever fortsatt Java 11+ i runtime-miljøet.
+
 ### Hva blokkerer auto-publisering
 
 En filing publiseres ikke automatisk dersom ett eller flere av disse forholdene gjelder:

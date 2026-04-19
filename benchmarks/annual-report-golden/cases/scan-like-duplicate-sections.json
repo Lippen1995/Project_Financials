@@ -1,0 +1,12 @@
+{
+  "id": "scan-like-duplicate-sections",
+  "name": "OCR-style duplicate-section case",
+  "mode": "expected",
+  "orgNumber": "000000000",
+  "fiscalYear": 2024,
+  "notes": "Uses the existing OCR regression fixture with supplementary NOK 1000 sections, duplicate reconciliation, and note support.",
+  "legacySource": {
+    "kind": "ocr_regression",
+    "name": "scan-like-duplicate-sections"
+  }
+}

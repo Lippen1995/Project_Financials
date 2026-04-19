@@ -29,8 +29,11 @@
     "financials:inspect-coverage": "tsx scripts/inspect-financial-coverage.ts",
     "financials:inspect-pending": "tsx scripts/inspect-pending-financial-filings.ts",
     "financials:inspect-published-provenance": "tsx scripts/inspect-published-financial-provenance.ts",
+    "financials:benchmark-annual-reports": "tsx scripts/run-annual-report-benchmark.ts",
+    "financials:summarize-annual-report-benchmark": "tsx scripts/summarize-annual-report-benchmark.ts",
     "test:financial-regression": "vitest run integrations/brreg/annual-report-financials/annual-report-regression.test.ts server/services/annual-report-financials-scheduler-service.test.ts app/api/internal/annual-report-financials/scheduled/route.test.ts",
     "test:opendataloader-integration": "vitest run server/document-understanding/opendataloader-config.test.ts server/document-understanding/opendataloader-normalizer.test.ts server/document-understanding/opendataloader-comparison.test.ts server/document-understanding/opendataloader-client.test.ts server/services/annual-report-financials-service.test.ts",
+    "test:annual-report-benchmark": "vitest run server/benchmarking/annual-report-benchmark.test.ts",
     "import:shareholding": "tsx scripts/import-shareholding-snapshot.ts",
     "postinstall": "prisma generate"
   },

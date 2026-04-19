@@ -186,6 +186,12 @@ async function persistJsonArtifact(input: { filingId: string; artifactType: "PRE
   const checksum = computeSha256(buffer);
   const stored = await artifactStorage.putArtifact({ filingId: input.filingId, artifactType: input.artifactType, filename: input.filename, content: buffer });
   await createAnnualReportArtifact({ filingId: input.filingId, artifactType: input.artifactType, storageKey: stored.storageKey, checksum, mimeType: "application/json", metadata: { filename: input.filename } });
+  return {
+    artifactType: input.artifactType,
+    storageKey: stored.storageKey,
+    mimeType: "application/json",
+    filename: input.filename,
+  } satisfies StoredArtifactReference;
 }
 
 async function persistArtifactFile(input: {
@@ -571,7 +577,15 @@ export async function processAnnualReportFiling(
   logPipelineEvent("filing.claimed", { filingId, fiscalYear: claimed.fiscalYear, status: claimed.status });
   const { filing, pdfBuffer } = await ensurePdfArtifact(filingId);
   const preflight = await preflightAnnualReportDocument(pdfBuffer);
-  await persistJsonArtifact({ filingId: filing.id, artifactType: "PREFLIGHT_JSON", filename: "preflight.json", payload: preflight });
+  const artifactReferences: StoredArtifactReference[] = [];
+  artifactReferences.push(
+    await persistJsonArtifact({
+      filingId: filing.id,
+      artifactType: "PREFLIGHT_JSON",
+      filename: "preflight.json",
+      payload: preflight,
+    }),
+  );
   await updateAnnualReportFiling(filing.id, { preflightedAt: new Date(), unitHints: { hasTextLayer: preflight.hasTextLayer, hasReliableTextLayer: preflight.hasReliableTextLayer }, parserVersionLastTried: ANNUAL_REPORT_PARSER_VERSION, lastError: null });
   logPipelineEvent("filing.preflighted", { filingId: filing.id, fiscalYear: filing.fiscalYear, hasReliableTextLayer: preflight.hasReliableTextLayer });
 
@@ -621,7 +635,6 @@ export async function processAnnualReportFiling(
 
   let openDataLoaderResult: OpenDataLoaderParseResult | null = null;
   let openDataLoaderError: Error | null = null;
-  let artifactReferences: StoredArtifactReference[] = [];
   let comparisonSummary: OpenDataLoaderComparisonSummary | null = null;
 
   try {
@@ -633,9 +646,11 @@ export async function processAnnualReportFiling(
           preflight,
           config: openDataLoaderConfig,
         });
-        artifactReferences = await persistOpenDataLoaderArtifacts(
-          filing.id,
-          openDataLoaderResult,
+        artifactReferences.push(
+          ...(await persistOpenDataLoaderArtifacts(
+            filing.id,
+            openDataLoaderResult,
+          )),
         );
         logPipelineEvent("document_understanding.opendataloader_completed", {
           filingId: filing.id,
@@ -768,7 +783,8 @@ export async function processAnnualReportFiling(
       } as unknown as Prisma.InputJsonValue,
     });
 
-    await persistJsonArtifact({
+    artifactReferences.push(
+      await persistJsonArtifact({
       filingId: filing.id,
       artifactType: "CLASSIFICATION_JSON",
       filename: "classification.json",
@@ -778,8 +794,10 @@ export async function processAnnualReportFiling(
         classifications: primaryComputation.classifications,
         comparisonSummary,
       },
-    });
-    await persistJsonArtifact({
+    }),
+    );
+    artifactReferences.push(
+      await persistJsonArtifact({
       filingId: filing.id,
       artifactType: "EXTRACTION_JSON",
       filename: "extraction.json",
@@ -791,7 +809,8 @@ export async function processAnnualReportFiling(
         validationStats: primaryComputation.validation.stats,
         comparisonSummary,
       },
-    });
+    }),
+    );
     await createFinancialFacts({
       extractionRunId: extractionRun.id,
       filingId: filing.id,
@@ -826,15 +845,20 @@ export async function processAnnualReportFiling(
       comparisonSummary,
     });
 
-    await persistJsonArtifact({
+    artifactReferences.push(
+      await persistJsonArtifact({
       filingId: filing.id,
       artifactType: "NORMALIZED_JSON",
       filename: "normalized.json",
       payload: primaryComputation.normalizedPayload,
-    });
+    }),
+    );
     await completeFinancialExtractionRun(extractionRun.id, {
       documentEngine: primaryEngine,
-      documentEngineVersion: openDataLoaderResult?.engineVersion ?? null,
+      documentEngineVersion:
+        primaryEngine === "OPENDATALOADER"
+          ? openDataLoaderResult?.engineVersion ?? null
+          : null,
       documentEngineMode: primaryMode,
       status: primaryComputation.shouldPublish ? "SUCCEEDED" : "MANUAL_REVIEW",
       finishedAt: new Date(),
