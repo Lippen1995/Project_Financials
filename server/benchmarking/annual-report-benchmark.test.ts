@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import pairedCase from "@/benchmarks/annual-report-golden/cases/paired-digital-happy-path.json";
 import {
@@ -9,6 +9,11 @@ import {
 } from "@/server/benchmarking/annual-report-benchmark";
 
 describe("annual-report-benchmark", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
   it("runs a paired benchmark case and produces a differential summary", async () => {
     const result = await runAnnualReportBenchmarkCase(
       pairedCase as AnnualReportBenchmarkCase,
@@ -17,9 +22,11 @@ describe("annual-report-benchmark", () => {
     expect(result.status).toBe("completed");
     expect(result.legacy?.shouldPublish).toBe(true);
     expect(result.openDataLoader?.shouldPublish).toBe(true);
+    expect(result.evidenceKind).toBe("captured-fixture");
     expect(result.comparison).toBeTruthy();
     expect(result.comparison?.materialDisagreement).toBe(true);
     expect(result.comparison?.publishDecisionMismatch).toBe(false);
+    expect(result.comparisonAssessment?.classification).toBe("known_evidence_gap");
   });
 
   it("renders a readable markdown summary from benchmark results", () => {
@@ -29,6 +36,12 @@ describe("annual-report-benchmark", () => {
         javaVersion: "1.8.0_241",
         javaMajorVersion: 8,
         localOpenDataLoaderReady: false,
+        localOpenDataLoaderReason: "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+        liveLocalBenchmarkReady: false,
+        liveLocalBenchmarkReason:
+          "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
       },
       cases: [
         {
@@ -38,6 +51,8 @@ describe("annual-report-benchmark", () => {
           mode: "expected_and_differential",
           status: "completed",
           errors: [],
+          evidenceKind: "captured-fixture",
+          knownEvidenceLimitations: [],
           legacy: {
             engine: "LEGACY",
             executionSource: "document_fixture",
@@ -58,6 +73,7 @@ describe("annual-report-benchmark", () => {
             issueCodes: [],
             issueCount: 0,
             validationPasses: true,
+            evidenceKind: "legacy-only",
             snapshot: {
               engine: "LEGACY",
               mode: "legacy",
@@ -98,6 +114,7 @@ describe("annual-report-benchmark", () => {
             issueCodes: [],
             issueCount: 0,
             validationPasses: true,
+            evidenceKind: "captured-fixture",
             snapshot: {
               engine: "OPENDATALOADER",
               mode: "local",
@@ -118,6 +135,11 @@ describe("annual-report-benchmark", () => {
               mismatches: [],
             },
             routeReason: "captured-normalized-json",
+          },
+          comparisonAssessment: {
+            classification: "no_material_disagreement",
+            summary:
+              "No material disagreement was detected between legacy and OpenDataLoader for this case.",
           },
           comparison: {
             primaryEngine: "LEGACY",
@@ -156,6 +178,51 @@ describe("annual-report-benchmark", () => {
 
     expect(summary.recommendation).toContain("shadow-only");
     expect(markdown).toContain("Annual-report benchmark");
+    expect(markdown).toContain("Evidence");
     expect(markdown).toContain("shadow-only");
+  });
+
+  it("skips live benchmark cases cleanly when local runtime is not ready", async () => {
+    vi.doMock("@/server/document-understanding/opendataloader-runtime", () => ({
+      inspectOpenDataLoaderRuntime: vi.fn(async () => ({
+        packageInstalled: true,
+        packageVersion: "2.2.1",
+        java: {
+          rawVersion: "1.8.0_241",
+          majorVersion: 8,
+          available: true,
+        },
+        localModeReady: false,
+        hybridConfigured: false,
+        localModeReason:
+          "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+        hybridModeReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+        liveLocalBenchmarkReady: false,
+        liveLocalBenchmarkReason:
+          "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+      })),
+    }));
+
+    const benchmarkModule = await import("@/server/benchmarking/annual-report-benchmark");
+    const result = await benchmarkModule.runAnnualReportBenchmarkCase({
+      id: "live-case",
+      name: "Live case",
+      fiscalYear: 2024,
+      mode: "expected_and_differential",
+      legacySource: {
+        kind: "inline_document_pages",
+        pages: [["Arsregnskap 2024"], ["Resultatregnskap", "Belop i: NOK"]],
+      },
+      openDataLoaderSource: {
+        kind: "live_generated_pdf_from_legacy",
+        executionMode: "local",
+      },
+    });
+
+    expect(result.status).toBe("skipped");
+    expect(result.errors[0]).toContain("Live local benchmark is not ready");
+    expect(result.evidenceKind).toBe("legacy-only");
   });
 });

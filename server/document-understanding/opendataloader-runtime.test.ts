@@ -44,6 +44,8 @@ describe("opendataloader-runtime", () => {
     expect(summary.packageVersion).toBe("2.2.1");
     expect(summary.java.majorVersion).toBe(17);
     expect(summary.localModeReady).toBe(true);
+    expect(summary.liveLocalBenchmarkReady).toBe(true);
+    expect(summary.localModeReason).toContain("Java 17.0.9");
   });
 
   it("fails clearly when local mode is selected but Java is below the required version", async () => {
@@ -58,6 +60,13 @@ describe("opendataloader-runtime", () => {
       },
       localModeReady: false,
       hybridConfigured: false,
+      localModeReason: "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+      hybridModeReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+      liveLocalBenchmarkReady: false,
+      liveLocalBenchmarkReason:
+        "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+      liveHybridBenchmarkReady: false,
+      liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
     });
 
     await expect(
@@ -99,6 +108,13 @@ describe("opendataloader-runtime", () => {
       },
       localModeReady: true,
       hybridConfigured: false,
+      localModeReason: "Java 17.0.9 is compatible with local OpenDataLoader execution.",
+      hybridModeReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+      liveLocalBenchmarkReady: true,
+      liveLocalBenchmarkReason:
+        "Environment is ready for live local OpenDataLoader benchmark cases.",
+      liveHybridBenchmarkReady: false,
+      liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
     });
 
     await expect(

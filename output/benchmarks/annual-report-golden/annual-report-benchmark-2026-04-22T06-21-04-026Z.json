@@ -1,0 +1,2576 @@
+{
+  "generatedAt": "2026-04-22T06:21:04.026Z",
+  "cases": [
+    {
+      "caseId": "manual-review-ambiguous",
+      "name": "Legacy ambiguous manual-review case",
+      "fiscalYear": 2024,
+      "mode": "expected",
+      "notes": "Uses the existing regression fixture with unit-scale conflict and suspicious column swap that should stay blocked from publication.",
+      "status": "completed",
+      "errors": [],
+      "expected": {
+        "shouldPublish": false,
+        "classificationTypes": [
+          "COVER",
+          "STATUTORY_INCOME",
+          "STATUTORY_BALANCE",
+          "BOARD_REPORT"
+        ],
+        "unitScaleByPage": {
+          "2": null,
+          "3": 1
+        },
+        "factValues": {
+          "total_assets": 92155000
+        },
+        "requiredIssueCodes": [
+          "PAGE_UNIT_SCALE_CONFLICT",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ]
+      },
+      "evidenceKind": "legacy-only",
+      "knownEvidenceLimitations": [],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "document_fixture",
+        "mode": "legacy",
+        "runtimeMs": 627,
+        "confidenceScore": 0.6313,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "Benchmark uses in-memory legacy document fixtures only."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "BOARD_REPORT",
+            "unitScale": 1
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 95210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 95210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 77500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 17710000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 15060000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "trade_receivables",
+            "value": 12500000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [
+          "PAGE_CLASSIFICATION_UNCERTAIN",
+          "PAGE_UNIT_SCALE_CONFLICT",
+          "PAGE_UNIT_SCALE_UNCERTAIN",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "SCALE_CONFLICT_ON_PAGE",
+          "UNIT_SCALE_UNCERTAIN",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PAGE_CLASSIFICATION_UNCERTAIN",
+          "PAGE_UNIT_SCALE_CONFLICT",
+          "PAGE_UNIT_SCALE_UNCERTAIN",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "SCALE_CONFLICT_ON_PAGE",
+          "UNIT_SCALE_UNCERTAIN",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 8,
+        "validationPasses": false,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "BOARD_REPORT",
+              "unitScale": 1
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 95210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 95210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 77500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 17710000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 15060000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "trade_receivables",
+              "value": 12500000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [
+            "PAGE_CLASSIFICATION_UNCERTAIN",
+            "PAGE_UNIT_SCALE_CONFLICT",
+            "PAGE_UNIT_SCALE_UNCERTAIN",
+            "SUSPICIOUS_COLUMN_SWAP",
+            "SCALE_CONFLICT_ON_PAGE",
+            "UNIT_SCALE_UNCERTAIN",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.6313,
+          "durationMs": 627
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [
+            "PAGE_UNIT_SCALE_CONFLICT",
+            "SUSPICIOUS_COLUMN_SWAP",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "missingIssueCodes": [],
+          "mismatches": []
+        }
+      }
+    },
+    {
+      "caseId": "paired-digital-happy-path",
+      "name": "Paired digital happy path",
+      "fiscalYear": 2024,
+      "mode": "expected_and_differential",
+      "notes": "Legacy runs from inline PDF pages, while OpenDataLoader runs from a captured normalized JSON artifact representing the same core statement content.",
+      "status": "completed",
+      "errors": [],
+      "expected": {
+        "classificationTypes": [
+          "COVER",
+          "STATUTORY_INCOME",
+          "STATUTORY_BALANCE",
+          "NOTE"
+        ],
+        "unitScaleByPage": {
+          "2": 1,
+          "3": 1
+        },
+        "factValues": {
+          "revenue": 103097000,
+          "operating_profit": 21210000,
+          "net_income": 18221000,
+          "cash_and_cash_equivalents": 15558000,
+          "total_assets": 92155000,
+          "total_equity": 36372000,
+          "total_liabilities": 55783000,
+          "total_equity_and_liabilities": 92155000
+        },
+        "shouldPublish": true
+      },
+      "evidenceKind": "captured-fixture",
+      "knownEvidenceLimitations": [
+        "The captured OpenDataLoader fixture omits the note-level declaration line 'Alle tall i notene er NOK 1.000 ...' that exists in the legacy inline PDF page, so the remaining note-page unit-scale disagreement is evidence-limited rather than a proven parser bug."
+      ],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "document_fixture",
+        "mode": "legacy",
+        "runtimeMs": 11,
+        "confidenceScore": 0.945,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "Benchmark uses in-memory inline PDF pages only."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "NOTE",
+            "unitScale": 1000
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "NOTE",
+              "unitScale": 1000
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.945,
+          "durationMs": 11
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        }
+      },
+      "openDataLoader": {
+        "engine": "OPENDATALOADER",
+        "executionSource": "captured_normalized_json",
+        "mode": "local",
+        "runtimeMs": 10,
+        "confidenceScore": 0.9069,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [
+            "DOCUMENT_JSON",
+            "DOCUMENT_NORMALIZED_JSON"
+          ],
+          "detail": "Benchmark used a captured OpenDataLoader JSON artifact from the repo."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "NOTE",
+            "unitScale": null
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "captured-fixture",
+        "snapshot": {
+          "engine": "OPENDATALOADER",
+          "mode": "local",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "NOTE",
+              "unitScale": null
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.9069,
+          "durationMs": 10
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        },
+        "routeReason": "captured-normalized-json"
+      },
+      "comparison": {
+        "primaryEngine": "LEGACY",
+        "shadowEngine": "OPENDATALOADER",
+        "primaryShouldPublish": true,
+        "shadowShouldPublish": true,
+        "publishDecisionMismatch": false,
+        "classificationDifferences": [],
+        "unitScaleDifferences": [
+          {
+            "pageNumber": 4,
+            "primaryUnitScale": 1000,
+            "shadowUnitScale": null
+          }
+        ],
+        "factDifferences": [],
+        "blockingRuleDifferences": {
+          "onlyInPrimary": [],
+          "onlyInShadow": []
+        },
+        "durationMs": {
+          "primary": 11,
+          "shadow": 10
+        },
+        "materialDisagreement": true
+      },
+      "comparisonAssessment": {
+        "classification": "known_evidence_gap",
+        "summary": "The captured OpenDataLoader fixture omits the note-level declaration line 'Alle tall i notene er NOK 1.000 ...' that exists in the legacy inline PDF page, so the remaining note-page unit-scale disagreement is evidence-limited rather than a proven parser bug."
+      }
+    },
+    {
+      "caseId": "paired-digital-live-local",
+      "name": "Paired digital live local ODL case",
+      "fiscalYear": 2024,
+      "mode": "expected_and_differential",
+      "notes": "Runs OpenDataLoader live in local mode against a generated benchmark PDF built from the same inline digital pages as the paired happy-path case. Requires Java 11+.",
+      "status": "skipped",
+      "errors": [
+        "Live local benchmark is not ready: Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+."
+      ],
+      "expected": {
+        "classificationTypes": [
+          "COVER",
+          "STATUTORY_INCOME",
+          "STATUTORY_BALANCE",
+          "NOTE"
+        ],
+        "unitScaleByPage": {
+          "2": 1,
+          "3": 1
+        },
+        "factValues": {
+          "revenue": 103097000,
+          "operating_profit": 21210000,
+          "net_income": 18221000,
+          "cash_and_cash_equivalents": 15558000,
+          "total_assets": 92155000,
+          "total_equity": 36372000,
+          "total_liabilities": 55783000,
+          "total_equity_and_liabilities": 92155000
+        },
+        "shouldPublish": true
+      },
+      "evidenceKind": "legacy-only",
+      "knownEvidenceLimitations": [],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "document_fixture",
+        "mode": "legacy",
+        "runtimeMs": 13,
+        "confidenceScore": 0.945,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "Benchmark uses in-memory inline PDF pages only."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "NOTE",
+            "unitScale": 1000
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "NOTE",
+              "unitScale": 1000
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.945,
+          "durationMs": 13
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        }
+      }
+    },
+    {
+      "caseId": "published-happy-path-live-local",
+      "name": "Published happy path live local ODL case",
+      "fiscalYear": 2024,
+      "mode": "expected_and_differential",
+      "notes": "Runs OpenDataLoader live in local mode against the published happy-path document regression fixture materialized as a benchmark PDF. Requires Java 11+.",
+      "status": "skipped",
+      "errors": [
+        "Live local benchmark is not ready: Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+."
+      ],
+      "expected": {
+        "shouldPublish": true,
+        "classificationTypes": [
+          "COVER",
+          "STATUTORY_INCOME",
+          "STATUTORY_BALANCE",
+          "STATUTORY_BALANCE_CONTINUATION",
+          "SUPPLEMENTARY_INCOME",
+          "SUPPLEMENTARY_BALANCE",
+          "NOTE",
+          "AUDITOR_REPORT",
+          "BOARD_REPORT"
+        ],
+        "unitScaleByPage": {
+          "2": 1,
+          "3": 1,
+          "4": 1,
+          "5": 1000,
+          "6": 1000,
+          "7": 1000
+        },
+        "factValues": {
+          "revenue": 103097000,
+          "operating_profit": 21210000,
+          "net_income": 18221000,
+          "cash_and_cash_equivalents": 15558000,
+          "total_assets": 92155000,
+          "total_equity": 36372000,
+          "total_liabilities": 55783000,
+          "total_equity_and_liabilities": 92155000
+        }
+      },
+      "evidenceKind": "legacy-only",
+      "knownEvidenceLimitations": [],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "document_fixture",
+        "mode": "legacy",
+        "runtimeMs": 16,
+        "confidenceScore": 0.9695,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "Benchmark uses in-memory legacy document fixtures only."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "STATUTORY_BALANCE_CONTINUATION",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 5,
+            "type": "SUPPLEMENTARY_INCOME",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 6,
+            "type": "SUPPLEMENTARY_BALANCE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 7,
+            "type": "NOTE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 8,
+            "type": "AUDITOR_REPORT",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 9,
+            "type": "BOARD_REPORT",
+            "unitScale": 1000
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_income",
+            "value": 500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_expense",
+            "value": 1000000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_financial_items",
+            "value": -500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "profit_before_tax",
+            "value": 20710000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tax_expense",
+            "value": 2489000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "trade_receivables",
+            "value": 12500000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "other_receivables",
+            "value": 9200000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_assets",
+            "value": 37258000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tangible_assets",
+            "value": 54897000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "share_capital",
+            "value": 1000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "retained_earnings",
+            "value": 35372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "long_term_liabilities",
+            "value": 20000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_liabilities",
+            "value": 35783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "STATUTORY_BALANCE_CONTINUATION",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 5,
+              "type": "SUPPLEMENTARY_INCOME",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 6,
+              "type": "SUPPLEMENTARY_BALANCE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 7,
+              "type": "NOTE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 8,
+              "type": "AUDITOR_REPORT",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 9,
+              "type": "BOARD_REPORT",
+              "unitScale": 1000
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_income",
+              "value": 500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_expense",
+              "value": 1000000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_financial_items",
+              "value": -500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "profit_before_tax",
+              "value": 20710000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tax_expense",
+              "value": 2489000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "trade_receivables",
+              "value": 12500000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "other_receivables",
+              "value": 9200000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_assets",
+              "value": 37258000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tangible_assets",
+              "value": 54897000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "share_capital",
+              "value": 1000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "retained_earnings",
+              "value": 35372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "long_term_liabilities",
+              "value": 20000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_liabilities",
+              "value": 35783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.9695,
+          "durationMs": 16
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        }
+      }
+    },
+    {
+      "caseId": "published-happy-path",
+      "name": "Legacy published happy path",
+      "fiscalYear": 2024,
+      "mode": "expected",
+      "notes": "Uses the existing document regression fixture with statutory NOK pages, supplementary NOK 1000 sections, notes, auditor report, and board report.",
+      "status": "completed",
+      "errors": [],
+      "expected": {
+        "shouldPublish": true,
+        "classificationTypes": [
+          "COVER",
+          "STATUTORY_INCOME",
+          "STATUTORY_BALANCE",
+          "STATUTORY_BALANCE_CONTINUATION",
+          "SUPPLEMENTARY_INCOME",
+          "SUPPLEMENTARY_BALANCE",
+          "NOTE",
+          "AUDITOR_REPORT",
+          "BOARD_REPORT"
+        ],
+        "unitScaleByPage": {
+          "2": 1,
+          "3": 1,
+          "4": 1,
+          "5": 1000,
+          "6": 1000,
+          "7": 1000
+        },
+        "factValues": {
+          "revenue": 103097000,
+          "operating_profit": 21210000,
+          "net_income": 18221000,
+          "cash_and_cash_equivalents": 15558000,
+          "total_assets": 92155000,
+          "total_equity": 36372000,
+          "total_liabilities": 55783000,
+          "total_equity_and_liabilities": 92155000
+        }
+      },
+      "evidenceKind": "legacy-only",
+      "knownEvidenceLimitations": [],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "document_fixture",
+        "mode": "legacy",
+        "runtimeMs": 20,
+        "confidenceScore": 0.9695,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "Benchmark uses in-memory legacy document fixtures only."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "STATUTORY_BALANCE_CONTINUATION",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 5,
+            "type": "SUPPLEMENTARY_INCOME",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 6,
+            "type": "SUPPLEMENTARY_BALANCE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 7,
+            "type": "NOTE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 8,
+            "type": "AUDITOR_REPORT",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 9,
+            "type": "BOARD_REPORT",
+            "unitScale": 1000
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_income",
+            "value": 500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_expense",
+            "value": 1000000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_financial_items",
+            "value": -500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "profit_before_tax",
+            "value": 20710000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tax_expense",
+            "value": 2489000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "trade_receivables",
+            "value": 12500000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "other_receivables",
+            "value": 9200000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_assets",
+            "value": 37258000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tangible_assets",
+            "value": 54897000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "share_capital",
+            "value": 1000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "retained_earnings",
+            "value": 35372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "long_term_liabilities",
+            "value": 20000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_liabilities",
+            "value": 35783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "STATUTORY_BALANCE_CONTINUATION",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 5,
+              "type": "SUPPLEMENTARY_INCOME",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 6,
+              "type": "SUPPLEMENTARY_BALANCE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 7,
+              "type": "NOTE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 8,
+              "type": "AUDITOR_REPORT",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 9,
+              "type": "BOARD_REPORT",
+              "unitScale": 1000
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_income",
+              "value": 500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_expense",
+              "value": 1000000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_financial_items",
+              "value": -500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "profit_before_tax",
+              "value": 20710000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tax_expense",
+              "value": 2489000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "trade_receivables",
+              "value": 12500000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "other_receivables",
+              "value": 9200000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_assets",
+              "value": 37258000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tangible_assets",
+              "value": 54897000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "share_capital",
+              "value": 1000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "retained_earnings",
+              "value": 35372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "long_term_liabilities",
+              "value": 20000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_liabilities",
+              "value": 35783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.9695,
+          "durationMs": 20
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        }
+      }
+    },
+    {
+      "caseId": "scan-like-duplicate-sections",
+      "name": "OCR-style duplicate-section case",
+      "fiscalYear": 2024,
+      "mode": "expected",
+      "notes": "Uses the existing OCR regression fixture with supplementary NOK 1000 sections, duplicate reconciliation, and note support.",
+      "status": "completed",
+      "errors": [],
+      "expected": {
+        "shouldPublish": true,
+        "classificationTypes": [
+          "STATUTORY_INCOME",
+          "STATUTORY_BALANCE",
+          "STATUTORY_BALANCE_CONTINUATION",
+          "SUPPLEMENTARY_INCOME",
+          "SUPPLEMENTARY_BALANCE",
+          "NOTE",
+          "AUDITOR_REPORT"
+        ],
+        "unitScaleByPage": {
+          "2": 1,
+          "3": 1,
+          "4": 1,
+          "5": 1000,
+          "6": 1000,
+          "7": 1000
+        },
+        "factValues": {
+          "revenue": 103097000,
+          "operating_profit": 21210000,
+          "net_financial_items": -500000,
+          "net_income": 18221000,
+          "cash_and_cash_equivalents": 15558000,
+          "total_assets": 92155000,
+          "total_equity_and_liabilities": 92155000
+        }
+      },
+      "evidenceKind": "legacy-only",
+      "knownEvidenceLimitations": [],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "ocr_fixture",
+        "mode": "legacy",
+        "runtimeMs": 9,
+        "confidenceScore": 0.9695,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "Benchmark uses in-memory OCR fixtures only."
+        },
+        "classifications": [
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "STATUTORY_BALANCE_CONTINUATION",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 5,
+            "type": "SUPPLEMENTARY_INCOME",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 6,
+            "type": "SUPPLEMENTARY_BALANCE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 7,
+            "type": "NOTE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 8,
+            "type": "AUDITOR_REPORT",
+            "unitScale": 1000
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_income",
+            "value": 500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_expense",
+            "value": 1000000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_financial_items",
+            "value": -500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "profit_before_tax",
+            "value": 20710000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tax_expense",
+            "value": 2489000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "trade_receivables",
+            "value": 12500000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "other_receivables",
+            "value": 9200000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_assets",
+            "value": 37258000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tangible_assets",
+            "value": 54897000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "share_capital",
+            "value": 1000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "retained_earnings",
+            "value": 35372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "long_term_liabilities",
+            "value": 20000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_liabilities",
+            "value": 35783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "STATUTORY_BALANCE_CONTINUATION",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 5,
+              "type": "SUPPLEMENTARY_INCOME",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 6,
+              "type": "SUPPLEMENTARY_BALANCE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 7,
+              "type": "NOTE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 8,
+              "type": "AUDITOR_REPORT",
+              "unitScale": 1000
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_income",
+              "value": 500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_expense",
+              "value": 1000000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_financial_items",
+              "value": -500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "profit_before_tax",
+              "value": 20710000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tax_expense",
+              "value": 2489000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "trade_receivables",
+              "value": 12500000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "other_receivables",
+              "value": 9200000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_assets",
+              "value": 37258000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tangible_assets",
+              "value": 54897000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "share_capital",
+              "value": 1000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "retained_earnings",
+              "value": 35372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "long_term_liabilities",
+              "value": 20000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_liabilities",
+              "value": 35783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.9695,
+          "durationMs": 9
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        }
+      }
+    }
+  ],
+  "runtimeEnvironment": {
+    "opendataloaderPackageVersion": "2.2.1",
+    "javaVersion": "1.8.0_241",
+    "javaMajorVersion": 8,
+    "localOpenDataLoaderReady": false,
+    "localOpenDataLoaderReason": "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+    "liveLocalBenchmarkReady": false,
+    "liveLocalBenchmarkReason": "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+    "liveHybridBenchmarkReady": false,
+    "liveHybridBenchmarkReason": "OPENDATALOADER_HYBRID_URL is not configured."
+  },
+  "summary": {
+    "totalCases": 6,
+    "completedCases": 4,
+    "failedCases": 0,
+    "skippedCases": 2,
+    "differentialCases": 1,
+    "disagreementCases": 1,
+    "publishDecisionMismatchCases": 0,
+    "evidenceCounts": {
+      "legacy-only": 5,
+      "captured-fixture": 1,
+      "live-local-odl": 0,
+      "live-hybrid-odl": 0
+    },
+    "averageRuntimeMs": {
+      "legacy": 166.75,
+      "opendataloader": 10
+    },
+    "medianRuntimeMs": {
+      "legacy": 15.5,
+      "opendataloader": 10
+    },
+    "expectedMetrics": {
+      "legacy": {
+        "evaluatedCases": 4,
+        "averageStatementPageAccuracy": 1,
+        "averageUnitScaleAccuracy": 1,
+        "averageFactAccuracy": 1,
+        "publishOutcomeMatchRate": 1,
+        "validationPassRate": 0.75
+      },
+      "opendataloader": {
+        "evaluatedCases": 1,
+        "averageStatementPageAccuracy": 1,
+        "averageUnitScaleAccuracy": 1,
+        "averageFactAccuracy": 1,
+        "publishOutcomeMatchRate": 1,
+        "validationPassRate": 1
+      }
+    },
+    "recommendation": "keep legacy as default, OpenDataLoader shadow-only",
+    "recommendationReason": "Repoet har ikke bekreftet lokal OpenDataLoader-runtime i dette miljoet. Java 11+ er ikke klart, sa rollout bor ikke skje utover fixture/shadow-evaluering."
+  }
+}

@@ -16,6 +16,12 @@ async function main() {
           hybridUrlConfigured: Boolean(config.hybridUrl),
         },
         runtime,
+        benchmarkReadiness: {
+          liveLocalReady: runtime.liveLocalBenchmarkReady,
+          liveLocalReason: runtime.liveLocalBenchmarkReason,
+          liveHybridReady: runtime.liveHybridBenchmarkReady,
+          liveHybridReason: runtime.liveHybridBenchmarkReason,
+        },
       },
       null,
       2,

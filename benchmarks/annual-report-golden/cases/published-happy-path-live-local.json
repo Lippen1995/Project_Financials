@@ -1,0 +1,17 @@
+{
+  "id": "published-happy-path-live-local",
+  "name": "Published happy path live local ODL case",
+  "mode": "expected_and_differential",
+  "orgNumber": "000000000",
+  "fiscalYear": 2024,
+  "includeInDefaultRun": false,
+  "notes": "Runs OpenDataLoader live in local mode against the published happy-path document regression fixture materialized as a benchmark PDF. Requires Java 11+.",
+  "legacySource": {
+    "kind": "document_regression",
+    "name": "published-happy-path"
+  },
+  "openDataLoaderSource": {
+    "kind": "live_generated_pdf_from_legacy",
+    "executionMode": "local"
+  }
+}

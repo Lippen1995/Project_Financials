@@ -16,13 +16,79 @@ type JavaRuntimeSummary = {
   available: boolean;
 };
 
+type RuntimeCapability = {
+  ready: boolean;
+  reason: string;
+};
+
 export type OpenDataLoaderRuntimeSummary = {
   packageInstalled: boolean;
   packageVersion: string | null;
   java: JavaRuntimeSummary;
   localModeReady: boolean;
   hybridConfigured: boolean;
+  localModeReason: string;
+  hybridModeReason: string;
+  liveLocalBenchmarkReady: boolean;
+  liveLocalBenchmarkReason: string;
+  liveHybridBenchmarkReady: boolean;
+  liveHybridBenchmarkReason: string;
 };
+
+function assessLocalRuntimeCapability(input: {
+  packageVersion: string | null;
+  java: JavaRuntimeSummary;
+}): RuntimeCapability {
+  if (!input.packageVersion) {
+    return {
+      ready: false,
+      reason: "@opendataloader/pdf is not installed.",
+    };
+  }
+
+  if (!input.java.available) {
+    return {
+      ready: false,
+      reason: "Java runtime was not detected. Local OpenDataLoader requires Java 11+.",
+    };
+  }
+
+  if (!input.java.majorVersion || input.java.majorVersion < 11) {
+    return {
+      ready: false,
+      reason: `Detected Java ${input.java.rawVersion ?? "unknown"}, but local OpenDataLoader requires Java 11+.`,
+    };
+  }
+
+  return {
+    ready: true,
+    reason: `Java ${input.java.rawVersion} is compatible with local OpenDataLoader execution.`,
+  };
+}
+
+function assessHybridRuntimeCapability(input: {
+  packageVersion: string | null;
+  hybridUrl: string | null | undefined;
+}) {
+  if (!input.packageVersion) {
+    return {
+      ready: false,
+      reason: "@opendataloader/pdf is not installed.",
+    };
+  }
+
+  if (!input.hybridUrl) {
+    return {
+      ready: false,
+      reason: "OPENDATALOADER_HYBRID_URL is not configured.",
+    };
+  }
+
+  return {
+    ready: true,
+    reason: `Hybrid backend is configured at ${input.hybridUrl}.`,
+  };
+}
 
 export async function readOpenDataLoaderPackageVersion() {
   try {
@@ -88,13 +154,31 @@ export async function inspectOpenDataLoaderRuntime(
     readOpenDataLoaderPackageVersion(),
     inspectJavaRuntime(),
   ]);
+  const localCapability = assessLocalRuntimeCapability({
+    packageVersion,
+    java,
+  });
+  const hybridCapability = assessHybridRuntimeCapability({
+    packageVersion,
+    hybridUrl: config?.hybridUrl,
+  });
 
   return {
     packageInstalled: packageVersion !== null,
     packageVersion,
     java,
-    localModeReady: packageVersion !== null && Boolean(java.majorVersion && java.majorVersion >= 11),
-    hybridConfigured: Boolean(config?.hybridUrl),
+    localModeReady: localCapability.ready,
+    hybridConfigured: hybridCapability.ready,
+    localModeReason: localCapability.reason,
+    hybridModeReason: hybridCapability.reason,
+    liveLocalBenchmarkReady: localCapability.ready,
+    liveLocalBenchmarkReason: localCapability.ready
+      ? "Environment is ready for live local OpenDataLoader benchmark cases."
+      : localCapability.reason,
+    liveHybridBenchmarkReady: hybridCapability.ready,
+    liveHybridBenchmarkReason: hybridCapability.ready
+      ? "Environment is ready for live hybrid OpenDataLoader benchmark cases."
+      : hybridCapability.reason,
   } satisfies OpenDataLoaderRuntimeSummary;
 }
 

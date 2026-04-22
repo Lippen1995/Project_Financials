@@ -13,6 +13,8 @@ import { inspectOpenDataLoaderRuntime } from "@/server/document-understanding/op
 function parseArgs(argv: string[]) {
   const caseIds: string[] = [];
   let outputDir = path.join(process.cwd(), "output", "benchmarks", "annual-report-golden");
+  let includeLiveCases = false;
+  let liveOnly = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -35,17 +37,30 @@ function parseArgs(argv: string[]) {
 
     if (arg.startsWith("--output-dir=")) {
       outputDir = path.resolve(process.cwd(), arg.slice("--output-dir=".length));
+      continue;
+    }
+
+    if (arg === "--include-live") {
+      includeLiveCases = true;
+      continue;
+    }
+
+    if (arg === "--live-only") {
+      includeLiveCases = true;
+      liveOnly = true;
     }
   }
 
   return {
     caseIds,
     outputDir,
+    includeLiveCases,
+    liveOnly,
   };
 }
 
 async function main() {
-  const { caseIds, outputDir } = parseArgs(process.argv.slice(2));
+  const { caseIds, outputDir, includeLiveCases, liveOnly } = parseArgs(process.argv.slice(2));
   const casesDirectory = path.join(
     process.cwd(),
     "benchmarks",
@@ -53,7 +68,10 @@ async function main() {
     "cases",
   );
 
-  const allCases = await loadAnnualReportBenchmarkCases(casesDirectory);
+  const allCases = await loadAnnualReportBenchmarkCases(casesDirectory, {
+    includeLiveCases,
+    liveOnly,
+  });
   const selectedCases =
     caseIds.length > 0
       ? allCases.filter((item) => caseIds.includes(item.id))
@@ -81,6 +99,11 @@ async function main() {
       javaVersion: runtimeEnvironment.java.rawVersion,
       javaMajorVersion: runtimeEnvironment.java.majorVersion,
       localOpenDataLoaderReady: runtimeEnvironment.localModeReady,
+      localOpenDataLoaderReason: runtimeEnvironment.localModeReason,
+      liveLocalBenchmarkReady: runtimeEnvironment.liveLocalBenchmarkReady,
+      liveLocalBenchmarkReason: runtimeEnvironment.liveLocalBenchmarkReason,
+      liveHybridBenchmarkReady: runtimeEnvironment.liveHybridBenchmarkReady,
+      liveHybridBenchmarkReason: runtimeEnvironment.liveHybridBenchmarkReason,
     },
     summary: summarizeAnnualReportBenchmarkRun({
       cases: results,
@@ -89,6 +112,11 @@ async function main() {
         javaVersion: runtimeEnvironment.java.rawVersion,
         javaMajorVersion: runtimeEnvironment.java.majorVersion,
         localOpenDataLoaderReady: runtimeEnvironment.localModeReady,
+        localOpenDataLoaderReason: runtimeEnvironment.localModeReason,
+        liveLocalBenchmarkReady: runtimeEnvironment.liveLocalBenchmarkReady,
+        liveLocalBenchmarkReason: runtimeEnvironment.liveLocalBenchmarkReason,
+        liveHybridBenchmarkReady: runtimeEnvironment.liveHybridBenchmarkReady,
+        liveHybridBenchmarkReason: runtimeEnvironment.liveHybridBenchmarkReason,
       },
     }),
   };

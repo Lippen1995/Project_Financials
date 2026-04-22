@@ -32,6 +32,13 @@ describe("opendataloader-smoke", () => {
         },
         localModeReady: false,
         hybridConfigured: false,
+        localModeReason: "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+        hybridModeReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+        liveLocalBenchmarkReady: false,
+        liveLocalBenchmarkReason:
+          "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
       })),
     }));
 
@@ -108,6 +115,13 @@ describe("opendataloader-smoke", () => {
         },
         localModeReady: true,
         hybridConfigured: false,
+        localModeReason: "Java 17.0.9 is compatible with local OpenDataLoader execution.",
+        hybridModeReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+        liveLocalBenchmarkReady: true,
+        liveLocalBenchmarkReason:
+          "Environment is ready for live local OpenDataLoader benchmark cases.",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
       })),
     }));
     vi.doMock("@/integrations/brreg/annual-report-financials/preflight", () => ({

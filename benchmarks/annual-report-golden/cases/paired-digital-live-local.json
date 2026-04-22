@@ -1,13 +1,11 @@
 {
-  "id": "paired-digital-happy-path",
-  "name": "Paired digital happy path",
+  "id": "paired-digital-live-local",
+  "name": "Paired digital live local ODL case",
   "mode": "expected_and_differential",
   "orgNumber": "000000000",
   "fiscalYear": 2024,
-  "notes": "Legacy runs from inline PDF pages, while OpenDataLoader runs from a captured normalized JSON artifact representing the same core statement content.",
-  "knownEvidenceLimitations": [
-    "The captured OpenDataLoader fixture omits the note-level declaration line 'Alle tall i notene er NOK 1.000 ...' that exists in the legacy inline PDF page, so the remaining note-page unit-scale disagreement is evidence-limited rather than a proven parser bug."
-  ],
+  "includeInDefaultRun": false,
+  "notes": "Runs OpenDataLoader live in local mode against a generated benchmark PDF built from the same inline digital pages as the paired happy-path case. Requires Java 11+.",
   "legacySource": {
     "kind": "inline_document_pages",
     "pages": [
@@ -40,9 +38,8 @@
     ]
   },
   "openDataLoaderSource": {
-    "kind": "captured_normalized_json",
-    "path": "server/document-understanding/__fixtures__/opendataloader-annual-report.json",
-    "hasEmbeddedText": true
+    "kind": "live_generated_pdf_from_legacy",
+    "executionMode": "local"
   },
   "expected": {
     "classificationTypes": ["COVER", "STATUTORY_INCOME", "STATUTORY_BALANCE", "NOTE"],

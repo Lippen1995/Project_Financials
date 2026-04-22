@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { detectUnitScale } from "@/integrations/brreg/annual-report-financials/unit-scale";
+import { AnnualReportParsedPage } from "@/integrations/brreg/annual-report-financials/types";
 
 describe("detectUnitScale", () => {
   it("detects whole NOK declarations", () => {
@@ -44,5 +45,101 @@ describe("detectUnitScale", () => {
 
     expect(result.unitScale).toBeNull();
     expect(result.conflictingSignals).toBe(true);
+  });
+
+  it("detects note-level scale from structured page blocks when the declaration is preserved", () => {
+    const notePage: AnnualReportParsedPage = {
+      pageNumber: 7,
+      text: "Noter til regnskapet\nAlle tall i notene er NOK 1.000 dersom annet ikke er oppgitt\nNote 8 Bankinnskudd, kontanter o.l. 15558 14001",
+      normalizedText:
+        "noter til regnskapet\nalle tall i notene er nok 1.000 dersom annet ikke er oppgitt\nnote 8 bankinnskudd kontanter o.l. 15558 14001",
+      hasEmbeddedText: true,
+      lines: [],
+      blocks: [
+        {
+          id: "note-heading",
+          kind: "heading",
+          rawType: "heading",
+          text: "Noter til regnskapet",
+          normalizedText: "noter til regnskapet",
+          bbox: { left: 72, bottom: 710, right: 320, top: 740 },
+          source: {
+            engine: "OPENDATALOADER",
+            engineMode: "local",
+            sourceElementId: "note-heading",
+            sourceRawType: "heading",
+            order: 0,
+          },
+        },
+        {
+          id: "note-scale",
+          kind: "paragraph",
+          rawType: "paragraph",
+          text: "Alle tall i notene er NOK 1.000 dersom annet ikke er oppgitt",
+          normalizedText: "alle tall i notene er nok 1.000 dersom annet ikke er oppgitt",
+          bbox: { left: 72, bottom: 680, right: 520, top: 705 },
+          source: {
+            engine: "OPENDATALOADER",
+            engineMode: "local",
+            sourceElementId: "note-scale",
+            sourceRawType: "paragraph",
+            order: 1,
+          },
+        },
+      ],
+      tables: [],
+      source: {
+        engine: "OPENDATALOADER",
+        engineMode: "local",
+        sourceElementId: "page-7",
+        sourceRawType: "page",
+        order: 7,
+      },
+    };
+
+    const result = detectUnitScale(notePage);
+
+    expect(result.unitScale).toBe(1000);
+    expect(result.confidence).toBeGreaterThan(0.9);
+  });
+
+  it("keeps note-level scale uncertain when the structured page only contains a note caption", () => {
+    const notePage: AnnualReportParsedPage = {
+      pageNumber: 4,
+      text: "Note 8 Bankinnskudd, kontanter o.l. 15558 14001",
+      normalizedText: "note 8 bankinnskudd kontanter o.l. 15558 14001",
+      hasEmbeddedText: true,
+      lines: [],
+      blocks: [
+        {
+          id: "note-caption",
+          kind: "caption",
+          rawType: "caption",
+          text: "Note 8 Bankinnskudd, kontanter o.l. 15558 14001",
+          normalizedText: "note 8 bankinnskudd kontanter o.l. 15558 14001",
+          bbox: { left: 72, bottom: 730, right: 520, top: 760 },
+          source: {
+            engine: "OPENDATALOADER",
+            engineMode: "local",
+            sourceElementId: "note-caption",
+            sourceRawType: "caption",
+            order: 0,
+          },
+        },
+      ],
+      tables: [],
+      source: {
+        engine: "OPENDATALOADER",
+        engineMode: "local",
+        sourceElementId: "page-4",
+        sourceRawType: "page",
+        order: 4,
+      },
+    };
+
+    const result = detectUnitScale(notePage);
+
+    expect(result.unitScale).toBeNull();
+    expect(result.confidence).toBe(0);
   });
 });

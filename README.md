@@ -364,6 +364,18 @@ Kjør benchmarken:
 npm run financials:benchmark-annual-reports
 ```
 
+Ta med live ODL-caser når Java 11+ og lokal runtime er klar:
+
+```bash
+npm run financials:benchmark-annual-reports -- --include-live
+```
+
+Kjør bare live-caser:
+
+```bash
+npm run financials:benchmark-annual-reports -- --live-only
+```
+
 Kjør én case:
 
 ```bash
@@ -381,8 +393,18 @@ Outputs:
 - JSON-resultat under `output/benchmarks/annual-report-golden/`
 - Markdown-oppsummering under samme katalog
 - `latest.json` og `latest.md` peker alltid til siste benchmark-kjøring
+- hver case merkes med `evidenceKind` slik at man kan se om resultatet kommer fra `legacy-only`, `captured-fixture`, `live-local-odl` eller `live-hybrid-odl`
 
 Benchmarken er nå eksplisitt brukt til å evaluere den rikere ODL-adapteren. Den viktigste paired happy-path-casen skal ikke lenger falle ut bare fordi ODL-normaliseringen kollapser tabellrader eller mister arvede unit-signaler.
+
+Benchmarkoppsummeringen skiller nå eksplisitt mellom:
+
+- `legacy-only`: kun legacy-pipeline er kjørt for casen
+- `captured-fixture`: ODL-resultatet kommer fra et innfanget artifact i repoet, ikke fra live runtime
+- `live-local-odl`: ODL-resultatet kommer fra en reell lokal Java 11+-kjøring
+- `live-hybrid-odl`: ODL-resultatet kommer fra en reell hybrid-backend-kjøring
+
+Dette er viktig fordi dagens sterkeste ODL-evidens fortsatt hovedsakelig er fixture-/captured-basert. Rollout-beslutninger skal derfor vektes etter evidenskvalitet, ikke bare antall grønne benchmark-caser.
 
 Benchmarken støtter to praktiske moduser:
 
@@ -401,6 +423,18 @@ Den rapporterer blant annet:
 - disagreement-rate mellom legacy og OpenDataLoader
 
 I dagens repo er benchmarken fullt kjørbar med fixture-/captured-artifact mode. Live lokal OpenDataLoader-benchmark krever fortsatt Java 11+ i runtime-miljøet.
+
+Den gjenværende paired note-scale-uenigheten er nå eksplisitt klassifisert som en `known_evidence_gap` i benchmarken når den oppstår på captured ODL-fixturen. Legacy-inputen for casen inneholder linjen `Alle tall i notene er NOK 1.000 dersom annet ikke er oppgitt`, mens den innfangede ODL-fixturen bare inneholder note-captionen og dermed mangler selve skala-signalet. Dette er dokumentert som en evidensbegrensning i stedet for å bli "fikset" med usikker arving av note-skala.
+
+For å oppgradere evidensen når miljøet er klart:
+
+1. installer Java 11+ i runtime-miljøet
+2. kjør `npm run opendataloader:runtime-diagnostics`
+3. verifiser at `localModeReady` og `liveLocalBenchmarkReady` er `true`
+4. kjør `npm run opendataloader:smoke-test`
+5. kjør `npm run financials:benchmark-annual-reports -- --include-live`
+
+Hvis Java fortsatt er under 11, markerer benchmarken live-caser som `skipped` med eksplisitt årsak i stedet for å feile senere i pipelinen.
 
 ### Hva blokkerer auto-publisering
 

@@ -1,0 +1,62 @@
+# Annual-report benchmark
+
+Generated at: 2026-04-22T06:21:03.726Z
+
+## Runtime
+
+- OpenDataLoader package: 2.2.1
+- Java version: 1.8.0_241
+- Local OpenDataLoader ready: no
+- Local readiness reason: Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.
+- Live local benchmark ready: no (Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.)
+- Live hybrid benchmark ready: no (OPENDATALOADER_HYBRID_URL is not configured.)
+
+## Summary
+
+- Cases: 4/4 completed
+- Skipped cases: 0
+- Differential cases: 1
+- Material disagreements: 1
+- Publish-decision mismatches: 0
+- Evidence counts: legacy-only=3, captured-fixture=1, live-local-odl=0, live-hybrid-odl=0
+- Legacy average runtime (ms): 167.75
+- OpenDataLoader average runtime (ms): 7
+
+## Recommendation
+
+- keep legacy as default, OpenDataLoader shadow-only
+- Reason: Repoet har ikke bekreftet lokal OpenDataLoader-runtime i dette miljoet. Java 11+ er ikke klart, sa rollout bor ikke skje utover fixture/shadow-evaluering.
+
+## Cases
+
+### manual-review-ambiguous
+
+- Status: completed
+- Mode: expected
+- Evidence: legacy-only
+- Legacy: MANUAL_REVIEW, runtime 629 ms
+
+### paired-digital-happy-path
+
+- Status: completed
+- Mode: expected_and_differential
+- Evidence: captured-fixture
+- Legacy: PUBLISHED, runtime 14 ms
+- OpenDataLoader: PUBLISHED, runtime 7 ms, source captured_normalized_json
+- Comparison: disagreement=true, publishMismatch=false
+- Comparison assessment: known_evidence_gap (The captured OpenDataLoader fixture omits the note-level declaration line 'Alle tall i notene er NOK 1.000 ...' that exists in the legacy inline PDF page, so the remaining note-page unit-scale disagreement is evidence-limited rather than a proven parser bug.)
+- Known evidence limitations: The captured OpenDataLoader fixture omits the note-level declaration line 'Alle tall i notene er NOK 1.000 ...' that exists in the legacy inline PDF page, so the remaining note-page unit-scale disagreement is evidence-limited rather than a proven parser bug.
+
+### published-happy-path
+
+- Status: completed
+- Mode: expected
+- Evidence: legacy-only
+- Legacy: PUBLISHED, runtime 22 ms
+
+### scan-like-duplicate-sections
+
+- Status: completed
+- Mode: expected
+- Evidence: legacy-only
+- Legacy: PUBLISHED, runtime 6 ms

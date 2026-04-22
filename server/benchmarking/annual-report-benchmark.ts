@@ -47,6 +47,20 @@ export type BenchmarkExpected = {
   requiredIssueCodes?: string[];
 };
 
+export type BenchmarkEvidenceKind =
+  | "captured-fixture"
+  | "live-local-odl"
+  | "live-hybrid-odl"
+  | "legacy-only";
+
+export type BenchmarkComparisonAssessment = {
+  classification:
+    | "no_material_disagreement"
+    | "known_evidence_gap"
+    | "likely_code_or_logic_issue";
+  summary: string;
+};
+
 type InlineOcrPage = {
   pageNumber: number;
   lines: Array<{ words: string[] }>;
@@ -60,6 +74,11 @@ type LegacyBenchmarkSource =
 type OpenDataLoaderBenchmarkSource =
   | { kind: "captured_normalized_json"; path: string; hasEmbeddedText?: boolean }
   | { kind: "live_pdf"; path: string; config?: Partial<OpenDataLoaderResolvedConfig> }
+  | {
+      kind: "live_generated_pdf_from_legacy";
+      executionMode?: "local" | "hybrid";
+      config?: Partial<OpenDataLoaderResolvedConfig>;
+    }
   | { kind: "inline_ocr_pages"; pages: InlineOcrPage[] };
 
 export type AnnualReportBenchmarkCase = {
@@ -69,6 +88,8 @@ export type AnnualReportBenchmarkCase = {
   fiscalYear: number;
   mode?: "expected" | "differential" | "expected_and_differential";
   notes?: string;
+  includeInDefaultRun?: boolean;
+  knownEvidenceLimitations?: string[];
   legacySource: LegacyBenchmarkSource;
   openDataLoaderSource?: OpenDataLoaderBenchmarkSource;
   expected?: BenchmarkExpected;
@@ -108,6 +129,7 @@ export type BenchmarkPipelineResult = {
   issueCodes: string[];
   issueCount: number;
   validationPasses: boolean;
+  evidenceKind: BenchmarkEvidenceKind;
   snapshot: OpenDataLoaderPipelineSnapshot;
 };
 
@@ -127,15 +149,18 @@ export type AnnualReportBenchmarkCaseResult = {
   fiscalYear: number;
   mode: "expected" | "differential" | "expected_and_differential";
   notes?: string;
-  status: "completed" | "error";
+  status: "completed" | "error" | "skipped";
   errors: string[];
   expected?: BenchmarkExpected;
+  evidenceKind: BenchmarkEvidenceKind;
+  knownEvidenceLimitations: string[];
   legacy?: BenchmarkPipelineResult & { expectedEvaluation?: BenchmarkExpectedEvaluation };
   openDataLoader?: BenchmarkPipelineResult & {
     expectedEvaluation?: BenchmarkExpectedEvaluation;
     routeReason?: string | null;
   };
   comparison?: OpenDataLoaderComparisonSummary | null;
+  comparisonAssessment?: BenchmarkComparisonAssessment | null;
 };
 
 export type AnnualReportBenchmarkRun = {
@@ -146,14 +171,21 @@ export type AnnualReportBenchmarkRun = {
     javaVersion: string | null;
     javaMajorVersion: number | null;
     localOpenDataLoaderReady: boolean;
+    localOpenDataLoaderReason: string;
+    liveLocalBenchmarkReady: boolean;
+    liveLocalBenchmarkReason: string;
+    liveHybridBenchmarkReady: boolean;
+    liveHybridBenchmarkReason: string;
   };
   summary: {
     totalCases: number;
     completedCases: number;
     failedCases: number;
+    skippedCases: number;
     differentialCases: number;
     disagreementCases: number;
     publishDecisionMismatchCases: number;
+    evidenceCounts: Record<BenchmarkEvidenceKind, number>;
     averageRuntimeMs: Record<string, number | null>;
     medianRuntimeMs: Record<string, number | null>;
     expectedMetrics: Record<
@@ -369,6 +401,14 @@ function runPipelineFromPages(input: {
     issueCodes: issues.map((issue) => issue.ruleCode),
     issueCount: issues.length,
     validationPasses: blockingRuleCodes.length === 0,
+    evidenceKind:
+      input.engine === "LEGACY"
+        ? "legacy-only"
+        : input.executionSource === "live_pdf"
+          ? input.mode === "hybrid"
+            ? "live-hybrid-odl"
+            : "live-local-odl"
+          : "captured-fixture",
     snapshot: buildPipelineSnapshot({
       engine: input.engine,
       mode: input.mode,
@@ -398,6 +438,63 @@ function average(values: number[]) {
     return null;
   }
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+class BenchmarkSkipError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BenchmarkSkipError";
+  }
+}
+
+function inferCaseEvidenceKind(
+  benchmarkCase: AnnualReportBenchmarkCase,
+  openDataLoaderResult?: BenchmarkPipelineResult | null,
+): BenchmarkEvidenceKind {
+  if (!benchmarkCase.openDataLoaderSource || !openDataLoaderResult) {
+    return "legacy-only";
+  }
+
+  switch (openDataLoaderResult.executionSource) {
+    case "captured_normalized_json":
+      return "captured-fixture";
+    case "live_pdf":
+      return openDataLoaderResult.mode === "hybrid" ? "live-hybrid-odl" : "live-local-odl";
+    default:
+      return "captured-fixture";
+  }
+}
+
+function assessComparison(
+  benchmarkCase: AnnualReportBenchmarkCase,
+  comparison: OpenDataLoaderComparisonSummary | null | undefined,
+): BenchmarkComparisonAssessment | null {
+  if (!comparison) {
+    return null;
+  }
+
+  if (!comparison.materialDisagreement) {
+    return {
+      classification: "no_material_disagreement",
+      summary: "No material disagreement was detected between legacy and OpenDataLoader for this case.",
+    };
+  }
+
+  if (
+    benchmarkCase.knownEvidenceLimitations &&
+    benchmarkCase.knownEvidenceLimitations.length > 0
+  ) {
+    return {
+      classification: "known_evidence_gap",
+      summary: benchmarkCase.knownEvidenceLimitations.join(" "),
+    };
+  }
+
+  return {
+    classification: "likely_code_or_logic_issue",
+    summary:
+      "A material disagreement remains without a declared evidence limitation, so this case still looks like a parser or pipeline issue.",
+  };
 }
 
 function evaluateAgainstExpected(
@@ -496,6 +593,20 @@ function resolveOcrFixture(name: string) {
   return fixture;
 }
 
+function materializeLegacySourceToPdfBuffer(source: LegacyBenchmarkSource) {
+  if (source.kind === "inline_document_pages") {
+    return buildSimplePdfBuffer(source.pages);
+  }
+
+  if (source.kind === "document_regression") {
+    return buildSimplePdfBuffer(resolveDocumentFixture(source.name).pages);
+  }
+
+  throw new BenchmarkSkipError(
+    "This benchmark case cannot be materialized into a live PDF from the current legacy fixture source.",
+  );
+}
+
 async function runLegacySource(
   fiscalYear: number,
   source: LegacyBenchmarkSource,
@@ -589,6 +700,7 @@ function withDefaultOpenDataLoaderConfig(
 async function runOpenDataLoaderSource(
   fiscalYear: number,
   source: OpenDataLoaderBenchmarkSource,
+  legacySource: LegacyBenchmarkSource,
 ): Promise<{ result: BenchmarkPipelineResult; routeReason: string | null }> {
   if (source.kind === "captured_normalized_json") {
     const absolutePath = path.resolve(process.cwd(), source.path);
@@ -639,14 +751,82 @@ async function runOpenDataLoaderSource(
     };
   }
 
+  if (source.kind === "live_generated_pdf_from_legacy") {
+    const config = withDefaultOpenDataLoaderConfig({
+      ...source.config,
+      enabled: true,
+      mode: source.executionMode ?? "local",
+    });
+    const runtime = await inspectOpenDataLoaderRuntime(config);
+
+    if (config.mode === "hybrid" && !runtime.liveHybridBenchmarkReady) {
+      throw new BenchmarkSkipError(
+        `Live hybrid benchmark is not ready: ${runtime.liveHybridBenchmarkReason}`,
+      );
+    }
+
+    if (config.mode !== "hybrid" && !runtime.liveLocalBenchmarkReady) {
+      throw new BenchmarkSkipError(
+        `Live local benchmark is not ready: ${runtime.liveLocalBenchmarkReason}`,
+      );
+    }
+
+    const pdfBuffer = materializeLegacySourceToPdfBuffer(legacySource);
+    const preflight = await preflightAnnualReportDocument(pdfBuffer);
+    const parsed = await parseAnnualReportPdfWithOpenDataLoader({
+      pdfBuffer,
+      sourceFilename: `benchmark-${fiscalYear}.pdf`,
+      preflight,
+      config,
+    });
+
+    return {
+      result: runPipelineFromPages({
+        fiscalYear,
+        pages: parsed.annualReportPages,
+        engine: "OPENDATALOADER",
+        mode: parsed.routing.executionMode,
+        runtimeMs: parsed.metrics.durationMs,
+        executionSource: "live_pdf",
+        artifactGeneration: {
+          attempted: true,
+          success: Boolean(parsed.artifacts.rawJson && parsed.artifacts.markdown),
+          artifactKinds: [
+            "DOCUMENT_JSON",
+            ...(parsed.artifacts.markdown ? ["DOCUMENT_MARKDOWN"] : []),
+            ...(parsed.artifacts.annotatedPdf ? ["ANNOTATED_PDF"] : []),
+          ],
+          detail:
+            "OpenDataLoader was executed live against a benchmark PDF generated from the legacy benchmark source.",
+        },
+      }),
+      routeReason: `live-generated-from-legacy:${parsed.routing.reason}`,
+    };
+  }
+
   const absolutePath = path.resolve(process.cwd(), source.path);
+  const config = withDefaultOpenDataLoaderConfig(source.config);
+  const runtime = await inspectOpenDataLoaderRuntime(config);
+
+  if (config.mode === "hybrid" && !runtime.liveHybridBenchmarkReady) {
+    throw new BenchmarkSkipError(
+      `Live hybrid benchmark is not ready: ${runtime.liveHybridBenchmarkReason}`,
+    );
+  }
+
+  if (config.mode !== "hybrid" && !runtime.liveLocalBenchmarkReady) {
+    throw new BenchmarkSkipError(
+      `Live local benchmark is not ready: ${runtime.liveLocalBenchmarkReason}`,
+    );
+  }
+
   const pdfBuffer = await fs.readFile(absolutePath);
   const preflight = await preflightAnnualReportDocument(pdfBuffer);
   const parsed = await parseAnnualReportPdfWithOpenDataLoader({
     pdfBuffer,
     sourceFilename: path.basename(absolutePath),
     preflight,
-    config: withDefaultOpenDataLoaderConfig(source.config),
+    config,
   });
 
   return {
@@ -672,19 +852,41 @@ async function runOpenDataLoaderSource(
   };
 }
 
-export async function loadAnnualReportBenchmarkCases(directory: string) {
+export async function loadAnnualReportBenchmarkCases(
+  directory: string,
+  options?: {
+    includeLiveCases?: boolean;
+    liveOnly?: boolean;
+  },
+) {
   const entries = await fs.readdir(directory, { withFileTypes: true });
   const files = entries
     .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
     .map((entry) => entry.name)
     .sort();
 
-  return Promise.all(
+  const loaded = await Promise.all(
     files.map(async (filename) => {
       const absolutePath = path.join(directory, filename);
       return JSON.parse(await fs.readFile(absolutePath, "utf8")) as AnnualReportBenchmarkCase;
     }),
   );
+
+  return loaded.filter((benchmarkCase) => {
+    const isLiveCase =
+      benchmarkCase.openDataLoaderSource?.kind === "live_generated_pdf_from_legacy" ||
+      benchmarkCase.openDataLoaderSource?.kind === "live_pdf";
+
+    if (options?.liveOnly) {
+      return isLiveCase;
+    }
+
+    if (!options?.includeLiveCases && benchmarkCase.includeInDefaultRun === false) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 export async function runAnnualReportBenchmarkCase(
@@ -699,6 +901,8 @@ export async function runAnnualReportBenchmarkCase(
     status: "completed",
     errors: [],
     expected: benchmarkCase.expected,
+    evidenceKind: "legacy-only",
+    knownEvidenceLimitations: benchmarkCase.knownEvidenceLimitations ?? [],
   };
 
   try {
@@ -714,6 +918,7 @@ export async function runAnnualReportBenchmarkCase(
       const opendataloader = await runOpenDataLoaderSource(
         benchmarkCase.fiscalYear,
         benchmarkCase.openDataLoaderSource,
+        benchmarkCase.legacySource,
       );
       result.openDataLoader = {
         ...opendataloader.result,
@@ -724,8 +929,19 @@ export async function runAnnualReportBenchmarkCase(
         primary: legacy.result.snapshot,
         shadow: opendataloader.result.snapshot,
       });
+      result.comparisonAssessment = assessComparison(
+        benchmarkCase,
+        result.comparison,
+      );
+      result.evidenceKind = inferCaseEvidenceKind(benchmarkCase, opendataloader.result);
     }
   } catch (error) {
+    if (error instanceof BenchmarkSkipError) {
+      result.status = "skipped";
+      result.errors.push(error.message);
+      return result;
+    }
+
     result.status = "error";
     result.errors.push(error instanceof Error ? error.message : "Unknown benchmark error");
   }
@@ -781,7 +997,15 @@ function buildRecommendation(run: {
     (item) => item.comparison?.materialDisagreement,
   );
   const odlLiveCases = completed.filter(
-    (item) => item.openDataLoader?.executionSource === "live_pdf",
+    (item) =>
+      item.evidenceKind === "live-local-odl" || item.evidenceKind === "live-hybrid-odl",
+  );
+  const liveDisagreementCases = disagreementCases.filter(
+    (item) =>
+      item.evidenceKind === "live-local-odl" || item.evidenceKind === "live-hybrid-odl",
+  );
+  const unexplainedDisagreementCases = disagreementCases.filter(
+    (item) => item.comparisonAssessment?.classification !== "known_evidence_gap",
   );
 
   if (!run.runtimeEnvironment.localOpenDataLoaderReady) {
@@ -800,19 +1024,27 @@ function buildRecommendation(run: {
     };
   }
 
-  if (disagreementCases.length > 0) {
+  if (liveDisagreementCases.length > 0) {
     return {
       recommendation: "keep legacy as default, OpenDataLoader shadow-only",
       recommendationReason:
-        "Det finnes materielle uenigheter mellom legacy og OpenDataLoader på benchmarksettet. Inntil disse er forklart, bør OpenDataLoader ikke få publiseringsansvar.",
+        "Det finnes materielle uenigheter i live OpenDataLoader-kjøringer. Inntil disse er forklart, bør OpenDataLoader ikke få publiseringsansvar.",
+    };
+  }
+
+  if (unexplainedDisagreementCases.length > 0) {
+    return {
+      recommendation: "keep legacy as default, OpenDataLoader shadow-only",
+      recommendationReason:
+        "Noen benchmark-uenigheter er fortsatt ikke forklart av kjente evidensbegrensninger. OpenDataLoader bør derfor forbli shadow-only.",
     };
   }
 
   return {
     recommendation: "use OpenDataLoader only as fallback for hard PDFs",
     recommendationReason:
-      "Benchmarken viser ingen materielle uenigheter på de live-kjørte sakene, men evidensgrunnlaget er fortsatt for smalt til å gjøre den til bred default-kilde.",
-    };
+      "Live benchmark-kjøringene er rene, og gjenværende uenigheter er forklart av captured-fixture-begrensninger. Evidensgrunnlaget er fortsatt for smalt til bred default-bruk, men fallback for klart definerte harde PDF-er kan vurderes senere.",
+  };
 }
 
 export function summarizeAnnualReportBenchmarkRun(input: {
@@ -821,6 +1053,7 @@ export function summarizeAnnualReportBenchmarkRun(input: {
 }) {
   const completed = input.cases.filter((item) => item.status === "completed");
   const failed = input.cases.filter((item) => item.status === "error");
+  const skipped = input.cases.filter((item) => item.status === "skipped");
   const differentialCases = completed.filter((item) => item.comparison);
   const disagreementCases = differentialCases.filter(
     (item) => item.comparison?.materialDisagreement,
@@ -835,9 +1068,16 @@ export function summarizeAnnualReportBenchmarkRun(input: {
     totalCases: input.cases.length,
     completedCases: completed.length,
     failedCases: failed.length,
+    skippedCases: skipped.length,
     differentialCases: differentialCases.length,
     disagreementCases: disagreementCases.length,
     publishDecisionMismatchCases: publishDecisionMismatchCases.length,
+    evidenceCounts: {
+      "legacy-only": input.cases.filter((item) => item.evidenceKind === "legacy-only").length,
+      "captured-fixture": input.cases.filter((item) => item.evidenceKind === "captured-fixture").length,
+      "live-local-odl": input.cases.filter((item) => item.evidenceKind === "live-local-odl").length,
+      "live-hybrid-odl": input.cases.filter((item) => item.evidenceKind === "live-hybrid-odl").length,
+    },
     averageRuntimeMs: {
       legacy: average(
         completed
@@ -882,13 +1122,18 @@ export function renderAnnualReportBenchmarkMarkdown(run: AnnualReportBenchmarkRu
     `- OpenDataLoader package: ${run.runtimeEnvironment.opendataloaderPackageVersion ?? "not installed"}`,
     `- Java version: ${run.runtimeEnvironment.javaVersion ?? "not available"}`,
     `- Local OpenDataLoader ready: ${run.runtimeEnvironment.localOpenDataLoaderReady ? "yes" : "no"}`,
+    `- Local readiness reason: ${run.runtimeEnvironment.localOpenDataLoaderReason}`,
+    `- Live local benchmark ready: ${run.runtimeEnvironment.liveLocalBenchmarkReady ? "yes" : "no"} (${run.runtimeEnvironment.liveLocalBenchmarkReason})`,
+    `- Live hybrid benchmark ready: ${run.runtimeEnvironment.liveHybridBenchmarkReady ? "yes" : "no"} (${run.runtimeEnvironment.liveHybridBenchmarkReason})`,
     "",
     "## Summary",
     "",
     `- Cases: ${run.summary.completedCases}/${run.summary.totalCases} completed`,
+    `- Skipped cases: ${run.summary.skippedCases}`,
     `- Differential cases: ${run.summary.differentialCases}`,
     `- Material disagreements: ${run.summary.disagreementCases}`,
     `- Publish-decision mismatches: ${run.summary.publishDecisionMismatchCases}`,
+    `- Evidence counts: legacy-only=${run.summary.evidenceCounts["legacy-only"]}, captured-fixture=${run.summary.evidenceCounts["captured-fixture"]}, live-local-odl=${run.summary.evidenceCounts["live-local-odl"]}, live-hybrid-odl=${run.summary.evidenceCounts["live-hybrid-odl"]}`,
     `- Legacy average runtime (ms): ${run.summary.averageRuntimeMs.legacy ?? "n/a"}`,
     `- OpenDataLoader average runtime (ms): ${run.summary.averageRuntimeMs.opendataloader ?? "n/a"}`,
     "",
@@ -906,6 +1151,7 @@ export function renderAnnualReportBenchmarkMarkdown(run: AnnualReportBenchmarkRu
     lines.push("");
     lines.push(`- Status: ${item.status}`);
     lines.push(`- Mode: ${item.mode}`);
+    lines.push(`- Evidence: ${item.evidenceKind}`);
     if (item.legacy) {
       lines.push(
         `- Legacy: ${item.legacy.shouldPublish ? "PUBLISHED" : "MANUAL_REVIEW"}, runtime ${item.legacy.runtimeMs} ms`,
@@ -920,6 +1166,12 @@ export function renderAnnualReportBenchmarkMarkdown(run: AnnualReportBenchmarkRu
       lines.push(
         `- Comparison: disagreement=${item.comparison.materialDisagreement}, publishMismatch=${item.comparison.publishDecisionMismatch}`,
       );
+    }
+    if (item.comparisonAssessment) {
+      lines.push(`- Comparison assessment: ${item.comparisonAssessment.classification} (${item.comparisonAssessment.summary})`);
+    }
+    if (item.knownEvidenceLimitations.length > 0) {
+      lines.push(`- Known evidence limitations: ${item.knownEvidenceLimitations.join(" | ")}`);
     }
     if (item.errors.length > 0) {
       lines.push(`- Errors: ${item.errors.join(" | ")}`);
