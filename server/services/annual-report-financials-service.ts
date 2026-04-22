@@ -693,7 +693,7 @@ export async function processAnnualReportFiling(
       : primaryOpenDataLoaderResult!.routing.executionMode;
     const primaryPages = useLegacyPrimary
       ? legacyPages
-      : primaryOpenDataLoaderResult!.pageTextLayers;
+      : primaryOpenDataLoaderResult!.annualReportPages;
 
     const primaryComputation = runFinancialPipeline({
       filingId: filing.id,
@@ -709,7 +709,7 @@ export async function processAnnualReportFiling(
         filingId: filing.id,
         extractionRunId: extractionRun.id,
         fiscalYear: filing.fiscalYear,
-        parsedPages: openDataLoaderResult.pageTextLayers,
+        parsedPages: openDataLoaderResult.annualReportPages,
         engine: "OPENDATALOADER",
         mode: openDataLoaderResult.routing.executionMode,
       });

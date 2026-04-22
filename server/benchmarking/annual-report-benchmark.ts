@@ -1,7 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 
 import {
   buildClassificationIssues,
@@ -19,6 +17,7 @@ import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-finan
 import {
   CanonicalFactCandidate,
   ExtractedLine,
+  AnnualReportParsedInputPage,
   PageClassification,
   PageTextLayer,
 } from "@/integrations/brreg/annual-report-financials/types";
@@ -28,16 +27,17 @@ import { mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-fina
 import { buildOpenDataLoaderComparisonSummary } from "@/server/document-understanding/opendataloader-comparison";
 import { parseAnnualReportPdfWithOpenDataLoader } from "@/server/document-understanding/opendataloader-client";
 import {
+  inspectOpenDataLoaderRuntime,
+} from "@/server/document-understanding/opendataloader-runtime";
+import {
   OpenDataLoaderComparisonSummary,
   OpenDataLoaderPipelineSnapshot,
   OpenDataLoaderResolvedConfig,
 } from "@/server/document-understanding/opendataloader-types";
 import {
-  convertNormalizedDocumentToPageTextLayers,
+  convertNormalizedDocumentToAnnualReportPages,
   normalizeOpenDataLoaderPayload,
 } from "@/server/document-understanding/opendataloader-normalizer";
-
-const execFileAsync = promisify(execFile);
 
 export type BenchmarkExpected = {
   classificationTypes?: string[];
@@ -295,7 +295,7 @@ function buildPipelineSnapshot(input: {
 
 function runPipelineFromPages(input: {
   fiscalYear: number;
-  pages: PageTextLayer[];
+  pages: AnnualReportParsedInputPage[];
   engine: "LEGACY" | "OPENDATALOADER";
   mode: "legacy" | "local" | "hybrid";
   runtimeMs: number;
@@ -598,7 +598,7 @@ async function runOpenDataLoaderSource(
       payload,
       hasEmbeddedText: source.hasEmbeddedText ?? true,
     });
-    const pages = convertNormalizedDocumentToPageTextLayers(normalized);
+    const pages = convertNormalizedDocumentToAnnualReportPages(normalized);
     const runtimeMs = Date.now() - startedAt;
     return {
       result: runPipelineFromPages({
@@ -652,7 +652,7 @@ async function runOpenDataLoaderSource(
   return {
     result: runPipelineFromPages({
       fiscalYear,
-      pages: parsed.pageTextLayers,
+      pages: parsed.annualReportPages,
       engine: "OPENDATALOADER",
       mode: parsed.routing.executionMode,
       runtimeMs: parsed.metrics.durationMs,
@@ -670,67 +670,6 @@ async function runOpenDataLoaderSource(
     }),
     routeReason: parsed.routing.reason,
   };
-}
-
-async function readOpenDataLoaderPackageVersion() {
-  try {
-    const packageJsonPath = path.join(
-      process.cwd(),
-      "node_modules",
-      "@opendataloader",
-      "pdf",
-      "package.json",
-    );
-    const parsed = JSON.parse(await fs.readFile(packageJsonPath, "utf8")) as { version?: string };
-    return parsed.version ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function parseJavaMajorVersion(output: string) {
-  const match = output.match(/version "(?<version>[^"]+)"/);
-  const version = match?.groups?.version ?? null;
-  if (!version) {
-    return { version: null, major: null };
-  }
-
-  if (version.startsWith("1.")) {
-    const legacyMajor = Number(version.split(".")[1]);
-    return {
-      version,
-      major: Number.isFinite(legacyMajor) ? legacyMajor : null,
-    };
-  }
-
-  const major = Number(version.split(".")[0]);
-  return {
-    version,
-    major: Number.isFinite(major) ? major : null,
-  };
-}
-
-export async function inspectOpenDataLoaderRuntime() {
-  const packageVersion = await readOpenDataLoaderPackageVersion();
-
-  try {
-    const { stdout, stderr } = await execFileAsync("java", ["-version"]);
-    const rawOutput = `${stdout ?? ""}\n${stderr ?? ""}`.trim();
-    const java = parseJavaMajorVersion(rawOutput);
-    return {
-      opendataloaderPackageVersion: packageVersion,
-      javaVersion: java.version,
-      javaMajorVersion: java.major,
-      localOpenDataLoaderReady: Boolean(java.major && java.major >= 11),
-    };
-  } catch {
-    return {
-      opendataloaderPackageVersion: packageVersion,
-      javaVersion: null,
-      javaMajorVersion: null,
-      localOpenDataLoaderReady: false,
-    };
-  }
 }
 
 export async function loadAnnualReportBenchmarkCases(directory: string) {

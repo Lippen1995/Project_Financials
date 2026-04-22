@@ -16,9 +16,10 @@ describe("annual-report-benchmark", () => {
 
     expect(result.status).toBe("completed");
     expect(result.legacy?.shouldPublish).toBe(true);
-    expect(result.openDataLoader?.shouldPublish).toBe(false);
+    expect(result.openDataLoader?.shouldPublish).toBe(true);
     expect(result.comparison).toBeTruthy();
     expect(result.comparison?.materialDisagreement).toBe(true);
+    expect(result.comparison?.publishDecisionMismatch).toBe(false);
   });
 
   it("renders a readable markdown summary from benchmark results", () => {

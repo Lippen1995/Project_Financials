@@ -1,13 +1,15 @@
-import { detectUnitScale } from "@/integrations/brreg/annual-report-financials/unit-scale";
+import { toAnnualReportParsedPages } from "@/integrations/brreg/annual-report-financials/page-model";
 import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { detectUnitScale } from "@/integrations/brreg/annual-report-financials/unit-scale";
 import {
+  AnnualReportParsedInputPage,
+  AnnualReportParsedPage,
   PageClassification,
-  PageTextLayer,
 } from "@/integrations/brreg/annual-report-financials/types";
 import { StatementSectionType } from "@/integrations/brreg/annual-report-financials/taxonomy";
 
 type PageFeatures = {
-  page: PageTextLayer;
+  page: AnnualReportParsedPage;
   heading: string | null;
   headingText: string;
   topText: string;
@@ -107,13 +109,34 @@ function countKeywordMatches(text: string, keywords: string[]) {
   };
 }
 
-function extractDeclaredYears(page: PageTextLayer) {
+function extractDeclaredYears(page: AnnualReportParsedPage) {
   return Array.from(
     new Set((page.text.match(/\b20\d{2}\b/g) ?? []).map((year) => Number(year))),
   ).slice(0, 6);
 }
 
-function extractYearHeaderYears(page: PageTextLayer) {
+function extractYearHeaderYears(page: AnnualReportParsedPage) {
+  for (const table of page.tables) {
+    const headerRow = table.rows.find((row) => {
+      const years = row.cells
+        .map((cell) => cell.text.match(/\b20\d{2}\b/g) ?? [])
+        .flat()
+        .map((year) => Number(year));
+      return years.length >= 2;
+    });
+
+    if (headerRow) {
+      return Array.from(
+        new Set(
+          headerRow.cells
+            .map((cell) => cell.text.match(/\b20\d{2}\b/g) ?? [])
+            .flat()
+            .map((year) => Number(year)),
+        ),
+      ).slice(0, 3);
+    }
+  }
+
   for (const line of page.lines.slice(0, 12)) {
     const years = Array.from(
       new Set((line.text.match(/\b20\d{2}\b/g) ?? []).map((year) => Number(year))),
@@ -127,7 +150,22 @@ function extractYearHeaderYears(page: PageTextLayer) {
   return [] as number[];
 }
 
-function countNumericRows(page: PageTextLayer) {
+function countNumericRows(page: AnnualReportParsedPage) {
+  if (page.tables.length > 0) {
+    return page.tables.reduce((sum, table) => {
+      return (
+        sum +
+        table.rows.filter((row) => {
+          const labelCells = row.cells.filter((cell) =>
+            ["label", "text"].includes(cell.role),
+          );
+          const numericCells = row.cells.filter((cell) => cell.numericValue !== null);
+          return labelCells.length > 0 && numericCells.length > 0;
+        }).length
+      );
+    }, 0);
+  }
+
   return page.lines.filter((line) => {
     const text = normalizeNorwegianText(line.text);
     const hasLabel = /[a-z]{4,}/.test(text);
@@ -136,12 +174,27 @@ function countNumericRows(page: PageTextLayer) {
   }).length;
 }
 
-function buildPageFeatures(page: PageTextLayer): PageFeatures {
-  const heading = page.lines
-    .slice(0, 6)
-    .map((line) => line.text.trim())
-    .find((line) => line.length > 4 && !/^\d+$/.test(line)) ?? null;
-  const topText = normalizeNorwegianText(page.lines.slice(0, 10).map((line) => line.text).join(" "));
+function buildPageFeatures(page: AnnualReportParsedPage): PageFeatures {
+  const orderedBlocks = [...page.blocks].sort((left, right) => {
+    const leftTop = left.bbox?.top ?? 0;
+    const rightTop = right.bbox?.top ?? 0;
+    if (rightTop !== leftTop) {
+      return rightTop - leftTop;
+    }
+    return (left.source.order ?? 0) - (right.source.order ?? 0);
+  });
+
+  const heading =
+    orderedBlocks.find((block) => block.kind === "heading" && block.text.trim().length > 4)?.text ??
+    page.lines
+      .slice(0, 6)
+      .map((line) => line.text.trim())
+      .find((line) => line.length > 4 && !/^\d+$/.test(line)) ??
+    null;
+  const topText = normalizeNorwegianText(
+    (orderedBlocks.slice(0, 10).map((block) => block.text).join(" ") ||
+      page.lines.slice(0, 10).map((line) => line.text).join(" ")),
+  );
   const fullText = page.normalizedText;
 
   const income = countKeywordMatches(fullText, INCOME_KEYWORDS);
@@ -156,7 +209,10 @@ function buildPageFeatures(page: PageTextLayer): PageFeatures {
   const numericRowCount = countNumericRows(page);
   const yearHeaderYears = extractYearHeaderYears(page);
   const unitScale = detectUnitScale(page);
-  const tableLike = numericRowCount >= 3 && (yearHeaderYears.length >= 2 || balance.count > 0 || income.count > 0);
+  const tableLike =
+    page.tables.length > 0 ||
+    (numericRowCount >= 3 &&
+      (yearHeaderYears.length >= 2 || balance.count > 0 || income.count > 0));
 
   return {
     page,
@@ -293,7 +349,11 @@ function scoreFeatures(features: PageFeatures) {
     .sort((left, right) => right.score - left.score);
 }
 
-function selectType(features: PageFeatures, scored: ScoredType[], previous: PageClassification | null) {
+function selectType(
+  features: PageFeatures,
+  scored: ScoredType[],
+  previous: PageClassification | null,
+) {
   let top = scored[0];
   if (!top || top.score <= 0) {
     return {
@@ -355,22 +415,71 @@ function selectType(features: PageFeatures, scored: ScoredType[], previous: Page
   };
 }
 
-export function classifyPages(pages: PageTextLayer[]) {
-  const featuresByPage = pages.map(buildPageFeatures);
+function inheritedUnitScaleConfidence(input: {
+  pageNumber: number;
+  yearHeaderYears: number[];
+  inheritedFrom: PageClassification;
+}) {
+  const adjacentPage = input.inheritedFrom.pageNumber === input.pageNumber - 1;
+  const sameYearHeader =
+    input.yearHeaderYears.length >= 2 &&
+    input.inheritedFrom.yearHeaderYears.length >= 2 &&
+    input.yearHeaderYears.join(",") === input.inheritedFrom.yearHeaderYears.join(",");
+
+  if (adjacentPage && sameYearHeader) {
+    return 0.86;
+  }
+
+  if (adjacentPage) {
+    return 0.82;
+  }
+
+  return 0.72;
+}
+
+export function classifyPages(pages: AnnualReportParsedInputPage[]) {
+  const featuresByPage = toAnnualReportParsedPages(pages).map(buildPageFeatures);
   const classifications: PageClassification[] = [];
 
   for (const features of featuresByPage) {
     const previous = classifications[classifications.length - 1] ?? null;
     const scored = scoreFeatures(features);
     const { type, top } = selectType(features, scored, previous);
+    const inheritedUnitScale =
+      type !== "NOTE" &&
+      features.unitScale.unitScale === null &&
+      !features.unitScale.conflictingSignals
+        ? [...classifications]
+            .reverse()
+            .find((classification) =>
+              [
+                "STATUTORY_INCOME",
+                "STATUTORY_BALANCE",
+                "STATUTORY_BALANCE_CONTINUATION",
+                "SUPPLEMENTARY_INCOME",
+                "SUPPLEMENTARY_BALANCE",
+              ].includes(classification.type) &&
+              classification.unitScale !== null &&
+              !classification.hasConflictingUnitSignals,
+            ) ?? null
+        : null;
 
     if (!top) {
       classifications.push({
         pageNumber: features.page.pageNumber,
         type: "COVER",
         confidence: 0.15,
-        unitScale: features.unitScale.unitScale,
-        unitScaleConfidence: features.unitScale.confidence,
+        unitScale: features.unitScale.unitScale ?? inheritedUnitScale?.unitScale ?? null,
+        unitScaleConfidence:
+          features.unitScale.unitScale !== null
+            ? features.unitScale.confidence
+            : inheritedUnitScale
+              ? inheritedUnitScaleConfidence({
+                  pageNumber: features.page.pageNumber,
+                  yearHeaderYears: features.yearHeaderYears,
+                  inheritedFrom: inheritedUnitScale,
+                })
+              : 0,
         hasConflictingUnitSignals: features.unitScale.conflictingSignals,
         declaredYears: features.declaredYears,
         yearHeaderYears: features.yearHeaderYears,
@@ -389,8 +498,17 @@ export function classifyPages(pages: PageTextLayer[]) {
       pageNumber: features.page.pageNumber,
       type,
       confidence,
-      unitScale: features.unitScale.unitScale,
-      unitScaleConfidence: features.unitScale.confidence,
+      unitScale: features.unitScale.unitScale ?? inheritedUnitScale?.unitScale ?? null,
+      unitScaleConfidence:
+        features.unitScale.unitScale !== null
+          ? features.unitScale.confidence
+          : inheritedUnitScale
+            ? inheritedUnitScaleConfidence({
+                pageNumber: features.page.pageNumber,
+                yearHeaderYears: features.yearHeaderYears,
+                inheritedFrom: inheritedUnitScale,
+              })
+            : 0,
       hasConflictingUnitSignals: features.unitScale.conflictingSignals,
       declaredYears: features.declaredYears,
       yearHeaderYears: features.yearHeaderYears,
@@ -404,6 +522,9 @@ export function classifyPages(pages: PageTextLayer[]) {
           ...(features.yearHeaderYears.length >= 2 ? ["Detected year header"] : []),
           ...(features.tableLike ? ["Detected statement-like table layout"] : []),
           ...(top.type !== type ? [`Post-processed as ${type}`] : []),
+          ...(inheritedUnitScale
+            ? [`Inherited unit scale ${inheritedUnitScale.unitScale} from previous statement page`]
+            : []),
         ]),
       ],
     });

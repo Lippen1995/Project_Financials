@@ -17,6 +17,20 @@ vi.mock("@opendataloader/pdf", () => ({
   convert: convertMock,
 }));
 
+vi.mock("@/server/document-understanding/opendataloader-runtime", () => ({
+  assertOpenDataLoaderRuntimeReady: vi.fn(async () => ({
+    packageInstalled: true,
+    packageVersion: "2.2.1",
+    java: {
+      rawVersion: "17.0.0",
+      majorVersion: 17,
+      available: true,
+    },
+    localModeReady: true,
+    hybridConfigured: true,
+  })),
+}));
+
 describe("opendataloader-client", () => {
   beforeEach(() => {
     convertMock.mockReset();
@@ -75,7 +89,7 @@ describe("opendataloader-client", () => {
     expect(result.routing.executionMode).toBe("local");
     expect(result.artifacts.markdown?.filename).toBe("sample.md");
     expect(result.artifacts.annotatedPdf?.filename).toBe("sample_annotated.pdf");
-    expect(result.pageTextLayers).toHaveLength(4);
+    expect(result.annualReportPages).toHaveLength(4);
   });
 
   it("routes scanned documents through hybrid mode with timeout and backend options", async () => {

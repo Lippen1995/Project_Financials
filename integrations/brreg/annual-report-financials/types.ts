@@ -50,6 +50,84 @@ export type PageTextLayer = {
   hasEmbeddedText: boolean;
 };
 
+export type AnnualReportGeometryBox = {
+  left: number;
+  bottom: number;
+  right: number;
+  top: number;
+};
+
+export type AnnualReportElementSource = {
+  engine: "LEGACY" | "OPENDATALOADER";
+  engineMode: "legacy" | "local" | "hybrid";
+  sourceElementId?: string | null;
+  sourceRawType?: string | null;
+  order?: number | null;
+};
+
+export type AnnualReportTableCell = {
+  id: string;
+  rowIndex: number;
+  columnIndex: number;
+  text: string;
+  normalizedText: string;
+  bbox: AnnualReportGeometryBox | null;
+  isNumeric: boolean;
+  numericValue: number | null;
+  role: "label" | "note" | "year_header" | "value" | "text";
+  source: AnnualReportElementSource;
+};
+
+export type AnnualReportTableRow = {
+  id: string;
+  rowIndex: number;
+  text: string;
+  normalizedText: string;
+  bbox: AnnualReportGeometryBox | null;
+  cells: AnnualReportTableCell[];
+  source: AnnualReportElementSource;
+};
+
+export type AnnualReportTable = {
+  id: string;
+  pageNumber: number;
+  bbox: AnnualReportGeometryBox | null;
+  rowCount: number;
+  columnCount: number;
+  rows: AnnualReportTableRow[];
+  source: AnnualReportElementSource;
+};
+
+export type AnnualReportPageBlock = {
+  id: string;
+  kind:
+    | "heading"
+    | "paragraph"
+    | "table"
+    | "list"
+    | "picture"
+    | "caption"
+    | "formula"
+    | "other";
+  rawType: string;
+  text: string;
+  normalizedText: string;
+  bbox: AnnualReportGeometryBox | null;
+  headingLevel?: number | null;
+  table?: AnnualReportTable | null;
+  metadata?: Record<string, unknown>;
+  source: AnnualReportElementSource;
+};
+
+export type AnnualReportParsedPage = PageTextLayer & {
+  blocks: AnnualReportPageBlock[];
+  tables: AnnualReportTable[];
+  source: AnnualReportElementSource;
+  metadata?: Record<string, unknown>;
+};
+
+export type AnnualReportParsedInputPage = PageTextLayer | AnnualReportParsedPage;
+
 export type PageClassification = {
   pageNumber: number;
   type: StatementSectionType;

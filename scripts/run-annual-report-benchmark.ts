@@ -3,12 +3,12 @@ import path from "node:path";
 
 import {
   AnnualReportBenchmarkRun,
-  inspectOpenDataLoaderRuntime,
   loadAnnualReportBenchmarkCases,
   renderAnnualReportBenchmarkMarkdown,
   runAnnualReportBenchmarkCase,
   summarizeAnnualReportBenchmarkRun,
 } from "@/server/benchmarking/annual-report-benchmark";
+import { inspectOpenDataLoaderRuntime } from "@/server/document-understanding/opendataloader-runtime";
 
 function parseArgs(argv: string[]) {
   const caseIds: string[] = [];
@@ -76,10 +76,20 @@ async function main() {
   const run: AnnualReportBenchmarkRun = {
     generatedAt: new Date().toISOString(),
     cases: results,
-    runtimeEnvironment,
+    runtimeEnvironment: {
+      opendataloaderPackageVersion: runtimeEnvironment.packageVersion,
+      javaVersion: runtimeEnvironment.java.rawVersion,
+      javaMajorVersion: runtimeEnvironment.java.majorVersion,
+      localOpenDataLoaderReady: runtimeEnvironment.localModeReady,
+    },
     summary: summarizeAnnualReportBenchmarkRun({
       cases: results,
-      runtimeEnvironment,
+      runtimeEnvironment: {
+        opendataloaderPackageVersion: runtimeEnvironment.packageVersion,
+        javaVersion: runtimeEnvironment.java.rawVersion,
+        javaMajorVersion: runtimeEnvironment.java.majorVersion,
+        localOpenDataLoaderReady: runtimeEnvironment.localModeReady,
+      },
     }),
   };
 

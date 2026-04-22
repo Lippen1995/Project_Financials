@@ -103,10 +103,11 @@ const openDataLoaderState: {
     normalizedDocument: {
       engine: "OPENDATALOADER",
       engineVersion: "2.2.1",
+      engineMode: "local",
       pageCount: 2,
       pages: [],
     },
-    pageTextLayers: [],
+    annualReportPages: [],
     artifacts: {
       rawJson: {
         filename: "odl.json",
@@ -442,10 +443,11 @@ describe("annual-report-financials-service", () => {
       normalizedDocument: {
         engine: "OPENDATALOADER",
         engineVersion: "2.2.1",
+        engineMode: "local",
         pageCount: 2,
         pages: [],
       },
-      pageTextLayers: [],
+      annualReportPages: [],
       artifacts: {
         rawJson: {
           filename: "odl.json",

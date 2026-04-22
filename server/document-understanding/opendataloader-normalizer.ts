@@ -1,16 +1,25 @@
 import {
-  ExtractedLine,
-  ExtractedWord,
-  PageTextLayer,
-} from "@/integrations/brreg/annual-report-financials/types";
-import {
+  extractIntegers,
   normalizeNorwegianText,
+  parseFinancialInteger,
+  repairOcrTokenBoundaries,
   stripDuplicateWhitespace,
 } from "@/integrations/brreg/annual-report-financials/text";
+import {
+  AnnualReportGeometryBox,
+  AnnualReportPageBlock,
+  AnnualReportParsedPage,
+  AnnualReportTable,
+  AnnualReportTableCell,
+  AnnualReportTableRow,
+  ExtractedLine,
+  ExtractedWord,
+} from "@/integrations/brreg/annual-report-financials/types";
 import {
   NormalizedDocument,
   NormalizedDocumentBlock,
   OpenDataLoaderBoundingBox,
+  OpenDataLoaderExecutionMode,
   OpenDataLoaderRawElement,
 } from "@/server/document-understanding/opendataloader-types";
 
@@ -34,6 +43,21 @@ function normalizeBoundingBox(value: unknown): OpenDataLoaderBoundingBox | null 
     bottom: parsed[1]!,
     right: parsed[2]!,
     top: parsed[3]!,
+  };
+}
+
+function toGeometryBox(
+  value: OpenDataLoaderBoundingBox | null,
+): AnnualReportGeometryBox | null {
+  if (!value) {
+    return null;
+  }
+
+  return {
+    left: value.left,
+    bottom: value.bottom,
+    right: value.right,
+    top: value.top,
   };
 }
 
@@ -66,16 +90,20 @@ function extractElementText(element: OpenDataLoaderRawElement) {
     element.rows,
     element.cells,
   ];
-  const joined = stripDuplicateWhitespace(
-    candidates
-      .flatMap(flattenUnknownText)
-      .join("\n")
-      .replace(/\r\n/g, "\n"),
-  );
-  return joined.trim();
+  const joined = candidates
+    .flatMap(flattenUnknownText)
+    .join("\n")
+    .replace(/\r\n/g, "\n");
+
+  return joined
+    .split(/\n+/)
+    .map((line) => stripDuplicateWhitespace(line))
+    .filter((line) => line.length > 0)
+    .join("\n")
+    .trim();
 }
 
-function mapBlockKind(rawType: string): NormalizedDocumentBlock["kind"] {
+function mapBlockKind(rawType: string): AnnualReportPageBlock["kind"] {
   switch (rawType) {
     case "heading":
       return "heading";
@@ -122,11 +150,322 @@ function extractElements(payload: unknown) {
   return [];
 }
 
+function detectCellRole(text: string, rowIndex: number, numericValue: number | null) {
+  const normalized = normalizeNorwegianText(text);
+  if (rowIndex === 0 && /\b20\d{2}\b/.test(text)) {
+    return "year_header" as const;
+  }
+  if (/^\d{1,2}$/.test(text.trim())) {
+    return "note" as const;
+  }
+  if (numericValue !== null) {
+    return "value" as const;
+  }
+  if (normalized.length > 0) {
+    return "label" as const;
+  }
+  return "text" as const;
+}
+
+function splitFallbackRowText(line: string) {
+  const tokens = repairOcrTokenBoundaries(line).split(/\s+/).filter(Boolean);
+  let splitIndex = tokens.length;
+
+  for (let index = tokens.length - 1; index >= 0; index -= 1) {
+    if (parseFinancialInteger(tokens[index]) === null) {
+      splitIndex = index + 1;
+      break;
+    }
+
+    if (index === 0) {
+      splitIndex = 0;
+    }
+  }
+
+  const labelTokens = tokens.slice(0, splitIndex);
+  const trailingNumericTokens = tokens.slice(splitIndex).filter(
+    (token) => parseFinancialInteger(token) !== null,
+  );
+  const label = stripDuplicateWhitespace(labelTokens.join(" "));
+  const numericTexts =
+    trailingNumericTokens.length >= 2
+      ? trailingNumericTokens
+      : extractIntegers(line).flatMap((match) => {
+          const matchTokens = repairOcrTokenBoundaries(match)
+            .split(/\s+/)
+            .filter((token) => parseFinancialInteger(token) !== null);
+          return matchTokens.length >= 2 ? matchTokens : [match];
+        });
+
+  return {
+    label,
+    numericTexts,
+  };
+}
+
+function buildFallbackTableRowsFromText(input: {
+  text: string;
+  tableBbox: AnnualReportGeometryBox | null;
+  pageNumber: number;
+  blockId: string;
+  engineMode: OpenDataLoaderExecutionMode;
+}) {
+  const rawLines = input.text
+    .split(/\n+/)
+    .map((line) => stripDuplicateWhitespace(repairOcrTokenBoundaries(line)))
+    .filter((line) => line.length > 0);
+
+  const rowCount = rawLines.length || 1;
+  const left = input.tableBbox?.left ?? 40;
+  const right = input.tableBbox?.right ?? 540;
+  const bottom = input.tableBbox?.bottom ?? 40;
+  const top = input.tableBbox?.top ?? bottom + rowCount * 20;
+  const tableWidth = Math.max(120, right - left);
+  const rowHeight = Math.max(14, (top - bottom) / rowCount);
+
+  return rawLines.map((line, rowIndex) => {
+    const { label: labelText, numericTexts } = splitFallbackRowText(line);
+    const textCells = [labelText, ...numericTexts].filter((value) => value.length > 0);
+    const numericColumnCount = Math.max(1, numericTexts.length);
+    const labelWidth = numericTexts.length > 0 ? tableWidth * 0.58 : tableWidth;
+    const numericWidth = numericTexts.length > 0 ? (tableWidth - labelWidth) / numericColumnCount : 0;
+
+    const rowTop = top - rowIndex * rowHeight;
+    const rowBottom = rowTop - rowHeight;
+
+    const cells = textCells.map((cellText, columnIndex) => {
+      const isLabelCell = columnIndex === 0 && labelText.length > 0;
+      const numericValue = parseFinancialInteger(cellText);
+      const cellLeft = isLabelCell ? left : left + labelWidth + (columnIndex - 1) * numericWidth;
+      const cellRight = isLabelCell ? left + labelWidth : cellLeft + numericWidth;
+
+      return {
+        id: `${input.blockId}-row-${rowIndex}-cell-${columnIndex}`,
+        rowIndex,
+        columnIndex,
+        text: cellText,
+        normalizedText: normalizeNorwegianText(cellText),
+        bbox: {
+          left: cellLeft,
+          bottom: rowBottom,
+          right: cellRight,
+          top: rowTop,
+        },
+        isNumeric: numericValue !== null,
+        numericValue,
+        role: detectCellRole(cellText, rowIndex, numericValue),
+        source: {
+          engine: "OPENDATALOADER",
+          engineMode: input.engineMode,
+          sourceElementId: input.blockId,
+          sourceRawType: "table",
+          order: rowIndex,
+        },
+      } satisfies AnnualReportTableCell;
+    });
+
+    return {
+      id: `${input.blockId}-row-${rowIndex}`,
+      rowIndex,
+      text: line,
+      normalizedText: normalizeNorwegianText(line),
+      bbox: {
+        left,
+        bottom: rowBottom,
+        right,
+        top: rowTop,
+      },
+      cells,
+      source: {
+        engine: "OPENDATALOADER",
+        engineMode: input.engineMode,
+        sourceElementId: input.blockId,
+        sourceRawType: "table",
+        order: rowIndex,
+      },
+    } satisfies AnnualReportTableRow;
+  });
+}
+
+function normalizeTableStructure(input: {
+  element: OpenDataLoaderRawElement;
+  blockId: string;
+  pageNumber: number;
+  bbox: AnnualReportGeometryBox | null;
+  text: string;
+  engineMode: OpenDataLoaderExecutionMode;
+}): AnnualReportTable | null {
+  const rawRows = Array.isArray(input.element.rows) ? input.element.rows : null;
+  if (rawRows && rawRows.length > 0) {
+    const normalizedRows = rawRows.map((rawRow, rowIndex) => {
+      const rawCells = Array.isArray(rawRow)
+        ? rawRow
+        : rawRow && typeof rawRow === "object" && Array.isArray((rawRow as Record<string, unknown>).cells)
+          ? ((rawRow as Record<string, unknown>).cells as unknown[])
+          : [];
+      const rowText = stripDuplicateWhitespace(flattenUnknownText(rawRow).join(" "));
+      const cells = rawCells.map((rawCell, columnIndex) => {
+        const text = stripDuplicateWhitespace(flattenUnknownText(rawCell).join(" "));
+        const numericValue = parseFinancialInteger(text);
+        return {
+          id: `${input.blockId}-row-${rowIndex}-cell-${columnIndex}`,
+          rowIndex,
+          columnIndex,
+          text,
+          normalizedText: normalizeNorwegianText(text),
+          bbox: null,
+          isNumeric: numericValue !== null,
+          numericValue,
+          role: detectCellRole(text, rowIndex, numericValue),
+          source: {
+            engine: "OPENDATALOADER",
+            engineMode: input.engineMode,
+            sourceElementId: input.blockId,
+            sourceRawType: "table",
+            order: rowIndex,
+          },
+        } satisfies AnnualReportTableCell;
+      });
+
+      return {
+        id: `${input.blockId}-row-${rowIndex}`,
+        rowIndex,
+        text: rowText,
+        normalizedText: normalizeNorwegianText(rowText),
+        bbox: null,
+        cells,
+        source: {
+          engine: "OPENDATALOADER",
+          engineMode: input.engineMode,
+          sourceElementId: input.blockId,
+          sourceRawType: "table",
+          order: rowIndex,
+        },
+      } satisfies AnnualReportTableRow;
+    });
+
+    return {
+      id: `${input.blockId}-table`,
+      pageNumber: input.pageNumber,
+      bbox: input.bbox,
+      rowCount: normalizedRows.length,
+      columnCount: Math.max(...normalizedRows.map((row) => row.cells.length), 0),
+      rows: normalizedRows,
+      source: {
+        engine: "OPENDATALOADER",
+        engineMode: input.engineMode,
+        sourceElementId: input.blockId,
+        sourceRawType: "table",
+        order: 0,
+      },
+    };
+  }
+
+  if (!input.text) {
+    return null;
+  }
+
+  const rows = buildFallbackTableRowsFromText({
+    text: input.text,
+    tableBbox: input.bbox,
+    pageNumber: input.pageNumber,
+    blockId: input.blockId,
+    engineMode: input.engineMode,
+  });
+
+  return {
+    id: `${input.blockId}-table`,
+    pageNumber: input.pageNumber,
+    bbox: input.bbox,
+    rowCount: rows.length,
+    columnCount: Math.max(...rows.map((row) => row.cells.length), 0),
+    rows,
+    source: {
+      engine: "OPENDATALOADER",
+      engineMode: input.engineMode,
+      sourceElementId: input.blockId,
+      sourceRawType: "table",
+      order: 0,
+    },
+  };
+}
+
+function buildWordsFromBlockText(input: {
+  text: string;
+  bbox: AnnualReportGeometryBox | null;
+  lineIndex: number;
+}) {
+  const tokens = input.text.split(/\s+/).filter(Boolean);
+  const availableWidth = Math.max(80, (input.bbox?.right ?? 520) - (input.bbox?.left ?? 40));
+  const defaultLeft = input.bbox?.left ?? 40;
+  const tokenWidth = Math.max(10, availableWidth / Math.max(tokens.length, 1));
+
+  return tokens.map((token, tokenIndex) => ({
+    text: token,
+    normalizedText: normalizeNorwegianText(token),
+    x: defaultLeft + tokenIndex * tokenWidth,
+    y: input.bbox?.bottom ?? input.lineIndex * 14,
+    width: tokenWidth,
+    height: Math.max(12, (input.bbox?.top ?? 12) - (input.bbox?.bottom ?? 0)),
+    confidence: 0.94,
+    lineNumber: input.lineIndex,
+  } satisfies ExtractedWord));
+}
+
+function buildLineFromTableRow(row: AnnualReportTableRow): ExtractedLine {
+  const words = row.cells.flatMap((cell) =>
+    cell.text
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((token, tokenIndex) => ({
+        text: token,
+        normalizedText: normalizeNorwegianText(token),
+        x: (cell.bbox?.left ?? 0) + tokenIndex * 12,
+        y: row.bbox?.bottom ?? 0,
+        width: 12,
+        height: (row.bbox?.top ?? 12) - (row.bbox?.bottom ?? 0),
+        confidence: 0.96,
+        lineNumber: row.rowIndex,
+      })),
+  );
+
+  return {
+    text: row.text,
+    normalizedText: row.normalizedText,
+    x: row.bbox?.left ?? 0,
+    y: row.bbox?.bottom ?? 0,
+    width: (row.bbox?.right ?? 100) - (row.bbox?.left ?? 0),
+    height: (row.bbox?.top ?? 12) - (row.bbox?.bottom ?? 0),
+    confidence: 0.96,
+    words,
+  };
+}
+
+function buildLineFromBlock(block: NormalizedDocumentBlock, lineText: string, lineIndex: number): ExtractedLine {
+  const words = buildWordsFromBlockText({
+    text: lineText,
+    bbox: toGeometryBox(block.bbox),
+    lineIndex,
+  });
+  return {
+    text: lineText,
+    normalizedText: normalizeNorwegianText(lineText),
+    x: block.bbox?.left ?? 40,
+    y: (block.bbox?.bottom ?? 40) + lineIndex * 14,
+    width: (block.bbox?.right ?? 520) - (block.bbox?.left ?? 40),
+    height: Math.max(12, (block.bbox?.top ?? 12) - (block.bbox?.bottom ?? 0)),
+    confidence: 0.94,
+    words,
+  };
+}
+
 export function normalizeOpenDataLoaderPayload(input: {
   payload: unknown;
   engineVersion?: string | null;
+  engineMode?: OpenDataLoaderExecutionMode;
   hasEmbeddedText?: boolean;
 }) {
+  const engineMode = input.engineMode ?? "local";
   const elements = extractElements(input.payload);
   const pages = new Map<number, NormalizedDocument["pages"][number]>();
 
@@ -137,33 +476,65 @@ export function normalizeOpenDataLoaderPayload(input: {
     }
 
     const rawType = typeof element.type === "string" ? element.type.trim().toLowerCase() : "other";
+    const blockId = String(element.id ?? `block-${pageNumber}-${index}`);
+    const bbox = normalizeBoundingBox(element["bounding box"] ?? element.boundingBox);
+    const geometryBox = toGeometryBox(bbox);
+    const text = extractElementText(element);
+    const table =
+      rawType === "table"
+        ? normalizeTableStructure({
+            element,
+            blockId,
+            pageNumber,
+            bbox: geometryBox,
+            text,
+            engineMode,
+          })
+        : null;
     const block: NormalizedDocumentBlock = {
-      id: String(element.id ?? `block-${pageNumber}-${index}`),
+      id: blockId,
       kind: mapBlockKind(rawType),
       rawType,
       pageNumber,
       order: index,
-      bbox: normalizeBoundingBox(element["bounding box"] ?? element.boundingBox),
-      text: extractElementText(element),
-      suspiciousNoise: rawType === "other" && extractElementText(element).length < 2,
+      bbox,
+      text,
+      suspiciousNoise: rawType === "other" && text.length < 2,
+      headingLevel: readNumber(element["heading level"]) ?? readNumber(element.level),
+      table,
+      source: {
+        engine: "OPENDATALOADER",
+        engineMode,
+        sourceElementId: blockId,
+        sourceRawType: rawType,
+        order: index,
+      },
       metadata:
         element && typeof element === "object"
           ? {
               headingLevel: readNumber(element["heading level"]),
               level: element.level ?? null,
+              font: element.font ?? null,
             }
           : undefined,
     };
 
     const page =
-      pages.get(pageNumber) ??
-      {
+      pages.get(pageNumber) ?? {
         pageNumber,
         blocks: [],
+        tables: [],
         text: "",
         hasEmbeddedText: input.hasEmbeddedText ?? true,
+        source: {
+          engine: "OPENDATALOADER" as const,
+          engineMode,
+        },
       };
     page.blocks.push(block);
+    if (table) {
+      page.tables.push(table);
+    }
     pages.set(pageNumber, page);
   });
 
@@ -171,7 +542,19 @@ export function normalizeOpenDataLoaderPayload(input: {
     .sort((left, right) => left.pageNumber - right.pageNumber)
     .map((page) => ({
       ...page,
-      blocks: page.blocks.sort((left, right) => left.order - right.order),
+      blocks: page.blocks.sort((left, right) => {
+        const leftTop = left.bbox?.top ?? 0;
+        const rightTop = right.bbox?.top ?? 0;
+        if (rightTop !== leftTop) {
+          return rightTop - leftTop;
+        }
+        return left.order - right.order;
+      }),
+      tables: page.tables.sort((left, right) => {
+        const leftTop = left.bbox?.top ?? 0;
+        const rightTop = right.bbox?.top ?? 0;
+        return rightTop - leftTop;
+      }),
       text: page.blocks
         .map((block) => block.text)
         .filter((text) => text.length > 0)
@@ -181,66 +564,62 @@ export function normalizeOpenDataLoaderPayload(input: {
   return {
     engine: "OPENDATALOADER",
     engineVersion: input.engineVersion ?? null,
+    engineMode,
     pageCount: normalizedPages.length,
     pages: normalizedPages,
   } satisfies NormalizedDocument;
 }
 
-function buildWordsForLine(lineText: string, xStart: number, y: number): ExtractedWord[] {
-  const tokens = lineText.split(/\s+/).filter(Boolean);
-  let currentX = xStart;
-
-  return tokens.map((token, index) => {
-    const width = Math.max(10, token.length * 6);
-    const word = {
-      text: token,
-      normalizedText: normalizeNorwegianText(token),
-      x: currentX,
-      y,
-      width,
-      height: 12,
-      confidence: 0.94,
-      lineNumber: index,
-    } satisfies ExtractedWord;
-    currentX += width + 8;
-    return word;
-  });
-}
-
-export function convertNormalizedDocumentToPageTextLayers(document: NormalizedDocument) {
+export function convertNormalizedDocumentToAnnualReportPages(
+  document: NormalizedDocument,
+) {
   return document.pages.map((page) => {
-    const lines: ExtractedLine[] = [];
+    const tableLines = page.tables.flatMap((table) =>
+      table.rows.map((row) => buildLineFromTableRow(row)),
+    );
 
-    page.blocks.forEach((block, blockIndex) => {
-      const blockLines = block.text
+    const blockLines = page.blocks.flatMap((block) => {
+      if (block.kind === "table" && block.table) {
+        return [];
+      }
+
+      return block.text
         .split(/\n+/)
         .map((line) => stripDuplicateWhitespace(line).trim())
-        .filter((line) => line.length > 0);
-
-      blockLines.forEach((lineText, lineIndex) => {
-        const y = blockIndex * 18 + lineIndex * 14 + 40;
-        const x = block.bbox?.left ?? 40;
-        const words = buildWordsForLine(lineText, x, y);
-        lines.push({
-          text: lineText,
-          normalizedText: normalizeNorwegianText(lineText),
-          x,
-          y,
-          width: Math.max(100, lineText.length * 6),
-          height: 12,
-          confidence: 0.94,
-          words,
-        });
-      });
+        .filter((line) => line.length > 0)
+        .map((line, lineIndex) => buildLineFromBlock(block, line, lineIndex));
     });
 
+    const lines = [...blockLines, ...tableLines].sort((left, right) => left.y - right.y);
     const text = lines.map((line) => line.text).join("\n");
+
     return {
       pageNumber: page.pageNumber,
       text,
       normalizedText: normalizeNorwegianText(text),
       lines,
       hasEmbeddedText: page.hasEmbeddedText,
-    } satisfies PageTextLayer;
+      blocks: page.blocks.map((block) => ({
+        id: block.id,
+        kind: block.kind,
+        rawType: block.rawType,
+        text: block.text,
+        normalizedText: normalizeNorwegianText(block.text),
+        bbox: toGeometryBox(block.bbox),
+        headingLevel: block.headingLevel ?? null,
+        table: block.table ?? null,
+        metadata: block.metadata,
+        source: block.source,
+      })),
+      tables: page.tables,
+      source: {
+        engine: "OPENDATALOADER",
+        engineMode: document.engineMode,
+        sourceElementId: `page-${page.pageNumber}`,
+        sourceRawType: "page",
+        order: page.pageNumber,
+      },
+      metadata: page.metadata,
+    } satisfies AnnualReportParsedPage;
   });
 }

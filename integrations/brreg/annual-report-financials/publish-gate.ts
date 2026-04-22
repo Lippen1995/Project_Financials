@@ -139,6 +139,20 @@ export function calculateConfidenceScore(input: {
       : 0;
   const coverageScore = Math.min(1, input.selectedFactCount / requiredPublishMetricKeys.length);
   const issuePenalty = Math.min(0.18, input.issueCount * 0.015);
+  const deterministicReadinessBonus =
+    primaryPages.length >= 2 &&
+    coverageScore === 1 &&
+    input.validationScore >= 0.99 &&
+    input.issueCount === 0 &&
+    primaryPages.every(
+      (page) =>
+        page.tableLike &&
+        page.numericRowCount >= 3 &&
+        page.unitScaleConfidence >= 0.85 &&
+        page.confidence >= 0.8,
+    )
+      ? 0.04
+      : 0;
 
   return Number(
     Math.max(
@@ -151,7 +165,8 @@ export function calculateConfidenceScore(input: {
           input.validationScore * 0.24 +
           input.duplicateSupport * 0.07 +
           input.noteSupport * 0.03 -
-          issuePenalty,
+          issuePenalty +
+          deterministicReadinessBonus,
       ),
     ).toFixed(4),
   );

@@ -258,8 +258,17 @@ Flyten er:
 
 - rå PDF artifact
 - OpenDataLoader parse
-- intern normalisering til nøytrale document blocks/pages
+- intern normalisering til en rik annual-report document-modell med reelle bbox-er, blokktyper, leseorden og tabellstruktur
 - eksisterende financial extraction, validations og publish gate
+
+OpenDataLoader-adapteren brukes ikke lenger primært som en syntetisk `PageTextLayer`-generator. Normaliseringen bevarer nå så langt som mulig:
+
+- reelle side- og blokk-bounding boxes
+- blokktyper og heading-hierarki
+- tabellgrenser og rad-/celle-struktur
+- provenance tilbake til ODL-element og execution mode
+
+Legacy-`lines` bygges fortsatt som et kompatibilitetslag for eksisterende downstream-kode, men ODL-pathen mates nå først og fremst gjennom den rikere annual-report-representasjonen.
 
 Konfigurasjon:
 
@@ -298,9 +307,15 @@ Verifikasjon:
 
 ```bash
 npm run test:opendataloader-integration
+npm run opendataloader:runtime-diagnostics
+npm run opendataloader:smoke-test
 ```
 
-Denne kjører OpenDataLoader-konfig, normalisering, artifact persistence, dual-run-sammenligning og annual-report service-integrasjonstester.
+Dette dekker OpenDataLoader-konfig, strukturbevarende normalisering, runtime-readiness, smoke-path, artifact persistence, dual-run-sammenligning og annual-report service-integrasjonstester.
+
+`opendataloader:runtime-diagnostics` skriver en eksplisitt readiness-oppsummering for package, Java-versjon, local readiness og hybrid-konfigurasjon.
+
+`opendataloader:smoke-test` forsøker en reell lokal ODL-parse mot en liten kontroll-PDF. Hvis Java 11+ ikke er tilgjengelig, feiler den tidlig og tydelig i stedet for senere i pipelinen.
 
 ### Manual review queue
 
@@ -366,6 +381,8 @@ Outputs:
 - JSON-resultat under `output/benchmarks/annual-report-golden/`
 - Markdown-oppsummering under samme katalog
 - `latest.json` og `latest.md` peker alltid til siste benchmark-kjøring
+
+Benchmarken er nå eksplisitt brukt til å evaluere den rikere ODL-adapteren. Den viktigste paired happy-path-casen skal ikke lenger falle ut bare fordi ODL-normaliseringen kollapser tabellrader eller mister arvede unit-signaler.
 
 Benchmarken støtter to praktiske moduser:
 

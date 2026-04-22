@@ -1,14 +1,17 @@
-import {
-  PageClassification,
-  PageTextLayer,
-  ReconstructedRow,
-} from "@/integrations/brreg/annual-report-financials/types";
+import { toAnnualReportParsedPages } from "@/integrations/brreg/annual-report-financials/page-model";
 import {
   normalizeRowLabel,
   parseFinancialInteger,
   repairOcrTokenBoundaries,
   stripDuplicateWhitespace,
 } from "@/integrations/brreg/annual-report-financials/text";
+import {
+  AnnualReportParsedInputPage,
+  AnnualReportParsedPage,
+  AnnualReportTableRow,
+  PageClassification,
+  ReconstructedRow,
+} from "@/integrations/brreg/annual-report-financials/types";
 
 function isNumericToken(token: string) {
   return /^[(\-]?\d[\d\s.,)]*-?$/.test(token.trim());
@@ -70,7 +73,7 @@ function splitMergedTokens(token: string) {
     .filter(Boolean);
 }
 
-function tokenizeLine(page: PageTextLayer, lineIndex: number) {
+function tokenizeLine(page: AnnualReportParsedPage, lineIndex: number) {
   const line = page.lines[lineIndex];
   if (!line) {
     return [];
@@ -96,15 +99,76 @@ function tokenizeLine(page: PageTextLayer, lineIndex: number) {
     );
 }
 
-function buildRowsForPage(page: PageTextLayer, classification: PageClassification) {
-  if (
-    classification.type === "AUDITOR_REPORT" ||
-    classification.type === "BOARD_REPORT" ||
-    classification.type === "COVER"
-  ) {
-    return [] as ReconstructedRow[];
+function inferStructuredNoteReference(row: AnnualReportTableRow) {
+  const noteCell = row.cells.find((cell) => cell.role === "note");
+  if (noteCell && /^\d{1,2}$/.test(noteCell.text.trim())) {
+    return noteCell.text.trim();
   }
 
+  const merged = row.text.match(/\bnote\s*(\d{1,2})\b/i);
+  return merged?.[1] ?? null;
+}
+
+function isStructuredHeaderRow(row: AnnualReportTableRow) {
+  const years = row.cells
+    .map((cell) => cell.text.match(/\b20\d{2}\b/g) ?? [])
+    .flat();
+  const numericValues = row.cells.filter((cell) => cell.numericValue !== null);
+  return years.length >= 2 && numericValues.length === years.length;
+}
+
+function buildRowsFromStructuredTables(
+  page: AnnualReportParsedPage,
+  classification: PageClassification,
+) {
+  const rows: ReconstructedRow[] = [];
+
+  for (const table of page.tables) {
+    for (const row of table.rows) {
+      if (isStructuredHeaderRow(row) || isHeaderOrNoiseLine(row.text, classification)) {
+        continue;
+      }
+
+      const labelCells = row.cells.filter((cell) =>
+        ["label", "text"].includes(cell.role),
+      );
+      const numericCells = row.cells.filter((cell) => cell.numericValue !== null);
+      if (labelCells.length === 0 || numericCells.length === 0) {
+        continue;
+      }
+
+      const label = stripDuplicateWhitespace(labelCells.map((cell) => cell.text).join(" "));
+      const normalizedLabel = normalizeRowLabel(label);
+      if (!normalizedLabel || normalizedLabel.length < 3) {
+        continue;
+      }
+
+      rows.push({
+        pageNumber: page.pageNumber,
+        sectionType: classification.type,
+        unitScale: classification.unitScale ?? 1,
+        label,
+        normalizedLabel,
+        noteReference: inferStructuredNoteReference(row),
+        rowText: row.text,
+        y: row.bbox?.top ?? 0,
+        confidence: 0.96,
+        values: numericCells.map((cell, index) => ({
+          value: cell.numericValue!,
+          columnIndex: index,
+          x: cell.bbox?.left ?? index * 100,
+        })),
+      });
+    }
+  }
+
+  return rows;
+}
+
+function buildRowsFromLegacyLines(
+  page: AnnualReportParsedPage,
+  classification: PageClassification,
+) {
   const rows: ReconstructedRow[] = [];
 
   for (let lineIndex = 0; lineIndex < page.lines.length; lineIndex += 1) {
@@ -196,15 +260,32 @@ function buildRowsForPage(page: PageTextLayer, classification: PageClassificatio
   return rows;
 }
 
+function buildRowsForPage(page: AnnualReportParsedPage, classification: PageClassification) {
+  if (
+    classification.type === "AUDITOR_REPORT" ||
+    classification.type === "BOARD_REPORT" ||
+    classification.type === "COVER"
+  ) {
+    return [] as ReconstructedRow[];
+  }
+
+  if (page.tables.length > 0) {
+    return buildRowsFromStructuredTables(page, classification);
+  }
+
+  return buildRowsFromLegacyLines(page, classification);
+}
+
 export function reconstructStatementRows(
-  pages: PageTextLayer[],
+  pages: AnnualReportParsedInputPage[],
   classifications: PageClassification[],
 ) {
+  const normalizedPages = toAnnualReportParsedPages(pages);
   const classificationByPage = new Map(
     classifications.map((classification) => [classification.pageNumber, classification]),
   );
 
-  return pages
+  return normalizedPages
     .flatMap((page) => {
       const classification = classificationByPage.get(page.pageNumber);
       return classification ? buildRowsForPage(page, classification) : [];

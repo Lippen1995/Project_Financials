@@ -1,4 +1,5 @@
 import {
+  AnnualReportParsedPage,
   PageTextLayer,
   UnitScaleDetectionResult,
   UnitScaleSignal,
@@ -158,7 +159,25 @@ function summarizeSignals(signals: UnitScaleSignal[]): UnitScaleDetectionResult 
   };
 }
 
-export function detectUnitScale(textOrPage: string | PageTextLayer): UnitScaleDetectionResult {
-  const text = typeof textOrPage === "string" ? textOrPage : textOrPage.text;
+function collectTextFromPage(page: PageTextLayer | AnnualReportParsedPage) {
+  if ("blocks" in page && Array.isArray(page.blocks) && page.blocks.length > 0) {
+    const topBlocks = [...page.blocks]
+      .sort((left, right) => {
+        const leftTop = left.bbox?.top ?? 0;
+        const rightTop = right.bbox?.top ?? 0;
+        return rightTop - leftTop;
+      })
+      .slice(0, 12)
+      .map((block) => block.text);
+
+    return [...topBlocks, page.text].join("\n");
+  }
+
+  return page.text;
+}
+
+export function detectUnitScale(textOrPage: string | PageTextLayer | AnnualReportParsedPage): UnitScaleDetectionResult {
+  const text =
+    typeof textOrPage === "string" ? textOrPage : collectTextFromPage(textOrPage);
   return summarizeSignals(collectSignals(text));
 }

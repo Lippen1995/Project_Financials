@@ -5,7 +5,8 @@ import { createHash } from "node:crypto";
 
 import { PreflightResult } from "@/integrations/brreg/annual-report-financials/types";
 import { chooseOpenDataLoaderRoute, resolveOpenDataLoaderConfig } from "@/server/document-understanding/opendataloader-config";
-import { convertNormalizedDocumentToPageTextLayers, normalizeOpenDataLoaderPayload } from "@/server/document-understanding/opendataloader-normalizer";
+import { convertNormalizedDocumentToAnnualReportPages, normalizeOpenDataLoaderPayload } from "@/server/document-understanding/opendataloader-normalizer";
+import { assertOpenDataLoaderRuntimeReady } from "@/server/document-understanding/opendataloader-runtime";
 import {
   OpenDataLoaderArtifactFile,
   OpenDataLoaderGeneratedArtifacts,
@@ -131,6 +132,11 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
   const startedAt = Date.now();
 
   try {
+    await assertOpenDataLoaderRuntimeReady({
+      config,
+      route,
+    });
+
     const { convert } = await import("@opendataloader/pdf");
     const format = ["json", "markdown", ...(config.storeAnnotatedPdf ? ["pdf"] : [])].join(",");
 
@@ -159,11 +165,12 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
     const normalizedDocument = normalizeOpenDataLoaderPayload({
       payload: artifacts.rawJson.payload,
       engineVersion,
+      engineMode: route.executionMode,
       hasEmbeddedText: input.preflight.hasReliableTextLayer,
     });
-    const pageTextLayers = convertNormalizedDocumentToPageTextLayers(normalizedDocument);
+    const annualReportPages = convertNormalizedDocumentToAnnualReportPages(normalizedDocument);
 
-    if (pageTextLayers.length === 0) {
+    if (annualReportPages.length === 0) {
       throw new Error("OpenDataLoader returned no normalized pages for this filing.");
     }
 
@@ -182,7 +189,7 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
       routing: route,
       preflight: input.preflight,
       normalizedDocument,
-      pageTextLayers,
+      annualReportPages,
       artifacts: {
         rawJson: {
           ...artifacts.rawJson,

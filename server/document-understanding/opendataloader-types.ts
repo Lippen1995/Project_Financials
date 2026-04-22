@@ -1,4 +1,9 @@
-import { PageTextLayer, PreflightResult } from "@/integrations/brreg/annual-report-financials/types";
+import {
+  AnnualReportPageBlock,
+  AnnualReportParsedPage,
+  AnnualReportTable,
+  PreflightResult,
+} from "@/integrations/brreg/annual-report-financials/types";
 
 export type OpenDataLoaderRequestedMode = "local" | "hybrid" | "auto";
 export type OpenDataLoaderExecutionMode = "local" | "hybrid";
@@ -57,35 +62,42 @@ export type OpenDataLoaderRawElement = {
 
 export type NormalizedDocumentBlock = {
   id: string;
-  kind:
-    | "heading"
-    | "paragraph"
-    | "table"
-    | "list"
-    | "picture"
-    | "caption"
-    | "formula"
-    | "other";
+  kind: AnnualReportPageBlock["kind"];
   rawType: string;
   pageNumber: number;
   order: number;
   bbox: OpenDataLoaderBoundingBox | null;
   text: string;
   suspiciousNoise: boolean;
+  headingLevel?: number | null;
+  table?: AnnualReportTable | null;
+  source: {
+    engine: "OPENDATALOADER";
+    engineMode: OpenDataLoaderExecutionMode;
+    sourceElementId: string;
+    sourceRawType: string;
+    order: number;
+  };
   metadata?: Record<string, unknown>;
 };
 
 export type NormalizedDocumentPage = {
   pageNumber: number;
   blocks: NormalizedDocumentBlock[];
+  tables: AnnualReportTable[];
   text: string;
   hasEmbeddedText: boolean;
+  source: {
+    engine: "OPENDATALOADER";
+    engineMode: OpenDataLoaderExecutionMode;
+  };
   metadata?: Record<string, unknown>;
 };
 
 export type NormalizedDocument = {
   engine: "OPENDATALOADER";
   engineVersion: string | null;
+  engineMode: OpenDataLoaderExecutionMode;
   pageCount: number;
   pages: NormalizedDocumentPage[];
 };
@@ -109,7 +121,7 @@ export type OpenDataLoaderParseResult = {
   routing: OpenDataLoaderRouteDecision;
   preflight: PreflightResult;
   normalizedDocument: NormalizedDocument;
-  pageTextLayers: PageTextLayer[];
+  annualReportPages: AnnualReportParsedPage[];
   artifacts: OpenDataLoaderGeneratedArtifacts;
   metrics: {
     durationMs: number;
