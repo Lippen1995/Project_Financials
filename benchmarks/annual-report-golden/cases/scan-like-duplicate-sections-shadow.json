@@ -1,0 +1,28 @@
+{
+  "id": "scan-like-duplicate-sections-shadow",
+  "name": "OCR-style duplicate-section shadow case",
+  "mode": "expected_and_differential",
+  "orgNumber": "000000000",
+  "fiscalYear": 2024,
+  "documentTags": [
+    "scan_or_ocr",
+    "ocr_token_noise",
+    "multi_page_balance",
+    "supplementary_present",
+    "unit_scale_sensitive",
+    "continuation_complex",
+    "digital_note_heavy"
+  ],
+  "notes": "Runs the existing OCR regression fixture through both legacy and a captured ODL OCR-stand-in path to compare duplicate reconciliation, note support, and continuation handling under noisy extraction conditions.",
+  "knownEvidenceLimitations": [
+    "The OpenDataLoader side for this case uses the repo OCR regression fixture as a captured stand-in for degraded OCR/hybrid output, not a live local or live hybrid ODL parse."
+  ],
+  "legacySource": {
+    "kind": "ocr_regression",
+    "name": "scan-like-duplicate-sections"
+  },
+  "openDataLoaderSource": {
+    "kind": "ocr_regression_fixture",
+    "name": "scan-like-duplicate-sections"
+  }
+}

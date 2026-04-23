@@ -1,0 +1,28 @@
+{
+  "id": "formatting-edge-manual-review-shadow",
+  "name": "Formatting edge manual-review shadow case",
+  "mode": "expected_and_differential",
+  "orgNumber": "000000000",
+  "fiscalYear": 2024,
+  "documentTags": [
+    "scan_or_ocr",
+    "ocr_token_noise",
+    "formatting_edge",
+    "manual_review_expected",
+    "negative_numbers",
+    "blank_cells",
+    "degraded_ambiguous"
+  ],
+  "notes": "Uses the OCR formatting-edge fixture on both sides so we can track whether ODL preserves safety on parentheses negatives, blank comparative cells, and incomplete statement coverage.",
+  "knownEvidenceLimitations": [
+    "The OpenDataLoader side for this case uses the repo OCR regression fixture as a captured stand-in for degraded OCR/hybrid output, not a live local or live hybrid ODL parse."
+  ],
+  "legacySource": {
+    "kind": "ocr_regression",
+    "name": "formatting-edge-manual-review"
+  },
+  "openDataLoaderSource": {
+    "kind": "ocr_regression_fixture",
+    "name": "formatting-edge-manual-review"
+  }
+}

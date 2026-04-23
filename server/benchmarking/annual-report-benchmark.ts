@@ -73,6 +73,7 @@ type LegacyBenchmarkSource =
 
 type OpenDataLoaderBenchmarkSource =
   | { kind: "captured_normalized_json"; path: string; hasEmbeddedText?: boolean }
+  | { kind: "ocr_regression_fixture"; name: string }
   | { kind: "live_pdf"; path: string; config?: Partial<OpenDataLoaderResolvedConfig> }
   | {
       kind: "live_generated_pdf_from_legacy";
@@ -262,6 +263,28 @@ export type AnnualReportBenchmarkRun = {
         likelyIssueCount: number;
       }
     >;
+    shadowCoverageByDocumentTag: Record<
+      string,
+      {
+        differentialCases: number;
+        liveCases: number;
+        evidenceCounts: Record<BenchmarkEvidenceKind, number>;
+        publishDecisionMismatchCases: number;
+        materialDisagreementCases: number;
+        usablePageStructureCases: number;
+        manualReviewSafetyCases: number;
+        comparisonAssessmentCounts: Record<BenchmarkComparisonAssessment["classification"], number>;
+        firstDivergenceStageCounts: Record<BenchmarkDivergenceSummary["firstDivergenceStage"], number>;
+        openDataLoaderBlockingReasonCounts: Record<string, number>;
+        status:
+          | "no_differential_evidence"
+          | "fixture_only"
+          | "live_weakness_observed"
+          | "live_parity_insufficient_sample"
+          | "live_parity_emerging";
+        statusReason: string;
+      }
+    >;
     comparisonAssessmentCounts: Record<BenchmarkComparisonAssessment["classification"], number>;
     divergenceStageCounts: Record<BenchmarkDivergenceSummary["firstDivergenceStage"], number>;
     openDataLoaderBlockingReasonCounts: Record<string, number>;
@@ -413,7 +436,7 @@ function buildPipelineSnapshot(input: {
   } satisfies OpenDataLoaderPipelineSnapshot;
 }
 
-function runPipelineFromPages(input: {
+export function runPipelineFromPages(input: {
   fiscalYear: number;
   pages: AnnualReportParsedInputPage[];
   engine: "LEGACY" | "OPENDATALOADER";
@@ -587,7 +610,7 @@ function inferCaseEvidenceKind(
   }
 }
 
-function assessComparison(
+export function assessComparison(
   benchmarkCase: AnnualReportBenchmarkCase,
   comparison: OpenDataLoaderComparisonSummary | null | undefined,
 ): BenchmarkComparisonAssessment | null {
@@ -678,7 +701,7 @@ function compareClassificationEvidence(input: {
   return "Both paths had page-level evidence, but selected different labels.";
 }
 
-function buildDivergenceSummary(input: {
+export function buildDivergenceSummary(input: {
   legacy: BenchmarkPipelineResult;
   openDataLoader: BenchmarkPipelineResult;
 }): BenchmarkDivergenceSummary | null {
@@ -1078,6 +1101,28 @@ async function runOpenDataLoaderSource(
     };
   }
 
+  if (source.kind === "ocr_regression_fixture") {
+    const fixture = resolveOcrFixture(source.name);
+    return {
+      result: runPipelineFromPages({
+        fiscalYear,
+        pages: buildOcrPageTextLayers(fixture.pages),
+        engine: "OPENDATALOADER",
+        mode: "hybrid",
+        runtimeMs: 0,
+        executionSource: "ocr_fixture",
+        artifactGeneration: {
+          attempted: false,
+          success: null,
+          artifactKinds: ["OCR_TEXT"],
+          detail:
+            "Benchmark used an OCR regression fixture as a captured stand-in for degraded OpenDataLoader OCR/hybrid output.",
+        },
+      }),
+      routeReason: "ocr-regression-fixture",
+    };
+  }
+
   if (source.kind === "inline_ocr_pages") {
     return {
       result: runPipelineFromPages({
@@ -1375,6 +1420,137 @@ function summarizeDocumentTagMetrics(cases: AnnualReportBenchmarkCaseResult[]) {
   return metrics;
 }
 
+function summarizeShadowCoverageByDocumentTag(cases: AnnualReportBenchmarkCaseResult[]) {
+  const tags = Array.from(new Set(cases.flatMap((item) => item.documentTags))).sort();
+  const result = {} as AnnualReportBenchmarkRun["summary"]["shadowCoverageByDocumentTag"];
+  const evidenceKinds: BenchmarkEvidenceKind[] = [
+    "legacy-only",
+    "captured-fixture",
+    "live-local-odl",
+    "live-hybrid-odl",
+  ];
+  const assessmentKinds: BenchmarkComparisonAssessment["classification"][] = [
+    "no_material_disagreement",
+    "known_evidence_gap",
+    "likely_code_or_logic_issue",
+  ];
+  const divergenceStages: BenchmarkDivergenceSummary["firstDivergenceStage"][] = [
+    "none",
+    "page_classification",
+    "note_selection",
+    "unit_scale",
+    "table_reconstruction",
+    "canonical_mapping",
+    "validation",
+    "publish_gate",
+  ];
+
+  for (const tag of tags) {
+    const taggedCases = cases.filter((item) => item.documentTags.includes(tag));
+    const differentialCases = taggedCases.filter((item) => item.comparison);
+    const liveCases = differentialCases.filter(
+      (item) => item.evidenceKind === "live-local-odl" || item.evidenceKind === "live-hybrid-odl",
+    );
+    const evidenceCounts = Object.fromEntries(
+      evidenceKinds.map((evidenceKind) => [
+        evidenceKind,
+        differentialCases.filter((item) => item.evidenceKind === evidenceKind).length,
+      ]),
+    ) as Record<BenchmarkEvidenceKind, number>;
+    const comparisonAssessmentCounts = Object.fromEntries(
+      assessmentKinds.map((classification) => [
+        classification,
+        differentialCases.filter(
+          (item) => item.comparisonAssessment?.classification === classification,
+        ).length,
+      ]),
+    ) as Record<BenchmarkComparisonAssessment["classification"], number>;
+    const firstDivergenceStageCounts = Object.fromEntries(
+      divergenceStages.map((stage) => [
+        stage,
+        differentialCases.filter(
+          (item) => (item.divergenceSummary?.firstDivergenceStage ?? "none") === stage,
+        ).length,
+      ]),
+    ) as Record<BenchmarkDivergenceSummary["firstDivergenceStage"], number>;
+    const openDataLoaderBlockingReasonCounts: Record<string, number> = {};
+    differentialCases.forEach((item) => {
+      item.divergenceSummary?.blockingReasonsOnOpenDataLoader.forEach((ruleCode) =>
+        incrementCount(openDataLoaderBlockingReasonCounts, ruleCode),
+      );
+    });
+
+    const publishDecisionMismatchCases = differentialCases.filter(
+      (item) => item.comparison?.publishDecisionMismatch,
+    ).length;
+    const materialDisagreementCases = differentialCases.filter(
+      (item) => item.comparison?.materialDisagreement,
+    ).length;
+    const usablePageStructureCases = differentialCases.filter((item) =>
+      (item.openDataLoader?.classifications ?? []).some(
+        (classification) => classification.type !== "COVER",
+      ),
+    ).length;
+    const manualReviewSafetyCases = differentialCases.filter(
+      (item) => item.expected?.shouldPublish === false && item.openDataLoader?.shouldPublish === false,
+    ).length;
+    const liveMaterialDisagreementCases = liveCases.filter(
+      (item) => item.comparison?.materialDisagreement,
+    ).length;
+    const livePublishDecisionMismatchCases = liveCases.filter(
+      (item) => item.comparison?.publishDecisionMismatch,
+    ).length;
+    const liveLikelyIssueCount = liveCases.filter(
+      (item) => item.comparisonAssessment?.classification === "likely_code_or_logic_issue",
+    ).length;
+
+    let status: AnnualReportBenchmarkRun["summary"]["shadowCoverageByDocumentTag"][string]["status"] =
+      "no_differential_evidence";
+    let statusReason = "Ingen differential/shadow-caser finnes for denne dokumentklassen ennå.";
+
+    if (differentialCases.length > 0) {
+      if (liveCases.length === 0) {
+        status = "fixture_only";
+        statusReason =
+          "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens.";
+      } else if (
+        liveMaterialDisagreementCases > 0 ||
+        livePublishDecisionMismatchCases > 0 ||
+        liveLikelyIssueCount > 0
+      ) {
+        status = "live_weakness_observed";
+        statusReason =
+          "Minst én live ODL-case i denne dokumentklassen viser materiell uenighet eller publiseringssvikt.";
+      } else if (liveCases.length < 3) {
+        status = "live_parity_insufficient_sample";
+        statusReason =
+          "Live ODL-casene matcher foreløpig, men antallet er for lavt til å regne klassen som robust.";
+      } else {
+        status = "live_parity_emerging";
+        statusReason =
+          "Flere live ODL-caser i denne dokumentklassen viser foreløpig parity uten safety-mismatch, men evidensen er fortsatt for smal til rollout-endring.";
+      }
+    }
+
+    result[tag] = {
+      differentialCases: differentialCases.length,
+      liveCases: liveCases.length,
+      evidenceCounts,
+      publishDecisionMismatchCases,
+      materialDisagreementCases,
+      usablePageStructureCases,
+      manualReviewSafetyCases,
+      comparisonAssessmentCounts,
+      firstDivergenceStageCounts,
+      openDataLoaderBlockingReasonCounts,
+      status,
+      statusReason,
+    };
+  }
+
+  return result;
+}
+
 function summarizeRuntimeByEvidenceKind(cases: AnnualReportBenchmarkCaseResult[]) {
   const result = {} as AnnualReportBenchmarkRun["summary"]["runtimeByEvidenceKind"];
   const evidenceKinds: BenchmarkEvidenceKind[] = [
@@ -1528,6 +1704,7 @@ export function summarizeAnnualReportBenchmarkRun(input: {
     },
     documentTagCounts,
     documentTagMetrics: summarizeDocumentTagMetrics(input.cases),
+    shadowCoverageByDocumentTag: summarizeShadowCoverageByDocumentTag(input.cases),
     comparisonAssessmentCounts,
     divergenceStageCounts,
     openDataLoaderBlockingReasonCounts,
@@ -1600,6 +1777,23 @@ export function renderAnnualReportBenchmarkMarkdown(run: AnnualReportBenchmarkRu
       .sort(([left], [right]) => left.localeCompare(right))
       .flatMap(([tag, metrics]) => [
         `- ${tag}: cases=${metrics.totalCases}, differential=${metrics.differentialCases}, live=${metrics.liveOpenDataLoaderCases}, publishParity=${metrics.publishParityRate ?? "n/a"}, materialDisagreement=${metrics.materialDisagreementRate ?? "n/a"}, knownEvidenceGaps=${metrics.knownEvidenceGapCount}, likelyIssues=${metrics.likelyIssueCount}`,
+      ]),
+    "",
+    "## Shadow Evidence By Class",
+    "",
+    ...Object.entries(run.summary.shadowCoverageByDocumentTag)
+      .filter(([, metrics]) => metrics.differentialCases > 0)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .flatMap(([tag, metrics]) => [
+        `- ${tag}: status=${metrics.status}, differential=${metrics.differentialCases}, live=${metrics.liveCases}, evidence=legacy-only:${metrics.evidenceCounts["legacy-only"]}/captured:${metrics.evidenceCounts["captured-fixture"]}/live-local:${metrics.evidenceCounts["live-local-odl"]}/live-hybrid:${metrics.evidenceCounts["live-hybrid-odl"]}, publishMismatch=${metrics.publishDecisionMismatchCases}, materialDisagreement=${metrics.materialDisagreementCases}, usableOdlStructure=${metrics.usablePageStructureCases}, manualReviewSafety=${metrics.manualReviewSafetyCases}`,
+        `  reason: ${metrics.statusReason}`,
+        `  firstDivergence: ${Object.entries(metrics.firstDivergenceStageCounts)
+          .filter(([, count]) => count > 0)
+          .map(([stage, count]) => `${stage}=${count}`)
+          .join(", ") || "none"}; odlBlocking: ${Object.entries(metrics.openDataLoaderBlockingReasonCounts)
+          .sort((left, right) => right[1] - left[1])
+          .map(([reason, count]) => `${reason}=${count}`)
+          .join(", ") || "none"}`,
       ]),
     "",
     "## ODL Shadow Signals",

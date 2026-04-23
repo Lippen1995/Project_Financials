@@ -1,8 +1,11 @@
+import path from "node:path";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import pairedCase from "@/benchmarks/annual-report-golden/cases/paired-digital-happy-path.json";
 import {
   AnnualReportBenchmarkCase,
+  loadAnnualReportBenchmarkCases,
   renderAnnualReportBenchmarkMarkdown,
   runAnnualReportBenchmarkCase,
   summarizeAnnualReportBenchmarkRun,
@@ -187,10 +190,250 @@ describe("annual-report-benchmark", () => {
     expect(markdown).toContain("Annual-report benchmark");
     expect(markdown).toContain("Evidence");
     expect(markdown).toContain("Document Classes");
+    expect(markdown).toContain("Shadow Evidence By Class");
     expect(summary.documentTagCounts.digital_simple).toBe(1);
     expect(summary.comparisonAssessmentCounts.no_material_disagreement).toBe(1);
     expect(summary.divergenceStageCounts.none).toBe(1);
+    expect(summary.shadowCoverageByDocumentTag.digital_simple.status).toBe("fixture_only");
     expect(markdown).toContain("shadow-only");
+  });
+
+  it("loads the added OCR/degraded shadow benchmark cases with expected tags", async () => {
+    const cases = await loadAnnualReportBenchmarkCases(
+      path.join(process.cwd(), "benchmarks", "annual-report-golden", "cases"),
+      { includeLiveCases: false },
+    );
+
+    const scanShadow = cases.find(
+      (benchmarkCase) => benchmarkCase.id === "scan-like-duplicate-sections-shadow",
+    );
+    const formattingShadow = cases.find(
+      (benchmarkCase) => benchmarkCase.id === "formatting-edge-manual-review-shadow",
+    );
+
+    expect(scanShadow?.openDataLoaderSource).toMatchObject({
+      kind: "ocr_regression_fixture",
+      name: "scan-like-duplicate-sections",
+    });
+    expect(scanShadow?.documentTags).toContain("scan_or_ocr");
+    expect(scanShadow?.documentTags).toContain("continuation_complex");
+
+    expect(formattingShadow?.openDataLoaderSource).toMatchObject({
+      kind: "ocr_regression_fixture",
+      name: "formatting-edge-manual-review",
+    });
+    expect(formattingShadow?.documentTags).toContain("formatting_edge");
+    expect(formattingShadow?.documentTags).toContain("degraded_ambiguous");
+  });
+
+  it("summarizes shadow coverage by class across fixture-only and live evidence", () => {
+    const summary = summarizeAnnualReportBenchmarkRun({
+      runtimeEnvironment: {
+        opendataloaderPackageVersion: "2.2.1",
+        javaVersion: "17.0.18",
+        javaMajorVersion: 17,
+        localOpenDataLoaderReady: true,
+        localOpenDataLoaderReason:
+          "Java 17.0.18 is compatible with local OpenDataLoader execution.",
+        liveLocalBenchmarkReady: true,
+        liveLocalBenchmarkReason:
+          "Environment is ready for live local OpenDataLoader benchmark cases.",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+      },
+      cases: [
+        {
+          caseId: "fixture-scan",
+          name: "Fixture scan",
+          fiscalYear: 2024,
+          documentTags: ["scan_or_ocr", "ocr_token_noise"],
+          mode: "expected_and_differential",
+          status: "completed",
+          errors: [],
+          evidenceKind: "captured-fixture",
+          knownEvidenceLimitations: ["fixture only"],
+          legacy: {
+            engine: "LEGACY",
+            executionSource: "ocr_fixture",
+            mode: "legacy",
+            runtimeMs: 5,
+            confidenceScore: 0.8,
+            validationScore: 1,
+            shouldPublish: true,
+            artifactGeneration: { attempted: false, success: null, artifactKinds: [], detail: "fixture" },
+            classifications: [{ pageNumber: 2, type: "STATUTORY_INCOME", unitScale: 1 }],
+            classificationDiagnostics: [],
+            selectedFacts: [],
+            blockingRuleCodes: [],
+            issueCodes: [],
+            issueCount: 0,
+            validationPasses: true,
+            evidenceKind: "legacy-only",
+            snapshot: {
+              engine: "LEGACY",
+              mode: "legacy",
+              classifications: [],
+              selectedFacts: [],
+              blockingRuleCodes: [],
+              shouldPublish: true,
+              confidenceScore: 0.8,
+              durationMs: 5,
+            },
+          },
+          openDataLoader: {
+            engine: "OPENDATALOADER",
+            executionSource: "ocr_fixture",
+            mode: "hybrid",
+            runtimeMs: 7,
+            confidenceScore: 0.8,
+            validationScore: 1,
+            shouldPublish: true,
+            artifactGeneration: {
+              attempted: false,
+              success: null,
+              artifactKinds: ["OCR_TEXT"],
+              detail: "fixture",
+            },
+            classifications: [{ pageNumber: 2, type: "STATUTORY_INCOME", unitScale: 1 }],
+            classificationDiagnostics: [],
+            selectedFacts: [],
+            blockingRuleCodes: [],
+            issueCodes: [],
+            issueCount: 0,
+            validationPasses: true,
+            evidenceKind: "captured-fixture",
+            snapshot: {
+              engine: "OPENDATALOADER",
+              mode: "hybrid",
+              classifications: [],
+              selectedFacts: [],
+              blockingRuleCodes: [],
+              shouldPublish: true,
+              confidenceScore: 0.8,
+              durationMs: 7,
+            },
+            routeReason: "ocr-regression-fixture",
+          },
+          comparison: {
+            primaryEngine: "LEGACY",
+            shadowEngine: "OPENDATALOADER",
+            primaryShouldPublish: true,
+            shadowShouldPublish: true,
+            publishDecisionMismatch: false,
+            classificationDifferences: [],
+            unitScaleDifferences: [],
+            factDifferences: [],
+            blockingRuleDifferences: { onlyInPrimary: [], onlyInShadow: [] },
+            durationMs: { primary: 5, shadow: 7 },
+            materialDisagreement: false,
+          },
+          comparisonAssessment: {
+            classification: "no_material_disagreement",
+            summary: "No material disagreement was detected between legacy and OpenDataLoader for this case.",
+          },
+          divergenceSummary: null,
+        },
+        {
+          caseId: "live-digital",
+          name: "Live digital",
+          fiscalYear: 2024,
+          documentTags: ["digital_simple"],
+          mode: "expected_and_differential",
+          status: "completed",
+          errors: [],
+          evidenceKind: "live-local-odl",
+          knownEvidenceLimitations: [],
+          legacy: {
+            engine: "LEGACY",
+            executionSource: "document_fixture",
+            mode: "legacy",
+            runtimeMs: 6,
+            confidenceScore: 0.9,
+            validationScore: 1,
+            shouldPublish: true,
+            artifactGeneration: { attempted: false, success: null, artifactKinds: [], detail: "fixture" },
+            classifications: [{ pageNumber: 2, type: "STATUTORY_INCOME", unitScale: 1 }],
+            classificationDiagnostics: [],
+            selectedFacts: [],
+            blockingRuleCodes: [],
+            issueCodes: [],
+            issueCount: 0,
+            validationPasses: true,
+            evidenceKind: "legacy-only",
+            snapshot: {
+              engine: "LEGACY",
+              mode: "legacy",
+              classifications: [],
+              selectedFacts: [],
+              blockingRuleCodes: [],
+              shouldPublish: true,
+              confidenceScore: 0.9,
+              durationMs: 6,
+            },
+          },
+          openDataLoader: {
+            engine: "OPENDATALOADER",
+            executionSource: "live_pdf",
+            mode: "local",
+            runtimeMs: 1000,
+            confidenceScore: 0.9,
+            validationScore: 1,
+            shouldPublish: true,
+            artifactGeneration: {
+              attempted: true,
+              success: true,
+              artifactKinds: ["DOCUMENT_JSON"],
+              detail: "live",
+            },
+            classifications: [{ pageNumber: 2, type: "STATUTORY_INCOME", unitScale: 1 }],
+            classificationDiagnostics: [],
+            selectedFacts: [],
+            blockingRuleCodes: [],
+            issueCodes: [],
+            issueCount: 0,
+            validationPasses: true,
+            evidenceKind: "live-local-odl",
+            snapshot: {
+              engine: "OPENDATALOADER",
+              mode: "local",
+              classifications: [],
+              selectedFacts: [],
+              blockingRuleCodes: [],
+              shouldPublish: true,
+              confidenceScore: 0.9,
+              durationMs: 1000,
+            },
+            routeReason: "live-generated-from-legacy",
+          },
+          comparison: {
+            primaryEngine: "LEGACY",
+            shadowEngine: "OPENDATALOADER",
+            primaryShouldPublish: true,
+            shadowShouldPublish: true,
+            publishDecisionMismatch: false,
+            classificationDifferences: [],
+            unitScaleDifferences: [],
+            factDifferences: [],
+            blockingRuleDifferences: { onlyInPrimary: [], onlyInShadow: [] },
+            durationMs: { primary: 6, shadow: 1000 },
+            materialDisagreement: false,
+          },
+          comparisonAssessment: {
+            classification: "no_material_disagreement",
+            summary: "No material disagreement was detected between legacy and OpenDataLoader for this case.",
+          },
+          divergenceSummary: null,
+        },
+      ],
+    });
+
+    expect(summary.shadowCoverageByDocumentTag.scan_or_ocr.status).toBe("fixture_only");
+    expect(summary.shadowCoverageByDocumentTag.scan_or_ocr.evidenceCounts["captured-fixture"]).toBe(1);
+    expect(summary.shadowCoverageByDocumentTag.scan_or_ocr.usablePageStructureCases).toBe(1);
+    expect(summary.shadowCoverageByDocumentTag.digital_simple.status).toBe(
+      "live_parity_insufficient_sample",
+    );
+    expect(summary.shadowCoverageByDocumentTag.digital_simple.liveCases).toBe(1);
   });
 
   it("skips live benchmark cases cleanly when local runtime is not ready", async () => {

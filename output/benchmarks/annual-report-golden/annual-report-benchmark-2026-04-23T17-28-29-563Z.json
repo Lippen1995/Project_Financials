@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-23T17:51:12.226Z",
+  "generatedAt": "2026-04-23T17:28:29.563Z",
   "cases": [
     {
       "caseId": "formatting-edge-manual-review-shadow",
@@ -45,7 +45,7 @@
         "engine": "LEGACY",
         "executionSource": "ocr_fixture",
         "mode": "legacy",
-        "runtimeMs": 6,
+        "runtimeMs": 7,
         "confidenceScore": 0.7683,
         "validationScore": 0.82,
         "shouldPublish": false,
@@ -272,7 +272,7 @@
           ],
           "shouldPublish": false,
           "confidenceScore": 0.7683,
-          "durationMs": 6
+          "durationMs": 7
         },
         "expectedEvaluation": {
           "statementPageAccuracy": 1,
@@ -548,7 +548,7 @@
           "onlyInShadow": []
         },
         "durationMs": {
-          "primary": 6,
+          "primary": 7,
           "shadow": 1
         },
         "materialDisagreement": false
@@ -599,7 +599,7 @@
         "engine": "LEGACY",
         "executionSource": "ocr_fixture",
         "mode": "legacy",
-        "runtimeMs": 2,
+        "runtimeMs": 1,
         "confidenceScore": 0.7683,
         "validationScore": 0.82,
         "shouldPublish": false,
@@ -826,7 +826,7 @@
           ],
           "shouldPublish": false,
           "confidenceScore": 0.7683,
-          "durationMs": 2
+          "durationMs": 1
         },
         "expectedEvaluation": {
           "statementPageAccuracy": 1,
@@ -842,18 +842,19 @@
       }
     },
     {
-      "caseId": "manual-review-ambiguous",
-      "name": "Legacy ambiguous manual-review case",
+      "caseId": "manual-review-ambiguous-live-local",
+      "name": "Ambiguous manual-review live local ODL case",
       "fiscalYear": 2024,
       "documentTags": [
         "digital_simple",
         "unit_scale_sensitive",
         "manual_review_expected",
         "degraded_ambiguous",
-        "column_swap"
+        "column_swap",
+        "live_local"
       ],
-      "mode": "expected",
-      "notes": "Uses the existing regression fixture with unit-scale conflict and suspicious column swap that should stay blocked from publication.",
+      "mode": "expected_and_differential",
+      "notes": "Runs OpenDataLoader live in local mode against the ambiguous manual-review document regression fixture. This checks that shadow ODL also stays conservative on known-bad inputs. Requires Java 11+.",
       "status": "completed",
       "errors": [],
       "expected": {
@@ -877,13 +878,13 @@
           "REQUIRED_PRIMARY_METRICS_MISSING"
         ]
       },
-      "evidenceKind": "legacy-only",
+      "evidenceKind": "live-local-odl",
       "knownEvidenceLimitations": [],
       "legacy": {
         "engine": "LEGACY",
         "executionSource": "document_fixture",
         "mode": "legacy",
-        "runtimeMs": 388,
+        "runtimeMs": 389,
         "confidenceScore": 0.6313,
         "validationScore": 1,
         "shouldPublish": false,
@@ -1185,7 +1186,719 @@
           ],
           "shouldPublish": false,
           "confidenceScore": 0.6313,
-          "durationMs": 388
+          "durationMs": 389
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [
+            "PAGE_UNIT_SCALE_CONFLICT",
+            "SUSPICIOUS_COLUMN_SWAP",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "missingIssueCodes": [],
+          "mismatches": []
+        }
+      },
+      "openDataLoader": {
+        "engine": "OPENDATALOADER",
+        "executionSource": "live_pdf",
+        "mode": "local",
+        "runtimeMs": 1252,
+        "confidenceScore": 0.6313,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": true,
+          "success": true,
+          "artifactKinds": [
+            "DOCUMENT_JSON",
+            "DOCUMENT_MARKDOWN",
+            "ANNOTATED_PDF"
+          ],
+          "detail": "OpenDataLoader was executed live against a benchmark PDF generated from the legacy benchmark source."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "BOARD_REPORT",
+            "unitScale": 1
+          }
+        ],
+        "classificationDiagnostics": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "confidence": 0.294,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024
+            ],
+            "yearHeaderYears": [],
+            "heading": "Arsregnskap 2024\nEksempel Finans AS",
+            "numericRowCount": 1,
+            "tableLike": false,
+            "reasons": [
+              "arsregnskap"
+            ]
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "confidence": 0.588,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": true,
+            "declaredYears": [
+              2023,
+              2024
+            ],
+            "yearHeaderYears": [
+              2023,
+              2024
+            ],
+            "heading": "2023 2024",
+            "numericRowCount": 6,
+            "tableLike": true,
+            "reasons": [
+              "resultatregnskap",
+              "driftsinntekter",
+              "driftsresultat",
+              "arsresultat",
+              "note ",
+              "Conflicting unit declarations on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "confidence": 0.995,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Balanse",
+            "numericRowCount": 3,
+            "tableLike": true,
+            "reasons": [
+              "balanse",
+              "eiendeler",
+              "sum eiendeler",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 4,
+            "type": "BOARD_REPORT",
+            "confidence": 0.824,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.82,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Styrets arsberetning\nFortsatt drift\nVirksomhetens art",
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "styrets arsberetning",
+              "arsberetning",
+              "fortsatt drift",
+              "virksomhetens art",
+              "Inherited unit scale 1 from previous statement page"
+            ]
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 95210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 95210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 77500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 17710000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 15060000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "trade_receivables",
+            "value": 12500000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [
+          "PAGE_CLASSIFICATION_UNCERTAIN",
+          "PAGE_UNIT_SCALE_CONFLICT",
+          "PAGE_UNIT_SCALE_UNCERTAIN",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "SCALE_CONFLICT_ON_PAGE",
+          "UNIT_SCALE_UNCERTAIN",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PAGE_CLASSIFICATION_UNCERTAIN",
+          "PAGE_UNIT_SCALE_CONFLICT",
+          "PAGE_UNIT_SCALE_UNCERTAIN",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "SCALE_CONFLICT_ON_PAGE",
+          "UNIT_SCALE_UNCERTAIN",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 8,
+        "validationPasses": false,
+        "evidenceKind": "live-local-odl",
+        "snapshot": {
+          "engine": "OPENDATALOADER",
+          "mode": "local",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "BOARD_REPORT",
+              "unitScale": 1
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 95210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 95210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 77500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 17710000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 15060000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "trade_receivables",
+              "value": 12500000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [
+            "PAGE_CLASSIFICATION_UNCERTAIN",
+            "PAGE_UNIT_SCALE_CONFLICT",
+            "PAGE_UNIT_SCALE_UNCERTAIN",
+            "SUSPICIOUS_COLUMN_SWAP",
+            "SCALE_CONFLICT_ON_PAGE",
+            "UNIT_SCALE_UNCERTAIN",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.6313,
+          "durationMs": 1252
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [
+            "PAGE_UNIT_SCALE_CONFLICT",
+            "SUSPICIOUS_COLUMN_SWAP",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "missingIssueCodes": [],
+          "mismatches": []
+        },
+        "routeReason": "live-generated-from-legacy:Local mode selected explicitly by configuration."
+      },
+      "comparison": {
+        "primaryEngine": "LEGACY",
+        "shadowEngine": "OPENDATALOADER",
+        "primaryShouldPublish": false,
+        "shadowShouldPublish": false,
+        "publishDecisionMismatch": false,
+        "classificationDifferences": [],
+        "unitScaleDifferences": [],
+        "factDifferences": [],
+        "blockingRuleDifferences": {
+          "onlyInPrimary": [],
+          "onlyInShadow": []
+        },
+        "durationMs": {
+          "primary": 389,
+          "shadow": 1252
+        },
+        "materialDisagreement": false
+      },
+      "comparisonAssessment": {
+        "classification": "no_material_disagreement",
+        "summary": "No material disagreement was detected between legacy and OpenDataLoader for this case."
+      },
+      "divergenceSummary": null
+    },
+    {
+      "caseId": "manual-review-ambiguous",
+      "name": "Legacy ambiguous manual-review case",
+      "fiscalYear": 2024,
+      "documentTags": [
+        "digital_simple",
+        "unit_scale_sensitive",
+        "manual_review_expected",
+        "degraded_ambiguous",
+        "column_swap"
+      ],
+      "mode": "expected",
+      "notes": "Uses the existing regression fixture with unit-scale conflict and suspicious column swap that should stay blocked from publication.",
+      "status": "completed",
+      "errors": [],
+      "expected": {
+        "shouldPublish": false,
+        "classificationTypes": [
+          "COVER",
+          "STATUTORY_INCOME",
+          "STATUTORY_BALANCE",
+          "BOARD_REPORT"
+        ],
+        "unitScaleByPage": {
+          "2": null,
+          "3": 1
+        },
+        "factValues": {
+          "total_assets": 92155000
+        },
+        "requiredIssueCodes": [
+          "PAGE_UNIT_SCALE_CONFLICT",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ]
+      },
+      "evidenceKind": "legacy-only",
+      "knownEvidenceLimitations": [],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "document_fixture",
+        "mode": "legacy",
+        "runtimeMs": 6,
+        "confidenceScore": 0.6313,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "Benchmark uses in-memory legacy document fixtures only."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "BOARD_REPORT",
+            "unitScale": 1
+          }
+        ],
+        "classificationDiagnostics": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "confidence": 0.294,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024
+            ],
+            "yearHeaderYears": [],
+            "heading": "Arsregnskap 2024",
+            "numericRowCount": 1,
+            "tableLike": false,
+            "reasons": [
+              "arsregnskap"
+            ]
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "confidence": 0.588,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": true,
+            "declaredYears": [
+              2023,
+              2024
+            ],
+            "yearHeaderYears": [
+              2023,
+              2024
+            ],
+            "heading": "Resultatregnskap",
+            "numericRowCount": 6,
+            "tableLike": true,
+            "reasons": [
+              "resultatregnskap",
+              "driftsinntekter",
+              "driftsresultat",
+              "arsresultat",
+              "note ",
+              "Conflicting unit declarations on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "confidence": 0.995,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Balanse",
+            "numericRowCount": 3,
+            "tableLike": true,
+            "reasons": [
+              "balanse",
+              "eiendeler",
+              "sum eiendeler",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 4,
+            "type": "BOARD_REPORT",
+            "confidence": 0.824,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.82,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Styrets arsberetning",
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "styrets arsberetning",
+              "arsberetning",
+              "fortsatt drift",
+              "virksomhetens art",
+              "Inherited unit scale 1 from previous statement page"
+            ]
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 95210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 95210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 77500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 17710000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 15060000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "trade_receivables",
+            "value": 12500000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [
+          "PAGE_CLASSIFICATION_UNCERTAIN",
+          "PAGE_UNIT_SCALE_CONFLICT",
+          "PAGE_UNIT_SCALE_UNCERTAIN",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "SCALE_CONFLICT_ON_PAGE",
+          "UNIT_SCALE_UNCERTAIN",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PAGE_CLASSIFICATION_UNCERTAIN",
+          "PAGE_UNIT_SCALE_CONFLICT",
+          "PAGE_UNIT_SCALE_UNCERTAIN",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "SUSPICIOUS_COLUMN_SWAP",
+          "SCALE_CONFLICT_ON_PAGE",
+          "UNIT_SCALE_UNCERTAIN",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 8,
+        "validationPasses": false,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "BOARD_REPORT",
+              "unitScale": 1
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 95210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 95210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 77500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 17710000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 15060000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "trade_receivables",
+              "value": 12500000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [
+            "PAGE_CLASSIFICATION_UNCERTAIN",
+            "PAGE_UNIT_SCALE_CONFLICT",
+            "PAGE_UNIT_SCALE_UNCERTAIN",
+            "SUSPICIOUS_COLUMN_SWAP",
+            "SCALE_CONFLICT_ON_PAGE",
+            "UNIT_SCALE_UNCERTAIN",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.6313,
+          "durationMs": 6
         },
         "expectedEvaluation": {
           "statementPageAccuracy": 1,
@@ -1247,7 +1960,7 @@
         "engine": "LEGACY",
         "executionSource": "document_fixture",
         "mode": "legacy",
-        "runtimeMs": 6,
+        "runtimeMs": 5,
         "confidenceScore": 0.945,
         "validationScore": 1,
         "shouldPublish": true,
@@ -1552,7 +2265,7 @@
           "blockingRuleCodes": [],
           "shouldPublish": true,
           "confidenceScore": 0.945,
-          "durationMs": 6
+          "durationMs": 5
         },
         "expectedEvaluation": {
           "statementPageAccuracy": 1,
@@ -1568,7 +2281,7 @@
         "engine": "OPENDATALOADER",
         "executionSource": "captured_normalized_json",
         "mode": "local",
-        "runtimeMs": 6,
+        "runtimeMs": 4,
         "confidenceScore": 0.9069,
         "validationScore": 1,
         "shouldPublish": true,
@@ -1874,7 +2587,7 @@
           "blockingRuleCodes": [],
           "shouldPublish": true,
           "confidenceScore": 0.9069,
-          "durationMs": 6
+          "durationMs": 4
         },
         "expectedEvaluation": {
           "statementPageAccuracy": 1,
@@ -1907,8 +2620,8 @@
           "onlyInShadow": []
         },
         "durationMs": {
-          "primary": 6,
-          "shadow": 6
+          "primary": 5,
+          "shadow": 4
         },
         "materialDisagreement": true
       },
@@ -2012,18 +2725,730 @@
       }
     },
     {
-      "caseId": "published-happy-path",
-      "name": "Legacy published happy path",
+      "caseId": "paired-digital-live-local",
+      "name": "Paired digital live local ODL case",
+      "fiscalYear": 2024,
+      "documentTags": [
+        "digital_simple",
+        "digital_note_heavy",
+        "unit_scale_sensitive",
+        "live_local"
+      ],
+      "mode": "expected_and_differential",
+      "notes": "Runs OpenDataLoader live in local mode against a generated benchmark PDF built from the same inline digital pages as the paired happy-path case. Requires Java 11+.",
+      "status": "completed",
+      "errors": [],
+      "expected": {
+        "classificationTypes": [
+          "COVER",
+          "STATUTORY_INCOME",
+          "STATUTORY_BALANCE",
+          "NOTE"
+        ],
+        "unitScaleByPage": {
+          "2": 1,
+          "3": 1
+        },
+        "factValues": {
+          "revenue": 103097000,
+          "operating_profit": 21210000,
+          "net_income": 18221000,
+          "cash_and_cash_equivalents": 15558000,
+          "total_assets": 92155000,
+          "total_equity": 36372000,
+          "total_liabilities": 55783000,
+          "total_equity_and_liabilities": 92155000
+        },
+        "shouldPublish": true
+      },
+      "evidenceKind": "live-local-odl",
+      "knownEvidenceLimitations": [],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "document_fixture",
+        "mode": "legacy",
+        "runtimeMs": 5,
+        "confidenceScore": 0.945,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "Benchmark uses in-memory inline PDF pages only."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "NOTE",
+            "unitScale": 1000
+          }
+        ],
+        "classificationDiagnostics": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "confidence": 0.294,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024
+            ],
+            "yearHeaderYears": [],
+            "heading": "Arsregnskap 2024",
+            "numericRowCount": 1,
+            "tableLike": false,
+            "reasons": [
+              "arsregnskap"
+            ]
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "confidence": 0.882,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Resultatregnskap",
+            "numericRowCount": 5,
+            "tableLike": true,
+            "reasons": [
+              "resultatregnskap",
+              "driftsinntekter",
+              "driftsresultat",
+              "arsresultat",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "confidence": 0.995,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Balanse",
+            "numericRowCount": 5,
+            "tableLike": true,
+            "reasons": [
+              "balanse",
+              "eiendeler",
+              "egenkapital og gjeld",
+              "sum eiendeler",
+              "sum egenkapital og gjeld",
+              "sum gjeld",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 4,
+            "type": "NOTE",
+            "confidence": 0.5,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.973,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Noter til regnskapet",
+            "numericRowCount": 2,
+            "tableLike": false,
+            "reasons": [
+              "noter til regnskapet",
+              "note ",
+              "Declared NOK 1000 on page"
+            ]
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "NOTE",
+              "unitScale": 1000
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.945,
+          "durationMs": 5
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        }
+      },
+      "openDataLoader": {
+        "engine": "OPENDATALOADER",
+        "executionSource": "live_pdf",
+        "mode": "local",
+        "runtimeMs": 1061,
+        "confidenceScore": 0.945,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": true,
+          "success": true,
+          "artifactKinds": [
+            "DOCUMENT_JSON",
+            "DOCUMENT_MARKDOWN",
+            "ANNOTATED_PDF"
+          ],
+          "detail": "OpenDataLoader was executed live against a benchmark PDF generated from the legacy benchmark source."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "NOTE",
+            "unitScale": 1000
+          }
+        ],
+        "classificationDiagnostics": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "confidence": 0.294,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024
+            ],
+            "yearHeaderYears": [],
+            "heading": "Arsregnskap 2024\nEksempel Finans AS",
+            "numericRowCount": 1,
+            "tableLike": false,
+            "reasons": [
+              "arsregnskap"
+            ]
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "confidence": 0.882,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Resultatregnskap",
+            "numericRowCount": 5,
+            "tableLike": true,
+            "reasons": [
+              "resultatregnskap",
+              "driftsinntekter",
+              "driftsresultat",
+              "arsresultat",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "confidence": 0.995,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Balanse",
+            "numericRowCount": 5,
+            "tableLike": true,
+            "reasons": [
+              "balanse",
+              "eiendeler",
+              "egenkapital og gjeld",
+              "sum eiendeler",
+              "sum egenkapital og gjeld",
+              "sum gjeld",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 4,
+            "type": "NOTE",
+            "confidence": 0.5,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.973,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Noter til regnskapet\nAlle tall i notene er NOK 1.000 dersom annet ikke er oppgitt\nNote 8 Bankinnskudd, kontanter o.l. 15558 14001",
+            "numericRowCount": 2,
+            "tableLike": false,
+            "reasons": [
+              "noter til regnskapet",
+              "note ",
+              "Declared NOK 1000 on page"
+            ]
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "live-local-odl",
+        "snapshot": {
+          "engine": "OPENDATALOADER",
+          "mode": "local",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "NOTE",
+              "unitScale": 1000
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.945,
+          "durationMs": 1061
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        },
+        "routeReason": "live-generated-from-legacy:Local mode selected explicitly by configuration."
+      },
+      "comparison": {
+        "primaryEngine": "LEGACY",
+        "shadowEngine": "OPENDATALOADER",
+        "primaryShouldPublish": true,
+        "shadowShouldPublish": true,
+        "publishDecisionMismatch": false,
+        "classificationDifferences": [],
+        "unitScaleDifferences": [],
+        "factDifferences": [],
+        "blockingRuleDifferences": {
+          "onlyInPrimary": [],
+          "onlyInShadow": []
+        },
+        "durationMs": {
+          "primary": 5,
+          "shadow": 1061
+        },
+        "materialDisagreement": false
+      },
+      "comparisonAssessment": {
+        "classification": "no_material_disagreement",
+        "summary": "No material disagreement was detected between legacy and OpenDataLoader for this case."
+      },
+      "divergenceSummary": null
+    },
+    {
+      "caseId": "published-happy-path-live-local",
+      "name": "Published happy path live local ODL case",
       "fiscalYear": 2024,
       "documentTags": [
         "digital_note_heavy",
         "multi_page_balance",
         "supplementary_present",
         "unit_scale_sensitive",
-        "continuation_complex"
+        "continuation_complex",
+        "live_local"
       ],
-      "mode": "expected",
-      "notes": "Uses the existing document regression fixture with statutory NOK pages, supplementary NOK 1000 sections, notes, auditor report, and board report.",
+      "mode": "expected_and_differential",
+      "notes": "Runs OpenDataLoader live in local mode against the published happy-path document regression fixture materialized as a benchmark PDF. Requires Java 11+.",
       "status": "completed",
       "errors": [],
       "expected": {
@@ -2058,13 +3483,13 @@
           "total_equity_and_liabilities": 92155000
         }
       },
-      "evidenceKind": "legacy-only",
+      "evidenceKind": "live-local-odl",
       "knownEvidenceLimitations": [],
       "legacy": {
         "engine": "LEGACY",
         "executionSource": "document_fixture",
         "mode": "legacy",
-        "runtimeMs": 13,
+        "runtimeMs": 11,
         "confidenceScore": 0.9695,
         "validationScore": 1,
         "shouldPublish": true,
@@ -2727,7 +4152,1444 @@
           "blockingRuleCodes": [],
           "shouldPublish": true,
           "confidenceScore": 0.9695,
-          "durationMs": 13
+          "durationMs": 11
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        }
+      },
+      "openDataLoader": {
+        "engine": "OPENDATALOADER",
+        "executionSource": "live_pdf",
+        "mode": "local",
+        "runtimeMs": 1287,
+        "confidenceScore": 0.9695,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": true,
+          "success": true,
+          "artifactKinds": [
+            "DOCUMENT_JSON",
+            "DOCUMENT_MARKDOWN",
+            "ANNOTATED_PDF"
+          ],
+          "detail": "OpenDataLoader was executed live against a benchmark PDF generated from the legacy benchmark source."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "STATUTORY_BALANCE_CONTINUATION",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 5,
+            "type": "SUPPLEMENTARY_INCOME",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 6,
+            "type": "SUPPLEMENTARY_BALANCE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 7,
+            "type": "NOTE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 8,
+            "type": "AUDITOR_REPORT",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 9,
+            "type": "BOARD_REPORT",
+            "unitScale": 1000
+          }
+        ],
+        "classificationDiagnostics": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "confidence": 0.353,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024
+            ],
+            "yearHeaderYears": [],
+            "heading": "Arsregnskap 2024\nEksempel Finans AS\nOrganisasjonsnummer 000000000",
+            "numericRowCount": 2,
+            "tableLike": false,
+            "reasons": [
+              "arsregnskap",
+              "organisasjonsnummer"
+            ]
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "confidence": 0.971,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Resultatregnskap",
+            "numericRowCount": 10,
+            "tableLike": true,
+            "reasons": [
+              "resultatregnskap",
+              "driftsinntekter",
+              "driftsresultat",
+              "arsresultat",
+              "resultat for",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "confidence": 0.995,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Balanse",
+            "numericRowCount": 6,
+            "tableLike": true,
+            "reasons": [
+              "balanse",
+              "eiendeler",
+              "sum eiendeler",
+              "omlopsmidler",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 4,
+            "type": "STATUTORY_BALANCE_CONTINUATION",
+            "confidence": 0.794,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Egenkapital og gjeld",
+            "numericRowCount": 7,
+            "tableLike": true,
+            "reasons": [
+              "egenkapital og gjeld",
+              "sum egenkapital og gjeld",
+              "sum kortsiktig gjeld",
+              "sum gjeld",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 5,
+            "type": "SUPPLEMENTARY_INCOME",
+            "confidence": 0.794,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.985,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Resultatregnskap i sammendrag",
+            "numericRowCount": 4,
+            "tableLike": true,
+            "reasons": [
+              "resultatregnskap",
+              "driftsresultat",
+              "arsresultat",
+              "i sammendrag",
+              "Declared NOK 1000 on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 6,
+            "type": "SUPPLEMENTARY_BALANCE",
+            "confidence": 0.995,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.97,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Balanse i sammendrag",
+            "numericRowCount": 4,
+            "tableLike": true,
+            "reasons": [
+              "balanse",
+              "eiendeler",
+              "egenkapital og gjeld",
+              "sum eiendeler",
+              "sum egenkapital og gjeld",
+              "sum gjeld",
+              "i sammendrag",
+              "Declared NOK 1000 on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 7,
+            "type": "NOTE",
+            "confidence": 0.5,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.973,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Noter til regnskapet\nAlle tall i notene er NOK 1.000 dersom annet ikke er oppgitt\nNote 8 Bankinnskudd, kontanter o.l. 15558 14001",
+            "numericRowCount": 2,
+            "tableLike": false,
+            "reasons": [
+              "noter til regnskapet",
+              "note ",
+              "Declared NOK 1000 on page"
+            ]
+          },
+          {
+            "pageNumber": 8,
+            "type": "AUDITOR_REPORT",
+            "confidence": 0.809,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.72,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Uavhengig revisors beretning\nOpinion\nGrunnlag for konklusjon",
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "uavhengig revisors beretning",
+              "grunnlag for konklusjon",
+              "opinion",
+              "Inherited unit scale 1000 from previous statement page"
+            ]
+          },
+          {
+            "pageNumber": 9,
+            "type": "BOARD_REPORT",
+            "confidence": 0.824,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.72,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Styrets arsberetning\nFortsatt drift\nVirksomhetens art",
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "styrets arsberetning",
+              "arsberetning",
+              "fortsatt drift",
+              "virksomhetens art",
+              "Inherited unit scale 1000 from previous statement page"
+            ]
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_income",
+            "value": 500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_expense",
+            "value": 1000000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_financial_items",
+            "value": -500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "profit_before_tax",
+            "value": 20710000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tax_expense",
+            "value": 2489000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "trade_receivables",
+            "value": 12500000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "other_receivables",
+            "value": 9200000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_assets",
+            "value": 37258000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tangible_assets",
+            "value": 54897000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "share_capital",
+            "value": 1000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "retained_earnings",
+            "value": 35372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "long_term_liabilities",
+            "value": 20000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_liabilities",
+            "value": 35783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "live-local-odl",
+        "snapshot": {
+          "engine": "OPENDATALOADER",
+          "mode": "local",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "STATUTORY_BALANCE_CONTINUATION",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 5,
+              "type": "SUPPLEMENTARY_INCOME",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 6,
+              "type": "SUPPLEMENTARY_BALANCE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 7,
+              "type": "NOTE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 8,
+              "type": "AUDITOR_REPORT",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 9,
+              "type": "BOARD_REPORT",
+              "unitScale": 1000
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_income",
+              "value": 500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_expense",
+              "value": 1000000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_financial_items",
+              "value": -500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "profit_before_tax",
+              "value": 20710000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tax_expense",
+              "value": 2489000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "trade_receivables",
+              "value": 12500000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "other_receivables",
+              "value": 9200000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_assets",
+              "value": 37258000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tangible_assets",
+              "value": 54897000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "share_capital",
+              "value": 1000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "retained_earnings",
+              "value": 35372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "long_term_liabilities",
+              "value": 20000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_liabilities",
+              "value": 35783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.9695,
+          "durationMs": 1287
+        },
+        "expectedEvaluation": {
+          "statementPageAccuracy": 1,
+          "unitScaleAccuracy": 1,
+          "factAccuracy": 1,
+          "publishOutcomeMatch": true,
+          "matchedIssueCodes": [],
+          "missingIssueCodes": [],
+          "mismatches": []
+        },
+        "routeReason": "live-generated-from-legacy:Local mode selected explicitly by configuration."
+      },
+      "comparison": {
+        "primaryEngine": "LEGACY",
+        "shadowEngine": "OPENDATALOADER",
+        "primaryShouldPublish": true,
+        "shadowShouldPublish": true,
+        "publishDecisionMismatch": false,
+        "classificationDifferences": [],
+        "unitScaleDifferences": [],
+        "factDifferences": [],
+        "blockingRuleDifferences": {
+          "onlyInPrimary": [],
+          "onlyInShadow": []
+        },
+        "durationMs": {
+          "primary": 11,
+          "shadow": 1287
+        },
+        "materialDisagreement": false
+      },
+      "comparisonAssessment": {
+        "classification": "no_material_disagreement",
+        "summary": "No material disagreement was detected between legacy and OpenDataLoader for this case."
+      },
+      "divergenceSummary": null
+    },
+    {
+      "caseId": "published-happy-path",
+      "name": "Legacy published happy path",
+      "fiscalYear": 2024,
+      "documentTags": [
+        "digital_note_heavy",
+        "multi_page_balance",
+        "supplementary_present",
+        "unit_scale_sensitive",
+        "continuation_complex"
+      ],
+      "mode": "expected",
+      "notes": "Uses the existing document regression fixture with statutory NOK pages, supplementary NOK 1000 sections, notes, auditor report, and board report.",
+      "status": "completed",
+      "errors": [],
+      "expected": {
+        "shouldPublish": true,
+        "classificationTypes": [
+          "COVER",
+          "STATUTORY_INCOME",
+          "STATUTORY_BALANCE",
+          "STATUTORY_BALANCE_CONTINUATION",
+          "SUPPLEMENTARY_INCOME",
+          "SUPPLEMENTARY_BALANCE",
+          "NOTE",
+          "AUDITOR_REPORT",
+          "BOARD_REPORT"
+        ],
+        "unitScaleByPage": {
+          "2": 1,
+          "3": 1,
+          "4": 1,
+          "5": 1000,
+          "6": 1000,
+          "7": 1000
+        },
+        "factValues": {
+          "revenue": 103097000,
+          "operating_profit": 21210000,
+          "net_income": 18221000,
+          "cash_and_cash_equivalents": 15558000,
+          "total_assets": 92155000,
+          "total_equity": 36372000,
+          "total_liabilities": 55783000,
+          "total_equity_and_liabilities": 92155000
+        }
+      },
+      "evidenceKind": "legacy-only",
+      "knownEvidenceLimitations": [],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "document_fixture",
+        "mode": "legacy",
+        "runtimeMs": 9,
+        "confidenceScore": 0.9695,
+        "validationScore": 1,
+        "shouldPublish": true,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "Benchmark uses in-memory legacy document fixtures only."
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 4,
+            "type": "STATUTORY_BALANCE_CONTINUATION",
+            "unitScale": 1
+          },
+          {
+            "pageNumber": 5,
+            "type": "SUPPLEMENTARY_INCOME",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 6,
+            "type": "SUPPLEMENTARY_BALANCE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 7,
+            "type": "NOTE",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 8,
+            "type": "AUDITOR_REPORT",
+            "unitScale": 1000
+          },
+          {
+            "pageNumber": 9,
+            "type": "BOARD_REPORT",
+            "unitScale": 1000
+          }
+        ],
+        "classificationDiagnostics": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "confidence": 0.353,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024
+            ],
+            "yearHeaderYears": [],
+            "heading": "Arsregnskap 2024",
+            "numericRowCount": 2,
+            "tableLike": false,
+            "reasons": [
+              "arsregnskap",
+              "organisasjonsnummer"
+            ]
+          },
+          {
+            "pageNumber": 2,
+            "type": "STATUTORY_INCOME",
+            "confidence": 0.971,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Resultatregnskap",
+            "numericRowCount": 10,
+            "tableLike": true,
+            "reasons": [
+              "resultatregnskap",
+              "driftsinntekter",
+              "driftsresultat",
+              "arsresultat",
+              "resultat for",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 3,
+            "type": "STATUTORY_BALANCE",
+            "confidence": 0.995,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Balanse",
+            "numericRowCount": 6,
+            "tableLike": true,
+            "reasons": [
+              "balanse",
+              "eiendeler",
+              "sum eiendeler",
+              "omlopsmidler",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 4,
+            "type": "STATUTORY_BALANCE_CONTINUATION",
+            "confidence": 0.794,
+            "unitScale": 1,
+            "unitScaleConfidence": 0.95,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Egenkapital og gjeld",
+            "numericRowCount": 7,
+            "tableLike": true,
+            "reasons": [
+              "egenkapital og gjeld",
+              "sum egenkapital og gjeld",
+              "sum kortsiktig gjeld",
+              "sum gjeld",
+              "Declared whole NOK on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 5,
+            "type": "SUPPLEMENTARY_INCOME",
+            "confidence": 0.794,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.985,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Resultatregnskap i sammendrag",
+            "numericRowCount": 4,
+            "tableLike": true,
+            "reasons": [
+              "resultatregnskap",
+              "driftsresultat",
+              "arsresultat",
+              "i sammendrag",
+              "Declared NOK 1000 on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 6,
+            "type": "SUPPLEMENTARY_BALANCE",
+            "confidence": 0.995,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.97,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [
+              2024,
+              2023
+            ],
+            "yearHeaderYears": [
+              2024,
+              2023
+            ],
+            "heading": "Balanse i sammendrag",
+            "numericRowCount": 4,
+            "tableLike": true,
+            "reasons": [
+              "balanse",
+              "eiendeler",
+              "egenkapital og gjeld",
+              "sum eiendeler",
+              "sum egenkapital og gjeld",
+              "sum gjeld",
+              "i sammendrag",
+              "Declared NOK 1000 on page",
+              "Detected year header",
+              "Detected statement-like table layout"
+            ]
+          },
+          {
+            "pageNumber": 7,
+            "type": "NOTE",
+            "confidence": 0.5,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.973,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Noter til regnskapet",
+            "numericRowCount": 2,
+            "tableLike": false,
+            "reasons": [
+              "noter til regnskapet",
+              "note ",
+              "Declared NOK 1000 on page"
+            ]
+          },
+          {
+            "pageNumber": 8,
+            "type": "AUDITOR_REPORT",
+            "confidence": 0.809,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.72,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Uavhengig revisors beretning",
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "uavhengig revisors beretning",
+              "grunnlag for konklusjon",
+              "opinion",
+              "Inherited unit scale 1000 from previous statement page"
+            ]
+          },
+          {
+            "pageNumber": 9,
+            "type": "BOARD_REPORT",
+            "confidence": 0.824,
+            "unitScale": 1000,
+            "unitScaleConfidence": 0.72,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": "Styrets arsberetning",
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "styrets arsberetning",
+              "arsberetning",
+              "fortsatt drift",
+              "virksomhetens art",
+              "Inherited unit scale 1000 from previous statement page"
+            ]
+          }
+        ],
+        "selectedFacts": [
+          {
+            "metricKey": "revenue",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_income",
+            "value": 103097000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "value": 81887000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "operating_profit",
+            "value": 21210000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_income",
+            "value": 500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "financial_expense",
+            "value": 1000000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_financial_items",
+            "value": -500000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "profit_before_tax",
+            "value": 20710000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tax_expense",
+            "value": 2489000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "net_income",
+            "value": 18221000,
+            "sourcePage": 2,
+            "sourceSection": "STATUTORY_INCOME",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "trade_receivables",
+            "value": 12500000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "other_receivables",
+            "value": 9200000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "value": 15558000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_assets",
+            "value": 37258000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "tangible_assets",
+            "value": 54897000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_assets",
+            "value": 92155000,
+            "sourcePage": 3,
+            "sourceSection": "STATUTORY_BALANCE",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "share_capital",
+            "value": 1000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "retained_earnings",
+            "value": 35372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity",
+            "value": 36372000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "long_term_liabilities",
+            "value": 20000000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "current_liabilities",
+            "value": 35783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_liabilities",
+            "value": 55783000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "value": 92155000,
+            "sourcePage": 4,
+            "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+            "precedence": "STATUTORY_NOK"
+          }
+        ],
+        "blockingRuleCodes": [],
+        "issueCodes": [],
+        "issueCount": 0,
+        "validationPasses": true,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "STATUTORY_INCOME",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 3,
+              "type": "STATUTORY_BALANCE",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 4,
+              "type": "STATUTORY_BALANCE_CONTINUATION",
+              "unitScale": 1
+            },
+            {
+              "pageNumber": 5,
+              "type": "SUPPLEMENTARY_INCOME",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 6,
+              "type": "SUPPLEMENTARY_BALANCE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 7,
+              "type": "NOTE",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 8,
+              "type": "AUDITOR_REPORT",
+              "unitScale": 1000
+            },
+            {
+              "pageNumber": 9,
+              "type": "BOARD_REPORT",
+              "unitScale": 1000
+            }
+          ],
+          "selectedFacts": [
+            {
+              "metricKey": "revenue",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_income",
+              "value": 103097000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_operating_expenses",
+              "value": 81887000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "operating_profit",
+              "value": 21210000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_income",
+              "value": 500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "financial_expense",
+              "value": 1000000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_financial_items",
+              "value": -500000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "profit_before_tax",
+              "value": 20710000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tax_expense",
+              "value": 2489000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "net_income",
+              "value": 18221000,
+              "sourcePage": 2,
+              "sourceSection": "STATUTORY_INCOME",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "trade_receivables",
+              "value": 12500000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "other_receivables",
+              "value": 9200000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "cash_and_cash_equivalents",
+              "value": 15558000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_assets",
+              "value": 37258000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "tangible_assets",
+              "value": 54897000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_assets",
+              "value": 92155000,
+              "sourcePage": 3,
+              "sourceSection": "STATUTORY_BALANCE",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "share_capital",
+              "value": 1000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "retained_earnings",
+              "value": 35372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity",
+              "value": 36372000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "long_term_liabilities",
+              "value": 20000000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "current_liabilities",
+              "value": 35783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_liabilities",
+              "value": 55783000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            },
+            {
+              "metricKey": "total_equity_and_liabilities",
+              "value": 92155000,
+              "sourcePage": 4,
+              "sourceSection": "STATUTORY_BALANCE_CONTINUATION",
+              "precedence": "STATUTORY_NOK"
+            }
+          ],
+          "blockingRuleCodes": [],
+          "shouldPublish": true,
+          "confidenceScore": 0.9695,
+          "durationMs": 9
         },
         "expectedEvaluation": {
           "statementPageAccuracy": 1,
@@ -2794,7 +5656,7 @@
         "engine": "LEGACY",
         "executionSource": "ocr_fixture",
         "mode": "legacy",
-        "runtimeMs": 4,
+        "runtimeMs": 6,
         "confidenceScore": 0.9695,
         "validationScore": 1,
         "shouldPublish": true,
@@ -3397,7 +6259,7 @@
           "blockingRuleCodes": [],
           "shouldPublish": true,
           "confidenceScore": 0.9695,
-          "durationMs": 4
+          "durationMs": 6
         },
         "expectedEvaluation": {
           "statementPageAccuracy": 1,
@@ -4045,7 +6907,7 @@
           "onlyInShadow": []
         },
         "durationMs": {
-          "primary": 4,
+          "primary": 6,
           "shadow": 4
         },
         "materialDisagreement": false
@@ -4107,7 +6969,7 @@
         "engine": "LEGACY",
         "executionSource": "ocr_fixture",
         "mode": "legacy",
-        "runtimeMs": 4,
+        "runtimeMs": 3,
         "confidenceScore": 0.9695,
         "validationScore": 1,
         "shouldPublish": true,
@@ -4710,7 +7572,7 @@
           "blockingRuleCodes": [],
           "shouldPublish": true,
           "confidenceScore": 0.9695,
-          "durationMs": 4
+          "durationMs": 3
         },
         "expectedEvaluation": {
           "statementPageAccuracy": 1,
@@ -4726,45 +7588,46 @@
   ],
   "runtimeEnvironment": {
     "opendataloaderPackageVersion": "2.2.1",
-    "javaVersion": "1.8.0_241",
-    "javaMajorVersion": 8,
-    "localOpenDataLoaderReady": false,
-    "localOpenDataLoaderReason": "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
-    "liveLocalBenchmarkReady": false,
-    "liveLocalBenchmarkReason": "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+    "javaVersion": "17.0.18",
+    "javaMajorVersion": 17,
+    "localOpenDataLoaderReady": true,
+    "localOpenDataLoaderReason": "Java 17.0.18 is compatible with local OpenDataLoader execution.",
+    "liveLocalBenchmarkReady": true,
+    "liveLocalBenchmarkReason": "Environment is ready for live local OpenDataLoader benchmark cases.",
     "liveHybridBenchmarkReady": false,
     "liveHybridBenchmarkReason": "OPENDATALOADER_HYBRID_URL is not configured."
   },
   "summary": {
-    "totalCases": 7,
-    "completedCases": 7,
+    "totalCases": 10,
+    "completedCases": 10,
     "failedCases": 0,
     "skippedCases": 0,
-    "differentialCases": 3,
+    "differentialCases": 6,
     "disagreementCases": 1,
     "publishDecisionMismatchCases": 0,
     "evidenceCounts": {
       "legacy-only": 4,
       "captured-fixture": 3,
-      "live-local-odl": 0,
+      "live-local-odl": 3,
       "live-hybrid-odl": 0
     },
     "documentTagCounts": {
       "scan_or_ocr": 4,
       "ocr_token_noise": 3,
       "formatting_edge": 2,
-      "manual_review_expected": 3,
+      "manual_review_expected": 4,
       "negative_numbers": 2,
       "blank_cells": 2,
-      "degraded_ambiguous": 2,
-      "digital_simple": 2,
-      "unit_scale_sensitive": 5,
-      "column_swap": 1,
-      "digital_note_heavy": 3,
+      "degraded_ambiguous": 3,
+      "digital_simple": 4,
+      "unit_scale_sensitive": 8,
+      "column_swap": 2,
+      "live_local": 3,
+      "digital_note_heavy": 5,
       "captured_fixture": 1,
-      "multi_page_balance": 3,
-      "supplementary_present": 3,
-      "continuation_complex": 3
+      "multi_page_balance": 4,
+      "supplementary_present": 4,
+      "continuation_complex": 4
     },
     "documentTagMetrics": {
       "blank_cells": {
@@ -4786,47 +7649,47 @@
         "likelyIssueCount": 0
       },
       "column_swap": {
-        "totalCases": 1,
-        "differentialCases": 0,
-        "liveOpenDataLoaderCases": 0,
-        "publishParityRate": null,
-        "materialDisagreementRate": null,
+        "totalCases": 2,
+        "differentialCases": 1,
+        "liveOpenDataLoaderCases": 1,
+        "publishParityRate": 1,
+        "materialDisagreementRate": 0,
         "knownEvidenceGapCount": 0,
         "likelyIssueCount": 0
       },
       "continuation_complex": {
-        "totalCases": 3,
-        "differentialCases": 1,
-        "liveOpenDataLoaderCases": 0,
+        "totalCases": 4,
+        "differentialCases": 2,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": 1,
         "materialDisagreementRate": 0,
         "knownEvidenceGapCount": 0,
         "likelyIssueCount": 0
       },
       "degraded_ambiguous": {
-        "totalCases": 2,
-        "differentialCases": 1,
-        "liveOpenDataLoaderCases": 0,
+        "totalCases": 3,
+        "differentialCases": 2,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": 1,
         "materialDisagreementRate": 0,
         "knownEvidenceGapCount": 0,
         "likelyIssueCount": 0
       },
       "digital_note_heavy": {
-        "totalCases": 3,
-        "differentialCases": 2,
-        "liveOpenDataLoaderCases": 0,
+        "totalCases": 5,
+        "differentialCases": 4,
+        "liveOpenDataLoaderCases": 2,
         "publishParityRate": 1,
-        "materialDisagreementRate": 0.5,
+        "materialDisagreementRate": 0.25,
         "knownEvidenceGapCount": 1,
         "likelyIssueCount": 0
       },
       "digital_simple": {
-        "totalCases": 2,
-        "differentialCases": 1,
-        "liveOpenDataLoaderCases": 0,
+        "totalCases": 4,
+        "differentialCases": 3,
+        "liveOpenDataLoaderCases": 2,
         "publishParityRate": 1,
-        "materialDisagreementRate": 1,
+        "materialDisagreementRate": 0.3333333333333333,
         "knownEvidenceGapCount": 1,
         "likelyIssueCount": 0
       },
@@ -4839,19 +7702,28 @@
         "knownEvidenceGapCount": 0,
         "likelyIssueCount": 0
       },
-      "manual_review_expected": {
+      "live_local": {
         "totalCases": 3,
-        "differentialCases": 1,
-        "liveOpenDataLoaderCases": 0,
+        "differentialCases": 3,
+        "liveOpenDataLoaderCases": 3,
+        "publishParityRate": 1,
+        "materialDisagreementRate": 0,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 0
+      },
+      "manual_review_expected": {
+        "totalCases": 4,
+        "differentialCases": 2,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": 1,
         "materialDisagreementRate": 0,
         "knownEvidenceGapCount": 0,
         "likelyIssueCount": 0
       },
       "multi_page_balance": {
-        "totalCases": 3,
-        "differentialCases": 1,
-        "liveOpenDataLoaderCases": 0,
+        "totalCases": 4,
+        "differentialCases": 2,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": 1,
         "materialDisagreementRate": 0,
         "knownEvidenceGapCount": 0,
@@ -4885,20 +7757,20 @@
         "likelyIssueCount": 0
       },
       "supplementary_present": {
-        "totalCases": 3,
-        "differentialCases": 1,
-        "liveOpenDataLoaderCases": 0,
+        "totalCases": 4,
+        "differentialCases": 2,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": 1,
         "materialDisagreementRate": 0,
         "knownEvidenceGapCount": 0,
         "likelyIssueCount": 0
       },
       "unit_scale_sensitive": {
-        "totalCases": 5,
-        "differentialCases": 2,
-        "liveOpenDataLoaderCases": 0,
+        "totalCases": 8,
+        "differentialCases": 5,
+        "liveOpenDataLoaderCases": 3,
         "publishParityRate": 1,
-        "materialDisagreementRate": 0.5,
+        "materialDisagreementRate": 0.2,
         "knownEvidenceGapCount": 1,
         "likelyIssueCount": 0
       }
@@ -4969,76 +7841,12 @@
         "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
       },
       "column_swap": {
-        "differentialCases": 0,
-        "liveCases": 0,
+        "differentialCases": 1,
+        "liveCases": 1,
         "evidenceCounts": {
           "legacy-only": 0,
           "captured-fixture": 0,
-          "live-local-odl": 0,
-          "live-hybrid-odl": 0
-        },
-        "publishDecisionMismatchCases": 0,
-        "materialDisagreementCases": 0,
-        "usablePageStructureCases": 0,
-        "manualReviewSafetyCases": 0,
-        "comparisonAssessmentCounts": {
-          "no_material_disagreement": 0,
-          "known_evidence_gap": 0,
-          "likely_code_or_logic_issue": 0
-        },
-        "firstDivergenceStageCounts": {
-          "none": 0,
-          "page_classification": 0,
-          "note_selection": 0,
-          "unit_scale": 0,
-          "table_reconstruction": 0,
-          "canonical_mapping": 0,
-          "validation": 0,
-          "publish_gate": 0
-        },
-        "openDataLoaderBlockingReasonCounts": {},
-        "status": "no_differential_evidence",
-        "statusReason": "Ingen differential/shadow-caser finnes for denne dokumentklassen ennå."
-      },
-      "continuation_complex": {
-        "differentialCases": 1,
-        "liveCases": 0,
-        "evidenceCounts": {
-          "legacy-only": 0,
-          "captured-fixture": 1,
-          "live-local-odl": 0,
-          "live-hybrid-odl": 0
-        },
-        "publishDecisionMismatchCases": 0,
-        "materialDisagreementCases": 0,
-        "usablePageStructureCases": 1,
-        "manualReviewSafetyCases": 0,
-        "comparisonAssessmentCounts": {
-          "no_material_disagreement": 1,
-          "known_evidence_gap": 0,
-          "likely_code_or_logic_issue": 0
-        },
-        "firstDivergenceStageCounts": {
-          "none": 1,
-          "page_classification": 0,
-          "note_selection": 0,
-          "unit_scale": 0,
-          "table_reconstruction": 0,
-          "canonical_mapping": 0,
-          "validation": 0,
-          "publish_gate": 0
-        },
-        "openDataLoaderBlockingReasonCounts": {},
-        "status": "fixture_only",
-        "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
-      },
-      "degraded_ambiguous": {
-        "differentialCases": 1,
-        "liveCases": 0,
-        "evidenceCounts": {
-          "legacy-only": 0,
-          "captured-fixture": 1,
-          "live-local-odl": 0,
+          "live-local-odl": 1,
           "live-hybrid-odl": 0
         },
         "publishDecisionMismatchCases": 0,
@@ -5061,61 +7869,93 @@
           "publish_gate": 0
         },
         "openDataLoaderBlockingReasonCounts": {},
-        "status": "fixture_only",
-        "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
+        "status": "live_parity_insufficient_sample",
+        "statusReason": "Live ODL-casene matcher foreløpig, men antallet er for lavt til å regne klassen som robust."
       },
-      "digital_note_heavy": {
+      "continuation_complex": {
         "differentialCases": 2,
-        "liveCases": 0,
-        "evidenceCounts": {
-          "legacy-only": 0,
-          "captured-fixture": 2,
-          "live-local-odl": 0,
-          "live-hybrid-odl": 0
-        },
-        "publishDecisionMismatchCases": 0,
-        "materialDisagreementCases": 1,
-        "usablePageStructureCases": 2,
-        "manualReviewSafetyCases": 0,
-        "comparisonAssessmentCounts": {
-          "no_material_disagreement": 1,
-          "known_evidence_gap": 1,
-          "likely_code_or_logic_issue": 0
-        },
-        "firstDivergenceStageCounts": {
-          "none": 1,
-          "page_classification": 0,
-          "note_selection": 0,
-          "unit_scale": 1,
-          "table_reconstruction": 0,
-          "canonical_mapping": 0,
-          "validation": 0,
-          "publish_gate": 0
-        },
-        "openDataLoaderBlockingReasonCounts": {},
-        "status": "fixture_only",
-        "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
-      },
-      "digital_simple": {
-        "differentialCases": 1,
-        "liveCases": 0,
+        "liveCases": 1,
         "evidenceCounts": {
           "legacy-only": 0,
           "captured-fixture": 1,
-          "live-local-odl": 0,
+          "live-local-odl": 1,
+          "live-hybrid-odl": 0
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 0,
+        "usablePageStructureCases": 2,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 2,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 0
+        },
+        "firstDivergenceStageCounts": {
+          "none": 2,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {},
+        "status": "live_parity_insufficient_sample",
+        "statusReason": "Live ODL-casene matcher foreløpig, men antallet er for lavt til å regne klassen som robust."
+      },
+      "degraded_ambiguous": {
+        "differentialCases": 2,
+        "liveCases": 1,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 1,
+          "live-local-odl": 1,
+          "live-hybrid-odl": 0
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 0,
+        "usablePageStructureCases": 2,
+        "manualReviewSafetyCases": 2,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 2,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 0
+        },
+        "firstDivergenceStageCounts": {
+          "none": 2,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {},
+        "status": "live_parity_insufficient_sample",
+        "statusReason": "Live ODL-casene matcher foreløpig, men antallet er for lavt til å regne klassen som robust."
+      },
+      "digital_note_heavy": {
+        "differentialCases": 4,
+        "liveCases": 2,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 2,
+          "live-local-odl": 2,
           "live-hybrid-odl": 0
         },
         "publishDecisionMismatchCases": 0,
         "materialDisagreementCases": 1,
-        "usablePageStructureCases": 1,
+        "usablePageStructureCases": 4,
         "manualReviewSafetyCases": 0,
         "comparisonAssessmentCounts": {
-          "no_material_disagreement": 0,
+          "no_material_disagreement": 3,
           "known_evidence_gap": 1,
           "likely_code_or_logic_issue": 0
         },
         "firstDivergenceStageCounts": {
-          "none": 0,
+          "none": 3,
           "page_classification": 0,
           "note_selection": 0,
           "unit_scale": 1,
@@ -5125,8 +7965,40 @@
           "publish_gate": 0
         },
         "openDataLoaderBlockingReasonCounts": {},
-        "status": "fixture_only",
-        "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
+        "status": "live_parity_insufficient_sample",
+        "statusReason": "Live ODL-casene matcher foreløpig, men antallet er for lavt til å regne klassen som robust."
+      },
+      "digital_simple": {
+        "differentialCases": 3,
+        "liveCases": 2,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 1,
+          "live-local-odl": 2,
+          "live-hybrid-odl": 0
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 1,
+        "usablePageStructureCases": 3,
+        "manualReviewSafetyCases": 1,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 2,
+          "known_evidence_gap": 1,
+          "likely_code_or_logic_issue": 0
+        },
+        "firstDivergenceStageCounts": {
+          "none": 2,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 1,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {},
+        "status": "live_parity_insufficient_sample",
+        "statusReason": "Live ODL-casene matcher foreløpig, men antallet er for lavt til å regne klassen som robust."
       },
       "formatting_edge": {
         "differentialCases": 1,
@@ -5160,26 +8032,26 @@
         "status": "fixture_only",
         "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
       },
-      "manual_review_expected": {
-        "differentialCases": 1,
-        "liveCases": 0,
+      "live_local": {
+        "differentialCases": 3,
+        "liveCases": 3,
         "evidenceCounts": {
           "legacy-only": 0,
-          "captured-fixture": 1,
-          "live-local-odl": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 3,
           "live-hybrid-odl": 0
         },
         "publishDecisionMismatchCases": 0,
         "materialDisagreementCases": 0,
-        "usablePageStructureCases": 1,
+        "usablePageStructureCases": 3,
         "manualReviewSafetyCases": 1,
         "comparisonAssessmentCounts": {
-          "no_material_disagreement": 1,
+          "no_material_disagreement": 3,
           "known_evidence_gap": 0,
           "likely_code_or_logic_issue": 0
         },
         "firstDivergenceStageCounts": {
-          "none": 1,
+          "none": 3,
           "page_classification": 0,
           "note_selection": 0,
           "unit_scale": 0,
@@ -5189,29 +8061,29 @@
           "publish_gate": 0
         },
         "openDataLoaderBlockingReasonCounts": {},
-        "status": "fixture_only",
-        "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
+        "status": "live_parity_emerging",
+        "statusReason": "Flere live ODL-caser i denne dokumentklassen viser foreløpig parity uten safety-mismatch, men evidensen er fortsatt for smal til rollout-endring."
       },
-      "multi_page_balance": {
-        "differentialCases": 1,
-        "liveCases": 0,
+      "manual_review_expected": {
+        "differentialCases": 2,
+        "liveCases": 1,
         "evidenceCounts": {
           "legacy-only": 0,
           "captured-fixture": 1,
-          "live-local-odl": 0,
+          "live-local-odl": 1,
           "live-hybrid-odl": 0
         },
         "publishDecisionMismatchCases": 0,
         "materialDisagreementCases": 0,
-        "usablePageStructureCases": 1,
-        "manualReviewSafetyCases": 0,
+        "usablePageStructureCases": 2,
+        "manualReviewSafetyCases": 2,
         "comparisonAssessmentCounts": {
-          "no_material_disagreement": 1,
+          "no_material_disagreement": 2,
           "known_evidence_gap": 0,
           "likely_code_or_logic_issue": 0
         },
         "firstDivergenceStageCounts": {
-          "none": 1,
+          "none": 2,
           "page_classification": 0,
           "note_selection": 0,
           "unit_scale": 0,
@@ -5221,8 +8093,40 @@
           "publish_gate": 0
         },
         "openDataLoaderBlockingReasonCounts": {},
-        "status": "fixture_only",
-        "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
+        "status": "live_parity_insufficient_sample",
+        "statusReason": "Live ODL-casene matcher foreløpig, men antallet er for lavt til å regne klassen som robust."
+      },
+      "multi_page_balance": {
+        "differentialCases": 2,
+        "liveCases": 1,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 1,
+          "live-local-odl": 1,
+          "live-hybrid-odl": 0
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 0,
+        "usablePageStructureCases": 2,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 2,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 0
+        },
+        "firstDivergenceStageCounts": {
+          "none": 2,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {},
+        "status": "live_parity_insufficient_sample",
+        "statusReason": "Live ODL-casene matcher foreløpig, men antallet er for lavt til å regne klassen som robust."
       },
       "negative_numbers": {
         "differentialCases": 1,
@@ -5321,25 +8225,25 @@
         "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
       },
       "supplementary_present": {
-        "differentialCases": 1,
-        "liveCases": 0,
+        "differentialCases": 2,
+        "liveCases": 1,
         "evidenceCounts": {
           "legacy-only": 0,
           "captured-fixture": 1,
-          "live-local-odl": 0,
+          "live-local-odl": 1,
           "live-hybrid-odl": 0
         },
         "publishDecisionMismatchCases": 0,
         "materialDisagreementCases": 0,
-        "usablePageStructureCases": 1,
+        "usablePageStructureCases": 2,
         "manualReviewSafetyCases": 0,
         "comparisonAssessmentCounts": {
-          "no_material_disagreement": 1,
+          "no_material_disagreement": 2,
           "known_evidence_gap": 0,
           "likely_code_or_logic_issue": 0
         },
         "firstDivergenceStageCounts": {
-          "none": 1,
+          "none": 2,
           "page_classification": 0,
           "note_selection": 0,
           "unit_scale": 0,
@@ -5349,29 +8253,29 @@
           "publish_gate": 0
         },
         "openDataLoaderBlockingReasonCounts": {},
-        "status": "fixture_only",
-        "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
+        "status": "live_parity_insufficient_sample",
+        "statusReason": "Live ODL-casene matcher foreløpig, men antallet er for lavt til å regne klassen som robust."
       },
       "unit_scale_sensitive": {
-        "differentialCases": 2,
-        "liveCases": 0,
+        "differentialCases": 5,
+        "liveCases": 3,
         "evidenceCounts": {
           "legacy-only": 0,
           "captured-fixture": 2,
-          "live-local-odl": 0,
+          "live-local-odl": 3,
           "live-hybrid-odl": 0
         },
         "publishDecisionMismatchCases": 0,
         "materialDisagreementCases": 1,
-        "usablePageStructureCases": 2,
-        "manualReviewSafetyCases": 0,
+        "usablePageStructureCases": 5,
+        "manualReviewSafetyCases": 1,
         "comparisonAssessmentCounts": {
-          "no_material_disagreement": 1,
+          "no_material_disagreement": 4,
           "known_evidence_gap": 1,
           "likely_code_or_logic_issue": 0
         },
         "firstDivergenceStageCounts": {
-          "none": 1,
+          "none": 4,
           "page_classification": 0,
           "note_selection": 0,
           "unit_scale": 1,
@@ -5381,17 +8285,17 @@
           "publish_gate": 0
         },
         "openDataLoaderBlockingReasonCounts": {},
-        "status": "fixture_only",
-        "statusReason": "Dokumentklassen har bare fixture-/captured-baserte shadow-caser og mangler live ODL-evidens."
+        "status": "live_parity_emerging",
+        "statusReason": "Flere live ODL-caser i denne dokumentklassen viser foreløpig parity uten safety-mismatch, men evidensen er fortsatt for smal til rollout-endring."
       }
     },
     "comparisonAssessmentCounts": {
-      "no_material_disagreement": 2,
+      "no_material_disagreement": 5,
       "known_evidence_gap": 1,
       "likely_code_or_logic_issue": 0
     },
     "divergenceStageCounts": {
-      "none": 2,
+      "none": 5,
       "page_classification": 0,
       "note_selection": 0,
       "unit_scale": 1,
@@ -5410,13 +8314,13 @@
       },
       "captured-fixture": {
         "caseCount": 3,
-        "averageOpenDataLoaderMs": 3.6666666666666665,
+        "averageOpenDataLoaderMs": 3,
         "medianOpenDataLoaderMs": 4
       },
       "live-local-odl": {
-        "caseCount": 0,
-        "averageOpenDataLoaderMs": null,
-        "medianOpenDataLoaderMs": null
+        "caseCount": 3,
+        "averageOpenDataLoaderMs": 1200,
+        "medianOpenDataLoaderMs": 1252
       },
       "live-hybrid-odl": {
         "caseCount": 0,
@@ -5425,24 +8329,24 @@
       }
     },
     "averageRuntimeMs": {
-      "legacy": 60.42857142857143,
-      "opendataloader": 3.6666666666666665
+      "legacy": 44.2,
+      "opendataloader": 601.5
     },
     "medianRuntimeMs": {
       "legacy": 6,
-      "opendataloader": 4
+      "opendataloader": 532.5
     },
     "expectedMetrics": {
       "legacy": {
-        "evaluatedCases": 7,
+        "evaluatedCases": 10,
         "averageStatementPageAccuracy": 1,
         "averageUnitScaleAccuracy": 1,
         "averageFactAccuracy": 1,
         "publishOutcomeMatchRate": 1,
-        "validationPassRate": 0.5714285714285714
+        "validationPassRate": 0.6
       },
       "opendataloader": {
-        "evaluatedCases": 3,
+        "evaluatedCases": 6,
         "averageStatementPageAccuracy": 1,
         "averageUnitScaleAccuracy": 1,
         "averageFactAccuracy": 1,
@@ -5451,6 +8355,6 @@
       }
     },
     "recommendation": "keep legacy as default, OpenDataLoader shadow-only",
-    "recommendationReason": "Repoet har ikke bekreftet lokal OpenDataLoader-runtime i dette miljoet. Java 11+ er ikke klart, sa rollout bor ikke skje utover fixture/shadow-evaluering."
+    "recommendationReason": "Live benchmark-kjøringene er rene, og gjenværende uenigheter er forklart av captured-fixture-begrensninger. Evidensgrunnlaget er fortsatt for smalt til å endre rollout-postur, så OpenDataLoader forblir shadow-only."
   }
 }

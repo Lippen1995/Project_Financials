@@ -918,6 +918,103 @@ export async function listAnnualReportFilingsForReprocessing(options?: {
   });
 }
 
+export async function listAnnualReportFilingsForShadowSelection(options?: {
+  filingIds?: string[];
+  orgNumbers?: string[];
+  statuses?: AnnualReportFilingStatus[];
+  fiscalYearFrom?: number;
+  fiscalYearTo?: number;
+  reviewStatuses?: AnnualReportReviewStatus[];
+  ruleCodes?: string[];
+  onlyLatest?: boolean;
+  requirePdfArtifact?: boolean;
+  limit?: number;
+}) {
+  return prisma.annualReportFiling.findMany({
+    where: {
+      ...(options?.filingIds?.length ? { id: { in: options.filingIds } } : {}),
+      ...(options?.orgNumbers?.length
+        ? {
+            company: {
+              orgNumber: {
+                in: options.orgNumbers,
+              },
+            },
+          }
+        : {}),
+      ...(options?.statuses?.length
+        ? {
+            status: {
+              in: options.statuses,
+            },
+          }
+        : {}),
+      ...(options?.fiscalYearFrom !== undefined || options?.fiscalYearTo !== undefined
+        ? {
+            fiscalYear: {
+              ...(options?.fiscalYearFrom !== undefined ? { gte: options.fiscalYearFrom } : {}),
+              ...(options?.fiscalYearTo !== undefined ? { lte: options.fiscalYearTo } : {}),
+            },
+          }
+        : {}),
+      ...(options?.onlyLatest ? { isLatestForFiscalYear: true } : {}),
+      ...(options?.reviewStatuses?.length || options?.ruleCodes?.length
+        ? {
+            reviews: {
+              some: {
+                ...(options?.reviewStatuses?.length
+                  ? {
+                      status: {
+                        in: options.reviewStatuses,
+                      },
+                    }
+                  : {}),
+                ...(options?.ruleCodes?.length
+                  ? {
+                      blockingRuleCodes: {
+                        hasSome: options.ruleCodes,
+                      },
+                    }
+                  : {}),
+              },
+            },
+          }
+        : {}),
+      ...(options?.requirePdfArtifact
+        ? {
+            artifacts: {
+              some: {
+                artifactType: "PDF",
+              },
+            },
+          }
+        : {}),
+    },
+    include: {
+      company: {
+        select: {
+          id: true,
+          orgNumber: true,
+          name: true,
+        },
+      },
+      artifacts: {
+        orderBy: { createdAt: "desc" },
+      },
+      extractionRuns: {
+        orderBy: { startedAt: "desc" },
+        take: 5,
+      },
+      reviews: {
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+      },
+    },
+    orderBy: [{ fiscalYear: "desc" }, { discoveredAt: "desc" }],
+    take: options?.limit,
+  });
+}
+
 export async function listAnnualReportReviews(options?: {
   statuses?: AnnualReportReviewStatus[];
   ruleCodes?: string[];

@@ -404,6 +404,8 @@ Benchmarkoppsummeringen skiller nå eksplisitt mellom:
 - `live-local-odl`: ODL-resultatet kommer fra en reell lokal Java 11+-kjøring
 - `live-hybrid-odl`: ODL-resultatet kommer fra en reell hybrid-backend-kjøring
 
+For OCR/degraderte benchmark-caser finnes det i tillegg captured stand-ins der ODL-siden bruker repoets OCR-regression-fixture som lavere-kvalitets shadow-evidens. Disse teller som `captured-fixture`, ikke som live OCR-validering.
+
 Dette er viktig fordi dagens sterkeste ODL-evidens fortsatt hovedsakelig er fixture-/captured-basert. Rollout-beslutninger skal derfor vektes etter evidenskvalitet, ikke bare antall grønne benchmark-caser.
 
 Benchmarken støtter to praktiske moduser:
@@ -424,6 +426,7 @@ Den rapporterer blant annet:
 - dokumentklasse-/tagg-metrikker, for eksempel `digital_simple`, `digital_note_heavy`, `multi_page_balance`, `supplementary_present`, `unit_scale_sensitive`, `scan_or_ocr`, `formatting_edge` og `manual_review_expected`
 - første divergenssteg når ODL og legacy avviker, for eksempel `page_classification`, `unit_scale`, `table_reconstruction`, `canonical_mapping`, `validation` eller `publish_gate`
 - ODL-only blocking reasons og manglende canonical facts aggregert på tvers av benchmark-caser
+- shadow coverage per dokumentklasse, inkludert `fixture_only`, `live_parity_insufficient_sample`, `live_parity_emerging` og `live_weakness_observed`
 
 I dagens repo er benchmarken fullt kjørbar med fixture-/captured-artifact mode. Live lokal OpenDataLoader-benchmark krever fortsatt Java 11+ i runtime-miljøet.
 
@@ -456,6 +459,65 @@ Konservativ beslutningsramme:
 - Direkte default/promotering er ikke aktuelt før både digitale, note-tunge, multi-page, unit-scale-sensitive og scan/OCR-lignende dokumentklasser har bred live-evidens.
 - Disqualifying disagreements er blant annet ODL-publisering når legacy/manual-review forventer blokkering, manglende balance tie, 1000x unit-scale-feil, swapped year columns, ukjent statement source precedence eller canonical facts som avviker uten forklaring.
 - Captured-fixture gaps kan aksepteres midlertidig for regresjon, men teller ikke som sterk rollout-evidens uten tilsvarende live ODL-kjøring.
+- `fixture_only` betyr at dokumentklassen fortsatt bare har captured/fixture-basert shadow-evidens.
+- `live_parity_insufficient_sample` betyr at live ODL forelopig matcher, men at antallet live-caser fortsatt er for lavt.
+- `live_parity_emerging` betyr at flere live-caser matcher uten safety-mismatch, men fortsatt ikke er nok til rollout-endring.
+
+### Real-filing shadow batch
+
+For bredere evidensinnsamling finnes det nå en egen shadow-batch flyt for reelle filings som allerede er lagret i `AnnualReportFiling` + `AnnualReportArtifact`.
+
+Denne flyten:
+
+- velger et begrenset utvalg reelle filings for evaluering
+- kjører legacy og OpenDataLoader side om side uten å endre publish safety
+- skriver JSON + Markdown-oppsummering under `output/benchmarks/annual-report-shadow-batches/`
+- gjør det tydelig hvilke dokumentklasser som fortsatt mangler live evidens, særlig `scan_or_ocr` og andre degraderte klasser
+
+Forutsetning:
+
+- databasen må ha annual-report ingestion-tabellene (`AnnualReportFiling`, `AnnualReportArtifact`, osv.) tilgjengelig
+
+Velg en batch:
+
+```bash
+npm run financials:select-shadow-batch -- --limit=12 --tags=scan_or_ocr,degraded_ambiguous
+```
+
+Kjør batchen:
+
+```bash
+npm run financials:run-shadow-batch -- --manifest=output/benchmarks/annual-report-shadow-batches/selected-manifest.json
+```
+
+Oppsummer siste kjøring:
+
+```bash
+npm run financials:summarize-shadow-batch
+```
+
+Nyttige seleksjonsflagg for batch-manifestet:
+
+- `--org-numbers=...`
+- `--filing-ids=...`
+- `--statuses=DOWNLOADED,MANUAL_REVIEW,...`
+- `--review-statuses=PENDING_REVIEW,...`
+- `--rule-codes=UNIT_SCALE_UNCERTAIN,SUSPICIOUS_COLUMN_SWAP,...`
+- `--fiscal-year-from=2021 --fiscal-year-to=2024`
+- `--tags=scan_or_ocr,continuation_complex,manual_review_expected`
+
+Shadow-batch-oppsummeringen rapporterer blant annet:
+
+- hvor mange reelle filings som faktisk ble evaluert
+- evidenskvalitet per case (`real-filing-live-local`, `real-filing-live-hybrid`, `runtime-unavailable`, `missing-pdf-artifact`)
+- parity og divergenser per dokumentklasse
+- ODL-only blocking reasons per klasse
+- usable page-structure rate per klasse
+- MANUAL_REVIEW safety-rate per klasse
+- hvilke dokumentklasser som fortsatt har `zero live evidence`
+
+Dette er bevisst et operator-/analyseverktøy, ikke en rollout-mekanisme. Anbefalingen skal fortsatt forbli konservativ: legacy er default, og OpenDataLoader forblir shadow-only til live evidens er langt bredere, særlig for OCR/scannede/degraderte årsrapporter.
+- `live_weakness_observed` betyr at minst en live-case i klassen fortsatt har materiell uenighet eller publish-mismatch og derfor diskvalifiserer fallback-vurdering.
 
 ### Hva blokkerer auto-publisering
 
