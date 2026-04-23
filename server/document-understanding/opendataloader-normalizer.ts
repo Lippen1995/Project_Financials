@@ -20,6 +20,7 @@ import {
   NormalizedDocumentBlock,
   OpenDataLoaderBoundingBox,
   OpenDataLoaderExecutionMode,
+  OpenDataLoaderRawOutputSummary,
   OpenDataLoaderRawElement,
 } from "@/server/document-understanding/opendataloader-types";
 
@@ -133,21 +134,238 @@ function extractPageNumber(element: OpenDataLoaderRawElement) {
   return pageNumber && pageNumber > 0 ? pageNumber : null;
 }
 
-function extractElements(payload: unknown) {
+function topLevelTypeOf(payload: unknown): OpenDataLoaderRawOutputSummary["topLevelType"] {
   if (Array.isArray(payload)) {
-    return payload as OpenDataLoaderRawElement[];
+    return "array";
   }
 
   if (payload && typeof payload === "object") {
-    const record = payload as Record<string, unknown>;
-    for (const key of ["elements", "items", "blocks", "data"]) {
-      if (Array.isArray(record[key])) {
-        return record[key] as OpenDataLoaderRawElement[];
-      }
-    }
+    return "object";
   }
 
-  return [];
+  if (payload === null || payload === undefined) {
+    return "null";
+  }
+
+  return "other";
+}
+
+function readContainerPageNumber(value: Record<string, unknown>) {
+  const pageNumber =
+    readNumber(value["page number"]) ??
+    readNumber(value.pageNumber) ??
+    readNumber(value.page) ??
+    readNumber(value.number) ??
+    readNumber(value.index);
+
+  return pageNumber && pageNumber > 0 ? pageNumber : null;
+}
+
+function isRawElementLike(value: unknown): value is OpenDataLoaderRawElement {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.type === "string" && record.type.trim().length > 0) {
+    return true;
+  }
+
+  const pageNumber =
+    readNumber(record["page number"]) ??
+    readNumber(record.pageNumber) ??
+    readNumber(record.page);
+  const hasTextSignal =
+    typeof record.content === "string" ||
+    typeof record.markdown === "string" ||
+    typeof record.description === "string" ||
+    typeof record.caption === "string" ||
+    Array.isArray(record.rows) ||
+    Array.isArray(record.cells);
+
+  return Boolean(pageNumber && pageNumber > 0 && hasTextSignal);
+}
+
+function withInheritedPageNumber(
+  element: OpenDataLoaderRawElement,
+  inheritedPageNumber: number | null,
+) {
+  if (!inheritedPageNumber || extractPageNumber(element)) {
+    return element;
+  }
+
+  return {
+    ...element,
+    "page number": inheritedPageNumber,
+  };
+}
+
+const KNOWN_ELEMENT_CONTAINER_KEYS = [
+  "elements",
+  "items",
+  "blocks",
+  "data",
+  "children",
+  "kids",
+  "content",
+] as const;
+
+function collectElementsFromPayload(input: {
+  payload: unknown;
+  path?: string;
+  inheritedPageNumber?: number | null;
+  containerPaths?: Set<string>;
+}): OpenDataLoaderRawElement[] {
+  const path = input.path ?? "$";
+  const inheritedPageNumber = input.inheritedPageNumber ?? null;
+  const containerPaths = input.containerPaths ?? new Set<string>();
+
+  if (Array.isArray(input.payload)) {
+    const directElements = input.payload.filter(isRawElementLike);
+    if (directElements.length === input.payload.length && directElements.length > 0) {
+      containerPaths.add(path);
+      return directElements.map((element) =>
+        withInheritedPageNumber(element, inheritedPageNumber),
+      );
+    }
+
+    return input.payload.flatMap((item, index) =>
+      collectElementsFromPayload({
+        payload: item,
+        path: `${path}[${index}]`,
+        inheritedPageNumber,
+        containerPaths,
+      }),
+    );
+  }
+
+  if (!input.payload || typeof input.payload !== "object") {
+    return [];
+  }
+
+  const record = input.payload as Record<string, unknown>;
+  if (isRawElementLike(record)) {
+    return [withInheritedPageNumber(record, inheritedPageNumber)];
+  }
+
+  const pageNumber = readContainerPageNumber(record) ?? inheritedPageNumber;
+  const elements: OpenDataLoaderRawElement[] = [];
+
+  const pages = record.pages;
+  if (Array.isArray(pages)) {
+    pages.forEach((page, index) => {
+      const pageRecord = page && typeof page === "object" && !Array.isArray(page)
+        ? (page as Record<string, unknown>)
+        : null;
+      elements.push(
+        ...collectElementsFromPayload({
+          payload: page,
+          path: `${path}.pages[${index}]`,
+          inheritedPageNumber: pageRecord
+            ? readContainerPageNumber(pageRecord) ?? index + 1
+            : index + 1,
+          containerPaths,
+        }),
+      );
+    });
+  } else if (pages && typeof pages === "object") {
+    Object.entries(pages as Record<string, unknown>).forEach(([key, value]) => {
+      const numericKey = Number(key);
+      elements.push(
+        ...collectElementsFromPayload({
+          payload: value,
+          path: `${path}.pages.${key}`,
+          inheritedPageNumber: Number.isFinite(numericKey) && numericKey > 0
+            ? numericKey
+            : pageNumber,
+          containerPaths,
+        }),
+      );
+    });
+  }
+
+  for (const key of KNOWN_ELEMENT_CONTAINER_KEYS) {
+    if (key === "content" && typeof record[key] === "string") {
+      continue;
+    }
+
+    const value = record[key];
+    if (!Array.isArray(value)) {
+      continue;
+    }
+
+    elements.push(
+      ...collectElementsFromPayload({
+        payload: value,
+        path: `${path}.${key}`,
+        inheritedPageNumber: pageNumber,
+        containerPaths,
+      }),
+    );
+  }
+
+  return elements;
+}
+
+function extractElementsWithContainerPaths(payload: unknown) {
+  const containerPaths = new Set<string>();
+  const elements = collectElementsFromPayload({
+    payload,
+    containerPaths,
+  });
+
+  return {
+    elements,
+    containerPaths: Array.from(containerPaths).sort(),
+  };
+}
+
+function extractElements(payload: unknown) {
+  return extractElementsWithContainerPaths(payload).elements;
+}
+
+export function summarizeOpenDataLoaderRawPayload(
+  payload: unknown,
+): OpenDataLoaderRawOutputSummary {
+  const topLevelType = topLevelTypeOf(payload);
+  const topLevelKeys =
+    payload && typeof payload === "object" && !Array.isArray(payload)
+      ? Object.keys(payload as Record<string, unknown>).sort()
+      : [];
+  const { elements, containerPaths } = extractElementsWithContainerPaths(payload);
+  const pageNumbers = Array.from(
+    new Set(
+      elements
+        .map((element) => extractPageNumber(element))
+        .filter((pageNumber): pageNumber is number => pageNumber !== null),
+    ),
+  ).sort((left, right) => left - right);
+  const tableCount = elements.filter((element) =>
+    typeof element.type === "string" && element.type.trim().toLowerCase() === "table",
+  ).length;
+  const textElementCount = elements.filter((element) => extractElementText(element).length > 0).length;
+  const sampleElement = elements[0] && typeof elements[0] === "object"
+    ? (elements[0] as Record<string, unknown>)
+    : null;
+
+  return {
+    topLevelType,
+    topLevelKeys,
+    elementCount: elements.length,
+    pageCount: pageNumbers.length,
+    tableCount,
+    textElementCount,
+    elementContainerPaths: containerPaths,
+    pageNumbers,
+    sampleElementKeys: sampleElement ? Object.keys(sampleElement).sort().slice(0, 20) : [],
+    sampleElementTypes: Array.from(
+      new Set(
+        elements
+          .map((element) => typeof element.type === "string" ? element.type : null)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ).slice(0, 20),
+  };
 }
 
 function detectCellRole(text: string, rowIndex: number, numericValue: number | null) {

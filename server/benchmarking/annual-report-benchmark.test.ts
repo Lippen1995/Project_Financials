@@ -48,6 +48,7 @@ describe("annual-report-benchmark", () => {
           caseId: "case-1",
           name: "Case 1",
           fiscalYear: 2024,
+          documentTags: ["digital_simple"],
           mode: "expected_and_differential",
           status: "completed",
           errors: [],
@@ -171,6 +172,12 @@ describe("annual-report-benchmark", () => {
         javaVersion: "1.8.0_241",
         javaMajorVersion: 8,
         localOpenDataLoaderReady: false,
+        localOpenDataLoaderReason: "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+        liveLocalBenchmarkReady: false,
+        liveLocalBenchmarkReason:
+          "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
       },
       cases: [],
       summary,
@@ -179,6 +186,10 @@ describe("annual-report-benchmark", () => {
     expect(summary.recommendation).toContain("shadow-only");
     expect(markdown).toContain("Annual-report benchmark");
     expect(markdown).toContain("Evidence");
+    expect(markdown).toContain("Document Classes");
+    expect(summary.documentTagCounts.digital_simple).toBe(1);
+    expect(summary.comparisonAssessmentCounts.no_material_disagreement).toBe(1);
+    expect(summary.divergenceStageCounts.none).toBe(1);
     expect(markdown).toContain("shadow-only");
   });
 
@@ -224,5 +235,130 @@ describe("annual-report-benchmark", () => {
     expect(result.status).toBe("skipped");
     expect(result.errors[0]).toContain("Live local benchmark is not ready");
     expect(result.evidenceKind).toBe("legacy-only");
+  });
+
+  it("keeps OpenDataLoader shadow-only even when the small live benchmark is clean", () => {
+    const summary = summarizeAnnualReportBenchmarkRun({
+      runtimeEnvironment: {
+        opendataloaderPackageVersion: "2.2.1",
+        javaVersion: "17.0.18",
+        javaMajorVersion: 17,
+        localOpenDataLoaderReady: true,
+        localOpenDataLoaderReason:
+          "Java 17.0.18 is compatible with local OpenDataLoader execution.",
+        liveLocalBenchmarkReady: true,
+        liveLocalBenchmarkReason:
+          "Environment is ready for live local OpenDataLoader benchmark cases.",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+      },
+      cases: [
+        {
+          caseId: "live-clean",
+          name: "Live clean",
+          fiscalYear: 2024,
+          documentTags: ["digital_simple", "live_local"],
+          mode: "expected_and_differential",
+          status: "completed",
+          errors: [],
+          evidenceKind: "live-local-odl",
+          knownEvidenceLimitations: [],
+          legacy: {
+            engine: "LEGACY",
+            executionSource: "document_fixture",
+            mode: "legacy",
+            runtimeMs: 20,
+            confidenceScore: 0.95,
+            validationScore: 1,
+            shouldPublish: true,
+            artifactGeneration: {
+              attempted: false,
+              success: null,
+              artifactKinds: [],
+              detail: "fixture",
+            },
+            classifications: [],
+            selectedFacts: [],
+            blockingRuleCodes: [],
+            issueCodes: [],
+            issueCount: 0,
+            validationPasses: true,
+            evidenceKind: "legacy-only",
+            snapshot: {
+              engine: "LEGACY",
+              mode: "legacy",
+              classifications: [],
+              selectedFacts: [],
+              blockingRuleCodes: [],
+              shouldPublish: true,
+              confidenceScore: 0.95,
+              durationMs: 20,
+            },
+          },
+          openDataLoader: {
+            engine: "OPENDATALOADER",
+            executionSource: "live_pdf",
+            mode: "local",
+            runtimeMs: 1000,
+            confidenceScore: 0.95,
+            validationScore: 1,
+            shouldPublish: true,
+            artifactGeneration: {
+              attempted: true,
+              success: true,
+              artifactKinds: ["DOCUMENT_JSON", "DOCUMENT_MARKDOWN"],
+              detail: "live",
+            },
+            classifications: [],
+            selectedFacts: [],
+            blockingRuleCodes: [],
+            issueCodes: [],
+            issueCount: 0,
+            validationPasses: true,
+            evidenceKind: "live-local-odl",
+            snapshot: {
+              engine: "OPENDATALOADER",
+              mode: "local",
+              classifications: [],
+              selectedFacts: [],
+              blockingRuleCodes: [],
+              shouldPublish: true,
+              confidenceScore: 0.95,
+              durationMs: 1000,
+            },
+            routeReason: "live-generated-from-legacy",
+          },
+          comparison: {
+            primaryEngine: "LEGACY",
+            shadowEngine: "OPENDATALOADER",
+            primaryShouldPublish: true,
+            shadowShouldPublish: true,
+            publishDecisionMismatch: false,
+            classificationDifferences: [],
+            unitScaleDifferences: [],
+            factDifferences: [],
+            blockingRuleDifferences: {
+              onlyInPrimary: [],
+              onlyInShadow: [],
+            },
+            durationMs: {
+              primary: 20,
+              shadow: 1000,
+            },
+            materialDisagreement: false,
+          },
+          comparisonAssessment: {
+            classification: "no_material_disagreement",
+            summary:
+              "No material disagreement was detected between legacy and OpenDataLoader for this case.",
+          },
+        },
+      ],
+    });
+
+    expect(summary.recommendation).toContain("shadow-only");
+    expect(summary.recommendationReason).toContain("forblir shadow-only");
+    expect(summary.documentTagMetrics.digital_simple.publishParityRate).toBe(1);
+    expect(summary.runtimeByEvidenceKind["live-local-odl"].caseCount).toBe(1);
   });
 });

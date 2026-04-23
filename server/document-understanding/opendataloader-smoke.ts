@@ -93,9 +93,17 @@ export async function runOpenDataLoaderSmokeTest(
   });
 
   return {
+    input: {
+      sourceFilename: "opendataloader-smoke.pdf",
+      sourceByteLength: pdfBuffer.byteLength,
+      preflightPageCount: preflight.pageCount,
+      hasTextLayer: preflight.hasTextLayer,
+      hasReliableTextLayer: preflight.hasReliableTextLayer,
+    },
     runtime,
     routing: result.routing,
     metrics: result.metrics,
+    diagnostics: result.diagnostics,
     pages: result.annualReportPages.map((page) => ({
       pageNumber: page.pageNumber,
       blockCount: page.blocks.length,

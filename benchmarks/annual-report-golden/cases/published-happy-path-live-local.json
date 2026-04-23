@@ -4,6 +4,14 @@
   "mode": "expected_and_differential",
   "orgNumber": "000000000",
   "fiscalYear": 2024,
+  "documentTags": [
+    "digital_note_heavy",
+    "multi_page_balance",
+    "supplementary_present",
+    "unit_scale_sensitive",
+    "continuation_complex",
+    "live_local"
+  ],
   "includeInDefaultRun": false,
   "notes": "Runs OpenDataLoader live in local mode against the published happy-path document regression fixture materialized as a benchmark PDF. Requires Java 11+.",
   "legacySource": {

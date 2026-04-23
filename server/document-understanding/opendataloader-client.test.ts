@@ -85,6 +85,7 @@ describe("opendataloader-client", () => {
       format: "json,markdown,pdf",
       useStructTree: true,
       quiet: true,
+      keepLineBreaks: true,
     });
     expect(result.routing.executionMode).toBe("local");
     expect(result.artifacts.markdown?.filename).toBe("sample.md");
@@ -171,5 +172,60 @@ describe("opendataloader-client", () => {
         },
       }),
     ).rejects.toThrow("Timed out while waiting for hybrid backend");
+  });
+
+  it("includes concise raw and normalized diagnostics when no pages survive normalization", async () => {
+    convertMock.mockImplementationOnce(async (_inputPath: string, options: { outputDir?: string }) => {
+      const outputDir = options.outputDir!;
+      await fs.mkdir(outputDir, { recursive: true });
+      await fs.writeFile(path.join(outputDir, "empty.json"), JSON.stringify({ elements: [] }));
+      await fs.writeFile(path.join(outputDir, "empty.md"), "");
+      return "";
+    });
+
+    const { OpenDataLoaderParseError, parseAnnualReportPdfWithOpenDataLoader } = await import(
+      "@/server/document-understanding/opendataloader-client"
+    );
+
+    await expect(
+      parseAnnualReportPdfWithOpenDataLoader({
+        pdfBuffer: Buffer.from("%PDF-1.4"),
+        sourceFilename: "empty.pdf",
+        preflight: {
+          pageCount: 1,
+          hasTextLayer: true,
+          hasReliableTextLayer: true,
+          parsedPages: [],
+        },
+        config: {
+          enabled: true,
+          mode: "local",
+          hybridBackend: "docling-fast",
+          hybridUrl: null,
+          forceOcr: false,
+          useStructTree: false,
+          timeoutMs: 30_000,
+          dualRun: false,
+          storeAnnotatedPdf: false,
+          fallbackToLegacy: true,
+        },
+      }),
+    ).rejects.toMatchObject({
+      name: "OpenDataLoaderParseError",
+      diagnostics: {
+        failureStage: "annual-report-page-conversion",
+        rawOutput: {
+          topLevelKeys: ["elements"],
+          elementCount: 0,
+          pageCount: 0,
+        },
+        normalizedOutput: {
+          pageCount: 0,
+          blockCount: 0,
+          tableCount: 0,
+        },
+        annualReportPageCount: 0,
+      },
+    } satisfies Partial<OpenDataLoaderParseError>);
   });
 });

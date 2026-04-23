@@ -4,6 +4,13 @@
   "mode": "expected",
   "orgNumber": "000000000",
   "fiscalYear": 2024,
+  "documentTags": [
+    "digital_simple",
+    "unit_scale_sensitive",
+    "manual_review_expected",
+    "degraded_ambiguous",
+    "column_swap"
+  ],
   "notes": "Uses the existing regression fixture with unit-scale conflict and suspicious column swap that should stay blocked from publication.",
   "legacySource": {
     "kind": "document_regression",

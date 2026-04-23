@@ -5,14 +5,35 @@ import { createHash } from "node:crypto";
 
 import { PreflightResult } from "@/integrations/brreg/annual-report-financials/types";
 import { chooseOpenDataLoaderRoute, resolveOpenDataLoaderConfig } from "@/server/document-understanding/opendataloader-config";
-import { convertNormalizedDocumentToAnnualReportPages, normalizeOpenDataLoaderPayload } from "@/server/document-understanding/opendataloader-normalizer";
+import {
+  convertNormalizedDocumentToAnnualReportPages,
+  normalizeOpenDataLoaderPayload,
+  summarizeOpenDataLoaderRawPayload,
+} from "@/server/document-understanding/opendataloader-normalizer";
 import { assertOpenDataLoaderRuntimeReady } from "@/server/document-understanding/opendataloader-runtime";
 import {
   OpenDataLoaderArtifactFile,
   OpenDataLoaderGeneratedArtifacts,
+  OpenDataLoaderNormalizedOutputSummary,
+  OpenDataLoaderParseDiagnostics,
   OpenDataLoaderParseResult,
   OpenDataLoaderResolvedConfig,
 } from "@/server/document-understanding/opendataloader-types";
+
+type OpenDataLoaderLoadedArtifacts = OpenDataLoaderGeneratedArtifacts & {
+  outputFilenames: string[];
+};
+
+export class OpenDataLoaderParseError extends Error {
+  constructor(
+    message: string,
+    public readonly diagnostics: OpenDataLoaderParseDiagnostics,
+    public readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = "OpenDataLoaderParseError";
+  }
+}
 
 function toChecksum(content: Buffer) {
   return createHash("sha256").update(content).digest("hex");
@@ -63,7 +84,7 @@ async function loadGeneratedArtifacts(input: {
   outputDir: string;
   inputStem: string;
   includeAnnotatedPdf: boolean;
-}) {
+}): Promise<OpenDataLoaderLoadedArtifacts> {
   const generatedPaths = await listFilesRecursively(input.outputDir);
   const jsonPath = pickArtifactFile(generatedPaths, [".json"], input.inputStem);
   if (!jsonPath) {
@@ -79,6 +100,9 @@ async function loadGeneratedArtifacts(input: {
   const payload = JSON.parse(rawJson.content.toString("utf8"));
 
   return {
+    outputFilenames: generatedPaths.map((generatedPath) =>
+      path.relative(input.outputDir, generatedPath),
+    ).sort(),
     rawJson: {
       ...rawJson,
       payload,
@@ -86,7 +110,7 @@ async function loadGeneratedArtifacts(input: {
     markdown: markdownPath ? await readArtifactFile(markdownPath, "text/markdown") : null,
     annotatedPdf:
       annotatedPdfPath ? await readArtifactFile(annotatedPdfPath, "application/pdf") : null,
-  } satisfies OpenDataLoaderGeneratedArtifacts;
+  };
 }
 
 async function resolveOpenDataLoaderEngineVersion() {
@@ -104,6 +128,38 @@ async function resolveOpenDataLoaderEngineVersion() {
   } catch {
     return null;
   }
+}
+
+function summarizeNormalizedDocument(
+  pageResult: OpenDataLoaderParseResult["normalizedDocument"],
+): OpenDataLoaderNormalizedOutputSummary {
+  return {
+    pageCount: pageResult.pages.length,
+    blockCount: pageResult.pages.reduce((sum, page) => sum + page.blocks.length, 0),
+    tableCount: pageResult.pages.reduce((sum, page) => sum + page.tables.length, 0),
+    pages: pageResult.pages.map((page) => ({
+      pageNumber: page.pageNumber,
+      blockCount: page.blocks.length,
+      tableCount: page.tables.length,
+      textLength: page.text.length,
+    })),
+  };
+}
+
+function formatDiagnosticsForError(diagnostics: OpenDataLoaderParseDiagnostics) {
+  return JSON.stringify(
+    {
+      input: diagnostics.input,
+      artifacts: diagnostics.artifacts,
+      rawOutput: diagnostics.rawOutput,
+      normalizedOutput: diagnostics.normalizedOutput,
+      annualReportPageCount: diagnostics.annualReportPageCount,
+      failureStage: diagnostics.failureStage,
+      failureReason: diagnostics.failureReason,
+    },
+    null,
+    2,
+  );
 }
 
 export async function parseAnnualReportPdfWithOpenDataLoader(input: {
@@ -130,6 +186,15 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
 
   const engineVersion = await resolveOpenDataLoaderEngineVersion();
   const startedAt = Date.now();
+  const diagnostics: OpenDataLoaderParseDiagnostics = {
+    input: {
+      sourceFilename: input.sourceFilename,
+      sourceByteLength: input.pdfBuffer.byteLength,
+      preflightPageCount: input.preflight.pageCount,
+      hasTextLayer: input.preflight.hasTextLayer,
+      hasReliableTextLayer: input.preflight.hasReliableTextLayer,
+    },
+  };
 
   try {
     await assertOpenDataLoaderRuntimeReady({
@@ -144,6 +209,7 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
       outputDir,
       format,
       quiet: true,
+      keepLineBreaks: true,
       useStructTree: route.useStructTree,
       hybrid: route.executionMode === "hybrid" ? config.hybridBackend : undefined,
       hybridMode: route.executionMode === "hybrid" ? route.hybridMode ?? "auto" : undefined,
@@ -161,6 +227,13 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
       inputStem: path.parse(input.sourceFilename).name,
       includeAnnotatedPdf: config.storeAnnotatedPdf,
     });
+    diagnostics.artifacts = {
+      outputFilenames: artifacts.outputFilenames,
+      rawJsonFilename: artifacts.rawJson.filename,
+      markdownFilename: artifacts.markdown?.filename ?? null,
+      annotatedPdfFilename: artifacts.annotatedPdf?.filename ?? null,
+    };
+    diagnostics.rawOutput = summarizeOpenDataLoaderRawPayload(artifacts.rawJson.payload);
 
     const normalizedDocument = normalizeOpenDataLoaderPayload({
       payload: artifacts.rawJson.payload,
@@ -168,10 +241,17 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
       engineMode: route.executionMode,
       hasEmbeddedText: input.preflight.hasReliableTextLayer,
     });
+    diagnostics.normalizedOutput = summarizeNormalizedDocument(normalizedDocument);
     const annualReportPages = convertNormalizedDocumentToAnnualReportPages(normalizedDocument);
+    diagnostics.annualReportPageCount = annualReportPages.length;
 
     if (annualReportPages.length === 0) {
-      throw new Error("OpenDataLoader returned no normalized pages for this filing.");
+      diagnostics.failureStage = "annual-report-page-conversion";
+      diagnostics.failureReason = "OpenDataLoader returned no normalized pages for this filing.";
+      throw new OpenDataLoaderParseError(
+        `OpenDataLoader returned no normalized pages for this filing.\n${formatDiagnosticsForError(diagnostics)}`,
+        diagnostics,
+      );
     }
 
     const blockCount = normalizedDocument.pages.reduce(
@@ -190,6 +270,7 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
       preflight: input.preflight,
       normalizedDocument,
       annualReportPages,
+      diagnostics,
       artifacts: {
         rawJson: {
           ...artifacts.rawJson,
@@ -224,6 +305,22 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
         tableBlockCount,
       },
     } satisfies OpenDataLoaderParseResult;
+  } catch (error) {
+    if (error instanceof OpenDataLoaderParseError) {
+      throw error;
+    }
+
+    diagnostics.failureStage = diagnostics.rawOutput
+      ? "normalization-or-conversion"
+      : diagnostics.artifacts
+        ? "raw-output-loading"
+        : "opendataloader-invocation";
+    diagnostics.failureReason = error instanceof Error ? error.message : String(error);
+    throw new OpenDataLoaderParseError(
+      `OpenDataLoader parse failed at ${diagnostics.failureStage}: ${diagnostics.failureReason}\n${formatDiagnosticsForError(diagnostics)}`,
+      diagnostics,
+      error,
+    );
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

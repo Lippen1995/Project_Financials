@@ -4,6 +4,12 @@
   "mode": "expected_and_differential",
   "orgNumber": "000000000",
   "fiscalYear": 2024,
+  "documentTags": [
+    "digital_simple",
+    "digital_note_heavy",
+    "unit_scale_sensitive",
+    "captured_fixture"
+  ],
   "notes": "Legacy runs from inline PDF pages, while OpenDataLoader runs from a captured normalized JSON artifact representing the same core statement content.",
   "knownEvidenceLimitations": [
     "The captured OpenDataLoader fixture omits the note-level declaration line 'Alle tall i notene er NOK 1.000 ...' that exists in the legacy inline PDF page, so the remaining note-page unit-scale disagreement is evidence-limited rather than a proven parser bug."

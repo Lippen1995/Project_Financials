@@ -1,0 +1,19 @@
+{
+  "id": "formatting-edge-manual-review",
+  "name": "Formatting edge manual-review case",
+  "mode": "expected",
+  "orgNumber": "000000000",
+  "fiscalYear": 2024,
+  "documentTags": [
+    "scan_or_ocr",
+    "formatting_edge",
+    "manual_review_expected",
+    "negative_numbers",
+    "blank_cells"
+  ],
+  "notes": "Uses the existing OCR regression fixture with parentheses negatives and blank comparative cells. This is expected to stay blocked because required primary metrics are intentionally incomplete.",
+  "legacySource": {
+    "kind": "ocr_regression",
+    "name": "formatting-edge-manual-review"
+  }
+}

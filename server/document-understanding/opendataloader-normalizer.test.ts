@@ -2,6 +2,7 @@ import fixture from "@/server/document-understanding/__fixtures__/opendataloader
 import {
   convertNormalizedDocumentToAnnualReportPages,
   normalizeOpenDataLoaderPayload,
+  summarizeOpenDataLoaderRawPayload,
 } from "@/server/document-understanding/opendataloader-normalizer";
 import { describe, expect, it } from "vitest";
 
@@ -40,5 +41,90 @@ describe("opendataloader-normalizer", () => {
     expect(pages[1]?.blocks[0]?.source.sourceElementId).toBeTruthy();
     expect(pages[1]?.source.engineMode).toBe("local");
     expect(pages[2]?.tables[0]?.rows.some((row) => row.text.includes("Sum egenkapital og gjeld 92155000 85701000"))).toBe(true);
+  });
+
+  it("preserves elements nested under live-style page containers", () => {
+    const liveStylePayload = {
+      pages: [
+        {
+          pageNumber: 1,
+          elements: [
+            {
+              type: "heading",
+              id: "h1",
+              "bounding box": [72, 730, 520, 760],
+              "heading level": 1,
+              content: "Arsregnskap 2024",
+            },
+            {
+              type: "table",
+              id: "t1",
+              "bounding box": [72, 600, 520, 720],
+              content: "2024 2023\nSalgsinntekter 103097000 95210000",
+            },
+          ],
+        },
+      ],
+    };
+
+    const rawSummary = summarizeOpenDataLoaderRawPayload(liveStylePayload);
+    const normalized = normalizeOpenDataLoaderPayload({
+      payload: liveStylePayload,
+      engineVersion: "2.2.1",
+      engineMode: "local",
+      hasEmbeddedText: true,
+    });
+    const pages = convertNormalizedDocumentToAnnualReportPages(normalized);
+
+    expect(rawSummary.elementCount).toBe(2);
+    expect(rawSummary.pageCount).toBe(1);
+    expect(rawSummary.elementContainerPaths).toContain("$.pages[0].elements");
+    expect(normalized.pageCount).toBe(1);
+    expect(normalized.pages[0]?.blocks).toHaveLength(2);
+    expect(normalized.pages[0]?.tables).toHaveLength(1);
+    expect(pages[0]?.pageNumber).toBe(1);
+    expect(pages[0]?.text).toContain("Salgsinntekter 103097000 95210000");
+  });
+
+  it("preserves live OpenDataLoader document-level kids elements", () => {
+    const livePayload = {
+      "file name": "opendataloader-smoke.pdf",
+      "number of pages": 2,
+      kids: [
+        {
+          type: "heading",
+          id: 1,
+          level: "Doctitle",
+          "page number": 1,
+          "bounding box": [50, 763.525, 152.091, 790.241],
+          "heading level": 1,
+          content: "Arsregnskap 2024 Eksempel Finans AS",
+        },
+        {
+          type: "paragraph",
+          id: 2,
+          "page number": 2,
+          "bounding box": [50, 707.525, 229.784, 790.241],
+          content:
+            "Resultatregnskap Belop i: NOK 2024 2023 Salgsinntekter 103097000 95210000",
+        },
+      ],
+    };
+
+    const rawSummary = summarizeOpenDataLoaderRawPayload(livePayload);
+    const normalized = normalizeOpenDataLoaderPayload({
+      payload: livePayload,
+      engineVersion: "2.2.1",
+      engineMode: "local",
+      hasEmbeddedText: true,
+    });
+    const pages = convertNormalizedDocumentToAnnualReportPages(normalized);
+
+    expect(rawSummary.topLevelKeys).toContain("kids");
+    expect(rawSummary.elementContainerPaths).toEqual(["$.kids"]);
+    expect(rawSummary.pageCount).toBe(2);
+    expect(normalized.pageCount).toBe(2);
+    expect(pages).toHaveLength(2);
+    expect(pages[1]?.text).toContain("Resultatregnskap");
   });
 });

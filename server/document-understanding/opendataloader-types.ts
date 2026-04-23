@@ -102,6 +102,52 @@ export type NormalizedDocument = {
   pages: NormalizedDocumentPage[];
 };
 
+export type OpenDataLoaderRawOutputSummary = {
+  topLevelType: "array" | "object" | "null" | "other";
+  topLevelKeys: string[];
+  elementCount: number;
+  pageCount: number;
+  tableCount: number;
+  textElementCount: number;
+  elementContainerPaths: string[];
+  pageNumbers: number[];
+  sampleElementKeys: string[];
+  sampleElementTypes: string[];
+};
+
+export type OpenDataLoaderNormalizedOutputSummary = {
+  pageCount: number;
+  blockCount: number;
+  tableCount: number;
+  pages: Array<{
+    pageNumber: number;
+    blockCount: number;
+    tableCount: number;
+    textLength: number;
+  }>;
+};
+
+export type OpenDataLoaderParseDiagnostics = {
+  input: {
+    sourceFilename: string;
+    sourceByteLength: number;
+    preflightPageCount: number;
+    hasTextLayer: boolean;
+    hasReliableTextLayer: boolean;
+  };
+  artifacts?: {
+    outputFilenames: string[];
+    rawJsonFilename: string | null;
+    markdownFilename: string | null;
+    annotatedPdfFilename: string | null;
+  };
+  rawOutput?: OpenDataLoaderRawOutputSummary;
+  normalizedOutput?: OpenDataLoaderNormalizedOutputSummary;
+  annualReportPageCount?: number;
+  failureStage?: string;
+  failureReason?: string;
+};
+
 export type OpenDataLoaderArtifactFile = {
   filename: string;
   mimeType: string;
@@ -122,6 +168,7 @@ export type OpenDataLoaderParseResult = {
   preflight: PreflightResult;
   normalizedDocument: NormalizedDocument;
   annualReportPages: AnnualReportParsedPage[];
+  diagnostics: OpenDataLoaderParseDiagnostics;
   artifacts: OpenDataLoaderGeneratedArtifacts;
   metrics: {
     durationMs: number;

@@ -1,0 +1,25 @@
+{
+  "id": "manual-review-ambiguous-live-local",
+  "name": "Ambiguous manual-review live local ODL case",
+  "mode": "expected_and_differential",
+  "orgNumber": "000000000",
+  "fiscalYear": 2024,
+  "documentTags": [
+    "digital_simple",
+    "unit_scale_sensitive",
+    "manual_review_expected",
+    "degraded_ambiguous",
+    "column_swap",
+    "live_local"
+  ],
+  "includeInDefaultRun": false,
+  "notes": "Runs OpenDataLoader live in local mode against the ambiguous manual-review document regression fixture. This checks that shadow ODL also stays conservative on known-bad inputs. Requires Java 11+.",
+  "legacySource": {
+    "kind": "document_regression",
+    "name": "manual-review-ambiguous"
+  },
+  "openDataLoaderSource": {
+    "kind": "live_generated_pdf_from_legacy",
+    "executionMode": "local"
+  }
+}

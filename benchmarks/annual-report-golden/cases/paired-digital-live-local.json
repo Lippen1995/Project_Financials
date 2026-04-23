@@ -4,6 +4,12 @@
   "mode": "expected_and_differential",
   "orgNumber": "000000000",
   "fiscalYear": 2024,
+  "documentTags": [
+    "digital_simple",
+    "digital_note_heavy",
+    "unit_scale_sensitive",
+    "live_local"
+  ],
   "includeInDefaultRun": false,
   "notes": "Runs OpenDataLoader live in local mode against a generated benchmark PDF built from the same inline digital pages as the paired happy-path case. Requires Java 11+.",
   "legacySource": {

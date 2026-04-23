@@ -4,6 +4,14 @@
   "mode": "expected",
   "orgNumber": "000000000",
   "fiscalYear": 2024,
+  "documentTags": [
+    "scan_or_ocr",
+    "ocr_token_noise",
+    "multi_page_balance",
+    "supplementary_present",
+    "unit_scale_sensitive",
+    "continuation_complex"
+  ],
   "notes": "Uses the existing OCR regression fixture with supplementary NOK 1000 sections, duplicate reconciliation, and note support.",
   "legacySource": {
     "kind": "ocr_regression",

@@ -421,6 +421,9 @@ Den rapporterer blant annet:
 - runtime
 - artifact-generation status når live OpenDataLoader faktisk kjøres
 - disagreement-rate mellom legacy og OpenDataLoader
+- dokumentklasse-/tagg-metrikker, for eksempel `digital_simple`, `digital_note_heavy`, `multi_page_balance`, `supplementary_present`, `unit_scale_sensitive`, `scan_or_ocr`, `formatting_edge` og `manual_review_expected`
+- første divergenssteg når ODL og legacy avviker, for eksempel `page_classification`, `unit_scale`, `table_reconstruction`, `canonical_mapping`, `validation` eller `publish_gate`
+- ODL-only blocking reasons og manglende canonical facts aggregert på tvers av benchmark-caser
 
 I dagens repo er benchmarken fullt kjørbar med fixture-/captured-artifact mode. Live lokal OpenDataLoader-benchmark krever fortsatt Java 11+ i runtime-miljøet.
 
@@ -435,6 +438,24 @@ For å oppgradere evidensen når miljøet er klart:
 5. kjør `npm run financials:benchmark-annual-reports -- --include-live`
 
 Hvis Java fortsatt er under 11, markerer benchmarken live-caser som `skipped` med eksplisitt årsak i stedet for å feile senere i pipelinen.
+
+Benchmark-casene har nå dokument-tags som gjør det mulig å vurdere ODL per dokumentklasse i stedet for bare totalt. Eksempler:
+
+- `digital_simple`: enkle digitale årsregnskap med tekstlag
+- `digital_note_heavy`: digitale dokumenter der noter og face statements begge må håndteres
+- `multi_page_balance`: balanse der eiendeler og egenkapital/gjeld ligger på ulike sider
+- `supplementary_present`: dokumenter med både statutory og supplementary statement-seksjoner
+- `unit_scale_sensitive`: dokumenter der NOK vs NOK 1 000 / TNOK må håndteres riktig
+- `scan_or_ocr`: OCR-/scan-lignende fixtures med tokenstøy
+- `manual_review_expected`: kjente negative caser som skal blokkeres
+
+Konservativ beslutningsramme:
+
+- OpenDataLoader skal forbli shadow-only så lenge live-evidensen er smal, hybrid/OCR ikke er validert, eller det finnes uforklarte live-disagreements.
+- Fallback-only for en smal dokumentklasse kan først vurderes senere dersom den klassen har flere live lokale caser, stabil publish-paritet, ingen safety-relevante publish mismatches, ingen uforklarte blocking reasons og ingen material fact-differanser mot legacy.
+- Direkte default/promotering er ikke aktuelt før både digitale, note-tunge, multi-page, unit-scale-sensitive og scan/OCR-lignende dokumentklasser har bred live-evidens.
+- Disqualifying disagreements er blant annet ODL-publisering når legacy/manual-review forventer blokkering, manglende balance tie, 1000x unit-scale-feil, swapped year columns, ukjent statement source precedence eller canonical facts som avviker uten forklaring.
+- Captured-fixture gaps kan aksepteres midlertidig for regresjon, men teller ikke som sterk rollout-evidens uten tilsvarende live ODL-kjøring.
 
 ### Hva blokkerer auto-publisering
 

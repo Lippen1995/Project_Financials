@@ -4,6 +4,13 @@
   "mode": "expected",
   "orgNumber": "000000000",
   "fiscalYear": 2024,
+  "documentTags": [
+    "digital_note_heavy",
+    "multi_page_balance",
+    "supplementary_present",
+    "unit_scale_sensitive",
+    "continuation_complex"
+  ],
   "notes": "Uses the existing document regression fixture with statutory NOK pages, supplementary NOK 1000 sections, notes, auditor report, and board report.",
   "legacySource": {
     "kind": "document_regression",

@@ -86,6 +86,7 @@ export type AnnualReportBenchmarkCase = {
   name: string;
   orgNumber?: string;
   fiscalYear: number;
+  documentTags?: string[];
   mode?: "expected" | "differential" | "expected_and_differential";
   notes?: string;
   includeInDefaultRun?: boolean;
@@ -143,10 +144,47 @@ export type BenchmarkExpectedEvaluation = {
   mismatches: string[];
 };
 
+export type BenchmarkDivergenceSummary = {
+  firstDivergenceStage:
+    | "none"
+    | "page_classification"
+    | "note_selection"
+    | "unit_scale"
+    | "table_reconstruction"
+    | "canonical_mapping"
+    | "validation"
+    | "publish_gate";
+  summary: string;
+  legacyOutcome: "PUBLISHED" | "MANUAL_REVIEW";
+  openDataLoaderOutcome: "PUBLISHED" | "MANUAL_REVIEW";
+  legacyStatementPages: Array<{ pageNumber: number; type: string }>;
+  openDataLoaderStatementPages: Array<{ pageNumber: number; type: string }>;
+  legacyNotePages: number[];
+  openDataLoaderNotePages: number[];
+  unitScalesByPage: Array<{
+    pageNumber: number;
+    legacy: number | null;
+    openDataLoader: number | null;
+  }>;
+  missingCanonicalFactsOnOpenDataLoader: string[];
+  differingCanonicalFacts: Array<{
+    metricKey: string;
+    legacyValue: number | null;
+    openDataLoaderValue: number | null;
+  }>;
+  validationIssuesOnlyOnOpenDataLoader: string[];
+  blockingReasonsOnOpenDataLoader: string[];
+  confidence: {
+    legacy: number;
+    openDataLoader: number;
+  };
+};
+
 export type AnnualReportBenchmarkCaseResult = {
   caseId: string;
   name: string;
   fiscalYear: number;
+  documentTags: string[];
   mode: "expected" | "differential" | "expected_and_differential";
   notes?: string;
   status: "completed" | "error" | "skipped";
@@ -161,6 +199,7 @@ export type AnnualReportBenchmarkCaseResult = {
   };
   comparison?: OpenDataLoaderComparisonSummary | null;
   comparisonAssessment?: BenchmarkComparisonAssessment | null;
+  divergenceSummary?: BenchmarkDivergenceSummary | null;
 };
 
 export type AnnualReportBenchmarkRun = {
@@ -186,6 +225,31 @@ export type AnnualReportBenchmarkRun = {
     disagreementCases: number;
     publishDecisionMismatchCases: number;
     evidenceCounts: Record<BenchmarkEvidenceKind, number>;
+    documentTagCounts: Record<string, number>;
+    documentTagMetrics: Record<
+      string,
+      {
+        totalCases: number;
+        differentialCases: number;
+        liveOpenDataLoaderCases: number;
+        publishParityRate: number | null;
+        materialDisagreementRate: number | null;
+        knownEvidenceGapCount: number;
+        likelyIssueCount: number;
+      }
+    >;
+    comparisonAssessmentCounts: Record<BenchmarkComparisonAssessment["classification"], number>;
+    divergenceStageCounts: Record<BenchmarkDivergenceSummary["firstDivergenceStage"], number>;
+    openDataLoaderBlockingReasonCounts: Record<string, number>;
+    missingCanonicalFactCounts: Record<string, number>;
+    runtimeByEvidenceKind: Record<
+      BenchmarkEvidenceKind,
+      {
+        caseCount: number;
+        averageOpenDataLoaderMs: number | null;
+        medianOpenDataLoaderMs: number | null;
+      }
+    >;
     averageRuntimeMs: Record<string, number | null>;
     medianRuntimeMs: Record<string, number | null>;
     expectedMetrics: Record<
@@ -440,6 +504,26 @@ function average(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+function incrementCount(target: Record<string, number>, key: string, amount = 1) {
+  target[key] = (target[key] ?? 0) + amount;
+}
+
+function defaultDocumentTags(benchmarkCase: AnnualReportBenchmarkCase) {
+  if (benchmarkCase.documentTags && benchmarkCase.documentTags.length > 0) {
+    return benchmarkCase.documentTags;
+  }
+
+  if (benchmarkCase.legacySource.kind === "ocr_regression") {
+    return ["scan_or_ocr"];
+  }
+
+  if (benchmarkCase.openDataLoaderSource?.kind === "live_generated_pdf_from_legacy") {
+    return ["live_local_candidate"];
+  }
+
+  return ["uncategorized"];
+}
+
 class BenchmarkSkipError extends Error {
   constructor(message: string) {
     super(message);
@@ -494,6 +578,145 @@ function assessComparison(
     classification: "likely_code_or_logic_issue",
     summary:
       "A material disagreement remains without a declared evidence limitation, so this case still looks like a parser or pipeline issue.",
+  };
+}
+
+const STATEMENT_TYPES = new Set([
+  "STATUTORY_INCOME",
+  "STATUTORY_BALANCE",
+  "STATUTORY_BALANCE_CONTINUATION",
+  "SUPPLEMENTARY_INCOME",
+  "SUPPLEMENTARY_BALANCE",
+]);
+
+function sameJsonValue(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function buildDivergenceSummary(input: {
+  legacy: BenchmarkPipelineResult;
+  openDataLoader: BenchmarkPipelineResult;
+}): BenchmarkDivergenceSummary | null {
+  const legacy = input.legacy;
+  const openDataLoader = input.openDataLoader;
+  if (
+    sameJsonValue(legacy.classifications, openDataLoader.classifications) &&
+    sameJsonValue(legacy.selectedFacts, openDataLoader.selectedFacts) &&
+    sameJsonValue(legacy.issueCodes, openDataLoader.issueCodes) &&
+    legacy.shouldPublish === openDataLoader.shouldPublish
+  ) {
+    return null;
+  }
+
+  const statementPages = (result: BenchmarkPipelineResult) =>
+    result.classifications
+      .filter((classification) => STATEMENT_TYPES.has(classification.type))
+      .map((classification) => ({
+        pageNumber: classification.pageNumber,
+        type: classification.type,
+      }));
+  const notePages = (result: BenchmarkPipelineResult) =>
+    result.classifications
+      .filter((classification) => classification.type === "NOTE")
+      .map((classification) => classification.pageNumber);
+  const allPageNumbers = Array.from(
+    new Set([
+      ...legacy.classifications.map((classification) => classification.pageNumber),
+      ...openDataLoader.classifications.map((classification) => classification.pageNumber),
+    ]),
+  ).sort((left, right) => left - right);
+  const unitScalesByPage = allPageNumbers.map((pageNumber) => ({
+    pageNumber,
+    legacy:
+      legacy.classifications.find((classification) => classification.pageNumber === pageNumber)
+        ?.unitScale ?? null,
+    openDataLoader:
+      openDataLoader.classifications.find((classification) => classification.pageNumber === pageNumber)
+        ?.unitScale ?? null,
+  }));
+  const legacyFactMap = new Map(legacy.selectedFacts.map((fact) => [fact.metricKey, fact]));
+  const openDataLoaderFactMap = new Map(
+    openDataLoader.selectedFacts.map((fact) => [fact.metricKey, fact]),
+  );
+  const missingCanonicalFactsOnOpenDataLoader = Array.from(legacyFactMap.keys())
+    .filter((metricKey) => !openDataLoaderFactMap.has(metricKey))
+    .sort();
+  const differingCanonicalFacts = Array.from(
+    new Set([...legacyFactMap.keys(), ...openDataLoaderFactMap.keys()]),
+  )
+    .sort()
+    .flatMap((metricKey) => {
+      const legacyFact = legacyFactMap.get(metricKey);
+      const openDataLoaderFact = openDataLoaderFactMap.get(metricKey);
+      const legacyValue = legacyFact?.value ?? null;
+      const openDataLoaderValue = openDataLoaderFact?.value ?? null;
+      return legacyValue !== openDataLoaderValue
+        ? [{ metricKey, legacyValue, openDataLoaderValue }]
+        : [];
+    });
+  const validationIssuesOnlyOnOpenDataLoader = Array.from(
+    new Set(
+      openDataLoader.issueCodes.filter((ruleCode) => !legacy.issueCodes.includes(ruleCode)),
+    ),
+  ).sort();
+  const blockingReasonsOnOpenDataLoader = [...openDataLoader.blockingRuleCodes].sort();
+
+  let firstDivergenceStage: BenchmarkDivergenceSummary["firstDivergenceStage"] = "none";
+  if (!sameJsonValue(statementPages(legacy), statementPages(openDataLoader))) {
+    firstDivergenceStage = "page_classification";
+  } else if (!sameJsonValue(notePages(legacy), notePages(openDataLoader))) {
+    firstDivergenceStage = "note_selection";
+  } else if (unitScalesByPage.some((entry) => entry.legacy !== entry.openDataLoader)) {
+    firstDivergenceStage = "unit_scale";
+  } else if (
+    openDataLoader.selectedFacts.length === 0 &&
+    legacy.selectedFacts.length > 0 &&
+    openDataLoader.issueCodes.includes("STATEMENT_TABLE_LAYOUT_WEAK")
+  ) {
+    firstDivergenceStage = "table_reconstruction";
+  } else if (differingCanonicalFacts.length > 0) {
+    firstDivergenceStage = "canonical_mapping";
+  } else if (validationIssuesOnlyOnOpenDataLoader.length > 0) {
+    firstDivergenceStage = "validation";
+  } else if (legacy.shouldPublish !== openDataLoader.shouldPublish) {
+    firstDivergenceStage = "publish_gate";
+  }
+
+  const summary =
+    firstDivergenceStage === "table_reconstruction"
+      ? "Statement pages and unit scales match, but OpenDataLoader produced no usable reconstructed statement rows/facts; publish gate blocks on missing required metrics."
+      : firstDivergenceStage === "canonical_mapping"
+        ? "Statement pages and unit scales match, but canonical fact values differ after row mapping."
+        : firstDivergenceStage === "page_classification"
+          ? "Statement page selection differs before row reconstruction."
+          : firstDivergenceStage === "note_selection"
+            ? "Note page selection differs before note tie-out validation."
+            : firstDivergenceStage === "unit_scale"
+              ? "Unit-scale decisions differ before normalization."
+              : firstDivergenceStage === "validation"
+                ? "Extracted facts agree enough to reach validation, but OpenDataLoader has additional validation issues."
+                : firstDivergenceStage === "publish_gate"
+                  ? "Pipeline outputs are otherwise aligned, but publish-gate decision differs."
+                  : "No material divergence detected.";
+
+  return {
+    firstDivergenceStage,
+    summary,
+    legacyOutcome: legacy.shouldPublish ? "PUBLISHED" : "MANUAL_REVIEW",
+    openDataLoaderOutcome: openDataLoader.shouldPublish ? "PUBLISHED" : "MANUAL_REVIEW",
+    legacyStatementPages: statementPages(legacy),
+    openDataLoaderStatementPages: statementPages(openDataLoader),
+    legacyNotePages: notePages(legacy),
+    openDataLoaderNotePages: notePages(openDataLoader),
+    unitScalesByPage,
+    missingCanonicalFactsOnOpenDataLoader,
+    differingCanonicalFacts,
+    validationIssuesOnlyOnOpenDataLoader,
+    blockingReasonsOnOpenDataLoader,
+    confidence: {
+      legacy: legacy.confidenceScore,
+      openDataLoader: openDataLoader.confidenceScore,
+    },
   };
 }
 
@@ -896,6 +1119,7 @@ export async function runAnnualReportBenchmarkCase(
     caseId: benchmarkCase.id,
     name: benchmarkCase.name,
     fiscalYear: benchmarkCase.fiscalYear,
+    documentTags: defaultDocumentTags(benchmarkCase),
     mode: benchmarkCase.mode ?? "expected",
     notes: benchmarkCase.notes,
     status: "completed",
@@ -933,6 +1157,10 @@ export async function runAnnualReportBenchmarkCase(
         benchmarkCase,
         result.comparison,
       );
+      result.divergenceSummary = buildDivergenceSummary({
+        legacy: legacy.result,
+        openDataLoader: opendataloader.result,
+      });
       result.evidenceKind = inferCaseEvidenceKind(benchmarkCase, opendataloader.result);
     }
   } catch (error) {
@@ -985,6 +1213,66 @@ function summarizeExpectedMetrics(
         .map((value) => (value ? 1 : 0)),
     ),
   };
+}
+
+function summarizeDocumentTagMetrics(cases: AnnualReportBenchmarkCaseResult[]) {
+  const metrics: AnnualReportBenchmarkRun["summary"]["documentTagMetrics"] = {};
+  const tags = Array.from(new Set(cases.flatMap((item) => item.documentTags))).sort();
+
+  for (const tag of tags) {
+    const taggedCases = cases.filter((item) => item.documentTags.includes(tag));
+    const differentialCases = taggedCases.filter((item) => item.comparison);
+    const liveOpenDataLoaderCases = taggedCases.filter(
+      (item) =>
+        item.evidenceKind === "live-local-odl" || item.evidenceKind === "live-hybrid-odl",
+    );
+    const publishParityValues = differentialCases.map((item) =>
+      item.comparison?.publishDecisionMismatch ? 0 : 1,
+    );
+    const disagreementValues = differentialCases.map((item) =>
+      item.comparison?.materialDisagreement ? 1 : 0,
+    );
+
+    metrics[tag] = {
+      totalCases: taggedCases.length,
+      differentialCases: differentialCases.length,
+      liveOpenDataLoaderCases: liveOpenDataLoaderCases.length,
+      publishParityRate: average(publishParityValues),
+      materialDisagreementRate: average(disagreementValues),
+      knownEvidenceGapCount: taggedCases.filter(
+        (item) => item.comparisonAssessment?.classification === "known_evidence_gap",
+      ).length,
+      likelyIssueCount: taggedCases.filter(
+        (item) => item.comparisonAssessment?.classification === "likely_code_or_logic_issue",
+      ).length,
+    };
+  }
+
+  return metrics;
+}
+
+function summarizeRuntimeByEvidenceKind(cases: AnnualReportBenchmarkCaseResult[]) {
+  const result = {} as AnnualReportBenchmarkRun["summary"]["runtimeByEvidenceKind"];
+  const evidenceKinds: BenchmarkEvidenceKind[] = [
+    "legacy-only",
+    "captured-fixture",
+    "live-local-odl",
+    "live-hybrid-odl",
+  ];
+
+  for (const evidenceKind of evidenceKinds) {
+    const matchingCases = cases.filter((item) => item.evidenceKind === evidenceKind);
+    const runtimes = matchingCases
+      .map((item) => item.openDataLoader?.runtimeMs)
+      .filter((value): value is number => typeof value === "number");
+    result[evidenceKind] = {
+      caseCount: matchingCases.length,
+      averageOpenDataLoaderMs: average(runtimes),
+      medianOpenDataLoaderMs: median(runtimes),
+    };
+  }
+
+  return result;
 }
 
 function buildRecommendation(run: {
@@ -1041,9 +1329,9 @@ function buildRecommendation(run: {
   }
 
   return {
-    recommendation: "use OpenDataLoader only as fallback for hard PDFs",
+    recommendation: "keep legacy as default, OpenDataLoader shadow-only",
     recommendationReason:
-      "Live benchmark-kjøringene er rene, og gjenværende uenigheter er forklart av captured-fixture-begrensninger. Evidensgrunnlaget er fortsatt for smalt til bred default-bruk, men fallback for klart definerte harde PDF-er kan vurderes senere.",
+      "Live benchmark-kjøringene er rene, og gjenværende uenigheter er forklart av captured-fixture-begrensninger. Evidensgrunnlaget er fortsatt for smalt til å endre rollout-postur, så OpenDataLoader forblir shadow-only.",
   };
 }
 
@@ -1061,6 +1349,42 @@ export function summarizeAnnualReportBenchmarkRun(input: {
   const publishDecisionMismatchCases = differentialCases.filter(
     (item) => item.comparison?.publishDecisionMismatch,
   );
+  const documentTagCounts: Record<string, number> = {};
+  const comparisonAssessmentCounts = {
+    no_material_disagreement: 0,
+    known_evidence_gap: 0,
+    likely_code_or_logic_issue: 0,
+  } satisfies Record<BenchmarkComparisonAssessment["classification"], number>;
+  const divergenceStageCounts = {
+    none: 0,
+    page_classification: 0,
+    note_selection: 0,
+    unit_scale: 0,
+    table_reconstruction: 0,
+    canonical_mapping: 0,
+    validation: 0,
+    publish_gate: 0,
+  } satisfies Record<BenchmarkDivergenceSummary["firstDivergenceStage"], number>;
+  const openDataLoaderBlockingReasonCounts: Record<string, number> = {};
+  const missingCanonicalFactCounts: Record<string, number> = {};
+
+  input.cases.forEach((item) => {
+    item.documentTags.forEach((tag) => incrementCount(documentTagCounts, tag));
+    if (item.comparisonAssessment) {
+      comparisonAssessmentCounts[item.comparisonAssessment.classification] += 1;
+    }
+    if (item.divergenceSummary) {
+      divergenceStageCounts[item.divergenceSummary.firstDivergenceStage] += 1;
+      item.divergenceSummary.blockingReasonsOnOpenDataLoader.forEach((reason) =>
+        incrementCount(openDataLoaderBlockingReasonCounts, reason),
+      );
+      item.divergenceSummary.missingCanonicalFactsOnOpenDataLoader.forEach((metricKey) =>
+        incrementCount(missingCanonicalFactCounts, metricKey),
+      );
+    } else if (item.comparison) {
+      divergenceStageCounts.none += 1;
+    }
+  });
 
   const recommendation = buildRecommendation(input);
 
@@ -1078,6 +1402,13 @@ export function summarizeAnnualReportBenchmarkRun(input: {
       "live-local-odl": input.cases.filter((item) => item.evidenceKind === "live-local-odl").length,
       "live-hybrid-odl": input.cases.filter((item) => item.evidenceKind === "live-hybrid-odl").length,
     },
+    documentTagCounts,
+    documentTagMetrics: summarizeDocumentTagMetrics(input.cases),
+    comparisonAssessmentCounts,
+    divergenceStageCounts,
+    openDataLoaderBlockingReasonCounts,
+    missingCanonicalFactCounts,
+    runtimeByEvidenceKind: summarizeRuntimeByEvidenceKind(completed),
     averageRuntimeMs: {
       legacy: average(
         completed
@@ -1134,8 +1465,23 @@ export function renderAnnualReportBenchmarkMarkdown(run: AnnualReportBenchmarkRu
     `- Material disagreements: ${run.summary.disagreementCases}`,
     `- Publish-decision mismatches: ${run.summary.publishDecisionMismatchCases}`,
     `- Evidence counts: legacy-only=${run.summary.evidenceCounts["legacy-only"]}, captured-fixture=${run.summary.evidenceCounts["captured-fixture"]}, live-local-odl=${run.summary.evidenceCounts["live-local-odl"]}, live-hybrid-odl=${run.summary.evidenceCounts["live-hybrid-odl"]}`,
+    `- Comparison assessments: no-disagreement=${run.summary.comparisonAssessmentCounts.no_material_disagreement}, known-evidence-gap=${run.summary.comparisonAssessmentCounts.known_evidence_gap}, likely-issue=${run.summary.comparisonAssessmentCounts.likely_code_or_logic_issue}`,
+    `- Divergence stages: ${Object.entries(run.summary.divergenceStageCounts).filter(([, count]) => count > 0).map(([stage, count]) => `${stage}=${count}`).join(", ") || "none"}`,
     `- Legacy average runtime (ms): ${run.summary.averageRuntimeMs.legacy ?? "n/a"}`,
     `- OpenDataLoader average runtime (ms): ${run.summary.averageRuntimeMs.opendataloader ?? "n/a"}`,
+    "",
+    "## Document Classes",
+    "",
+    ...Object.entries(run.summary.documentTagMetrics)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .flatMap(([tag, metrics]) => [
+        `- ${tag}: cases=${metrics.totalCases}, differential=${metrics.differentialCases}, live=${metrics.liveOpenDataLoaderCases}, publishParity=${metrics.publishParityRate ?? "n/a"}, materialDisagreement=${metrics.materialDisagreementRate ?? "n/a"}, knownEvidenceGaps=${metrics.knownEvidenceGapCount}, likelyIssues=${metrics.likelyIssueCount}`,
+      ]),
+    "",
+    "## ODL Shadow Signals",
+    "",
+    `- ODL-only blocking reasons: ${Object.entries(run.summary.openDataLoaderBlockingReasonCounts).sort((left, right) => right[1] - left[1]).map(([reason, count]) => `${reason}=${count}`).join(", ") || "none"}`,
+    `- Missing ODL canonical facts: ${Object.entries(run.summary.missingCanonicalFactCounts).sort((left, right) => right[1] - left[1]).map(([metricKey, count]) => `${metricKey}=${count}`).join(", ") || "none"}`,
     "",
     "## Recommendation",
     "",
@@ -1152,6 +1498,7 @@ export function renderAnnualReportBenchmarkMarkdown(run: AnnualReportBenchmarkRu
     lines.push(`- Status: ${item.status}`);
     lines.push(`- Mode: ${item.mode}`);
     lines.push(`- Evidence: ${item.evidenceKind}`);
+    lines.push(`- Tags: ${item.documentTags.join(", ") || "none"}`);
     if (item.legacy) {
       lines.push(
         `- Legacy: ${item.legacy.shouldPublish ? "PUBLISHED" : "MANUAL_REVIEW"}, runtime ${item.legacy.runtimeMs} ms`,
@@ -1169,6 +1516,28 @@ export function renderAnnualReportBenchmarkMarkdown(run: AnnualReportBenchmarkRu
     }
     if (item.comparisonAssessment) {
       lines.push(`- Comparison assessment: ${item.comparisonAssessment.classification} (${item.comparisonAssessment.summary})`);
+    }
+    if (item.divergenceSummary) {
+      lines.push(`- First divergence: ${item.divergenceSummary.firstDivergenceStage}`);
+      lines.push(`- Divergence summary: ${item.divergenceSummary.summary}`);
+      lines.push(
+        `- Statement pages: legacy=${item.divergenceSummary.legacyStatementPages.map((page) => `${page.pageNumber}:${page.type}`).join(", ") || "none"}; opendataloader=${item.divergenceSummary.openDataLoaderStatementPages.map((page) => `${page.pageNumber}:${page.type}`).join(", ") || "none"}`,
+      );
+      lines.push(
+        `- Note pages: legacy=${item.divergenceSummary.legacyNotePages.join(", ") || "none"}; opendataloader=${item.divergenceSummary.openDataLoaderNotePages.join(", ") || "none"}`,
+      );
+      const missingFacts = item.divergenceSummary.missingCanonicalFactsOnOpenDataLoader;
+      if (missingFacts.length > 0) {
+        lines.push(`- Missing ODL facts: ${missingFacts.join(", ")}`);
+      }
+      const uniqueIssues = item.divergenceSummary.validationIssuesOnlyOnOpenDataLoader;
+      if (uniqueIssues.length > 0) {
+        lines.push(`- Issues only on ODL: ${uniqueIssues.join(", ")}`);
+      }
+      const blockingReasons = item.divergenceSummary.blockingReasonsOnOpenDataLoader;
+      if (blockingReasons.length > 0) {
+        lines.push(`- ODL blocking reasons: ${blockingReasons.join(", ")}`);
+      }
     }
     if (item.knownEvidenceLimitations.length > 0) {
       lines.push(`- Known evidence limitations: ${item.knownEvidenceLimitations.join(" | ")}`);
