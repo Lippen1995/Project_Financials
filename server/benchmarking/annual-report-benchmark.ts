@@ -119,6 +119,20 @@ export type BenchmarkPipelineResult = {
     type: string;
     unitScale: number | null;
   }>;
+  classificationDiagnostics?: Array<{
+    pageNumber: number;
+    type: string;
+    confidence: number;
+    unitScale: number | null;
+    unitScaleConfidence: number;
+    hasConflictingUnitSignals: boolean;
+    declaredYears: number[];
+    yearHeaderYears: number[];
+    heading: string | null;
+    numericRowCount: number;
+    tableLike: boolean;
+    reasons: string[];
+  }>;
   selectedFacts: Array<{
     metricKey: string;
     value: number;
@@ -165,6 +179,16 @@ export type BenchmarkDivergenceSummary = {
     pageNumber: number;
     legacy: number | null;
     openDataLoader: number | null;
+  }>;
+  pageClassificationDifferences: Array<{
+    pageNumber: number;
+    legacyType: string | null;
+    openDataLoaderType: string | null;
+    legacyUnitScale: number | null;
+    openDataLoaderUnitScale: number | null;
+    legacySignals: string[];
+    openDataLoaderSignals: string[];
+    evidenceComparison: string;
   }>;
   missingCanonicalFactsOnOpenDataLoader: string[];
   differingCanonicalFacts: Array<{
@@ -454,6 +478,20 @@ function runPipelineFromPages(input: {
       type: classification.type,
       unitScale: classification.unitScale,
     })),
+    classificationDiagnostics: classifications.map((classification) => ({
+      pageNumber: classification.pageNumber,
+      type: classification.type,
+      confidence: classification.confidence,
+      unitScale: classification.unitScale,
+      unitScaleConfidence: classification.unitScaleConfidence,
+      hasConflictingUnitSignals: classification.hasConflictingUnitSignals,
+      declaredYears: classification.declaredYears,
+      yearHeaderYears: classification.yearHeaderYears,
+      heading: classification.heading,
+      numericRowCount: classification.numericRowCount,
+      tableLike: classification.tableLike,
+      reasons: classification.reasons,
+    })),
     selectedFacts: Array.from(validation.selectedFacts.values()).map((fact) => ({
       metricKey: fact.metricKey,
       value: fact.value,
@@ -593,6 +631,53 @@ function sameJsonValue(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+type BenchmarkClassificationDiagnostic = NonNullable<
+  BenchmarkPipelineResult["classificationDiagnostics"]
+>[number];
+
+function summarizeClassificationSignals(
+  diagnostic: BenchmarkClassificationDiagnostic | undefined,
+) {
+  if (!diagnostic) {
+    return ["classification details unavailable"];
+  }
+
+  return [
+    `confidence=${diagnostic.confidence.toFixed(3)}`,
+    `unitScale=${diagnostic.unitScale ?? "unknown"}`,
+    `unitScaleConfidence=${diagnostic.unitScaleConfidence.toFixed(3)}`,
+    `tableLike=${diagnostic.tableLike}`,
+    `numericRows=${diagnostic.numericRowCount}`,
+    `years=${diagnostic.yearHeaderYears.join("/") || "none"}`,
+    `heading=${diagnostic.heading ?? "none"}`,
+    `conflictingUnitSignals=${diagnostic.hasConflictingUnitSignals}`,
+    `reasons=${diagnostic.reasons.slice(0, 8).join("; ") || "none"}`,
+  ];
+}
+
+function compareClassificationEvidence(input: {
+  legacy: BenchmarkClassificationDiagnostic | undefined;
+  openDataLoader: BenchmarkClassificationDiagnostic | undefined;
+}) {
+  if (!input.legacy || !input.openDataLoader) {
+    return "One side is missing page-level classification diagnostics.";
+  }
+
+  if (input.openDataLoader.numericRowCount < input.legacy.numericRowCount) {
+    return "OpenDataLoader had fewer numeric row signals than legacy on this page.";
+  }
+
+  if (input.legacy.tableLike && !input.openDataLoader.tableLike) {
+    return "OpenDataLoader did not preserve a table-like page signal that legacy saw.";
+  }
+
+  if (input.openDataLoader.reasons.length < input.legacy.reasons.length) {
+    return "OpenDataLoader produced fewer classification reasons/signals than legacy.";
+  }
+
+  return "Both paths had page-level evidence, but selected different labels.";
+}
+
 function buildDivergenceSummary(input: {
   legacy: BenchmarkPipelineResult;
   openDataLoader: BenchmarkPipelineResult;
@@ -634,6 +719,44 @@ function buildDivergenceSummary(input: {
       openDataLoader.classifications.find((classification) => classification.pageNumber === pageNumber)
         ?.unitScale ?? null,
   }));
+  const pageClassificationDifferences = allPageNumbers.flatMap((pageNumber) => {
+    const legacyClassification = legacy.classifications.find(
+      (classification) => classification.pageNumber === pageNumber,
+    );
+    const openDataLoaderClassification = openDataLoader.classifications.find(
+      (classification) => classification.pageNumber === pageNumber,
+    );
+    if (
+      (legacyClassification?.type ?? null) === (openDataLoaderClassification?.type ?? null) &&
+      (legacyClassification?.unitScale ?? null) ===
+        (openDataLoaderClassification?.unitScale ?? null)
+    ) {
+      return [];
+    }
+
+    const legacyDiagnostic = legacy.classificationDiagnostics?.find(
+      (classification) => classification.pageNumber === pageNumber,
+    );
+    const openDataLoaderDiagnostic = openDataLoader.classificationDiagnostics?.find(
+      (classification) => classification.pageNumber === pageNumber,
+    );
+
+    return [
+      {
+        pageNumber,
+        legacyType: legacyClassification?.type ?? null,
+        openDataLoaderType: openDataLoaderClassification?.type ?? null,
+        legacyUnitScale: legacyClassification?.unitScale ?? null,
+        openDataLoaderUnitScale: openDataLoaderClassification?.unitScale ?? null,
+        legacySignals: summarizeClassificationSignals(legacyDiagnostic),
+        openDataLoaderSignals: summarizeClassificationSignals(openDataLoaderDiagnostic),
+        evidenceComparison: compareClassificationEvidence({
+          legacy: legacyDiagnostic,
+          openDataLoader: openDataLoaderDiagnostic,
+        }),
+      },
+    ];
+  });
   const legacyFactMap = new Map(legacy.selectedFacts.map((fact) => [fact.metricKey, fact]));
   const openDataLoaderFactMap = new Map(
     openDataLoader.selectedFacts.map((fact) => [fact.metricKey, fact]),
@@ -709,6 +832,7 @@ function buildDivergenceSummary(input: {
     legacyNotePages: notePages(legacy),
     openDataLoaderNotePages: notePages(openDataLoader),
     unitScalesByPage,
+    pageClassificationDifferences,
     missingCanonicalFactsOnOpenDataLoader,
     differingCanonicalFacts,
     validationIssuesOnlyOnOpenDataLoader,
@@ -1526,6 +1650,16 @@ export function renderAnnualReportBenchmarkMarkdown(run: AnnualReportBenchmarkRu
       lines.push(
         `- Note pages: legacy=${item.divergenceSummary.legacyNotePages.join(", ") || "none"}; opendataloader=${item.divergenceSummary.openDataLoaderNotePages.join(", ") || "none"}`,
       );
+      if (item.divergenceSummary.pageClassificationDifferences.length > 0) {
+        lines.push(
+          `- Page classification/unit diffs: ${item.divergenceSummary.pageClassificationDifferences
+            .map(
+              (diff) =>
+                `page ${diff.pageNumber} legacy=${diff.legacyType ?? "none"}/scale=${diff.legacyUnitScale ?? "unknown"} opendataloader=${diff.openDataLoaderType ?? "none"}/scale=${diff.openDataLoaderUnitScale ?? "unknown"} (${diff.evidenceComparison})`,
+            )
+            .join(" | ")}`,
+        );
+      }
       const missingFacts = item.divergenceSummary.missingCanonicalFactsOnOpenDataLoader;
       if (missingFacts.length > 0) {
         lines.push(`- Missing ODL facts: ${missingFacts.join(", ")}`);

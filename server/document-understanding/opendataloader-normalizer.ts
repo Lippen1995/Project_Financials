@@ -82,6 +82,32 @@ function flattenUnknownText(value: unknown): string[] {
   return [];
 }
 
+function extractListItemTexts(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return flattenUnknownText(item);
+    }
+
+    const record = item as Record<string, unknown>;
+    return [
+      record.content,
+      record.markdown,
+      record.description,
+      record.caption,
+      record.kids,
+      record["list items"],
+    ].flatMap((candidate) =>
+      candidate === record.kids || candidate === record["list items"]
+        ? extractListItemTexts(candidate)
+        : flattenUnknownText(candidate),
+    );
+  });
+}
+
 function extractElementText(element: OpenDataLoaderRawElement) {
   const candidates = [
     element.content,
@@ -90,6 +116,7 @@ function extractElementText(element: OpenDataLoaderRawElement) {
     element.caption,
     element.rows,
     element.cells,
+    extractListItemTexts(element["list items"]),
   ];
   const joined = candidates
     .flatMap(flattenUnknownText)

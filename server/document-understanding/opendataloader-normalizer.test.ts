@@ -127,4 +127,50 @@ describe("opendataloader-normalizer", () => {
     expect(pages).toHaveLength(2);
     expect(pages[1]?.text).toContain("Resultatregnskap");
   });
+
+  it("preserves live OpenDataLoader list item content for statement rows", () => {
+    const livePayload = {
+      kids: [
+        {
+          type: "paragraph",
+          id: 1,
+          "page number": 2,
+          "bounding box": [50, 749.525, 197.961, 790.241],
+          content: "Resultatregnskap\nBelop i: NOK\nAlle tall i notene er NOK 1 000",
+        },
+        {
+          type: "list",
+          id: 2,
+          "page number": 2,
+          "bounding box": [50, 665.525, 251.784, 748.241],
+          "list items": [
+            {
+              type: "list item",
+              "page number": 2,
+              "bounding box": [50, 665.525, 251.784, 748.241],
+              content:
+                "2023 2024\nSalgsinntekter 103097000 95210000\nSum driftsinntekter 103097000 95210000",
+              kids: [],
+            },
+          ],
+        },
+      ],
+    };
+
+    const normalized = normalizeOpenDataLoaderPayload({
+      payload: livePayload,
+      engineVersion: "2.2.1",
+      engineMode: "local",
+      hasEmbeddedText: true,
+    });
+    const pages = convertNormalizedDocumentToAnnualReportPages(normalized);
+
+    expect(normalized.pages[0]?.blocks[1]?.kind).toBe("list");
+    expect(normalized.pages[0]?.blocks[1]?.text).toContain(
+      "Salgsinntekter 103097000 95210000",
+    );
+    expect(pages[0]?.lines.map((line) => line.text)).toContain(
+      "Salgsinntekter 103097000 95210000",
+    );
+  });
 });
