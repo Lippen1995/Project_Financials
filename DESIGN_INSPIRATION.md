@@ -1,61 +1,73 @@
 # Design Inspiration
 
-Denne filen lagrer relevante referanser fra `awesome-design-md` som kan brukes senere dersom ProjectX skal justere eller fornye designspråket.
+Denne filen lagrer relevante referanser som kan brukes dersom ProjectX skal justere eller fornye designspråket senere.
 
-Kilde:
+## Kilder
 - [VoltAgent / awesome-design-md](https://github.com/VoltAgent/awesome-design-md/tree/main)
 - [design-md-mappen](https://github.com/VoltAgent/awesome-design-md/tree/main/design-md)
 
 ## Hva repoet brukes til
-Repoet er en samling `DESIGN.md`-filer som beskriver designretningen til kjente produkter og nettsteder i et format AI-agenter kan lese direkte. Tanken er at man kan kopiere en `DESIGN.md` inn i prosjektroten og bruke den som styringsdokument for videre UI-bygging.
+`awesome-design-md` er en samling `DESIGN.md`-filer som beskriver designretningen til kjente produkter og nettsteder i et format AI-agenter kan lese direkte. For ProjectX er dette nyttig som:
 
-For ProjectX er dette mest nyttig som:
 - inspirasjonsbibliotek
 - referanse for senere redesign
 - sammenligningsgrunnlag når vi vil justere stil uten å miste konsistens
 
-## Primære referanser for ProjectX
+## Nåværende hovedmiks for ProjectX
 
-### 1. `linear.app`
-Hvorfor den er relevant:
-- ekstrem presisjon i spacing og hierarki
-- rolig og moderne produktflate
-- tydelig arbeidsflate-logikk
-- høy disiplin i komponentbruk
+### `linear.app`
+Brukes for:
+- produktpresisjon
+- spacing og ro
+- sterk arbeidsflate-logikk
+- lav visuell støy
 
-Hva vi kan hente herfra:
-- strammere navigasjon
-- roligere state-design
-- presis interaksjonsdesign
+### `wise`
+Brukes for:
+- kommersiell troverdighet
+- tydelighet og tillit
+- institusjonell B2B-følelse
 
-### 2. `wise`
-Hvorfor den er relevant:
-- høy tillit og klarhet
-- sober, kommersiell B2B-følelse
-- god balanse mellom enkelhet og profesjonalitet
-
-Hva vi kan hente herfra:
-- tydeligere produktkommunikasjon
-- mer institusjonell troverdighet
-- sterkere struktur i informasjonslag
-
-### 3. `notion`
-Hvorfor den er relevant:
-- varm minimalisme
-- god bruk av whitespace
-- naturlig editorial-følelse
-
-Hva vi kan hente herfra:
-- roligere tekstflater
-- mykere, mer lesbar dokument- og innsiktsvisning
-
-## Sekundære referanser
+### `notion`
+Brukes for:
+- editorial ro
+- typografisk varme
+- whitespace og lesbarhet
 
 ### `hashicorp`
-Relevant for:
-- enterprise-troverdighet
-- struktur og disiplin
-- funksjonell, nøktern produktidentitet
+Brukes for:
+- enterprise-korrektiv
+- nøkternhet
+- disiplin når designet blir for mykt eller startup-preget
+
+## Ny visuell inspirasjon: Nordic research terminal
+
+Den vedlagte referanseskissen med venstrestilt navigasjon, toppbar, serif-selskapsheader og høyre research-kolonne er nå en aktiv inspirasjon for ProjectX.
+
+### Elementer vi ønsker å ta med videre
+- fast venstrestilt navigasjonsrail
+- tynn øvre verktøylinje med søk og handlinger
+- selskapsnavn i tydelig serif
+- små metadata-linjer over hovedtittel
+- luftig hovedkolonne for analyse og tekst
+- høyre sidekolonne for overvåkninger, analysenotater, due diligence og lokasjonskontekst
+- nesten papiraktig bakgrunn
+- svært nøkterne delere og seksjonsskift
+- grafer med tynn strek og dempet sand- eller gulltone
+
+### Hvorfor denne retningen passer ProjectX
+- den gjør produktet mindre dashboard-preget
+- den styrker research- og beslutningsfølelsen
+- den passer godt med nordisk enterprise editorial
+- den gjør selskapsprofilen mer premium uten å bli markedsføringsaktig
+
+### Det vi ikke skal kopiere direkte
+- spesifikke merkenavn
+- konkret informasjonsarkitektur som ikke passer ProjectX
+- innhold og datafelter som ikke støttes i vårt produkt
+- layoutvalg som svekker søkbarhet eller lesbarhet på våre faktiske datamodeller
+
+## Sekundære referanser
 
 ### `clickhouse`
 Relevant for:
@@ -74,7 +86,7 @@ Brukes med forsiktighet fordi:
 Relevant for:
 - eleganse i typografi
 - tydelig hierarki
-- presis premium-følelse
+- premium-følelse
 
 Brukes med forsiktighet fordi:
 - uttrykket lett kan bli for marketing-preget for ProjectX
@@ -98,18 +110,20 @@ Mer dashboard- og plattformestetikk enn ønsket for ProjectX.
 
 ## Anbefalt fremtidig miks hvis designet skal videreutvikles
 
-Hvis vi senere ønsker å stramme eller fornye stilen uten å miste identiteten, er denne miksen det beste utgangspunktet:
+Hvis vi senere ønsker å stramme eller fornye stilen uten å miste identiteten, er dette det beste utgangspunktet:
 
-- `linear.app` for arbeidsflate og produktpresisjon
-- `wise` for tillit og kommersiell troverdighet
-- `notion` for editorial ro og lesbarhet
+- `linear.app` for arbeidsflate og presisjon
+- `wise` for tillit og kommersiell tyngde
+- `notion` for editorial ro
 - `hashicorp` som enterprise-korrektiv
+- den nye nordiske research-terminal-retningen for selskapsflater og arbeidsområder
 
 ## Operativ regel
 
 Hvis ProjectX skal redesignes senere:
 1. Start alltid med å sammenligne mot `linear.app`, `wise` og `notion`
-2. Bevar lys bakgrunn, mørk tekst og én dempet aksent
-3. Ikke gå mot katalog, fintech-gloss eller generisk SaaS-dashboard
-4. Oppdater `DESIGN.md` samtidig som designretningen endres
+2. Test om den nye løsningen fortsatt holder samme research-preg som den nye venstrerail-referansen
+3. Bevar lys bakgrunn, mørk tekst og én dempet aksent
+4. Ikke gå mot katalog, fintech-gloss eller generisk SaaS-dashboard
+5. Oppdater `DESIGN.md` samtidig som designretningen endres
 

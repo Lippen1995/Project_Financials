@@ -288,6 +288,8 @@ Ruting:
 - OCR kjøres via hybrid-banen for scan-/image-baserte PDF-er
 - structure-tree aktiveres bare når det er eksplisitt slått på og dokumentet faktisk har tekstlag
 
+For norske årsrapporter er `scan_or_ocr` en baseline dokumentklasse, ikke et sjeldent avvik. Mange standard PDF-er har svakt tekstlag eller må tolkes via hybrid/OCR for å gi troverdig side- og tabellstruktur. Denne klassen skal derfor evalueres eksplisitt og konservativt.
+
 Artifacts:
 
 - rå OpenDataLoader JSON lagres som annual-report artifact
@@ -474,6 +476,8 @@ Denne flyten:
 - skriver JSON + Markdown-oppsummering under `output/benchmarks/annual-report-shadow-batches/`
 - gjør det tydelig hvilke dokumentklasser som fortsatt mangler live evidens, særlig `scan_or_ocr` og andre degraderte klasser
 
+Det finnes nå også en navngitt baseline OCR-batch for org `918298037` og årene `2024, 2023, 2022, 2021, 2020`. Dette er en fast regressjonsfamilie for standard norske årsrapporter med svak tekstkvalitet, og den bør re-kjøres etter OCR-/hybrid-endringer.
+
 Forutsetning:
 
 - databasen må ha annual-report ingestion-tabellene (`AnnualReportFiling`, `AnnualReportArtifact`, osv.) tilgjengelig
@@ -482,6 +486,18 @@ Velg en batch:
 
 ```bash
 npm run financials:select-shadow-batch -- --limit=12 --tags=scan_or_ocr,degraded_ambiguous
+```
+
+Velg baseline OCR-batchen:
+
+```bash
+npm run financials:select-baseline-ocr-shadow-batch
+```
+
+Eller et konkret baseline-år:
+
+```bash
+npm run financials:select-baseline-ocr-shadow-batch -- --years=2024
 ```
 
 Kjør batchen:
@@ -515,6 +531,18 @@ Shadow-batch-oppsummeringen rapporterer blant annet:
 - usable page-structure rate per klasse
 - MANUAL_REVIEW safety-rate per klasse
 - hvilke dokumentklasser som fortsatt har `zero live evidence`
+
+For OCR-/degraderte filings inkluderer oppsummeringen nå også strukturert legacy-OCR-diagnostikk per case:
+
+- `tinyCropSkippedCount`
+- `invalidCropCount`
+- `ocrAttemptCount`
+- `ocrFailureCount`
+- `usableOcrRegionCount`
+- `pageLevelOcrFallbackCount`
+- `manualReviewDueToOcrQualityCount`
+
+Dette er ment å erstatte støyende lavnivålogger som `pixd too small`, `Bad pix from ImageData` og lignende med en kort oppsummering som viser om OCR faktisk fikk brukbare regioner eller om filing-en konservativt ble stående til `MANUAL_REVIEW`.
 
 Dette er bevisst et operator-/analyseverktøy, ikke en rollout-mekanisme. Anbefalingen skal fortsatt forbli konservativ: legacy er default, og OpenDataLoader forblir shadow-only til live evidens er langt bredere, særlig for OCR/scannede/degraderte årsrapporter.
 - `live_weakness_observed` betyr at minst en live-case i klassen fortsatt har materiell uenighet eller publish-mismatch og derfor diskvalifiserer fallback-vurdering.

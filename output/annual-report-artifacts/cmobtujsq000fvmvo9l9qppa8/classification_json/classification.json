@@ -1,0 +1,359 @@
+{
+  "engine": "LEGACY",
+  "mode": "legacy",
+  "classifications": [
+    {
+      "pageNumber": 1,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 4,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 5,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 6,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 7,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 8,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 9,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 10,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 11,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 12,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 13,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 14,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 15,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 16,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 17,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 18,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 20,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 21,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "type": "COVER",
+      "confidence": 0.15,
+      "unitScale": null,
+      "unitScaleConfidence": 0,
+      "hasConflictingUnitSignals": false,
+      "declaredYears": [],
+      "yearHeaderYears": [],
+      "heading": null,
+      "numericRowCount": 0,
+      "tableLike": false,
+      "reasons": [
+        "No strong page classification signals"
+      ]
+    }
+  ],
+  "comparisonSummary": null
+}

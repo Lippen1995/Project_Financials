@@ -1,0 +1,90 @@
+{
+  "name": "baseline-shadow-batch-918298037-2020-2024",
+  "generatedAt": "2026-04-24T06:34:17.701Z",
+  "selection": {
+    "filingIds": [],
+    "orgNumbers": [
+      "918298037"
+    ],
+    "statuses": [],
+    "fiscalYearFrom": 2020,
+    "fiscalYearTo": 2024,
+    "reviewStatuses": [],
+    "ruleCodes": [],
+    "onlyLatest": true,
+    "requirePdfArtifact": true,
+    "desiredTags": [],
+    "limit": 20,
+    "baselineOrgNumber": "918298037",
+    "baselineFiscalYears": [
+      2024,
+      2023,
+      2022,
+      2021,
+      2020
+    ],
+    "baselineClass": "scan_or_ocr"
+  },
+  "entries": [
+    {
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "fiscalYear": 2024,
+      "label": "918298037 2024",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate"
+    },
+    {
+      "filingId": "cmobtujr90003vmvorzjg483p",
+      "orgNumber": "918298037",
+      "fiscalYear": 2023,
+      "label": "918298037 2023",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate"
+    },
+    {
+      "filingId": "cmobtujrj0005vmvopubneto4",
+      "orgNumber": "918298037",
+      "fiscalYear": 2022,
+      "label": "918298037 2022",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate"
+    },
+    {
+      "filingId": "cmobtujrs0007vmvos2b14yat",
+      "orgNumber": "918298037",
+      "fiscalYear": 2021,
+      "label": "918298037 2021",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate"
+    },
+    {
+      "filingId": "cmobtujs10009vmvogmdoowt3",
+      "orgNumber": "918298037",
+      "fiscalYear": 2020,
+      "label": "918298037 2020",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate"
+    }
+  ]
+}

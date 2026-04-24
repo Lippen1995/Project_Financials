@@ -196,3 +196,40 @@ export type PreflightResult = {
   hasReliableTextLayer: boolean;
   parsedPages: PageTextLayer[];
 };
+
+export type AnnualReportOcrRegionFailure = {
+  pageNumber: number;
+  stage: "pre_ocr_validation" | "recognition";
+  category:
+    | "tiny_crop"
+    | "invalid_crop"
+    | "invalid_image_buffer"
+    | "ocr_failure"
+    | "ocr_quality_too_weak";
+  message: string;
+};
+
+export type AnnualReportOcrDiagnostics = {
+  minWidthPx: number;
+  minHeightPx: number;
+  minAreaPx: number;
+  pageCount: number;
+  imageRegionCount: number;
+  tinyCropSkippedCount: number;
+  invalidCropCount: number;
+  ocrAttemptCount: number;
+  ocrFailureCount: number;
+  usableOcrRegionCount: number;
+  pageLevelOcrFallbackCount: number;
+  manualReviewDueToOcrQualityCount: number;
+  suppressedFailureMessages: Array<{
+    message: string;
+    count: number;
+  }>;
+  regionFailures: AnnualReportOcrRegionFailure[];
+};
+
+export type AnnualReportOcrExtractionResult = {
+  pages: PageTextLayer[];
+  diagnostics: AnnualReportOcrDiagnostics;
+};

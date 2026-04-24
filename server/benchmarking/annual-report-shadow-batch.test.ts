@@ -81,6 +81,52 @@ describe("annual-report-shadow-batch", () => {
     );
   });
 
+  it("builds a named baseline OCR manifest for the persisted filing family", async () => {
+    vi.doMock("@/server/persistence/annual-report-ingestion-repository", () => ({
+      listAnnualReportFilingsForShadowSelection: vi.fn(async () => [
+        {
+          id: "filing-2024",
+          fiscalYear: 2024,
+          lastError: null,
+          company: {
+            orgNumber: "918298037",
+            name: "Baseline AS",
+          },
+          extractionRuns: [],
+          reviews: [],
+        },
+        {
+          id: "filing-2023",
+          fiscalYear: 2023,
+          lastError: null,
+          company: {
+            orgNumber: "918298037",
+            name: "Baseline AS",
+          },
+          extractionRuns: [],
+          reviews: [],
+        },
+      ]),
+      getAnnualReportFilingWithArtifacts: vi.fn(),
+    }));
+
+    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const manifest = await module.buildBaselineAnnualReportShadowBatchManifest({
+      fiscalYears: [2024, 2023],
+    });
+
+    expect(manifest.name).toContain("baseline-shadow-batch-918298037-2023-2024");
+    expect(manifest.selection).toMatchObject({
+      baselineOrgNumber: "918298037",
+      baselineFiscalYears: [2024, 2023],
+      baselineClass: "scan_or_ocr",
+    });
+    expect(manifest.entries.map((entry) => entry.fiscalYear)).toEqual([2024, 2023]);
+    expect(manifest.entries[0].tagHints).toEqual(
+      expect.arrayContaining(["scan_or_ocr", "manual_review_expected"]),
+    );
+  });
+
   it("summarizes shadow outcomes by class and evidence quality", async () => {
     const module = await import("@/server/benchmarking/annual-report-shadow-batch");
     const manifest = module.parseAnnualReportShadowBatchManifest({
@@ -117,6 +163,28 @@ describe("annual-report-shadow-batch", () => {
           status: "skipped",
           evidenceKind: "legacy-only",
           evidenceQuality: "runtime-unavailable",
+          routeDecision: {
+            executionMode: "hybrid",
+            requiresOcr: true,
+            reasonCode: "SCANNED_PDF",
+            reason: "Weak text layer requires hybrid OCR.",
+          },
+          legacyOcrDiagnostics: {
+            minWidthPx: 64,
+            minHeightPx: 64,
+            minAreaPx: 8192,
+            pageCount: 2,
+            imageRegionCount: 2,
+            tinyCropSkippedCount: 1,
+            invalidCropCount: 0,
+            ocrAttemptCount: 1,
+            ocrFailureCount: 0,
+            usableOcrRegionCount: 1,
+            pageLevelOcrFallbackCount: 2,
+            manualReviewDueToOcrQualityCount: 0,
+            suppressedFailureMessages: [],
+            regionFailures: [],
+          },
           errors: ["Hybrid runtime unavailable"],
           knownEvidenceLimitations: ["No live hybrid backend"],
           legacy: {
@@ -263,5 +331,135 @@ describe("annual-report-shadow-batch", () => {
     expect(summary.shadowCoverageByDocumentTag.digital_simple.status).toBe(
       "live_parity_insufficient_sample",
     );
+  });
+
+  it("renders route decisions and OCR diagnostics in markdown summaries", async () => {
+    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const markdown = module.renderAnnualReportShadowBatchMarkdown({
+      generatedAt: "2026-04-24T12:00:00.000Z",
+      manifest: module.parseAnnualReportShadowBatchManifest({
+        name: "baseline-shadow-batch",
+        entries: [{ filingId: "f1", orgNumber: "918298037", fiscalYear: 2024 }],
+      }),
+      runtimeEnvironment: {
+        opendataloaderPackageVersion: "2.2.1",
+        javaVersion: "17.0.18",
+        javaMajorVersion: 17,
+        localOpenDataLoaderReady: true,
+        localOpenDataLoaderReason: "ready",
+        liveLocalBenchmarkReady: true,
+        liveLocalBenchmarkReason: "ready",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "missing hybrid backend",
+      },
+      cases: [
+        {
+          caseId: "f1",
+          filingId: "f1",
+          orgNumber: "918298037",
+          companyName: "Baseline AS",
+          fiscalYear: 2024,
+          name: "Baseline AS 2024",
+          documentTags: ["scan_or_ocr"],
+          tagHints: ["scan_or_ocr"],
+          status: "skipped",
+          evidenceKind: "legacy-only",
+          evidenceQuality: "runtime-unavailable",
+          routeDecision: {
+            executionMode: "hybrid",
+            requiresOcr: true,
+            reasonCode: "SCANNED_PDF",
+            reason: "Preflight detected weak text extraction.",
+          },
+          legacyOcrDiagnostics: {
+            minWidthPx: 64,
+            minHeightPx: 64,
+            minAreaPx: 8192,
+            pageCount: 2,
+            imageRegionCount: 2,
+            tinyCropSkippedCount: 1,
+            invalidCropCount: 0,
+            ocrAttemptCount: 1,
+            ocrFailureCount: 0,
+            usableOcrRegionCount: 1,
+            pageLevelOcrFallbackCount: 2,
+            manualReviewDueToOcrQualityCount: 0,
+            suppressedFailureMessages: [
+              { message: "Image too small to scale", count: 3 },
+            ],
+            regionFailures: [],
+          },
+          errors: ["Hybrid runtime unavailable"],
+          knownEvidenceLimitations: ["No live hybrid backend"],
+        },
+      ],
+      summary: {
+        ...module.summarizeShadowBatch(
+          module.parseAnnualReportShadowBatchManifest({
+            name: "baseline-shadow-batch",
+            entries: [{ filingId: "f1", orgNumber: "918298037", fiscalYear: 2024 }],
+          }),
+          {
+            opendataloaderPackageVersion: "2.2.1",
+            javaVersion: "17.0.18",
+            javaMajorVersion: 17,
+            localOpenDataLoaderReady: true,
+            localOpenDataLoaderReason: "ready",
+            liveLocalBenchmarkReady: true,
+            liveLocalBenchmarkReason: "ready",
+            liveHybridBenchmarkReady: false,
+            liveHybridBenchmarkReason: "missing hybrid backend",
+          },
+          [
+            {
+              caseId: "f1",
+              filingId: "f1",
+              orgNumber: "918298037",
+              companyName: "Baseline AS",
+              fiscalYear: 2024,
+              name: "Baseline AS 2024",
+              documentTags: ["scan_or_ocr"],
+              tagHints: ["scan_or_ocr"],
+              status: "skipped",
+              evidenceKind: "legacy-only",
+              evidenceQuality: "runtime-unavailable",
+              routeDecision: {
+                executionMode: "hybrid",
+                requiresOcr: true,
+                reasonCode: "SCANNED_PDF",
+                reason: "Preflight detected weak text extraction.",
+              },
+              legacyOcrDiagnostics: {
+                minWidthPx: 64,
+                minHeightPx: 64,
+                minAreaPx: 8192,
+                pageCount: 2,
+                imageRegionCount: 2,
+                tinyCropSkippedCount: 1,
+                invalidCropCount: 0,
+                ocrAttemptCount: 1,
+                ocrFailureCount: 0,
+                usableOcrRegionCount: 1,
+                pageLevelOcrFallbackCount: 2,
+                manualReviewDueToOcrQualityCount: 0,
+                suppressedFailureMessages: [
+                  { message: "Image too small to scale", count: 3 },
+                ],
+                regionFailures: [],
+              },
+              errors: ["Hybrid runtime unavailable"],
+              knownEvidenceLimitations: ["No live hybrid backend"],
+            },
+          ],
+        ),
+      },
+    });
+
+    expect(markdown).toContain("Default baseline org: 918298037");
+    expect(markdown).toContain("Route decision: hybrid (SCANNED_PDF), requires OCR");
+    expect(markdown).toContain(
+      "OCR diagnostics: attempts=1, usable=1, tinySkipped=1, invalid=0, failures=0, pageFallbacks=2, manualReviewDueToOcrQuality=0",
+    );
+    expect(markdown).toContain("OCR suppressed failures: Image too small to scale (3)");
   });
 });

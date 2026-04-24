@@ -1,0 +1,38 @@
+{
+  "name": "baseline-shadow-batch-918298037-2024-2024",
+  "generatedAt": "2026-04-24T06:36:37.888Z",
+  "selection": {
+    "filingIds": [],
+    "orgNumbers": [
+      "918298037"
+    ],
+    "statuses": [],
+    "fiscalYearFrom": 2024,
+    "fiscalYearTo": 2024,
+    "reviewStatuses": [],
+    "ruleCodes": [],
+    "onlyLatest": true,
+    "requirePdfArtifact": true,
+    "desiredTags": [],
+    "limit": 20,
+    "baselineOrgNumber": "918298037",
+    "baselineFiscalYears": [
+      2024
+    ],
+    "baselineClass": "scan_or_ocr"
+  },
+  "entries": [
+    {
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "fiscalYear": 2024,
+      "label": "918298037 2024",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate"
+    }
+  ]
+}

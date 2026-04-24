@@ -1,0 +1,40 @@
+{
+  "valuta": "NOK",
+  "regnskapsperiode": {
+    "fraDato": "2022-01-01",
+    "tilDato": "2022-12-31"
+  },
+  "resultatregnskapResultat": {
+    "driftsresultat": {
+      "driftsinntekter": {},
+      "driftskostnad": {},
+      "driftsresultat": null
+    },
+    "finansresultat": {
+      "finansinntekt": {},
+      "finanskostnad": {},
+      "nettoFinans": null
+    },
+    "ordinaertResultatFoerSkattekostnad": null,
+    "skattekostnadResultat": null,
+    "aarsresultat": null,
+    "totalresultat": null
+  },
+  "eiendeler": {
+    "anleggsmidler": {},
+    "omloepsmidler": {}
+  },
+  "egenkapitalGjeld": {
+    "egenkapital": {
+      "innskuttEgenkapital": {},
+      "opptjentEgenkapital": {},
+      "sumEgenkapital": null
+    },
+    "gjeldOversikt": {
+      "langsiktigGjeld": {},
+      "kortsiktigGjeld": {},
+      "sumGjeld": null
+    },
+    "sumEgenkapitalGjeld": null
+  }
+}

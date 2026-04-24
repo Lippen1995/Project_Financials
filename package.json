@@ -32,6 +32,7 @@
     "financials:benchmark-annual-reports": "tsx scripts/run-annual-report-benchmark.ts",
     "financials:summarize-annual-report-benchmark": "tsx scripts/summarize-annual-report-benchmark.ts",
     "financials:select-shadow-batch": "tsx scripts/select-annual-report-shadow-batch.ts",
+    "financials:select-baseline-ocr-shadow-batch": "tsx scripts/select-baseline-ocr-shadow-batch.ts",
     "financials:run-shadow-batch": "tsx scripts/run-annual-report-shadow-batch.ts",
     "financials:summarize-shadow-batch": "tsx scripts/summarize-annual-report-shadow-batch.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",
@@ -40,6 +41,7 @@
     "test:opendataloader-integration": "vitest run server/document-understanding/opendataloader-config.test.ts server/document-understanding/opendataloader-normalizer.test.ts server/document-understanding/opendataloader-comparison.test.ts server/document-understanding/opendataloader-client.test.ts server/document-understanding/opendataloader-runtime.test.ts server/document-understanding/opendataloader-smoke.test.ts server/services/annual-report-financials-service.test.ts",
     "test:annual-report-benchmark": "vitest run server/benchmarking/annual-report-benchmark.test.ts",
     "test:annual-report-shadow-batch": "vitest run server/benchmarking/annual-report-shadow-batch.test.ts",
+    "test:annual-report-ocr": "vitest run integrations/brreg/annual-report-financials/ocr.test.ts",
     "import:shareholding": "tsx scripts/import-shareholding-snapshot.ts",
     "postinstall": "prisma generate"
   },

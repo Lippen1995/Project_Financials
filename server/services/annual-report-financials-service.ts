@@ -9,7 +9,7 @@ import {
   hasKnownUnitScale,
 } from "@/integrations/brreg/annual-report-financials/publish-gate";
 import { buildNormalizedFinancialPayload } from "@/integrations/brreg/annual-report-financials/normalized-payload";
-import { extractOcrPages } from "@/integrations/brreg/annual-report-financials/ocr";
+import { extractOcrPagesWithDiagnostics } from "@/integrations/brreg/annual-report-financials/ocr";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
 import { reconstructStatementRows } from "@/integrations/brreg/annual-report-financials/table-reconstruction";
 import { CanonicalMetricKey, requiredPublishMetricKeys } from "@/integrations/brreg/annual-report-financials/taxonomy";
@@ -589,10 +589,20 @@ export async function processAnnualReportFiling(
   await updateAnnualReportFiling(filing.id, { preflightedAt: new Date(), unitHints: { hasTextLayer: preflight.hasTextLayer, hasReliableTextLayer: preflight.hasReliableTextLayer }, parserVersionLastTried: ANNUAL_REPORT_PARSER_VERSION, lastError: null });
   logPipelineEvent("filing.preflighted", { filingId: filing.id, fiscalYear: filing.fiscalYear, hasReliableTextLayer: preflight.hasReliableTextLayer });
 
+  const legacyOcrResult = preflight.hasReliableTextLayer
+    ? null
+    : await extractOcrPagesWithDiagnostics(pdfBuffer);
   const legacyPages = preflight.hasReliableTextLayer
     ? preflight.parsedPages
-    : await extractOcrPages(pdfBuffer);
+    : legacyOcrResult.pages;
   const legacyOcrEngine = preflight.hasReliableTextLayer ? "EMBEDDED_TEXT" : "TESSERACT";
+  if (legacyOcrResult) {
+    logPipelineEvent("document_understanding.legacy_ocr_summary", {
+      filingId: filing.id,
+      fiscalYear: filing.fiscalYear,
+      diagnostics: legacyOcrResult.diagnostics,
+    });
+  }
   const openDataLoaderConfig = resolveOpenDataLoaderConfig();
   const openDataLoaderRoute = chooseOpenDataLoaderRoute({
     config: openDataLoaderConfig,
@@ -841,6 +851,7 @@ export async function processAnnualReportFiling(
           openDataLoaderResult?.routing ??
           (openDataLoaderConfig.enabled ? openDataLoaderRoute : null),
         openDataLoaderError: openDataLoaderError?.message ?? null,
+        legacyOcrDiagnostics: legacyOcrResult?.diagnostics ?? null,
       },
       comparisonSummary,
     });
@@ -875,6 +886,7 @@ export async function processAnnualReportFiling(
         issues: primaryComputation.issues,
         classifications: primaryComputation.classifications,
         validationStats: primaryComputation.validation.stats,
+        legacyOcrDiagnostics: legacyOcrResult?.diagnostics ?? null,
         documentUnderstanding: {
           primaryEngine,
           primaryMode,
@@ -938,6 +950,7 @@ export async function processAnnualReportFiling(
           plannedPrimaryEngine,
           plannedPrimaryMode,
           openDataLoaderError: openDataLoaderError?.message ?? null,
+          legacyOcrDiagnostics: legacyOcrResult?.diagnostics ?? null,
         },
       } as unknown as Prisma.InputJsonValue,
     });

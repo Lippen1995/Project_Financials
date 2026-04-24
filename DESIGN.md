@@ -12,7 +12,17 @@ Denne designretningen er bevisst inspirert av følgende referanser fra `awesome-
 - `linear.app` for produktpresisjon, spacing og arbeidsflate-logikk
 - `wise` for kommersiell troverdighet og institusjonell klarhet
 - `notion` for editorial ro, typografisk varme og lesbarhet
-- `hashicorp` som enterprise-korrektiv når løsningen blir for “startup”
+- `hashicorp` som enterprise-korrektiv når løsningen blir for startup-preget
+
+I tillegg bygger ProjectX nå på en tydelig visuell retning fra den nye referanseskissen vi har valgt:
+
+- venstrestilt navigasjonsrail
+- toppbar med søk, verktøy og selskapsnavigasjon
+- serif-drevet selskapsheader
+- lys papiraktig bakgrunn
+- luftig hovedkolonne for analyse
+- høyre research-kolonne for overvåkninger, notater, due diligence og kontekst
+- sobere grafer med tynn strek og dempet sand- eller gulltone
 
 Disse referansene skal ikke kopieres direkte. De brukes som retningsgivende prinsipper for hvordan ProjectX skal oppleves.
 
@@ -36,6 +46,7 @@ Disse referansene skal ikke kopieres direkte. De brukes som retningsgivende prin
 - mer Bloomberg light enn dashboard-kit
 - mer McKinsey-troverdighet enn startup-markedsføring
 - mer Wise i klarhet enn katalog i presentasjon
+- mer nordisk research-terminal enn adminflate
 
 ### What the interface should communicate
 - dette er et verktøy for vurdering og beslutning
@@ -57,7 +68,7 @@ Disse referansene skal ikke kopieres direkte. De brukes som retningsgivende prin
 
 ### Data accents
 - `Primary Series`: dyp marine/blågrå
-- `Secondary Series`: jordet brun
+- `Secondary Series`: dempet sand, gull eller jordet brun
 - `Success`: dempet grønn
 - `Warning`: dempet amber
 - `Error`: dempet rød
@@ -104,9 +115,14 @@ Disse referansene skal ikke kopieres direkte. De brukes som retningsgivende prin
 - liten mono-label først
 - tydelig overskrift med serif
 - én kort ingress
-- eventuelt en mørk høyrespalte med status eller kontekst
+- eventuelt en mørk høyrespalte for status eller kontekst
 
 Heroer skal brukes som arbeidsflate-intro, ikke som markedsføringsbanner.
+
+På selskapsflater skal overskriften ofte følges av:
+- en smal metadata-linje over tittelen
+- en kompakt rad med signaler under tittelen
+- en separat høyrekolonne for market cap, overvåkninger eller relaterte notater
 
 ### Cards
 - cards er tillatt, men de skal være stramme og informative
@@ -136,20 +152,33 @@ Heroer skal brukes som arbeidsflate-intro, ikke som markedsføringsbanner.
 - kompakte, tydelige og rolige
 - skal støtte hovedflaten, ikke konkurrere med den
 
+Sidepaneler bør ofte organiseres som:
+- overvåkninger
+- analysenotater
+- due diligence
+- kontakt- eller lokasjonskontekst
+
 ## 5. Layout Principles
 
 ### Primary layout pattern
 Bruk som hovedregel:
+- venstre navigasjonsrail når arbeidsflaten krever det
 - bred hovedkolonne for analyseinnhold
 - smal sekundærkolonne for signaler, status eller kontekst
 
 Dette gjelder særlig for:
-- forside
+- forside når det er relevant
 - søk
 - selskapsprofil
 - oversikt
 - organisasjon
 - dashboard
+
+### Top bar pattern
+Når flaten er operativ og produktnær, kan den ha:
+- øvre verktøylinje med søk og handlinger
+- sekundær linje for faner eller selskapsnavigasjon
+- diskrete skillere fremfor tunge beholdere
 
 ### Section structure
 Hver seksjon skal typisk ha:
@@ -158,6 +187,13 @@ Hver seksjon skal typisk ha:
 3. én kort forklaring
 4. selve analyseflaten
 5. eventuelle detaljer eller sekundærsignaler
+
+Typisk selskapsprofil bør også følge denne rytmen:
+1. markeds- eller juridisk metadata
+2. selskapsnavn
+3. primære signaler
+4. hovedseksjoner som oversikt, historisk utvikling og tabeller
+5. høyre innsiktskolonne med løpende vurderingsstøtte
 
 ### Spacing philosophy
 - whitespace skal brukes aktivt for å skape hierarki
@@ -176,6 +212,11 @@ Hver seksjon skal typisk ha:
 - primære flater: lyse, nesten flate
 - sekundære flater: svakt tonede
 - mørke paneler brukes kun som kontrastmoduler, ikke som standard
+
+Den nye referanseretningen trekker produktet enda tydeligere mot:
+- papiraktig bakgrunn
+- skarpe hvite analyseflater
+- nesten usynlige skiller fremfor tunge bokser
 
 ### Shadow rules
 - svært lett skygge eller ingen skygge
@@ -205,6 +246,8 @@ Hver seksjon skal typisk ha:
 - ikke bygg infografikk når brukeren trenger analyse
 - ikke bland engelsk og norsk i sentrale labels
 - ikke la kilde- eller systemlogikk dominere hovedbudskapet
+- ikke fyll høyrekolonnen med tilfeldige widgets uten analysemessig verdi
+- ikke bruk tykk chrome eller tunge sidebokser
 
 ## 8. Responsive Behavior
 
@@ -255,7 +298,7 @@ Hver seksjon skal typisk ha:
 
 ### Search
 - skal føles som en vurderingsflate
-- filterpanel til venstre
+- filterpanel til venstre eller i rail
 - tydelig treffoppsummering
 - resultater skal være skannbare og profesjonelle
 
@@ -264,6 +307,11 @@ Hver seksjon skal typisk ha:
 - toppseksjon med hovedsignaler
 - sticky seksjonsnavigasjon
 - moduler for oversikt, regnskap, organisasjon og historikk
+- høyre innsiktskolonne skal føles som en research-assistent, ikke et widgetpanel
+
+Selskapsprofilen skal i større grad minne om:
+- en kombinasjon av analysebrev, terminal og premium webapp
+- ikke et klassisk dashboard eller en katalogdetaljside
 
 ### Charts
 - sober, analytisk stil
@@ -271,6 +319,13 @@ Hver seksjon skal typisk ha:
 - tydelige akser
 - ingen flashy effekter
 - grafen skal se ut som et analyseverktøy, ikke en KPI-widget
+
+Foretrukket grafuttrykk i denne retningen:
+- tynn strek
+- mye luft
+- diskret grid
+- svak eller ingen fyllflate
+- dempet sand- eller gulltone for sekundær eller historisk serie når det gir mening
 
 ### Tables
 - stramme finansielle tabeller
@@ -287,6 +342,7 @@ Hver seksjon skal typisk ha:
 - samme designsystem som resten av appen
 - arbeidsflate først
 - tilgang, medlemmer og invitasjoner skal være en ryddig operativ flate
+- dashboardet bør visuelt nærme seg venstre rail, tydelig toppbar, hovedkolonne og høyre kontekstkolonne
 
 ## 11. Design Guardrails for Agents
 
@@ -309,14 +365,15 @@ så matcher den ikke ProjectX.
 
 Bruk disse referansene aktivt når du er i tvil:
 
-- Hvis løsningen føles for travel eller generisk: trekk mot `linear.app`
-- Hvis løsningen føles for kald eller teknisk: trekk mot `notion`
-- Hvis løsningen føles for svak i tillit og kommersiell tyngde: trekk mot `wise`
-- Hvis løsningen føles for vennlig, myk eller startup-preget: trekk mot `hashicorp`
+- hvis løsningen føles for travel eller generisk: trekk mot `linear.app`
+- hvis løsningen føles for kald eller teknisk: trekk mot `notion`
+- hvis løsningen føles for svak i tillit og kommersiell tyngde: trekk mot `wise`
+- hvis løsningen føles for vennlig, myk eller startup-preget: trekk mot `hashicorp`
+- hvis løsningen mangler research-preg og nordisk editorial ro: trekk mot den nye venstrerail- og research-kolonne-retningen
 
 ## 13. Quick Prompt Guide
 
 Bruk dette når du ber en agent bygge UI i ProjectX:
 
-> Bygg dette i ProjectX-stilen: lys nordisk enterprise editorial, data-first arbeidsflate, premium analytisk programvare. Bruk Source Serif 4 til store overskrifter, IBM Plex Sans til UI, IBM Plex Mono til labels og metadata. Hold fargepaletten lys og nøytral med dempet marine aksent, tynne borders, svært lite skygge og rolig spacing. Tenk Linear for presisjon, Wise for tillit, Notion for editorial ro og HashiCorp som enterprise-korrektiv. Unngå generisk SaaS-card grid, gradients og markedsføringspreg. Design for rask scanning og høy troverdighet.
+> Bygg dette i ProjectX-stilen: lys nordisk enterprise editorial, data-first arbeidsflate, premium analytisk programvare. Bruk Source Serif 4 til store overskrifter, IBM Plex Sans til UI, IBM Plex Mono til labels og metadata. Hold fargepaletten lys og nøytral med dempet marine aksent, tynne borders, svært lite skygge og rolig spacing. Tenk Linear for presisjon, Wise for tillit, Notion for editorial ro og HashiCorp som enterprise-korrektiv. Legg til research-preg med venstre navigasjonsrail, luftig hovedkolonne, høyre innsiktskolonne og sobere grafer med dempet sand- eller gulltone. Unngå generisk SaaS-card grid, gradients og markedsføringspreg. Design for rask scanning og høy troverdighet.
 

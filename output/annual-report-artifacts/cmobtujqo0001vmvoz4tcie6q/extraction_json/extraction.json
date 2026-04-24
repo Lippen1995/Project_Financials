@@ -1,0 +1,13 @@
+{
+  "engine": "LEGACY",
+  "mode": "legacy",
+  "rows": [],
+  "mappedFacts": [],
+  "validationStats": {
+    "duplicateComparisons": 0,
+    "duplicateMatches": 0,
+    "noteComparisons": 0,
+    "noteMatches": 0
+  },
+  "comparisonSummary": null
+}

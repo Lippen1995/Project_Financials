@@ -1,9 +1,12 @@
 import { z } from "zod";
 
-import { extractOcrPages } from "@/integrations/brreg/annual-report-financials/ocr";
+import { extractOcrPagesWithDiagnostics } from "@/integrations/brreg/annual-report-financials/ocr";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
 import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
-import { AnnualReportParsedInputPage } from "@/integrations/brreg/annual-report-financials/types";
+import {
+  AnnualReportOcrDiagnostics,
+  AnnualReportParsedInputPage,
+} from "@/integrations/brreg/annual-report-financials/types";
 import {
   AnnualReportBenchmarkCase,
   AnnualReportBenchmarkCaseResult,
@@ -84,6 +87,13 @@ export type AnnualReportShadowBatchCaseResult = {
   status: "completed" | "error" | "skipped";
   evidenceKind: AnnualReportBenchmarkCaseResult["evidenceKind"];
   evidenceQuality: AnnualReportShadowBatchEvidenceQuality;
+  routeDecision?: {
+    executionMode: "local" | "hybrid";
+    requiresOcr: boolean;
+    reasonCode: string;
+    reason: string;
+  } | null;
+  legacyOcrDiagnostics?: AnnualReportOcrDiagnostics | null;
   errors: string[];
   knownEvidenceLimitations: string[];
   legacy?: BenchmarkPipelineResult;
@@ -115,6 +125,9 @@ export type AnnualReportShadowBatchRun = {
     };
   };
 };
+
+export const BASELINE_OCR_ORG_NUMBER = "918298037";
+export const BASELINE_OCR_FISCAL_YEARS = [2024, 2023, 2022, 2021, 2020] as const;
 
 const SHADOW_BATCH_DOCUMENT_TAGS = [
   "digital_simple",
@@ -305,6 +318,67 @@ export async function selectAnnualReportShadowBatchManifest(
   } satisfies AnnualReportShadowBatchManifest;
 }
 
+export async function buildBaselineAnnualReportShadowBatchManifest(input?: {
+  orgNumber?: string;
+  fiscalYears?: number[];
+  name?: string;
+}) {
+  const orgNumber = input?.orgNumber ?? BASELINE_OCR_ORG_NUMBER;
+  const fiscalYears = [...(input?.fiscalYears ?? [...BASELINE_OCR_FISCAL_YEARS])]
+    .filter((year) => Number.isInteger(year))
+    .sort((left, right) => right - left);
+  if (fiscalYears.length === 0) {
+    throw new Error("Baseline shadow batch krever minst ett regnskapsar.");
+  }
+
+  const manifest = await selectAnnualReportShadowBatchManifest({
+    name:
+      input?.name ??
+      `baseline-shadow-batch-${orgNumber}-${fiscalYears.at(-1)}-${fiscalYears[0]}`,
+    orgNumbers: [orgNumber],
+    fiscalYearFrom: fiscalYears.at(-1),
+    fiscalYearTo: fiscalYears[0],
+    onlyLatest: true,
+    requirePdfArtifact: true,
+    limit: Math.max(fiscalYears.length, 20),
+  });
+
+  const allowedYears = new Set(fiscalYears);
+  const entries = manifest.entries
+    .filter(
+      (entry) =>
+        entry.orgNumber === orgNumber &&
+        typeof entry.fiscalYear === "number" &&
+        allowedYears.has(entry.fiscalYear),
+    )
+    .sort((left, right) => (right.fiscalYear ?? 0) - (left.fiscalYear ?? 0))
+    .map((entry) => ({
+      ...entry,
+      tagHints: dedupeTags([
+        ...entry.tagHints,
+        "scan_or_ocr",
+        "manual_review_expected",
+      ]),
+      notes:
+        entry.notes ??
+        "Baseline OCR/scanned annual-report filing selected for recurring shadow evaluation.",
+    }));
+
+  return {
+    ...manifest,
+    name:
+      input?.name ??
+      `baseline-shadow-batch-${orgNumber}-${fiscalYears.at(-1)}-${fiscalYears[0]}`,
+    selection: {
+      ...(manifest.selection ?? {}),
+      baselineOrgNumber: orgNumber,
+      baselineFiscalYears: fiscalYears,
+      baselineClass: "scan_or_ocr",
+    },
+    entries,
+  } satisfies AnnualReportShadowBatchManifest;
+}
+
 function toBenchmarkCaseResult(
   result: AnnualReportShadowBatchCaseResult,
 ): AnnualReportBenchmarkCaseResult {
@@ -465,9 +539,12 @@ async function runShadowCase(
 
   const pdfBuffer = await artifactStorage.getArtifactBuffer(pdfArtifact.storageKey);
   const preflight = await preflightAnnualReportDocument(pdfBuffer);
+  const legacyOcrResult = preflight.hasReliableTextLayer
+    ? null
+    : await extractOcrPagesWithDiagnostics(pdfBuffer);
   const legacyPages = preflight.hasReliableTextLayer
     ? preflight.parsedPages
-    : await extractOcrPages(pdfBuffer);
+    : legacyOcrResult.pages;
   const legacy = runPipelineFromPages({
     fiscalYear: filing.fiscalYear,
     pages: legacyPages,
@@ -508,6 +585,13 @@ async function runShadowCase(
     name: entry.label ?? `${filing.company.orgNumber} ${filing.fiscalYear}`,
     tagHints: dedupeTags(entry.tagHints ?? []),
     notes: entry.notes,
+    routeDecision: {
+      executionMode: route.executionMode,
+      requiresOcr: route.requiresOcr,
+      reasonCode: route.reasonCode,
+      reason: route.reason,
+    },
+    legacyOcrDiagnostics: legacyOcrResult?.diagnostics ?? null,
   };
 
   try {
@@ -533,7 +617,7 @@ async function runShadowCase(
       errors: [error instanceof Error ? error.message : "OpenDataLoader runtime not ready."],
       knownEvidenceLimitations: [
         route.executionMode === "hybrid"
-          ? "Real hybrid/OCR evidence could not be collected because hybrid runtime is not configured."
+          ? `Real hybrid/OCR evidence could not be collected because hybrid runtime is not configured. Route ${route.reasonCode}: ${route.reason}`
           : "Real local OpenDataLoader evidence could not be collected because runtime readiness failed.",
       ],
       legacy,
@@ -753,6 +837,12 @@ export function renderAnnualReportShadowBatchMarkdown(
     `- OCR/degraded material disagreements: ${run.summary.liveOcrOrScannedCoverage.materialDisagreementCases}`,
     `- OCR/degraded safe manual-review outcomes: ${run.summary.liveOcrOrScannedCoverage.safeManualReviewCases}`,
     "",
+    "## Baseline OCR Batch",
+    "",
+    `- Default baseline org: ${BASELINE_OCR_ORG_NUMBER}`,
+    `- Default baseline fiscal years: ${BASELINE_OCR_FISCAL_YEARS.join(", ")}`,
+    `- Baseline filings present in manifest: ${run.cases.filter((item) => item.orgNumber === BASELINE_OCR_ORG_NUMBER).length}`,
+    "",
     "## Shadow Evidence By Class",
     "",
     ...Object.entries(run.summary.shadowCoverageByDocumentTag)
@@ -781,6 +871,24 @@ export function renderAnnualReportShadowBatchMarkdown(
     lines.push(`- Status: ${item.status}`);
     lines.push(`- Evidence quality: ${item.evidenceQuality}`);
     lines.push(`- Tags: ${item.documentTags.join(", ") || "none"}`);
+    if (item.routeDecision) {
+      lines.push(
+        `- Route decision: ${item.routeDecision.executionMode} (${item.routeDecision.reasonCode})${item.routeDecision.requiresOcr ? ", requires OCR" : ""}`,
+      );
+      lines.push(`- Route reason: ${item.routeDecision.reason}`);
+    }
+    if (item.legacyOcrDiagnostics) {
+      lines.push(
+        `- OCR diagnostics: attempts=${item.legacyOcrDiagnostics.ocrAttemptCount}, usable=${item.legacyOcrDiagnostics.usableOcrRegionCount}, tinySkipped=${item.legacyOcrDiagnostics.tinyCropSkippedCount}, invalid=${item.legacyOcrDiagnostics.invalidCropCount}, failures=${item.legacyOcrDiagnostics.ocrFailureCount}, pageFallbacks=${item.legacyOcrDiagnostics.pageLevelOcrFallbackCount}, manualReviewDueToOcrQuality=${item.legacyOcrDiagnostics.manualReviewDueToOcrQualityCount}`,
+      );
+      if (item.legacyOcrDiagnostics.suppressedFailureMessages.length > 0) {
+        lines.push(
+          `- OCR suppressed failures: ${item.legacyOcrDiagnostics.suppressedFailureMessages
+            .map((failure) => `${failure.message} (${failure.count})`)
+            .join(" | ")}`,
+        );
+      }
+    }
     if (item.legacy) {
       lines.push(
         `- Legacy outcome: ${item.legacy.shouldPublish ? "PUBLISHED" : "MANUAL_REVIEW"}`,

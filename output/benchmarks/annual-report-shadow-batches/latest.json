@@ -1,0 +1,1679 @@
+{
+  "generatedAt": "2026-04-24T06:49:26.735Z",
+  "manifest": {
+    "name": "baseline-shadow-batch-918298037-2020-2024",
+    "generatedAt": "2026-04-24T06:34:17.701Z",
+    "selection": {
+      "filingIds": [],
+      "orgNumbers": [
+        "918298037"
+      ],
+      "statuses": [],
+      "fiscalYearFrom": 2020,
+      "fiscalYearTo": 2024,
+      "reviewStatuses": [],
+      "ruleCodes": [],
+      "onlyLatest": true,
+      "requirePdfArtifact": true,
+      "desiredTags": [],
+      "limit": 20,
+      "baselineOrgNumber": "918298037",
+      "baselineFiscalYears": [
+        2024,
+        2023,
+        2022,
+        2021,
+        2020
+      ],
+      "baselineClass": "scan_or_ocr"
+    },
+    "entries": [
+      {
+        "filingId": "cmobtujqo0001vmvoz4tcie6q",
+        "orgNumber": "918298037",
+        "fiscalYear": 2024,
+        "label": "918298037 2024",
+        "tagHints": [
+          "manual_review_expected",
+          "ocr_token_noise",
+          "scan_or_ocr"
+        ],
+        "notes": "Blocked by publish gate"
+      },
+      {
+        "filingId": "cmobtujr90003vmvorzjg483p",
+        "orgNumber": "918298037",
+        "fiscalYear": 2023,
+        "label": "918298037 2023",
+        "tagHints": [
+          "manual_review_expected",
+          "ocr_token_noise",
+          "scan_or_ocr"
+        ],
+        "notes": "Blocked by publish gate"
+      },
+      {
+        "filingId": "cmobtujrj0005vmvopubneto4",
+        "orgNumber": "918298037",
+        "fiscalYear": 2022,
+        "label": "918298037 2022",
+        "tagHints": [
+          "manual_review_expected",
+          "ocr_token_noise",
+          "scan_or_ocr"
+        ],
+        "notes": "Blocked by publish gate"
+      },
+      {
+        "filingId": "cmobtujrs0007vmvos2b14yat",
+        "orgNumber": "918298037",
+        "fiscalYear": 2021,
+        "label": "918298037 2021",
+        "tagHints": [
+          "manual_review_expected",
+          "ocr_token_noise",
+          "scan_or_ocr"
+        ],
+        "notes": "Blocked by publish gate"
+      },
+      {
+        "filingId": "cmobtujs10009vmvogmdoowt3",
+        "orgNumber": "918298037",
+        "fiscalYear": 2020,
+        "label": "918298037 2020",
+        "tagHints": [
+          "manual_review_expected",
+          "ocr_token_noise",
+          "scan_or_ocr"
+        ],
+        "notes": "Blocked by publish gate"
+      }
+    ]
+  },
+  "runtimeEnvironment": {
+    "opendataloaderPackageVersion": "2.2.1",
+    "javaVersion": "1.8.0_241",
+    "javaMajorVersion": 8,
+    "localOpenDataLoaderReady": false,
+    "localOpenDataLoaderReason": "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+    "liveLocalBenchmarkReady": false,
+    "liveLocalBenchmarkReason": "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+    "liveHybridBenchmarkReady": false,
+    "liveHybridBenchmarkReason": "OPENDATALOADER_HYBRID_URL is not configured."
+  },
+  "cases": [
+    {
+      "caseId": "cmobtujqo0001vmvoz4tcie6q",
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2024,
+      "name": "918298037 2024",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate",
+      "routeDecision": {
+        "executionMode": "hybrid",
+        "requiresOcr": true,
+        "reasonCode": "SCANNED_PDF",
+        "reason": "Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      },
+      "legacyOcrDiagnostics": {
+        "minWidthPx": 64,
+        "minHeightPx": 64,
+        "minAreaPx": 8192,
+        "pageCount": 25,
+        "imageRegionCount": 25,
+        "tinyCropSkippedCount": 0,
+        "invalidCropCount": 0,
+        "ocrAttemptCount": 25,
+        "ocrFailureCount": 0,
+        "usableOcrRegionCount": 0,
+        "pageLevelOcrFallbackCount": 25,
+        "manualReviewDueToOcrQualityCount": 1,
+        "suppressedFailureMessages": [
+          {
+            "message": "OCR produced no usable lines for this page-level region.",
+            "count": 25
+          }
+        ],
+        "regionFailures": [
+          {
+            "pageNumber": 1,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 2,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 3,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 4,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 5,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 6,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 7,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 8,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 9,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 10,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 11,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 12,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 13,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 14,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 15,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 16,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 17,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 18,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 19,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 20,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 21,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 22,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 23,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 24,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 25,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          }
+        ]
+      },
+      "documentTags": [
+        "degraded_ambiguous",
+        "live_hybrid",
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "status": "skipped",
+      "evidenceKind": "legacy-only",
+      "evidenceQuality": "runtime-unavailable",
+      "errors": [
+        "OpenDataLoader hybrid mode was selected, but OPENDATALOADER_HYBRID_URL is not configured."
+      ],
+      "knownEvidenceLimitations": [
+        "Real hybrid/OCR evidence could not be collected because hybrid runtime is not configured. Route SCANNED_PDF: Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      ],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "ocr_fixture",
+        "mode": "legacy",
+        "runtimeMs": 2,
+        "confidenceScore": 0.195,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "real filing OCR"
+        },
+        "classifications": [],
+        "classificationDiagnostics": [],
+        "selectedFacts": [],
+        "blockingRuleCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 3,
+        "validationPasses": false,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [],
+          "selectedFacts": [],
+          "blockingRuleCodes": [
+            "PRIMARY_INCOME_PAGE_MISSING",
+            "PRIMARY_BALANCE_PAGE_MISSING",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.195,
+          "durationMs": 2
+        }
+      }
+    },
+    {
+      "caseId": "cmobtujr90003vmvorzjg483p",
+      "filingId": "cmobtujr90003vmvorzjg483p",
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2023,
+      "name": "918298037 2023",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate",
+      "routeDecision": {
+        "executionMode": "hybrid",
+        "requiresOcr": true,
+        "reasonCode": "SCANNED_PDF",
+        "reason": "Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      },
+      "legacyOcrDiagnostics": {
+        "minWidthPx": 64,
+        "minHeightPx": 64,
+        "minAreaPx": 8192,
+        "pageCount": 26,
+        "imageRegionCount": 26,
+        "tinyCropSkippedCount": 0,
+        "invalidCropCount": 0,
+        "ocrAttemptCount": 26,
+        "ocrFailureCount": 0,
+        "usableOcrRegionCount": 0,
+        "pageLevelOcrFallbackCount": 26,
+        "manualReviewDueToOcrQualityCount": 1,
+        "suppressedFailureMessages": [
+          {
+            "message": "OCR produced no usable lines for this page-level region.",
+            "count": 26
+          }
+        ],
+        "regionFailures": [
+          {
+            "pageNumber": 1,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 2,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 3,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 4,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 5,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 6,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 7,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 8,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 9,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 10,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 11,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 12,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 13,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 14,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 15,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 16,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 17,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 18,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 19,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 20,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 21,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 22,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 23,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 24,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 25,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 26,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          }
+        ]
+      },
+      "documentTags": [
+        "degraded_ambiguous",
+        "live_hybrid",
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "status": "skipped",
+      "evidenceKind": "legacy-only",
+      "evidenceQuality": "runtime-unavailable",
+      "errors": [
+        "OpenDataLoader hybrid mode was selected, but OPENDATALOADER_HYBRID_URL is not configured."
+      ],
+      "knownEvidenceLimitations": [
+        "Real hybrid/OCR evidence could not be collected because hybrid runtime is not configured. Route SCANNED_PDF: Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      ],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "ocr_fixture",
+        "mode": "legacy",
+        "runtimeMs": 2,
+        "confidenceScore": 0.195,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "real filing OCR"
+        },
+        "classifications": [],
+        "classificationDiagnostics": [],
+        "selectedFacts": [],
+        "blockingRuleCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 3,
+        "validationPasses": false,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [],
+          "selectedFacts": [],
+          "blockingRuleCodes": [
+            "PRIMARY_INCOME_PAGE_MISSING",
+            "PRIMARY_BALANCE_PAGE_MISSING",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.195,
+          "durationMs": 2
+        }
+      }
+    },
+    {
+      "caseId": "cmobtujrj0005vmvopubneto4",
+      "filingId": "cmobtujrj0005vmvopubneto4",
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2022,
+      "name": "918298037 2022",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate",
+      "routeDecision": {
+        "executionMode": "hybrid",
+        "requiresOcr": true,
+        "reasonCode": "SCANNED_PDF",
+        "reason": "Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      },
+      "legacyOcrDiagnostics": {
+        "minWidthPx": 64,
+        "minHeightPx": 64,
+        "minAreaPx": 8192,
+        "pageCount": 26,
+        "imageRegionCount": 26,
+        "tinyCropSkippedCount": 0,
+        "invalidCropCount": 0,
+        "ocrAttemptCount": 26,
+        "ocrFailureCount": 0,
+        "usableOcrRegionCount": 0,
+        "pageLevelOcrFallbackCount": 26,
+        "manualReviewDueToOcrQualityCount": 1,
+        "suppressedFailureMessages": [
+          {
+            "message": "OCR produced no usable lines for this page-level region.",
+            "count": 26
+          }
+        ],
+        "regionFailures": [
+          {
+            "pageNumber": 1,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 2,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 3,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 4,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 5,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 6,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 7,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 8,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 9,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 10,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 11,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 12,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 13,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 14,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 15,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 16,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 17,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 18,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 19,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 20,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 21,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 22,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 23,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 24,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 25,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 26,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          }
+        ]
+      },
+      "documentTags": [
+        "degraded_ambiguous",
+        "live_hybrid",
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "status": "skipped",
+      "evidenceKind": "legacy-only",
+      "evidenceQuality": "runtime-unavailable",
+      "errors": [
+        "OpenDataLoader hybrid mode was selected, but OPENDATALOADER_HYBRID_URL is not configured."
+      ],
+      "knownEvidenceLimitations": [
+        "Real hybrid/OCR evidence could not be collected because hybrid runtime is not configured. Route SCANNED_PDF: Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      ],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "ocr_fixture",
+        "mode": "legacy",
+        "runtimeMs": 2,
+        "confidenceScore": 0.195,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "real filing OCR"
+        },
+        "classifications": [],
+        "classificationDiagnostics": [],
+        "selectedFacts": [],
+        "blockingRuleCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 3,
+        "validationPasses": false,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [],
+          "selectedFacts": [],
+          "blockingRuleCodes": [
+            "PRIMARY_INCOME_PAGE_MISSING",
+            "PRIMARY_BALANCE_PAGE_MISSING",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.195,
+          "durationMs": 2
+        }
+      }
+    },
+    {
+      "caseId": "cmobtujrs0007vmvos2b14yat",
+      "filingId": "cmobtujrs0007vmvos2b14yat",
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2021,
+      "name": "918298037 2021",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate",
+      "routeDecision": {
+        "executionMode": "hybrid",
+        "requiresOcr": true,
+        "reasonCode": "SCANNED_PDF",
+        "reason": "Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      },
+      "legacyOcrDiagnostics": {
+        "minWidthPx": 64,
+        "minHeightPx": 64,
+        "minAreaPx": 8192,
+        "pageCount": 24,
+        "imageRegionCount": 24,
+        "tinyCropSkippedCount": 0,
+        "invalidCropCount": 0,
+        "ocrAttemptCount": 24,
+        "ocrFailureCount": 0,
+        "usableOcrRegionCount": 0,
+        "pageLevelOcrFallbackCount": 24,
+        "manualReviewDueToOcrQualityCount": 1,
+        "suppressedFailureMessages": [
+          {
+            "message": "OCR produced no usable lines for this page-level region.",
+            "count": 24
+          }
+        ],
+        "regionFailures": [
+          {
+            "pageNumber": 1,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 2,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 3,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 4,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 5,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 6,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 7,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 8,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 9,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 10,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 11,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 12,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 13,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 14,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 15,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 16,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 17,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 18,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 19,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 20,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 21,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 22,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 23,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 24,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          }
+        ]
+      },
+      "documentTags": [
+        "degraded_ambiguous",
+        "live_hybrid",
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "status": "skipped",
+      "evidenceKind": "legacy-only",
+      "evidenceQuality": "runtime-unavailable",
+      "errors": [
+        "OpenDataLoader hybrid mode was selected, but OPENDATALOADER_HYBRID_URL is not configured."
+      ],
+      "knownEvidenceLimitations": [
+        "Real hybrid/OCR evidence could not be collected because hybrid runtime is not configured. Route SCANNED_PDF: Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      ],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "ocr_fixture",
+        "mode": "legacy",
+        "runtimeMs": 2,
+        "confidenceScore": 0.195,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "real filing OCR"
+        },
+        "classifications": [],
+        "classificationDiagnostics": [],
+        "selectedFacts": [],
+        "blockingRuleCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 3,
+        "validationPasses": false,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [],
+          "selectedFacts": [],
+          "blockingRuleCodes": [
+            "PRIMARY_INCOME_PAGE_MISSING",
+            "PRIMARY_BALANCE_PAGE_MISSING",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.195,
+          "durationMs": 2
+        }
+      }
+    },
+    {
+      "caseId": "cmobtujs10009vmvogmdoowt3",
+      "filingId": "cmobtujs10009vmvogmdoowt3",
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2020,
+      "name": "918298037 2020",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate",
+      "routeDecision": {
+        "executionMode": "hybrid",
+        "requiresOcr": true,
+        "reasonCode": "SCANNED_PDF",
+        "reason": "Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      },
+      "legacyOcrDiagnostics": {
+        "minWidthPx": 64,
+        "minHeightPx": 64,
+        "minAreaPx": 8192,
+        "pageCount": 22,
+        "imageRegionCount": 22,
+        "tinyCropSkippedCount": 0,
+        "invalidCropCount": 0,
+        "ocrAttemptCount": 22,
+        "ocrFailureCount": 0,
+        "usableOcrRegionCount": 0,
+        "pageLevelOcrFallbackCount": 22,
+        "manualReviewDueToOcrQualityCount": 1,
+        "suppressedFailureMessages": [
+          {
+            "message": "OCR produced no usable lines for this page-level region.",
+            "count": 22
+          }
+        ],
+        "regionFailures": [
+          {
+            "pageNumber": 1,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 2,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 3,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 4,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 5,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 6,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 7,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 8,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 9,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 10,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 11,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 12,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 13,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 14,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 15,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 16,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 17,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 18,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 19,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 20,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 21,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 22,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          }
+        ]
+      },
+      "documentTags": [
+        "degraded_ambiguous",
+        "live_hybrid",
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "status": "skipped",
+      "evidenceKind": "legacy-only",
+      "evidenceQuality": "runtime-unavailable",
+      "errors": [
+        "OpenDataLoader hybrid mode was selected, but OPENDATALOADER_HYBRID_URL is not configured."
+      ],
+      "knownEvidenceLimitations": [
+        "Real hybrid/OCR evidence could not be collected because hybrid runtime is not configured. Route SCANNED_PDF: Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+      ],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "ocr_fixture",
+        "mode": "legacy",
+        "runtimeMs": 2,
+        "confidenceScore": 0.195,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "real filing OCR"
+        },
+        "classifications": [],
+        "classificationDiagnostics": [],
+        "selectedFacts": [],
+        "blockingRuleCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 3,
+        "validationPasses": false,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [],
+          "selectedFacts": [],
+          "blockingRuleCodes": [
+            "PRIMARY_INCOME_PAGE_MISSING",
+            "PRIMARY_BALANCE_PAGE_MISSING",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.195,
+          "durationMs": 2
+        }
+      }
+    }
+  ],
+  "summary": {
+    "totalCases": 5,
+    "completedCases": 0,
+    "failedCases": 0,
+    "skippedCases": 5,
+    "differentialCases": 0,
+    "disagreementCases": 0,
+    "publishDecisionMismatchCases": 0,
+    "evidenceCounts": {
+      "legacy-only": 5,
+      "captured-fixture": 0,
+      "live-local-odl": 0,
+      "live-hybrid-odl": 0
+    },
+    "documentTagCounts": {
+      "degraded_ambiguous": 5,
+      "live_hybrid": 5,
+      "manual_review_expected": 5,
+      "ocr_token_noise": 5,
+      "scan_or_ocr": 5
+    },
+    "documentTagMetrics": {
+      "degraded_ambiguous": {
+        "totalCases": 5,
+        "differentialCases": 0,
+        "liveOpenDataLoaderCases": 0,
+        "publishParityRate": null,
+        "materialDisagreementRate": null,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 0
+      },
+      "live_hybrid": {
+        "totalCases": 5,
+        "differentialCases": 0,
+        "liveOpenDataLoaderCases": 0,
+        "publishParityRate": null,
+        "materialDisagreementRate": null,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 0
+      },
+      "manual_review_expected": {
+        "totalCases": 5,
+        "differentialCases": 0,
+        "liveOpenDataLoaderCases": 0,
+        "publishParityRate": null,
+        "materialDisagreementRate": null,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 0
+      },
+      "ocr_token_noise": {
+        "totalCases": 5,
+        "differentialCases": 0,
+        "liveOpenDataLoaderCases": 0,
+        "publishParityRate": null,
+        "materialDisagreementRate": null,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 0
+      },
+      "scan_or_ocr": {
+        "totalCases": 5,
+        "differentialCases": 0,
+        "liveOpenDataLoaderCases": 0,
+        "publishParityRate": null,
+        "materialDisagreementRate": null,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 0
+      }
+    },
+    "shadowCoverageByDocumentTag": {
+      "degraded_ambiguous": {
+        "differentialCases": 0,
+        "liveCases": 0,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 0
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 0,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 0
+        },
+        "firstDivergenceStageCounts": {
+          "none": 0,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {},
+        "status": "no_differential_evidence",
+        "statusReason": "Ingen differential/shadow-caser finnes for denne dokumentklassen ennå."
+      },
+      "live_hybrid": {
+        "differentialCases": 0,
+        "liveCases": 0,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 0
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 0,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 0
+        },
+        "firstDivergenceStageCounts": {
+          "none": 0,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {},
+        "status": "no_differential_evidence",
+        "statusReason": "Ingen differential/shadow-caser finnes for denne dokumentklassen ennå."
+      },
+      "manual_review_expected": {
+        "differentialCases": 0,
+        "liveCases": 0,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 0
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 0,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 0
+        },
+        "firstDivergenceStageCounts": {
+          "none": 0,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {},
+        "status": "no_differential_evidence",
+        "statusReason": "Ingen differential/shadow-caser finnes for denne dokumentklassen ennå."
+      },
+      "ocr_token_noise": {
+        "differentialCases": 0,
+        "liveCases": 0,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 0
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 0,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 0
+        },
+        "firstDivergenceStageCounts": {
+          "none": 0,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {},
+        "status": "no_differential_evidence",
+        "statusReason": "Ingen differential/shadow-caser finnes for denne dokumentklassen ennå."
+      },
+      "scan_or_ocr": {
+        "differentialCases": 0,
+        "liveCases": 0,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 0
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 0,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 0
+        },
+        "firstDivergenceStageCounts": {
+          "none": 0,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {},
+        "status": "no_differential_evidence",
+        "statusReason": "Ingen differential/shadow-caser finnes for denne dokumentklassen ennå."
+      }
+    },
+    "comparisonAssessmentCounts": {
+      "no_material_disagreement": 0,
+      "known_evidence_gap": 0,
+      "likely_code_or_logic_issue": 0
+    },
+    "divergenceStageCounts": {
+      "none": 0,
+      "page_classification": 0,
+      "note_selection": 0,
+      "unit_scale": 0,
+      "table_reconstruction": 0,
+      "canonical_mapping": 0,
+      "validation": 0,
+      "publish_gate": 0
+    },
+    "openDataLoaderBlockingReasonCounts": {},
+    "missingCanonicalFactCounts": {},
+    "runtimeByEvidenceKind": {
+      "legacy-only": {
+        "caseCount": 0,
+        "averageOpenDataLoaderMs": null,
+        "medianOpenDataLoaderMs": null
+      },
+      "captured-fixture": {
+        "caseCount": 0,
+        "averageOpenDataLoaderMs": null,
+        "medianOpenDataLoaderMs": null
+      },
+      "live-local-odl": {
+        "caseCount": 0,
+        "averageOpenDataLoaderMs": null,
+        "medianOpenDataLoaderMs": null
+      },
+      "live-hybrid-odl": {
+        "caseCount": 0,
+        "averageOpenDataLoaderMs": null,
+        "medianOpenDataLoaderMs": null
+      }
+    },
+    "averageRuntimeMs": {
+      "legacy": null,
+      "opendataloader": null
+    },
+    "medianRuntimeMs": {
+      "legacy": null,
+      "opendataloader": null
+    },
+    "expectedMetrics": {
+      "legacy": {
+        "evaluatedCases": 0,
+        "averageStatementPageAccuracy": null,
+        "averageUnitScaleAccuracy": null,
+        "averageFactAccuracy": null,
+        "publishOutcomeMatchRate": null,
+        "validationPassRate": null
+      },
+      "opendataloader": {
+        "evaluatedCases": 0,
+        "averageStatementPageAccuracy": null,
+        "averageUnitScaleAccuracy": null,
+        "averageFactAccuracy": null,
+        "publishOutcomeMatchRate": null,
+        "validationPassRate": null
+      }
+    },
+    "recommendation": "keep legacy as default, OpenDataLoader shadow-only",
+    "recommendationReason": "Repoet har ikke bekreftet lokal OpenDataLoader-runtime i dette miljoet. Java 11+ er ikke klart, sa rollout bor ikke skje utover fixture/shadow-evaluering.",
+    "totalRealFilings": 5,
+    "evidenceQualityCounts": {
+      "real-filing-live-local": 0,
+      "real-filing-live-hybrid": 0,
+      "runtime-unavailable": 5,
+      "missing-pdf-artifact": 0
+    },
+    "classesWithZeroLiveEvidence": [
+      "degraded_ambiguous",
+      "live_hybrid",
+      "manual_review_expected",
+      "ocr_token_noise",
+      "scan_or_ocr"
+    ],
+    "liveOcrOrScannedCoverage": {
+      "totalCases": 5,
+      "liveCases": 0,
+      "runtimeUnavailableCases": 5,
+      "publishMismatchCases": 0,
+      "materialDisagreementCases": 0,
+      "safeManualReviewCases": 0
+    }
+  }
+}
