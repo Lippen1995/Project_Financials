@@ -141,6 +141,66 @@ describe("opendataloader-client", () => {
     expect(result.routing.requiresOcr).toBe(true);
   });
 
+  it("allows a probe-specific route override without changing annual-report routing defaults", async () => {
+    convertMock.mockImplementationOnce(async (_inputPath: string, options: { outputDir?: string }) => {
+      const outputDir = options.outputDir!;
+      await fs.mkdir(outputDir, { recursive: true });
+      await fs.writeFile(
+        path.join(outputDir, "probe.json"),
+        JSON.stringify(fixture, null, 2),
+      );
+      await fs.writeFile(path.join(outputDir, "probe.md"), "# Probe");
+      return "";
+    });
+
+    const { parseAnnualReportPdfWithOpenDataLoader } = await import(
+      "@/server/document-understanding/opendataloader-client"
+    );
+    const result = await parseAnnualReportPdfWithOpenDataLoader({
+      pdfBuffer: Buffer.from("%PDF-1.4"),
+      sourceFilename: "probe.pdf",
+      preflight: {
+        pageCount: 4,
+        hasTextLayer: false,
+        hasReliableTextLayer: false,
+        parsedPages: [],
+      },
+      config: {
+        enabled: true,
+        mode: "hybrid",
+        hybridBackend: "docling-fast",
+        hybridUrl: "http://localhost:5002",
+        forceOcr: false,
+        useStructTree: false,
+        timeoutMs: 45_000,
+        dualRun: false,
+        storeAnnotatedPdf: false,
+        fallbackToLegacy: false,
+      },
+      routeOverride: {
+        enabled: true,
+        executionMode: "hybrid",
+        hybridMode: "auto",
+        useStructTree: false,
+        requiresOcr: false,
+        reasonCode: "FORCED_HYBRID",
+        reason: "Compatibility probe override",
+      },
+    });
+
+    expect(convertMock.mock.calls[0]?.[1]).toMatchObject({
+      hybrid: "docling-fast",
+      hybridMode: "auto",
+      hybridUrl: "http://localhost:5002",
+    });
+    expect(result.diagnostics.input.route).toMatchObject({
+      executionMode: "hybrid",
+      hybridMode: "auto",
+      requiresOcr: false,
+      reasonCode: "FORCED_HYBRID",
+    });
+  });
+
   it("surfaces OpenDataLoader execution failures cleanly", async () => {
     convertMock.mockRejectedValueOnce(new Error("Timed out while waiting for hybrid backend"));
 

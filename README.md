@@ -309,13 +309,118 @@ Verifikasjon:
 
 ```bash
 npm run test:opendataloader-integration
+npm run opendataloader:java-info
+npm run opendataloader:baseline-preflight
 npm run opendataloader:runtime-diagnostics
+npm run opendataloader:hybrid-healthcheck
 npm run opendataloader:smoke-test
 ```
 
 Dette dekker OpenDataLoader-konfig, strukturbevarende normalisering, runtime-readiness, smoke-path, artifact persistence, dual-run-sammenligning og annual-report service-integrasjonstester.
 
 `opendataloader:runtime-diagnostics` skriver en eksplisitt readiness-oppsummering for package, Java-versjon, local readiness og hybrid-konfigurasjon.
+
+`opendataloader:java-info` viser den faktiske `java.exe` som den aktive shellen vil bruke, inkludert:
+
+- `rawVersion`
+- `majorVersion`
+- `executablePath`
+- alle `java`-treff pa `PATH`
+- eventuelle kompatible kandidater funnet via `JAVA_HOME` eller vanlige Windows-install-paths
+
+Dette er viktig fordi hybrid-backenden kan være oppe samtidig som repoets egen ODL-klient fortsatt feiler hvis shellen fortsatt bruker en gammel Java 8-binær først på `PATH`.
+
+`opendataloader:hybrid-healthcheck` kjører en repo-native hybrid-probe mot `OPENDATALOADER_HYBRID_URL`. Den skiller mellom:
+
+- manglende URL-konfigurasjon
+- backend som ikke svarer
+- backend som svarer, men ikke er kompatibel med repoets hybrid-path
+- backend som faktisk kan brukes til live hybrid shadow-kjoringer
+
+Healthchecken bruker nå en eksplisitt strukturprobe med en repo-generert, liten arsrapport-lignende PDF og tvinger `hybridMode=auto` for selve kompatibilitetsproben. Dette er bevisst:
+
+- den verifiserer at hybrid-backenden svarer med parsebar struktur
+- den verifiserer at repoets klientsti og normalisering faktisk kan lese hybrid-output
+- den later ikke som om dette alene beviser OCR-kvalitet for den scannede baseline-klassen
+
+For `scan_or_ocr`-baselinefilings er healthchecken derfor bare første steg. Den ekte kvalitetsvalideringen skjer fortsatt i live baseline-shadow-batchen mot reelle filings.
+
+`opendataloader:baseline-preflight` er den anbefalte prechecken før baseline OCR-shadow-runs. Den validerer i denne rekkefølgen:
+
+1. hybrid URL konfigurert
+2. hybrid backend reachable
+3. aktiv shell-Java kompatibel
+4. repoets ODL-klientsti kompatibel
+
+Hvis ett ledd feiler, skriver den ut konkrete guidance-punkter i stedet for at du må vente til en baseline-batch feiler senere.
+
+Det er viktig å lese disse to nivåene riktig:
+
+- grønn `hybrid-healthcheck` / `baseline-preflight` betyr at runtime, klient og struktur-normalisering er kompatible
+- det betyr ikke automatisk at scanned annual reports blir riktig ekstrahert
+- scanned baseline-klassen ma fortsatt kjores via `financials:run-baseline-ocr-shadow-batch` for a maale faktisk extraction quality
+
+### Lokal hybrid-backend for baseline OCR-filer
+
+Baseline-klassen for norske arsrapporter i dette prosjektet er scannede / OCR-tunge PDF-er. Disse skal fortsatt routes til hybrid og skal ikke tvinges over pa local mode for a "fa gronn benchmark". Repoet har derfor en lokal hybrid-bootstrap med Docker Compose.
+
+Forbered env:
+
+1. kopier `.env.hybrid.local.example` til `.env.local` eller flett verdiene inn i ditt lokale miljo
+2. sett minst:
+   - `OPENDATALOADER_ENABLED="true"`
+   - `OPENDATALOADER_MODE="hybrid"`
+   - `OPENDATALOADER_HYBRID_URL="http://localhost:5002"`
+   - `OPENDATALOADER_DUAL_RUN="true"`
+
+Start backend:
+
+```bash
+npm run opendataloader:hybrid-up
+```
+
+Dette bygger en lokal container som installerer `opendataloader-pdf[hybrid]` og starter:
+
+```bash
+opendataloader-pdf-hybrid --port 5002 --force-ocr --ocr-lang "nor,en"
+```
+
+Stopp backend:
+
+```bash
+npm run opendataloader:hybrid-down
+```
+
+Verifiser readiness:
+
+```bash
+npm run opendataloader:java-info
+npm run opendataloader:runtime-diagnostics
+npm run opendataloader:hybrid-healthcheck
+npm run opendataloader:baseline-preflight
+```
+
+Hvis hybrid er riktig oppe, skal `hybrid-healthcheck` rapportere `httpProbe.ok: true`. Men det er `baseline-preflight` som avgjør om hele repo-stakken faktisk er klar for baseline OCR-shadow-runs.
+
+Praktisk tolkning:
+
+- backend healthy, shell Java wrong:
+  `hybrid-healthcheck` kan vise `httpProbe.ok: true`, mens `baseline-preflight` fortsatt feiler fordi aktiv `java.exe` er for gammel
+- backend unhealthy:
+  `httpProbe.ok: false` eller `reachable: false`
+- runtime-compatible but extraction still weak:
+  preflight går grønt, men selve baseline-shadow-run kan fortsatt ende i `MANUAL_REVIEW` eller en extraction failure senere
+
+Windows PowerShell: midlertidig Java 17 i gjeldende shell
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-17"
+$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+java -version
+npm run opendataloader:java-info
+```
+
+Hvis `opendataloader:java-info` fortsatt peker til `C:\Program Files (x86)\Common Files\Oracle\Java\javapath\java.exe`, har ikke den nye Java 17-banen kommet først på `PATH`.
 
 `opendataloader:smoke-test` forsøker en reell lokal ODL-parse mot en liten kontroll-PDF. Hvis Java 11+ ikke er tilgjengelig, feiler den tidlig og tydelig i stedet for senere i pipelinen.
 
@@ -500,6 +605,29 @@ Eller et konkret baseline-år:
 npm run financials:select-baseline-ocr-shadow-batch -- --years=2024
 ```
 
+Kjor baseline 2024 direkte:
+
+```bash
+npm run financials:run-baseline-ocr-shadow-batch -- --years=2024
+```
+
+Kjor hele baseline-familien 2020-2024:
+
+```bash
+npm run financials:run-baseline-ocr-shadow-batch
+```
+
+Anbefalt baseline-kjoreflyt:
+
+```bash
+npm run opendataloader:java-info
+npm run opendataloader:hybrid-healthcheck
+npm run opendataloader:baseline-preflight
+npm run financials:run-baseline-ocr-shadow-batch -- --years=2024
+```
+
+Legg merke til at `financials:run-baseline-ocr-shadow-batch` nå stopper tidlig dersom baseline-preflighten ikke er grønn. Bruk bare `--skip-preflight=true` hvis du bevisst vil debugge et senere steg.
+
 Kjør batchen:
 
 ```bash
@@ -543,6 +671,14 @@ For OCR-/degraderte filings inkluderer oppsummeringen nå også strukturert lega
 - `manualReviewDueToOcrQualityCount`
 
 Dette er ment å erstatte støyende lavnivålogger som `pixd too small`, `Bad pix from ImageData` og lignende med en kort oppsummering som viser om OCR faktisk fikk brukbare regioner eller om filing-en konservativt ble stående til `MANUAL_REVIEW`.
+
+Tolkning av baseline OCR-shadow-resultater:
+
+- `runtime-unavailable`: hybrid kunne ikke valideres i dette repo-miljoet. Dette er en runtime-/infrastrukturfeil, ikke et bevis pa at ODL eller legacy vant casen.
+- `backend healthy but shell Java wrong`: health-endpoint svarer, men repoets klientsti bruker fortsatt feil `java.exe`. Dette vises eksplisitt i `baseline-preflight` og `runtime-diagnostics`.
+- `reachable but unusable OCR`: hybrid svarte, men OCR/parse gav for svak struktur eller ingen brukbare annual-report-sider. Dette er extraction quality og skal fortsatt behandles konservativt.
+- `completed comparison`: legacy og ODL ble faktisk kjørt side om side mot samme filing.
+- `MANUAL_REVIEW`: publish safety blokkerte auto-publisering. Dette er fortsatt riktig og onsket ved usikkerhet.
 
 Dette er bevisst et operator-/analyseverktøy, ikke en rollout-mekanisme. Anbefalingen skal fortsatt forbli konservativ: legacy er default, og OpenDataLoader forblir shadow-only til live evidens er langt bredere, særlig for OCR/scannede/degraderte årsrapporter.
 - `live_weakness_observed` betyr at minst en live-case i klassen fortsatt har materiell uenighet eller publish-mismatch og derfor diskvalifiserer fallback-vurdering.

@@ -1,0 +1,2195 @@
+{
+  "generatedAt": "2026-04-25T08:10:29.391Z",
+  "manifest": {
+    "name": "baseline-shadow-batch-918298037-2024-2024",
+    "generatedAt": "2026-04-25T08:07:01.639Z",
+    "selection": {
+      "filingIds": [],
+      "orgNumbers": [
+        "918298037"
+      ],
+      "statuses": [],
+      "fiscalYearFrom": 2024,
+      "fiscalYearTo": 2024,
+      "reviewStatuses": [],
+      "ruleCodes": [],
+      "onlyLatest": true,
+      "requirePdfArtifact": true,
+      "desiredTags": [],
+      "limit": 20,
+      "baselineOrgNumber": "918298037",
+      "baselineFiscalYears": [
+        2024
+      ],
+      "baselineClass": "scan_or_ocr"
+    },
+    "entries": [
+      {
+        "filingId": "cmobtujqo0001vmvoz4tcie6q",
+        "orgNumber": "918298037",
+        "fiscalYear": 2024,
+        "label": "918298037 2024",
+        "tagHints": [
+          "manual_review_expected",
+          "ocr_token_noise",
+          "scan_or_ocr"
+        ],
+        "notes": "Blocked by publish gate"
+      }
+    ]
+  },
+  "runtimeEnvironment": {
+    "opendataloaderPackageVersion": "2.2.1",
+    "javaVersion": "17.0.18",
+    "javaMajorVersion": 17,
+    "localOpenDataLoaderReady": true,
+    "localOpenDataLoaderReason": "Active shell Java 17.0.18 at C:\\Program Files\\Microsoft\\jdk-17.0.18.8-hotspot\\bin\\java.exe is compatible with local OpenDataLoader execution.",
+    "liveLocalBenchmarkReady": true,
+    "liveLocalBenchmarkReason": "Environment is ready for live local OpenDataLoader benchmark cases.",
+    "liveHybridBenchmarkReady": true,
+    "liveHybridBenchmarkReason": "Hybrid backend is reachable and compatible with the repo's OpenDataLoader client path."
+  },
+  "cases": [
+    {
+      "caseId": "cmobtujqo0001vmvoz4tcie6q",
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2024,
+      "name": "918298037 2024",
+      "tagHints": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "notes": "Blocked by publish gate",
+      "routeDecision": {
+        "executionMode": "hybrid",
+        "requiresOcr": true,
+        "reasonCode": "FORCED_HYBRID",
+        "reason": "Hybrid mode selected explicitly by configuration."
+      },
+      "legacyOcrDiagnostics": {
+        "minWidthPx": 64,
+        "minHeightPx": 64,
+        "minAreaPx": 8192,
+        "pageCount": 25,
+        "imageRegionCount": 25,
+        "tinyCropSkippedCount": 0,
+        "invalidCropCount": 0,
+        "ocrAttemptCount": 25,
+        "ocrFailureCount": 0,
+        "usableOcrRegionCount": 0,
+        "pageLevelOcrFallbackCount": 25,
+        "manualReviewDueToOcrQualityCount": 1,
+        "suppressedFailureMessages": [
+          {
+            "message": "OCR produced no usable lines for this page-level region.",
+            "count": 25
+          }
+        ],
+        "regionFailures": [
+          {
+            "pageNumber": 1,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 2,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 3,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 4,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 5,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 6,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 7,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 8,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 9,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 10,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 11,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 12,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 13,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 14,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 15,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 16,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 17,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 18,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 19,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 20,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 21,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 22,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 23,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 24,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          },
+          {
+            "pageNumber": 25,
+            "stage": "recognition",
+            "category": "ocr_quality_too_weak",
+            "message": "OCR produced no usable lines for this page-level region."
+          }
+        ]
+      },
+      "documentTags": [
+        "degraded_ambiguous",
+        "live_hybrid",
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "status": "completed",
+      "evidenceKind": "live-hybrid-odl",
+      "evidenceQuality": "real-filing-live-hybrid",
+      "errors": [],
+      "knownEvidenceLimitations": [],
+      "legacy": {
+        "engine": "LEGACY",
+        "executionSource": "ocr_fixture",
+        "mode": "legacy",
+        "runtimeMs": 2,
+        "confidenceScore": 0.195,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": false,
+          "success": null,
+          "artifactKinds": [],
+          "detail": "real filing OCR"
+        },
+        "classifications": [],
+        "classificationDiagnostics": [],
+        "selectedFacts": [],
+        "blockingRuleCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 3,
+        "validationPasses": false,
+        "evidenceKind": "legacy-only",
+        "snapshot": {
+          "engine": "LEGACY",
+          "mode": "legacy",
+          "classifications": [],
+          "selectedFacts": [],
+          "blockingRuleCodes": [
+            "PRIMARY_INCOME_PAGE_MISSING",
+            "PRIMARY_BALANCE_PAGE_MISSING",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.195,
+          "durationMs": 2
+        }
+      },
+      "openDataLoader": {
+        "engine": "OPENDATALOADER",
+        "executionSource": "live_pdf",
+        "mode": "hybrid",
+        "runtimeMs": null,
+        "confidenceScore": 0.195,
+        "validationScore": 1,
+        "shouldPublish": false,
+        "artifactGeneration": {
+          "attempted": true,
+          "success": true,
+          "artifactKinds": [
+            "DOCUMENT_JSON",
+            "DOCUMENT_MARKDOWN",
+            "ANNOTATED_PDF"
+          ],
+          "detail": "real filing live ODL parse"
+        },
+        "classifications": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 2,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 3,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 4,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 5,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 6,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 7,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 8,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 9,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 10,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 11,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 12,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 13,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 14,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 15,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 16,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 17,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 18,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 19,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 20,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 21,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 22,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 23,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 24,
+            "type": "COVER",
+            "unitScale": null
+          },
+          {
+            "pageNumber": 25,
+            "type": "COVER",
+            "unitScale": null
+          }
+        ],
+        "classificationDiagnostics": [
+          {
+            "pageNumber": 1,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 2,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 3,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 4,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 5,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 6,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 7,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 8,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 9,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 10,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 11,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 12,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 13,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 14,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 15,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 16,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 17,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 18,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 19,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 20,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 21,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 22,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 23,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 24,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          },
+          {
+            "pageNumber": 25,
+            "type": "COVER",
+            "confidence": 0.15,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
+            "hasConflictingUnitSignals": false,
+            "declaredYears": [],
+            "yearHeaderYears": [],
+            "heading": null,
+            "numericRowCount": 0,
+            "tableLike": false,
+            "reasons": [
+              "No strong page classification signals"
+            ]
+          }
+        ],
+        "selectedFacts": [],
+        "blockingRuleCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCodes": [
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "issueCount": 3,
+        "validationPasses": false,
+        "evidenceKind": "live-hybrid-odl",
+        "snapshot": {
+          "engine": "OPENDATALOADER",
+          "mode": "hybrid",
+          "classifications": [
+            {
+              "pageNumber": 1,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 2,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 3,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 4,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 5,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 6,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 7,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 8,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 9,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 10,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 11,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 12,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 13,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 14,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 15,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 16,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 17,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 18,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 19,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 20,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 21,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 22,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 23,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 24,
+              "type": "COVER",
+              "unitScale": null
+            },
+            {
+              "pageNumber": 25,
+              "type": "COVER",
+              "unitScale": null
+            }
+          ],
+          "selectedFacts": [],
+          "blockingRuleCodes": [
+            "PRIMARY_INCOME_PAGE_MISSING",
+            "PRIMARY_BALANCE_PAGE_MISSING",
+            "REQUIRED_PRIMARY_METRICS_MISSING"
+          ],
+          "shouldPublish": false,
+          "confidenceScore": 0.195,
+          "durationMs": null
+        },
+        "routeReason": "Hybrid mode selected explicitly by configuration.",
+        "usablePageStructure": false
+      },
+      "comparison": {
+        "primaryEngine": "LEGACY",
+        "shadowEngine": "OPENDATALOADER",
+        "primaryShouldPublish": false,
+        "shadowShouldPublish": false,
+        "publishDecisionMismatch": false,
+        "classificationDifferences": [
+          {
+            "pageNumber": 1,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 2,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 3,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 4,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 5,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 6,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 7,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 8,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 9,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 10,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 11,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 12,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 13,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 14,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 15,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 16,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 17,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 18,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 19,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 20,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 21,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 22,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 23,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 24,
+            "primaryType": null,
+            "shadowType": "COVER"
+          },
+          {
+            "pageNumber": 25,
+            "primaryType": null,
+            "shadowType": "COVER"
+          }
+        ],
+        "unitScaleDifferences": [],
+        "factDifferences": [],
+        "blockingRuleDifferences": {
+          "onlyInPrimary": [],
+          "onlyInShadow": []
+        },
+        "durationMs": {
+          "primary": 2,
+          "shadow": null
+        },
+        "materialDisagreement": true
+      },
+      "comparisonAssessment": {
+        "classification": "likely_code_or_logic_issue",
+        "summary": "A material disagreement remains without a declared evidence limitation, so this case still looks like a parser or pipeline issue."
+      },
+      "divergenceSummary": {
+        "firstDivergenceStage": "none",
+        "summary": "No material divergence detected.",
+        "legacyOutcome": "MANUAL_REVIEW",
+        "openDataLoaderOutcome": "MANUAL_REVIEW",
+        "legacyStatementPages": [],
+        "openDataLoaderStatementPages": [],
+        "legacyNotePages": [],
+        "openDataLoaderNotePages": [],
+        "unitScalesByPage": [
+          {
+            "pageNumber": 1,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 2,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 3,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 4,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 5,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 6,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 7,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 8,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 9,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 10,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 11,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 12,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 13,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 14,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 15,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 16,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 17,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 18,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 19,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 20,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 21,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 22,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 23,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 24,
+            "legacy": null,
+            "openDataLoader": null
+          },
+          {
+            "pageNumber": 25,
+            "legacy": null,
+            "openDataLoader": null
+          }
+        ],
+        "pageClassificationDifferences": [
+          {
+            "pageNumber": 1,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 2,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 3,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 4,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 5,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 6,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 7,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 8,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 9,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 10,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 11,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 12,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 13,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 14,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 15,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 16,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 17,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 18,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 19,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 20,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 21,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 22,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 23,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 24,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          },
+          {
+            "pageNumber": 25,
+            "legacyType": null,
+            "openDataLoaderType": "COVER",
+            "legacyUnitScale": null,
+            "openDataLoaderUnitScale": null,
+            "legacySignals": [
+              "classification details unavailable"
+            ],
+            "openDataLoaderSignals": [
+              "confidence=0.150",
+              "unitScale=unknown",
+              "unitScaleConfidence=0.000",
+              "tableLike=false",
+              "numericRows=0",
+              "years=none",
+              "heading=none",
+              "conflictingUnitSignals=false",
+              "reasons=No strong page classification signals"
+            ],
+            "evidenceComparison": "One side is missing page-level classification diagnostics."
+          }
+        ],
+        "missingCanonicalFactsOnOpenDataLoader": [],
+        "differingCanonicalFacts": [],
+        "validationIssuesOnlyOnOpenDataLoader": [],
+        "blockingReasonsOnOpenDataLoader": [
+          "PRIMARY_BALANCE_PAGE_MISSING",
+          "PRIMARY_INCOME_PAGE_MISSING",
+          "REQUIRED_PRIMARY_METRICS_MISSING"
+        ],
+        "confidence": {
+          "legacy": 0.195,
+          "openDataLoader": 0.195
+        }
+      }
+    }
+  ],
+  "summary": {
+    "totalCases": 1,
+    "completedCases": 1,
+    "failedCases": 0,
+    "skippedCases": 0,
+    "differentialCases": 1,
+    "disagreementCases": 1,
+    "publishDecisionMismatchCases": 0,
+    "evidenceCounts": {
+      "legacy-only": 0,
+      "captured-fixture": 0,
+      "live-local-odl": 0,
+      "live-hybrid-odl": 1
+    },
+    "documentTagCounts": {
+      "degraded_ambiguous": 1,
+      "live_hybrid": 1,
+      "manual_review_expected": 1,
+      "ocr_token_noise": 1,
+      "scan_or_ocr": 1
+    },
+    "documentTagMetrics": {
+      "degraded_ambiguous": {
+        "totalCases": 1,
+        "differentialCases": 1,
+        "liveOpenDataLoaderCases": 1,
+        "publishParityRate": 1,
+        "materialDisagreementRate": 1,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 1
+      },
+      "live_hybrid": {
+        "totalCases": 1,
+        "differentialCases": 1,
+        "liveOpenDataLoaderCases": 1,
+        "publishParityRate": 1,
+        "materialDisagreementRate": 1,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 1
+      },
+      "manual_review_expected": {
+        "totalCases": 1,
+        "differentialCases": 1,
+        "liveOpenDataLoaderCases": 1,
+        "publishParityRate": 1,
+        "materialDisagreementRate": 1,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 1
+      },
+      "ocr_token_noise": {
+        "totalCases": 1,
+        "differentialCases": 1,
+        "liveOpenDataLoaderCases": 1,
+        "publishParityRate": 1,
+        "materialDisagreementRate": 1,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 1
+      },
+      "scan_or_ocr": {
+        "totalCases": 1,
+        "differentialCases": 1,
+        "liveOpenDataLoaderCases": 1,
+        "publishParityRate": 1,
+        "materialDisagreementRate": 1,
+        "knownEvidenceGapCount": 0,
+        "likelyIssueCount": 1
+      }
+    },
+    "shadowCoverageByDocumentTag": {
+      "degraded_ambiguous": {
+        "differentialCases": 1,
+        "liveCases": 1,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 1
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 1,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 1
+        },
+        "firstDivergenceStageCounts": {
+          "none": 1,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {
+          "PRIMARY_BALANCE_PAGE_MISSING": 1,
+          "PRIMARY_INCOME_PAGE_MISSING": 1,
+          "REQUIRED_PRIMARY_METRICS_MISSING": 1
+        },
+        "status": "live_weakness_observed",
+        "statusReason": "Minst én live ODL-case i denne dokumentklassen viser materiell uenighet eller publiseringssvikt."
+      },
+      "live_hybrid": {
+        "differentialCases": 1,
+        "liveCases": 1,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 1
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 1,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 1
+        },
+        "firstDivergenceStageCounts": {
+          "none": 1,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {
+          "PRIMARY_BALANCE_PAGE_MISSING": 1,
+          "PRIMARY_INCOME_PAGE_MISSING": 1,
+          "REQUIRED_PRIMARY_METRICS_MISSING": 1
+        },
+        "status": "live_weakness_observed",
+        "statusReason": "Minst én live ODL-case i denne dokumentklassen viser materiell uenighet eller publiseringssvikt."
+      },
+      "manual_review_expected": {
+        "differentialCases": 1,
+        "liveCases": 1,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 1
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 1,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 1
+        },
+        "firstDivergenceStageCounts": {
+          "none": 1,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {
+          "PRIMARY_BALANCE_PAGE_MISSING": 1,
+          "PRIMARY_INCOME_PAGE_MISSING": 1,
+          "REQUIRED_PRIMARY_METRICS_MISSING": 1
+        },
+        "status": "live_weakness_observed",
+        "statusReason": "Minst én live ODL-case i denne dokumentklassen viser materiell uenighet eller publiseringssvikt."
+      },
+      "ocr_token_noise": {
+        "differentialCases": 1,
+        "liveCases": 1,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 1
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 1,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 1
+        },
+        "firstDivergenceStageCounts": {
+          "none": 1,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {
+          "PRIMARY_BALANCE_PAGE_MISSING": 1,
+          "PRIMARY_INCOME_PAGE_MISSING": 1,
+          "REQUIRED_PRIMARY_METRICS_MISSING": 1
+        },
+        "status": "live_weakness_observed",
+        "statusReason": "Minst én live ODL-case i denne dokumentklassen viser materiell uenighet eller publiseringssvikt."
+      },
+      "scan_or_ocr": {
+        "differentialCases": 1,
+        "liveCases": 1,
+        "evidenceCounts": {
+          "legacy-only": 0,
+          "captured-fixture": 0,
+          "live-local-odl": 0,
+          "live-hybrid-odl": 1
+        },
+        "publishDecisionMismatchCases": 0,
+        "materialDisagreementCases": 1,
+        "usablePageStructureCases": 0,
+        "manualReviewSafetyCases": 0,
+        "comparisonAssessmentCounts": {
+          "no_material_disagreement": 0,
+          "known_evidence_gap": 0,
+          "likely_code_or_logic_issue": 1
+        },
+        "firstDivergenceStageCounts": {
+          "none": 1,
+          "page_classification": 0,
+          "note_selection": 0,
+          "unit_scale": 0,
+          "table_reconstruction": 0,
+          "canonical_mapping": 0,
+          "validation": 0,
+          "publish_gate": 0
+        },
+        "openDataLoaderBlockingReasonCounts": {
+          "PRIMARY_BALANCE_PAGE_MISSING": 1,
+          "PRIMARY_INCOME_PAGE_MISSING": 1,
+          "REQUIRED_PRIMARY_METRICS_MISSING": 1
+        },
+        "status": "live_weakness_observed",
+        "statusReason": "Minst én live ODL-case i denne dokumentklassen viser materiell uenighet eller publiseringssvikt."
+      }
+    },
+    "comparisonAssessmentCounts": {
+      "no_material_disagreement": 0,
+      "known_evidence_gap": 0,
+      "likely_code_or_logic_issue": 1
+    },
+    "divergenceStageCounts": {
+      "none": 1,
+      "page_classification": 0,
+      "note_selection": 0,
+      "unit_scale": 0,
+      "table_reconstruction": 0,
+      "canonical_mapping": 0,
+      "validation": 0,
+      "publish_gate": 0
+    },
+    "openDataLoaderBlockingReasonCounts": {
+      "PRIMARY_BALANCE_PAGE_MISSING": 1,
+      "PRIMARY_INCOME_PAGE_MISSING": 1,
+      "REQUIRED_PRIMARY_METRICS_MISSING": 1
+    },
+    "missingCanonicalFactCounts": {},
+    "runtimeByEvidenceKind": {
+      "legacy-only": {
+        "caseCount": 0,
+        "averageOpenDataLoaderMs": null,
+        "medianOpenDataLoaderMs": null
+      },
+      "captured-fixture": {
+        "caseCount": 0,
+        "averageOpenDataLoaderMs": null,
+        "medianOpenDataLoaderMs": null
+      },
+      "live-local-odl": {
+        "caseCount": 0,
+        "averageOpenDataLoaderMs": null,
+        "medianOpenDataLoaderMs": null
+      },
+      "live-hybrid-odl": {
+        "caseCount": 1,
+        "averageOpenDataLoaderMs": null,
+        "medianOpenDataLoaderMs": null
+      }
+    },
+    "averageRuntimeMs": {
+      "legacy": 2,
+      "opendataloader": null
+    },
+    "medianRuntimeMs": {
+      "legacy": 2,
+      "opendataloader": null
+    },
+    "expectedMetrics": {
+      "legacy": {
+        "evaluatedCases": 0,
+        "averageStatementPageAccuracy": null,
+        "averageUnitScaleAccuracy": null,
+        "averageFactAccuracy": null,
+        "publishOutcomeMatchRate": null,
+        "validationPassRate": 0
+      },
+      "opendataloader": {
+        "evaluatedCases": 0,
+        "averageStatementPageAccuracy": null,
+        "averageUnitScaleAccuracy": null,
+        "averageFactAccuracy": null,
+        "publishOutcomeMatchRate": null,
+        "validationPassRate": 0
+      }
+    },
+    "recommendation": "keep legacy as default, OpenDataLoader shadow-only",
+    "recommendationReason": "Det finnes materielle uenigheter i live OpenDataLoader-kjøringer. Inntil disse er forklart, bør OpenDataLoader ikke få publiseringsansvar.",
+    "totalRealFilings": 1,
+    "evidenceQualityCounts": {
+      "real-filing-live-local": 0,
+      "real-filing-live-hybrid": 1,
+      "runtime-unavailable": 0,
+      "missing-pdf-artifact": 0
+    },
+    "classesWithZeroLiveEvidence": [],
+    "liveOcrOrScannedCoverage": {
+      "totalCases": 1,
+      "liveCases": 1,
+      "runtimeUnavailableCases": 0,
+      "publishMismatchCases": 0,
+      "materialDisagreementCases": 1,
+      "safeManualReviewCases": 1
+    }
+  }
+}

@@ -22,6 +22,7 @@ import {
 import { buildOpenDataLoaderComparisonSummary } from "@/server/document-understanding/opendataloader-comparison";
 import { chooseOpenDataLoaderRoute, resolveOpenDataLoaderConfig } from "@/server/document-understanding/opendataloader-config";
 import { parseAnnualReportPdfWithOpenDataLoader } from "@/server/document-understanding/opendataloader-client";
+import { inspectOpenDataLoaderHybridHealth } from "@/server/document-understanding/opendataloader-hybrid-health";
 import { assertOpenDataLoaderRuntimeReady, inspectOpenDataLoaderRuntime } from "@/server/document-understanding/opendataloader-runtime";
 import { LocalAnnualReportArtifactStorage } from "@/server/financials/artifact-storage";
 import {
@@ -624,12 +625,56 @@ async function runShadowCase(
     };
   }
 
-  const openDataLoaderResult = await parseAnnualReportPdfWithOpenDataLoader({
-    pdfBuffer,
-    filename: `${filing.company.orgNumber}-${filing.fiscalYear}.pdf`,
-    config: resolvedConfig,
-    route,
-  });
+  let openDataLoaderResult;
+  try {
+    openDataLoaderResult = await parseAnnualReportPdfWithOpenDataLoader({
+      pdfBuffer,
+      sourceFilename: `${filing.company.orgNumber}-${filing.fiscalYear}.pdf`,
+      preflight,
+      config: resolvedConfig,
+    });
+  } catch (error) {
+    const documentTags = inferRuntimeTags({
+      tagHints: entry.tagHints ?? [],
+      preflight,
+      legacyPages,
+      legacy,
+      openDataLoaderRoute: route,
+    });
+    const diagnostics =
+      error && typeof error === "object" && "diagnostics" in error
+        ? (error as { diagnostics?: { failureStage?: string; failureReason?: string } }).diagnostics
+        : null;
+    const failureStage = diagnostics?.failureStage ?? null;
+    const failureReason =
+      diagnostics?.failureReason ??
+      (error instanceof Error ? error.message : "OpenDataLoader parse failed.");
+    const isRuntimeFailure =
+      failureStage === "opendataloader-invocation" ||
+      failureStage === "raw-output-loading" ||
+      failureStage === null;
+
+    return {
+      ...baseResult,
+      documentTags,
+      status: isRuntimeFailure ? "skipped" : "error",
+      evidenceKind:
+        route.executionMode === "hybrid" ? "live-hybrid-odl" : "live-local-odl",
+      evidenceQuality:
+        isRuntimeFailure
+          ? "runtime-unavailable"
+          : route.executionMode === "hybrid"
+            ? "real-filing-live-hybrid"
+            : "real-filing-live-local",
+      errors: [failureReason],
+      knownEvidenceLimitations: [
+        isRuntimeFailure
+          ? `OpenDataLoader ${route.executionMode} runtime failed before a comparable shadow result was produced. Route ${route.reasonCode}: ${route.reason}`
+          : `OpenDataLoader produced an extraction failure at stage ${failureStage ?? "unknown"}; treat this as extraction quality, not publish evidence.`,
+      ],
+      legacy,
+    };
+  }
   const parsedPages = openDataLoaderResult.annualReportPages;
   const openDataLoader = runPipelineFromPages({
     fiscalYear: filing.fiscalYear,
@@ -781,7 +826,11 @@ export async function runAnnualReportShadowBatch(
   manifestInput: AnnualReportShadowBatchManifest,
 ): Promise<AnnualReportShadowBatchRun> {
   const manifest = parseAnnualReportShadowBatchManifest(manifestInput);
-  const runtime = await inspectOpenDataLoaderRuntime(resolveOpenDataLoaderConfig(process.env));
+  const config = resolveOpenDataLoaderConfig(process.env);
+  const [runtime, hybridHealth] = await Promise.all([
+    inspectOpenDataLoaderRuntime(config),
+    inspectOpenDataLoaderHybridHealth({ config }),
+  ]);
   const cases: AnnualReportShadowBatchCaseResult[] = [];
   for (const entry of manifest.entries) {
     cases.push(await runShadowCase(entry));
@@ -795,8 +844,8 @@ export async function runAnnualReportShadowBatch(
     localOpenDataLoaderReason: runtime.localModeReason,
     liveLocalBenchmarkReady: runtime.liveLocalBenchmarkReady,
     liveLocalBenchmarkReason: runtime.liveLocalBenchmarkReason,
-    liveHybridBenchmarkReady: runtime.liveHybridBenchmarkReady,
-    liveHybridBenchmarkReason: runtime.liveHybridBenchmarkReason,
+    liveHybridBenchmarkReady: hybridHealth.liveHybridBenchmarkReady,
+    liveHybridBenchmarkReason: hybridHealth.reason,
   } satisfies AnnualReportBenchmarkRun["runtimeEnvironment"];
 
   return {

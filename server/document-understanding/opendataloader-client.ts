@@ -167,12 +167,15 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
   sourceFilename: string;
   preflight: PreflightResult;
   config?: OpenDataLoaderResolvedConfig;
+  routeOverride?: OpenDataLoaderParseResult["routing"];
 }) {
   const config = input.config ?? resolveOpenDataLoaderConfig();
-  const route = chooseOpenDataLoaderRoute({
-    config,
-    preflight: input.preflight,
-  });
+  const route =
+    input.routeOverride ??
+    chooseOpenDataLoaderRoute({
+      config,
+      preflight: input.preflight,
+    });
 
   if (!route.enabled) {
     throw new Error("OpenDataLoader is disabled.");
@@ -193,6 +196,14 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
       preflightPageCount: input.preflight.pageCount,
       hasTextLayer: input.preflight.hasTextLayer,
       hasReliableTextLayer: input.preflight.hasReliableTextLayer,
+      route: {
+        executionMode: route.executionMode,
+        hybridMode: route.hybridMode,
+        requiresOcr: route.requiresOcr,
+        useStructTree: route.useStructTree,
+        reasonCode: route.reasonCode,
+        reason: route.reason,
+      },
     },
   };
 

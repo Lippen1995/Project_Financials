@@ -462,4 +462,130 @@ describe("annual-report-shadow-batch", () => {
     );
     expect(markdown).toContain("OCR suppressed failures: Image too small to scale (3)");
   });
+
+  it("uses hybrid health readiness in runtime messaging for baseline OCR cases", async () => {
+    vi.doMock("@/server/persistence/annual-report-ingestion-repository", () => ({
+      listAnnualReportFilingsForShadowSelection: vi.fn(),
+      getAnnualReportFilingWithArtifacts: vi.fn(async () => ({
+        id: "filing-1",
+        fiscalYear: 2024,
+        lastError: null,
+        company: {
+          orgNumber: "918298037",
+          name: "Baseline AS",
+        },
+        artifacts: [
+          {
+            artifactType: "PDF",
+            storageKey: "baseline.pdf",
+          },
+        ],
+      })),
+    }));
+    vi.doMock("@/server/financials/artifact-storage", () => ({
+      LocalAnnualReportArtifactStorage: class {
+        async getArtifactBuffer() {
+          return Buffer.from("%PDF-1.4");
+        }
+      },
+    }));
+    vi.doMock("@/integrations/brreg/annual-report-financials/preflight", () => ({
+      preflightAnnualReportDocument: vi.fn(async () => ({
+        pageCount: 2,
+        hasTextLayer: false,
+        hasReliableTextLayer: false,
+        parsedPages: [],
+      })),
+    }));
+    vi.doMock("@/integrations/brreg/annual-report-financials/ocr", () => ({
+      extractOcrPagesWithDiagnostics: vi.fn(async () => ({
+        pages: [],
+        diagnostics: {
+          minWidthPx: 64,
+          minHeightPx: 64,
+          minAreaPx: 8192,
+          pageCount: 2,
+          imageRegionCount: 2,
+          tinyCropSkippedCount: 0,
+          invalidCropCount: 0,
+          ocrAttemptCount: 2,
+          ocrFailureCount: 0,
+          usableOcrRegionCount: 0,
+          pageLevelOcrFallbackCount: 2,
+          manualReviewDueToOcrQualityCount: 1,
+          suppressedFailureMessages: [],
+          regionFailures: [],
+        },
+      })),
+    }));
+    vi.doMock("@/server/document-understanding/opendataloader-runtime", () => ({
+      inspectOpenDataLoaderRuntime: vi.fn(async () => ({
+        packageInstalled: true,
+        packageVersion: "2.2.1",
+        java: {
+          rawVersion: "17.0.18",
+          majorVersion: 17,
+          available: true,
+        },
+        localModeReady: true,
+        hybridConfigured: true,
+        localModeReason: "ready",
+        hybridModeReason: "configured",
+        liveLocalBenchmarkReady: true,
+        liveLocalBenchmarkReason: "ready",
+        liveHybridBenchmarkReady: true,
+        liveHybridBenchmarkReason: "configured",
+      })),
+      assertOpenDataLoaderRuntimeReady: vi.fn(async () => {
+        throw new Error("Hybrid backend is unreachable");
+      }),
+    }));
+    vi.doMock("@/server/document-understanding/opendataloader-hybrid-health", () => ({
+      inspectOpenDataLoaderHybridHealth: vi.fn(async () => ({
+        configured: true,
+        url: "http://localhost:5002",
+        backend: "docling-fast",
+        timeoutMs: 10000,
+        runtimeReady: true,
+        runtimeReason: "configured",
+        liveHybridBenchmarkReady: false,
+        errorType: "unreachable",
+        reason: "Hybrid backend healthcheck could not reach http://localhost:5002.",
+        httpProbe: {
+          attempted: true,
+          endpoint: "http://localhost:5002/health",
+          ok: false,
+          reachable: false,
+          status: null,
+          contentType: null,
+          bodyPreview: null,
+          latencyMs: 20,
+          reason: "fetch failed",
+        },
+        compatibilityProbe: {
+          attempted: false,
+          success: false,
+          latencyMs: null,
+          annualReportPageCount: null,
+          blockCount: null,
+          failureStage: null,
+          reason: "probe skipped",
+        },
+      })),
+    }));
+
+    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const run = await module.runAnnualReportShadowBatch(
+      module.parseAnnualReportShadowBatchManifest({
+        name: "baseline-shadow-batch",
+        entries: [{ filingId: "filing-1", orgNumber: "918298037", fiscalYear: 2024 }],
+      }),
+    );
+
+    expect(run.runtimeEnvironment.liveHybridBenchmarkReady).toBe(false);
+    expect(run.runtimeEnvironment.liveHybridBenchmarkReason).toBe(
+      "Hybrid backend healthcheck could not reach http://localhost:5002.",
+    );
+    expect(run.cases[0]?.evidenceQuality).toBe("runtime-unavailable");
+  });
 });

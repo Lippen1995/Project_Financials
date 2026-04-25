@@ -1,0 +1,25 @@
+services:
+  opendataloader-hybrid:
+    container_name: projectx-opendataloader-hybrid
+    build:
+      context: .
+      dockerfile: docker/opendataloader-hybrid/Dockerfile
+    ports:
+      - "${OPENDATALOADER_HYBRID_PORT:-5002}:${OPENDATALOADER_HYBRID_PORT:-5002}"
+    environment:
+      OPENDATALOADER_HYBRID_PORT: "${OPENDATALOADER_HYBRID_PORT:-5002}"
+      OPENDATALOADER_HYBRID_OCR_LANG: "${OPENDATALOADER_HYBRID_OCR_LANG:-nor,en}"
+      OPENDATALOADER_HYBRID_LOG_LEVEL: "${OPENDATALOADER_HYBRID_LOG_LEVEL:-info}"
+      OPENDATALOADER_HYBRID_EXTRA_ARGS: "${OPENDATALOADER_HYBRID_EXTRA_ARGS:-}"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import os,socket,sys; port=int(os.getenv('OPENDATALOADER_HYBRID_PORT','5002')); s=socket.create_connection(('127.0.0.1', port), 2); s.close()",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 20s

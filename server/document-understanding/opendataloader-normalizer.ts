@@ -177,6 +177,88 @@ function topLevelTypeOf(payload: unknown): OpenDataLoaderRawOutputSummary["topLe
   return "other";
 }
 
+function summarizeContainerValue(
+  key: string,
+  value: unknown,
+): OpenDataLoaderRawOutputSummary["topLevelContainerDiagnostics"][number] {
+  if (Array.isArray(value)) {
+    const firstItem = value[0];
+    return {
+      key,
+      valueType: "array",
+      length: value.length,
+      sampleItemType:
+        firstItem === null
+          ? "null"
+          : Array.isArray(firstItem)
+            ? "array"
+            : typeof firstItem,
+      sampleItemKeys:
+        firstItem && typeof firstItem === "object" && !Array.isArray(firstItem)
+          ? Object.keys(firstItem as Record<string, unknown>).sort().slice(0, 20)
+          : [],
+    };
+  }
+
+  if (value === null || value === undefined) {
+    return {
+      key,
+      valueType: "null",
+      length: null,
+      sampleItemType: null,
+      sampleItemKeys: [],
+    };
+  }
+
+  if (typeof value === "object") {
+    return {
+      key,
+      valueType: "object",
+      length: Object.keys(value as Record<string, unknown>).length,
+      sampleItemType: null,
+      sampleItemKeys: Object.keys(value as Record<string, unknown>).sort().slice(0, 20),
+    };
+  }
+
+  if (typeof value === "string") {
+    return {
+      key,
+      valueType: "string",
+      length: value.length,
+      sampleItemType: null,
+      sampleItemKeys: [],
+    };
+  }
+
+  if (typeof value === "number") {
+    return {
+      key,
+      valueType: "number",
+      length: null,
+      sampleItemType: null,
+      sampleItemKeys: [],
+    };
+  }
+
+  if (typeof value === "boolean") {
+    return {
+      key,
+      valueType: "boolean",
+      length: null,
+      sampleItemType: null,
+      sampleItemKeys: [],
+    };
+  }
+
+  return {
+    key,
+    valueType: "other",
+    length: null,
+    sampleItemType: null,
+    sampleItemKeys: [],
+  };
+}
+
 function readContainerPageNumber(value: Record<string, unknown>) {
   const pageNumber =
     readNumber(value["page number"]) ??
@@ -374,6 +456,14 @@ export function summarizeOpenDataLoaderRawPayload(
   const sampleElement = elements[0] && typeof elements[0] === "object"
     ? (elements[0] as Record<string, unknown>)
     : null;
+  const topLevelContainerDiagnostics =
+    payload && typeof payload === "object" && !Array.isArray(payload)
+      ? Object.entries(payload as Record<string, unknown>)
+          .filter(([, value]) =>
+            Array.isArray(value) || (value !== null && typeof value === "object"),
+          )
+          .map(([key, value]) => summarizeContainerValue(key, value))
+      : [];
 
   return {
     topLevelType,
@@ -392,6 +482,7 @@ export function summarizeOpenDataLoaderRawPayload(
           .filter((value): value is string => Boolean(value)),
       ),
     ).slice(0, 20),
+    topLevelContainerDiagnostics,
   };
 }
 

@@ -55,6 +55,49 @@ export function buildOpenDataLoaderSmokePdfBuffer(pages: string[][]) {
   return Buffer.from(pdf, "utf8");
 }
 
+export function buildOpenDataLoaderHybridCompatibilityProbePdfBuffer() {
+  return buildOpenDataLoaderSmokePdfBuffer([
+    ["Arsregnskap 2024", "Eksempel Finans AS", "Org.nr. 918298037"],
+    [
+      "Resultatregnskap",
+      "Belop i: NOK",
+      "2024 2023",
+      "Salgsinntekter 103097000 95210000",
+      "Andre driftsinntekter 0 0",
+      "Sum driftsinntekter 103097000 95210000",
+      "Lonnskostnad 41200000 39800000",
+      "Andre driftskostnader 40687000 37700000",
+      "Sum driftskostnader 81887000 77500000",
+      "Driftsresultat 21210000 17710000",
+      "Arsresultat 18221000 15060000",
+    ],
+    [
+      "Balanse",
+      "Belop i: NOK",
+      "2024 2023",
+      "Bankinnskudd, kontanter o.l. 15558000 14001000",
+      "Kundefordringer 22114000 21000000",
+      "Sum omlopsmidler 45012000 40210000",
+      "Sum eiendeler 92155000 85701000",
+    ],
+    [
+      "Balanse forts.",
+      "Belop i: NOK",
+      "2024 2023",
+      "Aksjekapital 100000 100000",
+      "Opptjent egenkapital 36272000 30900000",
+      "Sum egenkapital 36372000 31000000",
+      "Sum gjeld 55783000 54701000",
+      "Sum egenkapital og gjeld 92155000 85701000",
+    ],
+    [
+      "Note 8 Bankinnskudd",
+      "Alle tall i notene er NOK 1 000 dersom annet ikke er oppgitt",
+      "Bankinnskudd 15558 14001",
+    ],
+  ]);
+}
+
 export async function runOpenDataLoaderSmokeTest(
   configOverride?: Partial<OpenDataLoaderResolvedConfig>,
 ) {

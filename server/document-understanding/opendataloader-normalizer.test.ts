@@ -126,6 +126,14 @@ describe("opendataloader-normalizer", () => {
     expect(normalized.pageCount).toBe(2);
     expect(pages).toHaveLength(2);
     expect(pages[1]?.text).toContain("Resultatregnskap");
+    expect(rawSummary.topLevelContainerDiagnostics).toContainEqual(
+      expect.objectContaining({
+        key: "kids",
+        valueType: "array",
+        length: 2,
+        sampleItemType: "object",
+      }),
+    );
   });
 
   it("preserves live OpenDataLoader list item content for statement rows", () => {

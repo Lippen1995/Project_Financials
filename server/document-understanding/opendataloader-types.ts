@@ -113,6 +113,13 @@ export type OpenDataLoaderRawOutputSummary = {
   pageNumbers: number[];
   sampleElementKeys: string[];
   sampleElementTypes: string[];
+  topLevelContainerDiagnostics: Array<{
+    key: string;
+    valueType: "array" | "object" | "string" | "number" | "boolean" | "null" | "other";
+    length: number | null;
+    sampleItemType: string | null;
+    sampleItemKeys: string[];
+  }>;
 };
 
 export type OpenDataLoaderNormalizedOutputSummary = {
@@ -134,6 +141,14 @@ export type OpenDataLoaderParseDiagnostics = {
     preflightPageCount: number;
     hasTextLayer: boolean;
     hasReliableTextLayer: boolean;
+    route?: {
+      executionMode: OpenDataLoaderExecutionMode;
+      hybridMode: "auto" | "full" | null;
+      requiresOcr: boolean;
+      useStructTree: boolean;
+      reasonCode: OpenDataLoaderRouteDecision["reasonCode"];
+      reason: string;
+    };
   };
   artifacts?: {
     outputFilenames: string[];

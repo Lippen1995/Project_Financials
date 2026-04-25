@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-04-24T16:44:46.530Z",
+  "generatedAt": "2026-04-24T17:10:59.637Z",
   "manifest": {
     "name": "baseline-shadow-batch-918298037-2024-2024",
-    "generatedAt": "2026-04-24T06:36:37.888Z",
+    "generatedAt": "2026-04-24T17:07:57.349Z",
     "selection": {
       "filingIds": [],
       "orgNumbers": [
@@ -40,14 +40,14 @@
   },
   "runtimeEnvironment": {
     "opendataloaderPackageVersion": "2.2.1",
-    "javaVersion": "17.0.18",
-    "javaMajorVersion": 17,
-    "localOpenDataLoaderReady": true,
-    "localOpenDataLoaderReason": "Java 17.0.18 is compatible with local OpenDataLoader execution.",
-    "liveLocalBenchmarkReady": true,
-    "liveLocalBenchmarkReason": "Environment is ready for live local OpenDataLoader benchmark cases.",
+    "javaVersion": "1.8.0_241",
+    "javaMajorVersion": 8,
+    "localOpenDataLoaderReady": false,
+    "localOpenDataLoaderReason": "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
+    "liveLocalBenchmarkReady": false,
+    "liveLocalBenchmarkReason": "Detected Java 1.8.0_241, but local OpenDataLoader requires Java 11+.",
     "liveHybridBenchmarkReady": false,
-    "liveHybridBenchmarkReason": "OPENDATALOADER_HYBRID_URL is not configured."
+    "liveHybridBenchmarkReason": "OpenDataLoader parse failed at opendataloader-invocation: The opendataloader-pdf CLI exited with code 1.\n\njava.lang.UnsupportedClassVersionError: org/opendataloader/pdf/cli/CLIMain has been compiled by a more recent version of the Java Runtime (class file version 55.0), this version of the Java Runtime only recognizes class file versions up to 52.0\r\n\tat java.lang.ClassLoader.defineClass1(Native Method)\r\n\tat java.lang.ClassLoader.defineClass(Unknown Source)\r\n\tat java.security.SecureClassLoader.defineClass(Unknown Source)\r\n\tat java.net.URLClassLoader.defineClass(Unknown Source)\r\n\tat java.net.URLClassLoader.access$100(Unknown Source)\r\n\tat java.net.URLClassLoader$1.run(Unknown Source)\r\n\tat java.net.URLClassLoader$1.run(Unknown Source)\r\n\tat java.security.AccessController.doPrivileged(Native Method)\r\n\tat java.net.URLClassLoader.findClass(Unknown Source)\r\n\tat java.lang.ClassLoader.loadClass(Unknown Source)\r\n\tat sun.misc.Launcher$AppClassLoader.loadClass(Unknown Source)\r\n\tat java.lang.ClassLoader.loadClass(Unknown Source)\r\n\tat sun.launcher.LauncherHelper.checkAndLoadMain(Unknown Source)\r\nError: A JNI error has occurred, please check your installation and try again\r\nException in thread \"main\" \n{\n  \"input\": {\n    \"sourceFilename\": \"opendataloader-hybrid-healthcheck.pdf\",\n    \"sourceByteLength\": 1021,\n    \"preflightPageCount\": 2,\n    \"hasTextLayer\": true,\n    \"hasReliableTextLayer\": false\n  },\n  \"failureStage\": \"opendataloader-invocation\",\n  \"failureReason\": \"The opendataloader-pdf CLI exited with code 1.\\n\\njava.lang.UnsupportedClassVersionError: org/opendataloader/pdf/cli/CLIMain has been compiled by a more recent version of the Java Runtime (class file version 55.0), this version of the Java Runtime only recognizes class file versions up to 52.0\\r\\n\\tat java.lang.ClassLoader.defineClass1(Native Method)\\r\\n\\tat java.lang.ClassLoader.defineClass(Unknown Source)\\r\\n\\tat java.security.SecureClassLoader.defineClass(Unknown Source)\\r\\n\\tat java.net.URLClassLoader.defineClass(Unknown Source)\\r\\n\\tat java.net.URLClassLoader.access$100(Unknown Source)\\r\\n\\tat java.net.URLClassLoader$1.run(Unknown Source)\\r\\n\\tat java.net.URLClassLoader$1.run(Unknown Source)\\r\\n\\tat java.security.AccessController.doPrivileged(Native Method)\\r\\n\\tat java.net.URLClassLoader.findClass(Unknown Source)\\r\\n\\tat java.lang.ClassLoader.loadClass(Unknown Source)\\r\\n\\tat sun.misc.Launcher$AppClassLoader.loadClass(Unknown Source)\\r\\n\\tat java.lang.ClassLoader.loadClass(Unknown Source)\\r\\n\\tat sun.launcher.LauncherHelper.checkAndLoadMain(Unknown Source)\\r\\nError: A JNI error has occurred, please check your installation and try again\\r\\nException in thread \\\"main\\\" \"\n}"
   },
   "cases": [
     {
@@ -66,8 +66,8 @@
       "routeDecision": {
         "executionMode": "hybrid",
         "requiresOcr": true,
-        "reasonCode": "SCANNED_PDF",
-        "reason": "Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+        "reasonCode": "FORCED_HYBRID",
+        "reason": "Hybrid mode selected explicitly by configuration."
       },
       "legacyOcrDiagnostics": {
         "minWidthPx": 64,
@@ -249,13 +249,13 @@
         "scan_or_ocr"
       ],
       "status": "skipped",
-      "evidenceKind": "legacy-only",
+      "evidenceKind": "live-hybrid-odl",
       "evidenceQuality": "runtime-unavailable",
       "errors": [
-        "OpenDataLoader hybrid mode was selected, but OPENDATALOADER_HYBRID_URL is not configured."
+        "The opendataloader-pdf CLI exited with code 1.\n\njava.lang.UnsupportedClassVersionError: org/opendataloader/pdf/cli/CLIMain has been compiled by a more recent version of the Java Runtime (class file version 55.0), this version of the Java Runtime only recognizes class file versions up to 52.0\r\n\tat java.lang.ClassLoader.defineClass1(Native Method)\r\n\tat java.lang.ClassLoader.defineClass(Unknown Source)\r\n\tat java.security.SecureClassLoader.defineClass(Unknown Source)\r\n\tat java.net.URLClassLoader.defineClass(Unknown Source)\r\n\tat java.net.URLClassLoader.access$100(Unknown Source)\r\n\tat java.net.URLClassLoader$1.run(Unknown Source)\r\n\tat java.net.URLClassLoader$1.run(Unknown Source)\r\n\tat java.security.AccessController.doPrivileged(Native Method)\r\n\tat java.net.URLClassLoader.findClass(Unknown Source)\r\n\tat java.lang.ClassLoader.loadClass(Unknown Source)\r\n\tat sun.misc.Launcher$AppClassLoader.loadClass(Unknown Source)\r\n\tat java.lang.ClassLoader.loadClass(Unknown Source)\r\n\tat sun.launcher.LauncherHelper.checkAndLoadMain(Unknown Source)\r\nError: A JNI error has occurred, please check your installation and try again\r\nException in thread \"main\" "
       ],
       "knownEvidenceLimitations": [
-        "Real hybrid/OCR evidence could not be collected because hybrid runtime is not configured. Route SCANNED_PDF: Preflight detected weak or missing text extraction, so hybrid/OCR routing was selected."
+        "OpenDataLoader hybrid runtime failed before a comparable shadow result was produced. Route FORCED_HYBRID: Hybrid mode selected explicitly by configuration."
       ],
       "legacy": {
         "engine": "LEGACY",
@@ -313,10 +313,10 @@
     "disagreementCases": 0,
     "publishDecisionMismatchCases": 0,
     "evidenceCounts": {
-      "legacy-only": 1,
+      "legacy-only": 0,
       "captured-fixture": 0,
       "live-local-odl": 0,
-      "live-hybrid-odl": 0
+      "live-hybrid-odl": 1
     },
     "documentTagCounts": {
       "degraded_ambiguous": 1,
@@ -329,7 +329,7 @@
       "degraded_ambiguous": {
         "totalCases": 1,
         "differentialCases": 0,
-        "liveOpenDataLoaderCases": 0,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": null,
         "materialDisagreementRate": null,
         "knownEvidenceGapCount": 0,
@@ -338,7 +338,7 @@
       "live_hybrid": {
         "totalCases": 1,
         "differentialCases": 0,
-        "liveOpenDataLoaderCases": 0,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": null,
         "materialDisagreementRate": null,
         "knownEvidenceGapCount": 0,
@@ -347,7 +347,7 @@
       "manual_review_expected": {
         "totalCases": 1,
         "differentialCases": 0,
-        "liveOpenDataLoaderCases": 0,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": null,
         "materialDisagreementRate": null,
         "knownEvidenceGapCount": 0,
@@ -356,7 +356,7 @@
       "ocr_token_noise": {
         "totalCases": 1,
         "differentialCases": 0,
-        "liveOpenDataLoaderCases": 0,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": null,
         "materialDisagreementRate": null,
         "knownEvidenceGapCount": 0,
@@ -365,7 +365,7 @@
       "scan_or_ocr": {
         "totalCases": 1,
         "differentialCases": 0,
-        "liveOpenDataLoaderCases": 0,
+        "liveOpenDataLoaderCases": 1,
         "publishParityRate": null,
         "materialDisagreementRate": null,
         "knownEvidenceGapCount": 0,
@@ -600,7 +600,7 @@
       }
     },
     "recommendation": "keep legacy as default, OpenDataLoader shadow-only",
-    "recommendationReason": "Benchmarken har ingen live OpenDataLoader-PDF-kjoringer ennå. Captured-fixtures er nyttige for regresjon, men ikke sterke nok til å promotere engine-en.",
+    "recommendationReason": "Repoet har ikke bekreftet lokal OpenDataLoader-runtime i dette miljoet. Java 11+ er ikke klart, sa rollout bor ikke skje utover fixture/shadow-evaluering.",
     "totalRealFilings": 1,
     "evidenceQualityCounts": {
       "real-filing-live-local": 0,
