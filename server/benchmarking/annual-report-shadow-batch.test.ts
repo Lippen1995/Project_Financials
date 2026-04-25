@@ -463,6 +463,293 @@ describe("annual-report-shadow-batch", () => {
     expect(markdown).toContain("OCR suppressed failures: Image too small to scale (3)");
   });
 
+  it("renders explicit ODL structure diagnostics for a live hybrid baseline case", async () => {
+    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const manifest = module.parseAnnualReportShadowBatchManifest({
+      name: "baseline-shadow-batch",
+      entries: [{ filingId: "f1", orgNumber: "918298037", fiscalYear: 2024 }],
+    });
+
+    const markdown = module.renderAnnualReportShadowBatchMarkdown({
+      generatedAt: "2026-04-25T12:00:00.000Z",
+      manifest,
+      runtimeEnvironment: {
+        opendataloaderPackageVersion: "2.2.1",
+        javaVersion: "17.0.18",
+        javaMajorVersion: 17,
+        localOpenDataLoaderReady: true,
+        localOpenDataLoaderReason: "ready",
+        liveLocalBenchmarkReady: true,
+        liveLocalBenchmarkReason: "ready",
+        liveHybridBenchmarkReady: true,
+        liveHybridBenchmarkReason: "ready",
+      },
+      cases: [
+        {
+          caseId: "f1",
+          filingId: "f1",
+          orgNumber: "918298037",
+          companyName: "Baseline AS",
+          fiscalYear: 2024,
+          name: "Baseline AS 2024",
+          documentTags: ["scan_or_ocr", "live_hybrid"],
+          tagHints: ["scan_or_ocr"],
+          status: "completed",
+          evidenceKind: "live-hybrid-odl",
+          evidenceQuality: "real-filing-live-hybrid",
+          routeDecision: {
+            executionMode: "hybrid",
+            hybridMode: "full",
+            requiresOcr: true,
+            reasonCode: "FORCED_HYBRID",
+            reason: "Hybrid mode selected explicitly by configuration.",
+          },
+          errors: [],
+          knownEvidenceLimitations: [],
+          legacy: {
+            engine: "LEGACY",
+            executionSource: "ocr_fixture",
+            mode: "legacy",
+            runtimeMs: 5,
+            confidenceScore: 0.2,
+            validationScore: 1,
+            shouldPublish: false,
+            artifactGeneration: {
+              attempted: false,
+              success: null,
+              artifactKinds: [],
+              detail: "ocr",
+            },
+            classifications: [],
+            classificationDiagnostics: [],
+            selectedFacts: [],
+            blockingRuleCodes: ["PRIMARY_INCOME_PAGE_MISSING"],
+            issueCodes: ["PRIMARY_INCOME_PAGE_MISSING"],
+            issueCount: 1,
+            validationPasses: false,
+            evidenceKind: "legacy-only",
+            snapshot: {
+              engine: "LEGACY",
+              mode: "legacy",
+              classifications: [],
+              selectedFacts: [],
+              blockingRuleCodes: ["PRIMARY_INCOME_PAGE_MISSING"],
+              shouldPublish: false,
+              confidenceScore: 0.2,
+              durationMs: 5,
+            },
+          },
+          openDataLoader: {
+            engine: "OPENDATALOADER",
+            executionSource: "live_pdf",
+            mode: "hybrid",
+            runtimeMs: 100,
+            confidenceScore: 0.195,
+            validationScore: 1,
+            shouldPublish: false,
+            artifactGeneration: {
+              attempted: true,
+              success: true,
+              artifactKinds: ["DOCUMENT_JSON"],
+              detail: "live",
+            },
+            classifications: [{ pageNumber: 1, type: "COVER", unitScale: null }],
+            classificationDiagnostics: [
+              {
+                pageNumber: 1,
+                type: "COVER",
+                confidence: 0.15,
+                unitScale: null,
+                unitScaleConfidence: 0,
+                hasConflictingUnitSignals: false,
+                declaredYears: [],
+                yearHeaderYears: [],
+                heading: null,
+                numericRowCount: 0,
+                tableLike: false,
+                reasons: ["No strong page classification signals"],
+              },
+            ],
+            selectedFacts: [],
+            blockingRuleCodes: [
+              "PRIMARY_INCOME_PAGE_MISSING",
+              "PRIMARY_BALANCE_PAGE_MISSING",
+            ],
+            issueCodes: [
+              "PRIMARY_INCOME_PAGE_MISSING",
+              "PRIMARY_BALANCE_PAGE_MISSING",
+            ],
+            issueCount: 2,
+            validationPasses: false,
+            evidenceKind: "live-hybrid-odl",
+            snapshot: {
+              engine: "OPENDATALOADER",
+              mode: "hybrid",
+              classifications: [{ pageNumber: 1, type: "COVER", unitScale: null }],
+              selectedFacts: [],
+              blockingRuleCodes: [
+                "PRIMARY_INCOME_PAGE_MISSING",
+                "PRIMARY_BALANCE_PAGE_MISSING",
+              ],
+              shouldPublish: false,
+              confidenceScore: 0.195,
+              durationMs: 100,
+            },
+            routeReason: "Hybrid mode selected explicitly by configuration.",
+            usablePageStructure: false,
+          },
+          openDataLoaderDiagnostics: {
+            rawOutput: {
+              topLevelType: "object",
+              topLevelKeys: ["kids", "number of pages"],
+              elementCount: 25,
+              pageCount: 25,
+              tableCount: 0,
+              textElementCount: 0,
+              elementTypeCounts: {
+                image: 25,
+              },
+              elementContainerPaths: ["$.kids"],
+              pageNumbers: [1, 2, 3],
+              sampleElementKeys: ["bounding box", "id", "page number", "type"],
+              sampleElementTypes: ["image"],
+              topLevelContainerDiagnostics: [],
+            },
+            normalizedOutput: {
+              pageCount: 25,
+              blockCount: 25,
+              tableCount: 0,
+              blockKindCounts: {
+                picture: 25,
+              },
+              rawTypeCounts: {
+                image: 25,
+              },
+              pages: [
+                {
+                  pageNumber: 1,
+                  blockCount: 1,
+                  tableCount: 0,
+                  textLength: 0,
+                  blockKindCounts: {
+                    picture: 1,
+                  },
+                  rawTypeCounts: {
+                    image: 1,
+                  },
+                },
+              ],
+            },
+            annualReportPages: {
+              pageCount: 25,
+              totalLines: 0,
+              totalTables: 0,
+              pages: [
+                {
+                  pageNumber: 1,
+                  lineCount: 0,
+                  tableCount: 0,
+                  textLength: 0,
+                  blockKindCounts: {
+                    picture: 1,
+                  },
+                },
+              ],
+            },
+            firstFailingStage: "hybrid_output",
+            rootCauseClassification: "hybrid_output_weakness",
+            firstFailingReason:
+              "Hybrid returned only image blocks without text or table structure, so downstream statement detection had no usable signals.",
+            statementLikeSignalsPresent: false,
+            imageOnlyRawOutput: true,
+          },
+        },
+      ],
+      summary: {
+        ...module.summarizeShadowBatch(manifest, {
+          opendataloaderPackageVersion: "2.2.1",
+          javaVersion: "17.0.18",
+          javaMajorVersion: 17,
+          localOpenDataLoaderReady: true,
+          localOpenDataLoaderReason: "ready",
+          liveLocalBenchmarkReady: true,
+          liveLocalBenchmarkReason: "ready",
+          liveHybridBenchmarkReady: true,
+          liveHybridBenchmarkReason: "ready",
+        }, [
+          {
+            caseId: "f1",
+            filingId: "f1",
+            orgNumber: "918298037",
+            companyName: "Baseline AS",
+            fiscalYear: 2024,
+            name: "Baseline AS 2024",
+            documentTags: ["scan_or_ocr", "live_hybrid"],
+            tagHints: ["scan_or_ocr"],
+            status: "completed",
+            evidenceKind: "live-hybrid-odl",
+            evidenceQuality: "real-filing-live-hybrid",
+            routeDecision: {
+              executionMode: "hybrid",
+              hybridMode: "full",
+              requiresOcr: true,
+              reasonCode: "FORCED_HYBRID",
+              reason: "Hybrid mode selected explicitly by configuration.",
+            },
+            errors: [],
+            knownEvidenceLimitations: [],
+            openDataLoaderDiagnostics: {
+              rawOutput: {
+                topLevelType: "object",
+                topLevelKeys: ["kids", "number of pages"],
+                elementCount: 25,
+                pageCount: 25,
+                tableCount: 0,
+                textElementCount: 0,
+                elementTypeCounts: { image: 25 },
+                elementContainerPaths: ["$.kids"],
+                pageNumbers: [1],
+                sampleElementKeys: ["type"],
+                sampleElementTypes: ["image"],
+                topLevelContainerDiagnostics: [],
+              },
+              normalizedOutput: {
+                pageCount: 25,
+                blockCount: 25,
+                tableCount: 0,
+                blockKindCounts: { picture: 25 },
+                rawTypeCounts: { image: 25 },
+                pages: [],
+              },
+              annualReportPages: {
+                pageCount: 25,
+                totalLines: 0,
+                totalTables: 0,
+                pages: [],
+              },
+              firstFailingStage: "hybrid_output",
+              rootCauseClassification: "hybrid_output_weakness",
+              firstFailingReason: "image only",
+              statementLikeSignalsPresent: false,
+              imageOnlyRawOutput: true,
+            },
+          },
+        ]),
+      },
+    });
+
+    expect(markdown).toContain("Route decision: hybrid/full (FORCED_HYBRID), requires OCR");
+    expect(markdown).toContain(
+      "ODL first failing stage: hybrid_output (hybrid_output_weakness)",
+    );
+    expect(markdown).toContain(
+      "ODL raw output: elements=25, textElements=0, tables=0, pages=25, types=image:25",
+    );
+    expect(markdown).toContain(
+      "ODL annual-report pages: pages=25, lines=0, tables=0, statementSignalsPresent=false, imageOnlyRawOutput=true",
+    );
+  });
+
   it("uses hybrid health readiness in runtime messaging for baseline OCR cases", async () => {
     vi.doMock("@/server/persistence/annual-report-ingestion-repository", () => ({
       listAnnualReportFilingsForShadowSelection: vi.fn(),

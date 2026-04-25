@@ -241,6 +241,7 @@ describe("opendataloader-hybrid-health", () => {
             pageCount: 0,
             tableCount: 0,
             textElementCount: 0,
+            elementTypeCounts: {},
             elementContainerPaths: [],
             pageNumbers: [],
             sampleElementKeys: [],
@@ -259,6 +260,8 @@ describe("opendataloader-hybrid-health", () => {
             pageCount: 0,
             blockCount: 0,
             tableCount: 0,
+            blockKindCounts: {},
+            rawTypeCounts: {},
             pages: [],
           },
         };

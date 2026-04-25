@@ -133,15 +133,38 @@ async function resolveOpenDataLoaderEngineVersion() {
 function summarizeNormalizedDocument(
   pageResult: OpenDataLoaderParseResult["normalizedDocument"],
 ): OpenDataLoaderNormalizedOutputSummary {
+  const blockKindCounts = pageResult.pages.reduce<Record<string, number>>((counts, page) => {
+    for (const block of page.blocks) {
+      counts[block.kind] = (counts[block.kind] ?? 0) + 1;
+    }
+    return counts;
+  }, {});
+  const rawTypeCounts = pageResult.pages.reduce<Record<string, number>>((counts, page) => {
+    for (const block of page.blocks) {
+      counts[block.rawType] = (counts[block.rawType] ?? 0) + 1;
+    }
+    return counts;
+  }, {});
+
   return {
     pageCount: pageResult.pages.length,
     blockCount: pageResult.pages.reduce((sum, page) => sum + page.blocks.length, 0),
     tableCount: pageResult.pages.reduce((sum, page) => sum + page.tables.length, 0),
+    blockKindCounts,
+    rawTypeCounts,
     pages: pageResult.pages.map((page) => ({
       pageNumber: page.pageNumber,
       blockCount: page.blocks.length,
       tableCount: page.tables.length,
       textLength: page.text.length,
+      blockKindCounts: page.blocks.reduce<Record<string, number>>((counts, block) => {
+        counts[block.kind] = (counts[block.kind] ?? 0) + 1;
+        return counts;
+      }, {}),
+      rawTypeCounts: page.blocks.reduce<Record<string, number>>((counts, block) => {
+        counts[block.rawType] = (counts[block.rawType] ?? 0) + 1;
+        return counts;
+      }, {}),
     })),
   };
 }

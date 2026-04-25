@@ -78,6 +78,10 @@ describe("opendataloader-normalizer", () => {
 
     expect(rawSummary.elementCount).toBe(2);
     expect(rawSummary.pageCount).toBe(1);
+    expect(rawSummary.elementTypeCounts).toEqual({
+      heading: 1,
+      table: 1,
+    });
     expect(rawSummary.elementContainerPaths).toContain("$.pages[0].elements");
     expect(normalized.pageCount).toBe(1);
     expect(normalized.pages[0]?.blocks).toHaveLength(2);
@@ -123,6 +127,10 @@ describe("opendataloader-normalizer", () => {
     expect(rawSummary.topLevelKeys).toContain("kids");
     expect(rawSummary.elementContainerPaths).toEqual(["$.kids"]);
     expect(rawSummary.pageCount).toBe(2);
+    expect(rawSummary.elementTypeCounts).toEqual({
+      heading: 1,
+      paragraph: 1,
+    });
     expect(normalized.pageCount).toBe(2);
     expect(pages).toHaveLength(2);
     expect(pages[1]?.text).toContain("Resultatregnskap");

@@ -453,6 +453,14 @@ export function summarizeOpenDataLoaderRawPayload(
     typeof element.type === "string" && element.type.trim().toLowerCase() === "table",
   ).length;
   const textElementCount = elements.filter((element) => extractElementText(element).length > 0).length;
+  const elementTypeCounts = elements.reduce<Record<string, number>>((counts, element) => {
+    const key =
+      typeof element.type === "string" && element.type.trim().length > 0
+        ? element.type.trim().toLowerCase()
+        : "unknown";
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
   const sampleElement = elements[0] && typeof elements[0] === "object"
     ? (elements[0] as Record<string, unknown>)
     : null;
@@ -472,6 +480,7 @@ export function summarizeOpenDataLoaderRawPayload(
     pageCount: pageNumbers.length,
     tableCount,
     textElementCount,
+    elementTypeCounts,
     elementContainerPaths: containerPaths,
     pageNumbers,
     sampleElementKeys: sampleElement ? Object.keys(sampleElement).sort().slice(0, 20) : [],

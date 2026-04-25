@@ -109,6 +109,7 @@ export type OpenDataLoaderRawOutputSummary = {
   pageCount: number;
   tableCount: number;
   textElementCount: number;
+  elementTypeCounts: Record<string, number>;
   elementContainerPaths: string[];
   pageNumbers: number[];
   sampleElementKeys: string[];
@@ -126,11 +127,15 @@ export type OpenDataLoaderNormalizedOutputSummary = {
   pageCount: number;
   blockCount: number;
   tableCount: number;
+  blockKindCounts: Record<string, number>;
+  rawTypeCounts: Record<string, number>;
   pages: Array<{
     pageNumber: number;
     blockCount: number;
     tableCount: number;
     textLength: number;
+    blockKindCounts: Record<string, number>;
+    rawTypeCounts: Record<string, number>;
   }>;
 };
 

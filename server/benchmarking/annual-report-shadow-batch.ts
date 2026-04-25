@@ -29,6 +29,11 @@ import {
   getAnnualReportFilingWithArtifacts,
   listAnnualReportFilingsForShadowSelection,
 } from "@/server/persistence/annual-report-ingestion-repository";
+import {
+  OpenDataLoaderNormalizedOutputSummary,
+  OpenDataLoaderParseDiagnostics,
+  OpenDataLoaderRawOutputSummary,
+} from "@/server/document-understanding/opendataloader-types";
 
 const shadowBatchManifestEntrySchema = z.object({
   filingId: z.string().min(1),
@@ -90,6 +95,7 @@ export type AnnualReportShadowBatchCaseResult = {
   evidenceQuality: AnnualReportShadowBatchEvidenceQuality;
   routeDecision?: {
     executionMode: "local" | "hybrid";
+    hybridMode?: "auto" | "full" | null;
     requiresOcr: boolean;
     reasonCode: string;
     reason: string;
@@ -102,6 +108,37 @@ export type AnnualReportShadowBatchCaseResult = {
     routeReason?: string | null;
     usablePageStructure?: boolean;
   };
+  openDataLoaderDiagnostics?: {
+    rawOutput: OpenDataLoaderRawOutputSummary | null;
+    normalizedOutput: OpenDataLoaderNormalizedOutputSummary | null;
+    annualReportPages: {
+      pageCount: number;
+      totalLines: number;
+      totalTables: number;
+      pages: Array<{
+        pageNumber: number;
+        lineCount: number;
+        tableCount: number;
+        textLength: number;
+        blockKindCounts: Record<string, number>;
+      }>;
+    } | null;
+    firstFailingStage:
+      | "none"
+      | "hybrid_output"
+      | "normalization"
+      | "annual_report_page_conversion"
+      | "page_classification";
+    rootCauseClassification:
+      | "none"
+      | "hybrid_output_weakness"
+      | "normalization_loss"
+      | "annual_report_page_conversion_loss"
+      | "page_classification_weakness";
+    firstFailingReason: string;
+    statementLikeSignalsPresent: boolean;
+    imageOnlyRawOutput: boolean;
+  } | null;
   comparison?: AnnualReportBenchmarkCaseResult["comparison"];
   comparisonAssessment?: BenchmarkComparisonAssessment | null;
   divergenceSummary?: BenchmarkDivergenceSummary | null;
@@ -401,6 +438,150 @@ function toBenchmarkCaseResult(
   };
 }
 
+function summarizeAnnualReportPageStructure(pages: AnnualReportParsedInputPage[]) {
+  return {
+    pageCount: pages.length,
+    totalLines: pages.reduce((sum, page) => sum + page.lines.length, 0),
+    totalTables: pages.reduce(
+      (sum, page) => sum + ("tables" in page && Array.isArray(page.tables) ? page.tables.length : 0),
+      0,
+    ),
+    pages: pages.map((page) => ({
+      pageNumber: page.pageNumber,
+      lineCount: page.lines.length,
+      tableCount: "tables" in page && Array.isArray(page.tables) ? page.tables.length : 0,
+      textLength: page.text.length,
+      blockKindCounts:
+        "blocks" in page && Array.isArray(page.blocks)
+          ? page.blocks.reduce<Record<string, number>>((counts, block) => {
+              counts[block.kind] = (counts[block.kind] ?? 0) + 1;
+              return counts;
+            }, {})
+          : {},
+    })),
+  };
+}
+
+function buildOpenDataLoaderStructureDiagnostics(input: {
+  diagnostics?: OpenDataLoaderParseDiagnostics;
+  parsedPages?: AnnualReportParsedInputPage[];
+  openDataLoader?: BenchmarkPipelineResult;
+}) {
+  const rawOutput = input.diagnostics?.rawOutput ?? null;
+  const normalizedOutput = input.diagnostics?.normalizedOutput ?? null;
+  const annualReportPages = input.parsedPages
+    ? summarizeAnnualReportPageStructure(input.parsedPages)
+    : null;
+  const imageOnlyRawOutput =
+    Boolean(rawOutput) &&
+    rawOutput!.elementCount > 0 &&
+    Object.keys(rawOutput!.elementTypeCounts).length > 0 &&
+    Object.keys(rawOutput!.elementTypeCounts).every((type) => ["image", "picture"].includes(type)) &&
+    rawOutput!.textElementCount === 0 &&
+    rawOutput!.tableCount === 0;
+  const statementLikeSignalsPresent = Boolean(
+    input.openDataLoader?.classifications.some((classification) =>
+      [
+        "STATUTORY_INCOME",
+        "STATUTORY_BALANCE",
+        "STATUTORY_BALANCE_CONTINUATION",
+        "SUPPLEMENTARY_INCOME",
+        "SUPPLEMENTARY_BALANCE",
+        "NOTE",
+      ].includes(classification.type),
+    ) ||
+      input.openDataLoader?.classificationDiagnostics?.some(
+        (diagnostic) =>
+          diagnostic.tableLike ||
+          diagnostic.numericRowCount >= 3 ||
+          diagnostic.yearHeaderYears.length >= 2,
+      ),
+  );
+
+  if (rawOutput && rawOutput.elementCount === 0) {
+    return {
+      rawOutput,
+      normalizedOutput,
+      annualReportPages,
+      firstFailingStage: "hybrid_output" as const,
+      rootCauseClassification: "hybrid_output_weakness" as const,
+      firstFailingReason: "Hybrid returned zero document elements, so no annual-report structure could be derived.",
+      statementLikeSignalsPresent,
+      imageOnlyRawOutput: false,
+    };
+  }
+
+  if (imageOnlyRawOutput) {
+    return {
+      rawOutput,
+      normalizedOutput,
+      annualReportPages,
+      firstFailingStage: "hybrid_output" as const,
+      rootCauseClassification: "hybrid_output_weakness" as const,
+      firstFailingReason:
+        "Hybrid returned only image blocks without text or table structure, so downstream statement detection had no usable signals.",
+      statementLikeSignalsPresent,
+      imageOnlyRawOutput,
+    };
+  }
+
+  if (normalizedOutput && normalizedOutput.pageCount === 0) {
+    return {
+      rawOutput,
+      normalizedOutput,
+      annualReportPages,
+      firstFailingStage: "normalization" as const,
+      rootCauseClassification: "normalization_loss" as const,
+      firstFailingReason: "Raw hybrid output existed, but normalization produced zero pages.",
+      statementLikeSignalsPresent,
+      imageOnlyRawOutput: false,
+    };
+  }
+
+  if (annualReportPages && annualReportPages.pageCount === 0) {
+    return {
+      rawOutput,
+      normalizedOutput,
+      annualReportPages,
+      firstFailingStage: "annual_report_page_conversion" as const,
+      rootCauseClassification: "annual_report_page_conversion_loss" as const,
+      firstFailingReason: "Normalized pages existed, but none survived annual-report page conversion.",
+      statementLikeSignalsPresent,
+      imageOnlyRawOutput: false,
+    };
+  }
+
+  if (
+    input.openDataLoader &&
+    !statementLikeSignalsPresent &&
+    input.openDataLoader.classifications.length > 0 &&
+    input.openDataLoader.classifications.every((classification) => classification.type === "COVER")
+  ) {
+    return {
+      rawOutput,
+      normalizedOutput,
+      annualReportPages,
+      firstFailingStage: "page_classification" as const,
+      rootCauseClassification: "page_classification_weakness" as const,
+      firstFailingReason:
+        "Annual-report pages survived, but none retained enough statement-like signals to classify beyond COVER.",
+      statementLikeSignalsPresent,
+      imageOnlyRawOutput: false,
+    };
+  }
+
+  return {
+    rawOutput,
+    normalizedOutput,
+    annualReportPages,
+    firstFailingStage: "none" as const,
+    rootCauseClassification: "none" as const,
+    firstFailingReason: "No earlier structure-stage failure was detected from stored ODL diagnostics.",
+    statementLikeSignalsPresent,
+    imageOnlyRawOutput: false,
+  };
+}
+
 function inferRuntimeTags(input: {
   tagHints: string[];
   preflight: Awaited<ReturnType<typeof preflightAnnualReportDocument>>;
@@ -588,6 +769,7 @@ async function runShadowCase(
     notes: entry.notes,
     routeDecision: {
       executionMode: route.executionMode,
+      hybridMode: route.hybridMode,
       requiresOcr: route.requiresOcr,
       reasonCode: route.reasonCode,
       reason: route.reason,
@@ -654,6 +836,12 @@ async function runShadowCase(
       failureStage === "raw-output-loading" ||
       failureStage === null;
 
+    const openDataLoaderDiagnostics = buildOpenDataLoaderStructureDiagnostics({
+      diagnostics: error && typeof error === "object" && "diagnostics" in error
+        ? (error as { diagnostics?: OpenDataLoaderParseDiagnostics }).diagnostics
+        : undefined,
+    });
+
     return {
       ...baseResult,
       documentTags,
@@ -673,6 +861,7 @@ async function runShadowCase(
           : `OpenDataLoader produced an extraction failure at stage ${failureStage ?? "unknown"}; treat this as extraction quality, not publish evidence.`,
       ],
       legacy,
+      openDataLoaderDiagnostics,
     };
   }
   const parsedPages = openDataLoaderResult.annualReportPages;
@@ -724,6 +913,11 @@ async function runShadowCase(
     legacy,
     openDataLoaderRoute: route,
   });
+  const openDataLoaderDiagnostics = buildOpenDataLoaderStructureDiagnostics({
+    diagnostics: openDataLoaderResult.diagnostics,
+    parsedPages,
+    openDataLoader,
+  });
 
   return {
     ...baseResult,
@@ -743,6 +937,7 @@ async function runShadowCase(
       routeReason: openDataLoaderResult.routing.reason,
       usablePageStructure: parsedPages.some((page) => page.lines.length > 0),
     },
+    openDataLoaderDiagnostics,
     comparison,
     comparisonAssessment,
     divergenceSummary,
@@ -922,7 +1117,7 @@ export function renderAnnualReportShadowBatchMarkdown(
     lines.push(`- Tags: ${item.documentTags.join(", ") || "none"}`);
     if (item.routeDecision) {
       lines.push(
-        `- Route decision: ${item.routeDecision.executionMode} (${item.routeDecision.reasonCode})${item.routeDecision.requiresOcr ? ", requires OCR" : ""}`,
+        `- Route decision: ${item.routeDecision.executionMode}${item.routeDecision.hybridMode ? `/${item.routeDecision.hybridMode}` : ""} (${item.routeDecision.reasonCode})${item.routeDecision.requiresOcr ? ", requires OCR" : ""}`,
       );
       lines.push(`- Route reason: ${item.routeDecision.reason}`);
     }
@@ -949,9 +1144,30 @@ export function renderAnnualReportShadowBatchMarkdown(
       );
       lines.push(`- ODL route reason: ${item.openDataLoader.routeReason ?? "n/a"}`);
     }
+    if (item.openDataLoaderDiagnostics) {
+      lines.push(
+        `- ODL first failing stage: ${item.openDataLoaderDiagnostics.firstFailingStage} (${item.openDataLoaderDiagnostics.rootCauseClassification})`,
+      );
+      lines.push(`- ODL failing reason: ${item.openDataLoaderDiagnostics.firstFailingReason}`);
+      if (item.openDataLoaderDiagnostics.rawOutput) {
+        lines.push(
+          `- ODL raw output: elements=${item.openDataLoaderDiagnostics.rawOutput.elementCount}, textElements=${item.openDataLoaderDiagnostics.rawOutput.textElementCount}, tables=${item.openDataLoaderDiagnostics.rawOutput.tableCount}, pages=${item.openDataLoaderDiagnostics.rawOutput.pageCount}, types=${Object.entries(item.openDataLoaderDiagnostics.rawOutput.elementTypeCounts).map(([type, count]) => `${type}:${count}`).join(", ") || "none"}`,
+        );
+      }
+      if (item.openDataLoaderDiagnostics.normalizedOutput) {
+        lines.push(
+          `- ODL normalized output: pages=${item.openDataLoaderDiagnostics.normalizedOutput.pageCount}, blocks=${item.openDataLoaderDiagnostics.normalizedOutput.blockCount}, tables=${item.openDataLoaderDiagnostics.normalizedOutput.tableCount}, blockKinds=${Object.entries(item.openDataLoaderDiagnostics.normalizedOutput.blockKindCounts).map(([kind, count]) => `${kind}:${count}`).join(", ") || "none"}`,
+        );
+      }
+      if (item.openDataLoaderDiagnostics.annualReportPages) {
+        lines.push(
+          `- ODL annual-report pages: pages=${item.openDataLoaderDiagnostics.annualReportPages.pageCount}, lines=${item.openDataLoaderDiagnostics.annualReportPages.totalLines}, tables=${item.openDataLoaderDiagnostics.annualReportPages.totalTables}, statementSignalsPresent=${item.openDataLoaderDiagnostics.statementLikeSignalsPresent}, imageOnlyRawOutput=${item.openDataLoaderDiagnostics.imageOnlyRawOutput}`,
+        );
+      }
+    }
     if (item.divergenceSummary) {
-      lines.push(`- First divergence: ${item.divergenceSummary.firstDivergenceStage}`);
-      lines.push(`- Divergence summary: ${item.divergenceSummary.summary}`);
+      lines.push(`- Cross-engine divergence: ${item.divergenceSummary.firstDivergenceStage}`);
+      lines.push(`- Cross-engine summary: ${item.divergenceSummary.summary}`);
     }
     if (item.errors.length > 0) {
       lines.push(`- Errors: ${item.errors.join(" | ")}`);
