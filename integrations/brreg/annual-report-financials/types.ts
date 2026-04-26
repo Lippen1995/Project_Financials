@@ -213,6 +213,8 @@ export type AnnualReportOcrDiagnostics = {
   minWidthPx: number;
   minHeightPx: number;
   minAreaPx: number;
+  renderScale: number;
+  preprocessingMode: string;
   pageCount: number;
   imageRegionCount: number;
   tinyCropSkippedCount: number;
@@ -220,6 +222,10 @@ export type AnnualReportOcrDiagnostics = {
   ocrAttemptCount: number;
   ocrFailureCount: number;
   usableOcrRegionCount: number;
+  usableLineCount: number;
+  rowCandidateCount: number;
+  yearHeaderCandidateCount: number;
+  statementLikePageCount: number;
   pageLevelOcrFallbackCount: number;
   manualReviewDueToOcrQualityCount: number;
   suppressedFailureMessages: Array<{
@@ -230,6 +236,6 @@ export type AnnualReportOcrDiagnostics = {
 };
 
 export type AnnualReportOcrExtractionResult = {
-  pages: PageTextLayer[];
+  pages: AnnualReportParsedInputPage[];
   diagnostics: AnnualReportOcrDiagnostics;
 };

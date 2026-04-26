@@ -173,6 +173,8 @@ describe("annual-report-shadow-batch", () => {
             minWidthPx: 64,
             minHeightPx: 64,
             minAreaPx: 8192,
+            renderScale: 4,
+            preprocessingMode: "page_png_scale4",
             pageCount: 2,
             imageRegionCount: 2,
             tinyCropSkippedCount: 1,
@@ -180,6 +182,10 @@ describe("annual-report-shadow-batch", () => {
             ocrAttemptCount: 1,
             ocrFailureCount: 0,
             usableOcrRegionCount: 1,
+            usableLineCount: 12,
+            rowCandidateCount: 6,
+            yearHeaderCandidateCount: 1,
+            statementLikePageCount: 1,
             pageLevelOcrFallbackCount: 2,
             manualReviewDueToOcrQualityCount: 0,
             suppressedFailureMessages: [],
@@ -375,6 +381,8 @@ describe("annual-report-shadow-batch", () => {
             minWidthPx: 64,
             minHeightPx: 64,
             minAreaPx: 8192,
+            renderScale: 4,
+            preprocessingMode: "page_png_scale4",
             pageCount: 2,
             imageRegionCount: 2,
             tinyCropSkippedCount: 1,
@@ -382,6 +390,10 @@ describe("annual-report-shadow-batch", () => {
             ocrAttemptCount: 1,
             ocrFailureCount: 0,
             usableOcrRegionCount: 1,
+            usableLineCount: 12,
+            rowCandidateCount: 6,
+            yearHeaderCandidateCount: 1,
+            statementLikePageCount: 1,
             pageLevelOcrFallbackCount: 2,
             manualReviewDueToOcrQualityCount: 0,
             suppressedFailureMessages: [
@@ -433,6 +445,8 @@ describe("annual-report-shadow-batch", () => {
                 minWidthPx: 64,
                 minHeightPx: 64,
                 minAreaPx: 8192,
+                renderScale: 4,
+                preprocessingMode: "page_png_scale4",
                 pageCount: 2,
                 imageRegionCount: 2,
                 tinyCropSkippedCount: 1,
@@ -440,6 +454,10 @@ describe("annual-report-shadow-batch", () => {
                 ocrAttemptCount: 1,
                 ocrFailureCount: 0,
                 usableOcrRegionCount: 1,
+                usableLineCount: 12,
+                rowCandidateCount: 6,
+                yearHeaderCandidateCount: 1,
+                statementLikePageCount: 1,
                 pageLevelOcrFallbackCount: 2,
                 manualReviewDueToOcrQualityCount: 0,
                 suppressedFailureMessages: [
@@ -458,7 +476,7 @@ describe("annual-report-shadow-batch", () => {
     expect(markdown).toContain("Default baseline org: 918298037");
     expect(markdown).toContain("Route decision: hybrid (SCANNED_PDF), requires OCR");
     expect(markdown).toContain(
-      "OCR diagnostics: attempts=1, usable=1, tinySkipped=1, invalid=0, failures=0, pageFallbacks=2, manualReviewDueToOcrQuality=0",
+      "OCR diagnostics: attempts=1, usable=1, usableLines=12, rowCandidates=6, yearHeaders=1, statementLikePages=1, tinySkipped=1, invalid=0, failures=0, pageFallbacks=2, manualReviewDueToOcrQuality=0",
     );
     expect(markdown).toContain("OCR suppressed failures: Image too small to scale (3)");
   });

@@ -135,7 +135,7 @@ describe("annual-report OCR guardrails", () => {
     const result = await module.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
 
     expect(result.pages).toEqual([]);
-    expect(result.diagnostics.ocrAttemptCount).toBe(1);
+    expect(result.diagnostics.ocrAttemptCount).toBe(2);
     expect(result.diagnostics.usableOcrRegionCount).toBe(0);
     expect(result.diagnostics.pageLevelOcrFallbackCount).toBe(1);
     expect(result.diagnostics.manualReviewDueToOcrQualityCount).toBe(1);
@@ -152,5 +152,67 @@ describe("annual-report OCR guardrails", () => {
         }),
       ]),
     );
+  });
+
+  it("recovers statement-like structure from raw OCR text when word boxes are missing", async () => {
+    const screenshots = {
+      pages: [
+        {
+          pageNumber: 5,
+          data: createPngBuffer(512, 512),
+        },
+      ],
+    };
+
+    vi.doMock("pdf-parse", () => ({
+      PDFParse: class {
+        async getScreenshot() {
+          return screenshots;
+        }
+        async destroy() {}
+      },
+    }));
+
+    vi.doMock("tesseract.js", () => ({
+      createWorker: vi.fn(async () => ({
+        recognize: vi
+          .fn()
+          .mockResolvedValueOnce({
+            data: {
+              text: [
+                "Resultatregnskap",
+                "Belop i: NOK",
+                "2024 2023",
+                "Salgsinntekter 103097000 95210000",
+                "Driftsresultat 21210000 17710000",
+                "Arsresultat 18221000 15060000",
+              ].join("\n"),
+              words: [],
+            },
+          })
+          .mockResolvedValueOnce({
+            data: {
+              text: "Resultatregnskap\nBelop i: NOK\n2024 2023\nSalgsinntekter 103097000 95210000\nDriftsresultat 21210000 17710000\nArsresultat 18221000 15060000",
+              words: [],
+            },
+          }),
+        terminate: vi.fn(),
+      })),
+    }));
+
+    const module = await import("@/integrations/brreg/annual-report-financials/ocr");
+    const result = await module.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
+
+    expect(result.pages).toHaveLength(1);
+    const page = result.pages[0];
+    expect("tables" in page && page.tables.length).toBe(1);
+    if ("tables" in page) {
+      expect(page.tables[0]?.rows.length).toBeGreaterThanOrEqual(4);
+    }
+    expect(result.diagnostics.usableOcrRegionCount).toBe(1);
+    expect(result.diagnostics.usableLineCount).toBeGreaterThanOrEqual(6);
+    expect(result.diagnostics.rowCandidateCount).toBeGreaterThanOrEqual(3);
+    expect(result.diagnostics.yearHeaderCandidateCount).toBe(1);
+    expect(result.diagnostics.statementLikePageCount).toBe(1);
   });
 });

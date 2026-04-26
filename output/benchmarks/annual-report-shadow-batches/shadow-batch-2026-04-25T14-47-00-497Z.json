@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-25T14:55:39.395Z",
+  "generatedAt": "2026-04-25T14:47:00.497Z",
   "manifest": {
     "name": "baseline-shadow-batch-918298037-2024-2024",
     "generatedAt": "2026-04-25T14:34:47.505Z",
@@ -118,7 +118,7 @@
         "engine": "LEGACY",
         "executionSource": "ocr_fixture",
         "mode": "legacy",
-        "runtimeMs": 42,
+        "runtimeMs": 50,
         "confidenceScore": 0.5559,
         "validationScore": 0.98,
         "shouldPublish": false,
@@ -1247,7 +1247,7 @@
           ],
           "shouldPublish": false,
           "confidenceScore": 0.5559,
-          "durationMs": 42
+          "durationMs": 50
         }
       }
     }
