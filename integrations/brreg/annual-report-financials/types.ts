@@ -226,6 +226,10 @@ export type AnnualReportOcrDiagnostics = {
   rowCandidateCount: number;
   yearHeaderCandidateCount: number;
   statementLikePageCount: number;
+  reconstructedNumericCellCount: number;
+  mergedNumericTokenCount: number;
+  rowsWithAssignedYearColumns: number;
+  ambiguousRowCount: number;
   pageLevelOcrFallbackCount: number;
   manualReviewDueToOcrQualityCount: number;
   suppressedFailureMessages: Array<{

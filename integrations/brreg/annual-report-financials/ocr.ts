@@ -141,7 +141,10 @@ function lineLooksNumericRow(line: ExtractedLine) {
   if (
     normalized.includes("belop i") ||
     normalized.includes("alle tall") ||
+    normalized.includes("utskriftsdato") ||
+    normalized.includes("proff as") ||
     normalized.includes("organisasjonsnummer") ||
+    normalized.includes("organisasjonsnr") ||
     normalized.startsWith("side ")
   ) {
     return false;
@@ -176,6 +179,166 @@ function tokenizeLine(line: ExtractedLine) {
     );
 }
 
+function normalizeNumericToken(token: string) {
+  return repairOcrTokenBoundaries(token).replace(/\s+/g, "");
+}
+
+function groupScore(tokens: string[]) {
+  const combined = tokens.join("");
+  const parsed = parseFinancialInteger(combined);
+  if (parsed === null) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const digitLengths = tokens.map((token) => token.replace(/\D/g, "").length);
+  if (digitLengths.some((length) => length === 0)) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  let score = 50;
+  if (tokens.length === 1) {
+    score += 10 + Math.min(6, digitLengths[0] ?? 0);
+  } else {
+    score += 8;
+    const [firstLength, ...restLengths] = digitLengths;
+    if (firstLength && firstLength >= 1 && firstLength <= 3) {
+      score += 10;
+    }
+    if (restLengths.every((length) => length === 3)) {
+      score += restLengths.length * 14;
+    } else {
+      score -= restLengths.filter((length) => length !== 3).length * 18;
+    }
+    if ((digitLengths[digitLengths.length - 1] ?? 0) === 3) {
+      score += 4;
+    }
+  }
+
+  if (/^0+$/.test(combined)) {
+    score -= 8;
+  }
+
+  return score;
+}
+
+function partitionNumericTokens(
+  numericTokens: Array<{ token: string; x: number }>,
+  expectedValueCount: number,
+) {
+  const normalizedTokens = numericTokens
+    .map((item) => ({
+      token: normalizeNumericToken(item.token),
+      x: item.x,
+    }))
+    .filter((item) => item.token.length > 0);
+
+  const maxGroups = Math.min(expectedValueCount, normalizedTokens.length);
+  const minGroups = Math.min(1, maxGroups);
+
+  let best:
+    | {
+        groups: Array<Array<{ token: string; x: number }>>;
+        score: number;
+      }
+    | null = null;
+
+  function visit(
+    startIndex: number,
+    remainingGroups: number,
+    groups: Array<Array<{ token: string; x: number }>>,
+    score: number,
+  ) {
+    if (remainingGroups === 0) {
+      if (startIndex !== normalizedTokens.length) {
+        return;
+      }
+      if (!best || score > best.score) {
+        best = {
+          groups: groups.map((group) => [...group]),
+          score,
+        };
+      }
+      return;
+    }
+
+    const remainingTokens = normalizedTokens.length - startIndex;
+    if (remainingTokens < remainingGroups) {
+      return;
+    }
+
+    const maxGroupSize = remainingTokens - (remainingGroups - 1);
+    for (let size = 1; size <= maxGroupSize; size += 1) {
+      const group = normalizedTokens.slice(startIndex, startIndex + size);
+      const candidateScore = groupScore(group.map((item) => item.token));
+      if (!Number.isFinite(candidateScore)) {
+        continue;
+      }
+
+      visit(
+        startIndex + size,
+        remainingGroups - 1,
+        [...groups, group],
+        score + candidateScore,
+      );
+    }
+  }
+
+  for (let groupCount = maxGroups; groupCount >= minGroups; groupCount -= 1) {
+    visit(0, groupCount, [], groupCount === expectedValueCount ? 50 : groupCount * 5);
+  }
+
+  if (!best) {
+    return {
+      groups: normalizedTokens.map((item) => [item]),
+      mergedTokenCount: 0,
+      ambiguous: true,
+    };
+  }
+
+  return {
+    groups: best.groups,
+    mergedTokenCount: best.groups.reduce((sum, group) => sum + Math.max(0, group.length - 1), 0),
+    ambiguous: best.groups.length !== expectedValueCount,
+  };
+}
+
+function buildValueCellFromGroupedTokens(input: {
+  pageNumber: number;
+  rowIndex: number;
+  valueIndex: number;
+  line: ExtractedLine;
+  groupedTokens: Array<{ token: string; x: number }>;
+}) {
+  const text = input.groupedTokens.map((item) => item.token).join("");
+  const left = Math.min(...input.groupedTokens.map((item) => item.x));
+  const rightMostToken = input.groupedTokens[input.groupedTokens.length - 1];
+  const right = (rightMostToken?.x ?? left) + Math.max(40, text.length * 7);
+
+  return {
+    id: `ocr-table-${input.pageNumber}-row-${input.rowIndex}-value-${input.valueIndex}`,
+    rowIndex: input.rowIndex,
+    columnIndex: input.valueIndex,
+    text,
+    normalizedText: normalizeNorwegianText(text),
+    bbox: {
+      left,
+      bottom: input.line.y,
+      right,
+      top: input.line.y + input.line.height,
+    },
+    isNumeric: true,
+    numericValue: parseFinancialInteger(text),
+    role: "value",
+    source: {
+      engine: "LEGACY",
+      engineMode: "legacy",
+      sourceElementId: `ocr-value-${input.pageNumber}-${input.rowIndex}-${input.valueIndex}`,
+      sourceRawType: "ocr_table_row",
+      order: input.rowIndex,
+    },
+  } satisfies AnnualReportTableCell;
+}
+
 function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]) {
   const yearHeaderIndex = lines.findIndex((line, index) =>
     index < 12 && lineContainsYearHeader(line),
@@ -185,11 +348,32 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
     .filter(({ line, index }) => index !== yearHeaderIndex && lineLooksNumericRow(line));
 
   if (candidateLines.length < 3) {
-    return { table: null, rowCandidateCount: candidateLines.length, yearHeaderCandidateCount: yearHeaderIndex >= 0 ? 1 : 0 };
+    return {
+      table: null,
+      rowCandidateCount: candidateLines.length,
+      yearHeaderCandidateCount: yearHeaderIndex >= 0 ? 1 : 0,
+      reconstructedNumericCellCount: 0,
+      mergedNumericTokenCount: 0,
+      rowsWithAssignedYearColumns: 0,
+      ambiguousRowCount: candidateLines.length,
+    };
   }
 
   const rows: AnnualReportTableRow[] = [];
   let columnCount = 0;
+  let mergedNumericTokenCount = 0;
+  let reconstructedNumericCellCount = 0;
+  let rowsWithAssignedYearColumns = 0;
+  let ambiguousRowCount = 0;
+  const expectedValueCount =
+    yearHeaderIndex >= 0
+      ? Math.max(
+          2,
+          lines[yearHeaderIndex]
+            ?.text.match(/\b20\d{2}\b/g)
+            ?.length ?? 2,
+        )
+      : 2;
 
   if (yearHeaderIndex >= 0) {
     const yearLine = lines[yearHeaderIndex];
@@ -321,30 +505,28 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
       });
     }
 
-    numericIndexes.forEach((item, numericIndex) => {
-      cells.push({
-        id: `ocr-table-${pageNumber}-row-${rowIndex}-value-${numericIndex}`,
-        rowIndex,
-        columnIndex: cells.length,
-        text: item.token,
-        normalizedText: normalizeNorwegianText(item.token),
-        bbox: {
-          left: item.x,
-          bottom: line.y,
-          right: item.x + Math.max(40, item.token.length * 7),
-          top: line.y + line.height,
-        },
-        isNumeric: true,
-        numericValue: item.numericValue,
-        role: "value",
-        source: {
-          engine: "LEGACY",
-          engineMode: "legacy",
-          sourceElementId: `ocr-value-${pageNumber}-${rowIndex}-${numericIndex}`,
-          sourceRawType: "ocr_table_row",
-          order: rowIndex,
-        },
-      });
+    const groupedValues = partitionNumericTokens(
+      numericIndexes.map((item) => ({ token: item.token, x: item.x })),
+      expectedValueCount,
+    );
+    mergedNumericTokenCount += groupedValues.mergedTokenCount;
+    reconstructedNumericCellCount += groupedValues.groups.length;
+    if (groupedValues.ambiguous) {
+      ambiguousRowCount += 1;
+    } else {
+      rowsWithAssignedYearColumns += 1;
+    }
+
+    groupedValues.groups.forEach((group, numericIndex) => {
+      cells.push(
+        buildValueCellFromGroupedTokens({
+          pageNumber,
+          rowIndex,
+          valueIndex: cells.length,
+          line,
+          groupedTokens: group,
+        }),
+      );
     });
 
     columnCount = Math.max(columnCount, cells.length);
@@ -371,7 +553,15 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
   });
 
   if (rows.length < 4) {
-    return { table: null, rowCandidateCount: candidateLines.length, yearHeaderCandidateCount: yearHeaderIndex >= 0 ? 1 : 0 };
+    return {
+      table: null,
+      rowCandidateCount: candidateLines.length,
+      yearHeaderCandidateCount: yearHeaderIndex >= 0 ? 1 : 0,
+      reconstructedNumericCellCount,
+      mergedNumericTokenCount,
+      rowsWithAssignedYearColumns,
+      ambiguousRowCount,
+    };
   }
 
   const firstLine = lines[0];
@@ -399,6 +589,10 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
     } satisfies AnnualReportTable,
     rowCandidateCount: candidateLines.length,
     yearHeaderCandidateCount: yearHeaderIndex >= 0 ? 1 : 0,
+    reconstructedNumericCellCount,
+    mergedNumericTokenCount,
+    rowsWithAssignedYearColumns,
+    ambiguousRowCount,
   };
 }
 
@@ -407,7 +601,15 @@ function buildStructuredOcrPage(input: {
   lines: ExtractedLine[];
   text: string;
 }) {
-  const { table, rowCandidateCount, yearHeaderCandidateCount } = buildSyntheticTableFromLines(
+  const {
+    table,
+    rowCandidateCount,
+    yearHeaderCandidateCount,
+    reconstructedNumericCellCount,
+    mergedNumericTokenCount,
+    rowsWithAssignedYearColumns,
+    ambiguousRowCount,
+  } = buildSyntheticTableFromLines(
     input.pageNumber,
     input.lines,
   );
@@ -486,10 +688,18 @@ function buildStructuredOcrPage(input: {
         ocrDerived: true,
         rowCandidateCount,
         yearHeaderCandidateCount,
+        reconstructedNumericCellCount,
+        mergedNumericTokenCount,
+        rowsWithAssignedYearColumns,
+        ambiguousRowCount,
       },
     } satisfies AnnualReportParsedPage,
     rowCandidateCount,
     yearHeaderCandidateCount,
+    reconstructedNumericCellCount,
+    mergedNumericTokenCount,
+    rowsWithAssignedYearColumns,
+    ambiguousRowCount,
     statementLikePage: Boolean(table),
   };
 }
@@ -588,6 +798,10 @@ function createEmptyDiagnostics(pageCount: number): AnnualReportOcrDiagnostics {
     rowCandidateCount: 0,
     yearHeaderCandidateCount: 0,
     statementLikePageCount: 0,
+    reconstructedNumericCellCount: 0,
+    mergedNumericTokenCount: 0,
+    rowsWithAssignedYearColumns: 0,
+    ambiguousRowCount: 0,
     pageLevelOcrFallbackCount: 0,
     manualReviewDueToOcrQualityCount: 0,
     suppressedFailureMessages: [],
@@ -874,6 +1088,10 @@ export async function extractOcrPagesWithDiagnostics(
         });
       diagnostics.rowCandidateCount += structured.rowCandidateCount;
       diagnostics.yearHeaderCandidateCount += structured.yearHeaderCandidateCount;
+      diagnostics.reconstructedNumericCellCount += structured.reconstructedNumericCellCount;
+      diagnostics.mergedNumericTokenCount += structured.mergedNumericTokenCount;
+      diagnostics.rowsWithAssignedYearColumns += structured.rowsWithAssignedYearColumns;
+      diagnostics.ambiguousRowCount += structured.ambiguousRowCount;
       if (structured.statementLikePage) {
         diagnostics.statementLikePageCount += 1;
       }

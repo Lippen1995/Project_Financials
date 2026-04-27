@@ -186,6 +186,10 @@ describe("annual-report-shadow-batch", () => {
             rowCandidateCount: 6,
             yearHeaderCandidateCount: 1,
             statementLikePageCount: 1,
+            reconstructedNumericCellCount: 8,
+            mergedNumericTokenCount: 5,
+            rowsWithAssignedYearColumns: 4,
+            ambiguousRowCount: 0,
             pageLevelOcrFallbackCount: 2,
             manualReviewDueToOcrQualityCount: 0,
             suppressedFailureMessages: [],
@@ -394,6 +398,10 @@ describe("annual-report-shadow-batch", () => {
             rowCandidateCount: 6,
             yearHeaderCandidateCount: 1,
             statementLikePageCount: 1,
+            reconstructedNumericCellCount: 8,
+            mergedNumericTokenCount: 5,
+            rowsWithAssignedYearColumns: 4,
+            ambiguousRowCount: 0,
             pageLevelOcrFallbackCount: 2,
             manualReviewDueToOcrQualityCount: 0,
             suppressedFailureMessages: [
@@ -458,6 +466,10 @@ describe("annual-report-shadow-batch", () => {
                 rowCandidateCount: 6,
                 yearHeaderCandidateCount: 1,
                 statementLikePageCount: 1,
+                reconstructedNumericCellCount: 8,
+                mergedNumericTokenCount: 5,
+                rowsWithAssignedYearColumns: 4,
+                ambiguousRowCount: 0,
                 pageLevelOcrFallbackCount: 2,
                 manualReviewDueToOcrQualityCount: 0,
                 suppressedFailureMessages: [
@@ -476,7 +488,7 @@ describe("annual-report-shadow-batch", () => {
     expect(markdown).toContain("Default baseline org: 918298037");
     expect(markdown).toContain("Route decision: hybrid (SCANNED_PDF), requires OCR");
     expect(markdown).toContain(
-      "OCR diagnostics: attempts=1, usable=1, usableLines=12, rowCandidates=6, yearHeaders=1, statementLikePages=1, tinySkipped=1, invalid=0, failures=0, pageFallbacks=2, manualReviewDueToOcrQuality=0",
+      "OCR diagnostics: attempts=1, usable=1, usableLines=12, rowCandidates=6, yearHeaders=1, statementLikePages=1, reconstructedNumericCells=8, mergedNumericTokens=5, rowsWithAssignedYears=4, ambiguousRows=0, tinySkipped=1, invalid=0, failures=0, pageFallbacks=2, manualReviewDueToOcrQuality=0",
     );
     expect(markdown).toContain("OCR suppressed failures: Image too small to scale (3)");
   });

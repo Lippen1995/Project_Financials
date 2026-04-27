@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   extractIntegers,
+  normalizeNorwegianText,
   parseFinancialInteger,
   repairOcrTokenBoundaries,
 } from "@/integrations/brreg/annual-report-financials/text";
@@ -28,5 +29,17 @@ describe("annual-report text helpers", () => {
 
   it("extracts merged note-number tokens without losing negatives", () => {
     expect(extractIntegers("Note 8 (1 250) 4 950")).toEqual(["(1 250)", "4 950"]);
+  });
+
+  it("normalizes Norwegian characters in real Unicode text", () => {
+    expect(normalizeNorwegianText("Beløp i NOK")).toBe("belop i nok");
+    expect(normalizeNorwegianText("Resultat før skattekostnad")).toBe(
+      "resultat for skattekostnad",
+    );
+  });
+
+  it("normalizes Norwegian mojibake variants without dropping meaning", () => {
+    expect(normalizeNorwegianText("BelÃ¸p i NOK")).toBe("belop i nok");
+    expect(repairOcrTokenBoundaries("12â€“450")).toBe("12-450");
   });
 });

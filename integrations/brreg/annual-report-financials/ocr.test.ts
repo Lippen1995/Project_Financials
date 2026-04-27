@@ -183,16 +183,16 @@ describe("annual-report OCR guardrails", () => {
                 "Resultatregnskap",
                 "Belop i: NOK",
                 "2024 2023",
-                "Salgsinntekter 103097000 95210000",
-                "Driftsresultat 21210000 17710000",
-                "Arsresultat 18221000 15060000",
+                "Salgsinntekter 103 097 000 95 210 000",
+                "Driftsresultat 21 210 000 17 710 000",
+                "Arsresultat 18 221 000 15 060 000",
               ].join("\n"),
               words: [],
             },
           })
           .mockResolvedValueOnce({
             data: {
-              text: "Resultatregnskap\nBelop i: NOK\n2024 2023\nSalgsinntekter 103097000 95210000\nDriftsresultat 21210000 17710000\nArsresultat 18221000 15060000",
+              text: "Resultatregnskap\nBelop i: NOK\n2024 2023\nSalgsinntekter 103 097 000 95 210 000\nDriftsresultat 21 210 000 17 710 000\nArsresultat 18 221 000 15 060 000",
               words: [],
             },
           }),
@@ -208,11 +208,23 @@ describe("annual-report OCR guardrails", () => {
     expect("tables" in page && page.tables.length).toBe(1);
     if ("tables" in page) {
       expect(page.tables[0]?.rows.length).toBeGreaterThanOrEqual(4);
+      const revenueRow = page.tables[0]?.rows.find((row) =>
+        row.text.includes("Salgsinntekter"),
+      );
+      expect(
+        revenueRow?.cells
+          .filter((cell) => cell.role === "value")
+          .map((cell) => cell.numericValue),
+      ).toEqual([103097000, 95210000]);
     }
     expect(result.diagnostics.usableOcrRegionCount).toBe(1);
     expect(result.diagnostics.usableLineCount).toBeGreaterThanOrEqual(6);
     expect(result.diagnostics.rowCandidateCount).toBeGreaterThanOrEqual(3);
     expect(result.diagnostics.yearHeaderCandidateCount).toBe(1);
     expect(result.diagnostics.statementLikePageCount).toBe(1);
+    expect(result.diagnostics.reconstructedNumericCellCount).toBeGreaterThanOrEqual(6);
+    expect(result.diagnostics.mergedNumericTokenCount).toBeGreaterThan(0);
+    expect(result.diagnostics.rowsWithAssignedYearColumns).toBeGreaterThanOrEqual(3);
+    expect(result.diagnostics.ambiguousRowCount).toBe(0);
   });
 });

@@ -16,13 +16,13 @@ type ScalePattern = {
 const THOUSAND_PATTERNS: ScalePattern[] = [
   {
     unitScale: 1000,
-    regex: /bel[o0]p i(?:\s*[:.\-])?\s*nok\s*(?:1[\s.]?000|1000)\b/,
+    regex: /bel[o0]p [i1l](?:\s*[:.\-])?\s*nok\s*(?:1[\s.]?000|1000)\b/,
     confidence: 0.99,
     source: "PAGE_HEADER",
   },
   {
     unitScale: 1000,
-    regex: /bel[o0]p i(?:\s*[:.\-])?\s*(?:1[\s.]?000|1000)\s*(?:kr|nok)\b/,
+    regex: /bel[o0]p [i1l](?:\s*[:.\-])?\s*(?:1[\s.]?000|1000)\s*(?:kr|nok)\b/,
     confidence: 0.98,
     source: "PAGE_HEADER",
   },
@@ -67,7 +67,7 @@ const THOUSAND_PATTERNS: ScalePattern[] = [
 const WHOLE_NOK_PATTERNS: ScalePattern[] = [
   {
     unitScale: 1,
-    regex: /bel[o0]p i(?:\s*[:.\-])?\s*nok\b(?!\s*(?:1[\s.]?000|1000))/,
+    regex: /bel[o0]p [i1l](?:\s*[:.\-])?\s*nok\b(?!\s*(?:1[\s.]?000|1000))/,
     confidence: 0.95,
     source: "PAGE_HEADER",
   },

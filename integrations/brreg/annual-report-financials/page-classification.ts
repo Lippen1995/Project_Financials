@@ -463,6 +463,31 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
               !classification.hasConflictingUnitSignals,
             ) ?? null
         : null;
+    const inheritedYearHeader =
+      features.yearHeaderYears.length === 0 &&
+      features.tableLike &&
+      ["STATUTORY_BALANCE_CONTINUATION", "SUPPLEMENTARY_BALANCE"].includes(type)
+        ? [...classifications]
+            .reverse()
+            .find((classification) =>
+              [
+                "STATUTORY_INCOME",
+                "STATUTORY_BALANCE",
+                "STATUTORY_BALANCE_CONTINUATION",
+                "SUPPLEMENTARY_INCOME",
+                "SUPPLEMENTARY_BALANCE",
+              ].includes(classification.type) &&
+              classification.yearHeaderYears.length >= 2,
+            ) ?? null
+        : null;
+    const effectiveYearHeaderYears =
+      features.yearHeaderYears.length >= 2
+        ? features.yearHeaderYears
+        : inheritedYearHeader?.yearHeaderYears ?? features.yearHeaderYears;
+    const effectiveDeclaredYears =
+      features.declaredYears.length > 0
+        ? features.declaredYears
+        : inheritedYearHeader?.declaredYears ?? features.declaredYears;
 
     if (!top) {
       classifications.push({
@@ -476,13 +501,13 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
             : inheritedUnitScale
               ? inheritedUnitScaleConfidence({
                   pageNumber: features.page.pageNumber,
-                  yearHeaderYears: features.yearHeaderYears,
+                  yearHeaderYears: effectiveYearHeaderYears,
                   inheritedFrom: inheritedUnitScale,
                 })
               : 0,
         hasConflictingUnitSignals: features.unitScale.conflictingSignals,
-        declaredYears: features.declaredYears,
-        yearHeaderYears: features.yearHeaderYears,
+        declaredYears: effectiveDeclaredYears,
+        yearHeaderYears: effectiveYearHeaderYears,
         heading: features.heading,
         numericRowCount: features.numericRowCount,
         tableLike: features.tableLike,
@@ -505,13 +530,13 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
           : inheritedUnitScale
             ? inheritedUnitScaleConfidence({
                 pageNumber: features.page.pageNumber,
-                yearHeaderYears: features.yearHeaderYears,
+                yearHeaderYears: effectiveYearHeaderYears,
                 inheritedFrom: inheritedUnitScale,
               })
             : 0,
       hasConflictingUnitSignals: features.unitScale.conflictingSignals,
-      declaredYears: features.declaredYears,
-      yearHeaderYears: features.yearHeaderYears,
+      declaredYears: effectiveDeclaredYears,
+      yearHeaderYears: effectiveYearHeaderYears,
       heading: features.heading,
       numericRowCount: features.numericRowCount,
       tableLike: features.tableLike,
@@ -525,9 +550,39 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
           ...(inheritedUnitScale
             ? [`Inherited unit scale ${inheritedUnitScale.unitScale} from previous statement page`]
             : []),
+          ...(inheritedYearHeader && features.yearHeaderYears.length === 0
+            ? [
+                `Inherited year header ${inheritedYearHeader.yearHeaderYears.join(", ")} from previous statement page`,
+              ]
+            : []),
         ]),
       ],
     });
+  }
+
+  for (let index = 1; index < classifications.length; index += 1) {
+    const current = classifications[index];
+    const previous = classifications[index - 1];
+    if (
+      !current ||
+      !previous ||
+      current.yearHeaderYears.length >= 2 ||
+      !["STATUTORY_BALANCE_CONTINUATION", "SUPPLEMENTARY_BALANCE"].includes(current.type) ||
+      previous.yearHeaderYears.length < 2
+    ) {
+      continue;
+    }
+
+    current.yearHeaderYears = [...previous.yearHeaderYears];
+    if (current.declaredYears.length === 0 && previous.declaredYears.length > 0) {
+      current.declaredYears = [...previous.declaredYears];
+    }
+    current.reasons = [
+      ...new Set([
+        ...current.reasons,
+        `Inherited year header ${previous.yearHeaderYears.join(", ")} from previous statement page`,
+      ]),
+    ];
   }
 
   return classifications.sort((left, right) => left.pageNumber - right.pageNumber);

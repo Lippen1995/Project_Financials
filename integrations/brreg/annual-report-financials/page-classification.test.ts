@@ -69,4 +69,41 @@ describe("classifyPages", () => {
     expect(result[0]?.type).toBe("STATUTORY_BALANCE");
     expect(result[1]?.type).toBe("STATUTORY_BALANCE_CONTINUATION");
   });
+
+  it("treats OCR-style 'Belop 1: NOK' as whole-NOK unit declaration", () => {
+    const result = classifyPages([
+      buildPage(2, [
+        "Resultatregnskap",
+        "Belop 1: NOK Note 2024 2023",
+        "Salgsinntekter 103097000 95210000",
+        "Driftsresultat 21210000 17710000",
+      ]),
+    ]);
+
+    expect(result[0]?.type).toBe("STATUTORY_INCOME");
+    expect(result[0]?.unitScale).toBe(1);
+  });
+
+  it("inherits year headers on continuation pages when the layout remains statement-like", () => {
+    const result = classifyPages([
+      buildPage(3, [
+        "Balanse",
+        "Belop i: NOK",
+        "2024 2023",
+        "Eiendeler",
+        "Sum eiendeler 92155000 84500000",
+      ]),
+      buildPage(4, [
+        "Egenkapital og gjeld",
+        "Sum gjeld 55783000 51100000",
+        "Sum egenkapital og gjeld 92155000 84500000",
+      ]),
+    ]);
+
+    expect(result[1]?.type).toBe("STATUTORY_BALANCE_CONTINUATION");
+    expect(result[1]?.yearHeaderYears).toEqual([2024, 2023]);
+    expect(result[1]?.reasons).toContain(
+      "Inherited year header 2024, 2023 from previous statement page",
+    );
+  });
 });

@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-04-26T15:58:57.427Z",
+  "generatedAt": "2026-04-26T15:40:13.070Z",
   "manifest": {
     "name": "baseline-shadow-batch-918298037-2024-2024",
-    "generatedAt": "2026-04-26T15:46:24.804Z",
+    "generatedAt": "2026-04-25T14:34:47.505Z",
     "selection": {
       "filingIds": [],
       "orgNumbers": [
@@ -84,13 +84,13 @@
         "ocrFailureCount": 0,
         "usableOcrRegionCount": 25,
         "usableLineCount": 946,
-        "rowCandidateCount": 131,
+        "rowCandidateCount": 133,
         "yearHeaderCandidateCount": 3,
         "statementLikePageCount": 9,
-        "reconstructedNumericCellCount": 195,
-        "mergedNumericTokenCount": 162,
-        "rowsWithAssignedYearColumns": 75,
-        "ambiguousRowCount": 55,
+        "reconstructedNumericCellCount": null,
+        "mergedNumericTokenCount": null,
+        "rowsWithAssignedYearColumns": null,
+        "ambiguousRowCount": null,
         "pageLevelOcrFallbackCount": 25,
         "manualReviewDueToOcrQualityCount": 0,
         "suppressedFailureMessages": [],
@@ -122,8 +122,8 @@
         "engine": "LEGACY",
         "executionSource": "ocr_fixture",
         "mode": "legacy",
-        "runtimeMs": 51,
-        "confidenceScore": 0.5784,
+        "runtimeMs": 38,
+        "confidenceScore": 0.5215,
         "validationScore": 0.92,
         "shouldPublish": false,
         "artifactGeneration": {
@@ -141,17 +141,17 @@
           {
             "pageNumber": 2,
             "type": "STATUTORY_INCOME",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 3,
             "type": "STATUTORY_BALANCE",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 4,
             "type": "STATUTORY_BALANCE_CONTINUATION",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 5,
@@ -166,41 +166,41 @@
           {
             "pageNumber": 7,
             "type": "AUDITOR_REPORT",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 8,
             "type": "COVER",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 9,
             "type": "AUDITOR_REPORT",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 10,
             "type": "COVER",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 11,
             "type": "BOARD_REPORT",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 12,
             "type": "BOARD_REPORT",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 13,
             "type": "COVER",
-            "unitScale": 1
+            "unitScale": null
           },
           {
             "pageNumber": 14,
-            "type": "SUPPLEMENTARY_INCOME",
+            "type": "NOTE",
             "unitScale": 1000
           },
           {
@@ -235,8 +235,8 @@
           },
           {
             "pageNumber": 21,
-            "type": "STATUTORY_INCOME",
-            "unitScale": 1000
+            "type": "NOTE",
+            "unitScale": null
           },
           {
             "pageNumber": 22,
@@ -285,9 +285,9 @@
           {
             "pageNumber": 2,
             "type": "STATUTORY_INCOME",
-            "confidence": 0.706,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.95,
+            "confidence": 0.618,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2024,
@@ -305,9 +305,7 @@
               "resultatregnskap",
               "driftsresultat",
               "arsresultat",
-              "resultat for",
               "note ",
-              "Declared whole NOK on page",
               "Detected year header",
               "Detected statement-like table layout"
             ]
@@ -316,8 +314,8 @@
             "pageNumber": 3,
             "type": "STATUTORY_BALANCE",
             "confidence": 0.995,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.95,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2024,
@@ -337,9 +335,7 @@
               "egenkapital og gjeld",
               "sum eiendeler",
               "anleggsmidler",
-              "omlopsmidler",
               "note ",
-              "Declared whole NOK on page",
               "Detected year header",
               "Detected statement-like table layout"
             ]
@@ -348,8 +344,8 @@
             "pageNumber": 4,
             "type": "STATUTORY_BALANCE_CONTINUATION",
             "confidence": 0.676,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.86,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2025
@@ -367,7 +363,6 @@
               "sum kortsiktig gjeld",
               "sum gjeld",
               "Detected statement-like table layout",
-              "Inherited unit scale 1 from previous statement page",
               "Inherited year header 2024, 2023 from previous statement page"
             ]
           },
@@ -408,8 +403,8 @@
             "pageNumber": 7,
             "type": "AUDITOR_REPORT",
             "confidence": 0.809,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.72,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2024
@@ -430,16 +425,15 @@
               "fortsatt drift",
               "arsregnskap",
               "arsrapport",
-              "Detected statement-like table layout",
-              "Inherited unit scale 1 from previous statement page"
+              "Detected statement-like table layout"
             ]
           },
           {
             "pageNumber": 8,
             "type": "COVER",
             "confidence": 0.15,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.72,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2025
@@ -456,8 +450,8 @@
             "pageNumber": 9,
             "type": "AUDITOR_REPORT",
             "confidence": 0.544,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.72,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2025
@@ -467,16 +461,15 @@
             "numericRowCount": 1,
             "tableLike": false,
             "reasons": [
-              "revisjonsberetning",
-              "Inherited unit scale 1 from previous statement page"
+              "revisjonsberetning"
             ]
           },
           {
             "pageNumber": 10,
             "type": "COVER",
             "confidence": 0.15,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.72,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2024
@@ -493,8 +486,8 @@
             "pageNumber": 11,
             "type": "BOARD_REPORT",
             "confidence": 0.471,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.72,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2024
@@ -505,16 +498,15 @@
             "tableLike": true,
             "reasons": [
               "virksomhetens art",
-              "Detected statement-like table layout",
-              "Inherited unit scale 1 from previous statement page"
+              "Detected statement-like table layout"
             ]
           },
           {
             "pageNumber": 12,
             "type": "BOARD_REPORT",
             "confidence": 0.471,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.72,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2024,
@@ -527,19 +519,17 @@
             "numericRowCount": 13,
             "tableLike": true,
             "reasons": [
-              "resultat for",
               "fortsatt drift",
               "arsregnskap",
-              "Detected statement-like table layout",
-              "Inherited unit scale 1 from previous statement page"
+              "Detected statement-like table layout"
             ]
           },
           {
             "pageNumber": 13,
             "type": "COVER",
             "confidence": 0.15,
-            "unitScale": 1,
-            "unitScaleConfidence": 0.72,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2025
@@ -554,10 +544,10 @@
           },
           {
             "pageNumber": 14,
-            "type": "SUPPLEMENTARY_INCOME",
-            "confidence": 0.412,
+            "type": "NOTE",
+            "confidence": 0.397,
             "unitScale": 1000,
-            "unitScaleConfidence": 0.985,
+            "unitScaleConfidence": 0.98,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2024,
@@ -565,13 +555,12 @@
             ],
             "yearHeaderYears": [],
             "heading": "RESULTATREGNSKAP",
-            "numericRowCount": 1,
+            "numericRowCount": 0,
             "tableLike": false,
             "reasons": [
               "resultatregnskap",
               "driftsresultat",
               "arsresultat",
-              "resultat for",
               "note ",
               "Declared NOK 1000 on page"
             ]
@@ -579,9 +568,9 @@
           {
             "pageNumber": 15,
             "type": "SUPPLEMENTARY_BALANCE",
-            "confidence": 0.676,
+            "confidence": 0.618,
             "unitScale": 1000,
-            "unitScaleConfidence": 0.985,
+            "unitScaleConfidence": 0.98,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2024,
@@ -589,14 +578,13 @@
             ],
             "yearHeaderYears": [],
             "heading": "BALANSE PR. 31.12",
-            "numericRowCount": 2,
+            "numericRowCount": 1,
             "tableLike": false,
             "reasons": [
               "balanse",
               "eiendeler",
               "sum eiendeler",
               "anleggsmidler",
-              "omlopsmidler",
               "note ",
               "Declared NOK 1000 on page"
             ]
@@ -630,7 +618,7 @@
           {
             "pageNumber": 17,
             "type": "STATUTORY_BALANCE",
-            "confidence": 0.559,
+            "confidence": 0.5,
             "unitScale": 1000,
             "unitScaleConfidence": 0.82,
             "hasConflictingUnitSignals": false,
@@ -643,7 +631,6 @@
               "resultatregnskap",
               "balanse",
               "anleggsmidler",
-              "omlopsmidler",
               "regnskapsprinsipper",
               "arsregnskap",
               "Detected statement-like table layout",
@@ -715,10 +702,10 @@
           },
           {
             "pageNumber": 21,
-            "type": "STATUTORY_INCOME",
-            "confidence": 0.412,
-            "unitScale": 1000,
-            "unitScaleConfidence": 0.82,
+            "type": "NOTE",
+            "confidence": 0.397,
+            "unitScale": null,
+            "unitScaleConfidence": 0,
             "hasConflictingUnitSignals": false,
             "declaredYears": [
               2024,
@@ -730,11 +717,9 @@
             "tableLike": true,
             "reasons": [
               "resultatregnskap",
-              "resultat for",
               "balanse",
               "note ",
-              "Detected statement-like table layout",
-              "Inherited unit scale 1000 from previous statement page"
+              "Detected statement-like table layout"
             ]
           },
           {
@@ -864,13 +849,6 @@
             "precedence": "STATUTORY_NOK"
           },
           {
-            "metricKey": "profit_before_tax",
-            "value": 23465000,
-            "sourcePage": 2,
-            "sourceSection": "STATUTORY_INCOME",
-            "precedence": "STATUTORY_NOK"
-          },
-          {
             "metricKey": "tax_expense",
             "value": 5244000,
             "sourcePage": 2,
@@ -972,14 +950,16 @@
         "blockingRuleCodes": [
           "PAGE_CLASSIFICATION_UNCERTAIN",
           "PAGE_UNIT_SCALE_UNCERTAIN",
+          "UNIT_SCALE_UNCERTAIN",
           "YEAR_COLUMN_ASSIGNMENT_UNCERTAIN",
           "REQUIRED_PRIMARY_METRICS_MISSING"
         ],
         "issueCodes": [
           "PAGE_CLASSIFICATION_UNCERTAIN",
+          "PAGE_UNIT_SCALE_UNCERTAIN",
+          "PAGE_UNIT_SCALE_UNCERTAIN",
           "PAGE_CLASSIFICATION_UNCERTAIN",
-          "PAGE_CLASSIFICATION_UNCERTAIN",
-          "STATEMENT_TABLE_LAYOUT_WEAK",
+          "PAGE_UNIT_SCALE_UNCERTAIN",
           "PAGE_CLASSIFICATION_UNCERTAIN",
           "STATEMENT_TABLE_LAYOUT_WEAK",
           "PAGE_CLASSIFICATION_UNCERTAIN",
@@ -989,14 +969,16 @@
           "STATEMENT_TABLE_LAYOUT_WEAK",
           "PAGE_CLASSIFICATION_UNCERTAIN",
           "PAGE_UNIT_SCALE_UNCERTAIN",
-          "PAGE_CLASSIFICATION_UNCERTAIN",
+          "UNIT_SCALE_UNCERTAIN",
+          "UNIT_SCALE_UNCERTAIN",
+          "UNIT_SCALE_UNCERTAIN",
           "YEAR_COLUMN_ASSIGNMENT_UNCERTAIN",
           "YEAR_COLUMN_ASSIGNMENT_UNCERTAIN",
           "REQUIRED_PRIMARY_METRICS_MISSING",
           "NOTE_TO_STATEMENT_MISMATCH",
           "NOTE_TO_STATEMENT_MISMATCH"
         ],
-        "issueCount": 19,
+        "issueCount": 22,
         "validationPasses": false,
         "evidenceKind": "legacy-only",
         "snapshot": {
@@ -1011,17 +993,17 @@
             {
               "pageNumber": 2,
               "type": "STATUTORY_INCOME",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 3,
               "type": "STATUTORY_BALANCE",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 4,
               "type": "STATUTORY_BALANCE_CONTINUATION",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 5,
@@ -1036,41 +1018,41 @@
             {
               "pageNumber": 7,
               "type": "AUDITOR_REPORT",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 8,
               "type": "COVER",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 9,
               "type": "AUDITOR_REPORT",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 10,
               "type": "COVER",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 11,
               "type": "BOARD_REPORT",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 12,
               "type": "BOARD_REPORT",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 13,
               "type": "COVER",
-              "unitScale": 1
+              "unitScale": null
             },
             {
               "pageNumber": 14,
-              "type": "SUPPLEMENTARY_INCOME",
+              "type": "NOTE",
               "unitScale": 1000
             },
             {
@@ -1105,8 +1087,8 @@
             },
             {
               "pageNumber": 21,
-              "type": "STATUTORY_INCOME",
-              "unitScale": 1000
+              "type": "NOTE",
+              "unitScale": null
             },
             {
               "pageNumber": 22,
@@ -1161,13 +1143,6 @@
             {
               "metricKey": "net_financial_items",
               "value": 2255000,
-              "sourcePage": 2,
-              "sourceSection": "STATUTORY_INCOME",
-              "precedence": "STATUTORY_NOK"
-            },
-            {
-              "metricKey": "profit_before_tax",
-              "value": 23465000,
               "sourcePage": 2,
               "sourceSection": "STATUTORY_INCOME",
               "precedence": "STATUTORY_NOK"
@@ -1274,12 +1249,13 @@
           "blockingRuleCodes": [
             "PAGE_CLASSIFICATION_UNCERTAIN",
             "PAGE_UNIT_SCALE_UNCERTAIN",
+            "UNIT_SCALE_UNCERTAIN",
             "YEAR_COLUMN_ASSIGNMENT_UNCERTAIN",
             "REQUIRED_PRIMARY_METRICS_MISSING"
           ],
           "shouldPublish": false,
-          "confidenceScore": 0.5784,
-          "durationMs": 51
+          "confidenceScore": 0.5215,
+          "durationMs": 38
         }
       }
     }
