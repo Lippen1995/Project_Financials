@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
-import { correctAnnualReportReview } from "@/server/services/annual-report-review-service";
+import { correctAnnualReportReview, ReviewConflictError } from "@/server/services/annual-report-review-service";
 
 const factSchema = z.object({
   metricKey: z.string(),
   fiscalYear: z.number().int(),
-  value: z.number().nullable(),
+  value: z.string().regex(/^-?[0-9]+$/).nullable(),
   rawLabel: z.string().nullable().optional(),
   sourcePage: z.number().int().nullable().optional(),
   unitScale: z.number().nullable().optional(),
@@ -74,6 +74,9 @@ export async function POST(
     );
     return NextResponse.json({ data: result });
   } catch (err) {
+    if (err instanceof ReviewConflictError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Kunne ikke lagre korrigeringer." },
       { status: 500 },

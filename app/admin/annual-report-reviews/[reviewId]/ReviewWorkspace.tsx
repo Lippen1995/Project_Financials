@@ -52,7 +52,7 @@ type ReviewDetail = {
   filing: {
     id: string;
     status: string;
-    sourceUrl: string;
+    sourceUrl: string | null;
     lastError: string | null;
     artifacts: Artifact[];
     validationIssues: ValidationIssue[];
@@ -99,12 +99,14 @@ function groupFacts(facts: Fact[]) {
 }
 
 function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"]): string | null {
+  if (!artifacts || artifacts.length === 0) {
+    return filing.sourceUrl ?? null;
+  }
   const pdf = artifacts.find((a) => a.artifactType === "PDF");
   if (pdf) {
-    // Use sourceUrl as the display URL since PDF artifacts use storageKey (local file path)
-    return filing.sourceUrl;
+    return filing.sourceUrl ?? null;
   }
-  return filing.sourceUrl || null;
+  return filing.sourceUrl ?? null;
 }
 
 export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
@@ -207,14 +209,25 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       .map((f) => ({
         metricKey: f.metricKey,
         fiscalYear: f.fiscalYear,
-        value: f.value.trim() !== "" ? parseFloat(f.value) : null,
+        value: f.value.trim() !== "" ? f.value.trim() : null,
         rawLabel: f.rawLabel || null,
         sourcePage: f.sourcePage.trim() !== "" ? parseInt(f.sourcePage, 10) : null,
         unitScale: f.unitScale.trim() !== "" ? parseInt(f.unitScale, 10) : null,
       }))
       .filter((f) => !isNaN(f.fiscalYear));
 
+    const sections: { sectionType: string; text: string }[] = [];
+    if (boardReportText.trim()) {
+      sections.push({ sectionType: "BOARD_REPORT", text: boardReportText.trim() });
+    }
+    if (auditorReportText.trim()) {
+      sections.push({ sectionType: "AUDITOR_REPORT", text: auditorReportText.trim() });
+    }
+
     const corrections: Record<string, unknown> = { facts: correctedFacts };
+    if (sections.length > 0) {
+      corrections.sections = sections;
+    }
     if (auditorOpinion !== "UNKNOWN") {
       corrections.auditorOpinion = { opinionType: auditorOpinion };
     }

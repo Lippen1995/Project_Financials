@@ -1,14 +1,21 @@
-import { AnnualReportReviewStatus } from "@prisma/client";
+import { AnnualReportReviewStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
-  createReviewDecision,
-  createTrainingLabels,
   getAdminReviewDetail,
   listAdminReviewQueue,
-  setFilingStatus,
-  setReviewStatus,
 } from "@/server/persistence/annual-report-review-repository";
+
+// ---------------------------------------------------------------------------
+// Error types
+// ---------------------------------------------------------------------------
+
+export class ReviewConflictError extends Error {
+  constructor(reviewId: string, status: string) {
+    super(`Review ${reviewId} er allerede avsluttet med status ${status}.`);
+    this.name = "ReviewConflictError";
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,7 +24,7 @@ import {
 export type FactCorrection = {
   metricKey: string;
   fiscalYear: number;
-  value: number | null;
+  value: string | null;
   rawLabel?: string | null;
   sourcePage?: number | null;
   unitScale?: number | null;
@@ -63,11 +70,53 @@ async function loadReviewOrThrow(reviewId: string) {
       companyId: true,
       fiscalYear: true,
       status: true,
+      blockingRuleCodes: true,
+      qualityScore: true,
       reviewPayload: true,
+      extractionRun: {
+        select: {
+          documentEngine: true,
+          parserVersion: true,
+          validationScore: true,
+          confidenceScore: true,
+        },
+      },
     },
   });
   if (!review) throw new Error(`Review ${reviewId} ikke funnet.`);
   return review;
+}
+
+function assertPendingReview(review: { id: string; status: string }) {
+  if (review.status !== "PENDING_REVIEW") {
+    throw new ReviewConflictError(review.id, review.status);
+  }
+}
+
+function buildRunMeta(review: Awaited<ReturnType<typeof loadReviewOrThrow>>) {
+  return {
+    extractionRunId: review.extractionRunId ?? null,
+    documentEngine: review.extractionRun?.documentEngine ?? null,
+    parserVersion: review.extractionRun?.parserVersion ?? null,
+    validationScore: review.extractionRun?.validationScore ?? null,
+    confidenceScore: review.extractionRun?.confidenceScore ?? null,
+    blockingRuleCodes: review.blockingRuleCodes,
+    qualityScore: review.qualityScore ?? null,
+  };
+}
+
+function _findFactBefore(
+  payload: Record<string, unknown> | null,
+  metricKey: string,
+  fiscalYear: number,
+): unknown {
+  if (!payload) return null;
+  const facts = Array.isArray(payload.selectedFacts) ? payload.selectedFacts : [];
+  return (
+    (facts as Array<Record<string, unknown>>).find(
+      (f) => f.metricKey === metricKey && (f.fiscalYear === fiscalYear || f.fiscalYear == null),
+    ) ?? null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +153,36 @@ export async function acceptAnnualReportReview(
       ? (review.reviewPayload as Record<string, unknown>)
       : null;
 
+  const runMeta = buildRunMeta(review);
+  const selectedFacts = payload && Array.isArray(payload.selectedFacts)
+    ? (payload.selectedFacts as Array<Record<string, unknown>>)
+    : [];
+
+  const labelInputs = selectedFacts.map((fact) => ({
+    filingId: review.filingId,
+    extractionRunId: review.extractionRunId ?? null,
+    reviewId: review.id,
+    reviewerUserId,
+    labelType: "FACT_VALUE" as const,
+    targetRef: {
+      metricKey: fact.metricKey,
+      fiscalYear: fact.fiscalYear ?? review.fiscalYear,
+      sourcePage: fact.sourcePage ?? null,
+    },
+    proposedValue: { value: fact.value, unitScale: fact.unitScale },
+    acceptedValue: { value: fact.value, unitScale: fact.unitScale },
+    sourcePayload: { ...fact, ...runMeta, decisionType: "ACCEPTED" },
+  }));
+
   await prisma.$transaction(async (tx) => {
+    // Re-check status inside transaction to guard against concurrent updates
+    const fresh = await tx.annualReportReview.findUnique({
+      where: { id: reviewId },
+      select: { id: true, status: true },
+    });
+    if (!fresh) throw new Error(`Review ${reviewId} ikke funnet.`);
+    assertPendingReview(fresh);
+
     await tx.annualReportReviewDecision.create({
       data: {
         reviewId: review.id,
@@ -129,30 +207,23 @@ export async function acceptAnnualReportReview(
         updatedAt: new Date(),
       },
     });
-  });
 
-  // Emit training labels for accepted facts outside the transaction
-  if (payload) {
-    const selectedFacts = Array.isArray(payload.selectedFacts) ? payload.selectedFacts : [];
-    const labelInputs = (selectedFacts as Array<Record<string, unknown>>).map((fact) => ({
-      filingId: review.filingId,
-      extractionRunId: review.extractionRunId ?? null,
-      reviewId: review.id,
-      reviewerUserId,
-      labelType: "FACT_VALUE" as const,
-      targetRef: {
-        metricKey: fact.metricKey,
-        fiscalYear: fact.fiscalYear ?? review.fiscalYear,
-        sourcePage: fact.sourcePage ?? null,
-      },
-      proposedValue: { value: fact.value, unitScale: fact.unitScale },
-      acceptedValue: { value: fact.value, unitScale: fact.unitScale },
-      sourcePayload: fact,
-    }));
     if (labelInputs.length > 0) {
-      await createTrainingLabels(labelInputs);
+      await tx.pdfTrainingLabel.createMany({
+        data: labelInputs.map((l) => ({
+          filingId: l.filingId,
+          extractionRunId: l.extractionRunId,
+          reviewId: l.reviewId,
+          reviewerUserId: l.reviewerUserId,
+          labelType: l.labelType,
+          targetRef: l.targetRef as Prisma.InputJsonValue,
+          proposedValue: l.proposedValue as Prisma.InputJsonValue,
+          acceptedValue: l.acceptedValue as Prisma.InputJsonValue,
+          sourcePayload: l.sourcePayload as Prisma.InputJsonValue,
+        })),
+      });
     }
-  }
+  });
 
   return { reviewId: review.id, status: "ACCEPTED" as const };
 }
@@ -171,8 +242,76 @@ export async function correctAnnualReportReview(
   const review = await loadReviewOrThrow(reviewId);
 
   const beforePayload = review.reviewPayload ?? null;
+  const runMeta = buildRunMeta(review);
+
+  // Build label inputs before entering transaction
+  const labelInputs: Prisma.PdfTrainingLabelCreateManyInput[] = [];
+
+  if (corrections.facts) {
+    for (const fact of corrections.facts) {
+      const before = _findFactBefore(
+        beforePayload as Record<string, unknown> | null,
+        fact.metricKey,
+        fact.fiscalYear,
+      );
+      labelInputs.push({
+        filingId: review.filingId,
+        extractionRunId: review.extractionRunId ?? null,
+        reviewId: review.id,
+        reviewerUserId,
+        labelType: "FACT_VALUE",
+        targetRef: { metricKey: fact.metricKey, fiscalYear: fact.fiscalYear, sourcePage: fact.sourcePage ?? null } as Prisma.InputJsonValue,
+        proposedValue: before as Prisma.InputJsonValue ?? Prisma.JsonNull,
+        acceptedValue: { value: fact.value, rawLabel: fact.rawLabel, unitScale: fact.unitScale, sourcePage: fact.sourcePage } as Prisma.InputJsonValue,
+        sourcePayload: { ...fact, ...runMeta, decisionType: "CORRECTED" } as Prisma.InputJsonValue,
+      });
+    }
+  }
+
+  if (corrections.sections) {
+    for (const section of corrections.sections) {
+      const labelType =
+        section.sectionType === "BOARD_REPORT"
+          ? "BOARD_REPORT_TEXT"
+          : section.sectionType === "AUDITOR_REPORT"
+            ? "AUDITOR_REPORT_TEXT"
+            : "PAGE_SECTION";
+      labelInputs.push({
+        filingId: review.filingId,
+        extractionRunId: review.extractionRunId ?? null,
+        reviewId: review.id,
+        reviewerUserId,
+        labelType,
+        targetRef: { sectionType: section.sectionType } as Prisma.InputJsonValue,
+        proposedValue: Prisma.JsonNull,
+        acceptedValue: section as Prisma.InputJsonValue,
+        sourcePayload: { ...section, ...runMeta, decisionType: "CORRECTED" } as Prisma.InputJsonValue,
+      });
+    }
+  }
+
+  if (corrections.auditorOpinion) {
+    labelInputs.push({
+      filingId: review.filingId,
+      extractionRunId: review.extractionRunId ?? null,
+      reviewId: review.id,
+      reviewerUserId,
+      labelType: "AUDITOR_OPINION",
+      targetRef: { fiscalYear: review.fiscalYear } as Prisma.InputJsonValue,
+      proposedValue: Prisma.JsonNull,
+      acceptedValue: corrections.auditorOpinion as Prisma.InputJsonValue,
+      sourcePayload: { ...corrections.auditorOpinion, ...runMeta, decisionType: "CORRECTED" } as Prisma.InputJsonValue,
+    });
+  }
 
   await prisma.$transaction(async (tx) => {
+    const fresh = await tx.annualReportReview.findUnique({
+      where: { id: reviewId },
+      select: { id: true, status: true },
+    });
+    if (!fresh) throw new Error(`Review ${reviewId} ikke funnet.`);
+    assertPendingReview(fresh);
+
     await tx.annualReportReviewDecision.create({
       data: {
         reviewId: review.id,
@@ -198,77 +337,13 @@ export async function correctAnnualReportReview(
         updatedAt: new Date(),
       },
     });
+
+    if (labelInputs.length > 0) {
+      await tx.pdfTrainingLabel.createMany({ data: labelInputs });
+    }
   });
 
-  // Training labels for corrected facts
-  const labelInputs = [];
-
-  if (corrections.facts) {
-    for (const fact of corrections.facts) {
-      const before = _findFactBefore(beforePayload as Record<string, unknown> | null, fact.metricKey, fact.fiscalYear);
-      labelInputs.push({
-        filingId: review.filingId,
-        extractionRunId: review.extractionRunId ?? null,
-        reviewId: review.id,
-        reviewerUserId,
-        labelType: "FACT_VALUE" as const,
-        targetRef: { metricKey: fact.metricKey, fiscalYear: fact.fiscalYear, sourcePage: fact.sourcePage ?? null },
-        proposedValue: before,
-        acceptedValue: { value: fact.value, rawLabel: fact.rawLabel, unitScale: fact.unitScale, sourcePage: fact.sourcePage },
-        sourcePayload: fact,
-      });
-    }
-  }
-
-  if (corrections.sections) {
-    for (const section of corrections.sections) {
-      labelInputs.push({
-        filingId: review.filingId,
-        extractionRunId: review.extractionRunId ?? null,
-        reviewId: review.id,
-        reviewerUserId,
-        labelType: "PAGE_SECTION" as const,
-        targetRef: { sectionType: section.sectionType },
-        proposedValue: null,
-        acceptedValue: section,
-        sourcePayload: section,
-      });
-    }
-  }
-
-  if (corrections.auditorOpinion) {
-    labelInputs.push({
-      filingId: review.filingId,
-      extractionRunId: review.extractionRunId ?? null,
-      reviewId: review.id,
-      reviewerUserId,
-      labelType: "AUDITOR_OPINION" as const,
-      targetRef: { fiscalYear: review.fiscalYear },
-      proposedValue: null,
-      acceptedValue: corrections.auditorOpinion,
-      sourcePayload: corrections.auditorOpinion,
-    });
-  }
-
-  if (labelInputs.length > 0) {
-    await createTrainingLabels(labelInputs);
-  }
-
   return { reviewId: review.id, status: "ACCEPTED" as const };
-}
-
-function _findFactBefore(
-  payload: Record<string, unknown> | null,
-  metricKey: string,
-  fiscalYear: number,
-): unknown {
-  if (!payload) return null;
-  const facts = Array.isArray(payload.selectedFacts) ? payload.selectedFacts : [];
-  return (
-    (facts as Array<Record<string, unknown>>).find(
-      (f) => f.metricKey === metricKey && (f.fiscalYear === fiscalYear || f.fiscalYear == null),
-    ) ?? null
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -281,8 +356,16 @@ export async function rejectAnnualReportReview(
   reason: string,
 ) {
   const review = await loadReviewOrThrow(reviewId);
+  const runMeta = buildRunMeta(review);
 
   await prisma.$transaction(async (tx) => {
+    const fresh = await tx.annualReportReview.findUnique({
+      where: { id: reviewId },
+      select: { id: true, status: true },
+    });
+    if (!fresh) throw new Error(`Review ${reviewId} ikke funnet.`);
+    assertPendingReview(fresh);
+
     await tx.annualReportReviewDecision.create({
       data: {
         reviewId: review.id,
@@ -307,21 +390,21 @@ export async function rejectAnnualReportReview(
         updatedAt: new Date(),
       },
     });
-  });
 
-  await createTrainingLabels([
-    {
-      filingId: review.filingId,
-      extractionRunId: review.extractionRunId ?? null,
-      reviewId: review.id,
-      reviewerUserId,
-      labelType: "FAILURE_REASON",
-      targetRef: { fiscalYear: review.fiscalYear },
-      proposedValue: null,
-      acceptedValue: null,
-      sourcePayload: { reason, decisionType: "REJECTED" },
-    },
-  ]);
+    await tx.pdfTrainingLabel.createMany({
+      data: [{
+        filingId: review.filingId,
+        extractionRunId: review.extractionRunId ?? null,
+        reviewId: review.id,
+        reviewerUserId,
+        labelType: "FAILURE_REASON",
+        targetRef: { fiscalYear: review.fiscalYear } as Prisma.InputJsonValue,
+        proposedValue: Prisma.JsonNull,
+        acceptedValue: Prisma.JsonNull,
+        sourcePayload: { reason, decisionType: "REJECTED", ...runMeta } as Prisma.InputJsonValue,
+      }],
+    });
+  });
 
   return { reviewId: review.id, status: "REJECTED" as const };
 }
@@ -338,6 +421,13 @@ export async function reprocessAnnualReportReview(
   const review = await loadReviewOrThrow(reviewId);
 
   await prisma.$transaction(async (tx) => {
+    const fresh = await tx.annualReportReview.findUnique({
+      where: { id: reviewId },
+      select: { id: true, status: true },
+    });
+    if (!fresh) throw new Error(`Review ${reviewId} ikke funnet.`);
+    assertPendingReview(fresh);
+
     await tx.annualReportReviewDecision.create({
       data: {
         reviewId: review.id,
@@ -380,8 +470,16 @@ export async function markAnnualReportReviewUnreadable(
   reason: string,
 ) {
   const review = await loadReviewOrThrow(reviewId);
+  const runMeta = buildRunMeta(review);
 
   await prisma.$transaction(async (tx) => {
+    const fresh = await tx.annualReportReview.findUnique({
+      where: { id: reviewId },
+      select: { id: true, status: true },
+    });
+    if (!fresh) throw new Error(`Review ${reviewId} ikke funnet.`);
+    assertPendingReview(fresh);
+
     await tx.annualReportReviewDecision.create({
       data: {
         reviewId: review.id,
@@ -414,21 +512,21 @@ export async function markAnnualReportReviewUnreadable(
         updatedAt: new Date(),
       },
     });
-  });
 
-  await createTrainingLabels([
-    {
-      filingId: review.filingId,
-      extractionRunId: review.extractionRunId ?? null,
-      reviewId: review.id,
-      reviewerUserId,
-      labelType: "FAILURE_REASON",
-      targetRef: { fiscalYear: review.fiscalYear },
-      proposedValue: null,
-      acceptedValue: null,
-      sourcePayload: { reason, decisionType: "UNREADABLE" },
-    },
-  ]);
+    await tx.pdfTrainingLabel.createMany({
+      data: [{
+        filingId: review.filingId,
+        extractionRunId: review.extractionRunId ?? null,
+        reviewId: review.id,
+        reviewerUserId,
+        labelType: "FAILURE_REASON",
+        targetRef: { fiscalYear: review.fiscalYear } as Prisma.InputJsonValue,
+        proposedValue: Prisma.JsonNull,
+        acceptedValue: Prisma.JsonNull,
+        sourcePayload: { reason, decisionType: "UNREADABLE", ...runMeta } as Prisma.InputJsonValue,
+      }],
+    });
+  });
 
   return { reviewId: review.id, status: "REJECTED" as const, filingStatus: "FAILED" as const };
 }

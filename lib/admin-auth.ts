@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { prisma } from "@/lib/prisma";
 import { safeAuth } from "@/lib/auth";
 
 export type AdminUser = {
@@ -22,7 +23,13 @@ export async function requireFinancialReviewer(): Promise<AuthResult> {
     };
   }
 
-  const role = session.user.appRole;
+  // Always verify role from DB — never trust JWT alone
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { appRole: true, email: true },
+  });
+
+  const role = dbUser?.appRole;
   if (role !== "ADMIN" && role !== "FINANCIAL_REVIEWER") {
     return {
       user: null,
@@ -33,7 +40,7 @@ export async function requireFinancialReviewer(): Promise<AuthResult> {
   return {
     user: {
       id: session.user.id,
-      email: session.user.email,
+      email: dbUser?.email ?? session.user.email,
       appRole: role,
     },
     error: null,

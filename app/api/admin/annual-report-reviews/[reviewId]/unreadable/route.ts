@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
-import { markAnnualReportReviewUnreadable } from "@/server/services/annual-report-review-service";
+import { markAnnualReportReviewUnreadable, ReviewConflictError } from "@/server/services/annual-report-review-service";
 
 const bodySchema = z.object({
   reason: z.string().min(1).max(2000),
@@ -33,6 +33,9 @@ export async function POST(
     const result = await markAnnualReportReviewUnreadable(reviewId, user!.id, parsed.data.reason);
     return NextResponse.json({ data: result });
   } catch (err) {
+    if (err instanceof ReviewConflictError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Kunne ikke merke som uleselig." },
       { status: 500 },

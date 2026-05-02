@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Hoisted mocks (vi.mock factories are hoisted, so variables must be too)
 // ---------------------------------------------------------------------------
 
-const { prismaMock, repoMock } = vi.hoisted(() => {
+const { prismaMock } = vi.hoisted(() => {
   const dbReview = {
     id: "review-1",
     filingId: "filing-1",
@@ -12,17 +12,27 @@ const { prismaMock, repoMock } = vi.hoisted(() => {
     companyId: "company-1",
     fiscalYear: 2023,
     status: "PENDING_REVIEW",
+    blockingRuleCodes: ["REV_001"],
+    qualityScore: 0.85,
     reviewPayload: {
       selectedFacts: [
-        { metricKey: "revenue", fiscalYear: 2023, value: 5000000, unitScale: 1000, sourcePage: 4 },
+        { metricKey: "revenue", fiscalYear: 2023, value: "5000000000", unitScale: 1000, sourcePage: 4 },
       ],
     },
+    extractionRun: {
+      documentEngine: "docling",
+      parserVersion: "v1.2.3",
+      validationScore: 0.9,
+      confidenceScore: 0.88,
+    },
   };
+
+  const labelsMock = vi.fn(async () => ({ count: 0 }));
 
   const prismaMock = {
     _dbReview: dbReview,
     annualReportReview: {
-      findUnique: vi.fn(async () => dbReview),
+      findUnique: vi.fn(async () => dbReview as typeof dbReview | null),
       update: vi.fn(async () => ({ ...dbReview, status: "ACCEPTED" })),
     },
     annualReportReviewDecision: {
@@ -31,14 +41,13 @@ const { prismaMock, repoMock } = vi.hoisted(() => {
     annualReportFiling: {
       update: vi.fn(async (args: unknown) => args),
     },
+    pdfTrainingLabel: {
+      createMany: labelsMock,
+    },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prismaMock)),
   };
 
-  const repoMock = {
-    createTrainingLabels: vi.fn(async () => ({ count: 0 })),
-  };
-
-  return { prismaMock, repoMock };
+  return { prismaMock };
 });
 
 vi.mock("@/lib/prisma", () => ({
@@ -50,7 +59,7 @@ vi.mock("@/server/persistence/annual-report-review-repository", () => ({
   getAdminReviewDetail: vi.fn(),
   createReviewDecision: vi.fn(),
   createTrainingLabel: vi.fn(),
-  createTrainingLabels: (...args: unknown[]) => repoMock.createTrainingLabels(...args),
+  createTrainingLabels: vi.fn(),
   setReviewStatus: vi.fn(),
   setFilingStatus: vi.fn(),
 }));
@@ -65,6 +74,7 @@ import {
   rejectAnnualReportReview,
   reprocessAnnualReportReview,
   markAnnualReportReviewUnreadable,
+  ReviewConflictError,
 } from "./annual-report-review-service";
 
 // ---------------------------------------------------------------------------
@@ -76,8 +86,12 @@ function resetMocks() {
   prismaMock.annualReportReview.findUnique.mockResolvedValue(prismaMock._dbReview);
   prismaMock.annualReportReview.update.mockResolvedValue({ ...prismaMock._dbReview, status: "ACCEPTED" });
   prismaMock.annualReportReviewDecision.create.mockResolvedValue({ id: "decision-1" });
+  prismaMock.pdfTrainingLabel.createMany.mockResolvedValue({ count: 0 });
   prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prismaMock));
-  repoMock.createTrainingLabels.mockResolvedValue({ count: 0 });
+}
+
+function makeResolvedReview(status: string) {
+  return { ...prismaMock._dbReview, status };
 }
 
 // ---------------------------------------------------------------------------
@@ -113,17 +127,51 @@ describe("acceptAnnualReportReview", () => {
     );
   });
 
-  it("creates training labels for facts", async () => {
+  it("creates training labels for facts inside transaction", async () => {
     await acceptAnnualReportReview("review-1", "user-reviewer-1");
 
-    expect(repoMock.createTrainingLabels).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          labelType: "FACT_VALUE",
-          reviewerUserId: "user-reviewer-1",
-          targetRef: expect.objectContaining({ metricKey: "revenue" }),
-        }),
-      ]),
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            labelType: "FACT_VALUE",
+            reviewerUserId: "user-reviewer-1",
+            targetRef: expect.objectContaining({ metricKey: "revenue" }),
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it("preserves BigInt string value without floating-point loss", async () => {
+    await acceptAnnualReportReview("review-1", "user-reviewer-1");
+
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            acceptedValue: expect.objectContaining({ value: "5000000000" }),
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it("enriches sourcePayload with extractionRun metadata", async () => {
+    await acceptAnnualReportReview("review-1", "user-reviewer-1");
+
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            sourcePayload: expect.objectContaining({
+              documentEngine: "docling",
+              parserVersion: "v1.2.3",
+              blockingRuleCodes: ["REV_001"],
+            }),
+          }),
+        ]),
+      }),
     );
   });
 
@@ -134,6 +182,14 @@ describe("acceptAnnualReportReview", () => {
       acceptAnnualReportReview("nonexistent", "user-reviewer-1"),
     ).rejects.toThrow("Review nonexistent ikke funnet.");
   });
+
+  it("throws ReviewConflictError when review already resolved", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(makeResolvedReview("ACCEPTED"));
+
+    await expect(
+      acceptAnnualReportReview("review-1", "user-reviewer-1"),
+    ).rejects.toBeInstanceOf(ReviewConflictError);
+  });
 });
 
 describe("correctAnnualReportReview", () => {
@@ -141,7 +197,7 @@ describe("correctAnnualReportReview", () => {
 
   it("creates CORRECTED decision with beforePayload and afterPayload", async () => {
     const corrections = {
-      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: 4500000 }],
+      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: "4500000" }],
     };
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections, "Korrigert tall");
@@ -159,19 +215,21 @@ describe("correctAnnualReportReview", () => {
 
   it("creates FACT_VALUE training labels for corrected facts", async () => {
     const corrections = {
-      facts: [{ metricKey: "net_income", fiscalYear: 2023, value: 200000 }],
+      facts: [{ metricKey: "net_income", fiscalYear: 2023, value: "200000" }],
     };
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
 
-    expect(repoMock.createTrainingLabels).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          labelType: "FACT_VALUE",
-          targetRef: expect.objectContaining({ metricKey: "net_income" }),
-          acceptedValue: expect.objectContaining({ value: 200000 }),
-        }),
-      ]),
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            labelType: "FACT_VALUE",
+            targetRef: expect.objectContaining({ metricKey: "net_income" }),
+            acceptedValue: expect.objectContaining({ value: "200000" }),
+          }),
+        ]),
+      }),
     );
   });
 
@@ -182,14 +240,62 @@ describe("correctAnnualReportReview", () => {
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
 
-    expect(repoMock.createTrainingLabels).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          labelType: "AUDITOR_OPINION",
-          acceptedValue: expect.objectContaining({ opinionType: "QUALIFIED" }),
-        }),
-      ]),
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            labelType: "AUDITOR_OPINION",
+            acceptedValue: expect.objectContaining({ opinionType: "QUALIFIED" }),
+          }),
+        ]),
+      }),
     );
+  });
+
+  it("creates BOARD_REPORT_TEXT label for board report section", async () => {
+    const corrections = {
+      sections: [{ sectionType: "BOARD_REPORT", text: "Styret vurderer utsiktene som gode." }],
+    };
+
+    await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
+
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            labelType: "BOARD_REPORT_TEXT",
+            acceptedValue: expect.objectContaining({ sectionType: "BOARD_REPORT" }),
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it("creates AUDITOR_REPORT_TEXT label for auditor report section", async () => {
+    const corrections = {
+      sections: [{ sectionType: "AUDITOR_REPORT", text: "Etter vår oppfatning gir årsregnskapet..." }],
+    };
+
+    await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
+
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            labelType: "AUDITOR_REPORT_TEXT",
+            acceptedValue: expect.objectContaining({ sectionType: "AUDITOR_REPORT" }),
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it("throws ReviewConflictError when review already resolved", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(makeResolvedReview("REJECTED"));
+
+    await expect(
+      correctAnnualReportReview("review-1", "user-reviewer-1", {}),
+    ).rejects.toBeInstanceOf(ReviewConflictError);
   });
 });
 
@@ -216,17 +322,27 @@ describe("rejectAnnualReportReview", () => {
     );
   });
 
-  it("creates FAILURE_REASON training label", async () => {
+  it("creates FAILURE_REASON training label inside transaction", async () => {
     await rejectAnnualReportReview("review-1", "user-reviewer-1", "Mangler data");
 
-    expect(repoMock.createTrainingLabels).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          labelType: "FAILURE_REASON",
-          sourcePayload: expect.objectContaining({ decisionType: "REJECTED" }),
-        }),
-      ]),
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            labelType: "FAILURE_REASON",
+            sourcePayload: expect.objectContaining({ decisionType: "REJECTED" }),
+          }),
+        ]),
+      }),
     );
+  });
+
+  it("throws ReviewConflictError when review already resolved", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(makeResolvedReview("ACCEPTED"));
+
+    await expect(
+      rejectAnnualReportReview("review-1", "user-reviewer-1", "Grunn"),
+    ).rejects.toBeInstanceOf(ReviewConflictError);
   });
 });
 
@@ -260,6 +376,14 @@ describe("reprocessAnnualReportReview", () => {
       }),
     );
   });
+
+  it("throws ReviewConflictError when review already resolved", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(makeResolvedReview("ACCEPTED"));
+
+    await expect(
+      reprocessAnnualReportReview("review-1", "user-reviewer-1", "Grunn"),
+    ).rejects.toBeInstanceOf(ReviewConflictError);
+  });
 });
 
 describe("markAnnualReportReviewUnreadable", () => {
@@ -288,16 +412,52 @@ describe("markAnnualReportReviewUnreadable", () => {
     );
   });
 
-  it("creates FAILURE_REASON training label", async () => {
+  it("creates FAILURE_REASON training label inside transaction", async () => {
     await markAnnualReportReviewUnreadable("review-1", "user-reviewer-1", "Uleselig");
 
-    expect(repoMock.createTrainingLabels).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          labelType: "FAILURE_REASON",
-          sourcePayload: expect.objectContaining({ decisionType: "UNREADABLE" }),
-        }),
-      ]),
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            labelType: "FAILURE_REASON",
+            sourcePayload: expect.objectContaining({ decisionType: "UNREADABLE" }),
+          }),
+        ]),
+      }),
     );
+  });
+
+  it("throws ReviewConflictError when review already resolved", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(makeResolvedReview("REJECTED"));
+
+    await expect(
+      markAnnualReportReviewUnreadable("review-1", "user-reviewer-1", "Grunn"),
+    ).rejects.toBeInstanceOf(ReviewConflictError);
+  });
+});
+
+describe("atomicity", () => {
+  beforeEach(resetMocks);
+
+  it("all writes happen inside a single $transaction call", async () => {
+    await acceptAnnualReportReview("review-1", "user-reviewer-1");
+
+    // The transaction mock was called once
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    // And all sub-writes were called on the same tx (prismaMock in mock setup)
+    expect(prismaMock.annualReportReviewDecision.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.annualReportReview.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels are not written if transaction throws", async () => {
+    prismaMock.$transaction.mockRejectedValueOnce(new Error("DB error"));
+
+    await expect(
+      acceptAnnualReportReview("review-1", "user-reviewer-1"),
+    ).rejects.toThrow("DB error");
+
+    // createMany should never have been called outside of the transaction
+    expect(prismaMock.pdfTrainingLabel.createMany).not.toHaveBeenCalled();
   });
 });
