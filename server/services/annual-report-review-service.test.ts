@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
@@ -871,6 +873,198 @@ describe("publishReviewedAnnualReportFacts", () => {
 
     // financialFact should never be touched
     expect("deleteMany" in prismaMock).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: publishReviewedAnnualReportFacts — realistic golden fixture
+// ---------------------------------------------------------------------------
+
+describe("publishReviewedAnnualReportFacts — realistic golden fixture", () => {
+  const fixture = JSON.parse(
+    readFileSync(
+      join(__dirname, "../../test/fixtures/annual-reports/proff-2024-reviewed-facts.json"),
+      "utf-8",
+    ),
+  ) as { facts: Record<string, string>; expectedValidation: { passed: boolean; hasBlockingErrors: boolean } };
+
+  const acceptedReview = {
+    id: "review-1",
+    filingId: "filing-1",
+    extractionRunId: "run-1",
+    companyId: "company-1",
+    fiscalYear: 2024,
+    status: "ACCEPTED",
+  };
+
+  function makeFixtureFacts(overrides: Partial<Record<string, bigint | null>> = {}) {
+    const f = fixture.facts;
+    const defaults: Record<string, bigint | null> = {
+      total_operating_income:       BigInt(f.total_operating_income),
+      total_operating_expenses:     BigInt(f.total_operating_expenses),
+      operating_profit:             BigInt(f.operating_profit),
+      net_financial_items:          BigInt(f.net_financial_items),
+      profit_before_tax:            BigInt(f.profit_before_tax),
+      tax_expense:                  BigInt(f.tax_expense),
+      net_income:                   BigInt(f.net_income),
+      total_assets:                 BigInt(f.total_assets),
+      total_equity:                 BigInt(f.total_equity),
+      total_liabilities:            BigInt(f.total_liabilities),
+      total_equity_and_liabilities: BigInt(f.total_equity_and_liabilities),
+    };
+    const merged = { ...defaults, ...overrides };
+    return Object.entries(merged).map(([metricKey, value], i) => ({
+      id: `rf-${i}`,
+      reviewId: "review-1",
+      metricKey,
+      statementType: ["total_assets", "total_equity", "total_liabilities", "total_equity_and_liabilities"].includes(metricKey)
+        ? "BALANCE_SHEET"
+        : "INCOME_STATEMENT",
+      value,
+      fiscalYear: 2024,
+      currency: "NOK",
+      unitScale: 1,
+      sourcePage: null,
+      rawLabel: null,
+      correctionSource: "ACCEPTED_MACHINE",
+    }));
+  }
+
+  beforeEach(resetMocks);
+
+  it("validation passes for all correctly-balanced fixture facts", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(acceptedReview as never);
+    prismaMock.annualReportReviewedFact.findMany.mockResolvedValue(makeFixtureFacts() as never);
+
+    const result = await validateReviewedAnnualReportFacts("review-1");
+
+    expect(result.passed).toBe(fixture.expectedValidation.passed);
+    expect(result.hasBlockingErrors).toBe(fixture.expectedValidation.hasBlockingErrors);
+    expect(result.blockingIssues).toHaveLength(0);
+    expect(result.reviewedFactCount).toBe(Object.keys(fixture.facts).length);
+  });
+
+  it("publishes and upserts FinancialStatement with correct BigInt values", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(acceptedReview as never);
+    prismaMock.annualReportReviewedFact.findMany.mockResolvedValue(makeFixtureFacts() as never);
+
+    const result = await publishReviewedAnnualReportFacts("review-1", "user-1");
+
+    expect(result.published).toBe(true);
+    expect(prismaMock.financialStatement.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          revenue:         BigInt(fixture.facts.total_operating_income),
+          operatingProfit: BigInt(fixture.facts.operating_profit),
+          netIncome:       BigInt(fixture.facts.net_income),
+          equity:          BigInt(fixture.facts.total_equity),
+          assets:          BigInt(fixture.facts.total_assets),
+        }),
+      }),
+    );
+  });
+
+  it("blocks publish and returns serialized string issues when balance sheet is wrong", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(acceptedReview as never);
+    // total_equity_and_liabilities deliberately wrong
+    prismaMock.annualReportReviewedFact.findMany.mockResolvedValue(
+      makeFixtureFacts({ total_equity_and_liabilities: 91000000n }) as never,
+    );
+
+    const result = await publishReviewedAnnualReportFacts("review-1", "user-1");
+
+    expect(result.published).toBe(false);
+    if (!result.published) {
+      const issue = result.issues.find((i) => i.ruleCode === "BS_TOTAL_BALANCES");
+      expect(issue).toBeDefined();
+      // Values must be serialized as strings, not numbers
+      expect(typeof issue!.expectedValue).toBe("string");
+      expect(typeof issue!.actualValue).toBe("string");
+      expect(issue!.expectedValue).toBe(fixture.facts.total_assets);
+      expect(issue!.actualValue).toBe("91000000");
+    }
+    expect(prismaMock.financialStatement.upsert).not.toHaveBeenCalled();
+  });
+
+  it("FinancialStatement is not upserted and filing stays unpublished when validation fails", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(acceptedReview as never);
+    prismaMock.annualReportReviewedFact.findMany.mockResolvedValue(
+      makeFixtureFacts({ total_equity_and_liabilities: 91000000n }) as never,
+    );
+
+    await publishReviewedAnnualReportFacts("review-1", "user-1");
+
+    expect(prismaMock.financialStatement.upsert).not.toHaveBeenCalled();
+    expect(prismaMock.annualReportFiling.update).not.toHaveBeenCalled();
+  });
+
+  it("original FinancialFact records are not deleted or modified after publish", async () => {
+    prismaMock.annualReportReview.findUnique.mockResolvedValue(acceptedReview as never);
+    prismaMock.annualReportReviewedFact.findMany.mockResolvedValue(makeFixtureFacts() as never);
+
+    await publishReviewedAnnualReportFacts("review-1", "user-1");
+
+    expect("deleteMany" in prismaMock.financialFact).toBe(false);
+    expect(prismaMock.financialFact.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: validateReviewedAnnualReportFacts — BigInt serialization
+// ---------------------------------------------------------------------------
+
+describe("validateReviewedAnnualReportFacts — BigInt serialization", () => {
+  beforeEach(resetMocks);
+
+  it("returns string expectedValue/actualValue in blockingIssues for JSON safety", async () => {
+    prismaMock.annualReportReviewedFact.findMany.mockResolvedValue([
+      {
+        id: "rf-1", reviewId: "review-1", metricKey: "total_assets",
+        statementType: "BALANCE_SHEET", value: BigInt("92155000"), fiscalYear: 2023,
+        currency: "NOK", unitScale: 1, sourcePage: null, rawLabel: null,
+        correctionSource: "ACCEPTED_MACHINE",
+      },
+      {
+        id: "rf-2", reviewId: "review-1", metricKey: "total_equity_and_liabilities",
+        statementType: "BALANCE_SHEET", value: BigInt("91000000"), fiscalYear: 2023,
+        currency: "NOK", unitScale: 1, sourcePage: null, rawLabel: null,
+        correctionSource: "MANUAL_CORRECTION",
+      },
+    ] as never);
+
+    const result = await validateReviewedAnnualReportFacts("review-1");
+
+    expect(result.passed).toBe(false);
+    const issue = result.blockingIssues.find((i) => i.ruleCode === "BS_TOTAL_BALANCES");
+    expect(issue).toBeDefined();
+    expect(typeof issue!.expectedValue).toBe("string");
+    expect(typeof issue!.actualValue).toBe("string");
+    expect(issue!.expectedValue).toBe("92155000");
+    expect(issue!.actualValue).toBe("91000000");
+  });
+
+  it("hasBlockingErrors and validationScore are included in the payload", async () => {
+    prismaMock.annualReportReviewedFact.findMany.mockResolvedValue([
+      {
+        id: "rf-1", reviewId: "review-1", metricKey: "total_assets",
+        statementType: "BALANCE_SHEET", value: BigInt("10000000"), fiscalYear: 2023,
+        currency: "NOK", unitScale: 1, sourcePage: null, rawLabel: null,
+        correctionSource: "ACCEPTED_MACHINE",
+      },
+      {
+        id: "rf-2", reviewId: "review-1", metricKey: "total_equity_and_liabilities",
+        statementType: "BALANCE_SHEET", value: BigInt("10000000"), fiscalYear: 2023,
+        currency: "NOK", unitScale: 1, sourcePage: null, rawLabel: null,
+        correctionSource: "ACCEPTED_MACHINE",
+      },
+    ] as never);
+
+    const result = await validateReviewedAnnualReportFacts("review-1");
+
+    expect(result).toHaveProperty("hasBlockingErrors", false);
+    expect(result).toHaveProperty("validationScore");
+    expect(typeof result.validationScore).toBe("number");
+    expect(result.validationScore).toBe(1);
   });
 });
 

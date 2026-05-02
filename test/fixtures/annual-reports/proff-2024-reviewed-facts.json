@@ -1,0 +1,28 @@
+{
+  "orgNumber": "918298037",
+  "fiscalYear": 2024,
+  "description": "Realistic Norwegian SME annual report reviewed facts. All accounting equations balance exactly.",
+  "facts": {
+    "total_operating_income":       "103097000",
+    "total_operating_expenses":      "81887000",
+    "operating_profit":              "21210000",
+    "net_financial_items":            "2150000",
+    "profit_before_tax":             "23360000",
+    "tax_expense":                    "5139000",
+    "net_income":                    "18221000",
+    "total_assets":                  "92155000",
+    "total_equity":                  "36372000",
+    "total_liabilities":             "55783000",
+    "total_equity_and_liabilities":  "92155000"
+  },
+  "expectedValidation": {
+    "passed": true,
+    "hasBlockingErrors": false
+  },
+  "notes": {
+    "operating_profit_check":           "103097000 - 81887000 = 21210000 ✓",
+    "profit_before_tax_check":           "21210000 + 2150000 = 23360000 ✓",
+    "net_income_check":                  "23360000 - 5139000 = 18221000 ✓",
+    "balance_sheet_check":               "36372000 + 55783000 = 92155000 = total_assets ✓"
+  }
+}

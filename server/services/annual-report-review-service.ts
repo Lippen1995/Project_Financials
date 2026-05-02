@@ -6,9 +6,13 @@ import {
   listAdminReviewQueue,
 } from "@/server/persistence/annual-report-review-repository";
 import { upsertCompanyFinancialCoverage } from "@/server/persistence/annual-report-ingestion-repository";
-import { validateCanonicalFacts } from "@/integrations/brreg/annual-report-financials/validation";
 import { getStatementTypeForMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
-import { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
+import {
+  validateReviewedFacts,
+  serializeValidationPayload,
+  type ReviewedFactForValidation,
+  type ReviewedFactsValidationPayload,
+} from "@/server/services/annual-report-reviewed-facts-validation";
 
 // ---------------------------------------------------------------------------
 // Error types
@@ -60,22 +64,8 @@ export type ReviewCorrections = {
   failureReason?: string;
 };
 
-export type ReviewedFactsValidationResult = {
-  passed: boolean;
-  blockingIssues: Array<{
-    ruleCode: string;
-    message: string;
-    expectedValue?: number | null;
-    actualValue?: number | null;
-  }>;
-  warnings: Array<{
-    ruleCode: string;
-    message: string;
-    expectedValue?: number | null;
-    actualValue?: number | null;
-  }>;
-  reviewedFactCount: number;
-};
+// Re-export for consumers that import from this module
+export type { ReviewedFactsValidationPayload as ReviewedFactsValidationResult } from "@/server/services/annual-report-reviewed-facts-validation";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -655,7 +645,7 @@ export async function markAnnualReportReviewUnreadable(
 
 export async function validateReviewedAnnualReportFacts(
   reviewId: string,
-): Promise<ReviewedFactsValidationResult> {
+): Promise<ReviewedFactsValidationPayload> {
   const facts = await prisma.annualReportReviewedFact.findMany({
     where: { reviewId },
   });
@@ -663,86 +653,39 @@ export async function validateReviewedAnnualReportFacts(
   if (facts.length === 0) {
     return {
       passed: false,
-      blockingIssues: [{ ruleCode: "NO_REVIEWED_FACTS", message: "Ingen reviewed facts funnet for dette review." }],
+      validationScore: 0,
+      hasBlockingErrors: true,
+      blockingIssues: [
+        {
+          severity: "ERROR",
+          ruleCode: "NO_REVIEWED_FACTS",
+          message: "Ingen reviewed facts funnet for dette review.",
+        },
+      ],
       warnings: [],
+      issues: [
+        {
+          severity: "ERROR",
+          ruleCode: "NO_REVIEWED_FACTS",
+          message: "Ingen reviewed facts funnet for dette review.",
+        },
+      ],
       reviewedFactCount: 0,
     };
   }
 
-  const preIssues: ReviewedFactsValidationResult["blockingIssues"] = [];
-  const preWarnings: ReviewedFactsValidationResult["warnings"] = [];
-
-  // Fiscal year consistency
-  const fiscalYears = new Set(facts.map((f) => f.fiscalYear));
-  if (fiscalYears.size > 1) {
-    preIssues.push({
-      ruleCode: "MIXED_FISCAL_YEARS",
-      message: `Reviewed facts har blandede regnskapsår: ${Array.from(fiscalYears).join(", ")}.`,
-    });
-  }
-
-  // Unit scale consistency across non-null facts
-  const nonNullFacts = facts.filter((f) => f.value !== null);
-  const unitScales = new Set(nonNullFacts.map((f) => f.unitScale));
-  if (unitScales.size > 1) {
-    preIssues.push({
-      ruleCode: "UNIT_SCALE_INCONSISTENCY",
-      message: `Motstridende enhetsskalaer funnet: ${Array.from(unitScales).join(", ")}.`,
-    });
-  }
-
-  // Convert to CanonicalFactCandidate (skip null-value facts)
-  const candidates: CanonicalFactCandidate[] = nonNullFacts.map((f) => ({
-    fiscalYear: f.fiscalYear,
-    statementType: f.statementType as "INCOME_STATEMENT" | "BALANCE_SHEET" | "NOTE",
+  const validationFacts: ReviewedFactForValidation[] = facts.map((f) => ({
     metricKey: f.metricKey,
-    rawLabel: f.rawLabel ?? f.metricKey,
-    normalizedLabel: f.metricKey,
-    value: Number(f.value!),
-    currency: f.currency,
+    fiscalYear: f.fiscalYear,
+    statementType: f.statementType,
+    value: f.value,
     unitScale: f.unitScale,
-    sourcePage: f.sourcePage ?? 0,
-    sourceSection: f.statementType,
-    sourceRowText: f.rawLabel ?? f.metricKey,
-    noteReference: null,
-    confidenceScore: 1.0,
-    precedence: "STATUTORY_NOK",
-    isDerived: false,
-    rawPayload: {},
+    sourcePage: f.sourcePage,
+    rawLabel: f.rawLabel,
   }));
 
-  const validation = validateCanonicalFacts(candidates);
-
-  const blockingIssues = [
-    ...preIssues,
-    ...validation.issues
-      .filter((i) => i.severity === "ERROR")
-      .map((i) => ({
-        ruleCode: i.ruleCode,
-        message: i.message,
-        expectedValue: i.expectedValue ?? null,
-        actualValue: i.actualValue ?? null,
-      })),
-  ];
-
-  const warnings = [
-    ...preWarnings,
-    ...validation.issues
-      .filter((i) => i.severity === "WARNING")
-      .map((i) => ({
-        ruleCode: i.ruleCode,
-        message: i.message,
-        expectedValue: i.expectedValue ?? null,
-        actualValue: i.actualValue ?? null,
-      })),
-  ];
-
-  return {
-    passed: blockingIssues.length === 0,
-    blockingIssues,
-    warnings,
-    reviewedFactCount: facts.length,
-  };
+  const result = validateReviewedFacts(validationFacts);
+  return serializeValidationPayload(result, facts.length);
 }
 
 // ---------------------------------------------------------------------------
@@ -754,7 +697,7 @@ export async function publishReviewedAnnualReportFacts(
   reviewerUserId: string,
 ): Promise<
   | { published: true; fiscalYear: number; companyId: string }
-  | { published: false; issues: ReviewedFactsValidationResult["blockingIssues"] }
+  | { published: false; issues: ReviewedFactsValidationPayload["blockingIssues"] }
 > {
   const review = await prisma.annualReportReview.findUnique({
     where: { id: reviewId },
@@ -782,13 +725,30 @@ export async function publishReviewedAnnualReportFacts(
   if (facts.length === 0) {
     return {
       published: false,
-      issues: [{ ruleCode: "NO_REVIEWED_FACTS", message: "Ingen reviewed facts å publisere." }],
+      issues: [
+        {
+          severity: "ERROR",
+          ruleCode: "NO_REVIEWED_FACTS",
+          message: "Ingen reviewed facts å publisere.",
+        },
+      ],
     };
   }
 
-  const validation = await validateReviewedAnnualReportFacts(reviewId);
-  if (!validation.passed) {
-    return { published: false, issues: validation.blockingIssues };
+  // Use BigInt-safe internal validation (no Number() conversion)
+  const validationFacts: ReviewedFactForValidation[] = facts.map((f) => ({
+    metricKey: f.metricKey,
+    fiscalYear: f.fiscalYear,
+    statementType: f.statementType,
+    value: f.value,
+    unitScale: f.unitScale,
+    sourcePage: f.sourcePage,
+    rawLabel: f.rawLabel,
+  }));
+  const validationResult = validateReviewedFacts(validationFacts);
+  if (validationResult.hasBlockingErrors) {
+    const payload = serializeValidationPayload(validationResult, facts.length);
+    return { published: false, issues: payload.blockingIssues };
   }
 
   const factMap = new Map(facts.map((f) => [f.metricKey, f]));

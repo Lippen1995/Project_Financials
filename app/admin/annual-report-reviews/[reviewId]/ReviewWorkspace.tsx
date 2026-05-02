@@ -96,8 +96,11 @@ type EditableFact = {
 
 type ValidationResult = {
   passed: boolean;
-  blockingIssues: Array<{ ruleCode: string; message: string; expectedValue?: number | null; actualValue?: number | null }>;
-  warnings: Array<{ ruleCode: string; message: string }>;
+  hasBlockingErrors: boolean;
+  validationScore: number;
+  blockingIssues: Array<{ ruleCode: string; message: string; expectedValue?: string | null; actualValue?: string | null }>;
+  warnings: Array<{ ruleCode: string; message: string; expectedValue?: string | null; actualValue?: string | null }>;
+  issues: Array<{ ruleCode: string; message: string; severity: string }>;
   reviewedFactCount: number;
 };
 
