@@ -47,13 +47,22 @@ export async function requireFinancialReviewer(): Promise<AuthResult> {
   };
 }
 
-export async function getCurrentUserWithRole() {
+export async function getFinancialReviewerOrNull(): Promise<AdminUser | null> {
   const session = await safeAuth();
   if (!session?.user?.id) return null;
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { appRole: true, email: true },
+  });
+
+  const role = dbUser?.appRole;
+  if (role !== "ADMIN" && role !== "FINANCIAL_REVIEWER") return null;
+
   return {
     id: session.user.id,
-    email: session.user.email,
-    appRole: session.user.appRole ?? "USER",
+    email: dbUser?.email ?? session.user.email,
+    appRole: role,
   };
 }
 

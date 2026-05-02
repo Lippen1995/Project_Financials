@@ -86,6 +86,15 @@ function bigintToDisplay(v: bigint | null): string {
   return String(v);
 }
 
+function formatIntegerString(value: string | bigint | number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  const raw = typeof value === "bigint" ? value.toString() : String(value);
+  const sign = raw.startsWith("-") ? "-" : "";
+  const digits = sign ? raw.slice(1) : raw;
+  if (!/^[0-9]+$/.test(digits)) return raw;
+  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 function groupFacts(facts: Fact[]) {
   const income: Fact[] = [];
   const balance: Fact[] = [];
@@ -597,7 +606,7 @@ function FactTable({ facts }: { facts: Fact[] }) {
           <tr key={f.id} className="border-b border-[rgba(15,23,42,0.04)] last:border-0">
             <td className="py-1 font-mono text-slate-600">{f.metricKey}</td>
             <td className="py-1 text-right font-mono text-[#162233]">
-              {f.value != null ? Number(f.value).toLocaleString("nb-NO") : "—"}
+              {formatIntegerString(f.value)}
             </td>
             <td className="py-1 text-right font-mono text-slate-400">{f.unitScale}</td>
             <td className="py-1 text-right font-mono text-slate-400">{f.sourcePage ?? "—"}</td>

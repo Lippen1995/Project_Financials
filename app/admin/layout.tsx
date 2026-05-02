@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { safeAuth } from "@/lib/auth";
-import { isFinancialReviewerRole } from "@/lib/admin-auth";
+import { getFinancialReviewerOrNull } from "@/lib/admin-auth";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await safeAuth();
@@ -10,7 +10,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/login");
   }
 
-  if (!isFinancialReviewerRole(session.user.appRole)) {
+  const reviewer = await getFinancialReviewerOrNull();
+  if (!reviewer) {
     redirect("/dashboard");
   }
 
