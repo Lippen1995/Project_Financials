@@ -5,6 +5,10 @@ import {
   getAdminReviewDetail,
   listAdminReviewQueue,
 } from "@/server/persistence/annual-report-review-repository";
+import { upsertCompanyFinancialCoverage } from "@/server/persistence/annual-report-ingestion-repository";
+import { validateCanonicalFacts } from "@/integrations/brreg/annual-report-financials/validation";
+import { getStatementTypeForMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
 
 // ---------------------------------------------------------------------------
 // Error types
@@ -54,6 +58,23 @@ export type ReviewCorrections = {
   sections?: SectionCorrection[];
   auditorOpinion?: AuditorOpinionCorrection;
   failureReason?: string;
+};
+
+export type ReviewedFactsValidationResult = {
+  passed: boolean;
+  blockingIssues: Array<{
+    ruleCode: string;
+    message: string;
+    expectedValue?: number | null;
+    actualValue?: number | null;
+  }>;
+  warnings: Array<{
+    ruleCode: string;
+    message: string;
+    expectedValue?: number | null;
+    actualValue?: number | null;
+  }>;
+  reviewedFactCount: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -119,6 +140,15 @@ function _findFactBefore(
   );
 }
 
+function safeStringToBigInt(value: string | null | undefined): bigint | null {
+  if (value === null || value === undefined || value.trim() === "") return null;
+  try {
+    return BigInt(value.trim());
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // List queue (thin wrapper so UI can import from service layer)
 // ---------------------------------------------------------------------------
@@ -175,7 +205,7 @@ export async function acceptAnnualReportReview(
   }));
 
   await prisma.$transaction(async (tx) => {
-    // Re-check status inside transaction to guard against concurrent updates
+    // Re-check status inside transaction
     const fresh = await tx.annualReportReview.findUnique({
       where: { id: reviewId },
       select: { id: true, status: true },
@@ -207,6 +237,34 @@ export async function acceptAnnualReportReview(
         updatedAt: new Date(),
       },
     });
+
+    // Copy machine facts to reviewed facts as ACCEPTED_MACHINE
+    if (review.extractionRunId) {
+      const machineFacts = await tx.financialFact.findMany({
+        where: { extractionRunId: review.extractionRunId },
+      });
+      if (machineFacts.length > 0) {
+        await tx.annualReportReviewedFact.createMany({
+          data: machineFacts.map((fact) => ({
+            reviewId: review.id,
+            filingId: fact.filingId,
+            extractionRunId: fact.extractionRunId,
+            companyId: fact.companyId,
+            fiscalYear: fact.fiscalYear,
+            metricKey: fact.metricKey,
+            statementType: fact.statementType,
+            value: fact.value,
+            currency: fact.currency,
+            unitScale: fact.unitScale,
+            sourcePage: fact.sourcePage,
+            rawLabel: fact.rawLabel,
+            correctionSource: "ACCEPTED_MACHINE" as const,
+            reviewerUserId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
 
     if (labelInputs.length > 0) {
       await tx.pdfTrainingLabel.createMany({
@@ -337,6 +395,66 @@ export async function correctAnnualReportReview(
         updatedAt: new Date(),
       },
     });
+
+    // Build set of corrected metricKeys
+    const correctedMetricKeys = new Set((corrections.facts ?? []).map((f) => f.metricKey));
+
+    // Fetch machine facts and copy the non-corrected ones as ACCEPTED_MACHINE
+    if (review.extractionRunId) {
+      const machineFacts = await tx.financialFact.findMany({
+        where: { extractionRunId: review.extractionRunId },
+      });
+      const uncorrected = machineFacts.filter((f) => !correctedMetricKeys.has(f.metricKey));
+      if (uncorrected.length > 0) {
+        await tx.annualReportReviewedFact.createMany({
+          data: uncorrected.map((fact) => ({
+            reviewId: review.id,
+            filingId: fact.filingId,
+            extractionRunId: fact.extractionRunId,
+            companyId: fact.companyId,
+            fiscalYear: fact.fiscalYear,
+            metricKey: fact.metricKey,
+            statementType: fact.statementType,
+            value: fact.value,
+            currency: fact.currency,
+            unitScale: fact.unitScale,
+            sourcePage: fact.sourcePage,
+            rawLabel: fact.rawLabel,
+            correctionSource: "ACCEPTED_MACHINE" as const,
+            reviewerUserId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    // Store corrected facts as MANUAL_CORRECTION
+    if ((corrections.facts ?? []).length > 0) {
+      await tx.annualReportReviewedFact.createMany({
+        data: (corrections.facts ?? []).map((fact) => ({
+          reviewId: review.id,
+          filingId: review.filingId,
+          extractionRunId: review.extractionRunId ?? null,
+          companyId: review.companyId,
+          fiscalYear: review.fiscalYear,
+          metricKey: fact.metricKey,
+          statementType:
+            (getStatementTypeForMetricKey(fact.metricKey) ?? "INCOME_STATEMENT") as
+              | "INCOME_STATEMENT"
+              | "BALANCE_SHEET"
+              | "CASH_FLOW"
+              | "NOTE",
+          value: safeStringToBigInt(fact.value),
+          currency: "NOK",
+          unitScale: fact.unitScale ?? 1,
+          sourcePage: fact.sourcePage ?? null,
+          rawLabel: fact.rawLabel ?? null,
+          correctionSource: "MANUAL_CORRECTION" as const,
+          reviewerUserId,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     if (labelInputs.length > 0) {
       await tx.pdfTrainingLabel.createMany({ data: labelInputs });
@@ -529,4 +647,270 @@ export async function markAnnualReportReviewUnreadable(
   });
 
   return { reviewId: review.id, status: "REJECTED" as const, filingStatus: "FAILED" as const };
+}
+
+// ---------------------------------------------------------------------------
+// Validate reviewed facts
+// ---------------------------------------------------------------------------
+
+export async function validateReviewedAnnualReportFacts(
+  reviewId: string,
+): Promise<ReviewedFactsValidationResult> {
+  const facts = await prisma.annualReportReviewedFact.findMany({
+    where: { reviewId },
+  });
+
+  if (facts.length === 0) {
+    return {
+      passed: false,
+      blockingIssues: [{ ruleCode: "NO_REVIEWED_FACTS", message: "Ingen reviewed facts funnet for dette review." }],
+      warnings: [],
+      reviewedFactCount: 0,
+    };
+  }
+
+  const preIssues: ReviewedFactsValidationResult["blockingIssues"] = [];
+  const preWarnings: ReviewedFactsValidationResult["warnings"] = [];
+
+  // Fiscal year consistency
+  const fiscalYears = new Set(facts.map((f) => f.fiscalYear));
+  if (fiscalYears.size > 1) {
+    preIssues.push({
+      ruleCode: "MIXED_FISCAL_YEARS",
+      message: `Reviewed facts har blandede regnskapsår: ${Array.from(fiscalYears).join(", ")}.`,
+    });
+  }
+
+  // Unit scale consistency across non-null facts
+  const nonNullFacts = facts.filter((f) => f.value !== null);
+  const unitScales = new Set(nonNullFacts.map((f) => f.unitScale));
+  if (unitScales.size > 1) {
+    preIssues.push({
+      ruleCode: "UNIT_SCALE_INCONSISTENCY",
+      message: `Motstridende enhetsskalaer funnet: ${Array.from(unitScales).join(", ")}.`,
+    });
+  }
+
+  // Convert to CanonicalFactCandidate (skip null-value facts)
+  const candidates: CanonicalFactCandidate[] = nonNullFacts.map((f) => ({
+    fiscalYear: f.fiscalYear,
+    statementType: f.statementType as "INCOME_STATEMENT" | "BALANCE_SHEET" | "NOTE",
+    metricKey: f.metricKey,
+    rawLabel: f.rawLabel ?? f.metricKey,
+    normalizedLabel: f.metricKey,
+    value: Number(f.value!),
+    currency: f.currency,
+    unitScale: f.unitScale,
+    sourcePage: f.sourcePage ?? 0,
+    sourceSection: f.statementType,
+    sourceRowText: f.rawLabel ?? f.metricKey,
+    noteReference: null,
+    confidenceScore: 1.0,
+    precedence: "STATUTORY_NOK",
+    isDerived: false,
+    rawPayload: {},
+  }));
+
+  const validation = validateCanonicalFacts(candidates);
+
+  const blockingIssues = [
+    ...preIssues,
+    ...validation.issues
+      .filter((i) => i.severity === "ERROR")
+      .map((i) => ({
+        ruleCode: i.ruleCode,
+        message: i.message,
+        expectedValue: i.expectedValue ?? null,
+        actualValue: i.actualValue ?? null,
+      })),
+  ];
+
+  const warnings = [
+    ...preWarnings,
+    ...validation.issues
+      .filter((i) => i.severity === "WARNING")
+      .map((i) => ({
+        ruleCode: i.ruleCode,
+        message: i.message,
+        expectedValue: i.expectedValue ?? null,
+        actualValue: i.actualValue ?? null,
+      })),
+  ];
+
+  return {
+    passed: blockingIssues.length === 0,
+    blockingIssues,
+    warnings,
+    reviewedFactCount: facts.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Publish reviewed facts
+// ---------------------------------------------------------------------------
+
+export async function publishReviewedAnnualReportFacts(
+  reviewId: string,
+  reviewerUserId: string,
+): Promise<
+  | { published: true; fiscalYear: number; companyId: string }
+  | { published: false; issues: ReviewedFactsValidationResult["blockingIssues"] }
+> {
+  const review = await prisma.annualReportReview.findUnique({
+    where: { id: reviewId },
+    select: {
+      id: true,
+      filingId: true,
+      extractionRunId: true,
+      companyId: true,
+      fiscalYear: true,
+      status: true,
+    },
+  });
+  if (!review) throw new Error(`Review ${reviewId} ikke funnet.`);
+
+  if (review.status !== "ACCEPTED") {
+    throw new Error(
+      `Review ${reviewId} kan ikke publiseres: status er ${review.status}, krever ACCEPTED.`,
+    );
+  }
+
+  const facts = await prisma.annualReportReviewedFact.findMany({
+    where: { reviewId },
+  });
+
+  if (facts.length === 0) {
+    return {
+      published: false,
+      issues: [{ ruleCode: "NO_REVIEWED_FACTS", message: "Ingen reviewed facts å publisere." }],
+    };
+  }
+
+  const validation = await validateReviewedAnnualReportFacts(reviewId);
+  if (!validation.passed) {
+    return { published: false, issues: validation.blockingIssues };
+  }
+
+  const factMap = new Map(facts.map((f) => [f.metricKey, f]));
+  const revenue = factMap.get("revenue")?.value ?? factMap.get("total_operating_income")?.value ?? null;
+  const operatingProfit = factMap.get("operating_profit")?.value ?? null;
+  const netIncome = factMap.get("net_income")?.value ?? null;
+  const equity = factMap.get("total_equity")?.value ?? null;
+  const assets = factMap.get("total_assets")?.value ?? null;
+  const unitScale = facts.find((f) => f.value !== null)?.unitScale ?? 1;
+  const hasManuaCorrection = facts.some((f) => f.correctionSource === "MANUAL_CORRECTION");
+  const qualityStatus = hasManuaCorrection ? "MANUAL_REVIEW" : "HIGH_CONFIDENCE";
+
+  const publishedAt = new Date();
+  const sourceId = `review:${review.id}`;
+
+  await prisma.$transaction(
+    async (tx) => {
+      const existing = await tx.financialStatement.findUnique({
+        where: {
+          companyId_fiscalYear: {
+            companyId: review.companyId,
+            fiscalYear: review.fiscalYear,
+          },
+        },
+      });
+
+      // Only replace if we don't have a higher-confidence existing entry from a different review
+      const canReplace =
+        !existing ||
+        existing.sourceId === sourceId ||
+        existing.qualityStatus !== "HIGH_CONFIDENCE" ||
+        qualityStatus === "HIGH_CONFIDENCE";
+
+      if (canReplace) {
+        await tx.financialStatement.upsert({
+          where: {
+            companyId_fiscalYear: {
+              companyId: review.companyId,
+              fiscalYear: review.fiscalYear,
+            },
+          },
+          create: {
+            companyId: review.companyId,
+            fiscalYear: review.fiscalYear,
+            currency: "NOK",
+            revenue,
+            operatingProfit,
+            netIncome,
+            equity,
+            assets,
+            sourceSystem: "BRREG_REVIEWED",
+            sourceEntityType: "annualReportReview",
+            sourceId,
+            fetchedAt: publishedAt,
+            normalizedAt: publishedAt,
+            rawPayload: { reviewId, reviewedFactCount: facts.length, publishedFromReview: true } as Prisma.InputJsonValue,
+            sourceFilingId: review.filingId,
+            sourceExtractionRunId: review.extractionRunId ?? null,
+            qualityStatus,
+            qualityScore: 1.0,
+            unitScale,
+            sourcePrecedence: "STATUTORY_NOK",
+            publishedAt,
+          },
+          update: {
+            currency: "NOK",
+            revenue,
+            operatingProfit,
+            netIncome,
+            equity,
+            assets,
+            sourceSystem: "BRREG_REVIEWED",
+            sourceEntityType: "annualReportReview",
+            sourceId,
+            fetchedAt: publishedAt,
+            normalizedAt: publishedAt,
+            rawPayload: { reviewId, reviewedFactCount: facts.length, publishedFromReview: true } as Prisma.InputJsonValue,
+            sourceFilingId: review.filingId,
+            sourceExtractionRunId: review.extractionRunId ?? null,
+            qualityStatus,
+            qualityScore: 1.0,
+            unitScale,
+            sourcePrecedence: "STATUTORY_NOK",
+            publishedAt,
+          },
+        });
+      }
+
+      await tx.annualReportFiling.update({
+        where: { id: review.filingId },
+        data: {
+          status: "PUBLISHED",
+          publishedSnapshotAt: publishedAt,
+          updatedAt: publishedAt,
+        },
+      });
+
+      await tx.annualReportReviewDecision.create({
+        data: {
+          reviewId: review.id,
+          filingId: review.filingId,
+          extractionRunId: review.extractionRunId ?? null,
+          companyId: review.companyId,
+          fiscalYear: review.fiscalYear,
+          reviewerUserId,
+          decisionType: "PUBLISHED_FROM_REVIEW",
+          validationPassed: true,
+          correctionNotes: `Publisert ${facts.length} reviewed facts (${hasManuaCorrection ? "med manuelle korreksjoner" : "maskinuttak godkjent"}).`,
+        },
+      });
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
+
+  await upsertCompanyFinancialCoverage({
+    companyId: review.companyId,
+    latestPublishedFiscalYear: review.fiscalYear,
+    lastCheckedAt: publishedAt,
+    nextCheckAt: new Date(publishedAt.getTime() + 24 * 60 * 60 * 1000),
+    coverageStatus: "PUBLISHED",
+    latestSuccessfulFilingId: review.filingId,
+  });
+
+  return { published: true, fiscalYear: review.fiscalYear, companyId: review.companyId };
 }

@@ -15,6 +15,18 @@ type Fact = {
   statementType: string;
 };
 
+type ReviewedFact = {
+  id: string;
+  metricKey: string;
+  fiscalYear: number;
+  value: bigint | null;
+  unitScale: number;
+  sourcePage: number | null;
+  rawLabel: string | null;
+  statementType: string;
+  correctionSource: string;
+};
+
 type ValidationIssue = {
   id: string;
   severity: string;
@@ -70,6 +82,7 @@ type ReviewDetail = {
     validationIssues: ValidationIssue[];
   } | null;
   decisions: Decision[];
+  reviewedFacts?: ReviewedFact[];
 };
 
 type EditableFact = {
@@ -79,6 +92,13 @@ type EditableFact = {
   rawLabel: string;
   sourcePage: string;
   unitScale: string;
+};
+
+type ValidationResult = {
+  passed: boolean;
+  blockingIssues: Array<{ ruleCode: string; message: string; expectedValue?: number | null; actualValue?: number | null }>;
+  warnings: Array<{ ruleCode: string; message: string }>;
+  reviewedFactCount: number;
 };
 
 function bigintToDisplay(v: bigint | null): string {
@@ -92,13 +112,25 @@ function formatIntegerString(value: string | bigint | number | null | undefined)
   const sign = raw.startsWith("-") ? "-" : "";
   const digits = sign ? raw.slice(1) : raw;
   if (!/^[0-9]+$/.test(digits)) return raw;
-  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
 function groupFacts(facts: Fact[]) {
   const income: Fact[] = [];
   const balance: Fact[] = [];
   const other: Fact[] = [];
+  for (const f of facts) {
+    if (f.statementType === "INCOME_STATEMENT") income.push(f);
+    else if (f.statementType === "BALANCE_SHEET") balance.push(f);
+    else other.push(f);
+  }
+  return { income, balance, other };
+}
+
+function groupReviewedFacts(facts: ReviewedFact[]) {
+  const income: ReviewedFact[] = [];
+  const balance: ReviewedFact[] = [];
+  const other: ReviewedFact[] = [];
   for (const f of facts) {
     if (f.statementType === "INCOME_STATEMENT") income.push(f);
     else if (f.statementType === "BALANCE_SHEET") balance.push(f);
@@ -125,6 +157,9 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const facts = review.extractionRun?.facts ?? [];
   const { income, balance } = groupFacts(facts);
@@ -133,6 +168,9 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     ...review.filing.validationIssues,
   ];
   const pdfUrl = getPdfArtifactUrl(review.filing.artifacts, review.filing);
+
+  const reviewedFacts = review.reviewedFacts ?? [];
+  const { income: rfIncome, balance: rfBalance } = groupReviewedFacts(reviewedFacts);
 
   const payload =
     review.reviewPayload && typeof review.reviewPayload === "object"
@@ -182,6 +220,53 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       setActionError(e instanceof Error ? e.message : "Ukjent feil.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleValidate() {
+    setValidating(true);
+    setActionError(null);
+    setValidationResult(null);
+    try {
+      const res = await fetch(
+        `/api/admin/annual-report-reviews/${review.id}/validate-reviewed-facts`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Valideringsfeil fra server.");
+      setValidationResult(json.data as ValidationResult);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Ukjent feil ved validering.");
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  async function handlePublish() {
+    setPublishing(true);
+    setActionError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/annual-report-reviews/${review.id}/publish-reviewed-facts`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Publiseringsfeil fra server.");
+      const data = json.data as { published: boolean; issues?: unknown[] };
+      if (!data.published) {
+        setValidationResult({
+          passed: false,
+          blockingIssues: (data.issues ?? []) as ValidationResult["blockingIssues"],
+          warnings: [],
+          reviewedFactCount: reviewedFacts.length,
+        });
+        throw new Error("Validering feilet — se issues nedenfor.");
+      }
+      router.refresh();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Ukjent feil ved publisering.");
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -249,6 +334,10 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
 
   const isResolved =
     review.status === "ACCEPTED" || review.status === "REJECTED" || review.status === "RESOLVED_BY_NEW_RUN";
+
+  const isAccepted = review.status === "ACCEPTED";
+  const hasReviewedFacts = reviewedFacts.length > 0;
+  const canPublish = validationResult?.passed === true;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
@@ -382,11 +471,11 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           </div>
         )}
 
-        {/* Proposed facts */}
+        {/* Proposed machine facts */}
         {mode === "view" && (income.length > 0 || balance.length > 0) && (
           <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Foreslåtte tall
+              Foreslåtte tall (maskin)
             </h2>
             {income.length > 0 && (
               <div className="mb-4">
@@ -407,6 +496,77 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           </div>
         )}
 
+        {/* Reviewed facts — shown after accept/correct */}
+        {hasReviewedFacts && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-emerald-700">
+              Kuraterte facts ({reviewedFacts.length})
+            </h2>
+            {rfIncome.length > 0 && (
+              <div className="mb-4">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600">
+                  Resultatregnskap
+                </h3>
+                <ReviewedFactTable facts={rfIncome} />
+              </div>
+            )}
+            {rfBalance.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600">
+                  Balanse
+                </h3>
+                <ReviewedFactTable facts={rfBalance} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Validation result */}
+        {validationResult && (
+          <div
+            className={`rounded-lg border p-4 ${
+              validationResult.passed
+                ? "border-green-200 bg-green-50"
+                : "border-red-200 bg-red-50"
+            }`}
+          >
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
+              Valideringsresultat
+            </h2>
+            {validationResult.passed ? (
+              <p className="text-sm font-medium text-green-700">
+                Validering bestått — {validationResult.reviewedFactCount} facts klar for publisering.
+              </p>
+            ) : (
+              <>
+                <p className="mb-2 text-sm font-medium text-red-700">
+                  Validering feilet ({validationResult.blockingIssues.length} blokkeringer):
+                </p>
+                <ul className="space-y-1">
+                  {validationResult.blockingIssues.map((issue, i) => (
+                    <li key={i} className="text-sm">
+                      <span className="font-mono text-xs font-semibold text-red-600">
+                        {issue.ruleCode}
+                      </span>
+                      <span className="ml-2 text-red-800">{issue.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {validationResult.warnings.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {validationResult.warnings.map((w, i) => (
+                  <li key={i} className="text-sm">
+                    <span className="font-mono text-xs font-semibold text-amber-600">WARNING</span>
+                    <span className="ml-2 text-amber-800">{w.message}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
         {/* Correction form */}
         {mode === "correct" && (
           <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
@@ -414,7 +574,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
               Korriger verdier
             </h2>
             <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Korrigerte verdier lagres som audit trail og treningslabels. De publiseres ikke automatisk.
+              Korrigerte verdier lagres som reviewed facts og treningslabels. De publiseres ikke automatisk.
             </p>
             <div className="space-y-2">
               {editableFacts.map((f, i) => (
@@ -517,7 +677,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           <p className="rounded bg-red-50 px-4 py-2 text-sm text-red-700">{actionError}</p>
         )}
 
-        {/* Action buttons */}
+        {/* Action buttons — pending review */}
         {!isResolved && (
           <div className="flex flex-wrap gap-2">
             {mode === "view" ? (
@@ -579,6 +739,28 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           </div>
         )}
 
+        {/* Reviewed facts actions — shown after accept/correct */}
+        {isAccepted && hasReviewedFacts && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleValidate}
+              disabled={validating || publishing}
+              className="rounded border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              {validating ? "Validerer…" : "Valider reviewed facts"}
+            </button>
+            {canPublish && (
+              <button
+                onClick={handlePublish}
+                disabled={publishing || validating}
+                className="rounded bg-[#162233] px-4 py-2 text-sm font-medium text-white hover:bg-[#1e3044] disabled:opacity-50"
+              >
+                {publishing ? "Publiserer…" : "Publiser reviewed facts"}
+              </button>
+            )}
+          </div>
+        )}
+
         {isResolved && (
           <div className="rounded bg-slate-50 px-4 py-3 text-sm text-slate-600">
             Denne saken er avsluttet med status <strong>{review.status}</strong>.
@@ -612,6 +794,45 @@ function FactTable({ facts }: { facts: Fact[] }) {
             <td className="py-1 text-right font-mono text-slate-400">{f.sourcePage ?? "—"}</td>
             <td className="py-1 text-right font-mono text-slate-400">
               {f.confidenceScore != null ? `${(f.confidenceScore * 100).toFixed(0)}%` : "—"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ReviewedFactTable({ facts }: { facts: ReviewedFact[] }) {
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-emerald-200">
+          <th className="pb-1 text-left font-medium text-emerald-600">Nøkkel</th>
+          <th className="pb-1 text-right font-medium text-emerald-600">Verdi (NOK)</th>
+          <th className="pb-1 text-right font-medium text-emerald-600">Skala</th>
+          <th className="pb-1 text-right font-medium text-emerald-600">Side</th>
+          <th className="pb-1 text-right font-medium text-emerald-600">Kilde</th>
+        </tr>
+      </thead>
+      <tbody>
+        {facts.map((f) => (
+          <tr key={f.id} className="border-b border-emerald-100 last:border-0">
+            <td className="py-1 font-mono text-emerald-800">{f.metricKey}</td>
+            <td className="py-1 text-right font-mono text-[#162233]">
+              {formatIntegerString(f.value)}
+            </td>
+            <td className="py-1 text-right font-mono text-slate-400">{f.unitScale}</td>
+            <td className="py-1 text-right font-mono text-slate-400">{f.sourcePage ?? "—"}</td>
+            <td className="py-1 text-right font-mono">
+              <span
+                className={
+                  f.correctionSource === "MANUAL_CORRECTION"
+                    ? "text-amber-600"
+                    : "text-slate-400"
+                }
+              >
+                {f.correctionSource === "MANUAL_CORRECTION" ? "KORRIGERT" : "MASKIN"}
+              </span>
             </td>
           </tr>
         ))}

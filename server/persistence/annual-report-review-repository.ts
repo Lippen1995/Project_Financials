@@ -113,6 +113,9 @@ export async function getAdminReviewDetail(reviewId: string) {
           },
         },
       },
+      reviewedFacts: {
+        orderBy: [{ statementType: "asc" }, { metricKey: "asc" }],
+      },
     },
   });
 }
