@@ -82,6 +82,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.currentWorkspaceType = workspaceContext.currentWorkspaceType ?? undefined;
           token.currentWorkspaceStatus = workspaceContext.currentWorkspaceStatus ?? undefined;
           token.currentWorkspaceRole = workspaceContext.currentWorkspaceRole ?? undefined;
+
+          const userRecord = await prisma.user.findUnique({
+            where: { id: token.sub },
+            select: { appRole: true },
+          });
+          token.appRole = userRecord?.appRole ?? "USER";
         } catch (error) {
           if (process.env.NODE_ENV !== "production") {
             const message = error instanceof Error ? error.message : "Unknown auth persistence error";
@@ -105,6 +111,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           (token.currentWorkspaceStatus as "ACTIVE" | "ARCHIVED" | undefined) ?? undefined;
         session.user.currentWorkspaceRole =
           (token.currentWorkspaceRole as "OWNER" | "ADMIN" | "MEMBER" | undefined) ?? undefined;
+        session.user.appRole =
+          (token.appRole as "USER" | "ADMIN" | "FINANCIAL_REVIEWER" | undefined) ?? "USER";
       }
 
       return session;

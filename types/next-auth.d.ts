@@ -15,6 +15,7 @@ declare module "next-auth" {
       currentWorkspaceType?: "PERSONAL" | "TEAM";
       currentWorkspaceStatus?: "ACTIVE" | "ARCHIVED";
       currentWorkspaceRole?: "OWNER" | "ADMIN" | "MEMBER";
+      appRole?: "USER" | "ADMIN" | "FINANCIAL_REVIEWER";
     };
   }
 }
@@ -28,5 +29,6 @@ declare module "next-auth/jwt" {
     currentWorkspaceType?: "PERSONAL" | "TEAM";
     currentWorkspaceStatus?: "ACTIVE" | "ARCHIVED";
     currentWorkspaceRole?: "OWNER" | "ADMIN" | "MEMBER";
+    appRole?: "USER" | "ADMIN" | "FINANCIAL_REVIEWER";
   }
 }
