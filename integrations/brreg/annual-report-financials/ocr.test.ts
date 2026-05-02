@@ -227,4 +227,83 @@ describe("annual-report OCR guardrails", () => {
     expect(result.diagnostics.rowsWithAssignedYearColumns).toBeGreaterThanOrEqual(3);
     expect(result.diagnostics.ambiguousRowCount).toBe(0);
   });
+
+  it("reconstructs wide balance numbers and preserves continuation-page columns", async () => {
+    const screenshots = {
+      pages: [
+        { pageNumber: 6, data: createPngBuffer(512, 512) },
+        { pageNumber: 7, data: createPngBuffer(512, 512) },
+      ],
+    };
+
+    vi.doMock("pdf-parse", () => ({
+      PDFParse: class {
+        async getScreenshot() {
+          return screenshots;
+        }
+        async destroy() {}
+      },
+    }));
+
+    vi.doMock("tesseract.js", () => ({
+      createWorker: vi.fn(async () => ({
+        recognize: vi
+          .fn()
+          .mockResolvedValueOnce({
+            data: {
+              text: [
+                "Balanse",
+                "Belop i: NOK",
+                "2024 2023",
+                "Sum anleggsmidler 92 155 000 88 211 000",
+                "Sum omlopsmidler 31 450 000 27 200 000",
+                "Sum eiendeler 123 605 000 115 411 000",
+              ].join("\n"),
+              words: [],
+            },
+          })
+          .mockResolvedValueOnce({
+            data: {
+              text: [
+                "Balanse fortsatt",
+                "Egenkapital og gjeld",
+                "Sum egenkapital 15 840 000 14 990 000",
+                "Sum gjeld 107 765 000 100 421 000",
+                "Sum egenkapital og gjeld 123 605 000 115 411 000",
+              ].join("\n"),
+              words: [],
+            },
+          })
+          .mockResolvedValueOnce({
+            data: { text: "fallback page 1", words: [] },
+          })
+          .mockResolvedValueOnce({
+            data: { text: "fallback page 2", words: [] },
+          }),
+        terminate: vi.fn(),
+      })),
+    }));
+
+    const module = await import("@/integrations/brreg/annual-report-financials/ocr");
+    const result = await module.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
+
+    expect(result.pages).toHaveLength(2);
+    const [balancePage, continuationPage] = result.pages;
+    if ("tables" in balancePage) {
+      const totalAssetsRow = balancePage.tables[0]?.rows.find((row) => row.text.includes("Sum eiendeler"));
+      expect(totalAssetsRow?.cells.filter((cell) => cell.role === "value").map((cell) => cell.numericValue)).toEqual([
+        123605000, 115411000,
+      ]);
+      expect(balancePage.metadata?.inferredNumericColumnCount).toBeGreaterThanOrEqual(2);
+    }
+    if ("tables" in continuationPage) {
+      const totalLiabilityRow = continuationPage.tables[0]?.rows.find((row) =>
+        row.text.includes("Sum egenkapital og gjeld"),
+      );
+      expect(
+        totalLiabilityRow?.cells.filter((cell) => cell.role === "value").map((cell) => cell.numericValue),
+      ).toEqual([123605000, 115411000]);
+      expect(continuationPage.metadata?.targetValueCount).toBeGreaterThanOrEqual(2);
+    }
+  });
 });

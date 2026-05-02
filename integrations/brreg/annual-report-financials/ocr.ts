@@ -302,6 +302,26 @@ function partitionNumericTokens(
   };
 }
 
+function inferNumericColumns(candidateLines: Array<{ line: ExtractedLine }>) {
+  const positions = candidateLines.flatMap(({ line }) =>
+    tokenizeLine(line)
+      .filter((token) => parseFinancialInteger(token.token) !== null)
+      .map((token) => token.x),
+  );
+  const sorted = [...positions].sort((a, b) => a - b);
+  const clusters: number[] = [];
+  const tolerance = 42;
+  for (const x of sorted) {
+    const last = clusters[clusters.length - 1];
+    if (last === undefined || Math.abs(x - last) > tolerance) {
+      clusters.push(x);
+      continue;
+    }
+    clusters[clusters.length - 1] = Math.round((last + x) / 2);
+  }
+  return clusters;
+}
+
 function buildValueCellFromGroupedTokens(input: {
   pageNumber: number;
   rowIndex: number;
@@ -374,6 +394,11 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
             ?.length ?? 2,
         )
       : 2;
+  const inferredNumericColumns = inferNumericColumns(candidateLines);
+  const targetValueCount = Math.max(
+    expectedValueCount,
+    Math.min(3, Math.max(0, inferredNumericColumns.length)),
+  );
 
   if (yearHeaderIndex >= 0) {
     const yearLine = lines[yearHeaderIndex];
@@ -507,7 +532,7 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
 
     const groupedValues = partitionNumericTokens(
       numericIndexes.map((item) => ({ token: item.token, x: item.x })),
-      expectedValueCount,
+      targetValueCount,
     );
     mergedNumericTokenCount += groupedValues.mergedTokenCount;
     reconstructedNumericCellCount += groupedValues.groups.length;
@@ -692,6 +717,9 @@ function buildStructuredOcrPage(input: {
         mergedNumericTokenCount,
         rowsWithAssignedYearColumns,
         ambiguousRowCount,
+        inferredNumericColumns,
+        inferredNumericColumnCount: inferredNumericColumns.length,
+        targetValueCount,
       },
     } satisfies AnnualReportParsedPage,
     rowCandidateCount,
