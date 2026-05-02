@@ -7,6 +7,35 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AppRole {
+  USER
+  ADMIN
+  FINANCIAL_REVIEWER
+}
+
+enum AnnualReportReviewDecisionType {
+  ACCEPTED
+  CORRECTED
+  REJECTED
+  REPROCESS_REQUESTED
+  UNREADABLE
+}
+
+enum PdfTrainingLabelType {
+  DOCUMENT_CLASS
+  PAGE_SECTION
+  UNIT_SCALE
+  YEAR_COLUMN
+  FACT_VALUE
+  STATEMENT_ROW
+  BOARD_REPORT_TEXT
+  AUDITOR_REPORT_TEXT
+  AUDITOR_OPINION
+  PARSER_ROUTE
+  FAILURE_REASON
+  WIDE_NUMBER_RECONSTRUCTION
+}
+
 enum CompanyStatus {
   ACTIVE
   DISSOLVED
@@ -299,36 +328,39 @@ enum FinancialStatementSourcePrecedence {
 }
 
 model User {
-  id                           String                @id @default(cuid())
+  id                           String                         @id @default(cuid())
   name                         String?
-  email                        String                @unique
+  email                        String                         @unique
   emailVerified                DateTime?
   passwordHash                 String?
   image                        String?
   lastWorkspaceId              String?
-  createdAt                    DateTime              @default(now())
-  updatedAt                    DateTime              @updatedAt
+  appRole                      AppRole                        @default(USER)
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
   accounts                     Account[]
   sessions                     Session[]
   subscription                 Subscription?
-  lastWorkspace                Workspace?            @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
-  personalWorkspace            Workspace?            @relation("PersonalWorkspaceOwner")
+  lastWorkspace                Workspace?                     @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
+  personalWorkspace            Workspace?                     @relation("PersonalWorkspaceOwner")
   workspaceMemberships         WorkspaceMember[]
-  sentWorkspaceInvitations     WorkspaceInvitation[] @relation("WorkspaceInvitationInvitedBy")
-  acceptedWorkspaceInvitations WorkspaceInvitation[] @relation("WorkspaceInvitationAcceptedBy")
+  sentWorkspaceInvitations     WorkspaceInvitation[]          @relation("WorkspaceInvitationInvitedBy")
+  acceptedWorkspaceInvitations WorkspaceInvitation[]          @relation("WorkspaceInvitationAcceptedBy")
   ddPosts                      DdPost[]
-  assignedDdTasks              DdTask[]              @relation("DdTaskAssignee")
-  createdDdTasks               DdTask[]              @relation("DdTaskCreatedBy")
-  createdDdMandates            DdMandate[]           @relation("DdMandateCreatedBy")
-  updatedDdMandates            DdMandate[]           @relation("DdMandateUpdatedBy")
-  assignedDdFindings           DdFinding[]           @relation("DdFindingAssignee")
-  createdDdFindings            DdFinding[]           @relation("DdFindingCreatedBy")
-  createdDdFindingEvidence     DdFindingEvidence[]   @relation("DdFindingEvidenceCreatedBy")
-  createdDdConclusions         DdConclusion[]        @relation("DdConclusionCreatedBy")
-  updatedDdConclusions         DdConclusion[]        @relation("DdConclusionUpdatedBy")
-  ddDecisionLogEntries         DdDecisionLogEntry[]  @relation("DdDecisionLogEntryCreatedBy")
-  ddCommentThreads             DdCommentThread[]     @relation("DdCommentThreadCreatedBy")
-  ddComments                   DdComment[]           @relation("DdCommentAuthor")
+  assignedDdTasks              DdTask[]                       @relation("DdTaskAssignee")
+  createdDdTasks               DdTask[]                       @relation("DdTaskCreatedBy")
+  createdDdMandates            DdMandate[]                    @relation("DdMandateCreatedBy")
+  updatedDdMandates            DdMandate[]                    @relation("DdMandateUpdatedBy")
+  assignedDdFindings           DdFinding[]                    @relation("DdFindingAssignee")
+  createdDdFindings            DdFinding[]                    @relation("DdFindingCreatedBy")
+  createdDdFindingEvidence     DdFindingEvidence[]            @relation("DdFindingEvidenceCreatedBy")
+  createdDdConclusions         DdConclusion[]                 @relation("DdConclusionCreatedBy")
+  updatedDdConclusions         DdConclusion[]                 @relation("DdConclusionUpdatedBy")
+  ddDecisionLogEntries         DdDecisionLogEntry[]           @relation("DdDecisionLogEntryCreatedBy")
+  ddCommentThreads             DdCommentThread[]              @relation("DdCommentThreadCreatedBy")
+  ddComments                   DdComment[]                    @relation("DdCommentAuthor")
+  annualReportReviewDecisions  AnnualReportReviewDecision[]   @relation("ReviewDecisionReviewer")
+  pdfTrainingLabels            PdfTrainingLabel[]             @relation("TrainingLabelReviewer")
 }
 
 model Subscription {
@@ -792,14 +824,63 @@ model AnnualReportReview {
   createdAt                 DateTime                 @default(now())
   updatedAt                 DateTime                 @updatedAt
   resolvedAt                DateTime?
-  filing                    AnnualReportFiling       @relation(fields: [filingId], references: [id], onDelete: Cascade)
-  extractionRun             FinancialExtractionRun?  @relation(fields: [extractionRunId], references: [id], onDelete: SetNull)
-  company                   Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  filing                    AnnualReportFiling         @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  extractionRun             FinancialExtractionRun?    @relation(fields: [extractionRunId], references: [id], onDelete: SetNull)
+  company                   Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  decisions                 AnnualReportReviewDecision[]
 
   @@unique([filingId, extractionRunId])
   @@index([status, updatedAt])
   @@index([companyId, status])
   @@index([fiscalYear, status])
+}
+
+model AnnualReportReviewDecision {
+  id              String                          @id @default(cuid())
+  reviewId        String
+  filingId        String
+  extractionRunId String?
+  companyId       String
+  fiscalYear      Int
+  reviewerUserId  String
+
+  decisionType    AnnualReportReviewDecisionType
+  beforePayload   Json?
+  afterPayload    Json?
+  correctionNotes String?
+  validationPassed Boolean?
+  overrideReason  String?
+
+  createdAt       DateTime @default(now())
+
+  review          AnnualReportReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reviewer        User               @relation("ReviewDecisionReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([reviewId, createdAt])
+  @@index([filingId, createdAt])
+  @@index([reviewerUserId, createdAt])
+}
+
+model PdfTrainingLabel {
+  id              String               @id @default(cuid())
+  filingId        String
+  extractionRunId String?
+  reviewId        String?
+  reviewerUserId  String
+
+  labelType       PdfTrainingLabelType
+  targetRef       Json?
+  proposedValue   Json?
+  acceptedValue   Json?
+  sourcePayload   Json?
+
+  createdAt       DateTime @default(now())
+
+  reviewer        User @relation("TrainingLabelReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([filingId, labelType])
+  @@index([extractionRunId, labelType])
+  @@index([reviewerUserId, createdAt])
 }
 
 model Address {
