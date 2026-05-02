@@ -146,6 +146,13 @@ export function getStatementFamilyFromSection(sectionType: StatementSectionType)
   }
 }
 
+export function getStatementTypeForMetricKey(
+  metricKey: string,
+): "INCOME_STATEMENT" | "BALANCE_SHEET" | "NOTE" | null {
+  const def = metricDefinitions.find((d) => d.key === metricKey);
+  return def?.statementFamily ?? null;
+}
+
 export const requiredPublishMetricKeys: CanonicalMetricKey[] = [
   "revenue",
   "operating_profit",
