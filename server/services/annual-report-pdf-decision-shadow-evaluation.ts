@@ -501,12 +501,14 @@ export async function evaluatePdfDecisionShadow(
     limit?: number;
     fiscalYear?: number;
     orgNumber?: string;
+    filingIds?: string[];
   },
   deps?: {
     listRows?: (params: {
       limit: number;
       fiscalYear?: number;
       orgNumber?: string;
+      filingIds?: string[];
     }) => Promise<AnnualReportDecisionShadowRow[]>;
     readArtifact?: (storageKey: string) => Promise<Buffer | null>;
     listGoldSetItems?: (filingIds: string[]) => Promise<PdfDecisionGoldSetItemRecord[]>;
@@ -514,6 +516,7 @@ export async function evaluatePdfDecisionShadow(
 ): Promise<PdfDecisionShadowEvaluationResult> {
   const limit = input?.limit ?? 100;
   const queryInput = { limit, fiscalYear: input?.fiscalYear, orgNumber: input?.orgNumber };
+  const rowInput = { ...queryInput, filingIds: input?.filingIds };
 
   const listRows = deps?.listRows ?? listAnnualReportDecisionShadowRows;
   const readArtifact = deps?.readArtifact ?? null;
@@ -521,7 +524,7 @@ export async function evaluatePdfDecisionShadow(
     deps?.listGoldSetItems ??
     (deps?.listRows ? async () => [] : listPdfDecisionGoldSetItemsByFilingIds);
 
-  const rows = await listRows(queryInput);
+  const rows = await listRows(rowInput);
   const goldSetItems = await listGoldSetItems(rows.map((row) => row.filingId));
   const goldSetByFilingId = new Map(
     goldSetItems.map((item) => [item.filingId, item]),

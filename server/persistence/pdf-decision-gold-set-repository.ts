@@ -42,6 +42,23 @@ export async function listPdfDecisionGoldSetItems(input: {
   });
 }
 
+export async function listPdfDecisionGoldSetItemsForBenchmark(input: {
+  status?: PdfDecisionGoldSetStatus | "ALL";
+  limit?: number;
+  orgNumber?: string;
+  fiscalYear?: number;
+}): Promise<PdfDecisionGoldSetItemRecord[]> {
+  return prisma.pdfDecisionGoldSetItem.findMany({
+    where: {
+      ...(input.status && input.status !== "ALL" ? { status: input.status } : {}),
+      ...(input.orgNumber ? { orgNumber: input.orgNumber } : {}),
+      ...(input.fiscalYear !== undefined ? { fiscalYear: input.fiscalYear } : {}),
+    },
+    orderBy: { updatedAt: "desc" },
+    take: input.limit ?? 100,
+  });
+}
+
 export async function listPdfDecisionGoldSetItemsByFilingIds(
   filingIds: string[],
 ): Promise<PdfDecisionGoldSetItemRecord[]> {
