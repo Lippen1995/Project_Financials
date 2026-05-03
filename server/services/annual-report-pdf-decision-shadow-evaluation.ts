@@ -1,5 +1,9 @@
 import type { AnnualReportDecisionShadowRow } from "@/server/persistence/annual-report-decision-shadow-repository";
 import { listAnnualReportDecisionShadowRows } from "@/server/persistence/annual-report-decision-shadow-repository";
+import {
+  listPdfDecisionGoldSetItemsByFilingIds,
+  type PdfDecisionGoldSetItemRecord,
+} from "@/server/persistence/pdf-decision-gold-set-repository";
 
 export type PdfDecisionShadowOutcome =
   | "PUBLISHED"
@@ -46,6 +50,12 @@ export type PdfDecisionShadowDocument = {
   trainingLabelCount: number;
 
   outcome: PdfDecisionShadowOutcome;
+  goldSet?: {
+    status: "CANDIDATE" | "APPROVED" | "EXCLUDED";
+    reason: string;
+    note?: string | null;
+    updatedAt?: string;
+  } | null;
 };
 
 export type PdfDecisionShadowMetrics = {
@@ -62,6 +72,11 @@ export type PdfDecisionShadowMetrics = {
 
   averageConfidenceByRisk: Record<string, number>;
 
+  goldSetDistribution: Record<string, number>;
+  approvedGoldSetCount: number;
+  candidateGoldSetCount: number;
+  excludedGoldSetCount: number;
+
   topManualReviewReasons: Array<{ reason: string; count: number }>;
   topBlockingRuleCodes: Array<{ ruleCode: string; count: number }>;
   topParserRiskReasons: Array<{ reason: string; count: number }>;
@@ -76,6 +91,7 @@ export type PdfDecisionShadowMetrics = {
     confidenceScore?: number | null;
     outcome: PdfDecisionShadowOutcome;
     reason: string;
+    goldSet?: PdfDecisionShadowDocument["goldSet"];
   }>;
 };
 
@@ -183,6 +199,7 @@ function deriveOutcome(row: AnnualReportDecisionShadowRow): PdfDecisionShadowOut
 function buildDocument(
   row: AnnualReportDecisionShadowRow,
   parsedDecisions: Map<string, PdfDecisionArtifactWrapper>,
+  goldSetItem?: PdfDecisionGoldSetItemRecord | null,
 ): PdfDecisionShadowDocument {
   const outcome = deriveOutcome(row);
 
@@ -240,6 +257,14 @@ function buildDocument(
     trainingLabelCount: row.trainingLabelCount,
 
     outcome,
+    goldSet: goldSetItem
+      ? {
+          status: goldSetItem.status,
+          reason: goldSetItem.reason,
+          note: goldSetItem.note,
+          updatedAt: goldSetItem.updatedAt.toISOString(),
+        }
+      : null,
   };
 }
 
@@ -275,6 +300,7 @@ function computeMetrics(documents: PdfDecisionShadowDocument[]): PdfDecisionShad
   const reviewReasonCounts: Record<string, number> = {};
   const blockingRuleCodeCounts: Record<string, number> = {};
   const parserRiskReasonCounts: Record<string, number> = {};
+  const goldSetDistribution: Record<string, number> = {};
 
   for (const doc of documents) {
     const route = doc.decisionRoute ?? "UNKNOWN";
@@ -295,6 +321,10 @@ function computeMetrics(documents: PdfDecisionShadowDocument[]): PdfDecisionShad
     }
     for (const reason of doc.parserRiskReasons) {
       parserRiskReasonCounts[reason] = (parserRiskReasonCounts[reason] ?? 0) + 1;
+    }
+    if (doc.goldSet) {
+      goldSetDistribution[doc.goldSet.status] =
+        (goldSetDistribution[doc.goldSet.status] ?? 0) + 1;
     }
   }
 
@@ -357,6 +387,10 @@ function computeMetrics(documents: PdfDecisionShadowDocument[]): PdfDecisionShad
     publishRateByRisk,
     unreadableRateByRoute,
     averageConfidenceByRisk,
+    goldSetDistribution,
+    approvedGoldSetCount: goldSetDistribution["APPROVED"] ?? 0,
+    candidateGoldSetCount: goldSetDistribution["CANDIDATE"] ?? 0,
+    excludedGoldSetCount: goldSetDistribution["EXCLUDED"] ?? 0,
     topManualReviewReasons,
     topBlockingRuleCodes,
     topParserRiskReasons,
@@ -378,6 +412,7 @@ function selectGoldSetCandidates(
   const add = (doc: PdfDecisionShadowDocument, reason: string) => {
     if (candidates.length >= GOLD_SET_MAX) return;
     if (candidates.some((c) => c.filingId === doc.filingId)) return;
+    if (doc.goldSet?.status === "EXCLUDED") return;
     candidates.push({
       filingId: doc.filingId,
       extractionRunId: doc.extractionRunId,
@@ -388,6 +423,7 @@ function selectGoldSetCandidates(
       confidenceScore: doc.confidenceScore,
       outcome: doc.outcome,
       reason,
+      goldSet: doc.goldSet ?? null,
     });
   };
 
@@ -473,6 +509,7 @@ export async function evaluatePdfDecisionShadow(
       orgNumber?: string;
     }) => Promise<AnnualReportDecisionShadowRow[]>;
     readArtifact?: (storageKey: string) => Promise<Buffer | null>;
+    listGoldSetItems?: (filingIds: string[]) => Promise<PdfDecisionGoldSetItemRecord[]>;
   },
 ): Promise<PdfDecisionShadowEvaluationResult> {
   const limit = input?.limit ?? 100;
@@ -480,8 +517,15 @@ export async function evaluatePdfDecisionShadow(
 
   const listRows = deps?.listRows ?? listAnnualReportDecisionShadowRows;
   const readArtifact = deps?.readArtifact ?? null;
+  const listGoldSetItems =
+    deps?.listGoldSetItems ??
+    (deps?.listRows ? async () => [] : listPdfDecisionGoldSetItemsByFilingIds);
 
   const rows = await listRows(queryInput);
+  const goldSetItems = await listGoldSetItems(rows.map((row) => row.filingId));
+  const goldSetByFilingId = new Map(
+    goldSetItems.map((item) => [item.filingId, item]),
+  );
 
   // Parse artifact payloads per storageKey
   const parsedDecisions = new Map<string, PdfDecisionArtifactWrapper>();
@@ -502,7 +546,9 @@ export async function evaluatePdfDecisionShadow(
     );
   }
 
-  const documents = rows.map((row) => buildDocument(row, parsedDecisions));
+  const documents = rows.map((row) =>
+    buildDocument(row, parsedDecisions, goldSetByFilingId.get(row.filingId) ?? null),
+  );
   const metrics = computeMetrics(documents);
 
   return {

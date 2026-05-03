@@ -42,6 +42,25 @@ enum PdfTrainingLabelType {
   WIDE_NUMBER_RECONSTRUCTION
 }
 
+enum PdfDecisionGoldSetStatus {
+  CANDIDATE
+  APPROVED
+  EXCLUDED
+}
+
+enum PdfDecisionGoldSetReason {
+  LOW_RISK_FAILED
+  HIGH_RISK_SUCCEEDED
+  MANUAL_CORRECTION
+  UNREADABLE
+  REPROCESS_REQUESTED
+  BALANCE_MISMATCH
+  ROUTE_MISMATCH
+  OCR_RISK
+  REPRESENTATIVE_SAMPLE
+  OTHER
+}
+
 enum CompanyStatus {
   ACTIVE
   DISSOLVED
@@ -370,6 +389,8 @@ model User {
   annualReportReviewDecisions  AnnualReportReviewDecision[]   @relation("ReviewDecisionReviewer")
   pdfTrainingLabels            PdfTrainingLabel[]             @relation("TrainingLabelReviewer")
   annualReportReviewedFacts    AnnualReportReviewedFact[]     @relation("ReviewedFactReviewer")
+  pdfDecisionGoldSetCreated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetCreatedBy")
+  pdfDecisionGoldSetUpdated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetUpdatedBy")
 }
 
 model Subscription {
@@ -692,6 +713,7 @@ model AnnualReportFiling {
   publishedStatements      FinancialStatement[]     @relation("PublishedStatementFiling")
   coverageAsLatestSuccess  CompanyFinancialCoverage[] @relation("CoverageLatestSuccessfulFiling")
   reviewedFacts            AnnualReportReviewedFact[]
+  pdfDecisionGoldSetItem    PdfDecisionGoldSetItem?
 
   @@index([companyId, fiscalYear])
   @@index([companyId, status, discoveredAt])
@@ -893,6 +915,39 @@ model PdfTrainingLabel {
   @@index([filingId, labelType])
   @@index([extractionRunId, labelType])
   @@index([reviewerUserId, createdAt])
+}
+
+model PdfDecisionGoldSetItem {
+  id              String                     @id @default(cuid())
+  filingId        String                     @unique
+  extractionRunId String?
+  orgNumber       String?
+  fiscalYear      Int?
+
+  status          PdfDecisionGoldSetStatus   @default(CANDIDATE)
+  reason          PdfDecisionGoldSetReason   @default(OTHER)
+  note            String?
+
+  decisionRoute   String?
+  riskLevel       String?
+  confidenceScore Float?
+  outcome         String?
+
+  source          String                     @default("ADMIN")
+  createdByUserId String?
+  updatedByUserId String?
+
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  filing          AnnualReportFiling         @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  createdBy       User?                      @relation("PdfDecisionGoldSetCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy       User?                      @relation("PdfDecisionGoldSetUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([reason])
+  @@index([orgNumber, fiscalYear])
+  @@index([decisionRoute, riskLevel])
 }
 
 model AnnualReportReviewedFact {

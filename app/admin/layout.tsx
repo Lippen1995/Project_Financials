@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { safeAuth } from "@/lib/auth";
@@ -17,10 +18,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-slate-400">
-        <span>Admin</span>
+      <div className="mb-6 flex flex-wrap items-center gap-3 text-xs font-medium uppercase tracking-widest text-slate-400">
+        <Link href={"/admin/annual-report-reviews" as never} className="hover:text-slate-600">
+          Annual report reviews
+        </Link>
         <span>/</span>
-        <span>Årsrapport-review</span>
+        <Link href={"/admin/pdf-decision-analytics" as never} className="hover:text-slate-600">
+          PDF Decision Analytics
+        </Link>
       </div>
       {children}
     </div>
