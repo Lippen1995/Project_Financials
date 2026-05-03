@@ -15,8 +15,13 @@ import { reconstructStatementRows } from "@/integrations/brreg/annual-report-fin
 import { CanonicalMetricKey, requiredPublishMetricKeys } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import { validateCanonicalFacts } from "@/integrations/brreg/annual-report-financials/validation";
 import { CanonicalFactCandidate, PageClassification, ValidationIssueDraft } from "@/integrations/brreg/annual-report-financials/types";
-import { AnnualReportDocument, AnnualReportDocumentDiagnostics } from "@/integrations/brreg/annual-report-financials/document-model";
+import {
+  AnnualReportDocument,
+  AnnualReportDocumentDiagnostics,
+  StructuredDocumentArtifactPayload,
+} from "@/integrations/brreg/annual-report-financials/document-model";
 import { getFinancialExtractionPageHints } from "@/integrations/brreg/annual-report-financials/financial-extraction-page-hints";
+import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
 import { chooseCanonicalFacts, mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { DataAvailability, NormalizedFinancialDocument, NormalizedFinancialStatement } from "@/lib/types";
@@ -525,8 +530,9 @@ function buildDocumentPayloadFields(doc: AnnualReportDocument | null) {
           endPage: n.endPage,
           confidenceScore: n.confidenceScore,
           matchedSignals: n.matchedSignals,
-          subsections: n.subsections,
+          subsections: serializeNarrativeSubsections(n.subsections),
           fullText: n.fullText,
+          normalizedText: n.normalizedText ?? normalizeNorwegianText(n.fullText),
         }
       : null;
 
@@ -536,18 +542,90 @@ function buildDocumentPayloadFields(doc: AnnualReportDocument | null) {
       startPage: s.startPage,
       endPage: s.endPage,
       confidenceScore: s.confidenceScore,
+      matchedSignals: s.matchedSignals,
+      stopReason: s.stopReason ?? null,
       pageCount: s.pages.length,
+      sourcePages: s.pages.map((page) => page.pageNumber),
     })),
     narratives: doc.narratives.map((n) => ({
       kind: n.kind,
       startPage: n.startPage,
       endPage: n.endPage,
       confidenceScore: n.confidenceScore,
+      matchedSignals: n.matchedSignals,
+      fullText: n.fullText,
+      normalizedText: n.normalizedText ?? normalizeNorwegianText(n.fullText),
+      subsections: serializeNarrativeSubsections(n.subsections),
       subsectionCount: n.subsections.length,
       fullTextLength: n.fullText.length,
     })),
     boardReportProposal: toProposal(boardNarrative),
     auditorReportProposal: toProposal(auditorNarrative),
+  };
+}
+
+function serializeNarrativeSubsections(
+  subsections: AnnualReportDocument["narratives"][number]["subsections"],
+) {
+  return subsections.map((subsection) => ({
+    heading: subsection.heading,
+    text: subsection.text,
+    normalizedText: subsection.normalizedText ?? normalizeNorwegianText(subsection.text),
+    startOffset: subsection.startOffset ?? null,
+    endOffset: subsection.endOffset ?? null,
+  }));
+}
+
+function buildStructuredDocumentArtifactPayload(input: {
+  doc: AnnualReportDocument;
+  filingId: string;
+  fiscalYear: number;
+  createdAt: string;
+}): StructuredDocumentArtifactPayload {
+  const provenance = {
+    source: "preflight",
+    persistedStage: "before-extraction-run-created",
+    reasonExtractionRunIdIsNull:
+      "structured document is produced during preflight before extraction run creation",
+    filingId: input.filingId,
+    fiscalYear: input.fiscalYear,
+    documentModelVersion: "annual-report-document-model-v1",
+    parserVersion: ANNUAL_REPORT_PARSER_VERSION,
+  };
+
+  return {
+    version: "annual-report-document-model-v1",
+    filingId: input.filingId,
+    extractionRunId: null,
+    createdAt: input.createdAt,
+    provenance,
+    structuredDocument: {
+      pages: input.doc.pages,
+      sections: input.doc.sections.map((section) => ({
+        kind: section.kind,
+        startPage: section.startPage,
+        endPage: section.endPage,
+        confidenceScore: section.confidenceScore,
+        matchedSignals: section.matchedSignals,
+        stopReason: section.stopReason ?? null,
+        pageCount: section.pages.length,
+        sourcePages: section.pages.map((page) => page.pageNumber),
+      })),
+      narratives: input.doc.narratives.map((narrative) => ({
+        kind: narrative.kind,
+        startPage: narrative.startPage,
+        endPage: narrative.endPage,
+        confidenceScore: narrative.confidenceScore,
+        matchedSignals: narrative.matchedSignals,
+        fullText: narrative.fullText,
+        normalizedText:
+          narrative.normalizedText ?? normalizeNorwegianText(narrative.fullText),
+        subsections: serializeNarrativeSubsections(narrative.subsections),
+        subsectionCount: narrative.subsections.length,
+        fullTextLength: narrative.fullText.length,
+      })),
+      diagnostics: input.doc.diagnostics,
+    },
   };
 }
 
@@ -651,36 +729,24 @@ export async function processAnnualReportFiling(
         filingId: filing.id,
         artifactType: "STRUCTURED_DOCUMENT_JSON",
         filename: "structured-document.json",
-        content: serializeJsonBuffer({
-          version: "annual-report-document-model-v1",
-          filingId: filing.id,
-          extractionRunId: null,
-          createdAt: new Date().toISOString(),
-          structuredDocument: {
-            pages: preflight.structuredDocument.pages,
-            sections: preflight.structuredDocument.sections.map((s) => ({
-              kind: s.kind,
-              startPage: s.startPage,
-              endPage: s.endPage,
-              confidenceScore: s.confidenceScore,
-              matchedSignals: s.matchedSignals,
-              pageCount: s.pages.length,
-            })),
-            narratives: preflight.structuredDocument.narratives.map((n) => ({
-              kind: n.kind,
-              startPage: n.startPage,
-              endPage: n.endPage,
-              confidenceScore: n.confidenceScore,
-              subsectionCount: n.subsections.length,
-              fullTextLength: n.fullText.length,
-            })),
-            diagnostics: preflight.structuredDocument.diagnostics,
-          },
-        }),
+        content: serializeJsonBuffer(
+          buildStructuredDocumentArtifactPayload({
+            doc: preflight.structuredDocument,
+            filingId: filing.id,
+            fiscalYear: filing.fiscalYear,
+            createdAt: new Date().toISOString(),
+          }),
+        ),
         mimeType: "application/json",
         metadata: {
           documentModelVersion: "annual-report-document-model-v1",
           source: "preflight",
+          persistedStage: "before-extraction-run-created",
+          reasonExtractionRunIdIsNull:
+            "structured document is produced during preflight before extraction run creation",
+          filingId: filing.id,
+          fiscalYear: filing.fiscalYear,
+          parserVersion: ANNUAL_REPORT_PARSER_VERSION,
         },
       }),
     );

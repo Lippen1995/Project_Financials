@@ -28,6 +28,15 @@ const providerState = {
   })),
 };
 
+const artifactStorageState = {
+  putArtifact: vi.fn(
+    async (input: { artifactType: string; filename: string; content?: Buffer | string }) => ({
+      storageKey: `${input.artifactType}/${input.filename}`,
+      absolutePath: `/tmp/${input.filename}`,
+    }),
+  ),
+};
+
 const repo = {
   findCompanyByOrgNumber: vi.fn(),
   upsertAnnualReportFilingDiscovery: vi.fn(),
@@ -149,11 +158,8 @@ vi.mock("@/integrations/brreg/brreg-financials-provider", () => ({
 
 vi.mock("@/server/financials/artifact-storage", () => ({
   LocalAnnualReportArtifactStorage: class {
-    async putArtifact(input: { artifactType: string; filename: string }) {
-      return {
-        storageKey: `${input.artifactType}/${input.filename}`,
-        absolutePath: `/tmp/${input.filename}`,
-      };
+    async putArtifact(input: { artifactType: string; filename: string; content?: Buffer | string }) {
+      return artifactStorageState.putArtifact(input);
     }
     async getArtifactBuffer() {
       return providerState.pdf.buffer;
@@ -400,6 +406,7 @@ describe("annual-report-financials-service", () => {
     vi.resetModules();
     Object.values(repo).forEach((mocked) => mocked.mockReset());
     providerState.downloadAnnualReportPdf.mockClear();
+    artifactStorageState.putArtifact.mockClear();
     openDataLoaderState.parseAnnualReportPdfWithOpenDataLoader.mockClear();
     openDataLoaderState.config = {
       enabled: false,
@@ -920,6 +927,171 @@ describe("annual-report-financials-service", () => {
     expect(artifactCalls).toContain("STRUCTURED_DOCUMENT_JSON");
   });
 
+  it("persists full narratives, subsections, matched signals, and provenance in structured document artifacts", async () => {
+    const { preflightAnnualReportDocument } = await import(
+      "@/integrations/brreg/annual-report-financials/preflight"
+    );
+    const boardPage = {
+      pageNumber: 1,
+      rawText: "Styrets aarsberetning\nVirksomhetens art",
+      normalizedText: "styrets aarsberetning virksomhetens art",
+      charCount: 41,
+    };
+    const auditorPage = {
+      pageNumber: 2,
+      rawText: "Uavhengig revisors beretning\nKonklusjon",
+      normalizedText: "uavhengig revisors beretning konklusjon",
+      charCount: 40,
+    };
+    vi.mocked(preflightAnnualReportDocument).mockResolvedValueOnce({
+      pageCount: 2,
+      hasTextLayer: true,
+      hasReliableTextLayer: true,
+      parsedPages: [],
+      structuredDocument: {
+        pages: [boardPage, auditorPage],
+        sections: [
+          {
+            kind: "BOARD_REPORT",
+            startPage: 1,
+            endPage: 1,
+            pages: [boardPage],
+            confidenceScore: 0.8,
+            matchedSignals: [{ keyword: "styrets aarsberetning", weight: 4, offset: 0 }],
+            stopReason: "next_section",
+          },
+          {
+            kind: "AUDITOR_REPORT",
+            startPage: 2,
+            endPage: 2,
+            pages: [auditorPage],
+            confidenceScore: 0.82,
+            matchedSignals: [{ keyword: "uavhengig revisors beretning", weight: 4, offset: 0 }],
+          },
+        ],
+        narratives: [
+          {
+            kind: "BOARD_REPORT",
+            startPage: 1,
+            endPage: 1,
+            pages: [boardPage],
+            confidenceScore: 0.8,
+            matchedSignals: [{ keyword: "styrets aarsberetning", weight: 4, offset: 0 }],
+            fullText: "Styrets aarsberetning\nVirksomhetens art\nSelskapet driver virksomhet.",
+            normalizedText:
+              "styrets aarsberetning virksomhetens art selskapet driver virksomhet",
+            subsections: [
+              {
+                heading: "Virksomhetens art",
+                text: "Selskapet driver virksomhet.",
+                normalizedText: "selskapet driver virksomhet",
+                startOffset: 24,
+                endOffset: 53,
+              },
+            ],
+          },
+          {
+            kind: "AUDITOR_REPORT",
+            startPage: 2,
+            endPage: 2,
+            pages: [auditorPage],
+            confidenceScore: 0.82,
+            matchedSignals: [{ keyword: "uavhengig revisors beretning", weight: 4, offset: 0 }],
+            fullText:
+              "Uavhengig revisors beretning\nKonklusjon\nEtter vaar mening er regnskapet avgitt.",
+            subsections: [
+              {
+                heading: "Konklusjon",
+                text: "Etter vaar mening er regnskapet avgitt.",
+                startOffset: 36,
+                endOffset: 76,
+              },
+            ],
+          },
+        ],
+        diagnostics: {
+          pageCount: 2,
+          sectionsFound: 2,
+          sectionKinds: ["BOARD_REPORT", "AUDITOR_REPORT"],
+          missingExpectedSections: ["INCOME_STATEMENT", "BALANCE_SHEET"],
+          recommendedRouteHint: "TEXT_LAYER",
+          textLayerDensityScore: 0.9,
+          likelyImageOnlyPages: [],
+          financialStatementPageCount: 0,
+          financialStatementCandidatePages: [],
+          narrativeCandidatePages: [1, 2],
+          boardReportCandidatePages: [1],
+          auditorReportCandidatePages: [2],
+          notesCandidatePages: [],
+          qualityRisk: "LOW",
+          parserRiskReasons: [],
+          extractionWarnings: ["Narrative sections detected but no financial statement pages found"],
+        },
+      },
+    });
+
+    const { processAnnualReportFiling } = await import(
+      "@/server/services/annual-report-financials-service"
+    );
+    await processAnnualReportFiling("filing-1");
+
+    const storedStructuredArtifact = artifactStorageState.putArtifact.mock.calls
+      .map((call) => call[0])
+      .find((artifact) => artifact.artifactType === "STRUCTURED_DOCUMENT_JSON");
+    expect(storedStructuredArtifact).toBeDefined();
+    const payload = JSON.parse(
+      Buffer.isBuffer(storedStructuredArtifact?.content)
+        ? storedStructuredArtifact.content.toString("utf8")
+        : String(storedStructuredArtifact?.content),
+    ) as Record<string, any>;
+
+    expect(payload.extractionRunId).toBeNull();
+    expect(payload.provenance).toMatchObject({
+      source: "preflight",
+      persistedStage: "before-extraction-run-created",
+      filingId: "filing-1",
+      fiscalYear: 2024,
+      documentModelVersion: "annual-report-document-model-v1",
+    });
+    expect(payload.provenance.reasonExtractionRunIdIsNull).toMatch(/preflight/i);
+    expect(payload.structuredDocument.sections[0]).toMatchObject({
+      kind: "BOARD_REPORT",
+      sourcePages: [1],
+      pageCount: 1,
+      stopReason: "next_section",
+    });
+    expect(payload.structuredDocument.narratives[0]).toMatchObject({
+      kind: "BOARD_REPORT",
+      fullText: "Styrets aarsberetning\nVirksomhetens art\nSelskapet driver virksomhet.",
+      matchedSignals: [{ keyword: "styrets aarsberetning", weight: 4, offset: 0 }],
+      subsectionCount: 1,
+    });
+    expect(payload.structuredDocument.narratives[0].subsections[0]).toMatchObject({
+      heading: "Virksomhetens art",
+      text: "Selskapet driver virksomhet.",
+      normalizedText: "selskapet driver virksomhet",
+      startOffset: 24,
+      endOffset: 53,
+    });
+    expect(payload.structuredDocument.narratives[1]).toMatchObject({
+      kind: "AUDITOR_REPORT",
+      fullText:
+        "Uavhengig revisors beretning\nKonklusjon\nEtter vaar mening er regnskapet avgitt.",
+    });
+    const metadata = repo.createAnnualReportArtifact.mock.calls.find(
+      (call) => call[0].artifactType === "STRUCTURED_DOCUMENT_JSON",
+    )?.[0].metadata as Record<string, unknown>;
+    expect(metadata).toMatchObject({
+      source: "preflight",
+      persistedStage: "before-extraction-run-created",
+      reasonExtractionRunIdIsNull:
+        "structured document is produced during preflight before extraction run creation",
+      filingId: "filing-1",
+      fiscalYear: 2024,
+      documentModelVersion: "annual-report-document-model-v1",
+    });
+  });
+
   it("includes documentSections and boardReportProposal in reviewPayload when structuredDocument has narratives", async () => {
     const { preflightAnnualReportDocument } = await import(
       "@/integrations/brreg/annual-report-financials/preflight"
@@ -1001,6 +1173,90 @@ describe("annual-report-financials-service", () => {
     expect(reviewPayload.boardReportProposal).toBeDefined();
     expect((reviewPayload.boardReportProposal as Record<string, unknown>).startPage).toBe(1);
     expect((reviewPayload.boardReportProposal as Record<string, unknown>).confidenceScore).toBe(0.85);
+    expect((reviewPayload.boardReportProposal as Record<string, unknown>).fullText).toBe(
+      "Styrets årsberetning\nVirksomhetens art",
+    );
+    expect(reviewPayload.auditorReportProposal).toBeNull();
+  });
+
+  it("keeps reviewPayload stable when structuredDocument has no narratives", async () => {
+    const { preflightAnnualReportDocument } = await import(
+      "@/integrations/brreg/annual-report-financials/preflight"
+    );
+    const page = {
+      pageNumber: 1,
+      rawText: "Forside",
+      normalizedText: "forside",
+      charCount: 7,
+    };
+    vi.mocked(preflightAnnualReportDocument).mockResolvedValueOnce({
+      pageCount: 1,
+      hasTextLayer: true,
+      hasReliableTextLayer: true,
+      parsedPages: [],
+      structuredDocument: {
+        pages: [page],
+        sections: [
+          {
+            kind: "COVER",
+            startPage: 1,
+            endPage: 1,
+            pages: [page],
+            confidenceScore: 0.7,
+            matchedSignals: [],
+          },
+        ],
+        narratives: [],
+        diagnostics: {
+          pageCount: 1,
+          sectionsFound: 1,
+          sectionKinds: ["COVER"],
+          missingExpectedSections: ["BOARD_REPORT", "AUDITOR_REPORT", "INCOME_STATEMENT", "BALANCE_SHEET"],
+          recommendedRouteHint: "MANUAL_REVIEW",
+          textLayerDensityScore: 0.4,
+          likelyImageOnlyPages: [],
+          financialStatementPageCount: 0,
+          financialStatementCandidatePages: [],
+          narrativeCandidatePages: [],
+          boardReportCandidatePages: [],
+          auditorReportCandidatePages: [],
+          notesCandidatePages: [],
+          qualityRisk: "HIGH",
+          parserRiskReasons: ["No narrative sections detected"],
+          extractionWarnings: [],
+        },
+      },
+    });
+    const validationModule = await import("@/integrations/brreg/annual-report-financials/validation");
+    vi.mocked(validationModule.validateCanonicalFacts).mockReturnValueOnce({
+      selectedFacts: new Map(),
+      issues: [{ severity: "ERROR", ruleCode: "MISSING_INCOME_STATEMENT", message: "No income statement found", context: {} }],
+      validationScore: 0.1,
+      hasBlockingErrors: true,
+      stats: { duplicateComparisons: 0, duplicateMatches: 0, noteComparisons: 0, noteMatches: 0 },
+    });
+
+    const { processAnnualReportFiling } = await import(
+      "@/server/services/annual-report-financials-service"
+    );
+    await processAnnualReportFiling("filing-1");
+
+    expect(repo.upsertAnnualReportReview).toHaveBeenCalledTimes(1);
+    const reviewPayload = repo.upsertAnnualReportReview.mock.calls[0][0].reviewPayload as Record<string, unknown>;
+    expect(reviewPayload.documentSections).toEqual([
+      {
+        kind: "COVER",
+        startPage: 1,
+        endPage: 1,
+        confidenceScore: 0.7,
+        matchedSignals: [],
+        stopReason: null,
+        pageCount: 1,
+        sourcePages: [1],
+      },
+    ]);
+    expect(reviewPayload.narratives).toEqual([]);
+    expect(reviewPayload.boardReportProposal).toBeNull();
     expect(reviewPayload.auditorReportProposal).toBeNull();
   });
 
