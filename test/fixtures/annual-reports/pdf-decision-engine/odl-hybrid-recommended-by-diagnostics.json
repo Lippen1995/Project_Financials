@@ -1,0 +1,74 @@
+{
+  "name": "ODL hybrid recommended by diagnostics with unreliable text",
+  "description": "Document with unreliable text layer where diagnostics explicitly recommend OpenDataLoader hybrid route and ODL is enabled.",
+  "input": {
+    "orgNumber": "918298037",
+    "fiscalYear": 2024,
+    "preflight": {
+      "pageCount": 6,
+      "hasTextLayer": false,
+      "hasReliableTextLayer": false,
+      "parsedPages": []
+    },
+    "structuredDocument": {
+      "pages": [
+        { "pageNumber": 3, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 60 },
+        { "pageNumber": 4, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 55 }
+      ],
+      "sections": [
+        {
+          "kind": "INCOME_STATEMENT",
+          "startPage": 3,
+          "endPage": 3,
+          "pages": [{ "pageNumber": 3, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 60 }],
+          "confidenceScore": 0.75,
+          "matchedSignals": []
+        },
+        {
+          "kind": "BALANCE_SHEET",
+          "startPage": 4,
+          "endPage": 4,
+          "pages": [{ "pageNumber": 4, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 55 }],
+          "confidenceScore": 0.73,
+          "matchedSignals": []
+        }
+      ],
+      "narratives": [],
+      "diagnostics": {
+        "pageCount": 6,
+        "sectionsFound": 2,
+        "sectionKinds": ["INCOME_STATEMENT", "BALANCE_SHEET"],
+        "missingExpectedSections": [],
+        "recommendedRouteHint": "OPENDATALOADER_HYBRID",
+        "textLayerDensityScore": 0.15,
+        "likelyImageOnlyPages": [3, 4, 5],
+        "financialStatementPageCount": 2,
+        "financialStatementCandidatePages": [3, 4],
+        "narrativeCandidatePages": [],
+        "boardReportCandidatePages": [],
+        "auditorReportCandidatePages": [],
+        "notesCandidatePages": [],
+        "qualityRisk": "MEDIUM",
+        "parserRiskReasons": ["Low text layer density"],
+        "extractionWarnings": []
+      }
+    },
+    "pageHints": {
+      "includePages": [3, 4],
+      "excludePages": [],
+      "preferredIncomeStatementPages": [3],
+      "preferredBalancePages": [4],
+      "notePages": [],
+      "hasReliableHints": false,
+      "reasons": ["Weak text layer density; hints advisory only"]
+    },
+    "openDataLoaderConfig": { "enabled": true, "mode": "auto" }
+  },
+  "expected": {
+    "route": "OPENDATALOADER_HYBRID",
+    "riskLevel": "HIGH",
+    "reasonIncludes": ["hybrid processing selected"],
+    "financialFactsEnabled": true,
+    "hasReliablePageHints": false
+  }
+}
