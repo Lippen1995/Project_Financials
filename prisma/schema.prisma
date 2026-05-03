@@ -288,6 +288,7 @@ enum AnnualReportArtifactType {
   ANNOTATED_PDF
   DOCUMENT_NORMALIZED_JSON
   EXTRACTION_COMPARISON_JSON
+  STRUCTURED_DOCUMENT_JSON
 }
 
 enum FinancialExtractionRunStatus {

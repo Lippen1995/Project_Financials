@@ -15,7 +15,8 @@ import { reconstructStatementRows } from "@/integrations/brreg/annual-report-fin
 import { CanonicalMetricKey, requiredPublishMetricKeys } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import { validateCanonicalFacts } from "@/integrations/brreg/annual-report-financials/validation";
 import { CanonicalFactCandidate, PageClassification, ValidationIssueDraft } from "@/integrations/brreg/annual-report-financials/types";
-import { AnnualReportDocumentDiagnostics } from "@/integrations/brreg/annual-report-financials/document-model";
+import { AnnualReportDocument, AnnualReportDocumentDiagnostics } from "@/integrations/brreg/annual-report-financials/document-model";
+import { getFinancialExtractionPageHints } from "@/integrations/brreg/annual-report-financials/financial-extraction-page-hints";
 import { chooseCanonicalFacts, mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { DataAvailability, NormalizedFinancialDocument, NormalizedFinancialStatement } from "@/lib/types";
@@ -207,7 +208,8 @@ async function persistArtifactFile(input: {
     | "DOCUMENT_MARKDOWN"
     | "ANNOTATED_PDF"
     | "DOCUMENT_NORMALIZED_JSON"
-    | "EXTRACTION_COMPARISON_JSON";
+    | "EXTRACTION_COMPARISON_JSON"
+    | "STRUCTURED_DOCUMENT_JSON";
   filename: string;
   content: Buffer | string;
   mimeType: string;
@@ -353,9 +355,14 @@ function runFinancialPipeline(input: {
   parsedPages: Parameters<typeof classifyPages>[0];
   engine: "LEGACY" | "OPENDATALOADER";
   mode: "legacy" | "local" | "hybrid";
+  excludePageNumbers?: Set<number>;
 }) {
   const startedAt = Date.now();
-  const classifications = classifyPages(input.parsedPages);
+  const allClassifications = classifyPages(input.parsedPages);
+  const classifications =
+    input.excludePageNumbers && input.excludePageNumbers.size > 0
+      ? allClassifications.filter((c) => !input.excludePageNumbers!.has(c.pageNumber))
+      : allClassifications;
   const rows = reconstructStatementRows(input.parsedPages, classifications);
   const mapped = mapRowsToCanonicalFacts({
     filingFiscalYear: input.fiscalYear,
@@ -439,6 +446,7 @@ function buildReviewPayload(input: {
   engineSummary?: Record<string, unknown>;
   comparisonSummary?: OpenDataLoaderComparisonSummary | null;
   documentDiagnostics?: AnnualReportDocumentDiagnostics | null;
+  structuredDocument?: AnnualReportDocument | null;
 }) {
   const pageReferences = Array.from(
     new Set([
@@ -492,7 +500,54 @@ function buildReviewPayload(input: {
       engineSummary: input.engineSummary ?? null,
       comparisonSummary: input.comparisonSummary ?? null,
       documentDiagnostics: input.documentDiagnostics ?? null,
+      ...buildDocumentPayloadFields(input.structuredDocument ?? null),
     },
+  };
+}
+
+function buildDocumentPayloadFields(doc: AnnualReportDocument | null) {
+  if (!doc) {
+    return {
+      documentSections: null,
+      narratives: null,
+      boardReportProposal: null,
+      auditorReportProposal: null,
+    };
+  }
+
+  const boardNarrative = doc.narratives.find((n) => n.kind === "BOARD_REPORT") ?? null;
+  const auditorNarrative = doc.narratives.find((n) => n.kind === "AUDITOR_REPORT") ?? null;
+
+  const toProposal = (n: typeof boardNarrative) =>
+    n
+      ? {
+          startPage: n.startPage,
+          endPage: n.endPage,
+          confidenceScore: n.confidenceScore,
+          matchedSignals: n.matchedSignals,
+          subsections: n.subsections,
+          fullText: n.fullText,
+        }
+      : null;
+
+  return {
+    documentSections: doc.sections.map((s) => ({
+      kind: s.kind,
+      startPage: s.startPage,
+      endPage: s.endPage,
+      confidenceScore: s.confidenceScore,
+      pageCount: s.pages.length,
+    })),
+    narratives: doc.narratives.map((n) => ({
+      kind: n.kind,
+      startPage: n.startPage,
+      endPage: n.endPage,
+      confidenceScore: n.confidenceScore,
+      subsectionCount: n.subsections.length,
+      fullTextLength: n.fullText.length,
+    })),
+    boardReportProposal: toProposal(boardNarrative),
+    auditorReportProposal: toProposal(auditorNarrative),
   };
 }
 
@@ -589,6 +644,69 @@ export async function processAnnualReportFiling(
       payload: preflight,
     }),
   );
+
+  if (preflight.structuredDocument) {
+    artifactReferences.push(
+      await persistArtifactFile({
+        filingId: filing.id,
+        artifactType: "STRUCTURED_DOCUMENT_JSON",
+        filename: "structured-document.json",
+        content: serializeJsonBuffer({
+          version: "annual-report-document-model-v1",
+          filingId: filing.id,
+          extractionRunId: null,
+          createdAt: new Date().toISOString(),
+          structuredDocument: {
+            pages: preflight.structuredDocument.pages,
+            sections: preflight.structuredDocument.sections.map((s) => ({
+              kind: s.kind,
+              startPage: s.startPage,
+              endPage: s.endPage,
+              confidenceScore: s.confidenceScore,
+              matchedSignals: s.matchedSignals,
+              pageCount: s.pages.length,
+            })),
+            narratives: preflight.structuredDocument.narratives.map((n) => ({
+              kind: n.kind,
+              startPage: n.startPage,
+              endPage: n.endPage,
+              confidenceScore: n.confidenceScore,
+              subsectionCount: n.subsections.length,
+              fullTextLength: n.fullText.length,
+            })),
+            diagnostics: preflight.structuredDocument.diagnostics,
+          },
+        }),
+        mimeType: "application/json",
+        metadata: {
+          documentModelVersion: "annual-report-document-model-v1",
+          source: "preflight",
+        },
+      }),
+    );
+    logPipelineEvent("filing.structured_document_persisted", {
+      filingId: filing.id,
+      fiscalYear: filing.fiscalYear,
+      sectionCount: preflight.structuredDocument.sections.length,
+      qualityRisk: preflight.structuredDocument.diagnostics.qualityRisk,
+      recommendedRouteHint: preflight.structuredDocument.diagnostics.recommendedRouteHint,
+    });
+  }
+
+  const pageHints = preflight.structuredDocument
+    ? getFinancialExtractionPageHints(preflight.structuredDocument)
+    : null;
+
+  if (pageHints?.hasReliableHints) {
+    logPipelineEvent("filing.page_hints_computed", {
+      filingId: filing.id,
+      fiscalYear: filing.fiscalYear,
+      includePageCount: pageHints.includePages.length,
+      excludePageCount: pageHints.excludePages.size,
+      reasons: pageHints.reasons,
+    });
+  }
+
   await updateAnnualReportFiling(filing.id, { preflightedAt: new Date(), unitHints: { hasTextLayer: preflight.hasTextLayer, hasReliableTextLayer: preflight.hasReliableTextLayer }, parserVersionLastTried: ANNUAL_REPORT_PARSER_VERSION, lastError: null });
   logPipelineEvent("filing.preflighted", { filingId: filing.id, fiscalYear: filing.fiscalYear, hasReliableTextLayer: preflight.hasReliableTextLayer });
 
@@ -715,6 +833,7 @@ export async function processAnnualReportFiling(
       parsedPages: primaryPages,
       engine: primaryEngine,
       mode: primaryMode,
+      excludePageNumbers: pageHints?.hasReliableHints ? pageHints.excludePages : undefined,
     });
 
     if (openDataLoaderResult && openDataLoaderConfig.dualRun) {
@@ -725,6 +844,7 @@ export async function processAnnualReportFiling(
         parsedPages: openDataLoaderResult.annualReportPages,
         engine: "OPENDATALOADER",
         mode: openDataLoaderResult.routing.executionMode,
+        excludePageNumbers: pageHints?.hasReliableHints ? pageHints.excludePages : undefined,
       });
 
       comparisonSummary = buildOpenDataLoaderComparisonSummary({
@@ -858,6 +978,7 @@ export async function processAnnualReportFiling(
       },
       comparisonSummary,
       documentDiagnostics: preflight.diagnostics ?? null,
+      structuredDocument: preflight.structuredDocument ?? null,
     });
 
     artifactReferences.push(

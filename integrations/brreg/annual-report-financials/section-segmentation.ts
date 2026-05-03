@@ -318,25 +318,98 @@ export function extractAnnualReportNarratives(
 // Diagnostics
 // ---------------------------------------------------------------------------
 
+const IMAGE_ONLY_CHAR_THRESHOLD = 60;
+const LOW_DENSITY_THRESHOLD = 0.25;
+const HIGH_DENSITY_THRESHOLD = 0.6;
+const EXPECTED_CHARS_PER_PAGE = 500;
+
 export function buildDocumentDiagnostics(
   sections: AnnualReportSection[],
-  pageCount: number,
+  pages: AnnualReportPage[],
 ): AnnualReportDocumentDiagnostics {
+  const pageCount = pages.length;
   const sectionKinds = [...new Set(sections.map((s) => s.kind))];
   const missingExpectedSections = EXPECTED_SECTIONS.filter(
     (kind) => !sectionKinds.includes(kind),
   );
 
-  const hasFinancials = sectionKinds.some(
-    (k) => k === "INCOME_STATEMENT" || k === "BALANCE_SHEET",
-  );
-  const hasNarratives = sectionKinds.some((k) => NARRATIVE_KINDS.includes(k));
+  // Page-level density analysis
+  const likelyImageOnlyPages = pages
+    .filter((p) => p.charCount < IMAGE_ONLY_CHAR_THRESHOLD)
+    .map((p) => p.pageNumber);
+  const textLayerDensityScore =
+    pageCount > 0
+      ? Number(
+          Math.min(
+            1,
+            pages.reduce((sum, p) => sum + Math.min(1, p.charCount / EXPECTED_CHARS_PER_PAGE), 0) /
+              pageCount,
+          ).toFixed(3),
+        )
+      : 0;
 
-  let recommendedRouteHint: "OCR" | "DIGITAL" | "UNKNOWN" = "UNKNOWN";
-  if (hasFinancials) {
-    recommendedRouteHint = "DIGITAL";
-  } else if (hasNarratives && pageCount > 0) {
-    recommendedRouteHint = "OCR";
+  // Section candidate pages
+  const pagesForKind = (kind: SectionKind) =>
+    sections
+      .filter((s) => s.kind === kind)
+      .flatMap((s) => s.pages.map((p) => p.pageNumber));
+
+  const financialStatementCandidatePages = [
+    ...new Set([...pagesForKind("INCOME_STATEMENT"), ...pagesForKind("BALANCE_SHEET")]),
+  ].sort((a, b) => a - b);
+  const boardReportCandidatePages = pagesForKind("BOARD_REPORT");
+  const auditorReportCandidatePages = pagesForKind("AUDITOR_REPORT");
+  const notesCandidatePages = pagesForKind("NOTES");
+  const narrativeCandidatePages = [
+    ...new Set([...boardReportCandidatePages, ...auditorReportCandidatePages]),
+  ].sort((a, b) => a - b);
+  const financialStatementPageCount = financialStatementCandidatePages.length;
+
+  // Risk assessment
+  const parserRiskReasons: string[] = [];
+  const extractionWarnings: string[] = [];
+
+  if (textLayerDensityScore < LOW_DENSITY_THRESHOLD) {
+    parserRiskReasons.push(
+      `Low text layer density (${(textLayerDensityScore * 100).toFixed(0)}%) — PDF may be image-based`,
+    );
+  }
+  if (likelyImageOnlyPages.length > pageCount / 2 && pageCount > 0) {
+    parserRiskReasons.push(
+      `${likelyImageOnlyPages.length} of ${pageCount} pages appear image-only`,
+    );
+  }
+  if (missingExpectedSections.length > 0) {
+    extractionWarnings.push(
+      `Expected sections not detected: ${missingExpectedSections.join(", ")}`,
+    );
+  }
+  if (narrativeCandidatePages.length > 0 && financialStatementPageCount === 0) {
+    extractionWarnings.push(
+      "Narrative sections detected but no financial statement pages found",
+    );
+  }
+
+  const qualityRisk: "LOW" | "MEDIUM" | "HIGH" =
+    textLayerDensityScore < LOW_DENSITY_THRESHOLD || parserRiskReasons.length >= 2
+      ? "HIGH"
+      : textLayerDensityScore < HIGH_DENSITY_THRESHOLD || extractionWarnings.length > 0
+        ? "MEDIUM"
+        : "LOW";
+
+  // Route hint
+  let recommendedRouteHint: AnnualReportDocumentDiagnostics["recommendedRouteHint"] = "UNKNOWN";
+  if (textLayerDensityScore < LOW_DENSITY_THRESHOLD) {
+    recommendedRouteHint =
+      likelyImageOnlyPages.length > pageCount / 2 ? "FORCE_OCR" : "OPENDATALOADER_HYBRID";
+  } else if (financialStatementPageCount > 0 && textLayerDensityScore >= HIGH_DENSITY_THRESHOLD) {
+    recommendedRouteHint = "TEXT_LAYER";
+  } else if (financialStatementPageCount > 0) {
+    recommendedRouteHint = "OPENDATALOADER_LOCAL";
+  } else if (narrativeCandidatePages.length > 0 && pageCount > 0) {
+    recommendedRouteHint = "OPENDATALOADER_HYBRID";
+  } else if (pageCount === 0) {
+    recommendedRouteHint = "MANUAL_REVIEW";
   }
 
   return {
@@ -345,6 +418,17 @@ export function buildDocumentDiagnostics(
     sectionKinds,
     missingExpectedSections,
     recommendedRouteHint,
+    textLayerDensityScore,
+    likelyImageOnlyPages,
+    financialStatementPageCount,
+    financialStatementCandidatePages,
+    narrativeCandidatePages,
+    boardReportCandidatePages,
+    auditorReportCandidatePages,
+    notesCandidatePages,
+    qualityRisk,
+    parserRiskReasons,
+    extractionWarnings,
   };
 }
 
@@ -364,7 +448,7 @@ export function buildAnnualReportDocumentFromPages(
 
   const sections = segmentAnnualReportSections(annualReportPages);
   const narratives = extractAnnualReportNarratives(sections);
-  const diagnostics = buildDocumentDiagnostics(sections, pages.length);
+  const diagnostics = buildDocumentDiagnostics(sections, annualReportPages);
 
   return {
     pages: annualReportPages,

@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AnnualReportArtifactType" ADD VALUE 'STRUCTURED_DOCUMENT_JSON';
