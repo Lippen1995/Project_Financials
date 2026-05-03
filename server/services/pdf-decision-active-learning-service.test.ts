@@ -121,7 +121,22 @@ describe("listPdfDecisionActiveLearningQueue", () => {
     expect(result.items[0].suggestedGoldSetReason).toBe("BALANCE_MISMATCH");
   });
 
-  it("omits approved and excluded items unless includeCurated is true", async () => {
+  it("includes candidate items by default so they can be approved", async () => {
+    const result = await queue([
+      makeDocument({
+        riskLevel: "LOW",
+        outcome: "MANUAL_REVIEW_CORRECTED",
+        latestReviewDecisionType: "CORRECTED",
+        goldSet: { status: "CANDIDATE", reason: "LOW_RISK_FAILED" },
+      }),
+    ]);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].goldSetStatus).toBe("CANDIDATE");
+    expect(result.items[0].suggestedAction).toBe("APPROVE_GOLD_SET");
+  });
+
+  it("omits approved and excluded items by default", async () => {
     const approved = makeDocument({
       filingId: "approved",
       riskLevel: "LOW",
@@ -136,6 +151,22 @@ describe("listPdfDecisionActiveLearningQueue", () => {
     });
 
     expect((await queue([approved, excluded])).items).toHaveLength(0);
+  });
+
+  it("includes approved and excluded items when includeCurated is true", async () => {
+    const approved = makeDocument({
+      filingId: "approved",
+      riskLevel: "LOW",
+      outcome: "MANUAL_REVIEW_CORRECTED",
+      goldSet: { status: "APPROVED", reason: "LOW_RISK_FAILED" },
+    });
+    const excluded = makeDocument({
+      filingId: "excluded",
+      riskLevel: "LOW",
+      outcome: "MANUAL_REVIEW_CORRECTED",
+      goldSet: { status: "EXCLUDED", reason: "LOW_RISK_FAILED" },
+    });
+
     expect((await queue([approved, excluded], true)).items.map((item) => item.filingId)).toEqual([
       "approved",
       "excluded",
@@ -152,7 +183,6 @@ describe("listPdfDecisionActiveLearningQueue", () => {
           goldSet: { status: "CANDIDATE", reason: "LOW_RISK_FAILED" },
         }),
       ],
-      true,
     );
 
     expect(result.items[0].suggestedAction).toBe("APPROVE_GOLD_SET");

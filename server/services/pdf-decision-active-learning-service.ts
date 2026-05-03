@@ -268,7 +268,10 @@ export async function listPdfDecisionActiveLearningQueue(
 
   const allItems = shadow.documents
     .map(buildQueueItem)
-    .filter((item) => includeCurated || !item.alreadyCurated)
+    .filter((item) => {
+      if (includeCurated) return true;
+      return item.goldSetStatus !== "APPROVED" && item.goldSetStatus !== "EXCLUDED";
+    })
     .filter((item) => item.priorityScore > 0)
     .sort((a, b) => b.priorityScore - a.priorityScore || a.filingId.localeCompare(b.filingId));
 
