@@ -2,7 +2,7 @@ import {
   CanonicalMetricKey,
   StatementSectionType,
 } from "@/integrations/brreg/annual-report-financials/taxonomy";
-import { AnnualReportDocumentDiagnostics } from "@/integrations/brreg/annual-report-financials/document-model";
+import { AnnualReportDocument, AnnualReportDocumentDiagnostics } from "@/integrations/brreg/annual-report-financials/document-model";
 
 export type AnnualReportUnitScale = 1 | 1000;
 
@@ -197,7 +197,8 @@ export type PreflightResult = {
   hasReliableTextLayer: boolean;
   parsedPages: PageTextLayer[];
   diagnostics?: AnnualReportDocumentDiagnostics;
-  recommendedRouteHint?: "OCR" | "DIGITAL" | "UNKNOWN";
+  recommendedRouteHint?: AnnualReportDocumentDiagnostics["recommendedRouteHint"];
+  structuredDocument?: AnnualReportDocument;
 };
 
 export type AnnualReportOcrRegionFailure = {

@@ -62,6 +62,7 @@ export async function preflightAnnualReportDocument(pdfBuffer: Buffer): Promise<
       parsedPages,
       diagnostics: structuredDocument.diagnostics,
       recommendedRouteHint: structuredDocument.diagnostics.recommendedRouteHint,
+      structuredDocument,
     };
   } finally {
     await parser.destroy();

@@ -191,11 +191,15 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       unitScale: String(f.unitScale),
     })),
   );
+  const boardProposal = payload?.boardReportProposal as Record<string, unknown> | null | undefined;
+  const auditorProposal = payload?.auditorReportProposal as Record<string, unknown> | null | undefined;
   const [boardReportText, setBoardReportText] = useState(
-    (payload?.boardReportText as string | undefined) ?? "",
+    (payload?.boardReportText as string | undefined) ??
+      (typeof boardProposal?.fullText === "string" ? boardProposal.fullText : "") ?? "",
   );
   const [auditorReportText, setAuditorReportText] = useState(
-    (payload?.auditorReportText as string | undefined) ?? "",
+    (payload?.auditorReportText as string | undefined) ??
+      (typeof auditorProposal?.fullText === "string" ? auditorProposal.fullText : "") ?? "",
   );
   const [auditorOpinion, setAuditorOpinion] = useState<string>(
     (payload as Record<string, unknown> | null)?.auditorOpinion != null &&
@@ -445,6 +449,9 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
             </p>
           )}
         </div>
+
+        {/* Document structure summary */}
+        <DocumentSummaryPanel payload={payload} />
 
         {/* Validation issues */}
         {issues.length > 0 && (
@@ -802,6 +809,101 @@ function FactTable({ facts }: { facts: Fact[] }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+type DocumentSection = {
+  kind: string;
+  startPage: number;
+  endPage: number;
+  confidenceScore: number;
+  pageCount: number;
+};
+
+type DocumentDiagnostics = {
+  qualityRisk?: string;
+  recommendedRouteHint?: string;
+  parserRiskReasons?: string[];
+  extractionWarnings?: string[];
+  textLayerDensityScore?: number;
+};
+
+function DocumentSummaryPanel({ payload }: { payload: Record<string, unknown> | null }) {
+  const diagnostics = payload?.documentDiagnostics as DocumentDiagnostics | null | undefined;
+  const sections = payload?.documentSections as DocumentSection[] | null | undefined;
+
+  if (!diagnostics && (!sections || sections.length === 0)) return null;
+
+  const riskColor =
+    diagnostics?.qualityRisk === "HIGH"
+      ? "text-red-600"
+      : diagnostics?.qualityRisk === "MEDIUM"
+        ? "text-amber-600"
+        : "text-emerald-600";
+
+  return (
+    <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+        Dokumentstruktur
+      </h2>
+
+      {diagnostics && (
+        <div className="mb-3 space-y-1 text-xs">
+          {diagnostics.qualityRisk && (
+            <div>
+              <span className="text-slate-500">Risiko: </span>
+              <span className={`font-semibold ${riskColor}`}>{diagnostics.qualityRisk}</span>
+              {diagnostics.recommendedRouteHint && (
+                <span className="ml-2 font-mono text-slate-400">
+                  ({diagnostics.recommendedRouteHint})
+                </span>
+              )}
+            </div>
+          )}
+          {diagnostics.textLayerDensityScore != null && (
+            <div>
+              <span className="text-slate-500">Teksttetthet: </span>
+              <span className="font-mono text-slate-600">
+                {(diagnostics.textLayerDensityScore * 100).toFixed(0)}%
+              </span>
+            </div>
+          )}
+          {diagnostics.parserRiskReasons && diagnostics.parserRiskReasons.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-red-600">
+              {diagnostics.parserRiskReasons.map((r, i) => (
+                <li key={i}>⚠ {r}</li>
+              ))}
+            </ul>
+          )}
+          {diagnostics.extractionWarnings && diagnostics.extractionWarnings.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-amber-600">
+              {diagnostics.extractionWarnings.map((w, i) => (
+                <li key={i}>ℹ {w}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {sections && sections.length > 0 && (
+        <div>
+          <p className="mb-1 text-xs font-medium text-slate-400">Seksjoner</p>
+          <ul className="space-y-0.5">
+            {sections.map((s, i) => (
+              <li key={i} className="flex items-center gap-2 text-xs">
+                <span className="w-36 font-mono text-slate-600">{s.kind}</span>
+                <span className="text-slate-400">
+                  s.{s.startPage}–{s.endPage}
+                </span>
+                <span className="text-slate-400">
+                  ({(s.confidenceScore * 100).toFixed(0)}%)
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 

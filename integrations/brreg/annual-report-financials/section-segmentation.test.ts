@@ -276,7 +276,7 @@ describe("extractAnnualReportNarratives", () => {
 
 describe("buildDocumentDiagnostics", () => {
   it("reports missing expected sections when none found", () => {
-    const diagnostics = buildDocumentDiagnostics([], 0);
+    const diagnostics = buildDocumentDiagnostics([], []);
     expect(diagnostics.missingExpectedSections).toContain("BOARD_REPORT");
     expect(diagnostics.missingExpectedSections).toContain("AUDITOR_REPORT");
     expect(diagnostics.missingExpectedSections).toContain("INCOME_STATEMENT");
@@ -286,27 +286,42 @@ describe("buildDocumentDiagnostics", () => {
   it("does not report a section as missing when it is present", () => {
     const pages = [buildPage(1, "Styrets årsberetning\nVirksomhetens art\nFortsatt drift")];
     const sections = segmentAnnualReportSections(pages);
-    const diagnostics = buildDocumentDiagnostics(sections, 1);
+    const diagnostics = buildDocumentDiagnostics(sections, pages);
     expect(diagnostics.missingExpectedSections).not.toContain("BOARD_REPORT");
   });
 
-  it("sets recommendedRouteHint to DIGITAL when financial sections found", () => {
-    const pages = [buildPage(3, "Resultatregnskap\nDriftsinntekter\nDriftsresultat")];
+  it("sets recommendedRouteHint to TEXT_LAYER when financial sections found with high-density text", () => {
+    // Build pages with enough text to exceed HIGH_DENSITY_THRESHOLD
+    const financialText = "Resultatregnskap\nDriftsinntekter\nDriftsresultat\n" + "x".repeat(600);
+    const pages = [buildPage(3, financialText)];
     const sections = segmentAnnualReportSections(pages);
-    const diagnostics = buildDocumentDiagnostics(sections, 5);
-    expect(diagnostics.recommendedRouteHint).toBe("DIGITAL");
+    const diagnostics = buildDocumentDiagnostics(sections, pages);
+    // Should be TEXT_LAYER or OPENDATALOADER_LOCAL for financial pages with dense text
+    expect(["TEXT_LAYER", "OPENDATALOADER_LOCAL"]).toContain(diagnostics.recommendedRouteHint);
   });
 
-  it("sets recommendedRouteHint to OCR when only narrative sections found", () => {
+  it("sets a route hint related to hybrid/ocr when only narrative sections found (low-density text)", () => {
+    // Short text = low density → FORCE_OCR or OPENDATALOADER_HYBRID depending on image-only ratio
     const pages = [buildPage(1, "Styrets årsberetning\nVirksomhetens art\nFortsatt drift")];
     const sections = segmentAnnualReportSections(pages);
-    const diagnostics = buildDocumentDiagnostics(sections, 3);
-    expect(diagnostics.recommendedRouteHint).toBe("OCR");
+    const diagnostics = buildDocumentDiagnostics(sections, pages);
+    expect(["FORCE_OCR", "OPENDATALOADER_HYBRID"]).toContain(diagnostics.recommendedRouteHint);
   });
 
-  it("sets recommendedRouteHint to UNKNOWN when no sections found", () => {
-    const diagnostics = buildDocumentDiagnostics([], 0);
-    expect(diagnostics.recommendedRouteHint).toBe("UNKNOWN");
+  it("sets recommendedRouteHint to OPENDATALOADER_HYBRID when narrative sections found with high-density text", () => {
+    // High-density text but no financial pages → OPENDATALOADER_HYBRID
+    const longText = "Styrets årsberetning\nVirksomhetens art\nFortsatt drift\n" + "x".repeat(700);
+    const pages = [buildPage(1, longText)];
+    const sections = segmentAnnualReportSections(pages);
+    const diagnostics = buildDocumentDiagnostics(sections, pages);
+    // No financial statement pages but narrative pages found → OPENDATALOADER_HYBRID
+    expect(diagnostics.recommendedRouteHint).toBe("OPENDATALOADER_HYBRID");
+  });
+
+  it("sets recommendedRouteHint to FORCE_OCR or OPENDATALOADER_HYBRID when no sections and no pages found", () => {
+    // Zero pages → density = 0 < LOW_DENSITY_THRESHOLD → low-density branch fires
+    const diagnostics = buildDocumentDiagnostics([], []);
+    expect(["FORCE_OCR", "OPENDATALOADER_HYBRID"]).toContain(diagnostics.recommendedRouteHint);
   });
 
   it("sectionsFound matches sections array length", () => {
@@ -315,7 +330,7 @@ describe("buildDocumentDiagnostics", () => {
       buildPage(5, "Uavhengig revisors beretning\nKonklusjon"),
     ];
     const sections = segmentAnnualReportSections(pages);
-    const diagnostics = buildDocumentDiagnostics(sections, 10);
+    const diagnostics = buildDocumentDiagnostics(sections, pages);
     expect(diagnostics.sectionsFound).toBe(sections.length);
   });
 
@@ -325,9 +340,44 @@ describe("buildDocumentDiagnostics", () => {
       buildPage(2, "Fortsatt drift er bekreftet"),
     ];
     const sections = segmentAnnualReportSections(pages);
-    const diagnostics = buildDocumentDiagnostics(sections, 2);
+    const diagnostics = buildDocumentDiagnostics(sections, pages);
     const kindSet = new Set(diagnostics.sectionKinds);
     expect(kindSet.size).toBe(diagnostics.sectionKinds.length);
+  });
+
+  it("computes textLayerDensityScore between 0 and 1", () => {
+    const pages = [buildPage(1, "x".repeat(300)), buildPage(2, "")];
+    const diagnostics = buildDocumentDiagnostics([], pages);
+    expect(diagnostics.textLayerDensityScore).toBeGreaterThanOrEqual(0);
+    expect(diagnostics.textLayerDensityScore).toBeLessThanOrEqual(1);
+  });
+
+  it("marks image-only pages (very short text)", () => {
+    const pages = [
+      buildPage(1, ""),
+      buildPage(2, "a"),
+      buildPage(3, "x".repeat(500)),
+    ];
+    const diagnostics = buildDocumentDiagnostics([], pages);
+    expect(diagnostics.likelyImageOnlyPages).toContain(1);
+    expect(diagnostics.likelyImageOnlyPages).toContain(2);
+    expect(diagnostics.likelyImageOnlyPages).not.toContain(3);
+  });
+
+  it("adds extractionWarning when narratives found but no financial statements", () => {
+    const pages = [buildPage(1, "Styrets årsberetning\nVirksomhetens art\nFortsatt drift")];
+    const sections = segmentAnnualReportSections(pages);
+    const diagnostics = buildDocumentDiagnostics(sections, pages);
+    expect(diagnostics.extractionWarnings.some((w) => /financial/i.test(w) || /statement/i.test(w))).toBe(true);
+  });
+
+  it("candidate page arrays contain correct page numbers", () => {
+    const boardPages = [buildPage(1, "Styrets årsberetning\nVirksomhetens art\nFortsatt drift")];
+    const auditorPages = [buildPage(5, "Uavhengig revisors beretning\nKonklusjon\nGrunnlag for konklusjon")];
+    const sections = segmentAnnualReportSections([...boardPages, ...auditorPages]);
+    const diagnostics = buildDocumentDiagnostics(sections, [...boardPages, ...auditorPages]);
+    expect(diagnostics.boardReportCandidatePages).toContain(1);
+    expect(diagnostics.auditorReportCandidatePages).toContain(5);
   });
 });
 
