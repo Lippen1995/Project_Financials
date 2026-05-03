@@ -5,6 +5,7 @@ import {
   type PdfDecisionShadowOutcome,
 } from "./annual-report-pdf-decision-shadow-evaluation";
 import type { AnnualReportDecisionShadowRow } from "@/server/persistence/annual-report-decision-shadow-repository";
+import type { PdfDecisionGoldSetItemRecord } from "@/server/persistence/pdf-decision-gold-set-repository";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -68,6 +69,31 @@ function makeArtifactReader(
   return async (key) => artifacts[key] ?? null;
 }
 
+function makeGoldSetItem(
+  overrides: Partial<PdfDecisionGoldSetItemRecord> = {},
+): PdfDecisionGoldSetItemRecord {
+  return {
+    id: "gold-1",
+    filingId: "filing-1",
+    extractionRunId: null,
+    orgNumber: "928846466",
+    fiscalYear: 2024,
+    status: "CANDIDATE",
+    reason: "REPRESENTATIVE_SAMPLE",
+    note: null,
+    decisionRoute: "TEXT_LAYER",
+    riskLevel: "LOW",
+    confidenceScore: 0.85,
+    outcome: "PUBLISHED",
+    source: "ADMIN",
+    createdByUserId: null,
+    updatedByUserId: null,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -85,6 +111,10 @@ describe("evaluatePdfDecisionShadow", () => {
     expect(result.metrics.routeDistribution).toEqual({});
     expect(result.metrics.riskDistribution).toEqual({});
     expect(result.metrics.outcomeDistribution).toEqual({});
+    expect(result.metrics.goldSetDistribution).toEqual({});
+    expect(result.metrics.approvedGoldSetCount).toBe(0);
+    expect(result.metrics.candidateGoldSetCount).toBe(0);
+    expect(result.metrics.excludedGoldSetCount).toBe(0);
     expect(result.metrics.candidateGoldSet).toHaveLength(0);
     expect(() => JSON.stringify(result)).not.toThrow();
   });
@@ -571,6 +601,117 @@ describe("evaluatePdfDecisionShadow", () => {
     );
 
     expect(result.metrics.candidateGoldSet.length).toBeLessThanOrEqual(25);
+  });
+
+  it("merges gold-set state onto documents and metrics", async () => {
+    const rows = [
+      makeRow({ filingId: "f-approved", filingStatus: "PUBLISHED" }),
+      makeRow({ filingId: "f-candidate", filingStatus: "PUBLISHED" }),
+      makeRow({ filingId: "f-excluded", filingStatus: "PUBLISHED" }),
+    ];
+
+    const result = await evaluatePdfDecisionShadow(
+      {},
+      {
+        listRows: async () => rows,
+        listGoldSetItems: async (filingIds) => {
+          expect(filingIds).toEqual(["f-approved", "f-candidate", "f-excluded"]);
+          return [
+            makeGoldSetItem({ id: "g1", filingId: "f-approved", status: "APPROVED" }),
+            makeGoldSetItem({
+              id: "g2",
+              filingId: "f-candidate",
+              status: "CANDIDATE",
+              reason: "LOW_RISK_FAILED",
+              note: "Check manually",
+            }),
+            makeGoldSetItem({ id: "g3", filingId: "f-excluded", status: "EXCLUDED" }),
+          ];
+        },
+      },
+    );
+
+    expect(result.documents.find((doc) => doc.filingId === "f-approved")?.goldSet).toMatchObject({
+      status: "APPROVED",
+      reason: "REPRESENTATIVE_SAMPLE",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    });
+    expect(result.documents.find((doc) => doc.filingId === "f-candidate")?.goldSet).toMatchObject({
+      status: "CANDIDATE",
+      reason: "LOW_RISK_FAILED",
+      note: "Check manually",
+    });
+    expect(result.metrics.goldSetDistribution).toEqual({
+      APPROVED: 1,
+      CANDIDATE: 1,
+      EXCLUDED: 1,
+    });
+    expect(result.metrics.approvedGoldSetCount).toBe(1);
+    expect(result.metrics.candidateGoldSetCount).toBe(1);
+    expect(result.metrics.excludedGoldSetCount).toBe(1);
+  });
+
+  it("marks curated candidate rows and excludes explicitly excluded documents", async () => {
+    const rows = [
+      makeRow({
+        filingId: "f-curated-candidate",
+        filingStatus: "MANUAL_REVIEW",
+        latestReview: {
+          id: "r1",
+          extractionRunId: null,
+          status: "PENDING_REVIEW",
+          blockingRuleCodes: [],
+          qualityScore: null,
+          decisions: [],
+        },
+        pdfDecisionArtifacts: [{ storageKey: "k1", metadata: null }],
+      }),
+      makeRow({
+        filingId: "f-excluded-candidate",
+        filingStatus: "MANUAL_REVIEW",
+        latestReview: {
+          id: "r2",
+          extractionRunId: null,
+          status: "PENDING_REVIEW",
+          blockingRuleCodes: [],
+          qualityScore: null,
+          decisions: [],
+        },
+        pdfDecisionArtifacts: [{ storageKey: "k2", metadata: null }],
+      }),
+    ];
+    const artifacts = {
+      k1: makeDecisionArtifactBuffer({ riskLevel: "LOW", confidenceScore: 0.9 }),
+      k2: makeDecisionArtifactBuffer({ riskLevel: "LOW", confidenceScore: 0.9 }),
+    };
+
+    const result = await evaluatePdfDecisionShadow(
+      {},
+      {
+        listRows: async () => rows,
+        readArtifact: makeArtifactReader(artifacts),
+        listGoldSetItems: async () => [
+          makeGoldSetItem({
+            filingId: "f-curated-candidate",
+            status: "CANDIDATE",
+            reason: "LOW_RISK_FAILED",
+          }),
+          makeGoldSetItem({
+            filingId: "f-excluded-candidate",
+            status: "EXCLUDED",
+            reason: "LOW_RISK_FAILED",
+          }),
+        ],
+      },
+    );
+
+    const candidate = result.metrics.candidateGoldSet.find(
+      (item) => item.filingId === "f-curated-candidate",
+    );
+    expect(candidate?.goldSet).toMatchObject({ status: "CANDIDATE" });
+    expect(
+      result.metrics.candidateGoldSet.some((item) => item.filingId === "f-excluded-candidate"),
+    ).toBe(false);
   });
 
   it("handles malformed artifact gracefully", async () => {
