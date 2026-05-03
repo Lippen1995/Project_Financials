@@ -263,8 +263,11 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       if (!data.published) {
         setValidationResult({
           passed: false,
+          hasBlockingErrors: true,
+          validationScore: 0,
           blockingIssues: (data.issues ?? []) as ValidationResult["blockingIssues"],
           warnings: [],
+          issues: (data.issues ?? []) as ValidationResult["issues"],
           reviewedFactCount: reviewedFacts.length,
         });
         throw new Error("Validering feilet — se issues nedenfor.");
@@ -915,8 +918,12 @@ function DocumentSummaryPanel({ payload }: { payload: Record<string, unknown> | 
 // ---------------------------------------------------------------------------
 
 type PdfDecision = {
+  version?: string | null;
   route?: string | null;
   risk?: string | null;
+  riskLevel?: string | null;
+  confidenceScore?: number | null;
+  reasons?: string[] | null;
   financialFacts?: boolean | null;
   manualReviewRequired?: boolean | null;
   manualReviewReasons?: string[] | null;
@@ -929,6 +936,25 @@ type PdfDecision = {
     includePageCount?: number | null;
     excludePageCount?: number | null;
     reasons?: string[] | null;
+  } | null;
+  enabledExtractors?: {
+    financialFacts?: boolean | null;
+    boardReport?: boolean | null;
+    auditorReport?: boolean | null;
+    notes?: boolean | null;
+  } | null;
+  pageHints?: {
+    hasReliableHints?: boolean | null;
+    includePages?: number[] | null;
+    excludePages?: number[] | null;
+    preferredIncomeStatementPages?: number[] | null;
+    preferredBalancePages?: number[] | null;
+    notePages?: number[] | null;
+    reasons?: string[] | null;
+  } | null;
+  diagnostics?: {
+    detectedSections?: Array<{ kind?: string | null }> | null;
+    missingCoreSections?: string[] | null;
   } | null;
   preflightSignals?: {
     hasTextLayer?: boolean | null;
@@ -948,10 +974,52 @@ function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null
 
   if (!decision) return null;
 
+  decision.risk = decision.risk ?? decision.riskLevel ?? null;
+  decision.financialFacts =
+    decision.financialFacts ?? decision.enabledExtractors?.financialFacts ?? null;
+  decision.manualReviewRequired =
+    decision.manualReviewRequired ??
+    (decision.route === "MANUAL_REVIEW" || Boolean(decision.manualReviewReasons?.length));
+
+  const riskLevel = decision.riskLevel ?? decision.risk ?? null;
+  const confidence =
+    typeof decision.confidenceScore === "number"
+      ? `${(decision.confidenceScore * 100).toFixed(0)}%`
+      : "â€”";
+  const financialFactsEnabled =
+    decision.enabledExtractors?.financialFacts ?? decision.financialFacts ?? null;
+  const sectionKinds =
+    decision.preflightSignals?.sectionKinds ??
+    decision.diagnostics?.detectedSections
+      ?.map((section) => section.kind)
+      .filter((kind): kind is string => typeof kind === "string") ??
+    [];
+  const hints = decision.pageHints
+    ? {
+        hasReliableHints: decision.pageHints.hasReliableHints,
+        includePageCount: decision.pageHints.includePages?.length ?? null,
+        excludePageCount: decision.pageHints.excludePages?.length ?? null,
+        incomePageCount: decision.pageHints.preferredIncomeStatementPages?.length ?? null,
+        balancePageCount: decision.pageHints.preferredBalancePages?.length ?? null,
+        notePageCount: decision.pageHints.notePages?.length ?? null,
+        reasons: decision.pageHints.reasons ?? [],
+      }
+    : decision.pageHintSummary
+      ? {
+          hasReliableHints: decision.pageHintSummary.hasReliableHints,
+          includePageCount: decision.pageHintSummary.includePageCount ?? null,
+          excludePageCount: decision.pageHintSummary.excludePageCount ?? null,
+          incomePageCount: null,
+          balancePageCount: null,
+          notePageCount: null,
+          reasons: decision.pageHintSummary.reasons ?? [],
+        }
+      : null;
+
   const riskColor =
-    decision.risk === "HIGH"
+    riskLevel === "HIGH"
       ? "text-red-600 font-semibold"
-      : decision.risk === "MEDIUM"
+      : riskLevel === "MEDIUM"
         ? "text-amber-600 font-semibold"
         : "text-emerald-600 font-semibold";
 
@@ -963,7 +1031,6 @@ function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null
         : "text-emerald-600 font-semibold";
 
   const signals = decision.preflightSignals;
-  const hints = decision.pageHintSummary;
 
   return (
     <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
@@ -974,6 +1041,9 @@ function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null
       <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         <span className="text-slate-500">Rute</span>
         <span className={routeColor}>{decision.route ?? "—"}</span>
+
+        <span className="text-slate-500">Confidence</span>
+        <span className="font-mono text-slate-600">{confidence}</span>
 
         <span className="text-slate-500">Risiko</span>
         <span className={riskColor}>{decision.risk ?? "—"}</span>
@@ -1024,6 +1094,35 @@ function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null
         )}
       </div>
 
+      {decision.enabledExtractors && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-slate-400">Aktive ekstraktorer</p>
+          <p className="font-mono text-xs text-slate-500">
+            {[
+              decision.enabledExtractors.financialFacts ? "financialFacts" : null,
+              decision.enabledExtractors.boardReport ? "boardReport" : null,
+              decision.enabledExtractors.auditorReport ? "auditorReport" : null,
+              decision.enabledExtractors.notes ? "notes" : null,
+            ]
+              .filter(Boolean)
+              .join(", ") || "Ingen"}
+          </p>
+        </div>
+      )}
+
+      {decision.reasons && decision.reasons.length > 0 && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-slate-400">Rute- og risikogrunnlag</p>
+          <ul className="space-y-0.5">
+            {decision.reasons.map((r, i) => (
+              <li key={i} className="text-xs text-slate-600">
+                {r}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {decision.manualReviewReasons && decision.manualReviewReasons.length > 0 && (
         <div className="mb-2">
           <p className="mb-1 text-xs font-medium text-red-500">Grunner til manuell gjennomgang</p>
@@ -1057,21 +1156,44 @@ function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null
                 <span className="font-mono text-slate-600">{hints.excludePageCount}</span>
               </>
             )}
+            {hints.incomePageCount != null && (
+              <>
+                <span className="text-slate-500">Resultat</span>
+                <span className="font-mono text-slate-600">{hints.incomePageCount}</span>
+              </>
+            )}
+            {hints.balancePageCount != null && (
+              <>
+                <span className="text-slate-500">Balanse</span>
+                <span className="font-mono text-slate-600">{hints.balancePageCount}</span>
+              </>
+            )}
+            {hints.notePageCount != null && (
+              <>
+                <span className="text-slate-500">Noter</span>
+                <span className="font-mono text-slate-600">{hints.notePageCount}</span>
+              </>
+            )}
           </div>
+          {hints.reasons.length > 0 && (
+            <p className="mt-1 text-xs text-slate-500">{hints.reasons.join(" | ")}</p>
+          )}
         </div>
       )}
 
-      {signals?.sectionKinds && signals.sectionKinds.length > 0 && (
+      {sectionKinds.length > 0 && (
         <div className="mb-2">
           <p className="mb-1 text-xs font-medium text-slate-400">Seksjonstyper</p>
           <p className="font-mono text-xs text-slate-500">
-            {signals.sectionKinds.join(", ")}
+            {sectionKinds.join(", ")}
           </p>
         </div>
       )}
 
-      {decision.engineVersion && (
-        <p className="mt-2 font-mono text-[10px] text-slate-300">{decision.engineVersion}</p>
+      {(decision.version || decision.engineVersion) && (
+        <p className="mt-2 font-mono text-[10px] text-slate-300">
+          {decision.version ?? decision.engineVersion}
+        </p>
       )}
     </div>
   );

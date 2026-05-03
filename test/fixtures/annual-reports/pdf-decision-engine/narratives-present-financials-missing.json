@@ -1,0 +1,58 @@
+{
+  "name": "narratives present but financial sections missing",
+  "input": {
+    "orgNumber": "928846466",
+    "fiscalYear": 2024,
+    "preflight": {
+      "pageCount": 3,
+      "hasTextLayer": true,
+      "hasReliableTextLayer": true,
+      "parsedPages": []
+    },
+    "structuredDocument": {
+      "pages": [
+        { "pageNumber": 1, "rawText": "Styrets aarsberetning", "normalizedText": "styrets aarsberetning", "charCount": 180 },
+        { "pageNumber": 2, "rawText": "Uavhengig revisors beretning", "normalizedText": "uavhengig revisors beretning", "charCount": 180 }
+      ],
+      "sections": [
+        { "kind": "BOARD_REPORT", "startPage": 1, "endPage": 1, "pages": [{ "pageNumber": 1, "rawText": "Styrets aarsberetning", "normalizedText": "styrets aarsberetning", "charCount": 180 }], "confidenceScore": 0.86, "matchedSignals": [] },
+        { "kind": "AUDITOR_REPORT", "startPage": 2, "endPage": 2, "pages": [{ "pageNumber": 2, "rawText": "Uavhengig revisors beretning", "normalizedText": "uavhengig revisors beretning", "charCount": 180 }], "confidenceScore": 0.84, "matchedSignals": [] }
+      ],
+      "narratives": [],
+      "diagnostics": {
+        "pageCount": 3,
+        "sectionsFound": 2,
+        "sectionKinds": ["BOARD_REPORT", "AUDITOR_REPORT"],
+        "missingExpectedSections": ["INCOME_STATEMENT", "BALANCE_SHEET"],
+        "recommendedRouteHint": "MANUAL_REVIEW",
+        "textLayerDensityScore": 0.85,
+        "likelyImageOnlyPages": [],
+        "financialStatementPageCount": 0,
+        "financialStatementCandidatePages": [],
+        "narrativeCandidatePages": [1, 2],
+        "boardReportCandidatePages": [1],
+        "auditorReportCandidatePages": [2],
+        "notesCandidatePages": [],
+        "qualityRisk": "LOW",
+        "parserRiskReasons": [],
+        "extractionWarnings": ["Narratives detected but no financial pages found"]
+      }
+    },
+    "pageHints": {
+      "includePages": [],
+      "excludePages": [1, 2],
+      "preferredIncomeStatementPages": [],
+      "preferredBalancePages": [],
+      "notePages": [],
+      "hasReliableHints": false,
+      "reasons": ["Skipped financial page filtering because no reliable financial statement pages were detected"]
+    },
+    "openDataLoaderConfig": { "enabled": false, "mode": "local" }
+  },
+  "expected": {
+    "route": "MANUAL_REVIEW",
+    "riskLevel": "HIGH",
+    "manualReviewReasonIncludes": ["board/auditor narratives", "Expected financial sections missing"],
+    "financialFactsEnabled": false
+  }
+}

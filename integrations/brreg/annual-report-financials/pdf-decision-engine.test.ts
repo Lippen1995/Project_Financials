@@ -1,311 +1,238 @@
-import { describe, it, expect } from "vitest";
-import { runPdfDecisionEngine, PDF_DECISION_ENGINE_VERSION } from "./pdf-decision-engine";
-import type { PreflightResult } from "./types";
+import { describe, expect, it } from "vitest";
+
+import {
+  buildPdfDecisionArtifactPayload,
+  PDF_DECISION_ENGINE_VERSION,
+  runPdfDecisionEngine,
+} from "./pdf-decision-engine";
 import type { FinancialExtractionPageHints } from "./financial-extraction-page-hints";
-import type { OpenDataLoaderResolvedConfig } from "@/server/document-understanding/opendataloader-types";
+import type { AnnualReportDocument, SectionKind } from "./document-model";
+import type { PreflightResult } from "./types";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeMinimalPreflight(overrides?: Partial<PreflightResult>): PreflightResult {
+function makePage(pageNumber: number, rawText = "text") {
   return {
-    pageCount: 10,
-    hasTextLayer: true,
-    hasReliableTextLayer: true,
-    parsedPages: [],
-    ...overrides,
+    pageNumber,
+    rawText,
+    normalizedText: rawText.toLowerCase(),
+    charCount: rawText.length,
   };
 }
 
-function makePreflightWithDocument(
-  sectionKinds: string[],
+function makeDocument(
+  sectionKinds: SectionKind[],
   qualityRisk: "LOW" | "MEDIUM" | "HIGH" = "LOW",
-  overrides?: Partial<PreflightResult>,
-): PreflightResult {
-  const sections = sectionKinds.map((kind, idx) => ({
-    kind: kind as any,
-    startPage: idx * 2 + 1,
-    endPage: idx * 2 + 2,
-    pages: [
-      { pageNumber: idx * 2 + 1, rawText: "text", normalizedText: "text", charCount: 100 },
-      { pageNumber: idx * 2 + 2, rawText: "text", normalizedText: "text", charCount: 100 },
-    ],
+): AnnualReportDocument {
+  const pages = sectionKinds.map((kind, index) => makePage(index + 1, kind));
+  const sections = sectionKinds.map((kind, index) => ({
+    kind,
+    startPage: index + 1,
+    endPage: index + 1,
+    pages: [pages[index]],
     confidenceScore: 0.9,
     matchedSignals: [],
     stopReason: null,
   }));
 
-  const diagnostics = {
-    pageCount: sectionKinds.length * 2 + 2,
-    sectionsFound: sectionKinds.length,
-    sectionKinds: sectionKinds as any[],
-    missingExpectedSections: [],
-    recommendedRouteHint: "TEXT_LAYER" as const,
-    textLayerDensityScore: 0.9,
-    likelyImageOnlyPages: [],
-    financialStatementPageCount: sectionKinds.filter((k) =>
-      ["INCOME_STATEMENT", "BALANCE", "BALANCE_SHEET", "CASH_FLOW"].includes(k),
-    ).length * 2,
-    financialStatementCandidatePages: [],
-    narrativeCandidatePages: [],
-    boardReportCandidatePages: [],
-    auditorReportCandidatePages: [],
-    notesCandidatePages: [],
-    qualityRisk,
-    parserRiskReasons: [],
-    extractionWarnings: [],
-  };
-
   return {
-    pageCount: sectionKinds.length * 2 + 2,
+    pages,
+    sections,
+    narratives: [],
+    diagnostics: {
+      pageCount: pages.length,
+      sectionsFound: sections.length,
+      sectionKinds,
+      missingExpectedSections:
+        sectionKinds.includes("INCOME_STATEMENT") &&
+        sectionKinds.some((kind) => ["BALANCE", "BALANCE_SHEET"].includes(kind))
+          ? []
+          : ["INCOME_STATEMENT", "BALANCE_SHEET"],
+      recommendedRouteHint: qualityRisk === "HIGH" ? "OPENDATALOADER_HYBRID" : "TEXT_LAYER",
+      textLayerDensityScore: qualityRisk === "HIGH" ? 0.2 : 0.9,
+      likelyImageOnlyPages: qualityRisk === "HIGH" ? [1] : [],
+      financialStatementPageCount: sectionKinds.filter((kind) =>
+        ["INCOME_STATEMENT", "BALANCE", "BALANCE_SHEET"].includes(kind),
+      ).length,
+      financialStatementCandidatePages: [],
+      narrativeCandidatePages: [],
+      boardReportCandidatePages: sectionKinds.includes("BOARD_REPORT") ? [1] : [],
+      auditorReportCandidatePages: sectionKinds.includes("AUDITOR_REPORT") ? [2] : [],
+      notesCandidatePages: sectionKinds.includes("NOTES") ? [3] : [],
+      qualityRisk,
+      parserRiskReasons: qualityRisk === "HIGH" ? ["Weak text layer"] : [],
+      extractionWarnings: [],
+    },
+  };
+}
+
+function makePreflight(
+  doc: AnnualReportDocument | null,
+  overrides?: Partial<PreflightResult>,
+): PreflightResult {
+  return {
+    pageCount: doc?.pages.length ?? 0,
     hasTextLayer: true,
     hasReliableTextLayer: true,
     parsedPages: [],
-    // Mirror the real preflight: top-level diagnostics mirrors structuredDocument.diagnostics
-    diagnostics,
-    structuredDocument: {
-      pages: [],
-      sections,
-      narratives: [],
-      diagnostics,
-    },
+    diagnostics: doc?.diagnostics,
+    structuredDocument: doc ?? undefined,
     ...overrides,
   };
 }
 
-function makePageHints(overrides?: Partial<FinancialExtractionPageHints>): FinancialExtractionPageHints {
+function makePageHints(
+  overrides?: Partial<FinancialExtractionPageHints>,
+): FinancialExtractionPageHints {
   return {
-    includePages: [1, 2, 3],
-    excludePages: new Set<number>([4, 5]),
-    preferredIncomeStatementPages: [1, 2],
-    preferredBalancePages: [3],
+    includePages: [1, 2],
+    excludePages: new Set<number>(),
+    preferredIncomeStatementPages: [1],
+    preferredBalancePages: [2],
     notePages: [],
     hasReliableHints: true,
-    reasons: ["3 financial statement page(s) detected"],
+    reasons: ["2 financial statement page(s) detected"],
     ...overrides,
   };
 }
 
-function makeOdlConfig(
-  enabled: boolean,
-  mode: OpenDataLoaderResolvedConfig["mode"] = "auto",
-): Pick<OpenDataLoaderResolvedConfig, "enabled" | "mode"> {
-  return { enabled, mode };
-}
-
-// ---------------------------------------------------------------------------
-// Test suite
-// ---------------------------------------------------------------------------
-
 describe("runPdfDecisionEngine", () => {
-  // Test 1: Reliable text + financial sections → TEXT_LAYER, LOW risk, financialFacts=true
-  it("returns TEXT_LAYER route with LOW risk for reliable text layer and financial sections", () => {
-    const preflight = makePreflightWithDocument(
-      ["INCOME_STATEMENT", "BALANCE_SHEET"],
-      "LOW",
-    );
-    const result = runPdfDecisionEngine({
-      preflight,
+  it("returns low risk and high confidence for reliable text with income and balance", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"]);
+    const decision = runPdfDecisionEngine({
+      preflight: makePreflight(doc),
       pageHints: makePageHints(),
-      odlConfig: makeOdlConfig(false),
+      odlConfig: { enabled: false, mode: "local" },
     });
 
-    expect(result.route).toBe("TEXT_LAYER");
-    expect(result.risk).toBe("LOW");
-    expect(result.financialFacts).toBe(true);
-    expect(result.manualReviewRequired).toBe(false);
-    expect(result.manualReviewReasons).toHaveLength(0);
-    expect(result.engineVersion).toBe(PDF_DECISION_ENGINE_VERSION);
+    expect(decision.version).toBe(PDF_DECISION_ENGINE_VERSION);
+    expect(decision.route).toBe("TEXT_LAYER");
+    expect(decision.riskLevel).toBe("LOW");
+    expect(decision.confidenceScore).toBeGreaterThan(0.85);
+    expect(decision.reasons.length).toBeGreaterThan(0);
+    expect(decision.enabledExtractors.financialFacts).toBe(true);
+    expect(decision.enabledExtractors.boardReport).toBe(false);
+    expect(decision.pageHints.includePages).toEqual([1, 2]);
+    expect(JSON.stringify(decision)).toContain("pdf-decision-engine-v1");
   });
 
-  // Test 2: Unreliable text + HIGH risk + ODL enabled → OPENDATALOADER_HYBRID, HIGH risk
-  it("returns OPENDATALOADER_HYBRID route with HIGH risk for unreliable text and ODL enabled", () => {
-    const preflight = makePreflightWithDocument(
-      ["INCOME_STATEMENT", "BALANCE_SHEET"],
-      "HIGH",
-      { hasTextLayer: false, hasReliableTextLayer: false },
-    );
-    const result = runPdfDecisionEngine({
-      preflight,
+  it("routes high-risk unreliable text to OpenDataLoader hybrid when enabled", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"], "HIGH");
+    const decision = runPdfDecisionEngine({
+      preflight: makePreflight(doc, { hasTextLayer: false, hasReliableTextLayer: false }),
       pageHints: makePageHints({ hasReliableHints: false }),
-      odlConfig: makeOdlConfig(true, "auto"),
+      odlConfig: { enabled: true, mode: "auto" },
     });
 
-    expect(result.route).toBe("OPENDATALOADER_HYBRID");
-    expect(result.risk).toBe("HIGH");
-    expect(result.odlEnabled).toBe(true);
+    expect(decision.route).toBe("OPENDATALOADER_HYBRID");
+    expect(decision.riskLevel).toBe("HIGH");
+    expect(decision.confidenceScore).toBeGreaterThanOrEqual(0);
+    expect(decision.confidenceScore).toBeLessThanOrEqual(1);
+    expect(decision.manualReviewReasons.some((reason) => reason.includes("High document quality risk"))).toBe(true);
   });
 
-  // Test 3: Unreliable text + HIGH risk + ODL disabled → FORCE_OCR (no financial facts → MANUAL_REVIEW)
-  it("returns MANUAL_REVIEW for unreliable text, ODL disabled, and no financial sections", () => {
-    const preflight = makePreflightWithDocument(
-      [],
-      "HIGH",
-      { hasTextLayer: false, hasReliableTextLayer: false },
-    );
-    const result = runPdfDecisionEngine({
-      preflight,
-      odlConfig: makeOdlConfig(false),
+  it("routes unreliable text to OCR when OpenDataLoader is disabled and financial sections exist", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"], "MEDIUM");
+    const decision = runPdfDecisionEngine({
+      preflight: makePreflight(doc, { hasTextLayer: false, hasReliableTextLayer: false }),
+      odlConfig: { enabled: false, mode: "local" },
     });
 
-    // No financial sections → manual review required → route = MANUAL_REVIEW
-    expect(result.route).toBe("MANUAL_REVIEW");
-    expect(result.manualReviewRequired).toBe(true);
-    expect(result.risk).toBe("HIGH");
+    expect(decision.route).toBe("FORCE_OCR");
+    expect(decision.riskLevel).toBe("HIGH");
+    expect(decision.enabledExtractors.financialFacts).toBe(true);
   });
 
-  it("returns FORCE_OCR for unreliable text, ODL disabled, but has financial sections", () => {
-    const preflight = makePreflightWithDocument(
-      ["INCOME_STATEMENT", "BALANCE_SHEET"],
-      "MEDIUM",
-      { hasTextLayer: false, hasReliableTextLayer: false },
-    );
-    const result = runPdfDecisionEngine({
-      preflight,
-      odlConfig: makeOdlConfig(false),
+  it("adds validation blocking errors to manual review reasons and high risk", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"]);
+    const decision = runPdfDecisionEngine({
+      preflight: makePreflight(doc),
+      pageHints: makePageHints(),
+      validationSummary: {
+        hasBlockingErrors: true,
+        blockingRuleCodes: ["BS_TOTAL_BALANCES"],
+        warningRuleCodes: [],
+        validationScore: 0.3,
+      },
     });
 
-    expect(result.route).toBe("FORCE_OCR");
-    expect(result.manualReviewRequired).toBe(false);
-    expect(result.risk).toBe("HIGH"); // unreliable text → HIGH
+    expect(decision.route).toBe("MANUAL_REVIEW");
+    expect(decision.riskLevel).toBe("HIGH");
+    expect(decision.enabledExtractors.financialFacts).toBe(false);
+    expect(decision.manualReviewReasons.some((reason) => reason.includes("BS_TOTAL_BALANCES"))).toBe(true);
   });
 
-  // Test 4: No financial sections → manualReviewReasons includes financial warning, financialFacts=false
-  it("sets financialFacts=false and includes a manual review reason when no financial sections exist", () => {
-    const preflight = makePreflightWithDocument([], "LOW");
-    const result = runPdfDecisionEngine({
-      preflight,
-      odlConfig: makeOdlConfig(false),
+  it("flags narratives present without financial sections", () => {
+    const doc = makeDocument(["BOARD_REPORT", "AUDITOR_REPORT"]);
+    const decision = runPdfDecisionEngine({
+      preflight: makePreflight(doc),
+      pageHints: makePageHints({
+        includePages: [],
+        preferredIncomeStatementPages: [],
+        preferredBalancePages: [],
+        hasReliableHints: false,
+      }),
     });
 
-    expect(result.financialFacts).toBe(false);
-    expect(result.manualReviewRequired).toBe(true);
+    expect(decision.route).toBe("MANUAL_REVIEW");
+    expect(decision.enabledExtractors.financialFacts).toBe(false);
+    expect(decision.enabledExtractors.boardReport).toBe(true);
+    expect(decision.enabledExtractors.auditorReport).toBe(true);
     expect(
-      result.manualReviewReasons.some((r) => r.includes("financial statement sections")),
+      decision.manualReviewReasons.some((reason) => reason.includes("board/auditor narratives")),
     ).toBe(true);
   });
 
-  // Test 5: Validation blocking errors → manualReviewReasons includes blocking codes, risk HIGH
-  it("includes blocking codes in manualReviewReasons and sets risk=HIGH", () => {
-    const preflight = makePreflightWithDocument(["INCOME_STATEMENT", "BALANCE_SHEET"], "LOW");
-    const result = runPdfDecisionEngine({
-      preflight,
-      odlConfig: makeOdlConfig(false),
-      blockingRuleCodes: ["BALANCE_SHEET_MISMATCH", "SCALE_CONFLICT"],
+  it("handles sparse input without throwing", () => {
+    const decision = runPdfDecisionEngine({
+      preflight: {
+        pageCount: 0,
+        hasTextLayer: false,
+        hasReliableTextLayer: false,
+        parsedPages: [],
+      },
     });
 
-    expect(result.risk).toBe("HIGH");
-    expect(result.manualReviewRequired).toBe(true);
-    expect(result.blockingRuleCodes).toContain("BALANCE_SHEET_MISMATCH");
-    expect(result.blockingRuleCodes).toContain("SCALE_CONFLICT");
-    expect(
-      result.manualReviewReasons.some((r) => r.includes("BALANCE_SHEET_MISMATCH")),
-    ).toBe(true);
+    expect(decision.route).toBe("MANUAL_REVIEW");
+    expect(decision.riskLevel).toBe("HIGH");
+    expect(decision.reasons.length).toBeGreaterThan(0);
+    expect(decision.pageHints.includePages).toEqual([]);
+    expect(decision.diagnostics.detectedSections).toEqual([]);
+    expect(decision.confidenceScore).toBeGreaterThanOrEqual(0);
+    expect(decision.confidenceScore).toBeLessThanOrEqual(1);
   });
 
-  // Test 6: Board/auditor narratives but no financial sections → manual review reason
-  it("flags manual review when only narrative sections exist without financial sections", () => {
-    const preflight = makePreflightWithDocument(["BOARD_REPORT", "AUDITOR_REPORT"], "LOW");
-    const result = runPdfDecisionEngine({
-      preflight,
-      odlConfig: makeOdlConfig(false),
+  it("builds a JSON-safe artifact wrapper", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"]);
+    const decision = runPdfDecisionEngine({
+      preflight: makePreflight(doc),
+      pageHints: makePageHints(),
+    });
+    const payload = buildPdfDecisionArtifactPayload({
+      decision,
+      orgNumber: "928846466",
+      fiscalYear: 2024,
+      filingId: "filing-1",
+      extractionRunId: "run-1",
+      phase: "post_validation",
+      hasPreflight: true,
+      hasStructuredDocument: true,
+      hasPageHints: true,
+      hasValidationSummary: true,
+      openDataLoaderEnabled: false,
     });
 
-    expect(result.financialFacts).toBe(false);
-    expect(result.manualReviewRequired).toBe(true);
-    expect(
-      result.manualReviewReasons.some((r) =>
-        r.includes("board/auditor narratives") || r.includes("financial statement sections"),
-      ),
-    ).toBe(true);
-  });
-
-  // Test 7: Page hints reliable → included in output
-  it("includes reliable page hint summary in output", () => {
-    const preflight = makePreflightWithDocument(["INCOME_STATEMENT", "BALANCE_SHEET"], "LOW");
-    const hints = makePageHints({
-      hasReliableHints: true,
-      includePages: [1, 2, 3, 4],
-      excludePages: new Set<number>([5, 6]),
-      preferredIncomeStatementPages: [1, 2],
-      preferredBalancePages: [3, 4],
+    expect(payload).toMatchObject({
+      version: PDF_DECISION_ENGINE_VERSION,
+      phase: "post_validation",
+      source: "annual-report-financials-service",
+      inputSummary: {
+        orgNumber: "928846466",
+        fiscalYear: 2024,
+        filingId: "filing-1",
+        extractionRunId: "run-1",
+      },
     });
-    const result = runPdfDecisionEngine({
-      preflight,
-      pageHints: hints,
-      odlConfig: makeOdlConfig(false),
-    });
-
-    expect(result.pageHintSummary).not.toBeNull();
-    expect(result.pageHintSummary?.hasReliableHints).toBe(true);
-    expect(result.pageHintSummary?.includePageCount).toBe(4);
-    expect(result.pageHintSummary?.excludePageCount).toBe(2);
-    expect(result.pageHintSummary?.preferredIncomeStatementPageCount).toBe(2);
-    expect(result.pageHintSummary?.preferredBalancePageCount).toBe(2);
-  });
-
-  // Test 8: Sparse / empty input → no throw, returns UNKNOWN or MANUAL_REVIEW
-  it("handles sparse input without throwing and returns a valid result", () => {
-    const preflight: PreflightResult = {
-      pageCount: 0,
-      hasTextLayer: false,
-      hasReliableTextLayer: false,
-      parsedPages: [],
-    };
-
-    let result;
-    expect(() => {
-      result = runPdfDecisionEngine({ preflight });
-    }).not.toThrow();
-
-    expect(result).toBeDefined();
-    expect(result!.engineVersion).toBe(PDF_DECISION_ENGINE_VERSION);
-    // No financial sections → manual review
-    expect(result!.manualReviewRequired).toBe(true);
-    expect(["MANUAL_REVIEW", "FORCE_OCR", "UNKNOWN"]).toContain(result!.route);
-  });
-
-  it("handles completely minimal preflight without structuredDocument", () => {
-    const preflight = makeMinimalPreflight();
-    const result = runPdfDecisionEngine({ preflight });
-
-    expect(result).toBeDefined();
-    expect(result.decidedAt).toBeTruthy();
-    // No document → no financial sections → manual review
-    expect(result.financialFacts).toBe(false);
-    expect(result.manualReviewRequired).toBe(true);
-  });
-
-  it("returns null pageHintSummary when no hints provided", () => {
-    const preflight = makePreflightWithDocument(["INCOME_STATEMENT"], "LOW");
-    const result = runPdfDecisionEngine({ preflight, odlConfig: makeOdlConfig(false) });
-
-    expect(result.pageHintSummary).toBeNull();
-  });
-
-  it("returns OPENDATALOADER_LOCAL when text is reliable and ODL is enabled", () => {
-    const preflight = makePreflightWithDocument(["INCOME_STATEMENT", "BALANCE_SHEET"], "LOW");
-    const result = runPdfDecisionEngine({
-      preflight,
-      odlConfig: makeOdlConfig(true, "local"),
-    });
-
-    expect(result.route).toBe("OPENDATALOADER_LOCAL");
-    expect(result.odlEnabled).toBe(true);
-  });
-
-  it("reflects preflight signals correctly in output", () => {
-    const preflight = makePreflightWithDocument(
-      ["INCOME_STATEMENT", "BALANCE_SHEET", "NOTES"],
-      "MEDIUM",
-    );
-    const result = runPdfDecisionEngine({ preflight, odlConfig: makeOdlConfig(false) });
-
-    expect(result.preflightSignals.hasTextLayer).toBe(true);
-    expect(result.preflightSignals.hasReliableTextLayer).toBe(true);
-    expect(result.preflightSignals.sectionKinds).toContain("INCOME_STATEMENT");
-    expect(result.preflightSignals.sectionKinds).toContain("NOTES");
-    expect(result.preflightSignals.qualityRisk).toBe("MEDIUM");
+    expect(payload.decision).toEqual(decision);
+    expect(() => JSON.stringify(payload)).not.toThrow();
   });
 });
+

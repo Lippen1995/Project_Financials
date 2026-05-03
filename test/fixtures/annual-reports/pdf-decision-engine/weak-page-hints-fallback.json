@@ -1,0 +1,57 @@
+{
+  "name": "weak page hints with conservative text fallback",
+  "input": {
+    "orgNumber": "928846466",
+    "fiscalYear": 2024,
+    "preflight": {
+      "pageCount": 5,
+      "hasTextLayer": true,
+      "hasReliableTextLayer": true,
+      "parsedPages": []
+    },
+    "structuredDocument": {
+      "pages": [
+        { "pageNumber": 2, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 180 },
+        { "pageNumber": 3, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 180 }
+      ],
+      "sections": [
+        { "kind": "INCOME_STATEMENT", "startPage": 2, "endPage": 2, "pages": [{ "pageNumber": 2, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 180 }], "confidenceScore": 0.58, "matchedSignals": [] },
+        { "kind": "BALANCE_SHEET", "startPage": 3, "endPage": 3, "pages": [{ "pageNumber": 3, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 180 }], "confidenceScore": 0.57, "matchedSignals": [] }
+      ],
+      "narratives": [],
+      "diagnostics": {
+        "pageCount": 5,
+        "sectionsFound": 2,
+        "sectionKinds": ["INCOME_STATEMENT", "BALANCE_SHEET"],
+        "missingExpectedSections": [],
+        "recommendedRouteHint": "TEXT_LAYER",
+        "textLayerDensityScore": 0.75,
+        "likelyImageOnlyPages": [],
+        "financialStatementPageCount": 2,
+        "financialStatementCandidatePages": [2, 3],
+        "narrativeCandidatePages": [],
+        "boardReportCandidatePages": [],
+        "auditorReportCandidatePages": [],
+        "notesCandidatePages": [],
+        "qualityRisk": "MEDIUM",
+        "parserRiskReasons": ["Weak section confidence"],
+        "extractionWarnings": ["Page hints should be treated as advisory only"]
+      }
+    },
+    "pageHints": {
+      "includePages": [2, 3],
+      "excludePages": [],
+      "preferredIncomeStatementPages": [],
+      "preferredBalancePages": [],
+      "notePages": [],
+      "hasReliableHints": false,
+      "reasons": ["Weak section confidence"]
+    },
+    "openDataLoaderConfig": { "enabled": false, "mode": "local" }
+  },
+  "expected": {
+    "route": "TEXT_LAYER",
+    "riskLevel": "MEDIUM",
+    "financialFactsEnabled": true
+  }
+}

@@ -117,6 +117,15 @@ const openDataLoaderState: {
       pages: [],
     },
     annualReportPages: [],
+    diagnostics: {
+      input: {
+        sourceFilename: "928846466-2024.pdf",
+        sourceByteLength: 8,
+        preflightPageCount: 2,
+        hasTextLayer: true,
+        hasReliableTextLayer: true,
+      },
+    },
     artifacts: {
       rawJson: {
         filename: "odl.json",
@@ -401,6 +410,19 @@ vi.mock("@/integrations/brreg/annual-report-financials/normalized-payload", () =
   })),
 }));
 
+function storedJsonArtifacts(artifactType: string) {
+  return artifactStorageState.putArtifact.mock.calls
+    .map((call) => call[0])
+    .filter((artifact) => artifact.artifactType === artifactType)
+    .map((artifact) =>
+      JSON.parse(
+        Buffer.isBuffer(artifact.content)
+          ? artifact.content.toString("utf8")
+          : String(artifact.content),
+      ),
+    );
+}
+
 describe("annual-report-financials-service", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -455,6 +477,15 @@ describe("annual-report-financials-service", () => {
         pages: [],
       },
       annualReportPages: [],
+      diagnostics: {
+        input: {
+          sourceFilename: "928846466-2024.pdf",
+          sourceByteLength: 8,
+          preflightPageCount: 2,
+          hasTextLayer: true,
+          hasReliableTextLayer: true,
+        },
+      },
       artifacts: {
         rawJson: {
           filename: "odl.json",
@@ -585,6 +616,30 @@ describe("annual-report-financials-service", () => {
     expect(repo.createFinancialFacts).toHaveBeenCalled();
     expect(repo.publishFinancialStatementSnapshot).toHaveBeenCalledTimes(1);
     expect(repo.resolveAnnualReportReviewsForFiling).toHaveBeenCalledWith("filing-1");
+
+    const decisionArtifacts = storedJsonArtifacts("PDF_DECISION_JSON");
+    expect(decisionArtifacts).toHaveLength(2);
+    expect(decisionArtifacts.map((artifact) => artifact.phase)).toEqual([
+      "pre_extraction",
+      "post_validation",
+    ]);
+    expect(decisionArtifacts[0]).toMatchObject({
+      version: "pdf-decision-engine-v1",
+      source: "annual-report-financials-service",
+      inputSummary: {
+        orgNumber: "928846466",
+        fiscalYear: 2024,
+        filingId: "filing-1",
+        extractionRunId: null,
+        hasPreflight: true,
+        hasValidationSummary: false,
+      },
+    });
+    expect(decisionArtifacts[1].inputSummary).toMatchObject({
+      extractionRunId: "run-1",
+      hasValidationSummary: true,
+    });
+    expect(decisionArtifacts[1].decision).toHaveProperty("confidenceScore");
   });
 
   it("reuses the stored pdf artifact instead of redownloading it", async () => {
@@ -660,6 +715,24 @@ describe("annual-report-financials-service", () => {
       extractionRunId: "run-1",
       status: "PENDING_REVIEW",
     });
+    const reviewPayload = repo.upsertAnnualReportReview.mock.calls[0][0]
+      .reviewPayload as Record<string, any>;
+    expect(reviewPayload.pdfDecision).toMatchObject({
+      version: "pdf-decision-engine-v1",
+      route: "MANUAL_REVIEW",
+      riskLevel: "HIGH",
+    });
+    expect(
+      reviewPayload.pdfDecision.manualReviewReasons.some((reason: string) =>
+        reason.includes("BS_TOTAL_BALANCES"),
+      ),
+    ).toBe(true);
+
+    const decisionArtifacts = storedJsonArtifacts("PDF_DECISION_JSON");
+    expect(decisionArtifacts.map((artifact) => artifact.phase)).toEqual([
+      "pre_extraction",
+      "post_validation",
+    ]);
   });
 
   it("skips double-processing when the filing cannot be claimed", async () => {
