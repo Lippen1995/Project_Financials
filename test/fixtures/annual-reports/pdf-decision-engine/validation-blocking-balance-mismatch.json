@@ -1,0 +1,64 @@
+{
+  "name": "blocking validation balance mismatch",
+  "input": {
+    "orgNumber": "928846466",
+    "fiscalYear": 2024,
+    "preflight": {
+      "pageCount": 4,
+      "hasTextLayer": true,
+      "hasReliableTextLayer": true,
+      "parsedPages": []
+    },
+    "structuredDocument": {
+      "pages": [
+        { "pageNumber": 1, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 200 },
+        { "pageNumber": 2, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 220 }
+      ],
+      "sections": [
+        { "kind": "INCOME_STATEMENT", "startPage": 1, "endPage": 1, "pages": [{ "pageNumber": 1, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 200 }], "confidenceScore": 0.9, "matchedSignals": [] },
+        { "kind": "BALANCE_SHEET", "startPage": 2, "endPage": 2, "pages": [{ "pageNumber": 2, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 220 }], "confidenceScore": 0.9, "matchedSignals": [] }
+      ],
+      "narratives": [],
+      "diagnostics": {
+        "pageCount": 4,
+        "sectionsFound": 2,
+        "sectionKinds": ["INCOME_STATEMENT", "BALANCE_SHEET"],
+        "missingExpectedSections": [],
+        "recommendedRouteHint": "TEXT_LAYER",
+        "textLayerDensityScore": 0.9,
+        "likelyImageOnlyPages": [],
+        "financialStatementPageCount": 2,
+        "financialStatementCandidatePages": [1, 2],
+        "narrativeCandidatePages": [],
+        "boardReportCandidatePages": [],
+        "auditorReportCandidatePages": [],
+        "notesCandidatePages": [],
+        "qualityRisk": "LOW",
+        "parserRiskReasons": [],
+        "extractionWarnings": []
+      }
+    },
+    "pageHints": {
+      "includePages": [1, 2],
+      "excludePages": [],
+      "preferredIncomeStatementPages": [1],
+      "preferredBalancePages": [2],
+      "notePages": [],
+      "hasReliableHints": true,
+      "reasons": ["2 financial statement page(s) detected"]
+    },
+    "openDataLoaderConfig": { "enabled": false, "mode": "local" },
+    "validationSummary": {
+      "hasBlockingErrors": true,
+      "blockingRuleCodes": ["BS_TOTAL_BALANCES"],
+      "warningRuleCodes": [],
+      "validationScore": 0.35
+    }
+  },
+  "expected": {
+    "route": "MANUAL_REVIEW",
+    "riskLevel": "HIGH",
+    "manualReviewReasonIncludes": ["BS_TOTAL_BALANCES"],
+    "financialFactsEnabled": false
+  }
+}

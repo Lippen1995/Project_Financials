@@ -1,0 +1,58 @@
+{
+  "name": "unreliable text high risk with OpenDataLoader hybrid available",
+  "input": {
+    "orgNumber": "928846466",
+    "fiscalYear": 2024,
+    "preflight": {
+      "pageCount": 4,
+      "hasTextLayer": false,
+      "hasReliableTextLayer": false,
+      "parsedPages": []
+    },
+    "structuredDocument": {
+      "pages": [
+        { "pageNumber": 1, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 40 },
+        { "pageNumber": 2, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 35 }
+      ],
+      "sections": [
+        { "kind": "INCOME_STATEMENT", "startPage": 1, "endPage": 1, "pages": [{ "pageNumber": 1, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 40 }], "confidenceScore": 0.72, "matchedSignals": [] },
+        { "kind": "BALANCE_SHEET", "startPage": 2, "endPage": 2, "pages": [{ "pageNumber": 2, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 35 }], "confidenceScore": 0.7, "matchedSignals": [] }
+      ],
+      "narratives": [],
+      "diagnostics": {
+        "pageCount": 4,
+        "sectionsFound": 2,
+        "sectionKinds": ["INCOME_STATEMENT", "BALANCE_SHEET"],
+        "missingExpectedSections": [],
+        "recommendedRouteHint": "OPENDATALOADER_HYBRID",
+        "textLayerDensityScore": 0.2,
+        "likelyImageOnlyPages": [1, 2],
+        "financialStatementPageCount": 2,
+        "financialStatementCandidatePages": [1, 2],
+        "narrativeCandidatePages": [],
+        "boardReportCandidatePages": [],
+        "auditorReportCandidatePages": [],
+        "notesCandidatePages": [],
+        "qualityRisk": "HIGH",
+        "parserRiskReasons": ["Weak or missing text layer"],
+        "extractionWarnings": []
+      }
+    },
+    "pageHints": {
+      "includePages": [1, 2],
+      "excludePages": [],
+      "preferredIncomeStatementPages": [1],
+      "preferredBalancePages": [2],
+      "notePages": [],
+      "hasReliableHints": false,
+      "reasons": ["Weak section confidence"]
+    },
+    "openDataLoaderConfig": { "enabled": true, "mode": "auto" }
+  },
+  "expected": {
+    "route": "OPENDATALOADER_HYBRID",
+    "riskLevel": "HIGH",
+    "manualReviewReasonIncludes": ["High document quality risk"],
+    "financialFactsEnabled": true
+  }
+}

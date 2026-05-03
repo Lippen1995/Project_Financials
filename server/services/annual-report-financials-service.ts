@@ -21,8 +21,14 @@ import {
   StructuredDocumentArtifactPayload,
 } from "@/integrations/brreg/annual-report-financials/document-model";
 import { getFinancialExtractionPageHints } from "@/integrations/brreg/annual-report-financials/financial-extraction-page-hints";
-import { runPdfDecisionEngine } from "@/integrations/brreg/annual-report-financials/pdf-decision-engine";
-import type { PdfDecisionResult } from "@/integrations/brreg/annual-report-financials/pdf-decision-types";
+import {
+  buildPdfDecisionArtifactPayload,
+  runPdfDecisionEngine,
+} from "@/integrations/brreg/annual-report-financials/pdf-decision-engine";
+import type {
+  PdfDecisionResult,
+  PdfDecisionValidationSummary,
+} from "@/integrations/brreg/annual-report-financials/pdf-decision-types";
 import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
 import { chooseCanonicalFacts, mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
@@ -515,6 +521,23 @@ function buildReviewPayload(input: {
   };
 }
 
+function buildValidationSummary(
+  computation: FinancialPipelineComputation,
+): PdfDecisionValidationSummary {
+  return {
+    hasBlockingErrors: computation.blockingRuleCodes.length > 0,
+    blockingRuleCodes: computation.blockingRuleCodes,
+    warningRuleCodes: Array.from(
+      new Set(
+        computation.issues
+          .filter((issue) => issue.severity === "WARNING")
+          .map((issue) => issue.ruleCode),
+      ),
+    ),
+    validationScore: computation.validation.validationScore,
+  };
+}
+
 function buildDocumentPayloadFields(doc: AnnualReportDocument | null) {
   if (!doc) {
     return {
@@ -782,6 +805,7 @@ export async function processAnnualReportFiling(
   const odlConfigForDecision = resolveOpenDataLoaderConfig();
   const pdfDecision = runPdfDecisionEngine({
     preflight,
+    structuredDocument: preflight.structuredDocument ?? null,
     pageHints: pageHints ?? null,
     odlConfig: { enabled: odlConfigForDecision.enabled, mode: odlConfigForDecision.mode },
   });
@@ -790,8 +814,20 @@ export async function processAnnualReportFiling(
       await persistJsonArtifact({
         filingId: filing.id,
         artifactType: "PDF_DECISION_JSON",
-        filename: "pdf-decision.json",
-        payload: pdfDecision,
+        filename: "pdf-decision-pre-extraction.json",
+        payload: buildPdfDecisionArtifactPayload({
+          decision: pdfDecision,
+          orgNumber: filing.company.orgNumber,
+          fiscalYear: filing.fiscalYear,
+          filingId: filing.id,
+          extractionRunId: null,
+          phase: "pre_extraction",
+          hasPreflight: true,
+          hasStructuredDocument: Boolean(preflight.structuredDocument),
+          hasPageHints: Boolean(pageHints),
+          hasValidationSummary: false,
+          openDataLoaderEnabled: odlConfigForDecision.enabled,
+        }),
       }),
     );
   } catch (decisionArtifactError) {
@@ -805,9 +841,9 @@ export async function processAnnualReportFiling(
     filingId: filing.id,
     fiscalYear: filing.fiscalYear,
     route: pdfDecision.route,
-    risk: pdfDecision.risk,
-    financialFacts: pdfDecision.financialFacts,
-    manualReviewRequired: pdfDecision.manualReviewRequired,
+    riskLevel: pdfDecision.riskLevel,
+    confidenceScore: pdfDecision.confidenceScore,
+    financialFactsEnabled: pdfDecision.enabledExtractors.financialFacts,
     manualReviewReasonCount: pdfDecision.manualReviewReasons.length,
   });
 
@@ -819,7 +855,7 @@ export async function processAnnualReportFiling(
     : await extractOcrPagesWithDiagnostics(pdfBuffer);
   const legacyPages = preflight.hasReliableTextLayer
     ? preflight.parsedPages
-    : legacyOcrResult.pages;
+    : legacyOcrResult!.pages;
   const legacyOcrEngine = preflight.hasReliableTextLayer ? "EMBEDDED_TEXT" : "TESSERACT";
   if (legacyOcrResult) {
     logPipelineEvent("document_understanding.legacy_ocr_summary", {
@@ -1062,6 +1098,48 @@ export async function processAnnualReportFiling(
       issues: primaryComputation.issues,
     });
 
+    const validationSummary = buildValidationSummary(primaryComputation);
+    let postValidationPdfDecision: PdfDecisionResult | null = null;
+    try {
+      postValidationPdfDecision = runPdfDecisionEngine({
+        preflight,
+        structuredDocument: preflight.structuredDocument ?? null,
+        pageHints: pageHints ?? null,
+        odlConfig: {
+          enabled: openDataLoaderConfig.enabled,
+          mode: openDataLoaderConfig.mode,
+        },
+        validationSummary,
+      });
+      artifactReferences.push(
+        await persistJsonArtifact({
+          filingId: filing.id,
+          artifactType: "PDF_DECISION_JSON",
+          filename: "pdf-decision-post-validation.json",
+          payload: buildPdfDecisionArtifactPayload({
+            decision: postValidationPdfDecision,
+            orgNumber: filing.company.orgNumber,
+            fiscalYear: filing.fiscalYear,
+            filingId: filing.id,
+            extractionRunId: extractionRun.id,
+            phase: "post_validation",
+            hasPreflight: true,
+            hasStructuredDocument: Boolean(preflight.structuredDocument),
+            hasPageHints: Boolean(pageHints),
+            hasValidationSummary: true,
+            openDataLoaderEnabled: openDataLoaderConfig.enabled,
+          }),
+        }),
+      );
+    } catch (decisionArtifactError) {
+      logRecoverableError(
+        "annual-report-financials.postValidationPdfDecisionArtifact",
+        decisionArtifactError,
+        { filingId: filing.id, fiscalYear: filing.fiscalYear },
+      );
+    }
+    const reviewPdfDecision = postValidationPdfDecision ?? pdfDecision;
+
     const reviewSummary = buildReviewPayload({
       filingId: filing.id,
       extractionRunId: extractionRun.id,
@@ -1083,7 +1161,7 @@ export async function processAnnualReportFiling(
       comparisonSummary,
       documentDiagnostics: preflight.diagnostics ?? null,
       structuredDocument: preflight.structuredDocument ?? null,
-      pdfDecision,
+      pdfDecision: reviewPdfDecision,
     });
 
     artifactReferences.push(
