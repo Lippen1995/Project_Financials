@@ -6,6 +6,7 @@ import {
   PreflightResult,
 } from "@/integrations/brreg/annual-report-financials/types";
 import { normalizeNorwegianText, stripDuplicateWhitespace } from "@/integrations/brreg/annual-report-financials/text";
+import { buildAnnualReportDocumentFromPages } from "@/integrations/brreg/annual-report-financials/section-segmentation";
 
 function buildEmbeddedTextLines(text: string): ExtractedLine[] {
   return text
@@ -52,11 +53,15 @@ export async function preflightAnnualReportDocument(pdfBuffer: Buffer): Promise<
         ? pagesWithText.reduce((sum, page) => sum + page.text.length, 0) / pagesWithText.length
         : 0;
 
+    const structuredDocument = buildAnnualReportDocumentFromPages(parsedPages);
+
     return {
       pageCount: textResult.total,
       hasTextLayer: pagesWithText.length > 0,
       hasReliableTextLayer: pagesWithText.length > 0 && averageTextLength >= 120,
       parsedPages,
+      diagnostics: structuredDocument.diagnostics,
+      recommendedRouteHint: structuredDocument.diagnostics.recommendedRouteHint,
     };
   } finally {
     await parser.destroy();

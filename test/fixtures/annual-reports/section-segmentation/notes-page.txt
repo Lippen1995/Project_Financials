@@ -1,0 +1,33 @@
+Noter til årsregnskapet 2024
+
+Note 1 - Regnskapsprinsipper
+
+Årsregnskapet er satt opp i samsvar med regnskapsloven og god regnskapsskikk.
+Selskapet har valgt å benytte de forenklede IFRS-reglene.
+
+Varebeholdning er vurdert til det laveste av anskaffelseskost og netto realisasjonsverdi.
+
+Note 2 - Lønn og godtgjørelser
+
+Selskapets revisor, som er statsautorisert, mottok honorar på kr 85 000 i 2024.
+Revisors honorar er kostnadsført i regnskapet.
+
+Lønn og sosiale kostnader:
+  Lønnskostnader          12 450 000
+  Arbeidsgiveravgift       1 756 000
+  Pensjonskostnader          890 000
+  Sum lønn og sosiale      15 096 000
+
+Note 3 - Kundefordringer
+
+Kundefordringer er vurdert til pålydende med fradrag for forventet tap.
+Selskapet har ingen vesentlige konsentrasjoner av kredittrisiko.
+
+Kundefordringer per 31.12.2024:    8 320 000
+Avsetning for tap:                  -150 000
+Netto kundefordringer:             8 170 000
+
+Note 4 - Pantstillelser og garantier
+
+Selskapets kassekreditt er sikret med pant i kundefordringer.
+Pantets bokførte verdi er kr 8 170 000.
