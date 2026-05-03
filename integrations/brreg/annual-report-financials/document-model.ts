@@ -2,9 +2,14 @@ export type SectionKind =
   | "BOARD_REPORT"
   | "AUDITOR_REPORT"
   | "INCOME_STATEMENT"
+  | "BALANCE"
   | "BALANCE_SHEET"
+  | "BALANCE_ASSETS"
+  | "BALANCE_EQUITY_LIABILITIES"
+  | "CASH_FLOW"
   | "NOTES"
   | "SIGNATURES"
+  | "COVER"
   | "UNKNOWN";
 
 export type AnnualReportPage = {
@@ -27,11 +32,19 @@ export type AnnualReportSection = {
   pages: AnnualReportPage[];
   confidenceScore: number;
   matchedSignals: SectionSignal[];
+  stopReason?: string | null;
 };
 
 export type AnnualReportNarrativeSection = AnnualReportSection & {
   fullText: string;
-  subsections: Array<{ heading: string; text: string }>;
+  normalizedText?: string;
+  subsections: Array<{
+    heading: string;
+    text: string;
+    normalizedText?: string;
+    startOffset?: number | null;
+    endOffset?: number | null;
+  }>;
 };
 
 export type AnnualReportDocumentDiagnostics = {
@@ -71,14 +84,30 @@ export type StructuredDocumentArtifactPayload = {
   filingId: string;
   extractionRunId: string | null;
   createdAt: string;
+  provenance?: {
+    source: string;
+    persistedStage: string;
+    reasonExtractionRunIdIsNull?: string;
+    filingId: string;
+    fiscalYear: number;
+    documentModelVersion: string;
+    parserVersion?: string;
+  };
   structuredDocument: {
     pages: AnnualReportPage[];
-    sections: Array<Omit<AnnualReportSection, "pages"> & { pageCount: number }>;
+    sections: Array<Omit<AnnualReportSection, "pages"> & {
+      pageCount: number;
+      sourcePages: number[];
+    }>;
     narratives: Array<{
       kind: SectionKind;
       startPage: number;
       endPage: number;
       confidenceScore: number;
+      matchedSignals: SectionSignal[];
+      fullText: string;
+      normalizedText?: string;
+      subsections: AnnualReportNarrativeSection["subsections"];
       subsectionCount: number;
       fullTextLength: number;
     }>;
