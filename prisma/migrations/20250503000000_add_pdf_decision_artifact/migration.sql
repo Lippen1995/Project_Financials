@@ -1,0 +1,1 @@
+ALTER TYPE "AnnualReportArtifactType" ADD VALUE 'PDF_DECISION_JSON';
