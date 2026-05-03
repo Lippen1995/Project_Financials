@@ -9,6 +9,12 @@ import type { FinancialExtractionPageHints } from "@/integrations/brreg/annual-r
 import type { AnnualReportDocument } from "@/integrations/brreg/annual-report-financials/document-model";
 import type { PreflightResult } from "@/integrations/brreg/annual-report-financials/types";
 import type { OpenDataLoaderResolvedConfig } from "@/server/document-understanding/opendataloader-types";
+import {
+  clampPdfDecisionConfidence,
+  normalizePdfDecisionRuleConfig,
+  type PdfDecisionRuleConfig,
+  type PdfDecisionRuleConfigOverrides,
+} from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-config";
 import type {
   JsonSafePdfDecisionArtifactPayload,
   PdfDecisionEngineOutput,
@@ -47,11 +53,6 @@ function sortedNumbers(values: Iterable<number>) {
   );
 }
 
-function clamp01(value: number) {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(1, Number(value.toFixed(4))));
-}
-
 function buildPageHints(
   hints: FinancialExtractionPageHints | null | undefined,
 ): PdfDecisionPageHints {
@@ -81,12 +82,24 @@ function computeRisk(input: {
   hasFinancialSections: boolean;
   hasWeakHints: boolean;
   validationSummary?: PdfDecisionValidationSummary | null;
+  ruleConfig: PdfDecisionRuleConfig;
 }): PdfDecisionRiskLevel {
   if (input.validationSummary?.hasBlockingErrors) return "HIGH";
   if (!input.hasReliableTextLayer) return "HIGH";
-  if (input.qualityRisk === "HIGH") return "HIGH";
+  if (
+    input.qualityRisk &&
+    input.ruleConfig.risk.highRiskQualityRiskValues.includes(input.qualityRisk)
+  ) {
+    return "HIGH";
+  }
   if (!input.hasFinancialSections) return "HIGH";
-  if (input.qualityRisk === "MEDIUM" || input.hasWeakHints) return "MEDIUM";
+  if (
+    (input.qualityRisk &&
+      input.ruleConfig.risk.mediumRiskQualityRiskValues.includes(input.qualityRisk)) ||
+    input.hasWeakHints
+  ) {
+    return "MEDIUM";
+  }
   return "LOW";
 }
 
@@ -115,37 +128,51 @@ function computeConfidence(input: {
   hasNarratives: boolean;
   validationSummary?: PdfDecisionValidationSummary | null;
   highRiskFallbackUnavailable: boolean;
+  parserRiskReasonCount: number;
+  ruleConfig: PdfDecisionRuleConfig;
 }) {
-  let score = 0.85;
+  const { bonuses, penalties } = input.ruleConfig.confidence;
+  let score = input.ruleConfig.confidence.base;
 
-  if (!input.hasReliableTextLayer) score -= 0.22;
-  if (input.qualityRisk === "HIGH") score -= 0.24;
-  else if (input.qualityRisk === "MEDIUM") score -= 0.08;
-  if (!input.hasIncomeSection) score -= 0.12;
-  if (!input.hasBalanceSection) score -= 0.12;
-  if (!input.hasFinancialSections) score -= 0.18;
-  if (!input.hasReliableHints) score -= input.hasPageHints ? 0.08 : 0.1;
-  if (input.validationSummary?.hasBlockingErrors) score -= 0.22;
-  if (input.highRiskFallbackUnavailable) score -= 0.08;
+  if (!input.hasReliableTextLayer) score -= penalties.noReliableTextLayer;
+  if (input.qualityRisk === "HIGH") score -= penalties.highQualityRisk;
+  else if (input.qualityRisk === "MEDIUM") score -= penalties.mediumQualityRisk;
+  if (!input.hasIncomeSection) score -= penalties.missingIncomeStatement;
+  if (!input.hasBalanceSection) score -= penalties.missingBalance;
+  if (!input.hasFinancialSections) score -= penalties.missingFinancialSections;
+  if (!input.hasReliableHints) {
+    score -= input.hasPageHints ? penalties.weakPageHints * 0.8 : penalties.weakPageHints;
+  }
+  if (input.validationSummary?.hasBlockingErrors) score -= penalties.validationBlockingErrors;
+  if (input.highRiskFallbackUnavailable) score -= penalties.highRiskWithoutOcrOrOdl;
+  if (input.parserRiskReasonCount > 0) score -= penalties.parserRiskReasons;
 
-  if (input.hasReliableHints) score += 0.05;
-  if (input.hasIncomeSection && input.hasBalanceSection) score += 0.06;
-  if (input.hasNarratives) score += 0.03;
+  if (input.hasReliableHints) score += bonuses.reliablePageHints;
+  if (input.hasIncomeSection && input.hasBalanceSection) {
+    score += bonuses.incomeAndBalanceDetected;
+  }
+  if (input.hasNarratives) score += bonuses.boardOrAuditorNarrativeDetected;
   if (input.validationSummary?.validationScore != null) {
-    score += (input.validationSummary.validationScore - 0.5) * 0.08;
+    score +=
+      (input.validationSummary.validationScore - 0.5) *
+      bonuses.postValidationDecision;
   }
 
-  return clamp01(score);
+  return clampPdfDecisionConfidence(score, input.ruleConfig);
 }
 
-export function runPdfDecisionEngine(input: {
-  preflight: PreflightResult;
-  structuredDocument?: AnnualReportDocument | null;
-  pageHints?: FinancialExtractionPageHints | null;
-  odlConfig?: Pick<OpenDataLoaderResolvedConfig, "enabled" | "mode"> | null;
-  validationSummary?: PdfDecisionValidationSummary | null;
-  blockingRuleCodes?: string[];
-}): PdfDecisionEngineOutput {
+export function runPdfDecisionEngine(
+  input: {
+    preflight: PreflightResult;
+    structuredDocument?: AnnualReportDocument | null;
+    pageHints?: FinancialExtractionPageHints | null;
+    odlConfig?: Pick<OpenDataLoaderResolvedConfig, "enabled" | "mode"> | null;
+    validationSummary?: PdfDecisionValidationSummary | null;
+    blockingRuleCodes?: string[];
+  },
+  options?: { ruleConfig?: PdfDecisionRuleConfigOverrides | PdfDecisionRuleConfig },
+): PdfDecisionEngineOutput {
+  const ruleConfig = normalizePdfDecisionRuleConfig(options?.ruleConfig);
   const structuredDocument = resolveStructuredDocument(input);
   const diagnostics = input.preflight.diagnostics ?? structuredDocument?.diagnostics ?? null;
   const sections = structuredDocument?.sections ?? [];
@@ -245,6 +272,7 @@ export function runPdfDecisionEngine(input: {
     hasFinancialSections,
     hasWeakHints: hasPageHints && !pageHints.hasReliableHints,
     validationSummary,
+    ruleConfig,
   });
   const route = chooseRoute({
     hasReliableTextLayer: input.preflight.hasReliableTextLayer,
@@ -263,6 +291,8 @@ export function runPdfDecisionEngine(input: {
     hasNarratives,
     validationSummary,
     highRiskFallbackUnavailable,
+    parserRiskReasonCount: parserRiskReasons.length,
+    ruleConfig,
   });
 
   if (route === "OPENDATALOADER_HYBRID") {
@@ -277,6 +307,7 @@ export function runPdfDecisionEngine(input: {
 
   return {
     version: PDF_DECISION_ENGINE_VERSION,
+    ruleConfigVersion: ruleConfig.version,
     route,
     riskLevel,
     confidenceScore,
@@ -293,6 +324,7 @@ export function runPdfDecisionEngine(input: {
     pageHints,
     diagnostics: {
       qualityRisk: qualityRisk ?? undefined,
+      ruleConfigVersion: ruleConfig.version,
       recommendedRouteHint:
         diagnostics?.recommendedRouteHint ?? input.preflight.recommendedRouteHint ?? undefined,
       parserRiskReasons,
@@ -302,7 +334,7 @@ export function runPdfDecisionEngine(input: {
         kind: section.kind,
         startPage: section.startPage,
         endPage: section.endPage,
-        confidenceScore: clamp01(section.confidenceScore),
+        confidenceScore: clampPdfDecisionConfidence(section.confidenceScore, ruleConfig),
       })),
     },
   };
