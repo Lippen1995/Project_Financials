@@ -15,6 +15,7 @@ import { reconstructStatementRows } from "@/integrations/brreg/annual-report-fin
 import { CanonicalMetricKey, requiredPublishMetricKeys } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import { validateCanonicalFacts } from "@/integrations/brreg/annual-report-financials/validation";
 import { CanonicalFactCandidate, PageClassification, ValidationIssueDraft } from "@/integrations/brreg/annual-report-financials/types";
+import { AnnualReportDocumentDiagnostics } from "@/integrations/brreg/annual-report-financials/document-model";
 import { chooseCanonicalFacts, mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { DataAvailability, NormalizedFinancialDocument, NormalizedFinancialStatement } from "@/lib/types";
@@ -437,6 +438,7 @@ function buildReviewPayload(input: {
   artifactReferences?: StoredArtifactReference[];
   engineSummary?: Record<string, unknown>;
   comparisonSummary?: OpenDataLoaderComparisonSummary | null;
+  documentDiagnostics?: AnnualReportDocumentDiagnostics | null;
 }) {
   const pageReferences = Array.from(
     new Set([
@@ -489,6 +491,7 @@ function buildReviewPayload(input: {
       artifactReferences: input.artifactReferences ?? [],
       engineSummary: input.engineSummary ?? null,
       comparisonSummary: input.comparisonSummary ?? null,
+      documentDiagnostics: input.documentDiagnostics ?? null,
     },
   };
 }
@@ -854,6 +857,7 @@ export async function processAnnualReportFiling(
         legacyOcrDiagnostics: legacyOcrResult?.diagnostics ?? null,
       },
       comparisonSummary,
+      documentDiagnostics: preflight.diagnostics ?? null,
     });
 
     artifactReferences.push(

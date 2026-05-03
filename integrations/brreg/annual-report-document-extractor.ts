@@ -1,6 +1,8 @@
 import { PDFParse } from "pdf-parse";
 
 import { DistressDocumentExcerpt, NormalizedFinancialDocument } from "@/lib/types";
+import { AnnualReportDocument } from "@/integrations/brreg/annual-report-financials/document-model";
+import { buildAnnualReportDocumentFromPages } from "@/integrations/brreg/annual-report-financials/section-segmentation";
 
 export type ExtractedPage = {
   pageNumber: number;
@@ -15,6 +17,7 @@ type SectionExtractionResult = {
   annualReportExcerpts: DistressDocumentExcerpt[];
   notesExcerpts: DistressDocumentExcerpt[];
   auditExcerpts: DistressDocumentExcerpt[];
+  structuredDocument?: AnnualReportDocument;
 };
 
 const SECTION_PATTERNS: Record<SectionKey, string[]> = {
@@ -152,10 +155,13 @@ export function extractSectionExcerptsFromPages(
     return dedupeExcerpts(matches);
   }
 
+  const structuredDocument = buildAnnualReportDocumentFromPages(pages);
+
   return {
     annualReportExcerpts: collect("annualReport"),
     notesExcerpts: collect("notes"),
     auditExcerpts: collect("audit"),
+    structuredDocument,
   };
 }
 
