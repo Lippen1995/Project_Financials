@@ -453,6 +453,9 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         {/* Document structure summary */}
         <DocumentSummaryPanel payload={payload} />
 
+        {/* PDF Decision Engine summary */}
+        <PdfDecisionPanel payload={payload} />
+
         {/* Validation issues */}
         {issues.length > 0 && (
           <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
@@ -902,6 +905,173 @@ function DocumentSummaryPanel({ payload }: { payload: Record<string, unknown> | 
             ))}
           </ul>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PDF Decision Panel
+// ---------------------------------------------------------------------------
+
+type PdfDecision = {
+  route?: string | null;
+  risk?: string | null;
+  financialFacts?: boolean | null;
+  manualReviewRequired?: boolean | null;
+  manualReviewReasons?: string[] | null;
+  blockingRuleCodes?: string[] | null;
+  odlEnabled?: boolean | null;
+  engineVersion?: string | null;
+  decidedAt?: string | null;
+  pageHintSummary?: {
+    hasReliableHints?: boolean | null;
+    includePageCount?: number | null;
+    excludePageCount?: number | null;
+    reasons?: string[] | null;
+  } | null;
+  preflightSignals?: {
+    hasTextLayer?: boolean | null;
+    hasReliableTextLayer?: boolean | null;
+    pageCount?: number | null;
+    qualityRisk?: string | null;
+    financialStatementPageCount?: number | null;
+    likelyImageOnlyPageCount?: number | null;
+    sectionsFound?: number | null;
+    sectionKinds?: string[] | null;
+    missingExpectedSections?: string[] | null;
+  } | null;
+};
+
+function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null }) {
+  const decision = payload?.pdfDecision as PdfDecision | null | undefined;
+
+  if (!decision) return null;
+
+  const riskColor =
+    decision.risk === "HIGH"
+      ? "text-red-600 font-semibold"
+      : decision.risk === "MEDIUM"
+        ? "text-amber-600 font-semibold"
+        : "text-emerald-600 font-semibold";
+
+  const routeColor =
+    decision.route === "MANUAL_REVIEW"
+      ? "text-red-600 font-semibold"
+      : decision.route === "FORCE_OCR" || decision.route === "OPENDATALOADER_HYBRID"
+        ? "text-amber-600 font-semibold"
+        : "text-emerald-600 font-semibold";
+
+  const signals = decision.preflightSignals;
+  const hints = decision.pageHintSummary;
+
+  return (
+    <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+        PDF Decision Engine
+      </h2>
+
+      <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        <span className="text-slate-500">Rute</span>
+        <span className={routeColor}>{decision.route ?? "—"}</span>
+
+        <span className="text-slate-500">Risiko</span>
+        <span className={riskColor}>{decision.risk ?? "—"}</span>
+
+        <span className="text-slate-500">Finansielle seksjoner</span>
+        <span className={`font-semibold ${decision.financialFacts ? "text-emerald-600" : "text-red-600"}`}>
+          {decision.financialFacts === true ? "Ja" : decision.financialFacts === false ? "Nei" : "—"}
+        </span>
+
+        <span className="text-slate-500">Manuell gjennomgang</span>
+        <span className={`font-semibold ${decision.manualReviewRequired ? "text-red-600" : "text-emerald-600"}`}>
+          {decision.manualReviewRequired === true ? "Ja" : decision.manualReviewRequired === false ? "Nei" : "—"}
+        </span>
+
+        <span className="text-slate-500">ODL aktivert</span>
+        <span className="font-mono text-slate-600">
+          {decision.odlEnabled === true ? "Ja" : decision.odlEnabled === false ? "Nei" : "—"}
+        </span>
+
+        {signals?.pageCount != null && (
+          <>
+            <span className="text-slate-500">Sider</span>
+            <span className="font-mono text-slate-600">{signals.pageCount}</span>
+          </>
+        )}
+
+        {signals?.financialStatementPageCount != null && (
+          <>
+            <span className="text-slate-500">Regnskapssider</span>
+            <span className="font-mono text-slate-600">{signals.financialStatementPageCount}</span>
+          </>
+        )}
+
+        {signals?.likelyImageOnlyPageCount != null && signals.likelyImageOnlyPageCount > 0 && (
+          <>
+            <span className="text-slate-500">Bilds.-sider</span>
+            <span className="font-mono text-amber-600">{signals.likelyImageOnlyPageCount}</span>
+          </>
+        )}
+
+        {signals?.hasReliableTextLayer != null && (
+          <>
+            <span className="text-slate-500">Pålitelig tekstlag</span>
+            <span className={`font-semibold ${signals.hasReliableTextLayer ? "text-emerald-600" : "text-red-600"}`}>
+              {signals.hasReliableTextLayer ? "Ja" : "Nei"}
+            </span>
+          </>
+        )}
+      </div>
+
+      {decision.manualReviewReasons && decision.manualReviewReasons.length > 0 && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-red-500">Grunner til manuell gjennomgang</p>
+          <ul className="space-y-0.5">
+            {decision.manualReviewReasons.map((r, i) => (
+              <li key={i} className="text-xs text-red-600">
+                {r}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hints && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-slate-400">Side-hint</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+            <span className="text-slate-500">Pålitelig</span>
+            <span className={hints.hasReliableHints ? "text-emerald-600" : "text-slate-400"}>
+              {hints.hasReliableHints ? "Ja" : "Nei"}
+            </span>
+            {hints.includePageCount != null && (
+              <>
+                <span className="text-slate-500">Inkluderte</span>
+                <span className="font-mono text-slate-600">{hints.includePageCount}</span>
+              </>
+            )}
+            {hints.excludePageCount != null && (
+              <>
+                <span className="text-slate-500">Ekskluderte</span>
+                <span className="font-mono text-slate-600">{hints.excludePageCount}</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {signals?.sectionKinds && signals.sectionKinds.length > 0 && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-slate-400">Seksjonstyper</p>
+          <p className="font-mono text-xs text-slate-500">
+            {signals.sectionKinds.join(", ")}
+          </p>
+        </div>
+      )}
+
+      {decision.engineVersion && (
+        <p className="mt-2 font-mono text-[10px] text-slate-300">{decision.engineVersion}</p>
       )}
     </div>
   );

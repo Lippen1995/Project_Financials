@@ -21,6 +21,8 @@ import {
   StructuredDocumentArtifactPayload,
 } from "@/integrations/brreg/annual-report-financials/document-model";
 import { getFinancialExtractionPageHints } from "@/integrations/brreg/annual-report-financials/financial-extraction-page-hints";
+import { runPdfDecisionEngine } from "@/integrations/brreg/annual-report-financials/pdf-decision-engine";
+import type { PdfDecisionResult } from "@/integrations/brreg/annual-report-financials/pdf-decision-types";
 import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
 import { chooseCanonicalFacts, mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
@@ -188,7 +190,7 @@ function buildPublishedCanonicalFacts(payload: Record<string, any>, fiscalYear: 
   });
 }
 
-async function persistJsonArtifact(input: { filingId: string; artifactType: "PREFLIGHT_JSON" | "CLASSIFICATION_JSON" | "EXTRACTION_JSON" | "NORMALIZED_JSON"; filename: string; payload: unknown }) {
+async function persistJsonArtifact(input: { filingId: string; artifactType: "PREFLIGHT_JSON" | "CLASSIFICATION_JSON" | "EXTRACTION_JSON" | "NORMALIZED_JSON" | "PDF_DECISION_JSON"; filename: string; payload: unknown }) {
   const buffer = serializeJsonBuffer(input.payload);
   const checksum = computeSha256(buffer);
   const stored = await artifactStorage.putArtifact({ filingId: input.filingId, artifactType: input.artifactType, filename: input.filename, content: buffer });
@@ -214,7 +216,8 @@ async function persistArtifactFile(input: {
     | "ANNOTATED_PDF"
     | "DOCUMENT_NORMALIZED_JSON"
     | "EXTRACTION_COMPARISON_JSON"
-    | "STRUCTURED_DOCUMENT_JSON";
+    | "STRUCTURED_DOCUMENT_JSON"
+    | "PDF_DECISION_JSON";
   filename: string;
   content: Buffer | string;
   mimeType: string;
@@ -452,6 +455,7 @@ function buildReviewPayload(input: {
   comparisonSummary?: OpenDataLoaderComparisonSummary | null;
   documentDiagnostics?: AnnualReportDocumentDiagnostics | null;
   structuredDocument?: AnnualReportDocument | null;
+  pdfDecision?: PdfDecisionResult | null;
 }) {
   const pageReferences = Array.from(
     new Set([
@@ -505,6 +509,7 @@ function buildReviewPayload(input: {
       engineSummary: input.engineSummary ?? null,
       comparisonSummary: input.comparisonSummary ?? null,
       documentDiagnostics: input.documentDiagnostics ?? null,
+      pdfDecision: input.pdfDecision ?? null,
       ...buildDocumentPayloadFields(input.structuredDocument ?? null),
     },
   };
@@ -772,6 +777,39 @@ export async function processAnnualReportFiling(
       reasons: pageHints.reasons,
     });
   }
+
+  // Run the PDF Decision Engine and persist as PDF_DECISION_JSON artifact.
+  const odlConfigForDecision = resolveOpenDataLoaderConfig();
+  const pdfDecision = runPdfDecisionEngine({
+    preflight,
+    pageHints: pageHints ?? null,
+    odlConfig: { enabled: odlConfigForDecision.enabled, mode: odlConfigForDecision.mode },
+  });
+  try {
+    artifactReferences.push(
+      await persistJsonArtifact({
+        filingId: filing.id,
+        artifactType: "PDF_DECISION_JSON",
+        filename: "pdf-decision.json",
+        payload: pdfDecision,
+      }),
+    );
+  } catch (decisionArtifactError) {
+    logRecoverableError(
+      "annual-report-financials.pdfDecisionArtifact",
+      decisionArtifactError,
+      { filingId: filing.id, fiscalYear: filing.fiscalYear },
+    );
+  }
+  logPipelineEvent("filing.pdf_decision_computed", {
+    filingId: filing.id,
+    fiscalYear: filing.fiscalYear,
+    route: pdfDecision.route,
+    risk: pdfDecision.risk,
+    financialFacts: pdfDecision.financialFacts,
+    manualReviewRequired: pdfDecision.manualReviewRequired,
+    manualReviewReasonCount: pdfDecision.manualReviewReasons.length,
+  });
 
   await updateAnnualReportFiling(filing.id, { preflightedAt: new Date(), unitHints: { hasTextLayer: preflight.hasTextLayer, hasReliableTextLayer: preflight.hasReliableTextLayer }, parserVersionLastTried: ANNUAL_REPORT_PARSER_VERSION, lastError: null });
   logPipelineEvent("filing.preflighted", { filingId: filing.id, fiscalYear: filing.fiscalYear, hasReliableTextLayer: preflight.hasReliableTextLayer });
@@ -1045,6 +1083,7 @@ export async function processAnnualReportFiling(
       comparisonSummary,
       documentDiagnostics: preflight.diagnostics ?? null,
       structuredDocument: preflight.structuredDocument ?? null,
+      pdfDecision,
     });
 
     artifactReferences.push(
