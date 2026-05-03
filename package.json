@@ -38,6 +38,7 @@
     "financials:summarize-shadow-batch": "tsx scripts/summarize-annual-report-shadow-batch.ts",
     "evaluate:pdf-decision": "tsx scripts/evaluate-pdf-decision-engine.ts",
     "evaluate:pdf-decision-shadow": "tsx scripts/evaluate-pdf-decision-shadow.ts",
+    "check:pdf-decision-regression": "tsx scripts/check-pdf-decision-regression.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",

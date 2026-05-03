@@ -5,6 +5,10 @@ import {
   PDF_DECISION_ENGINE_VERSION,
   runPdfDecisionEngine,
 } from "./pdf-decision-engine";
+import {
+  clampPdfDecisionConfidence,
+  DEFAULT_PDF_DECISION_RULE_CONFIG,
+} from "./pdf-decision-rule-config";
 import type { FinancialExtractionPageHints } from "./financial-extraction-page-hints";
 import type { AnnualReportDocument, SectionKind } from "./document-model";
 import type { PreflightResult } from "./types";
@@ -104,6 +108,8 @@ describe("runPdfDecisionEngine", () => {
     });
 
     expect(decision.version).toBe(PDF_DECISION_ENGINE_VERSION);
+    expect(decision.ruleConfigVersion).toBe(DEFAULT_PDF_DECISION_RULE_CONFIG.version);
+    expect(decision.diagnostics.ruleConfigVersion).toBe(DEFAULT_PDF_DECISION_RULE_CONFIG.version);
     expect(decision.route).toBe("TEXT_LAYER");
     expect(decision.riskLevel).toBe("LOW");
     expect(decision.confidenceScore).toBeGreaterThan(0.85);
@@ -112,6 +118,46 @@ describe("runPdfDecisionEngine", () => {
     expect(decision.enabledExtractors.boardReport).toBe(false);
     expect(decision.pageHints.includePages).toEqual([1, 2]);
     expect(JSON.stringify(decision)).toContain("pdf-decision-engine-v1");
+  });
+
+  it("custom high quality risk penalty lowers confidence", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"], "HIGH");
+    const baseDecision = runPdfDecisionEngine({
+      preflight: makePreflight(doc),
+      pageHints: makePageHints(),
+    });
+    const tunedDecision = runPdfDecisionEngine(
+      {
+        preflight: makePreflight(doc),
+        pageHints: makePageHints(),
+      },
+      { ruleConfig: { confidence: { penalties: { highQualityRisk: 0.5 } } } },
+    );
+
+    expect(tunedDecision.confidenceScore).toBeLessThan(baseDecision.confidenceScore);
+  });
+
+  it("custom reliable page hints bonus raises confidence", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"]);
+    const baseDecision = runPdfDecisionEngine({
+      preflight: makePreflight(doc),
+      pageHints: makePageHints(),
+    });
+    const tunedDecision = runPdfDecisionEngine(
+      {
+        preflight: makePreflight(doc),
+        pageHints: makePageHints(),
+      },
+      { ruleConfig: { confidence: { bonuses: { reliablePageHints: 0.15 } } } },
+    );
+
+    expect(tunedDecision.confidenceScore).toBeGreaterThan(baseDecision.confidenceScore);
+  });
+
+  it("clamps confidence scores through rule config", () => {
+    expect(clampPdfDecisionConfidence(-10)).toBe(0);
+    expect(clampPdfDecisionConfidence(10)).toBe(1);
+    expect(clampPdfDecisionConfidence(Number.NaN)).toBe(0);
   });
 
   it("routes high-risk unreliable text to OpenDataLoader hybrid when enabled", () => {
@@ -235,4 +281,3 @@ describe("runPdfDecisionEngine", () => {
     expect(() => JSON.stringify(payload)).not.toThrow();
   });
 });
-

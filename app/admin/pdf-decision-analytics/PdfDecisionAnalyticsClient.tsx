@@ -315,6 +315,9 @@ export default function PdfDecisionAnalyticsClient({
             Read-only shadow evaluation over persisted decision artifacts, review outcomes,
             and explicit gold-set curation metadata.
           </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Current engine rules: pdf-decision-rules-v1
+          </p>
         </div>
         {analytics ? (
           <div className="text-xs text-slate-400">Generated {formatDate(analytics.generatedAt)}</div>
