@@ -204,6 +204,9 @@ export function runPdfDecisionEngine(input: {
   if (qualityRisk) reasons.push(`Document quality risk is ${qualityRisk}`);
   if (hasFinancialSections) reasons.push("Financial statement sections detected");
   if (pageHints.hasReliableHints) reasons.push("Reliable financial page hints available");
+  if (hasPageHints && !pageHints.hasReliableHints) {
+    reasons.push("Page hints are weak or advisory only; full text extraction recommended");
+  }
   if (validationSummary?.hasBlockingErrors) {
     reasons.push("Blocking validation errors detected");
     manualReviewReasons.push(
@@ -261,6 +264,12 @@ export function runPdfDecisionEngine(input: {
     validationSummary,
     highRiskFallbackUnavailable,
   });
+
+  if (route === "OPENDATALOADER_HYBRID") {
+    reasons.push("OpenDataLoader hybrid processing selected: text layer not reliable");
+  } else if (route === "OPENDATALOADER_LOCAL") {
+    reasons.push("OpenDataLoader local processing selected");
+  }
 
   if (reasons.length === 0) {
     reasons.push("Insufficient signals; conservative decision produced");
