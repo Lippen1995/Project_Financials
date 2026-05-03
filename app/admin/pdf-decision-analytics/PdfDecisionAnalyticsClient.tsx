@@ -6,6 +6,11 @@ import type {
   PdfDecisionShadowEvaluationResult,
   PdfDecisionShadowMetrics,
 } from "@/server/services/annual-report-pdf-decision-shadow-evaluation";
+import type {
+  PdfDecisionActiveLearningQueueItem,
+  PdfDecisionActiveLearningQueueResult,
+} from "@/server/services/pdf-decision-active-learning-service";
+import type { PdfDecisionGoldSetBenchmarkResult } from "@/server/services/pdf-decision-gold-set-benchmark-service";
 import type { JsonSafePdfDecisionGoldSetItem } from "@/server/services/pdf-decision-gold-set-service";
 
 type Filters = {
@@ -15,6 +20,7 @@ type Filters = {
 };
 
 type Candidate = PdfDecisionShadowMetrics["candidateGoldSet"][number];
+type CuratableItem = Candidate | JsonSafePdfDecisionGoldSetItem | PdfDecisionActiveLearningQueueItem;
 type GoldReason =
   | "LOW_RISK_FAILED"
   | "HIGH_RISK_SUCCEEDED"
@@ -42,8 +48,16 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleDateString("nb-NO");
 }
 
-function inferReason(candidate: Candidate): GoldReason {
-  const text = `${candidate.reason} ${candidate.outcome} ${candidate.decisionRoute ?? ""}`.toUpperCase();
+function isActiveLearningItem(item: CuratableItem): item is PdfDecisionActiveLearningQueueItem {
+  return "suggestedAction" in item;
+}
+
+function inferReason(candidate: Candidate | PdfDecisionActiveLearningQueueItem): GoldReason {
+  if (isActiveLearningItem(candidate) && candidate.suggestedGoldSetReason) {
+    return candidate.suggestedGoldSetReason as GoldReason;
+  }
+  const reason = "reason" in candidate ? candidate.reason : candidate.reasons.join(" ");
+  const text = `${reason} ${candidate.outcome} ${candidate.decisionRoute ?? ""}`.toUpperCase();
   if (text.includes("UNREADABLE")) return "UNREADABLE";
   if (text.includes("REPROCESS")) return "REPROCESS_REQUESTED";
   if (text.includes("BALANCE")) return "BALANCE_MISMATCH";
@@ -136,14 +150,19 @@ export default function PdfDecisionAnalyticsClient({
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(initialFilters);
   const [analytics, setAnalytics] = useState<PdfDecisionShadowEvaluationResult | null>(null);
+  const [benchmark, setBenchmark] = useState<PdfDecisionGoldSetBenchmarkResult | null>(null);
+  const [activeLearning, setActiveLearning] =
+    useState<PdfDecisionActiveLearningQueueResult | null>(null);
   const [goldSet, setGoldSet] = useState<JsonSafePdfDecisionGoldSetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [secondaryError, setSecondaryError] = useState<string | null>(null);
   const [savingFilingId, setSavingFilingId] = useState<string | null>(null);
 
   const refreshAnalytics = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setSecondaryError(null);
     try {
       const params = toSearchParams(appliedFilters);
       const [analyticsResponse, goldSetResponse] = await Promise.all([
@@ -160,6 +179,38 @@ export default function PdfDecisionAnalyticsClient({
       };
       setAnalytics(analyticsPayload.data);
       setGoldSet(goldSetPayload.data);
+
+      const [benchmarkResult, activeLearningResult] = await Promise.allSettled([
+        fetch(`/api/admin/pdf-decision-gold-set/benchmark?${params.toString()}`, {
+          cache: "no-store",
+        }),
+        fetch(`/api/admin/pdf-decision-active-learning?${params.toString()}`, {
+          cache: "no-store",
+        }),
+      ]);
+
+      const secondaryFailures: string[] = [];
+      if (benchmarkResult.status === "fulfilled" && benchmarkResult.value.ok) {
+        const payload = (await benchmarkResult.value.json()) as {
+          data: PdfDecisionGoldSetBenchmarkResult;
+        };
+        setBenchmark(payload.data);
+      } else {
+        setBenchmark(null);
+        secondaryFailures.push("gold-set benchmark");
+      }
+      if (activeLearningResult.status === "fulfilled" && activeLearningResult.value.ok) {
+        const payload = (await activeLearningResult.value.json()) as {
+          data: PdfDecisionActiveLearningQueueResult;
+        };
+        setActiveLearning(payload.data);
+      } else {
+        setActiveLearning(null);
+        secondaryFailures.push("active-learning queue");
+      }
+      if (secondaryFailures.length > 0) {
+        setSecondaryError(`Could not load ${secondaryFailures.join(" and ")}.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected error.");
     } finally {
@@ -185,17 +236,26 @@ export default function PdfDecisionAnalyticsClient({
       unreadableByRoute: entries(metrics?.unreadableRateByRoute),
       confidenceByRisk: entries(metrics?.averageConfidenceByRisk),
       goldSet: entries(metrics?.goldSetDistribution),
+      benchmarkReason: entries(benchmark?.metrics.mismatchesByReason),
+      benchmarkRoute: entries(benchmark?.metrics.mismatchesByRoute),
+      benchmarkRisk: entries(benchmark?.metrics.mismatchesByRisk),
     };
-  }, [metrics]);
+  }, [benchmark, metrics]);
 
   async function upsertGoldSet(
-    item: Candidate | JsonSafePdfDecisionGoldSetItem,
+    item: CuratableItem,
     status: "CANDIDATE" | "APPROVED" | "EXCLUDED",
   ) {
     setSavingFilingId(item.filingId);
     setError(null);
     try {
       const isCandidate = !("createdAt" in item);
+      const note =
+        isActiveLearningItem(item)
+          ? item.reasonDetails.join(" ")
+          : isCandidate
+            ? (item as Candidate).reason
+            : item.note;
       const response = await fetch("/api/admin/pdf-decision-gold-set", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -205,8 +265,8 @@ export default function PdfDecisionAnalyticsClient({
           orgNumber: item.orgNumber ?? null,
           fiscalYear: item.fiscalYear ?? null,
           status,
-          reason: isCandidate ? inferReason(item as Candidate) : item.reason,
-          note: isCandidate ? (item as Candidate).reason : item.note,
+          reason: isCandidate ? inferReason(item as Candidate | PdfDecisionActiveLearningQueueItem) : item.reason,
+          note,
           decisionRoute: item.decisionRoute ?? null,
           riskLevel: item.riskLevel ?? null,
           confidenceScore: item.confidenceScore ?? null,
@@ -302,6 +362,12 @@ export default function PdfDecisionAnalyticsClient({
         </div>
       ) : null}
 
+      {secondaryError ? (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+          {secondaryError}
+        </div>
+      ) : null}
+
       {loading ? (
         <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-10 text-center text-slate-400">
           Loading analytics.
@@ -365,6 +431,152 @@ export default function PdfDecisionAnalyticsClient({
             <MetricTable title="Top blocking rule codes" rows={metrics.topBlockingRuleCodes.map((r) => [r.ruleCode, r.count])} />
             <MetricTable title="Top parser risk reasons" rows={metrics.topParserRiskReasons.map((r) => [r.reason, r.count])} />
           </div>
+
+          {benchmark ? (
+            <section className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+                <SmallCard label="Benchmark items" value={benchmark.metrics.totalItems} />
+                <SmallCard label="Match rate" value={formatPercent(benchmark.metrics.matchRate)} />
+                <SmallCard label="Mismatch rate" value={formatPercent(benchmark.metrics.mismatchRate)} />
+                <SmallCard label="Errors" value={benchmark.metrics.errorCount} />
+                <SmallCard label="Route mismatch" value={benchmark.metrics.routeMismatchCount} />
+                <SmallCard label="Risk mismatch" value={benchmark.metrics.riskMismatchCount} />
+                <SmallCard label="Outcome mismatch" value={benchmark.metrics.outcomeMismatchCount} />
+                <SmallCard label="Confidence drift" value={benchmark.metrics.confidenceOutOfRangeCount} />
+              </div>
+              <div className="grid gap-4 lg:grid-cols-3">
+                <MetricTable title="Benchmark mismatches by reason" rows={rows.benchmarkReason} />
+                <MetricTable title="Benchmark mismatches by route" rows={rows.benchmarkRoute} />
+                <MetricTable title="Benchmark mismatches by risk" rows={rows.benchmarkRisk} />
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-[rgba(15,23,42,0.08)] bg-white">
+                <div className="border-b border-[rgba(15,23,42,0.08)] px-4 py-3">
+                  <h2 className="text-sm font-semibold text-[#162233]">Gold-set benchmark mismatches</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    APPROVED gold-set snapshots compared with current persisted PDF decisions.
+                  </p>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#f9f9f7] text-left text-xs font-medium text-slate-500">
+                      <th className="px-4 py-2">Org</th>
+                      <th className="px-4 py-2">Year</th>
+                      <th className="px-4 py-2">Route</th>
+                      <th className="px-4 py-2">Risk</th>
+                      <th className="px-4 py-2">Outcome</th>
+                      <th className="px-4 py-2">Severity</th>
+                      <th className="px-4 py-2">Failures</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {benchmark.items.filter((item) => item.benchmarkOutcome !== "MATCH").length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-4 text-slate-400" colSpan={7}>
+                          No benchmark mismatches for the current filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      benchmark.items
+                        .filter((item) => item.benchmarkOutcome !== "MATCH")
+                        .slice(0, 25)
+                        .map((item) => (
+                          <tr key={item.goldSetItemId} className="border-t border-[rgba(15,23,42,0.06)]">
+                            <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.orgNumber ?? "-"}</td>
+                            <td className="px-4 py-2 text-slate-700">{item.fiscalYear ?? "-"}</td>
+                            <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                              {item.curatedDecisionRoute ?? "-"} / {item.currentDecisionRoute ?? "-"}
+                            </td>
+                            <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                              {item.curatedRiskLevel ?? "-"} / {item.currentRiskLevel ?? "-"}
+                            </td>
+                            <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                              {item.curatedOutcome ?? "-"} / {item.currentOutcome ?? "-"}
+                            </td>
+                            <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.severity}</td>
+                            <td className="min-w-72 px-4 py-2 text-slate-600">{item.failures.join(" ")}</td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
+          {activeLearning ? (
+            <section className="overflow-x-auto rounded-lg border border-[rgba(15,23,42,0.08)] bg-white">
+              <div className="border-b border-[rgba(15,23,42,0.08)] px-4 py-3">
+                <h2 className="text-sm font-semibold text-[#162233]">Active-learning review queue</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Prioritized read-only queue for manual review and gold-set curation.
+                </p>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[#f9f9f7] text-left text-xs font-medium text-slate-500">
+                    <th className="px-4 py-2">Score</th>
+                    <th className="px-4 py-2">Org</th>
+                    <th className="px-4 py-2">Year</th>
+                    <th className="px-4 py-2">Route</th>
+                    <th className="px-4 py-2">Risk</th>
+                    <th className="px-4 py-2">Conf.</th>
+                    <th className="px-4 py-2">Outcome</th>
+                    <th className="px-4 py-2">Reasons</th>
+                    <th className="px-4 py-2">Action</th>
+                    <th className="px-4 py-2">Gold</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeLearning.items.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-4 text-slate-400" colSpan={11}>
+                        No active-learning candidates for the current filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    activeLearning.items.map((item) => (
+                      <tr key={item.filingId} className="border-t border-[rgba(15,23,42,0.06)]">
+                        <td className="px-4 py-2">
+                          <span className="font-semibold text-[#162233]">{item.priorityScore}</span>
+                          <span className="ml-2 font-mono text-xs text-slate-400">{item.priorityBand}</span>
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.orgNumber ?? "-"}</td>
+                        <td className="px-4 py-2 text-slate-700">{item.fiscalYear ?? "-"}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.decisionRoute ?? "-"}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.riskLevel ?? "-"}</td>
+                        <td className="px-4 py-2 text-slate-700">{formatPercent(item.confidenceScore)}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.outcome ?? "-"}</td>
+                        <td className="min-w-64 px-4 py-2 text-slate-600">{item.reasons.join(", ")}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.suggestedAction}
+                          {item.suggestedGoldSetReason ? (
+                            <div className="mt-1 text-slate-400">{item.suggestedGoldSetReason}</div>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-500">{item.goldSetStatus ?? "-"}</td>
+                        <td className="px-4 py-2">
+                          <div className="flex gap-2">
+                            {(["CANDIDATE", "APPROVED", "EXCLUDED"] as const).map((status) => (
+                              <button
+                                key={status}
+                                type="button"
+                                disabled={savingFilingId === item.filingId}
+                                onClick={() => void upsertGoldSet(item, status)}
+                                className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                              >
+                                {status === "CANDIDATE" ? "Mark" : status === "APPROVED" ? "Approve" : "Exclude"}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </section>
+          ) : null}
 
           <section className="overflow-x-auto rounded-lg border border-[rgba(15,23,42,0.08)] bg-white">
             <div className="border-b border-[rgba(15,23,42,0.08)] px-4 py-3">

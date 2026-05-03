@@ -29,9 +29,11 @@ export async function listAnnualReportDecisionShadowRows(input: {
   limit: number;
   fiscalYear?: number;
   orgNumber?: string;
+  filingIds?: string[];
 }): Promise<AnnualReportDecisionShadowRow[]> {
   const filings = await prisma.annualReportFiling.findMany({
     where: {
+      ...(input.filingIds ? { id: { in: input.filingIds } } : {}),
       ...(input.fiscalYear !== undefined ? { fiscalYear: input.fiscalYear } : {}),
       ...(input.orgNumber
         ? { company: { orgNumber: input.orgNumber } }
