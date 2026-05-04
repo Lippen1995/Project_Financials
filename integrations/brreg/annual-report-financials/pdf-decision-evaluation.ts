@@ -1,6 +1,10 @@
 import type { FinancialExtractionPageHints } from "@/integrations/brreg/annual-report-financials/financial-extraction-page-hints";
 import { runPdfDecisionEngine } from "@/integrations/brreg/annual-report-financials/pdf-decision-engine";
 import type {
+  PdfDecisionRuleConfig,
+  PdfDecisionRuleConfigOverrides,
+} from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-config";
+import type {
   PdfDecisionEngineOutput,
   PdfDecisionRiskLevel,
   PdfDecisionRoute,
@@ -77,8 +81,9 @@ function normalizeFixtureInput(
 
 export function evaluatePdfDecisionFixture(
   fixture: PdfDecisionEvaluationFixture,
+  options?: { ruleConfig?: PdfDecisionRuleConfigOverrides | PdfDecisionRuleConfig },
 ): PdfDecisionEvaluationResult {
-  const decision = runPdfDecisionEngine(normalizeFixtureInput(fixture));
+  const decision = runPdfDecisionEngine(normalizeFixtureInput(fixture), options);
   const failures: string[] = [];
   const expected = fixture.expected;
 
@@ -172,8 +177,9 @@ export function evaluatePdfDecisionFixture(
 
 export function evaluatePdfDecisionFixtures(
   fixtures: PdfDecisionEvaluationFixture[],
+  options?: { ruleConfig?: PdfDecisionRuleConfigOverrides | PdfDecisionRuleConfig },
 ): PdfDecisionEvaluationSummary {
-  const results = fixtures.map(evaluatePdfDecisionFixture);
+  const results = fixtures.map((fixture) => evaluatePdfDecisionFixture(fixture, options));
   const passedCount = results.filter((result) => result.passed).length;
   return {
     version: "pdf-decision-evaluation-v1",

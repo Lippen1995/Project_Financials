@@ -318,6 +318,9 @@ export default function PdfDecisionAnalyticsClient({
           <p className="mt-1 text-xs text-slate-400">
             Current engine rules: pdf-decision-rules-v1
           </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Rule simulations: npm run simulate:pdf-decision-rules. Simulations do not change production rules.
+          </p>
         </div>
         {analytics ? (
           <div className="text-xs text-slate-400">Generated {formatDate(analytics.generatedAt)}</div>

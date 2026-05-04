@@ -1,5 +1,10 @@
 import { PdfDecisionGoldSetReason } from "@prisma/client";
 
+import {
+  normalizePdfDecisionRuleConfig,
+  type PdfDecisionRuleConfig,
+  type PdfDecisionRuleConfigOverrides,
+} from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-config";
 import { LocalAnnualReportArtifactStorage } from "@/server/financials/artifact-storage";
 import { listAnnualReportDecisionShadowRows } from "@/server/persistence/annual-report-decision-shadow-repository";
 import { listPdfDecisionGoldSetItemsByFilingIds } from "@/server/persistence/pdf-decision-gold-set-repository";
@@ -61,6 +66,7 @@ export type PdfDecisionActiveLearningQueueResult = {
     fiscalYear?: number;
     orgNumber?: string;
     includeCurated: boolean;
+    ruleConfigVersion: string;
   };
   totalCandidates: number;
   items: PdfDecisionActiveLearningQueueItem[];
@@ -106,7 +112,10 @@ function suggestedReason(doc: PdfDecisionShadowDocument): PdfDecisionGoldSetReas
   return PdfDecisionGoldSetReason.REPRESENTATIVE_SAMPLE;
 }
 
-function buildQueueItem(doc: PdfDecisionShadowDocument): PdfDecisionActiveLearningQueueItem {
+function buildQueueItem(
+  doc: PdfDecisionShadowDocument,
+  ruleConfig: PdfDecisionRuleConfig,
+): PdfDecisionActiveLearningQueueItem {
   let score = 0;
   const reasons = new Set<PdfDecisionActiveLearningReason>();
   const reasonDetails: string[] = [];
@@ -149,12 +158,24 @@ function buildQueueItem(doc: PdfDecisionShadowDocument): PdfDecisionActiveLearni
     );
   }
   if (doc.confidenceScore !== null && doc.confidenceScore !== undefined) {
-    if (doc.confidenceScore < 0.45) {
+    const lowThreshold = ruleConfig.activeLearning?.lowConfidenceThreshold ?? 0.45;
+    const mediumThreshold = ruleConfig.activeLearning?.mediumConfidenceThreshold ?? 0.65;
+    if (doc.confidenceScore < lowThreshold) {
       score += 15;
-      addReason(reasons, reasonDetails, "LOW_CONFIDENCE", "Decision confidence is below 45%.");
-    } else if (doc.confidenceScore <= 0.65) {
+      addReason(
+        reasons,
+        reasonDetails,
+        "LOW_CONFIDENCE",
+        `Decision confidence is below ${Math.round(lowThreshold * 100)}%.`,
+      );
+    } else if (doc.confidenceScore <= mediumThreshold) {
       score += 10;
-      addReason(reasons, reasonDetails, "LOW_CONFIDENCE", "Decision confidence is between 45% and 65%.");
+      addReason(
+        reasons,
+        reasonDetails,
+        "LOW_CONFIDENCE",
+        `Decision confidence is between ${Math.round(lowThreshold * 100)}% and ${Math.round(mediumThreshold * 100)}%.`,
+      );
     }
   }
   if (doc.parserRiskReasons.length > 0) {
@@ -191,7 +212,8 @@ function buildQueueItem(doc: PdfDecisionShadowDocument): PdfDecisionActiveLearni
     (doc.riskLevel === "HIGH" ||
       (doc.confidenceScore !== null &&
         doc.confidenceScore !== undefined &&
-        doc.confidenceScore < 0.45));
+        doc.confidenceScore <
+          (ruleConfig.activeLearning?.lowConfidenceThreshold ?? 0.45)));
   const action =
     doc.goldSet?.status === "EXCLUDED"
       ? "EXCLUDE"
@@ -232,6 +254,7 @@ export async function listPdfDecisionActiveLearningQueue(
     fiscalYear?: number;
     orgNumber?: string;
     includeCurated?: boolean;
+    ruleConfig?: PdfDecisionRuleConfigOverrides | PdfDecisionRuleConfig;
   },
   deps?: {
     evaluateShadow?: (params: {
@@ -243,6 +266,7 @@ export async function listPdfDecisionActiveLearningQueue(
 ): Promise<PdfDecisionActiveLearningQueueResult> {
   const limit = input?.limit ?? 100;
   const includeCurated = input?.includeCurated ?? false;
+  const ruleConfig = normalizePdfDecisionRuleConfig(input?.ruleConfig);
   const evaluateShadow =
     deps?.evaluateShadow ??
     (async (params: { limit: number; fiscalYear?: number; orgNumber?: string }) => {
@@ -267,7 +291,7 @@ export async function listPdfDecisionActiveLearningQueue(
   });
 
   const allItems = shadow.documents
-    .map(buildQueueItem)
+    .map((doc) => buildQueueItem(doc, ruleConfig))
     .filter((item) => {
       if (includeCurated) return true;
       return item.goldSetStatus !== "APPROVED" && item.goldSetStatus !== "EXCLUDED";
@@ -283,6 +307,7 @@ export async function listPdfDecisionActiveLearningQueue(
       fiscalYear: input?.fiscalYear,
       orgNumber: input?.orgNumber,
       includeCurated,
+      ruleConfigVersion: ruleConfig.version,
     },
     totalCandidates: allItems.length,
     items: allItems.slice(0, limit),
