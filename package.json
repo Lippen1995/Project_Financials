@@ -43,6 +43,8 @@
     "export:pdf-decision-gold-set": "tsx scripts/export-pdf-decision-gold-set.ts",
     "check:pdf-decision-gold-set-snapshot": "tsx scripts/check-pdf-decision-gold-set-snapshot.ts",
     "export:pdf-decision-outcome-dataset": "tsx scripts/export-pdf-decision-outcome-dataset.ts",
+    "validate:pdf-decision-dataset": "tsx scripts/validate-pdf-decision-dataset.ts",
+    "split:pdf-decision-dataset": "tsx scripts/split-pdf-decision-dataset.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",
