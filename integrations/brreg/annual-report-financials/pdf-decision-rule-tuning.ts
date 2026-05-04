@@ -1,5 +1,4 @@
 import {
-  DEFAULT_PDF_DECISION_RULE_CONFIG,
   normalizePdfDecisionRuleConfig,
   type PdfDecisionRuleConfig,
   type PdfDecisionRuleConfigOverrides,
@@ -12,12 +11,16 @@ import {
 
 export type PdfDecisionRuleTuningCandidate = {
   id: string;
+  family?: string;
   description?: string;
+  rationale?: string;
+  expectedEffect?: string;
   ruleConfigOverride: PdfDecisionRuleConfigOverrides;
 };
 
 export type PdfDecisionRuleTuningFixtureComparison = {
   candidateId: string;
+  candidateFamily?: string;
   candidateDescription?: string;
   defaultPassed: boolean;
   candidatePassed: boolean;
@@ -118,6 +121,7 @@ function compareCandidate(input: {
 
   return {
     candidateId: input.candidate.id,
+    candidateFamily: input.candidate.family,
     candidateDescription: input.candidate.description,
     defaultPassed: input.defaultFailedCount === 0,
     candidatePassed: candidateSummary.failedCount === 0,
@@ -178,43 +182,3 @@ export function evaluatePdfDecisionRuleTuningCandidates(input: {
     recommendation: recommend(candidates),
   };
 }
-
-export const DEFAULT_PDF_DECISION_RULE_TUNING_CANDIDATES: PdfDecisionRuleTuningCandidate[] = [
-  {
-    id: "more-conservative-high-risk",
-    description: "Increase penalties for high quality risk and missing financial sections.",
-    ruleConfigOverride: {
-      confidence: {
-        penalties: {
-          highQualityRisk: DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.penalties.highQualityRisk + 0.06,
-          missingFinancialSections:
-            DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.penalties.missingFinancialSections + 0.04,
-        },
-      },
-    },
-  },
-  {
-    id: "reward-reliable-page-hints",
-    description: "Slightly reward reliable page hints.",
-    ruleConfigOverride: {
-      confidence: {
-        bonuses: {
-          reliablePageHints:
-            DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.bonuses.reliablePageHints + 0.04,
-        },
-      },
-    },
-  },
-  {
-    id: "stricter-weak-page-hints",
-    description: "Increase confidence penalty for weak page hints.",
-    ruleConfigOverride: {
-      confidence: {
-        penalties: {
-          weakPageHints:
-            DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.penalties.weakPageHints + 0.05,
-        },
-      },
-    },
-  },
-];
