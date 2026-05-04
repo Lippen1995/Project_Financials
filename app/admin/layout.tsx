@@ -26,6 +26,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href={"/admin/pdf-decision-analytics" as never} className="hover:text-slate-600">
           PDF Decision Analytics
         </Link>
+        <span>/</span>
+        <Link href={"/admin/pdf-decision-rule-tuning" as never} className="hover:text-slate-600">
+          Rule Tuning
+        </Link>
       </div>
       {children}
     </div>
