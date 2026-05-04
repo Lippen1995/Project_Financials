@@ -1,7 +1,7 @@
 {
   "version": "pdf-decision-gold-set-snapshot-v1",
   "generatedAt": "2026-01-01T00:00:00.000Z",
-  "itemCount": 1,
+  "itemCount": 2,
   "items": [
     {
       "filingId": "sample-filing-1",
@@ -17,6 +17,84 @@
       "goldSetNote": "Non-production fixture for snapshot shape validation.",
       "sourceDecisionVersion": "pdf-decision-engine-v1",
       "sourceRuleConfigVersion": "pdf-decision-rules-v1"
+    },
+    {
+      "filingId": "sample-filing-2",
+      "extractionRunId": "sample-run-2",
+      "orgNumber": "000000001",
+      "fiscalYear": 2024,
+      "expectedRoute": "TEXT_LAYER",
+      "expectedRiskLevel": "LOW",
+      "expectedOutcome": "PUBLISHED",
+      "expectedConfidenceScore": 0.9,
+      "expectedManualReviewReasons": [],
+      "goldSetReason": "REPRESENTATIVE_SAMPLE",
+      "goldSetNote": "Fixture with decisionInput for engine re-run during rule tuning.",
+      "sourceDecisionVersion": "pdf-decision-engine-v1",
+      "sourceRuleConfigVersion": "pdf-decision-rules-v1",
+      "decisionInput": {
+        "orgNumber": "000000001",
+        "fiscalYear": 2024,
+        "preflight": {
+          "pageCount": 4,
+          "hasTextLayer": true,
+          "hasReliableTextLayer": true,
+          "parsedPages": []
+        },
+        "structuredDocument": {
+          "pages": [
+            { "pageNumber": 1, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 200 },
+            { "pageNumber": 2, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 220 }
+          ],
+          "sections": [
+            {
+              "kind": "INCOME_STATEMENT",
+              "startPage": 1,
+              "endPage": 1,
+              "pages": [{ "pageNumber": 1, "rawText": "Resultatregnskap", "normalizedText": "resultatregnskap", "charCount": 200 }],
+              "confidenceScore": 0.92,
+              "matchedSignals": []
+            },
+            {
+              "kind": "BALANCE_SHEET",
+              "startPage": 2,
+              "endPage": 2,
+              "pages": [{ "pageNumber": 2, "rawText": "Balanse", "normalizedText": "balanse", "charCount": 220 }],
+              "confidenceScore": 0.91,
+              "matchedSignals": []
+            }
+          ],
+          "narratives": [],
+          "diagnostics": {
+            "pageCount": 4,
+            "sectionsFound": 2,
+            "sectionKinds": ["INCOME_STATEMENT", "BALANCE_SHEET"],
+            "missingExpectedSections": [],
+            "recommendedRouteHint": "TEXT_LAYER",
+            "textLayerDensityScore": 0.9,
+            "likelyImageOnlyPages": [],
+            "financialStatementPageCount": 2,
+            "financialStatementCandidatePages": [1, 2],
+            "narrativeCandidatePages": [],
+            "boardReportCandidatePages": [],
+            "auditorReportCandidatePages": [],
+            "notesCandidatePages": [],
+            "qualityRisk": "LOW",
+            "parserRiskReasons": [],
+            "extractionWarnings": []
+          }
+        },
+        "pageHints": {
+          "includePages": [1, 2],
+          "excludePages": [],
+          "preferredIncomeStatementPages": [1],
+          "preferredBalancePages": [2],
+          "notePages": [],
+          "hasReliableHints": true,
+          "reasons": ["2 financial statement page(s) detected"]
+        },
+        "openDataLoaderConfig": { "enabled": false, "mode": "local" }
+      }
     }
   ]
 }

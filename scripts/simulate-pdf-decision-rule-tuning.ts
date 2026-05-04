@@ -7,6 +7,11 @@ import {
   type PdfDecisionRuleTuningCandidate,
   type PdfDecisionRuleTuningReport,
 } from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-tuning";
+import {
+  evaluatePdfDecisionRuleTuningAgainstGoldSetSnapshot,
+  type PdfDecisionGoldSetRuleTuningReport,
+  type PdfDecisionGoldSetSnapshot,
+} from "@/integrations/brreg/annual-report-financials/pdf-decision-gold-set-rule-tuning";
 import type { PdfDecisionRegressionGuardResult } from "@/integrations/brreg/annual-report-financials/pdf-decision-regression-guard";
 import {
   getPdfDecisionRuleCandidateById,
@@ -45,6 +50,13 @@ function loadFixtures(): PdfDecisionEvaluationFixture[] {
     ) as PdfDecisionEvaluationFixture[];
 }
 
+function loadGoldSetSnapshot(): PdfDecisionGoldSetSnapshot | null {
+  const snapshotPath = readOption("--gold-set-snapshot=");
+  if (!snapshotPath) return null;
+  const raw = readFileSync(snapshotPath, "utf8");
+  return JSON.parse(raw) as PdfDecisionGoldSetSnapshot;
+}
+
 function selectCandidates(): PdfDecisionRuleTuningCandidate[] {
   const candidateId = readOption("--candidate=");
   if (candidateId) {
@@ -68,6 +80,22 @@ function printTuningSummary(tuningReport: PdfDecisionRuleTuningReport) {
   }
   console.log(`Recommendation: ${tuningReport.recommendation.bestCandidateId ?? "none"}`);
   console.log(tuningReport.recommendation.reason);
+}
+
+function printGoldSetSnapshotSummary(report: PdfDecisionGoldSetRuleTuningReport) {
+  console.log("Gold-set snapshot tuning");
+  console.log(`Snapshot items: ${report.candidates[0]?.snapshotItemCount ?? 0}`);
+  for (const candidate of report.candidates) {
+    console.log(
+      `${candidate.candidateId}: matched=${candidate.matchedCount}, changed=${candidate.changedItems.length}`,
+    );
+    for (const item of candidate.changedItems) {
+      const note = item.notes[0] ?? "";
+      console.log(`  [${item.changeType}] ${item.filingId}: ${note}`);
+    }
+  }
+  console.log(`Recommendation: ${report.recommendation.bestCandidateId ?? "none"}`);
+  console.log(report.recommendation.reason);
 }
 
 function printGoldSetSummary(result: PdfDecisionRegressionGuardResult) {
@@ -99,16 +127,25 @@ async function runGoldSetGuard(): Promise<PdfDecisionRegressionGuardResult | und
 }
 
 async function main() {
+  const candidates = selectCandidates();
   const report = evaluatePdfDecisionRuleTuningCandidates({
     fixtures: loadFixtures(),
-    candidates: selectCandidates(),
+    candidates,
   });
+
+  const snapshot = loadGoldSetSnapshot();
+  const snapshotReport = snapshot
+    ? evaluatePdfDecisionRuleTuningAgainstGoldSetSnapshot({ snapshot, candidates })
+    : null;
+
   const goldSetGuard = await runGoldSetGuard();
+
   if (hasFlag("--json")) {
     console.log(
       JSON.stringify(
         {
           tuningReport: report,
+          goldSetSnapshotReport: snapshotReport,
           goldSetGuard,
         },
         null,
@@ -117,8 +154,10 @@ async function main() {
     );
   } else {
     printTuningSummary(report);
+    if (snapshotReport) printGoldSetSnapshotSummary(snapshotReport);
     if (goldSetGuard) printGoldSetSummary(goldSetGuard);
   }
+
   if (goldSetGuard && !goldSetGuard.passed) process.exitCode = 1;
 }
 
