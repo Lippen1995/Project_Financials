@@ -121,6 +121,64 @@ describe("listPdfDecisionActiveLearningQueue", () => {
     expect(result.items[0].suggestedGoldSetReason).toBe("BALANCE_MISMATCH");
   });
 
+  it("uses default config confidence thresholds", async () => {
+    const result = await queue([
+      makeDocument({ confidenceScore: 0.44 }),
+    ]);
+
+    expect(result.items[0].reasons).toContain("LOW_CONFIDENCE");
+    expect(result.items[0].reasonDetails).toContain("Decision confidence is below 45%.");
+    expect(result.items[0].priorityScore).toBe(25);
+  });
+
+  it("uses custom low confidence threshold", async () => {
+    const result = await listPdfDecisionActiveLearningQueue(
+      {
+        limit: 20,
+        ruleConfig: {
+          activeLearning: {
+            lowConfidenceThreshold: 0.6,
+            mediumConfidenceThreshold: 0.65,
+          },
+        },
+      },
+      {
+        evaluateShadow: async () => makeShadowResult([
+          makeDocument({ confidenceScore: 0.55 }),
+        ]),
+      },
+    );
+
+    expect(result.items[0].reasonDetails).toContain("Decision confidence is below 60%.");
+    expect(result.items[0].priorityScore).toBe(25);
+  });
+
+  it("uses custom medium confidence threshold", async () => {
+    const defaultResult = await queue([
+      makeDocument({ confidenceScore: 0.7 }),
+    ]);
+    const customResult = await listPdfDecisionActiveLearningQueue(
+      {
+        limit: 20,
+        ruleConfig: {
+          activeLearning: {
+            lowConfidenceThreshold: 0.45,
+            mediumConfidenceThreshold: 0.75,
+          },
+        },
+      },
+      {
+        evaluateShadow: async () => makeShadowResult([
+          makeDocument({ confidenceScore: 0.7 }),
+        ]),
+      },
+    );
+
+    expect(defaultResult.items[0].reasons).toEqual(["NOT_IN_GOLD_SET"]);
+    expect(customResult.items[0].reasons).toContain("LOW_CONFIDENCE");
+    expect(customResult.items[0].priorityScore).toBeGreaterThan(defaultResult.items[0].priorityScore);
+  });
+
   it("includes candidate items by default so they can be approved", async () => {
     const result = await queue([
       makeDocument({
