@@ -19,6 +19,13 @@ type Filters = {
   orgNumber: string;
 };
 
+type ActiveLearningFilters = {
+  priorityBand: string;
+  investigationArea: string;
+  minPriority: string;
+  includeCurated: boolean;
+};
+
 type Candidate = PdfDecisionShadowMetrics["candidateGoldSet"][number];
 type CuratableItem = Candidate | JsonSafePdfDecisionGoldSetItem | PdfDecisionActiveLearningQueueItem;
 type GoldReason =
@@ -75,6 +82,16 @@ function toSearchParams(filters: Filters) {
   const fiscalYear = Number.parseInt(filters.fiscalYear, 10);
   if (Number.isFinite(fiscalYear)) params.set("fiscalYear", String(fiscalYear));
   if (filters.orgNumber.trim()) params.set("orgNumber", filters.orgNumber.trim());
+  return params;
+}
+
+function toActiveLearningParams(primary: Filters, al: ActiveLearningFilters) {
+  const params = toSearchParams(primary);
+  if (al.priorityBand) params.set("priorityBand", al.priorityBand);
+  if (al.investigationArea) params.set("investigationArea", al.investigationArea);
+  const minPriority = Number.parseInt(al.minPriority, 10);
+  if (Number.isFinite(minPriority)) params.set("minPriority", String(minPriority));
+  if (al.includeCurated) params.set("includeCurated", "true");
   return params;
 }
 
@@ -151,12 +168,19 @@ export default function PdfDecisionAnalyticsClient({
 }) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(initialFilters);
+  const [alFilters, setAlFilters] = useState<ActiveLearningFilters>({
+    priorityBand: "",
+    investigationArea: "",
+    minPriority: "",
+    includeCurated: false,
+  });
   const [analytics, setAnalytics] = useState<PdfDecisionShadowEvaluationResult | null>(null);
   const [benchmark, setBenchmark] = useState<PdfDecisionGoldSetBenchmarkResult | null>(null);
   const [activeLearning, setActiveLearning] =
     useState<PdfDecisionActiveLearningQueueResult | null>(null);
   const [goldSet, setGoldSet] = useState<JsonSafePdfDecisionGoldSetItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [alLoading, setAlLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [secondaryError, setSecondaryError] = useState<string | null>(null);
   const [savingFilingId, setSavingFilingId] = useState<string | null>(null);
@@ -182,11 +206,12 @@ export default function PdfDecisionAnalyticsClient({
       setAnalytics(analyticsPayload.data);
       setGoldSet(goldSetPayload.data);
 
+      const alParams = toActiveLearningParams(appliedFilters, alFilters);
       const [benchmarkResult, activeLearningResult] = await Promise.allSettled([
         fetch(`/api/admin/pdf-decision-gold-set/benchmark?${params.toString()}`, {
           cache: "no-store",
         }),
-        fetch(`/api/admin/pdf-decision-active-learning?${params.toString()}`, {
+        fetch(`/api/admin/pdf-decision-active-learning?${alParams.toString()}`, {
           cache: "no-store",
         }),
       ]);
@@ -218,7 +243,31 @@ export default function PdfDecisionAnalyticsClient({
     } finally {
       setLoading(false);
     }
-  }, [appliedFilters]);
+  }, [appliedFilters, alFilters]);
+
+  const fetchActiveLearning = useCallback(
+    async (primary: Filters, al: ActiveLearningFilters) => {
+      setAlLoading(true);
+      try {
+        const params = toActiveLearningParams(primary, al);
+        const response = await fetch(
+          `/api/admin/pdf-decision-active-learning?${params.toString()}`,
+          { cache: "no-store" },
+        );
+        if (response.ok) {
+          const payload = (await response.json()) as { data: PdfDecisionActiveLearningQueueResult };
+          setActiveLearning(payload.data);
+        } else {
+          setSecondaryError("Could not reload active-learning queue.");
+        }
+      } catch {
+        setSecondaryError("Could not reload active-learning queue.");
+      } finally {
+        setAlLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     void refreshAnalytics();
@@ -519,22 +568,11 @@ export default function PdfDecisionAnalyticsClient({
                   Prioritized queue for manual review and gold-set curation. Includes diversity and
                   cluster signals.
                 </p>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <select
                     className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 text-xs text-slate-700"
-                    defaultValue=""
-                    onChange={(e) => {
-                      const band = e.target.value || undefined;
-                      const params = toSearchParams(appliedFilters);
-                      if (band) params.set("priorityBand", band);
-                      void fetch(`/api/admin/pdf-decision-active-learning?${params.toString()}`, {
-                        cache: "no-store",
-                      })
-                        .then((r) => r.json())
-                        .then((payload: { data: PdfDecisionActiveLearningQueueResult }) =>
-                          setActiveLearning(payload.data),
-                        );
-                    }}
+                    value={alFilters.priorityBand}
+                    onChange={(e) => setAlFilters((f) => ({ ...f, priorityBand: e.target.value }))}
                   >
                     <option value="">All bands</option>
                     <option value="HIGH">HIGH</option>
@@ -543,19 +581,10 @@ export default function PdfDecisionAnalyticsClient({
                   </select>
                   <select
                     className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 text-xs text-slate-700"
-                    defaultValue=""
-                    onChange={(e) => {
-                      const area = e.target.value || undefined;
-                      const params = toSearchParams(appliedFilters);
-                      if (area) params.set("investigationArea", area);
-                      void fetch(`/api/admin/pdf-decision-active-learning?${params.toString()}`, {
-                        cache: "no-store",
-                      })
-                        .then((r) => r.json())
-                        .then((payload: { data: PdfDecisionActiveLearningQueueResult }) =>
-                          setActiveLearning(payload.data),
-                        );
-                    }}
+                    value={alFilters.investigationArea}
+                    onChange={(e) =>
+                      setAlFilters((f) => ({ ...f, investigationArea: e.target.value }))
+                    }
                   >
                     <option value="">All areas</option>
                     <option value="PARSER">PARSER</option>
@@ -567,20 +596,21 @@ export default function PdfDecisionAnalyticsClient({
                   <label className="flex items-center gap-1 text-xs text-slate-600">
                     <input
                       type="checkbox"
-                      onChange={(e) => {
-                        const params = toSearchParams(appliedFilters);
-                        if (e.target.checked) params.set("includeCurated", "true");
-                        void fetch(`/api/admin/pdf-decision-active-learning?${params.toString()}`, {
-                          cache: "no-store",
-                        })
-                          .then((r) => r.json())
-                          .then((payload: { data: PdfDecisionActiveLearningQueueResult }) =>
-                            setActiveLearning(payload.data),
-                          );
-                      }}
+                      checked={alFilters.includeCurated}
+                      onChange={(e) =>
+                        setAlFilters((f) => ({ ...f, includeCurated: e.target.checked }))
+                      }
                     />
                     Include curated
                   </label>
+                  <button
+                    type="button"
+                    disabled={alLoading}
+                    onClick={() => void fetchActiveLearning(appliedFilters, alFilters)}
+                    className="rounded border border-[rgba(15,23,42,0.12)] px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {alLoading ? "Loading…" : "Apply"}
+                  </button>
                 </div>
               </div>
               <table className="w-full text-sm">
