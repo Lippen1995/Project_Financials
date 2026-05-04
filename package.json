@@ -48,6 +48,7 @@
     "cluster:pdf-parser-failures": "tsx scripts/cluster-pdf-parser-failures.ts",
     "report:pdf-parser-remediation": "tsx scripts/build-pdf-parser-remediation-report.ts",
     "evaluate:pdf-ocr-odl-routes": "tsx scripts/evaluate-pdf-ocr-odl-routes.ts",
+    "report:pdf-route-experiment": "tsx scripts/report-pdf-route-recommendation-experiment.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",
