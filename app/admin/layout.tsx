@@ -38,6 +38,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href={"/admin/pdf-route-experiment" as never} className="hover:text-slate-600">
           Route Experiment
         </Link>
+        <span>/</span>
+        <Link href={"/admin/pdf-shadow-model" as never} className="hover:text-slate-600">
+          Shadow Model
+        </Link>
       </div>
       {children}
     </div>
