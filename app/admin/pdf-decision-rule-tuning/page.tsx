@@ -54,6 +54,7 @@ export default async function PdfDecisionRuleTuningPage() {
           <thead>
             <tr className="bg-[#f9f9f7] text-left text-xs font-medium text-slate-500">
               <th className="px-4 py-2">Candidate</th>
+              <th className="px-4 py-2">Family</th>
               <th className="px-4 py-2">Description</th>
               <th className="px-4 py-2 text-right">Default failed</th>
               <th className="px-4 py-2 text-right">Candidate failed</th>
@@ -67,6 +68,9 @@ export default async function PdfDecisionRuleTuningPage() {
               <tr key={candidate.candidateId} className="border-t border-[rgba(15,23,42,0.06)]">
                 <td className="px-4 py-2 font-mono text-xs text-slate-600">
                   {candidate.candidateId}
+                </td>
+                <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                  {candidate.candidateFamily ?? "-"}
                 </td>
                 <td className="min-w-64 px-4 py-2 text-slate-600">
                   {candidate.candidateDescription ?? "-"}

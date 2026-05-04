@@ -3,10 +3,14 @@ import { join } from "node:path";
 
 import type { PdfDecisionEvaluationFixture } from "@/integrations/brreg/annual-report-financials/pdf-decision-evaluation";
 import {
-  DEFAULT_PDF_DECISION_RULE_TUNING_CANDIDATES,
   evaluatePdfDecisionRuleTuningCandidates,
   type PdfDecisionRuleTuningReport,
 } from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-tuning";
+import {
+  getPdfDecisionRuleCandidateById,
+  listPdfDecisionRuleCandidates,
+  type PdfDecisionRuleCandidateFamily,
+} from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-candidates";
 
 function loadPdfDecisionFixtureFiles(): PdfDecisionEvaluationFixture[] {
   const fixtureDir = join(
@@ -24,9 +28,20 @@ function loadPdfDecisionFixtureFiles(): PdfDecisionEvaluationFixture[] {
     ) as PdfDecisionEvaluationFixture[];
 }
 
-export function runDefaultPdfDecisionRuleTuningSimulation(): PdfDecisionRuleTuningReport {
+export function runDefaultPdfDecisionRuleTuningSimulation(input?: {
+  family?: PdfDecisionRuleCandidateFamily;
+  candidateId?: string;
+}): PdfDecisionRuleTuningReport {
+  const candidate = input?.candidateId
+    ? getPdfDecisionRuleCandidateById(input.candidateId)
+    : undefined;
+  const candidates = input?.candidateId
+    ? candidate
+      ? [candidate]
+      : []
+    : listPdfDecisionRuleCandidates({ family: input?.family });
   return evaluatePdfDecisionRuleTuningCandidates({
     fixtures: loadPdfDecisionFixtureFiles(),
-    candidates: DEFAULT_PDF_DECISION_RULE_TUNING_CANDIDATES,
+    candidates,
   });
 }

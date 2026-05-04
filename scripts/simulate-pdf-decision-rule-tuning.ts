@@ -3,11 +3,16 @@ import { join } from "node:path";
 
 import type { PdfDecisionEvaluationFixture } from "@/integrations/brreg/annual-report-financials/pdf-decision-evaluation";
 import {
-  DEFAULT_PDF_DECISION_RULE_TUNING_CANDIDATES,
-  type PdfDecisionRuleTuningReport,
   evaluatePdfDecisionRuleTuningCandidates,
+  type PdfDecisionRuleTuningCandidate,
+  type PdfDecisionRuleTuningReport,
 } from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-tuning";
 import type { PdfDecisionRegressionGuardResult } from "@/integrations/brreg/annual-report-financials/pdf-decision-regression-guard";
+import {
+  getPdfDecisionRuleCandidateById,
+  listPdfDecisionRuleCandidates,
+  type PdfDecisionRuleCandidateFamily,
+} from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-candidates";
 
 function hasFlag(flag: string) {
   return process.argv.includes(flag);
@@ -18,6 +23,10 @@ function readNumberOption(prefix: string): number | undefined {
   if (!value) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+}
+
+function readOption(prefix: string): string | undefined {
+  return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length);
 }
 
 function loadFixtures(): PdfDecisionEvaluationFixture[] {
@@ -36,10 +45,18 @@ function loadFixtures(): PdfDecisionEvaluationFixture[] {
     ) as PdfDecisionEvaluationFixture[];
 }
 
-const report = evaluatePdfDecisionRuleTuningCandidates({
-  fixtures: loadFixtures(),
-  candidates: DEFAULT_PDF_DECISION_RULE_TUNING_CANDIDATES,
-});
+function selectCandidates(): PdfDecisionRuleTuningCandidate[] {
+  const candidateId = readOption("--candidate=");
+  if (candidateId) {
+    const candidate = getPdfDecisionRuleCandidateById(candidateId);
+    if (!candidate) throw new Error(`Unknown PDF Decision rule candidate: ${candidateId}`);
+    return [candidate];
+  }
+  const family = readOption("--family=");
+  return listPdfDecisionRuleCandidates({
+    family: family ? (family as PdfDecisionRuleCandidateFamily) : undefined,
+  });
+}
 
 function printTuningSummary(tuningReport: PdfDecisionRuleTuningReport) {
   console.log("PDF Decision rule tuning simulation");
@@ -82,6 +99,10 @@ async function runGoldSetGuard(): Promise<PdfDecisionRegressionGuardResult | und
 }
 
 async function main() {
+  const report = evaluatePdfDecisionRuleTuningCandidates({
+    fixtures: loadFixtures(),
+    candidates: selectCandidates(),
+  });
   const goldSetGuard = await runGoldSetGuard();
   if (hasFlag("--json")) {
     console.log(
