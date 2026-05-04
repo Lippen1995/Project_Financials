@@ -143,8 +143,10 @@ function MetricTable({
 }
 
 export default function PdfDecisionAnalyticsClient({
+  activeRuleConfigVersion,
   initialFilters,
 }: {
+  activeRuleConfigVersion: string;
   initialFilters: Filters;
 }) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
@@ -316,7 +318,7 @@ export default function PdfDecisionAnalyticsClient({
             and explicit gold-set curation metadata.
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            Current engine rules: pdf-decision-rules-v1
+            Current engine rules: {activeRuleConfigVersion}
           </p>
           <p className="mt-1 text-xs text-slate-400">
             Rule simulations: npm run simulate:pdf-decision-rules. Simulations do not change production rules.

@@ -25,6 +25,7 @@ import {
   buildPdfDecisionArtifactPayload,
   runPdfDecisionEngine,
 } from "@/integrations/brreg/annual-report-financials/pdf-decision-engine";
+import { getActivePdfDecisionRuleConfig } from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-config";
 import type {
   PdfDecisionResult,
   PdfDecisionValidationSummary,
@@ -803,12 +804,16 @@ export async function processAnnualReportFiling(
 
   // Run the PDF Decision Engine and persist as PDF_DECISION_JSON artifact.
   const odlConfigForDecision = resolveOpenDataLoaderConfig();
-  const pdfDecision = runPdfDecisionEngine({
-    preflight,
-    structuredDocument: preflight.structuredDocument ?? null,
-    pageHints: pageHints ?? null,
-    odlConfig: { enabled: odlConfigForDecision.enabled, mode: odlConfigForDecision.mode },
-  });
+  const activePdfDecisionRuleConfig = getActivePdfDecisionRuleConfig();
+  const pdfDecision = runPdfDecisionEngine(
+    {
+      preflight,
+      structuredDocument: preflight.structuredDocument ?? null,
+      pageHints: pageHints ?? null,
+      odlConfig: { enabled: odlConfigForDecision.enabled, mode: odlConfigForDecision.mode },
+    },
+    { ruleConfig: activePdfDecisionRuleConfig },
+  );
   try {
     artifactReferences.push(
       await persistJsonArtifact({
@@ -1101,16 +1106,19 @@ export async function processAnnualReportFiling(
     const validationSummary = buildValidationSummary(primaryComputation);
     let postValidationPdfDecision: PdfDecisionResult | null = null;
     try {
-      postValidationPdfDecision = runPdfDecisionEngine({
-        preflight,
-        structuredDocument: preflight.structuredDocument ?? null,
-        pageHints: pageHints ?? null,
-        odlConfig: {
-          enabled: openDataLoaderConfig.enabled,
-          mode: openDataLoaderConfig.mode,
+      postValidationPdfDecision = runPdfDecisionEngine(
+        {
+          preflight,
+          structuredDocument: preflight.structuredDocument ?? null,
+          pageHints: pageHints ?? null,
+          odlConfig: {
+            enabled: openDataLoaderConfig.enabled,
+            mode: openDataLoaderConfig.mode,
+          },
+          validationSummary,
         },
-        validationSummary,
-      });
+        { ruleConfig: activePdfDecisionRuleConfig },
+      );
       artifactReferences.push(
         await persistJsonArtifact({
           filingId: filing.id,

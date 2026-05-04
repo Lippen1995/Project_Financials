@@ -37,7 +37,7 @@ export type PdfDecisionPageHints = {
 };
 
 export type PdfDecisionDiagnostics = {
-  ruleConfigVersion?: "pdf-decision-rules-v1";
+  ruleConfigVersion?: PdfDecisionRuleConfigVersion;
   qualityRisk?: string;
   recommendedRouteHint?: string;
   parserRiskReasons: string[];
@@ -60,7 +60,7 @@ export type PdfDecisionValidationSummary = {
 
 export type PdfDecisionEngineOutput = {
   version: "pdf-decision-engine-v1";
-  ruleConfigVersion: "pdf-decision-rules-v1";
+  ruleConfigVersion: PdfDecisionRuleConfigVersion;
   route: PdfDecisionRoute;
   riskLevel: PdfDecisionRiskLevel;
   confidenceScore: number;
@@ -91,3 +91,4 @@ export type JsonSafePdfDecisionArtifactPayload = {
   createdAt: string;
   source: "annual-report-financials-service";
 };
+import type { PdfDecisionRuleConfigVersion } from "./pdf-decision-rule-config";
