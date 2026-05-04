@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { buildPdfDecisionShadowModelAnalysisReport } from "@/server/services/pdf-decision-shadow-model-analysis-service";
+
+const querySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
+  fiscalYear: z.coerce.number().int().optional(),
+  orgNumber: z.string().trim().min(1).max(20).optional(),
+  split: z.enum(["train", "validation", "test", "all"]).optional(),
+  threshold: z.coerce.number().min(0).max(1).optional(),
+  maxExamples: z.coerce.number().int().min(1).max(500).optional(),
+});
+
+export async function GET(request: NextRequest) {
+  const { error } = await requireFinancialReviewer();
+  if (error) return error;
+
+  const parsed = querySchema.safeParse({
+    limit: request.nextUrl.searchParams.get("limit") ?? undefined,
+    fiscalYear: request.nextUrl.searchParams.get("fiscalYear") ?? undefined,
+    orgNumber: request.nextUrl.searchParams.get("orgNumber") ?? undefined,
+    split: request.nextUrl.searchParams.get("split") ?? undefined,
+    threshold: request.nextUrl.searchParams.get("threshold") ?? undefined,
+    maxExamples: request.nextUrl.searchParams.get("maxExamples") ?? undefined,
+  });
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Ugyldig foresporsel.", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const data = await buildPdfDecisionShadowModelAnalysisReport(parsed.data);
+    return NextResponse.json({ data });
+  } catch {
+    return NextResponse.json(
+      { error: "Kunne ikke bygge analyse-rapport." },
+      { status: 500 },
+    );
+  }
+}
