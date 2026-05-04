@@ -84,88 +84,73 @@ export type PdfDecisionGoldSetRuleTuningReport = {
   };
 };
 
-function evaluateSnapshotItemWithCandidate(
-  item: PdfDecisionGoldSetSnapshotItem,
-  candidateConfig: PdfDecisionRuleConfigOverrides,
-): {
-  candidateRoute?: string | null;
-  candidateRiskLevel?: string | null;
-  candidateConfidenceScore?: number | null;
-  evaluated: boolean;
-} {
-  if (!item.decisionInput) {
-    return { evaluated: false };
-  }
-  try {
-    const result = runPdfDecisionEngine(item.decisionInput, { ruleConfig: candidateConfig });
-    return {
-      candidateRoute: result.route,
-      candidateRiskLevel: result.riskLevel,
-      candidateConfidenceScore: result.confidenceScore,
-      evaluated: true,
-    };
-  } catch {
-    return { evaluated: false };
-  }
-}
+type ItemEngineResult = {
+  route: string;
+  riskLevel: string;
+  confidenceScore: number;
+};
 
-function evaluateSnapshotItemWithBaseline(
-  item: PdfDecisionGoldSetSnapshotItem,
-): {
-  baselineRoute?: string | null;
-  baselineRiskLevel?: string | null;
-  baselineConfidenceScore?: number | null;
-  evaluated: boolean;
-} {
-  if (!item.decisionInput) {
-    return { evaluated: false };
+// Run the engine once per item with decisionInput; results are shared across all candidates.
+function buildBaselineCache(
+  items: PdfDecisionGoldSetSnapshotItem[],
+): Map<string, ItemEngineResult> {
+  const cache = new Map<string, ItemEngineResult>();
+  for (const item of items) {
+    if (!item.decisionInput) continue;
+    try {
+      const result = runPdfDecisionEngine(item.decisionInput);
+      cache.set(item.filingId, {
+        route: result.route,
+        riskLevel: result.riskLevel,
+        confidenceScore: result.confidenceScore,
+      });
+    } catch {
+      // Item not added to cache; treated as unevaluable.
+    }
   }
-  try {
-    const result = runPdfDecisionEngine(item.decisionInput);
-    return {
-      baselineRoute: result.route,
-      baselineRiskLevel: result.riskLevel,
-      baselineConfidenceScore: result.confidenceScore,
-      evaluated: true,
-    };
-  } catch {
-    return { evaluated: false };
-  }
+  return cache;
 }
 
 function compareSnapshotItemToCandidate(
   item: PdfDecisionGoldSetSnapshotItem,
   candidateConfig: PdfDecisionRuleConfigOverrides,
+  baseline: ItemEngineResult | undefined,
 ): {
   changeType: PdfDecisionGoldSetRuleTuningChangeType;
   candidateRoute?: string | null;
   candidateRiskLevel?: string | null;
+  candidateConfidenceScore?: number | null;
+  baselineConfidenceScore?: number | null;
   notes: string[];
 } {
   const notes: string[] = [];
 
-  if (!item.decisionInput) {
+  if (!item.decisionInput || !baseline) {
     notes.push("INSUFFICIENT_INPUT_FOR_RERUN: snapshot item has no decisionInput.");
     return { changeType: "UNCHANGED", candidateRoute: null, candidateRiskLevel: null, notes };
   }
 
-  const baseline = evaluateSnapshotItemWithBaseline(item);
-  const candidate = evaluateSnapshotItemWithCandidate(item, candidateConfig);
-
-  if (!baseline.evaluated || !candidate.evaluated) {
+  let candidateResult: ItemEngineResult | undefined;
+  try {
+    const result = runPdfDecisionEngine(item.decisionInput, { ruleConfig: candidateConfig });
+    candidateResult = {
+      route: result.route,
+      riskLevel: result.riskLevel,
+      confidenceScore: result.confidenceScore,
+    };
+  } catch {
     notes.push("INSUFFICIENT_INPUT_FOR_RERUN: engine evaluation failed.");
     return { changeType: "UNCHANGED", candidateRoute: null, candidateRiskLevel: null, notes };
   }
 
-  const candidateRoute = candidate.candidateRoute;
-  const candidateRiskLevel = candidate.candidateRiskLevel;
-  const baselineRoute = baseline.baselineRoute;
-  const baselineRiskLevel = baseline.baselineRiskLevel;
+  const candidateRoute = candidateResult.route;
+  const candidateRiskLevel = candidateResult.riskLevel;
+  const baselineRoute = baseline.route;
+  const baselineRiskLevel = baseline.riskLevel;
 
   const expectedRoute = item.expectedRoute;
   const expectedRiskLevel = item.expectedRiskLevel;
 
-  // Baseline matched expected; does candidate also match?
   const baselineRouteMatch = !expectedRoute || baselineRoute === expectedRoute;
   const baselineRiskMatch = !expectedRiskLevel || baselineRiskLevel === expectedRiskLevel;
   const candidateRouteMatch = !expectedRoute || candidateRoute === expectedRoute;
@@ -176,7 +161,14 @@ function compareSnapshotItemToCandidate(
 
   if (!baselineOk && candidateOk) {
     notes.push("Candidate resolves a baseline mismatch against expected values.");
-    return { changeType: "IMPROVED", candidateRoute, candidateRiskLevel, notes };
+    return {
+      changeType: "IMPROVED",
+      candidateRoute,
+      candidateRiskLevel,
+      candidateConfidenceScore: candidateResult.confidenceScore,
+      baselineConfidenceScore: baseline.confidenceScore,
+      notes,
+    };
   }
 
   if (baselineOk && !candidateOk) {
@@ -187,25 +179,53 @@ function compareSnapshotItemToCandidate(
     if (!candidateRiskMatch) {
       notes.push(`Risk: expected ${expectedRiskLevel}, candidate ${candidateRiskLevel}.`);
     }
-    return { changeType: "REGRESSED", candidateRoute, candidateRiskLevel, notes };
+    return {
+      changeType: "REGRESSED",
+      candidateRoute,
+      candidateRiskLevel,
+      candidateConfidenceScore: candidateResult.confidenceScore,
+      baselineConfidenceScore: baseline.confidenceScore,
+      notes,
+    };
   }
 
   if (baselineRoute !== candidateRoute) {
     notes.push(`Route changed from ${baselineRoute} to ${candidateRoute} (expected: ${expectedRoute ?? "any"}).`);
-    return { changeType: "ROUTE_CHANGED", candidateRoute, candidateRiskLevel, notes };
+    return {
+      changeType: "ROUTE_CHANGED",
+      candidateRoute,
+      candidateRiskLevel,
+      candidateConfidenceScore: candidateResult.confidenceScore,
+      baselineConfidenceScore: baseline.confidenceScore,
+      notes,
+    };
   }
 
   if (baselineRiskLevel !== candidateRiskLevel) {
     notes.push(`Risk changed from ${baselineRiskLevel} to ${candidateRiskLevel} (expected: ${expectedRiskLevel ?? "any"}).`);
-    return { changeType: "RISK_CHANGED", candidateRoute, candidateRiskLevel, notes };
+    return {
+      changeType: "RISK_CHANGED",
+      candidateRoute,
+      candidateRiskLevel,
+      candidateConfidenceScore: candidateResult.confidenceScore,
+      baselineConfidenceScore: baseline.confidenceScore,
+      notes,
+    };
   }
 
-  const baselineConf = baseline.baselineConfidenceScore ?? 0;
-  const candidateConf = candidate.candidateConfidenceScore ?? 0;
+  const baselineConf = baseline.confidenceScore;
+  const candidateConf = candidateResult.confidenceScore;
   const confDelta = Number((candidateConf - baselineConf).toFixed(4));
   if (Math.abs(confDelta) >= 0.05) {
     notes.push(`Confidence changed by ${confDelta}.`);
-    return { changeType: "CONFIDENCE_CHANGED", candidateRoute, candidateRiskLevel, notes };
+    return {
+      changeType: "CONFIDENCE_CHANGED",
+      candidateRoute,
+      candidateRiskLevel,
+      candidateConfidenceScore: candidateConf,
+      baselineConfidenceScore: baselineConf,
+      notes,
+    };
   }
 
   return { changeType: "UNCHANGED", candidateRoute, candidateRiskLevel, notes };
@@ -214,6 +234,7 @@ function compareSnapshotItemToCandidate(
 function compareGoldSetCandidate(
   snapshot: PdfDecisionGoldSetSnapshot,
   candidate: PdfDecisionRuleTuningCandidate,
+  baselineCache: Map<string, ItemEngineResult>,
 ): PdfDecisionGoldSetRuleTuningComparison {
   const changedItems: PdfDecisionGoldSetRuleTuningComparison["changedItems"] = [];
   let evaluatedCount = 0;
@@ -226,10 +247,17 @@ function compareGoldSetCandidate(
   let confidenceRegressionCount = 0;
 
   for (const item of snapshot.items) {
-    const { changeType, candidateRoute, candidateRiskLevel, notes } =
-      compareSnapshotItemToCandidate(item, candidate.ruleConfigOverride);
+    const baseline = baselineCache.get(item.filingId);
+    const {
+      changeType,
+      candidateRoute,
+      candidateRiskLevel,
+      candidateConfidenceScore,
+      baselineConfidenceScore,
+      notes,
+    } = compareSnapshotItemToCandidate(item, candidate.ruleConfigOverride, baseline);
 
-    if (item.decisionInput && !notes.some((n) => n.includes("INSUFFICIENT_INPUT_FOR_RERUN"))) {
+    if (item.decisionInput && baseline && !notes.some((n) => n.includes("INSUFFICIENT_INPUT_FOR_RERUN"))) {
       evaluatedCount++;
     }
 
@@ -242,35 +270,20 @@ function compareGoldSetCandidate(
       if (changeType === "REGRESSED") mismatchCount++;
 
       const expectedRoute = item.expectedRoute;
-      const expectedRiskLevel = item.expectedRiskLevel;
 
-      if (
-        changeType === "ROUTE_CHANGED" &&
-        expectedRoute &&
-        candidateRoute === expectedRoute
-      ) {
+      if (changeType === "ROUTE_CHANGED" && expectedRoute && candidateRoute === expectedRoute) {
         routeMismatchCount = Math.max(0, routeMismatchCount - 1);
       }
 
       if (changeType === "CONFIDENCE_CHANGED") {
-        const baselineConf = item.expectedConfidenceScore ?? 0;
-        const candidateConf =
-          item.decisionInput
-            ? (() => {
-                try {
-                  return runPdfDecisionEngine(item.decisionInput, {
-                    ruleConfig: candidate.ruleConfigOverride,
-                  }).confidenceScore;
-                } catch {
-                  return null;
-                }
-              })()
-            : null;
-        if (candidateConf !== null && expectedRiskLevel) {
+        // Use already-computed confidence scores — no additional engine call needed.
+        const baselineConf = baselineConfidenceScore ?? 0;
+        const candidateConf = candidateConfidenceScore ?? null;
+        if (candidateConf !== null) {
           if (candidateConf > baselineConf) confidenceImprovementCount++;
           else confidenceRegressionCount++;
         } else {
-          if (notes.some((n) => n.includes("changed by -") || n.includes("changed by -"))) {
+          if (notes.some((n) => n.includes("changed by -"))) {
             confidenceRegressionCount++;
           } else {
             confidenceImprovementCount++;
@@ -353,8 +366,9 @@ export function evaluatePdfDecisionRuleTuningAgainstGoldSetSnapshot(input: {
   candidates: PdfDecisionRuleTuningCandidate[];
 }): PdfDecisionGoldSetRuleTuningReport {
   const baselineConfig = normalizePdfDecisionRuleConfig();
+  const baselineCache = buildBaselineCache(input.snapshot.items);
   const candidates = input.candidates.map((candidate) =>
-    compareGoldSetCandidate(input.snapshot, candidate),
+    compareGoldSetCandidate(input.snapshot, candidate, baselineCache),
   );
 
   return {
