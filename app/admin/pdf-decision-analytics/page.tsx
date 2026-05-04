@@ -1,4 +1,5 @@
 import PdfDecisionAnalyticsClient from "./PdfDecisionAnalyticsClient";
+import { getActivePdfDecisionRuleConfig } from "@/integrations/brreg/annual-report-financials/pdf-decision-rule-config";
 
 export default async function PdfDecisionAnalyticsPage({
   searchParams,
@@ -9,6 +10,7 @@ export default async function PdfDecisionAnalyticsPage({
 
   return (
     <PdfDecisionAnalyticsClient
+      activeRuleConfigVersion={getActivePdfDecisionRuleConfig().version}
       initialFilters={{
         limit: typeof sp.limit === "string" ? sp.limit : "100",
         fiscalYear: typeof sp.fiscalYear === "string" ? sp.fiscalYear : "",

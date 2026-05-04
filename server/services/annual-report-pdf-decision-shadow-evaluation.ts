@@ -23,6 +23,7 @@ export type PdfDecisionShadowDocument = {
   fiscalYear?: number | null;
 
   decisionPhase?: "pre_extraction" | "post_validation" | string | null;
+  ruleConfigVersion?: string | null;
   decisionRoute?: string | null;
   riskLevel?: string | null;
   confidenceScore?: number | null;
@@ -116,11 +117,13 @@ type PdfDecisionArtifactWrapper = {
   phase: string;
   decision: {
     route?: string;
+    ruleConfigVersion?: string;
     riskLevel?: string;
     confidenceScore?: number;
     reasons?: string[];
     manualReviewReasons?: string[];
     diagnostics?: {
+      ruleConfigVersion?: string;
       qualityRisk?: string;
       recommendedRouteHint?: string;
       parserRiskReasons?: string[];
@@ -228,6 +231,7 @@ function buildDocument(
     fiscalYear: row.fiscalYear,
 
     decisionPhase: chosenDecision?.phase ?? null,
+    ruleConfigVersion: d?.ruleConfigVersion ?? diagnostics?.ruleConfigVersion ?? null,
     decisionRoute: d?.route ?? null,
     riskLevel: d?.riskLevel ?? null,
     confidenceScore: d?.confidenceScore ?? null,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   buildPdfDecisionArtifactPayload,
@@ -8,6 +8,8 @@ import {
 import {
   clampPdfDecisionConfidence,
   DEFAULT_PDF_DECISION_RULE_CONFIG,
+  getActivePdfDecisionRuleConfig,
+  getPdfDecisionRuleConfigByVersion,
 } from "./pdf-decision-rule-config";
 import type { FinancialExtractionPageHints } from "./financial-extraction-page-hints";
 import type { AnnualReportDocument, SectionKind } from "./document-model";
@@ -99,6 +101,10 @@ function makePageHints(
 }
 
 describe("runPdfDecisionEngine", () => {
+  afterEach(() => {
+    delete process.env.PDF_DECISION_RULE_CONFIG_VERSION;
+  });
+
   it("returns low risk and high confidence for reliable text with income and balance", () => {
     const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"]);
     const decision = runPdfDecisionEngine({
@@ -152,6 +158,37 @@ describe("runPdfDecisionEngine", () => {
     );
 
     expect(tunedDecision.confidenceScore).toBeGreaterThan(baseDecision.confidenceScore);
+  });
+
+  it("emits the selected named rule config version", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"], "HIGH");
+    const config = getPdfDecisionRuleConfigByVersion(
+      "pdf-decision-rules-v1.1-conservative",
+    );
+
+    const decision = runPdfDecisionEngine(
+      {
+        preflight: makePreflight(doc),
+        pageHints: makePageHints(),
+      },
+      { ruleConfig: config ?? undefined },
+    );
+
+    expect(decision.ruleConfigVersion).toBe("pdf-decision-rules-v1.1-conservative");
+    expect(decision.diagnostics.ruleConfigVersion).toBe(
+      "pdf-decision-rules-v1.1-conservative",
+    );
+  });
+
+  it("selects active rule config from env and falls back to v1", () => {
+    process.env.PDF_DECISION_RULE_CONFIG_VERSION =
+      "pdf-decision-rules-v1.1-page-hints-sensitive";
+    expect(getActivePdfDecisionRuleConfig().version).toBe(
+      "pdf-decision-rules-v1.1-page-hints-sensitive",
+    );
+
+    process.env.PDF_DECISION_RULE_CONFIG_VERSION = "unknown";
+    expect(getActivePdfDecisionRuleConfig().version).toBe("pdf-decision-rules-v1");
   });
 
   it("clamps confidence scores through rule config", () => {

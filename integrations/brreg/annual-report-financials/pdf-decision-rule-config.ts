@@ -1,4 +1,7 @@
-export type PdfDecisionRuleConfigVersion = "pdf-decision-rules-v1";
+export type PdfDecisionRuleConfigVersion =
+  | "pdf-decision-rules-v1"
+  | "pdf-decision-rules-v1.1-conservative"
+  | "pdf-decision-rules-v1.1-page-hints-sensitive";
 
 export type PdfDecisionRuleConfig = {
   version: PdfDecisionRuleConfigVersion;
@@ -84,6 +87,59 @@ export const DEFAULT_PDF_DECISION_RULE_CONFIG: PdfDecisionRuleConfig = {
   },
 };
 
+export const PDF_DECISION_RULE_CONFIGS: Record<
+  PdfDecisionRuleConfigVersion,
+  PdfDecisionRuleConfig
+> = {
+  "pdf-decision-rules-v1": DEFAULT_PDF_DECISION_RULE_CONFIG,
+  "pdf-decision-rules-v1.1-conservative": {
+    ...DEFAULT_PDF_DECISION_RULE_CONFIG,
+    version: "pdf-decision-rules-v1.1-conservative",
+    confidence: {
+      ...DEFAULT_PDF_DECISION_RULE_CONFIG.confidence,
+      penalties: {
+        ...DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.penalties,
+        highQualityRisk:
+          DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.penalties.highQualityRisk + 0.06,
+        missingFinancialSections:
+          DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.penalties.missingFinancialSections + 0.04,
+      },
+    },
+  },
+  "pdf-decision-rules-v1.1-page-hints-sensitive": {
+    ...DEFAULT_PDF_DECISION_RULE_CONFIG,
+    version: "pdf-decision-rules-v1.1-page-hints-sensitive",
+    confidence: {
+      ...DEFAULT_PDF_DECISION_RULE_CONFIG.confidence,
+      penalties: {
+        ...DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.penalties,
+        weakPageHints:
+          DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.penalties.weakPageHints + 0.05,
+      },
+      bonuses: {
+        ...DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.bonuses,
+        reliablePageHints:
+          DEFAULT_PDF_DECISION_RULE_CONFIG.confidence.bonuses.reliablePageHints + 0.04,
+      },
+    },
+  },
+};
+
+export function getPdfDecisionRuleConfigByVersion(
+  version?: string | null,
+): PdfDecisionRuleConfig | null {
+  if (!version) return null;
+  return PDF_DECISION_RULE_CONFIGS[version as PdfDecisionRuleConfigVersion] ?? null;
+}
+
+export function getActivePdfDecisionRuleConfig(): PdfDecisionRuleConfig {
+  const selectedVersion = process.env.PDF_DECISION_RULE_CONFIG_VERSION;
+  return (
+    getPdfDecisionRuleConfigByVersion(selectedVersion) ??
+    DEFAULT_PDF_DECISION_RULE_CONFIG
+  );
+}
+
 function mergeRecord<T extends Record<string, unknown>>(base: T, override?: Partial<T>): T {
   return { ...base, ...(override ?? {}) };
 }
@@ -93,7 +149,7 @@ export function normalizePdfDecisionRuleConfig(
 ): PdfDecisionRuleConfig {
   const defaults = DEFAULT_PDF_DECISION_RULE_CONFIG;
   return {
-    version: defaults.version,
+    version: config?.version ?? defaults.version,
     confidence: {
       ...defaults.confidence,
       ...(config?.confidence ?? {}),
