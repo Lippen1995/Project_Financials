@@ -45,6 +45,7 @@
     "export:pdf-decision-outcome-dataset": "tsx scripts/export-pdf-decision-outcome-dataset.ts",
     "export:pdf-decision-ml-features": "tsx scripts/export-pdf-decision-ml-features.ts",
     "evaluate:pdf-decision-shadow-model": "tsx scripts/evaluate-pdf-decision-shadow-model.ts",
+    "train:pdf-decision-offline-model": "tsx scripts/train-pdf-decision-offline-model.ts",
     "validate:pdf-decision-dataset": "tsx scripts/validate-pdf-decision-dataset.ts",
     "split:pdf-decision-dataset": "tsx scripts/split-pdf-decision-dataset.ts",
     "cluster:pdf-parser-failures": "tsx scripts/cluster-pdf-parser-failures.ts",
