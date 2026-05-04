@@ -1,0 +1,31 @@
+name: PDF Decision Regression
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  pdf-decision-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run fixture regression guard
+        run: npm run check:pdf-decision-regression
+
+      - name: Run rule tuning simulation
+        run: npm run simulate:pdf-decision-rules
