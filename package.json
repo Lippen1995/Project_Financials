@@ -46,6 +46,7 @@
     "validate:pdf-decision-dataset": "tsx scripts/validate-pdf-decision-dataset.ts",
     "split:pdf-decision-dataset": "tsx scripts/split-pdf-decision-dataset.ts",
     "cluster:pdf-parser-failures": "tsx scripts/cluster-pdf-parser-failures.ts",
+    "report:pdf-parser-remediation": "tsx scripts/build-pdf-parser-remediation-report.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",
