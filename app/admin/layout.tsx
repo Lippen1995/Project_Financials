@@ -42,6 +42,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href={"/admin/pdf-shadow-model" as never} className="hover:text-slate-600">
           Shadow Model
         </Link>
+        <span>/</span>
+        <Link href={"/admin/pdf-shadow-model-analysis" as never} className="hover:text-slate-600">
+          Shadow Analysis
+        </Link>
       </div>
       {children}
     </div>
