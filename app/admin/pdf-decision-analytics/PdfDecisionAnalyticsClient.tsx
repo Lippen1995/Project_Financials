@@ -19,6 +19,13 @@ type Filters = {
   orgNumber: string;
 };
 
+type ActiveLearningFilters = {
+  priorityBand: string;
+  investigationArea: string;
+  minPriority: string;
+  includeCurated: boolean;
+};
+
 type Candidate = PdfDecisionShadowMetrics["candidateGoldSet"][number];
 type CuratableItem = Candidate | JsonSafePdfDecisionGoldSetItem | PdfDecisionActiveLearningQueueItem;
 type GoldReason =
@@ -75,6 +82,16 @@ function toSearchParams(filters: Filters) {
   const fiscalYear = Number.parseInt(filters.fiscalYear, 10);
   if (Number.isFinite(fiscalYear)) params.set("fiscalYear", String(fiscalYear));
   if (filters.orgNumber.trim()) params.set("orgNumber", filters.orgNumber.trim());
+  return params;
+}
+
+function toActiveLearningParams(primary: Filters, al: ActiveLearningFilters) {
+  const params = toSearchParams(primary);
+  if (al.priorityBand) params.set("priorityBand", al.priorityBand);
+  if (al.investigationArea) params.set("investigationArea", al.investigationArea);
+  const minPriority = Number.parseInt(al.minPriority, 10);
+  if (Number.isFinite(minPriority)) params.set("minPriority", String(minPriority));
+  if (al.includeCurated) params.set("includeCurated", "true");
   return params;
 }
 
@@ -151,12 +168,19 @@ export default function PdfDecisionAnalyticsClient({
 }) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(initialFilters);
+  const [alFilters, setAlFilters] = useState<ActiveLearningFilters>({
+    priorityBand: "",
+    investigationArea: "",
+    minPriority: "",
+    includeCurated: false,
+  });
   const [analytics, setAnalytics] = useState<PdfDecisionShadowEvaluationResult | null>(null);
   const [benchmark, setBenchmark] = useState<PdfDecisionGoldSetBenchmarkResult | null>(null);
   const [activeLearning, setActiveLearning] =
     useState<PdfDecisionActiveLearningQueueResult | null>(null);
   const [goldSet, setGoldSet] = useState<JsonSafePdfDecisionGoldSetItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [alLoading, setAlLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [secondaryError, setSecondaryError] = useState<string | null>(null);
   const [savingFilingId, setSavingFilingId] = useState<string | null>(null);
@@ -182,11 +206,12 @@ export default function PdfDecisionAnalyticsClient({
       setAnalytics(analyticsPayload.data);
       setGoldSet(goldSetPayload.data);
 
+      const alParams = toActiveLearningParams(appliedFilters, alFilters);
       const [benchmarkResult, activeLearningResult] = await Promise.allSettled([
         fetch(`/api/admin/pdf-decision-gold-set/benchmark?${params.toString()}`, {
           cache: "no-store",
         }),
-        fetch(`/api/admin/pdf-decision-active-learning?${params.toString()}`, {
+        fetch(`/api/admin/pdf-decision-active-learning?${alParams.toString()}`, {
           cache: "no-store",
         }),
       ]);
@@ -218,7 +243,31 @@ export default function PdfDecisionAnalyticsClient({
     } finally {
       setLoading(false);
     }
-  }, [appliedFilters]);
+  }, [appliedFilters, alFilters]);
+
+  const fetchActiveLearning = useCallback(
+    async (primary: Filters, al: ActiveLearningFilters) => {
+      setAlLoading(true);
+      try {
+        const params = toActiveLearningParams(primary, al);
+        const response = await fetch(
+          `/api/admin/pdf-decision-active-learning?${params.toString()}`,
+          { cache: "no-store" },
+        );
+        if (response.ok) {
+          const payload = (await response.json()) as { data: PdfDecisionActiveLearningQueueResult };
+          setActiveLearning(payload.data);
+        } else {
+          setSecondaryError("Could not reload active-learning queue.");
+        }
+      } catch {
+        setSecondaryError("Could not reload active-learning queue.");
+      } finally {
+        setAlLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     void refreshAnalytics();
@@ -516,20 +565,66 @@ export default function PdfDecisionAnalyticsClient({
               <div className="border-b border-[rgba(15,23,42,0.08)] px-4 py-3">
                 <h2 className="text-sm font-semibold text-[#162233]">Active-learning review queue</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Prioritized read-only queue for manual review and gold-set curation.
+                  Prioritized queue for manual review and gold-set curation. Includes diversity and
+                  cluster signals.
                 </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <select
+                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 text-xs text-slate-700"
+                    value={alFilters.priorityBand}
+                    onChange={(e) => setAlFilters((f) => ({ ...f, priorityBand: e.target.value }))}
+                  >
+                    <option value="">All bands</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="LOW">LOW</option>
+                  </select>
+                  <select
+                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 text-xs text-slate-700"
+                    value={alFilters.investigationArea}
+                    onChange={(e) =>
+                      setAlFilters((f) => ({ ...f, investigationArea: e.target.value }))
+                    }
+                  >
+                    <option value="">All areas</option>
+                    <option value="PARSER">PARSER</option>
+                    <option value="OCR_ODL">OCR_ODL</option>
+                    <option value="VALIDATION">VALIDATION</option>
+                    <option value="REVIEW_LABELS">REVIEW_LABELS</option>
+                    <option value="NONE">NONE</option>
+                  </select>
+                  <label className="flex items-center gap-1 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={alFilters.includeCurated}
+                      onChange={(e) =>
+                        setAlFilters((f) => ({ ...f, includeCurated: e.target.checked }))
+                      }
+                    />
+                    Include curated
+                  </label>
+                  <button
+                    type="button"
+                    disabled={alLoading}
+                    onClick={() => void fetchActiveLearning(appliedFilters, alFilters)}
+                    className="rounded border border-[rgba(15,23,42,0.12)] px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {alLoading ? "Loading…" : "Apply"}
+                  </button>
+                </div>
               </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#f9f9f7] text-left text-xs font-medium text-slate-500">
-                    <th className="px-4 py-2">Score</th>
+                    <th className="px-4 py-2">Score / Div.</th>
                     <th className="px-4 py-2">Org</th>
                     <th className="px-4 py-2">Year</th>
                     <th className="px-4 py-2">Route</th>
                     <th className="px-4 py-2">Risk</th>
                     <th className="px-4 py-2">Conf.</th>
                     <th className="px-4 py-2">Outcome</th>
-                    <th className="px-4 py-2">Reasons</th>
+                    <th className="px-4 py-2">Cluster / Signals</th>
+                    <th className="px-4 py-2">Investigation</th>
                     <th className="px-4 py-2">Action</th>
                     <th className="px-4 py-2">Gold</th>
                     <th className="px-4 py-2"></th>
@@ -538,7 +633,7 @@ export default function PdfDecisionAnalyticsClient({
                 <tbody>
                   {activeLearning.items.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-4 text-slate-400" colSpan={11}>
+                      <td className="px-4 py-4 text-slate-400" colSpan={12}>
                         No active-learning candidates for the current filter.
                       </td>
                     </tr>
@@ -547,22 +642,52 @@ export default function PdfDecisionAnalyticsClient({
                       <tr key={item.filingId} className="border-t border-[rgba(15,23,42,0.06)]">
                         <td className="px-4 py-2">
                           <span className="font-semibold text-[#162233]">{item.priorityScore}</span>
-                          <span className="ml-2 font-mono text-xs text-slate-400">{item.priorityBand}</span>
+                          <span className="ml-1 font-mono text-xs text-slate-400">
+                            {item.priorityBand}
+                          </span>
+                          <div className="text-xs text-slate-400">div {item.diversityScore}</div>
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.orgNumber ?? "-"}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.orgNumber ?? "-"}
+                        </td>
                         <td className="px-4 py-2 text-slate-700">{item.fiscalYear ?? "-"}</td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.decisionRoute ?? "-"}</td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.riskLevel ?? "-"}</td>
-                        <td className="px-4 py-2 text-slate-700">{formatPercent(item.confidenceScore)}</td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.outcome ?? "-"}</td>
-                        <td className="min-w-64 px-4 py-2 text-slate-600">{item.reasons.join(", ")}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.decisionRoute ?? "-"}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.riskLevel ?? "-"}
+                        </td>
+                        <td className="px-4 py-2 text-slate-700">
+                          {formatPercent(item.confidenceScore)}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.outcome ?? "-"}
+                        </td>
+                        <td className="min-w-56 px-4 py-2 text-slate-600">
+                          {item.clusterLabel ? (
+                            <div className="font-mono text-xs text-slate-700">{item.clusterLabel}</div>
+                          ) : null}
+                          {item.coverageSignals.length > 0 ? (
+                            <div className="mt-1 text-xs text-slate-400">
+                              {item.coverageSignals.join(", ")}
+                            </div>
+                          ) : null}
+                          {item.usefulForGoldSet ? (
+                            <div className="mt-1 text-xs text-emerald-600">useful for gold set</div>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.investigationArea ?? "-"}
+                        </td>
                         <td className="px-4 py-2 font-mono text-xs text-slate-600">
                           {item.suggestedAction}
                           {item.suggestedGoldSetReason ? (
                             <div className="mt-1 text-slate-400">{item.suggestedGoldSetReason}</div>
                           ) : null}
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-500">{item.goldSetStatus ?? "-"}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-500">
+                          {item.goldSetStatus ?? "-"}
+                        </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-2">
                             {(["CANDIDATE", "APPROVED", "EXCLUDED"] as const).map((status) => (
@@ -573,7 +698,11 @@ export default function PdfDecisionAnalyticsClient({
                                 onClick={() => void upsertGoldSet(item, status)}
                                 className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                               >
-                                {status === "CANDIDATE" ? "Mark" : status === "APPROVED" ? "Approve" : "Exclude"}
+                                {status === "CANDIDATE"
+                                  ? "Mark"
+                                  : status === "APPROVED"
+                                    ? "Approve"
+                                    : "Exclude"}
                               </button>
                             ))}
                           </div>

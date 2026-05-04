@@ -9,6 +9,9 @@ const querySchema = z.object({
   fiscalYear: z.coerce.number().int().optional(),
   orgNumber: z.string().trim().min(1).max(20).optional(),
   includeCurated: z.enum(["true", "false"]).transform((value) => value === "true").optional(),
+  minPriority: z.coerce.number().int().min(0).max(100).optional(),
+  priorityBand: z.enum(["HIGH", "MEDIUM", "LOW"]).optional(),
+  investigationArea: z.enum(["PARSER", "OCR_ODL", "VALIDATION", "REVIEW_LABELS", "NONE"]).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -20,6 +23,9 @@ export async function GET(request: NextRequest) {
     fiscalYear: request.nextUrl.searchParams.get("fiscalYear") ?? undefined,
     orgNumber: request.nextUrl.searchParams.get("orgNumber") ?? undefined,
     includeCurated: request.nextUrl.searchParams.get("includeCurated") ?? undefined,
+    minPriority: request.nextUrl.searchParams.get("minPriority") ?? undefined,
+    priorityBand: request.nextUrl.searchParams.get("priorityBand") ?? undefined,
+    investigationArea: request.nextUrl.searchParams.get("investigationArea") ?? undefined,
   });
 
   if (!parsed.success) {
