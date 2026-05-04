@@ -1,0 +1,22 @@
+{
+  "version": "pdf-decision-gold-set-snapshot-v1",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "itemCount": 1,
+  "items": [
+    {
+      "filingId": "sample-filing-1",
+      "extractionRunId": "sample-run-1",
+      "orgNumber": "000000000",
+      "fiscalYear": 2024,
+      "expectedRoute": "TEXT_LAYER",
+      "expectedRiskLevel": "LOW",
+      "expectedOutcome": "PUBLISHED",
+      "expectedConfidenceScore": 0.86,
+      "expectedManualReviewReasons": [],
+      "goldSetReason": "REPRESENTATIVE_SAMPLE",
+      "goldSetNote": "Non-production fixture for snapshot shape validation.",
+      "sourceDecisionVersion": "pdf-decision-engine-v1",
+      "sourceRuleConfigVersion": "pdf-decision-rules-v1"
+    }
+  ]
+}
