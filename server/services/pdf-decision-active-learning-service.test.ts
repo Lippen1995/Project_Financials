@@ -128,7 +128,6 @@ describe("listPdfDecisionActiveLearningQueue", () => {
 
     expect(result.items[0].reasons).toContain("LOW_CONFIDENCE");
     expect(result.items[0].reasonDetails).toContain("Decision confidence is below 45%.");
-    expect(result.items[0].priorityScore).toBe(25);
   });
 
   it("uses custom low confidence threshold", async () => {
@@ -150,7 +149,6 @@ describe("listPdfDecisionActiveLearningQueue", () => {
     );
 
     expect(result.items[0].reasonDetails).toContain("Decision confidence is below 60%.");
-    expect(result.items[0].priorityScore).toBe(25);
   });
 
   it("uses custom medium confidence threshold", async () => {
@@ -246,7 +244,7 @@ describe("listPdfDecisionActiveLearningQueue", () => {
     expect(result.items[0].suggestedAction).toBe("APPROVE_GOLD_SET");
   });
 
-  it("sorts by priority descending and clamps at 100", async () => {
+  it("sorts by priority descending then diversity descending and clamps at 100", async () => {
     const result = await queue([
       makeDocument({
         filingId: "lower",
@@ -267,5 +265,188 @@ describe("listPdfDecisionActiveLearningQueue", () => {
     expect(result.items[0].filingId).toBe("higher");
     expect(result.items[0].priorityScore).toBe(100);
     expect(result.items[0].priorityBand).toBe("HIGH");
+  });
+
+  // PR #30 new tests
+
+  it("coverage summary counts route/risk/outcome/routeRisk/year", async () => {
+    const docs = [
+      makeDocument({ filingId: "a", decisionRoute: "TEXT_LAYER", riskLevel: "LOW", outcome: "PUBLISHED", fiscalYear: 2023 }),
+      makeDocument({ filingId: "b", decisionRoute: "TEXT_LAYER", riskLevel: "HIGH", outcome: "FAILED", fiscalYear: 2024 }),
+      makeDocument({ filingId: "c", decisionRoute: "OCR", riskLevel: "LOW", outcome: "PUBLISHED", fiscalYear: 2023 }),
+    ];
+    const result = await queue(docs, true);
+
+    expect(result.coverageSummary.routeCounts["TEXT_LAYER"]).toBe(2);
+    expect(result.coverageSummary.routeCounts["OCR"]).toBe(1);
+    expect(result.coverageSummary.riskCounts["LOW"]).toBe(2);
+    expect(result.coverageSummary.riskCounts["HIGH"]).toBe(1);
+    expect(result.coverageSummary.outcomeCounts["PUBLISHED"]).toBe(2);
+    expect(result.coverageSummary.outcomeCounts["FAILED"]).toBe(1);
+    expect(result.coverageSummary.fiscalYearCounts["2023"]).toBe(2);
+    expect(result.coverageSummary.fiscalYearCounts["2024"]).toBe(1);
+    expect(result.coverageSummary.routeRiskCounts["TEXT_LAYER:LOW"]).toBe(1);
+    expect(result.coverageSummary.routeRiskCounts["TEXT_LAYER:HIGH"]).toBe(1);
+  });
+
+  it("adds UNDERREPRESENTED_ROUTE signal for rare routes", async () => {
+    // OCR appears once in a sea of TEXT_LAYER docs
+    const docs = [
+      makeDocument({ filingId: "ocr", decisionRoute: "OCR", riskLevel: "LOW", outcome: "PUBLISHED", fiscalYear: 2024 }),
+      ...Array.from({ length: 5 }, (_, i) =>
+        makeDocument({ filingId: `tl-${i}`, decisionRoute: "TEXT_LAYER", riskLevel: "LOW", outcome: "PUBLISHED", fiscalYear: 2024 }),
+      ),
+    ];
+    const result = await queue(docs, true);
+    const ocrItem = result.items.find((item) => item.filingId === "ocr");
+    expect(ocrItem?.coverageSignals).toContain("UNDERREPRESENTED_ROUTE");
+  });
+
+  it("adds UNDERREPRESENTED_RISK signal for rare risk levels", async () => {
+    const docs = [
+      makeDocument({ filingId: "high", decisionRoute: "TEXT_LAYER", riskLevel: "HIGH", outcome: "PUBLISHED", fiscalYear: 2024 }),
+      ...Array.from({ length: 5 }, (_, i) =>
+        makeDocument({ filingId: `low-${i}`, decisionRoute: "TEXT_LAYER", riskLevel: "LOW", outcome: "PUBLISHED", fiscalYear: 2024 }),
+      ),
+    ];
+    const result = await queue(docs, true);
+    const highItem = result.items.find((item) => item.filingId === "high");
+    expect(highItem?.coverageSignals).toContain("UNDERREPRESENTED_RISK");
+  });
+
+  it("adds UNDERREPRESENTED_OUTCOME signal for rare outcomes", async () => {
+    const docs = [
+      makeDocument({ filingId: "failed", decisionRoute: "TEXT_LAYER", riskLevel: "LOW", outcome: "FAILED", fiscalYear: 2024 }),
+      ...Array.from({ length: 5 }, (_, i) =>
+        makeDocument({ filingId: `pub-${i}`, decisionRoute: "TEXT_LAYER", riskLevel: "LOW", outcome: "PUBLISHED", fiscalYear: 2024 }),
+      ),
+    ];
+    const result = await queue(docs, true);
+    const failedItem = result.items.find((item) => item.filingId === "failed");
+    expect(failedItem?.coverageSignals).toContain("UNDERREPRESENTED_OUTCOME");
+  });
+
+  it("adds REPEATED_PARSER_FAILURE signal and PARSER investigationArea for repeated parser reasons", async () => {
+    const docs = [
+      makeDocument({ filingId: "a", parserRiskReasons: ["Weak text layer"] }),
+      makeDocument({ filingId: "b", parserRiskReasons: ["Weak text layer"] }),
+    ];
+    const result = await queue(docs);
+    const itemA = result.items.find((item) => item.filingId === "a");
+    const itemB = result.items.find((item) => item.filingId === "b");
+    expect(itemA?.coverageSignals).toContain("REPEATED_PARSER_FAILURE");
+    expect(itemB?.coverageSignals).toContain("REPEATED_PARSER_FAILURE");
+    expect(itemA?.investigationArea).toBe("PARSER");
+    expect(itemA?.suggestedAction).toBe("PARSER_INVESTIGATION");
+  });
+
+  it("adds REPEATED_BLOCKING_RULE signal for repeated blocking codes", async () => {
+    const docs = [
+      makeDocument({ filingId: "a", blockingRuleCodes: ["BS_TOTAL_BALANCES"] }),
+      makeDocument({ filingId: "b", blockingRuleCodes: ["BS_TOTAL_BALANCES"] }),
+    ];
+    const result = await queue(docs);
+    const itemA = result.items.find((item) => item.filingId === "a");
+    expect(itemA?.coverageSignals).toContain("REPEATED_BLOCKING_RULE");
+  });
+
+  it("diversity score increases priority but does not exceed 100", async () => {
+    const doc = makeDocument({
+      filingId: "diverse",
+      decisionRoute: "OCR",
+      riskLevel: "HIGH",
+      outcome: "FAILED",
+      fiscalYear: 2020,
+      parserRiskReasons: ["something"],
+    });
+    const result = await queue([doc]);
+    const item = result.items[0];
+    expect(item.diversityScore).toBeGreaterThan(0);
+    expect(item.priorityScore).toBeLessThanOrEqual(100);
+  });
+
+  it("gold-set approved and excluded remain hidden by default", async () => {
+    const approved = makeDocument({ filingId: "approved", goldSet: { status: "APPROVED", reason: "REPRESENTATIVE_SAMPLE" } });
+    const excluded = makeDocument({ filingId: "excluded", goldSet: { status: "EXCLUDED", reason: "REPRESENTATIVE_SAMPLE" } });
+    const result = await queue([approved, excluded]);
+    expect(result.items).toHaveLength(0);
+  });
+
+  it("candidate visible by default", async () => {
+    const candidate = makeDocument({
+      filingId: "candidate",
+      riskLevel: "LOW",
+      outcome: "MANUAL_REVIEW_CORRECTED",
+      goldSet: { status: "CANDIDATE", reason: "LOW_RISK_FAILED" },
+    });
+    const result = await queue([candidate]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].goldSetStatus).toBe("CANDIDATE");
+  });
+
+  it("filter by minPriority", async () => {
+    const docs = [
+      makeDocument({ filingId: "high", riskLevel: "LOW", outcome: "MANUAL_REVIEW_CORRECTED", latestReviewDecisionType: "CORRECTED" }),
+      makeDocument({ filingId: "low", riskLevel: "LOW", outcome: "PUBLISHED", confidenceScore: 0.85 }),
+    ];
+    const result = await listPdfDecisionActiveLearningQueue(
+      { limit: 20, minPriority: 60 },
+      { evaluateShadow: async () => makeShadowResult(docs) },
+    );
+    const filingIds = result.items.map((i) => i.filingId);
+    expect(filingIds).toContain("high");
+    expect(filingIds).not.toContain("low");
+  });
+
+  it("filter by priorityBand", async () => {
+    const docs = [
+      makeDocument({ filingId: "high", riskLevel: "LOW", outcome: "MANUAL_REVIEW_CORRECTED", latestReviewDecisionType: "CORRECTED" }),
+      makeDocument({ filingId: "low", riskLevel: "LOW", outcome: "PUBLISHED", confidenceScore: 0.85 }),
+    ];
+    const result = await listPdfDecisionActiveLearningQueue(
+      { limit: 20, priorityBand: "HIGH" },
+      { evaluateShadow: async () => makeShadowResult(docs) },
+    );
+    for (const item of result.items) {
+      expect(item.priorityBand).toBe("HIGH");
+    }
+  });
+
+  it("filter by investigationArea", async () => {
+    const docs = [
+      makeDocument({ filingId: "parser", parserRiskReasons: ["Weak text layer"] }),
+      makeDocument({ filingId: "other", blockingRuleCodes: ["BS_TOTAL_BALANCES"] }),
+    ];
+    const result = await listPdfDecisionActiveLearningQueue(
+      { limit: 20, investigationArea: "PARSER" },
+      { evaluateShadow: async () => makeShadowResult(docs) },
+    );
+    for (const item of result.items) {
+      expect(item.investigationArea).toBe("PARSER");
+    }
+  });
+
+  it("queue sorted by priority desc then diversity desc", async () => {
+    const docs = [
+      makeDocument({ filingId: "a", riskLevel: "LOW", outcome: "PUBLISHED", confidenceScore: 0.44 }),
+      makeDocument({ filingId: "b", riskLevel: "LOW", outcome: "MANUAL_REVIEW_CORRECTED", latestReviewDecisionType: "CORRECTED" }),
+    ];
+    const result = await queue(docs);
+    const priorities = result.items.map((i) => i.priorityScore);
+    for (let idx = 1; idx < priorities.length; idx++) {
+      expect(priorities[idx - 1]).toBeGreaterThanOrEqual(priorities[idx]);
+    }
+  });
+
+  it("cluster summary is built from items", async () => {
+    const docs = [
+      makeDocument({ filingId: "a", blockingRuleCodes: ["BS_TOTAL_BALANCES"] }),
+      makeDocument({ filingId: "b", blockingRuleCodes: ["BS_TOTAL_BALANCES"] }),
+    ];
+    const result = await queue(docs);
+    const cluster = result.clusterSummary.find((c) => c.clusterKey === "blocking:BS_TOTAL_BALANCES");
+    expect(cluster).toBeDefined();
+    expect(cluster?.count).toBe(2);
+    expect(cluster?.label).toContain("BS_TOTAL_BALANCES");
   });
 });

@@ -516,20 +516,85 @@ export default function PdfDecisionAnalyticsClient({
               <div className="border-b border-[rgba(15,23,42,0.08)] px-4 py-3">
                 <h2 className="text-sm font-semibold text-[#162233]">Active-learning review queue</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Prioritized read-only queue for manual review and gold-set curation.
+                  Prioritized queue for manual review and gold-set curation. Includes diversity and
+                  cluster signals.
                 </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <select
+                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 text-xs text-slate-700"
+                    defaultValue=""
+                    onChange={(e) => {
+                      const band = e.target.value || undefined;
+                      const params = toSearchParams(appliedFilters);
+                      if (band) params.set("priorityBand", band);
+                      void fetch(`/api/admin/pdf-decision-active-learning?${params.toString()}`, {
+                        cache: "no-store",
+                      })
+                        .then((r) => r.json())
+                        .then((payload: { data: PdfDecisionActiveLearningQueueResult }) =>
+                          setActiveLearning(payload.data),
+                        );
+                    }}
+                  >
+                    <option value="">All bands</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="LOW">LOW</option>
+                  </select>
+                  <select
+                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 text-xs text-slate-700"
+                    defaultValue=""
+                    onChange={(e) => {
+                      const area = e.target.value || undefined;
+                      const params = toSearchParams(appliedFilters);
+                      if (area) params.set("investigationArea", area);
+                      void fetch(`/api/admin/pdf-decision-active-learning?${params.toString()}`, {
+                        cache: "no-store",
+                      })
+                        .then((r) => r.json())
+                        .then((payload: { data: PdfDecisionActiveLearningQueueResult }) =>
+                          setActiveLearning(payload.data),
+                        );
+                    }}
+                  >
+                    <option value="">All areas</option>
+                    <option value="PARSER">PARSER</option>
+                    <option value="OCR_ODL">OCR_ODL</option>
+                    <option value="VALIDATION">VALIDATION</option>
+                    <option value="REVIEW_LABELS">REVIEW_LABELS</option>
+                    <option value="NONE">NONE</option>
+                  </select>
+                  <label className="flex items-center gap-1 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      onChange={(e) => {
+                        const params = toSearchParams(appliedFilters);
+                        if (e.target.checked) params.set("includeCurated", "true");
+                        void fetch(`/api/admin/pdf-decision-active-learning?${params.toString()}`, {
+                          cache: "no-store",
+                        })
+                          .then((r) => r.json())
+                          .then((payload: { data: PdfDecisionActiveLearningQueueResult }) =>
+                            setActiveLearning(payload.data),
+                          );
+                      }}
+                    />
+                    Include curated
+                  </label>
+                </div>
               </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#f9f9f7] text-left text-xs font-medium text-slate-500">
-                    <th className="px-4 py-2">Score</th>
+                    <th className="px-4 py-2">Score / Div.</th>
                     <th className="px-4 py-2">Org</th>
                     <th className="px-4 py-2">Year</th>
                     <th className="px-4 py-2">Route</th>
                     <th className="px-4 py-2">Risk</th>
                     <th className="px-4 py-2">Conf.</th>
                     <th className="px-4 py-2">Outcome</th>
-                    <th className="px-4 py-2">Reasons</th>
+                    <th className="px-4 py-2">Cluster / Signals</th>
+                    <th className="px-4 py-2">Investigation</th>
                     <th className="px-4 py-2">Action</th>
                     <th className="px-4 py-2">Gold</th>
                     <th className="px-4 py-2"></th>
@@ -538,7 +603,7 @@ export default function PdfDecisionAnalyticsClient({
                 <tbody>
                   {activeLearning.items.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-4 text-slate-400" colSpan={11}>
+                      <td className="px-4 py-4 text-slate-400" colSpan={12}>
                         No active-learning candidates for the current filter.
                       </td>
                     </tr>
@@ -547,22 +612,52 @@ export default function PdfDecisionAnalyticsClient({
                       <tr key={item.filingId} className="border-t border-[rgba(15,23,42,0.06)]">
                         <td className="px-4 py-2">
                           <span className="font-semibold text-[#162233]">{item.priorityScore}</span>
-                          <span className="ml-2 font-mono text-xs text-slate-400">{item.priorityBand}</span>
+                          <span className="ml-1 font-mono text-xs text-slate-400">
+                            {item.priorityBand}
+                          </span>
+                          <div className="text-xs text-slate-400">div {item.diversityScore}</div>
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.orgNumber ?? "-"}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.orgNumber ?? "-"}
+                        </td>
                         <td className="px-4 py-2 text-slate-700">{item.fiscalYear ?? "-"}</td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.decisionRoute ?? "-"}</td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.riskLevel ?? "-"}</td>
-                        <td className="px-4 py-2 text-slate-700">{formatPercent(item.confidenceScore)}</td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.outcome ?? "-"}</td>
-                        <td className="min-w-64 px-4 py-2 text-slate-600">{item.reasons.join(", ")}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.decisionRoute ?? "-"}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.riskLevel ?? "-"}
+                        </td>
+                        <td className="px-4 py-2 text-slate-700">
+                          {formatPercent(item.confidenceScore)}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.outcome ?? "-"}
+                        </td>
+                        <td className="min-w-56 px-4 py-2 text-slate-600">
+                          {item.clusterLabel ? (
+                            <div className="font-mono text-xs text-slate-700">{item.clusterLabel}</div>
+                          ) : null}
+                          {item.coverageSignals.length > 0 ? (
+                            <div className="mt-1 text-xs text-slate-400">
+                              {item.coverageSignals.join(", ")}
+                            </div>
+                          ) : null}
+                          {item.usefulForGoldSet ? (
+                            <div className="mt-1 text-xs text-emerald-600">useful for gold set</div>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                          {item.investigationArea ?? "-"}
+                        </td>
                         <td className="px-4 py-2 font-mono text-xs text-slate-600">
                           {item.suggestedAction}
                           {item.suggestedGoldSetReason ? (
                             <div className="mt-1 text-slate-400">{item.suggestedGoldSetReason}</div>
                           ) : null}
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-slate-500">{item.goldSetStatus ?? "-"}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-slate-500">
+                          {item.goldSetStatus ?? "-"}
+                        </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-2">
                             {(["CANDIDATE", "APPROVED", "EXCLUDED"] as const).map((status) => (
@@ -573,7 +668,11 @@ export default function PdfDecisionAnalyticsClient({
                                 onClick={() => void upsertGoldSet(item, status)}
                                 className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                               >
-                                {status === "CANDIDATE" ? "Mark" : status === "APPROVED" ? "Approve" : "Exclude"}
+                                {status === "CANDIDATE"
+                                  ? "Mark"
+                                  : status === "APPROVED"
+                                    ? "Approve"
+                                    : "Exclude"}
                               </button>
                             ))}
                           </div>
