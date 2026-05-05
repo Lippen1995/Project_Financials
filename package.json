@@ -49,6 +49,8 @@
     "train:pdf-decision-offline-model": "tsx scripts/train-pdf-decision-offline-model.ts",
     "analyze:pdf-decision-shadow-model": "tsx scripts/analyze-pdf-decision-shadow-model.ts",
     "inspect:pdf-decision-model-manifest": "tsx scripts/inspect-pdf-decision-model-manifest.ts",
+    "persist:pdf-model-artifact": "tsx scripts/persist-pdf-model-artifact.ts",
+    "list:pdf-model-artifacts": "tsx scripts/list-pdf-model-artifacts.ts",
     "validate:pdf-decision-dataset": "tsx scripts/validate-pdf-decision-dataset.ts",
     "split:pdf-decision-dataset": "tsx scripts/split-pdf-decision-dataset.ts",
     "cluster:pdf-parser-failures": "tsx scripts/cluster-pdf-parser-failures.ts",

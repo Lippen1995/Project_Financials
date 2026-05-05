@@ -61,6 +61,19 @@ enum PdfDecisionGoldSetReason {
   OTHER
 }
 
+enum PdfModelArtifactKind {
+  SHADOW_MODEL_EVALUATION
+  SHADOW_MODEL_ANALYSIS
+  SHADOW_VS_RULE_GATE
+  MODEL_REGISTRY_MANIFEST
+}
+
+enum PdfModelArtifactStatus {
+  CREATED
+  SUPERSEDED
+  ARCHIVED
+}
+
 enum CompanyStatus {
   ACTIVE
   DISSOLVED
@@ -391,6 +404,7 @@ model User {
   annualReportReviewedFacts    AnnualReportReviewedFact[]     @relation("ReviewedFactReviewer")
   pdfDecisionGoldSetCreated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetCreatedBy")
   pdfDecisionGoldSetUpdated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetUpdatedBy")
+  pdfModelArtifactSnapshots     PdfModelArtifactSnapshot[]
 }
 
 model Subscription {
@@ -948,6 +962,38 @@ model PdfDecisionGoldSetItem {
   @@index([reason])
   @@index([orgNumber, fiscalYear])
   @@index([decisionRoute, riskLevel])
+}
+
+model PdfModelArtifactSnapshot {
+  id                   String                 @id @default(cuid())
+  kind                 PdfModelArtifactKind
+  status               PdfModelArtifactStatus @default(CREATED)
+
+  modelId              String?
+  modelVersion         String?
+  modelTarget          String?
+  featureSchemaVersion String?
+
+  fiscalYear           Int?
+  orgNumber            String?
+  split                String?
+
+  summary              Json
+  payload              Json
+
+  sourceCommand        String?
+  sourceCommitSha      String?
+  createdByUserId      String?
+  createdByUser        User?                  @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@index([kind, createdAt])
+  @@index([modelId, modelVersion])
+  @@index([fiscalYear])
+  @@index([orgNumber])
+  @@index([status])
 }
 
 model AnnualReportReviewedFact {
