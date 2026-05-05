@@ -42,6 +42,7 @@
     "simulate:pdf-decision-rules": "tsx scripts/simulate-pdf-decision-rule-tuning.ts",
     "export:pdf-decision-gold-set": "tsx scripts/export-pdf-decision-gold-set.ts",
     "check:pdf-decision-gold-set-snapshot": "tsx scripts/check-pdf-decision-gold-set-snapshot.ts",
+    "check:pdf-shadow-vs-rule-gate": "tsx scripts/check-pdf-shadow-vs-rule-gate.ts",
     "export:pdf-decision-outcome-dataset": "tsx scripts/export-pdf-decision-outcome-dataset.ts",
     "export:pdf-decision-ml-features": "tsx scripts/export-pdf-decision-ml-features.ts",
     "evaluate:pdf-decision-shadow-model": "tsx scripts/evaluate-pdf-decision-shadow-model.ts",
