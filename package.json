@@ -51,6 +51,8 @@
     "inspect:pdf-decision-model-manifest": "tsx scripts/inspect-pdf-decision-model-manifest.ts",
     "persist:pdf-model-artifact": "tsx scripts/persist-pdf-model-artifact.ts",
     "list:pdf-model-artifacts": "tsx scripts/list-pdf-model-artifacts.ts",
+    "create:pdf-model-candidate": "tsx scripts/create-pdf-model-candidate.ts",
+    "list:pdf-model-candidates": "tsx scripts/list-pdf-model-candidates.ts",
     "validate:pdf-decision-dataset": "tsx scripts/validate-pdf-decision-dataset.ts",
     "split:pdf-decision-dataset": "tsx scripts/split-pdf-decision-dataset.ts",
     "cluster:pdf-parser-failures": "tsx scripts/cluster-pdf-parser-failures.ts",
