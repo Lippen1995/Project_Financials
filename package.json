@@ -60,6 +60,7 @@
     "evaluate:pdf-ocr-odl-routes": "tsx scripts/evaluate-pdf-ocr-odl-routes.ts",
     "report:pdf-route-experiment": "tsx scripts/report-pdf-route-recommendation-experiment.ts",
     "run:pdf-parser-route-shadow": "tsx scripts/run-pdf-parser-route-shadow-execution.ts",
+    "report:pdf-parser-route-quality": "tsx scripts/report-pdf-parser-route-quality-comparison.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",
