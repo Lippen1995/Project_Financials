@@ -74,6 +74,22 @@ enum PdfModelArtifactStatus {
   ARCHIVED
 }
 
+enum PdfModelCandidateStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  APPROVED_FOR_SHADOW
+  REJECTED
+  ARCHIVED
+}
+
+enum PdfModelCandidateDecisionType {
+  SUBMITTED_FOR_REVIEW
+  APPROVED_FOR_SHADOW
+  REJECTED
+  ARCHIVED
+  COMMENTED
+}
+
 enum CompanyStatus {
   ACTIVE
   DISSOLVED
@@ -405,6 +421,8 @@ model User {
   pdfDecisionGoldSetCreated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetCreatedBy")
   pdfDecisionGoldSetUpdated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetUpdatedBy")
   pdfModelArtifactSnapshots     PdfModelArtifactSnapshot[]
+  pdfModelCandidatesCreated     PdfModelCandidate[]            @relation("PdfModelCandidateCreatedBy")
+  pdfModelCandidateDecisions    PdfModelCandidateDecision[]     @relation("PdfModelCandidateDecisionUser")
 }
 
 model Subscription {
@@ -985,6 +1003,9 @@ model PdfModelArtifactSnapshot {
   sourceCommitSha      String?
   createdByUserId      String?
   createdByUser        User?                  @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  manifestCandidates   PdfModelCandidate[]    @relation("PdfModelCandidateManifestArtifact")
+  gateCandidates       PdfModelCandidate[]    @relation("PdfModelCandidateGateArtifact")
+  analysisCandidates   PdfModelCandidate[]    @relation("PdfModelCandidateAnalysisArtifact")
 
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
@@ -994,6 +1015,58 @@ model PdfModelArtifactSnapshot {
   @@index([fiscalYear])
   @@index([orgNumber])
   @@index([status])
+}
+
+model PdfModelCandidate {
+  id                   String                   @id @default(cuid())
+
+  modelId              String
+  modelVersion         String
+  modelTarget          String
+  algorithm            String?
+  featureSchemaVersion String?
+
+  status               PdfModelCandidateStatus  @default(DRAFT)
+
+  manifestArtifactId   String?
+  manifestArtifact     PdfModelArtifactSnapshot? @relation("PdfModelCandidateManifestArtifact", fields: [manifestArtifactId], references: [id], onDelete: SetNull)
+
+  gateArtifactId       String?
+  gateArtifact         PdfModelArtifactSnapshot? @relation("PdfModelCandidateGateArtifact", fields: [gateArtifactId], references: [id], onDelete: SetNull)
+
+  analysisArtifactId   String?
+  analysisArtifact     PdfModelArtifactSnapshot? @relation("PdfModelCandidateAnalysisArtifact", fields: [analysisArtifactId], references: [id], onDelete: SetNull)
+
+  createdByUserId      String?
+  createdByUser        User?                    @relation("PdfModelCandidateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  decisions            PdfModelCandidateDecision[]
+
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  @@unique([modelId, modelVersion])
+  @@index([status])
+  @@index([modelTarget])
+}
+
+model PdfModelCandidateDecision {
+  id              String                        @id @default(cuid())
+
+  candidateId     String
+  candidate       PdfModelCandidate             @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  decisionType    PdfModelCandidateDecisionType
+  note            String?
+  payload         Json?
+
+  decidedByUserId String?
+  decidedByUser   User?                         @relation("PdfModelCandidateDecisionUser", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime                      @default(now())
+
+  @@index([candidateId, createdAt])
+  @@index([decisionType])
 }
 
 model AnnualReportReviewedFact {
