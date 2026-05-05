@@ -1,6 +1,7 @@
 import {
   evaluatePdfDecisionShadowModel,
   type PdfDecisionShadowModelPrediction,
+  type PdfDecisionShadowModelEvaluation,
 } from "@/server/services/pdf-decision-shadow-model-service";
 import { buildPdfDecisionMlFeatureDataset } from "@/server/services/pdf-decision-ml-feature-schema-service";
 import {
@@ -449,15 +450,13 @@ function checkRuleBaselineComparison(
 // ---- Overall gate status ----
 
 function computeGateStatus(checks: PdfShadowVsRuleGateCheck[]): PdfShadowVsRuleGateStatus {
+  // Zero records: MIN_RECORD_COUNT is INSUFFICIENT_DATA → force overall INSUFFICIENT_DATA
+  const minCheck = checks.find((c) => c.code === "MIN_RECORD_COUNT");
+  if (minCheck?.status === "INSUFFICIENT_DATA") return "INSUFFICIENT_DATA";
   if (checks.some((c) => c.status === "FAIL")) return "FAIL";
   if (checks.some((c) => c.status === "WARN")) return "WARN";
-  const allInsufficient = checks.every(
-    (c) => c.status === "INSUFFICIENT_DATA" || c.status === "PASS",
-  );
-  const anyInsufficient = checks.some((c) => c.status === "INSUFFICIENT_DATA");
-  const anyPass = checks.some((c) => c.status === "PASS");
-  if (anyInsufficient && !anyPass) return "INSUFFICIENT_DATA";
-  if (allInsufficient && anyInsufficient) return "INSUFFICIENT_DATA";
+  // If every non-passing check is INSUFFICIENT_DATA and nothing passed, return INSUFFICIENT_DATA
+  if (checks.every((c) => c.status === "INSUFFICIENT_DATA")) return "INSUFFICIENT_DATA";
   return "PASS";
 }
 
@@ -574,6 +573,10 @@ export async function buildPdfShadowVsRuleComparisonGateReport(
   },
   deps?: {
     buildFeatureDataset?: typeof buildPdfDecisionMlFeatureDataset;
+    evaluateShadowModel?: (
+      input: Parameters<typeof evaluatePdfDecisionShadowModel>[0],
+      deps?: Parameters<typeof evaluatePdfDecisionShadowModel>[1],
+    ) => Promise<PdfDecisionShadowModelEvaluation>;
   },
 ): Promise<PdfShadowVsRuleComparisonGateReport> {
   const limit = input?.limit ?? 100;
@@ -585,7 +588,8 @@ export async function buildPdfShadowVsRuleComparisonGateReport(
     assertPdfDecisionModelManifestSafeForShadowEvaluation(input.modelManifest);
   }
 
-  const evaluation = await evaluatePdfDecisionShadowModel(
+  const evaluateFn = deps?.evaluateShadowModel ?? evaluatePdfDecisionShadowModel;
+  const evaluation = await evaluateFn(
     { limit, fiscalYear: input?.fiscalYear, orgNumber: input?.orgNumber, split },
     { buildFeatureDataset: deps?.buildFeatureDataset },
   );
