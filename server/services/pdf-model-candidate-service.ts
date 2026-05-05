@@ -21,7 +21,9 @@ import {
   createPdfModelCandidateDecision,
   getPdfModelCandidateById,
   listPdfModelCandidates as listPdfModelCandidatesFromRepository,
-  updatePdfModelCandidateStatus,
+  PdfModelCandidateTransitionConflictError,
+  PdfModelCandidateTransitionNotFoundError,
+  transitionPdfModelCandidateStatus,
   type PdfModelCandidateRecord,
 } from "@/server/persistence/pdf-model-candidate-repository";
 import {
@@ -42,9 +44,8 @@ type CandidateDeps = {
   getArtifact?: typeof getPersistedPdfModelArtifactSnapshot;
   createCandidate?: typeof createPdfModelCandidate;
   listCandidates?: typeof listPdfModelCandidatesFromRepository;
-  getCandidate?: typeof getPdfModelCandidateById;
-  updateStatus?: typeof updatePdfModelCandidateStatus;
   createDecision?: typeof createPdfModelCandidateDecision;
+  transitionStatus?: typeof transitionPdfModelCandidateStatus;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -106,26 +107,6 @@ function validateAnalysisArtifact(artifact: PdfModelArtifactSnapshot) {
   }
 }
 
-function assertTransition(
-  current: PdfModelCandidateStatus,
-  next: PdfModelCandidateStatus,
-) {
-  const allowed: Record<PdfModelCandidateStatus, PdfModelCandidateStatus[]> = {
-    DRAFT: [PdfModelCandidateStatus.READY_FOR_REVIEW, PdfModelCandidateStatus.ARCHIVED],
-    READY_FOR_REVIEW: [
-      PdfModelCandidateStatus.APPROVED_FOR_SHADOW,
-      PdfModelCandidateStatus.REJECTED,
-      PdfModelCandidateStatus.ARCHIVED,
-    ],
-    APPROVED_FOR_SHADOW: [PdfModelCandidateStatus.ARCHIVED],
-    REJECTED: [PdfModelCandidateStatus.ARCHIVED],
-    ARCHIVED: [],
-  };
-  if (!allowed[current].includes(next)) {
-    throw new PdfModelCandidateError(`Invalid model candidate transition ${current} -> ${next}.`);
-  }
-}
-
 async function recordDecision(
   input: {
     candidateId: string;
@@ -146,35 +127,45 @@ async function recordDecision(
   });
 }
 
+function mapTransitionError(err: unknown): never {
+  if (err instanceof PdfModelCandidateError) throw err;
+  if (err instanceof PdfModelCandidateTransitionNotFoundError) {
+    throw new PdfModelCandidateError(err.message, 404);
+  }
+  if (err instanceof PdfModelCandidateTransitionConflictError) {
+    throw new PdfModelCandidateError(err.message, 409);
+  }
+  throw err;
+}
+
 async function transitionCandidate(
   input: {
     candidateId: string;
+    expectedStatuses: PdfModelCandidateStatus[];
     nextStatus: PdfModelCandidateStatus;
     decisionType: PdfModelCandidateDecisionType;
     userId?: string | null;
     note?: string | null;
     payload?: unknown;
+    validateCandidate?: (candidate: PdfModelCandidateRecord) => void;
   },
   deps?: CandidateDeps,
 ): Promise<PdfModelCandidateRecord> {
-  const getCandidate = deps?.getCandidate ?? getPdfModelCandidateById;
-  const updateStatus = deps?.updateStatus ?? updatePdfModelCandidateStatus;
-  const candidate = await getCandidate(input.candidateId);
-  if (!candidate) throw new PdfModelCandidateError("Model candidate was not found.", 404);
-  assertTransition(candidate.status, input.nextStatus);
-
-  const updated = await updateStatus({ id: candidate.id, status: input.nextStatus });
-  await recordDecision(
-    {
-      candidateId: candidate.id,
+  const transitionStatus = deps?.transitionStatus ?? transitionPdfModelCandidateStatus;
+  try {
+    return await transitionStatus({
+      candidateId: input.candidateId,
+      expectedStatuses: input.expectedStatuses,
+      nextStatus: input.nextStatus,
       decisionType: input.decisionType,
-      userId: input.userId,
-      note: input.note,
-      payload: input.payload ?? { fromStatus: candidate.status, toStatus: input.nextStatus },
-    },
-    deps,
-  );
-  return updated;
+      note: input.note ?? null,
+      payload: input.payload ?? { toStatus: input.nextStatus },
+      decidedByUserId: input.userId ?? null,
+      validateCandidate: input.validateCandidate,
+    });
+  } catch (err) {
+    mapTransitionError(err);
+  }
 }
 
 export async function createPdfModelCandidateFromManifestArtifact(
@@ -252,6 +243,7 @@ export async function submitPdfModelCandidateForReview(
   return transitionCandidate(
     {
       candidateId,
+      expectedStatuses: [PdfModelCandidateStatus.DRAFT],
       nextStatus: PdfModelCandidateStatus.READY_FOR_REVIEW,
       decisionType: PdfModelCandidateDecisionType.SUBMITTED_FOR_REVIEW,
       userId,
@@ -267,40 +259,30 @@ export async function approvePdfModelCandidateForShadow(
   note?: string | null,
   deps?: CandidateDeps,
 ): Promise<PdfModelCandidateRecord> {
-  const getCandidate = deps?.getCandidate ?? getPdfModelCandidateById;
-  const candidate = await getCandidate(candidateId);
-  if (!candidate) throw new PdfModelCandidateError("Model candidate was not found.", 404);
-  assertTransition(candidate.status, PdfModelCandidateStatus.APPROVED_FOR_SHADOW);
-
-  if (candidate.gateArtifact) {
-    const gateStatus = validateGateArtifact(candidate.gateArtifact);
-    if (gateStatus === "FAIL" || gateStatus === "INSUFFICIENT_DATA") {
-      throw new PdfModelCandidateError(
-        `Candidate cannot be approved for shadow because gate status is ${gateStatus}.`,
-      );
-    }
-  }
-
-  const updateStatus = deps?.updateStatus ?? updatePdfModelCandidateStatus;
-  const updated = await updateStatus({
-    id: candidate.id,
-    status: PdfModelCandidateStatus.APPROVED_FOR_SHADOW,
-  });
-  await recordDecision(
+  return transitionCandidate(
     {
-      candidateId: candidate.id,
+      candidateId,
+      expectedStatuses: [PdfModelCandidateStatus.READY_FOR_REVIEW],
+      nextStatus: PdfModelCandidateStatus.APPROVED_FOR_SHADOW,
       decisionType: PdfModelCandidateDecisionType.APPROVED_FOR_SHADOW,
       userId,
       note,
       payload: {
-        fromStatus: candidate.status,
         toStatus: PdfModelCandidateStatus.APPROVED_FOR_SHADOW,
         shadowOnly: true,
+      },
+      validateCandidate: (candidate) => {
+        if (!candidate.gateArtifact) return;
+        const gateStatus = validateGateArtifact(candidate.gateArtifact);
+        if (gateStatus === "FAIL" || gateStatus === "INSUFFICIENT_DATA") {
+          throw new PdfModelCandidateError(
+            `Candidate cannot be approved for shadow because gate status is ${gateStatus}.`,
+          );
+        }
       },
     },
     deps,
   );
-  return updated;
 }
 
 export async function rejectPdfModelCandidate(
@@ -312,6 +294,7 @@ export async function rejectPdfModelCandidate(
   return transitionCandidate(
     {
       candidateId,
+      expectedStatuses: [PdfModelCandidateStatus.READY_FOR_REVIEW],
       nextStatus: PdfModelCandidateStatus.REJECTED,
       decisionType: PdfModelCandidateDecisionType.REJECTED,
       userId,
@@ -330,6 +313,12 @@ export async function archivePdfModelCandidate(
   return transitionCandidate(
     {
       candidateId,
+      expectedStatuses: [
+        PdfModelCandidateStatus.DRAFT,
+        PdfModelCandidateStatus.READY_FOR_REVIEW,
+        PdfModelCandidateStatus.REJECTED,
+        PdfModelCandidateStatus.APPROVED_FOR_SHADOW,
+      ],
       nextStatus: PdfModelCandidateStatus.ARCHIVED,
       decisionType: PdfModelCandidateDecisionType.ARCHIVED,
       userId,

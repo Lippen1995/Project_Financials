@@ -127,10 +127,29 @@ function makeDeps(candidate = makeCandidate()) {
     decisions,
     deps: {
       getCandidate: vi.fn(async () => candidate),
-      updateStatus: vi.fn(async ({ status }) => makeCandidate({ ...candidate, status })),
       createDecision: vi.fn(async (input) => {
         decisions.push(input);
         return { id: `decision-${decisions.length}`, ...input };
+      }),
+      transitionStatus: vi.fn(async (input) => {
+        if (!input.expectedStatuses.includes(candidate.status)) {
+          throw new PdfModelCandidateError(
+            `Invalid model candidate transition ${candidate.status} -> ${input.nextStatus}.`,
+          );
+        }
+        input.validateCandidate?.(candidate);
+        const payload =
+          input.payload && typeof input.payload === "object" && !Array.isArray(input.payload)
+            ? { fromStatus: candidate.status, ...(input.payload as Record<string, unknown>) }
+            : input.payload;
+        decisions.push({
+          candidateId: input.candidateId,
+          decisionType: input.decisionType,
+          note: input.note,
+          payload,
+          decidedByUserId: input.decidedByUserId,
+        });
+        return makeCandidate({ ...candidate, status: input.nextStatus });
       }),
     },
   };
@@ -306,5 +325,13 @@ describe("pdf model candidate service", () => {
       payload: expect.objectContaining({ shadowOnly: true }),
     });
     expect(JSON.stringify(decisions)).not.toContain("productionUseAllowed");
+  });
+
+  it("does not create an audit decision when transition precondition fails", async () => {
+    const { deps, decisions } = makeDeps(makeCandidate({ status: PdfModelCandidateStatus.REJECTED }));
+    await expect(
+      approvePdfModelCandidateForShadow("candidate-1", "user-1", undefined, deps),
+    ).rejects.toBeInstanceOf(PdfModelCandidateError);
+    expect(decisions).toHaveLength(0);
   });
 });

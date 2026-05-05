@@ -20,6 +20,20 @@ export type PdfModelCandidateRecord = Prisma.PdfModelCandidateGetPayload<{
   include: typeof candidateInclude;
 }>;
 
+export class PdfModelCandidateTransitionNotFoundError extends Error {
+  constructor(message = "Model candidate was not found.") {
+    super(message);
+    this.name = "PdfModelCandidateTransitionNotFoundError";
+  }
+}
+
+export class PdfModelCandidateTransitionConflictError extends Error {
+  constructor(message = "Model candidate status changed before the transition could be applied.") {
+    super(message);
+    this.name = "PdfModelCandidateTransitionConflictError";
+  }
+}
+
 export async function createPdfModelCandidate(input: {
   modelId: string;
   modelVersion: string;
@@ -85,14 +99,67 @@ export async function getPdfModelCandidateByModelIdVersion(
   });
 }
 
-export async function updatePdfModelCandidateStatus(input: {
-  id: string;
-  status: PdfModelCandidateStatus;
+export async function transitionPdfModelCandidateStatus(input: {
+  candidateId: string;
+  expectedStatuses: PdfModelCandidateStatus[];
+  nextStatus: PdfModelCandidateStatus;
+  decisionType: PdfModelCandidateDecisionType;
+  note?: string | null;
+  payload?: unknown;
+  decidedByUserId?: string | null;
+  validateCandidate?: (candidate: PdfModelCandidateRecord) => void;
 }): Promise<PdfModelCandidateRecord> {
-  return prisma.pdfModelCandidate.update({
-    where: { id: input.id },
-    data: { status: input.status },
-    include: candidateInclude,
+  return prisma.$transaction(async (tx) => {
+    const candidate = await tx.pdfModelCandidate.findUnique({
+      where: { id: input.candidateId },
+      include: candidateInclude,
+    });
+
+    if (!candidate) throw new PdfModelCandidateTransitionNotFoundError();
+    if (!input.expectedStatuses.includes(candidate.status)) {
+      throw new PdfModelCandidateTransitionConflictError(
+        `Invalid model candidate transition ${candidate.status} -> ${input.nextStatus}.`,
+      );
+    }
+
+    input.validateCandidate?.(candidate);
+
+    const updated = await tx.pdfModelCandidate.updateMany({
+      where: {
+        id: input.candidateId,
+        status: { in: input.expectedStatuses },
+      },
+      data: { status: input.nextStatus },
+    });
+
+    if (updated.count !== 1) {
+      throw new PdfModelCandidateTransitionConflictError();
+    }
+
+    const payload =
+      input.payload && typeof input.payload === "object" && !Array.isArray(input.payload)
+        ? { fromStatus: candidate.status, ...(input.payload as Record<string, unknown>) }
+        : input.payload;
+
+    await tx.pdfModelCandidateDecision.create({
+      data: {
+        candidateId: input.candidateId,
+        decisionType: input.decisionType,
+        note: input.note ?? null,
+        payload:
+          payload === undefined
+            ? undefined
+            : (payload as Prisma.InputJsonValue),
+        decidedByUserId: input.decidedByUserId ?? null,
+      },
+    });
+
+    const refreshed = await tx.pdfModelCandidate.findUnique({
+      where: { id: input.candidateId },
+      include: candidateInclude,
+    });
+    if (!refreshed) throw new PdfModelCandidateTransitionNotFoundError();
+    return refreshed;
   });
 }
 
