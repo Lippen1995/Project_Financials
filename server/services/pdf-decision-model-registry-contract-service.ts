@@ -233,6 +233,22 @@ export function validatePdfDecisionModelRegistryManifest(
       if (typeof a.required !== "boolean") {
         issues.push(`artifacts[${i}].required must be a boolean.`);
       }
+      if (a.sizeBytes != null && (typeof a.sizeBytes !== "number" || !Number.isFinite(a.sizeBytes) || a.sizeBytes < 0)) {
+        issues.push(`artifacts[${i}].sizeBytes must be a finite non-negative number or null.`);
+      }
+      if (a.sha256 != null && typeof a.sha256 !== "string") {
+        issues.push(`artifacts[${i}].sha256 must be a string or null.`);
+      }
+      if (a.path != null && typeof a.path !== "string") {
+        issues.push(`artifacts[${i}].path must be a string or null.`);
+      }
+    }
+
+    const hasRequiredModelCard = artifacts.some(
+      (a) => (a as Record<string, unknown>).kind === "MODEL_CARD" && (a as Record<string, unknown>).required === true,
+    );
+    if (!hasRequiredModelCard) {
+      issues.push("artifacts must include a required MODEL_CARD artifact.");
     }
   }
 

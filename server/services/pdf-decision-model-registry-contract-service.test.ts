@@ -225,6 +225,57 @@ describe("validatePdfDecisionModelRegistryManifest", () => {
     expect(json).not.toContain("modelBinary");
     expect(json).not.toContain("pdfBuffer");
   });
+
+  it("rejects manifest with empty artifacts array", () => {
+    const m = makeManifest({ artifacts: [] });
+    const { valid, issues } = validatePdfDecisionModelRegistryManifest(m);
+    expect(valid).toBe(false);
+    expect(issues.some((i) => i.toLowerCase().includes("model_card"))).toBe(true);
+  });
+
+  it("rejects manifest without required MODEL_CARD artifact", () => {
+    const m = makeManifest({
+      artifacts: [{ kind: "METRICS_JSON", required: true }],
+    });
+    const { valid, issues } = validatePdfDecisionModelRegistryManifest(m);
+    expect(valid).toBe(false);
+    expect(issues.some((i) => i.toLowerCase().includes("model_card"))).toBe(true);
+  });
+
+  it("rejects manifest with MODEL_CARD required=false", () => {
+    const m = makeManifest({
+      artifacts: [{ kind: "MODEL_CARD", path: null, sha256: null, sizeBytes: null, required: false }],
+    });
+    const { valid, issues } = validatePdfDecisionModelRegistryManifest(m);
+    expect(valid).toBe(false);
+    expect(issues.some((i) => i.toLowerCase().includes("model_card"))).toBe(true);
+  });
+
+  it("accepts manifest with required MODEL_CARD artifact", () => {
+    const m = makeManifest({
+      artifacts: [{ kind: "MODEL_CARD", path: null, sha256: null, sizeBytes: null, required: true }],
+    });
+    const { valid } = validatePdfDecisionModelRegistryManifest(m);
+    expect(valid).toBe(true);
+  });
+
+  it("rejects negative sizeBytes on artifact", () => {
+    const m = makeManifest({
+      artifacts: [{ kind: "MODEL_CARD", path: null, sha256: null, sizeBytes: -1, required: true }],
+    });
+    const { valid, issues } = validatePdfDecisionModelRegistryManifest(m);
+    expect(valid).toBe(false);
+    expect(issues.some((i) => i.includes("sizeBytes"))).toBe(true);
+  });
+
+  it("rejects non-string sha256 on artifact", () => {
+    const m = makeManifest({
+      artifacts: [{ kind: "MODEL_CARD", path: null, sha256: 12345 as unknown as string, sizeBytes: null, required: true }],
+    });
+    const { valid, issues } = validatePdfDecisionModelRegistryManifest(m);
+    expect(valid).toBe(false);
+    expect(issues.some((i) => i.includes("sha256"))).toBe(true);
+  });
 });
 
 describe("assertPdfDecisionModelManifestSafeForShadowEvaluation", () => {
