@@ -28,7 +28,8 @@ export type PersistPdfModelArtifactSnapshotInput = {
     | "SHADOW_MODEL_EVALUATION"
     | "SHADOW_MODEL_ANALYSIS"
     | "SHADOW_VS_RULE_GATE"
-    | "MODEL_REGISTRY_MANIFEST";
+    | "MODEL_REGISTRY_MANIFEST"
+    | "PARSER_ROUTE_SHADOW_EXECUTION";
   payload: unknown;
   modelId?: string | null;
   modelVersion?: string | null;
@@ -86,6 +87,20 @@ function hasRawPayloadKey(value: unknown): boolean {
   return false;
 }
 
+function validateParserRouteShadowExecutionPayload(payload: unknown): { issues: string[] } {
+  const issues: string[] = [];
+  const p = asRecord(payload);
+  if (p.schemaVersion !== 1) issues.push("PARSER_ROUTE_SHADOW_EXECUTION payload must have schemaVersion: 1.");
+  if (p.kind !== "PARSER_ROUTE_SHADOW_EXECUTION") issues.push("PARSER_ROUTE_SHADOW_EXECUTION payload must have kind field.");
+  const safety = asRecord(p.safety);
+  if (safety.productionRoutingChanged !== false) issues.push("safety.productionRoutingChanged must be false.");
+  if (safety.productionFactsMutated !== false) issues.push("safety.productionFactsMutated must be false.");
+  if (safety.publishAffected !== false) issues.push("safety.publishAffected must be false.");
+  if (safety.shadowOnly !== true) issues.push("safety.shadowOnly must be true.");
+  if (!Array.isArray(p.routes)) issues.push("PARSER_ROUTE_SHADOW_EXECUTION payload must have a routes array.");
+  return { issues };
+}
+
 function assertJsonSafePayload(kind: PdfModelArtifactKind, payload: unknown) {
   const issues: string[] = [];
   if (hasInvalidNumber(payload)) issues.push("Payload contains NaN or Infinity.");
@@ -107,6 +122,9 @@ function assertJsonSafePayload(kind: PdfModelArtifactKind, payload: unknown) {
     issues.push(...validation.issues);
   } else if (kind === PdfModelArtifactKind.SHADOW_MODEL_EVALUATION) {
     const validation = validatePdfDecisionShadowModelEvaluation(payload as never);
+    issues.push(...validation.issues);
+  } else if (kind === PdfModelArtifactKind.PARSER_ROUTE_SHADOW_EXECUTION) {
+    const validation = validateParserRouteShadowExecutionPayload(payload);
     issues.push(...validation.issues);
   }
 
@@ -155,6 +173,21 @@ export function buildPdfModelArtifactSummary(
       highSeverityDisagreementCount: n(summary.highSeverityDisagreementCount),
       failedCheckCount: checks.filter((c) => asRecord(c).status === "FAIL").length,
       warnCheckCount: checks.filter((c) => asRecord(c).status === "WARN").length,
+    };
+  }
+  if (k === PdfModelArtifactKind.PARSER_ROUTE_SHADOW_EXECUTION) {
+    const inputSection = asRecord(p.input);
+    const routes = Array.isArray(p.routes) ? p.routes : [];
+    return {
+      annualReportId: typeof inputSection.annualReportId === "string" ? inputSection.annualReportId : null,
+      orgNumber: typeof inputSection.organizationNumber === "string" ? inputSection.organizationNumber : null,
+      fiscalYear: typeof inputSection.fiscalYear === "number" ? inputSection.fiscalYear : null,
+      requestedRouteCount: Array.isArray(inputSection.requestedRoutes) ? inputSection.requestedRoutes.length : 0,
+      successCount: routes.filter((r) => asRecord(r).status === "SUCCESS").length,
+      unavailableCount: routes.filter((r) => asRecord(r).status === "RUNTIME_UNAVAILABLE").length,
+      failedCount: routes.filter((r) => asRecord(r).status === "FAILED").length,
+      skippedCount: routes.filter((r) => asRecord(r).status === "SKIPPED").length,
+      shadowOnly: true,
     };
   }
   const safety = asRecord(p.safety);

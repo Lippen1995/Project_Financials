@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
   try {
     const data = await persistPdfModelArtifactSnapshot({
       ...parsed.data,
+      payload: parsed.data.payload as unknown,
       createdByUserId: user.id,
     });
     return NextResponse.json({ data }, { status: 201 });

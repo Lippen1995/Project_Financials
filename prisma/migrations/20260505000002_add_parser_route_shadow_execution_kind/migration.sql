@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PdfModelArtifactKind" ADD VALUE 'PARSER_ROUTE_SHADOW_EXECUTION';
