@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
-describe("opendataloader-runtime", () => {
+import { describeRuntimeIntegration } from "@/integrations/brreg/annual-report-financials/runtime-test-guards";
+
+describeRuntimeIntegration("opendataloader-runtime", () => {
   afterEach(() => {
     vi.resetModules();
     vi.clearAllMocks();

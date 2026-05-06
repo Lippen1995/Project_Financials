@@ -309,6 +309,7 @@ Verifikasjon:
 
 ```bash
 npm run test:opendataloader-integration
+npm run test:ocr-odl-runtime
 npm run opendataloader:java-info
 npm run opendataloader:baseline-preflight
 npm run opendataloader:runtime-diagnostics
@@ -317,6 +318,14 @@ npm run opendataloader:smoke-test
 ```
 
 Dette dekker OpenDataLoader-konfig, strukturbevarende normalisering, runtime-readiness, smoke-path, artifact persistence, dual-run-sammenligning og annual-report service-integrasjonstester.
+
+OCR/OpenDataLoader-runtime-tester er eksplisitt opt-in. Normal `npm test`, regresjons- og CI-kjøring skal ikke kreve Java, lokal OpenDataLoader eller OCR-runtime. Kjør runtime-testene bare når miljøet er forberedt:
+
+```bash
+npm run test:ocr-odl-runtime
+```
+
+Scriptet setter `PDF_RUNTIME_INTEGRATION_TESTS=1` og kjører de runtime-avhengige OCR/OpenDataLoader-testene. Uten denne env-verdien blir disse testene markert som skipped med eksplisitt årsak.
 
 `opendataloader:runtime-diagnostics` skriver en eksplisitt readiness-oppsummering for package, Java-versjon, local readiness og hybrid-konfigurasjon.
 
