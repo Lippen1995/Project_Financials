@@ -1,4 +1,4 @@
-import type { AnnualReportFiling, FinancialExtractionRun } from "@prisma/client";
+import type { AnnualReportArtifact, AnnualReportFiling, FinancialExtractionRun } from "@prisma/client";
 
 import { getAnnualReportFilingWithArtifacts } from "@/server/persistence/annual-report-ingestion-repository";
 import {
@@ -65,6 +65,7 @@ type ArtifactRouteEntry = {
 type FilingWithCompany = AnnualReportFiling & {
   company: { id: string; orgNumber: string; name: string };
   extractionRuns: FinancialExtractionRun[];
+  artifacts: AnnualReportArtifact[];
 };
 
 function buildProductionBaseline(filing: FilingWithCompany) {
@@ -138,7 +139,7 @@ function buildRouteEntry(
 
 async function executeRoute(
   adapter: PdfParserRouteRuntimeAdapter,
-  input: { filingId: string; orgNumber: string; fiscalYear: number },
+  input: { filingId: string; orgNumber: string; fiscalYear: number; pdfBuffer: Buffer | null },
 ): Promise<{ availability: PdfRouteRuntimeAvailability; result: PdfRouteRuntimeExecutionResult }> {
   const availability = await adapter.isAvailable();
   if (!availability.available) {
@@ -189,6 +190,13 @@ export async function runPdfParserRouteShadowExecution(
     getFilingWithArtifacts?: typeof getAnnualReportFilingWithArtifacts;
     createArtifact?: typeof createPdfModelArtifactSnapshot;
     routeAdapters?: Partial<Record<PdfShadowExecutionRoute, PdfParserRouteRuntimeAdapter>>;
+    /**
+     * Reads raw PDF bytes from artifact storage by storage key.
+     * Required for adapters that perform real OCR or ODL extraction.
+     * When not provided, adapters receive pdfBuffer=null and return FAILED.
+     * In production, wire this to LocalAnnualReportArtifactStorage.getArtifactBuffer.
+     */
+    readPdfBuffer?: (storageKey: string) => Promise<Buffer | null>;
   },
 ): Promise<PdfParserRouteShadowExecutionResult> {
   if (input.requestedRoutes.length === 0) {
@@ -210,7 +218,23 @@ export async function runPdfParserRouteShadowExecution(
     );
   }
 
-  const productionBaseline = buildProductionBaseline(filing as FilingWithCompany);
+  const filingTyped = filing as unknown as FilingWithCompany;
+  const productionBaseline = buildProductionBaseline(filingTyped);
+
+  // Load PDF buffer when a reader dep is provided and the filing has a PDF artifact.
+  let pdfBuffer: Buffer | null = null;
+  if (deps?.readPdfBuffer) {
+    const pdfArtifact = filingTyped.artifacts?.find((a) => a.artifactType === "PDF");
+    if (pdfArtifact) {
+      try {
+        pdfBuffer = await deps.readPdfBuffer(pdfArtifact.storageKey);
+      } catch {
+        // Non-fatal: adapters will receive null and return FAILED individually.
+        pdfBuffer = null;
+      }
+    }
+  }
+
   const routeEntries: ArtifactRouteEntry[] = [];
 
   for (const route of input.requestedRoutes) {
@@ -220,6 +244,7 @@ export async function runPdfParserRouteShadowExecution(
       filingId: filing.id,
       orgNumber: filing.company.orgNumber,
       fiscalYear: filing.fiscalYear,
+      pdfBuffer,
     });
     routeEntries.push(buildRouteEntry(route, availability, result));
   }
