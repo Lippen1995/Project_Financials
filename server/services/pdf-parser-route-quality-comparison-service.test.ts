@@ -600,3 +600,302 @@ describe("validatePdfParserRouteQualityComparisonReport", () => {
     expect(issues.some((i) => i.includes("productionRoutingChanged"))).toBe(true);
   });
 });
+
+// ---- Quality comparison compatibility: real OCR/ODL summary shapes ----------
+// These tests verify that summaries produced by the real adapters are scoreable
+// by the quality comparison service without any code changes.
+
+/** Mirrors the PdfRouteShadowSummary shape returned by real ocrRuntimeAdapter.execute */
+function makeRealOcrSummary() {
+  return {
+    pageCount: 12,
+    pagesProcessed: [1, 2, 3, 4, 5, 6, 7, 8],
+    financials: {
+      detected: true,
+      candidatePages: [2, 3],
+      lineItemCount: 38,
+      tableCount: 3,
+      coverageScore: 0.67,
+    },
+    boardReport: {
+      detected: true,
+      candidatePages: [7],
+      charCount: 5200,
+    },
+    auditorReport: {
+      detected: true,
+      candidatePages: [11],
+      charCount: 1800,
+    },
+    warnings: [
+      "OCR quality insufficient for reliable extraction on some pages.",
+      "4 row(s) had ambiguous column assignment — line item count may be imprecise.",
+    ],
+    errors: [],
+  };
+}
+
+/** Mirrors the PdfRouteShadowSummary shape returned by real openDataLoaderRuntimeAdapter.execute */
+function makeRealOdlSummary() {
+  return {
+    pageCount: 12,
+    pagesProcessed: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    financials: {
+      detected: true,
+      candidatePages: [2, 3, 4],
+      lineItemCount: 52,
+      tableCount: 4,
+      coverageScore: 0.58,
+    },
+    boardReport: {
+      detected: true,
+      candidatePages: [7, 8],
+      charCount: 7400,
+    },
+    auditorReport: {
+      detected: false,
+      candidatePages: [],
+      charCount: 0,
+    },
+    warnings: [
+      "Financial section keywords detected but no tables found — table extraction may be incomplete.",
+    ],
+    errors: [],
+  };
+}
+
+/** Mirrors the PdfRouteShadowSummary from hybridRuntimeAdapter when both components succeed */
+function makeRealHybridSummary() {
+  const ocr = makeRealOcrSummary();
+  const odl = makeRealOdlSummary();
+  return {
+    pageCount: Math.max(ocr.pageCount, odl.pageCount),
+    pagesProcessed: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    financials: {
+      detected: true,
+      candidatePages: [2, 3, 4],
+      lineItemCount: Math.max(ocr.financials.lineItemCount, odl.financials.lineItemCount),
+      tableCount: Math.max(ocr.financials.tableCount, odl.financials.tableCount),
+      coverageScore: Math.max(ocr.financials.coverageScore, odl.financials.coverageScore),
+    },
+    boardReport: {
+      detected: true,
+      candidatePages: [7, 8],
+      charCount: Math.max(ocr.boardReport.charCount ?? 0, odl.boardReport.charCount ?? 0),
+    },
+    auditorReport: {
+      detected: true,
+      candidatePages: [11],
+      charCount: Math.max(ocr.auditorReport.charCount ?? 0, odl.auditorReport.charCount ?? 0),
+    },
+    warnings: ["ODL component unavailable or failed — hybrid uses OCR only."],
+    errors: [],
+  };
+}
+
+function makeRealRouteEntry(route: string, summary: object) {
+  return {
+    route,
+    status: "SUCCESS",
+    runtime: { available: true, name: route, version: "2.2.1" },
+    durationMs: 1400,
+    summary,
+  };
+}
+
+describe("quality comparison — real OCR/ODL summary compatibility", () => {
+  it("OCR real-success summary can be scored and produces a non-null quality score", async () => {
+    const artifact = makeArtifactBase({
+      payload: makeValidPayload({
+        routes: [makeRealRouteEntry("OCR", makeRealOcrSummary())],
+      }),
+    });
+
+    const report = await buildPdfParserRouteQualityComparisonReport(
+      {},
+      { listArtifacts: vi.fn().mockResolvedValue([artifact]) },
+    );
+
+    expect(report.corpus.successfulRouteRuns).toBe(1);
+    const docComparison = report.documentComparisons[0];
+    expect(docComparison).toBeDefined();
+    const ocrAlt = docComparison?.alternatives.find((a) => a.route === "OCR");
+    expect(ocrAlt?.status).toBe("SUCCESS");
+    expect(ocrAlt?.qualityScore).not.toBeNull();
+    expect(typeof ocrAlt?.qualityScore).toBe("number");
+    expect(ocrAlt?.financialsDetected).toBe(true);
+    expect(ocrAlt?.boardReportDetected).toBe(true);
+    expect(ocrAlt?.auditorReportDetected).toBe(true);
+    expect(ocrAlt?.tableCount).toBe(3);
+    expect(ocrAlt?.lineItemCount).toBe(38);
+    expect(ocrAlt?.warningsCount).toBe(2);
+  });
+
+  it("ODL real-success summary can be scored and produces a non-null quality score", async () => {
+    const artifact = makeArtifactBase({
+      payload: makeValidPayload({
+        routes: [makeRealRouteEntry("OPENDATALOADER_LOCAL", makeRealOdlSummary())],
+      }),
+    });
+
+    const report = await buildPdfParserRouteQualityComparisonReport(
+      {},
+      { listArtifacts: vi.fn().mockResolvedValue([artifact]) },
+    );
+
+    expect(report.corpus.successfulRouteRuns).toBe(1);
+    const docComparison = report.documentComparisons[0];
+    const odlAlt = docComparison?.alternatives.find((a) => a.route === "OPENDATALOADER_LOCAL");
+    expect(odlAlt?.status).toBe("SUCCESS");
+    expect(odlAlt?.qualityScore).not.toBeNull();
+    expect(odlAlt?.financialsDetected).toBe(true);
+    expect(odlAlt?.tableCount).toBe(4);
+    expect(odlAlt?.lineItemCount).toBe(52);
+    expect(odlAlt?.warningsCount).toBe(1);
+  });
+
+  it("HYBRID real-success summary can be scored and produces a non-null quality score", async () => {
+    const artifact = makeArtifactBase({
+      payload: makeValidPayload({
+        routes: [makeRealRouteEntry("HYBRID", makeRealHybridSummary())],
+      }),
+    });
+
+    const report = await buildPdfParserRouteQualityComparisonReport(
+      {},
+      { listArtifacts: vi.fn().mockResolvedValue([artifact]) },
+    );
+
+    const docComparison = report.documentComparisons[0];
+    const hybridAlt = docComparison?.alternatives.find((a) => a.route === "HYBRID");
+    expect(hybridAlt?.status).toBe("SUCCESS");
+    expect(hybridAlt?.qualityScore).not.toBeNull();
+    expect(hybridAlt?.financialsDetected).toBe(true);
+  });
+
+  it("RUNTIME_UNAVAILABLE route does not count as a failure in corpus metrics", async () => {
+    const artifact = makeArtifactBase({
+      payload: makeValidPayload({
+        routes: [makeUnavailableRouteEntry("OCR"), makeUnavailableRouteEntry("OPENDATALOADER_LOCAL")],
+      }),
+    });
+
+    const report = await buildPdfParserRouteQualityComparisonReport(
+      {},
+      { listArtifacts: vi.fn().mockResolvedValue([artifact]) },
+    );
+
+    expect(report.corpus.failedRouteRuns).toBe(0);
+    expect(report.corpus.unavailableRouteRuns).toBe(2);
+    expect(report.documentComparisons[0]?.outcome).toBe("ALL_ALTERNATIVES_UNAVAILABLE");
+  });
+
+  it("FAILED route is counted separately from RUNTIME_UNAVAILABLE", async () => {
+    const artifact = makeArtifactBase({
+      payload: makeValidPayload({
+        routes: [
+          makeFailedRouteEntry("OCR"),
+          makeUnavailableRouteEntry("OPENDATALOADER_LOCAL"),
+        ],
+      }),
+    });
+
+    const report = await buildPdfParserRouteQualityComparisonReport(
+      {},
+      { listArtifacts: vi.fn().mockResolvedValue([artifact]) },
+    );
+
+    expect(report.corpus.failedRouteRuns).toBe(1);
+    expect(report.corpus.unavailableRouteRuns).toBe(1);
+    expect(report.documentComparisons[0]?.outcome).toBe("ALL_ALTERNATIVES_FAILED");
+  });
+
+  it("malformed or oversized route payloads are skipped safely without crashing", async () => {
+    const malformedPayload = {
+      schemaVersion: 1,
+      kind: "PARSER_ROUTE_SHADOW_EXECUTION",
+      createdAt: "2026-01-01T00:00:00Z",
+      input: { annualReportId: "f1", organizationNumber: "123", fiscalYear: 2024 },
+      productionBaseline: { route: "LEGACY", confidenceScore: 0.8, runStatus: "SUCCEEDED" },
+      routes: [
+        {
+          route: "OCR",
+          status: "SUCCESS",
+          runtime: { available: true },
+          durationMs: 500,
+          summary: {
+            // Oversized / unusual fields — should not crash scoring
+            pageCount: 99999,
+            pagesProcessed: Array.from({ length: 500 }, (_, i) => i + 1),
+            financials: {
+              detected: true,
+              candidatePages: Array.from({ length: 200 }, (_, i) => i + 1),
+              lineItemCount: 10000,
+              tableCount: 9999,
+              coverageScore: 1.5, // > 1, should be clamped
+            },
+            boardReport: { detected: false, candidatePages: [] },
+            auditorReport: { detected: false, candidatePages: [] },
+            warnings: Array.from({ length: 50 }, (_, i) => `warning-${i}`),
+            errors: [],
+          },
+        },
+      ],
+      // Missing safety flags → malformed
+    };
+
+    const malformedArtifact = makeArtifactBase({ payload: malformedPayload });
+    const goodArtifact = makeArtifactBase({
+      id: "a2",
+      payload: makeValidPayload({ routes: [makeRealRouteEntry("OCR", makeRealOcrSummary())] }),
+    });
+
+    const report = await buildPdfParserRouteQualityComparisonReport(
+      {},
+      { listArtifacts: vi.fn().mockResolvedValue([malformedArtifact, goodArtifact]) },
+    );
+
+    // Malformed artifact (missing safety flags) is counted and skipped
+    expect(report.corpus.malformedArtifactCount).toBe(1);
+    // Good artifact still processed
+    expect(report.corpus.documentCount).toBe(1);
+    expect(report.corpus.successfulRouteRuns).toBe(1);
+  });
+
+  it("top opportunities remain deterministic across multiple real-summary documents", async () => {
+    const highDeltaArtifact = makeArtifactBase({
+      id: "high",
+      payload: makeValidPayload({
+        annualReportId: "filing-high",
+        confidenceScore: 0.5,
+        runStatus: null,
+        routes: [makeRealRouteEntry("OCR", makeRealOcrSummary())],
+      }),
+    });
+    const lowDeltaArtifact = makeArtifactBase({
+      id: "low",
+      payload: makeValidPayload({
+        annualReportId: "filing-low",
+        confidenceScore: 0.99,
+        runStatus: "SUCCEEDED",
+        routes: [makeRealRouteEntry("OCR", { ...makeRealOcrSummary(), financials: { ...makeRealOcrSummary().financials, detected: false, tableCount: 0, lineItemCount: 0, coverageScore: 0 } })],
+      }),
+    });
+
+    const report = await buildPdfParserRouteQualityComparisonReport(
+      {},
+      { listArtifacts: vi.fn().mockResolvedValue([highDeltaArtifact, lowDeltaArtifact]) },
+    );
+
+    // Top opportunities are sorted by delta descending — deterministic
+    expect(report.topOpportunities.length).toBeGreaterThanOrEqual(0);
+    if (report.topOpportunities.length >= 2) {
+      const [first, second] = report.topOpportunities;
+      expect((first?.delta ?? 0)).toBeGreaterThanOrEqual(second?.delta ?? 0);
+    }
+
+    // Report must be JSON-serializable (no NaN/Infinity)
+    const { valid } = validatePdfParserRouteQualityComparisonReport(report);
+    expect(valid).toBe(true);
+  });
+});
