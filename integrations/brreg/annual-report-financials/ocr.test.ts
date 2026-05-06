@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+
+import { describeRuntimeIntegration } from "./runtime-test-guards";
 
 function createPngBuffer(width: number, height: number) {
   const buffer = Buffer.alloc(24);
@@ -10,7 +12,7 @@ function createPngBuffer(width: number, height: number) {
   return buffer;
 }
 
-describe("annual-report OCR guardrails", () => {
+describeRuntimeIntegration("annual-report OCR guardrails", () => {
   afterEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -44,8 +46,8 @@ describe("annual-report OCR guardrails", () => {
       })),
     }));
 
-    const module = await import("@/integrations/brreg/annual-report-financials/ocr");
-    const result = await module.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
+    const ocrModule = await import("@/integrations/brreg/annual-report-financials/ocr");
+    const result = await ocrModule.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
 
     expect(result.pages).toEqual([]);
     expect(result.diagnostics.tinyCropSkippedCount).toBe(1);
@@ -87,8 +89,8 @@ describe("annual-report OCR guardrails", () => {
       })),
     }));
 
-    const module = await import("@/integrations/brreg/annual-report-financials/ocr");
-    const result = await module.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
+    const ocrModule = await import("@/integrations/brreg/annual-report-financials/ocr");
+    const result = await ocrModule.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
 
     expect(result.pages).toEqual([]);
     expect(result.diagnostics.invalidCropCount).toBe(1);
@@ -131,8 +133,8 @@ describe("annual-report OCR guardrails", () => {
       })),
     }));
 
-    const module = await import("@/integrations/brreg/annual-report-financials/ocr");
-    const result = await module.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
+    const ocrModule = await import("@/integrations/brreg/annual-report-financials/ocr");
+    const result = await ocrModule.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
 
     expect(result.pages).toEqual([]);
     expect(result.diagnostics.ocrAttemptCount).toBe(2);
@@ -200,8 +202,8 @@ describe("annual-report OCR guardrails", () => {
       })),
     }));
 
-    const module = await import("@/integrations/brreg/annual-report-financials/ocr");
-    const result = await module.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
+    const ocrModule = await import("@/integrations/brreg/annual-report-financials/ocr");
+    const result = await ocrModule.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
 
     expect(result.pages).toHaveLength(1);
     const page = result.pages[0];
@@ -284,8 +286,8 @@ describe("annual-report OCR guardrails", () => {
       })),
     }));
 
-    const module = await import("@/integrations/brreg/annual-report-financials/ocr");
-    const result = await module.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
+    const ocrModule = await import("@/integrations/brreg/annual-report-financials/ocr");
+    const result = await ocrModule.extractOcrPagesWithDiagnostics(Buffer.from("pdf"));
 
     expect(result.pages).toHaveLength(2);
     const [balancePage, continuationPage] = result.pages;
