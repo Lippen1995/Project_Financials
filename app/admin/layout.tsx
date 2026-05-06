@@ -35,6 +35,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           Parser Remediation
         </Link>
         <span>/</span>
+        <Link href={"/admin/pdf-parser-route-quality" as never} className="hover:text-slate-600">
+          Parser Route Quality
+        </Link>
+        <span>/</span>
         <Link href={"/admin/pdf-route-experiment" as never} className="hover:text-slate-600">
           Route Experiment
         </Link>
