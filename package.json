@@ -71,6 +71,7 @@
     "extract:unified-narratives": "tsx scripts/extract-unified-narratives.ts",
     "compare:legacy-vs-unified": "tsx scripts/compare-legacy-vs-unified-extraction.ts",
     "persist:unified-extraction-artifact": "tsx scripts/persist-unified-extraction-artifact.ts",
+    "run:annual-report-unified-shadow": "tsx scripts/run-annual-report-unified-shadow.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",

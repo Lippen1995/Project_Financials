@@ -74,6 +74,12 @@ import {
   upsertCompanyFinancialCoverage,
   updateAnnualReportFiling,
 } from "@/server/persistence/annual-report-ingestion-repository";
+import {
+  getAnnualReportUnifiedShadowConfigFromEnv,
+} from "@/server/services/annual-report-unified-shadow-config";
+import {
+  runAnnualReportUnifiedShadowExtraction,
+} from "@/server/services/annual-report-unified-shadow-extraction-service";
 
 const provider = new BrregFinancialsProvider();
 const artifactStorage = new LocalAnnualReportArtifactStorage();
@@ -1037,6 +1043,43 @@ export async function processAnnualReportFiling(
         materialDisagreement: comparisonSummary.materialDisagreement,
         publishDecisionMismatch: comparisonSummary.publishDecisionMismatch,
       });
+    }
+
+    // ── Unified extractor shadow run (never affects production output) ────────
+    // Errors in this block are caught internally by runAnnualReportUnifiedShadowExtraction
+    // and must not propagate to the primary pipeline.
+    try {
+      const unifiedShadowConfig = getAnnualReportUnifiedShadowConfigFromEnv();
+      if (unifiedShadowConfig.mode !== "DISABLED") {
+        const unifiedShadowResult = await runAnnualReportUnifiedShadowExtraction({
+          filingId: filing.id,
+          orgNumber: filing.company.orgNumber,
+          fiscalYear: filing.fiscalYear,
+          preflight,
+          legacyCandidates: primaryComputation.mapped.facts,
+          config: unifiedShadowConfig,
+          sourceCommand: `annual-report-financials-service/processAnnualReportFiling`,
+        });
+        logPipelineEvent("unified_shadow.completed", {
+          filingId: filing.id,
+          fiscalYear: filing.fiscalYear,
+          mode: unifiedShadowResult.mode,
+          totalDurationMs: unifiedShadowResult.totalDurationMs,
+          documentOk: unifiedShadowResult.steps.document?.ok ?? null,
+          financialOk: unifiedShadowResult.steps.financial?.ok ?? null,
+          narrativeOk: unifiedShadowResult.steps.narrative?.ok ?? null,
+          comparisonOk: unifiedShadowResult.steps.comparison?.ok ?? null,
+          warningCount: unifiedShadowResult.warnings.length,
+          canUseForProductionRouting: unifiedShadowResult.canUseForProductionRouting,
+        });
+      }
+    } catch (unifiedShadowError) {
+      // Shadow errors must never affect primary pipeline outcome.
+      logRecoverableError(
+        "annual-report-financials.unifiedShadow",
+        unifiedShadowError,
+        { filingId: filing.id, fiscalYear: filing.fiscalYear },
+      );
     }
 
     await updateAnnualReportFiling(filing.id, {
