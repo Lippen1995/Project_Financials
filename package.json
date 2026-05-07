@@ -66,6 +66,7 @@
     "preview:pdf-parser-route-canary": "tsx scripts/preview-pdf-parser-route-canary.ts",
     "persist:pdf-parser-route-canary-preview": "tsx scripts/persist-pdf-parser-route-canary-preview.ts",
     "preview:pdf-parser-route-assignment": "tsx scripts/preview-pdf-parser-route-assignment.ts",
+    "inspect:unified-parser-document": "tsx scripts/inspect-unified-parser-document.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",
