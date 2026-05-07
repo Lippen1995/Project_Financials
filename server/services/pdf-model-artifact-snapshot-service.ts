@@ -17,6 +17,19 @@ import {
   validatePdfShadowVsRuleComparisonGateReport,
 } from "@/server/services/pdf-shadow-vs-rule-comparison-gate-service";
 import {
+  buildPdfParserRouteRecommendationV2Report,
+  validatePdfParserRouteRecommendationV2Report,
+} from "@/server/services/pdf-parser-route-recommendation-v2-service";
+import type {
+  PdfParserRouteRecommendationV2Input,
+} from "@/server/services/pdf-parser-route-recommendation-v2-service";
+import {
+  buildPdfParserRouteCanaryPreviewReport,
+} from "@/server/services/pdf-parser-route-canary-config-service";
+import type {
+  PdfParserRouteCanaryPreviewInput,
+} from "@/server/services/pdf-parser-route-canary-config-service";
+import {
   archivePdfModelArtifactSnapshot,
   createPdfModelArtifactSnapshot,
   getPdfModelArtifactSnapshotById,
@@ -29,7 +42,9 @@ export type PersistPdfModelArtifactSnapshotInput = {
     | "SHADOW_MODEL_ANALYSIS"
     | "SHADOW_VS_RULE_GATE"
     | "MODEL_REGISTRY_MANIFEST"
-    | "PARSER_ROUTE_SHADOW_EXECUTION";
+    | "PARSER_ROUTE_SHADOW_EXECUTION"
+    | "PARSER_ROUTE_RECOMMENDATION_V2"
+    | "PARSER_ROUTE_CANARY_PREVIEW";
   payload: unknown;
   modelId?: string | null;
   modelVersion?: string | null;
@@ -101,6 +116,55 @@ function validateParserRouteShadowExecutionPayload(payload: unknown): { issues: 
   return { issues };
 }
 
+function validateParserRouteRecommendationV2Payload(payload: unknown): { issues: string[] } {
+  const issues: string[] = [];
+  const p = asRecord(payload);
+  if (p.schemaVersion !== 1) issues.push("PARSER_ROUTE_RECOMMENDATION_V2 payload must have schemaVersion: 1.");
+  const safety = asRecord(p.safety);
+  if (safety.productionRoutingChanged !== false) issues.push("safety.productionRoutingChanged must be false.");
+  if (safety.productionFactsMutated !== false) issues.push("safety.productionFactsMutated must be false.");
+  if (safety.publishAffected !== false) issues.push("safety.publishAffected must be false.");
+  if (safety.shadowOnly !== true) issues.push("safety.shadowOnly must be true.");
+  if (safety.canUseForProductionRouting !== false) issues.push("safety.canUseForProductionRouting must be false.");
+  if (typeof p.generatedAt !== "string" || !p.generatedAt) issues.push("payload must have generatedAt string.");
+  if (!Array.isArray(p.decisions)) issues.push("payload must have a decisions array.");
+  // Reject any decision with canUseForProductionRouting=true
+  if (Array.isArray(p.decisions)) {
+    for (const d of p.decisions as unknown[]) {
+      const guardrails = asRecord(asRecord(d).guardrails);
+      if (guardrails.canUseForProductionRouting !== false) {
+        issues.push("One or more decisions have canUseForProductionRouting !== false.");
+        break;
+      }
+    }
+  }
+  return { issues };
+}
+
+function validateParserRouteCanaryPreviewPayload(payload: unknown): { issues: string[] } {
+  const issues: string[] = [];
+  const p = asRecord(payload);
+  if (p.schemaVersion !== 1) issues.push("PARSER_ROUTE_CANARY_PREVIEW payload must have schemaVersion: 1.");
+  const safety = asRecord(p.safety);
+  if (safety.productionRoutingChanged !== false) issues.push("safety.productionRoutingChanged must be false.");
+  if (safety.productionFactsMutated !== false) issues.push("safety.productionFactsMutated must be false.");
+  if (safety.publishAffected !== false) issues.push("safety.publishAffected must be false.");
+  if (safety.shadowOnly !== true) issues.push("safety.shadowOnly must be true.");
+  if (safety.canUseForProductionRouting !== false) issues.push("safety.canUseForProductionRouting must be false.");
+  if (typeof p.generatedAt !== "string" || !p.generatedAt) issues.push("payload must have generatedAt string.");
+  if (!Array.isArray(p.filings)) issues.push("payload must have a filings array.");
+  // Reject any filing with canUseForProductionRouting=true
+  if (Array.isArray(p.filings)) {
+    for (const f of p.filings as unknown[]) {
+      if (asRecord(f).canUseForProductionRouting !== false) {
+        issues.push("One or more filings have canUseForProductionRouting !== false.");
+        break;
+      }
+    }
+  }
+  return { issues };
+}
+
 function assertJsonSafePayload(kind: PdfModelArtifactKind, payload: unknown) {
   const issues: string[] = [];
   if (hasInvalidNumber(payload)) issues.push("Payload contains NaN or Infinity.");
@@ -125,6 +189,12 @@ function assertJsonSafePayload(kind: PdfModelArtifactKind, payload: unknown) {
     issues.push(...validation.issues);
   } else if (kind === PdfModelArtifactKind.PARSER_ROUTE_SHADOW_EXECUTION) {
     const validation = validateParserRouteShadowExecutionPayload(payload);
+    issues.push(...validation.issues);
+  } else if (kind === PdfModelArtifactKind.PARSER_ROUTE_RECOMMENDATION_V2) {
+    const validation = validateParserRouteRecommendationV2Payload(payload);
+    issues.push(...validation.issues);
+  } else if (kind === PdfModelArtifactKind.PARSER_ROUTE_CANARY_PREVIEW) {
+    const validation = validateParserRouteCanaryPreviewPayload(payload);
     issues.push(...validation.issues);
   }
 
@@ -187,6 +257,40 @@ export function buildPdfModelArtifactSummary(
       unavailableCount: routes.filter((r) => asRecord(r).status === "RUNTIME_UNAVAILABLE").length,
       failedCount: routes.filter((r) => asRecord(r).status === "FAILED").length,
       skippedCount: routes.filter((r) => asRecord(r).status === "SKIPPED").length,
+      shadowOnly: true,
+    };
+  }
+  if (k === PdfModelArtifactKind.PARSER_ROUTE_RECOMMENDATION_V2) {
+    const summary = asRecord(p.summary);
+    return {
+      totalDocuments: n(summary.totalDocuments),
+      textLayerRecommended: n(summary.textLayerRecommended),
+      ocrRecommended: n(summary.ocrRecommended),
+      odlRecommended: n(summary.odlRecommended),
+      hybridRecommended: n(summary.hybridRecommended),
+      manualReviewRequired: n(summary.manualReviewRequired),
+      highConfidence: n(summary.highConfidence),
+      highRisk: n(summary.highRisk),
+      insufficientData:
+        typeof asRecord(p.corpus).insufficientData === "boolean"
+          ? asRecord(p.corpus).insufficientData
+          : null,
+      canUseForProductionRouting: false,
+      shadowOnly: true,
+    };
+  }
+  if (k === PdfModelArtifactKind.PARSER_ROUTE_CANARY_PREVIEW) {
+    const summary = asRecord(p.summary);
+    const config = asRecord(p.config);
+    return {
+      configMode: typeof config.mode === "string" ? config.mode : null,
+      maxCanaryPercent:
+        typeof config.maxCanaryPercent === "number" ? config.maxCanaryPercent : null,
+      totalDocuments: n(summary.totalDocuments),
+      eligible: n(summary.eligible),
+      blocked: n(summary.blocked),
+      disabled: n(summary.disabled),
+      canUseForProductionRouting: false,
       shadowOnly: true,
     };
   }
@@ -261,4 +365,133 @@ export async function archivePersistedPdfModelArtifactSnapshot(
   id: string,
 ): Promise<PdfModelArtifactSnapshot> {
   return archivePdfModelArtifactSnapshot(id);
+}
+
+// ---- Build-and-persist helpers for new report kinds -------------------------
+
+export type PdfParserRouteRecommendationV2SnapshotResult = {
+  artifactId: string;
+  kind: "PARSER_ROUTE_RECOMMENDATION_V2";
+  createdAt: Date;
+  summary: Record<string, unknown>;
+};
+
+export type PdfParserRouteCanaryPreviewSnapshotResult = {
+  artifactId: string;
+  kind: "PARSER_ROUTE_CANARY_PREVIEW";
+  createdAt: Date;
+  summary: Record<string, unknown>;
+};
+
+/**
+ * Builds a recommendation v2 report, validates it, and persists it as a
+ * PARSER_ROUTE_RECOMMENDATION_V2 artifact snapshot. Read-only — no production
+ * routing, fact, or publish changes.
+ */
+export async function buildAndPersistPdfParserRouteRecommendationV2Snapshot(
+  input?: PdfParserRouteRecommendationV2Input & {
+    sourceCommand?: string | null;
+    createdByUserId?: string | null;
+  },
+  deps?: {
+    buildReport?: typeof buildPdfParserRouteRecommendationV2Report;
+    create?: typeof createPdfModelArtifactSnapshot;
+  },
+): Promise<PdfParserRouteRecommendationV2SnapshotResult> {
+  const buildReport = deps?.buildReport ?? buildPdfParserRouteRecommendationV2Report;
+
+  const report = await buildReport({
+    from: input?.from,
+    to: input?.to,
+    fiscalYear: input?.fiscalYear,
+    organizationNumber: input?.organizationNumber,
+    routes: input?.routes,
+    limit: input?.limit,
+  });
+
+  const { valid, issues } = validatePdfParserRouteRecommendationV2Report(report);
+  if (!valid) {
+    throw new PdfModelArtifactSnapshotValidationError(
+      `PARSER_ROUTE_RECOMMENDATION_V2 report validation failed: ${issues.join("; ")}`,
+    );
+  }
+
+  const artifact = await persistPdfModelArtifactSnapshot(
+    {
+      kind: "PARSER_ROUTE_RECOMMENDATION_V2",
+      payload: report,
+      fiscalYear: input?.fiscalYear ?? null,
+      orgNumber: input?.organizationNumber ?? null,
+      sourceCommand: input?.sourceCommand ?? null,
+      createdByUserId: input?.createdByUserId ?? null,
+    },
+    { create: deps?.create },
+  );
+
+  return {
+    artifactId: artifact.id,
+    kind: "PARSER_ROUTE_RECOMMENDATION_V2",
+    createdAt: artifact.createdAt,
+    summary: artifact.summary as Record<string, unknown>,
+  };
+}
+
+/**
+ * Builds a canary preview report, validates it, and persists it as a
+ * PARSER_ROUTE_CANARY_PREVIEW artifact snapshot. Read-only — no production
+ * routing, fact, or publish changes.
+ */
+export async function buildAndPersistPdfParserRouteCanaryPreviewSnapshot(
+  input?: PdfParserRouteCanaryPreviewInput & {
+    sourceCommand?: string | null;
+    createdByUserId?: string | null;
+  },
+  deps?: {
+    buildReport?: typeof buildPdfParserRouteCanaryPreviewReport;
+    create?: typeof createPdfModelArtifactSnapshot;
+  },
+): Promise<PdfParserRouteCanaryPreviewSnapshotResult> {
+  const buildReport = deps?.buildReport ?? buildPdfParserRouteCanaryPreviewReport;
+
+  const report = await buildReport({
+    from: input?.from,
+    to: input?.to,
+    fiscalYear: input?.fiscalYear,
+    organizationNumber: input?.organizationNumber,
+    limit: input?.limit,
+    config: input?.config,
+  });
+
+  // Validate safety flags
+  const safety = report.safety;
+  const safetyIssues: string[] = [];
+  if (safety.canUseForProductionRouting !== false)
+    safetyIssues.push("safety.canUseForProductionRouting must be false.");
+  if (safety.productionRoutingChanged !== false)
+    safetyIssues.push("safety.productionRoutingChanged must be false.");
+  if (safety.shadowOnly !== true) safetyIssues.push("safety.shadowOnly must be true.");
+  if (safetyIssues.length > 0) {
+    throw new PdfModelArtifactSnapshotValidationError(
+      `PARSER_ROUTE_CANARY_PREVIEW safety validation failed: ${safetyIssues.join("; ")}`,
+    );
+  }
+
+  const artifact = await persistPdfModelArtifactSnapshot(
+    {
+      kind: "PARSER_ROUTE_CANARY_PREVIEW",
+      payload: report,
+      fiscalYear: input?.fiscalYear ?? null,
+      orgNumber: input?.organizationNumber ?? null,
+      sourceCommand: input?.sourceCommand ?? null,
+      createdByUserId: input?.createdByUserId ?? null,
+    },
+    { create: deps?.create },
+  );
+
+  return {
+    artifactId: artifact.id,
+    kind: "PARSER_ROUTE_CANARY_PREVIEW",
+    createdAt: artifact.createdAt,
+    summary: artifact.summary as Record<string, unknown>,
+  };
 }
