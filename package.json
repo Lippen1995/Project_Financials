@@ -62,6 +62,7 @@
     "run:pdf-parser-route-shadow": "tsx scripts/run-pdf-parser-route-shadow-execution.ts",
     "report:pdf-parser-route-quality": "tsx scripts/report-pdf-parser-route-quality-comparison.ts",
     "report:pdf-parser-route-recommendation-v2": "tsx scripts/report-pdf-parser-route-recommendation-v2.ts",
+    "preview:pdf-parser-route-canary": "tsx scripts/preview-pdf-parser-route-canary.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",
