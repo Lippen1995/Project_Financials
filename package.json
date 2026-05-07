@@ -69,6 +69,7 @@
     "inspect:unified-parser-document": "tsx scripts/inspect-unified-parser-document.ts",
     "extract:unified-financial-statements": "tsx scripts/extract-unified-financial-statements.ts",
     "extract:unified-narratives": "tsx scripts/extract-unified-narratives.ts",
+    "compare:legacy-vs-unified": "tsx scripts/compare-legacy-vs-unified-extraction.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",
