@@ -58,6 +58,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href={"/admin/pdf-model-candidates" as never} className="hover:text-slate-600">
           Model Candidates
         </Link>
+        <span>/</span>
+        <Link href={"/admin/pdf-parser-route-recommendation-v2" as never} className="hover:text-slate-600">
+          Route Recommendation
+        </Link>
+        <span>/</span>
+        <Link href={"/admin/pdf-parser-route-canary-preview" as never} className="hover:text-slate-600">
+          Canary Preview
+        </Link>
+        <span>/</span>
+        <Link href={"/admin/pdf-parser-route-assignment-preview" as never} className="hover:text-slate-600">
+          Assignment Preview
+        </Link>
       </div>
       {children}
     </div>
