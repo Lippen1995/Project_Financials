@@ -76,6 +76,7 @@ import {
 } from "@/server/persistence/annual-report-ingestion-repository";
 import {
   getAnnualReportUnifiedShadowConfigFromEnv,
+  validateAnnualReportUnifiedShadowConfig,
 } from "@/server/services/annual-report-unified-shadow-config";
 import {
   runAnnualReportUnifiedShadowExtraction,
@@ -1050,7 +1051,13 @@ export async function processAnnualReportFiling(
     // and must not propagate to the primary pipeline.
     try {
       const unifiedShadowConfig = getAnnualReportUnifiedShadowConfigFromEnv();
-      if (unifiedShadowConfig.mode !== "DISABLED") {
+      const shadowConfigErrors = validateAnnualReportUnifiedShadowConfig(unifiedShadowConfig);
+      if (shadowConfigErrors.length > 0) {
+        logPipelineEvent("unified_shadow.invalid_config", {
+          filingId: filing.id,
+          errors: shadowConfigErrors,
+        });
+      } else if (unifiedShadowConfig.mode !== "DISABLED") {
         const unifiedShadowResult = await runAnnualReportUnifiedShadowExtraction({
           filingId: filing.id,
           orgNumber: filing.company.orgNumber,

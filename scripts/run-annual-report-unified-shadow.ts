@@ -22,6 +22,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
+import type { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
 import { LocalAnnualReportArtifactStorage } from "@/server/financials/artifact-storage";
 import { runAnnualReportUnifiedShadowExtraction } from "@/server/services/annual-report-unified-shadow-extraction-service";
 import {
@@ -108,16 +109,14 @@ async function main() {
     orderBy: { createdAt: "desc" },
   });
 
-  const pdfArtifact = artifacts.find(
-    (a) => a.artifactType === "PDF" || a.artifactType === "SOURCE_PDF",
-  );
+  const pdfArtifact = artifacts.find((a) => a.artifactType === "PDF");
   if (!pdfArtifact) {
     console.error("No PDF artifact found for this filing. Has the filing been downloaded?");
     process.exit(1);
   }
 
   console.log(`  Loading PDF from storage key: ${pdfArtifact.storageKey}`);
-  const pdfBuffer = await artifactStorage.load(pdfArtifact.storageKey);
+  const pdfBuffer = await artifactStorage.getArtifactBuffer(pdfArtifact.storageKey);
 
   // Re-run preflight (needed for unified doc construction)
   console.log("  Running preflight...");
@@ -128,7 +127,7 @@ async function main() {
 
   // Build legacy candidates (empty — we don't re-run the primary extraction)
   // For a richer comparison, run extract:unified-financial-statements + compare:legacy-vs-unified CLI instead.
-  const legacyCandidates: [] = [];
+  const legacyCandidates: CanonicalFactCandidate[] = [];
 
   // Run shadow extraction
   console.log(`  Running unified shadow extraction (mode=${mode})...`);
@@ -166,8 +165,8 @@ async function main() {
       financialLineItemCount: result.financial?.statements.flatMap((s) => s.lineItems).length ?? null,
       narrativeSectionCount: result.narrative?.sections.length ?? null,
       comparisonFactCount: result.comparison?.financialComparisons.length ?? null,
-      comparisonMismatches: result.comparison?.summary.mismatchCount ?? null,
-      comparisonExact: result.comparison?.summary.exactMatchCount ?? null,
+      comparisonMismatches: result.comparison?.summary.financialMismatchCount ?? null,
+      comparisonExact: result.comparison?.summary.financialExactMatchCount ?? null,
     },
   };
 

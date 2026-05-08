@@ -38,6 +38,8 @@ function makePreflight(overrides?: Partial<PreflightResult>): PreflightResult {
         pageNumber: 1,
         text: "Styrets årsberetning\nResultatregnskap 2024",
         normalizedText: "styrets arsberetning resultatregnskap 2024",
+        lines: [],
+        hasEmbeddedText: true,
       },
     ],
     structuredDocument: undefined,

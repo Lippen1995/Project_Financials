@@ -7,6 +7,10 @@ import {
   OpenDataLoaderResolvedConfig,
   OpenDataLoaderRouteDecision,
 } from "@/server/document-understanding/opendataloader-types";
+import type {
+  AnnualReportUnifiedShadowInput,
+  AnnualReportUnifiedShadowResult,
+} from "@/server/services/annual-report-unified-shadow-extraction-service";
 
 const providerState = {
   filings: [
@@ -208,12 +212,23 @@ vi.mock("@/server/document-understanding/opendataloader-config", () => ({
   chooseOpenDataLoaderRoute: vi.fn(() => openDataLoaderState.route),
 }));
 
-const unifiedShadowState = {
-  mode: "DISABLED" as "DISABLED" | "DRY_RUN" | "PERSIST_ARTIFACTS",
+const unifiedShadowState: {
+  mode: "DISABLED" | "DRY_RUN" | "PERSIST_ARTIFACTS";
+  runResult: AnnualReportUnifiedShadowResult;
+  runAnnualReportUnifiedShadowExtraction: ReturnType<
+    typeof vi.fn<
+      (
+        input: AnnualReportUnifiedShadowInput,
+      ) => Promise<AnnualReportUnifiedShadowResult>
+    >
+  >;
+  getAnnualReportUnifiedShadowConfigFromEnv: ReturnType<typeof vi.fn>;
+} = {
+  mode: "DISABLED",
   runResult: {
-    canUseForProductionRouting: false as const,
+    canUseForProductionRouting: false,
     skipped: true,
-    mode: "DISABLED" as const,
+    mode: "DISABLED",
     totalDurationMs: 0,
     document: null,
     financial: null,
@@ -1558,6 +1573,27 @@ describe("annual-report-financials-service", () => {
 
       const resultFromMock = unifiedShadowState.runResult;
       expect(resultFromMock.canUseForProductionRouting).toBe(false);
+    });
+
+    it("invalid shadow config does not break the primary pipeline", async () => {
+      // Simulate validateAnnualReportUnifiedShadowConfig returning errors
+      const { validateAnnualReportUnifiedShadowConfig } = await import(
+        "@/server/services/annual-report-unified-shadow-config"
+      );
+      vi.mocked(validateAnnualReportUnifiedShadowConfig).mockReturnValueOnce([
+        "Mock validation error: invalid mode",
+      ]);
+      unifiedShadowState.mode = "DRY_RUN";
+
+      const { processAnnualReportFiling } = await import(
+        "@/server/services/annual-report-financials-service"
+      );
+      // Must NOT throw even though config is invalid
+      const result = await processAnnualReportFiling("filing-1");
+
+      expect(result.published).toBe(true);
+      // Shadow runner must NOT have been called when config is invalid
+      expect(unifiedShadowState.runAnnualReportUnifiedShadowExtraction).not.toHaveBeenCalled();
     });
   });
 });

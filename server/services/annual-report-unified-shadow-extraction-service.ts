@@ -313,7 +313,7 @@ export async function runAnnualReportUnifiedShadowExtraction(
   };
 
   if (config.mode === "PERSIST_ARTIFACTS") {
-    const doPeristDocument = deps.persistDocument ?? persistUnifiedParserDocumentArtifact;
+    const doPersistDocument = deps.persistDocument ?? persistUnifiedParserDocumentArtifact;
     const doPersistFinancial = deps.persistFinancial ?? persistUnifiedFinancialExtractionArtifact;
     const doPersistNarrative = deps.persistNarrative ?? persistUnifiedNarrativeExtractionArtifact;
     const doPersistComparison = deps.persistComparison ?? persistLegacyVsUnifiedComparisonArtifact;
@@ -321,7 +321,7 @@ export async function runAnnualReportUnifiedShadowExtraction(
     if (config.persistUnifiedParserDocument && document !== null) {
       const stepStart = Date.now();
       try {
-        const result = await doPeristDocument({
+        const result = await doPersistDocument({
           document,
           sourceCommand: sourceCommand ?? null,
         });
