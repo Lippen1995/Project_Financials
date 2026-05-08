@@ -48,7 +48,8 @@ export type PersistPdfModelArtifactSnapshotInput = {
     | "UNIFIED_PARSER_DOCUMENT"
     | "UNIFIED_FINANCIAL_EXTRACTION"
     | "UNIFIED_NARRATIVE_EXTRACTION"
-    | "LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON";
+    | "LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON"
+    | "UNIFIED_EXTRACTION_CONFIDENCE_GATE";
   payload: unknown;
   modelId?: string | null;
   modelVersion?: string | null;
@@ -224,6 +225,23 @@ function validateLegacyVsUnifiedComparisonPayload(payload: unknown): { issues: s
   return { issues };
 }
 
+function validateUnifiedExtractionConfidenceGatePayload(
+  payload: unknown,
+): { issues: string[] } {
+  const issues: string[] = [];
+  const p = asRecord(payload);
+  if (p.version !== "unified-extraction-confidence-gate-v1") issues.push("UNIFIED_EXTRACTION_CONFIDENCE_GATE payload must have version 'unified-extraction-confidence-gate-v1'.");
+  const safety = asRecord(p.safety);
+  if (safety.canUseForProductionRouting !== false) issues.push("safety.canUseForProductionRouting must be false.");
+  if (safety.productionRoutingChanged !== false) issues.push("safety.productionRoutingChanged must be false.");
+  if (safety.productionFactsMutated !== false) issues.push("safety.productionFactsMutated must be false.");
+  if (safety.publishAffected !== false) issues.push("safety.publishAffected must be false.");
+  if (typeof p.generatedAt !== "string" || !p.generatedAt) issues.push("payload must have generatedAt string.");
+  if (!Array.isArray(p.checks)) issues.push("payload must have a checks array.");
+  if (!["PASS", "WARN", "FAIL", "INSUFFICIENT_DATA"].includes(String(p.overallVerdict))) issues.push(`payload.overallVerdict "${String(p.overallVerdict)}" is not valid.`);
+  return { issues };
+}
+
 function assertJsonSafePayload(kind: PdfModelArtifactKind, payload: unknown) {
   const issues: string[] = [];
   if (hasInvalidNumber(payload)) issues.push("Payload contains NaN or Infinity.");
@@ -266,6 +284,9 @@ function assertJsonSafePayload(kind: PdfModelArtifactKind, payload: unknown) {
     issues.push(...validation.issues);
   } else if (kind === PdfModelArtifactKind.LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON) {
     const validation = validateLegacyVsUnifiedComparisonPayload(payload);
+    issues.push(...validation.issues);
+  } else if (kind === PdfModelArtifactKind.UNIFIED_EXTRACTION_CONFIDENCE_GATE) {
+    const validation = validateUnifiedExtractionConfidenceGatePayload(payload);
     issues.push(...validation.issues);
   }
 
@@ -428,6 +449,21 @@ export function buildPdfModelArtifactSummary(
       mismatchCount: n(summary.financialMismatchCount),
       totalCompared: n(summary.financialTotalCompared),
       narrativeCoverageScore: n(summary.narrativeCoverageScore),
+      canUseForProductionRouting: false,
+      shadowOnly: true,
+    };
+  }
+  if (k === PdfModelArtifactKind.UNIFIED_EXTRACTION_CONFIDENCE_GATE) {
+    const meta = asRecord(p.meta);
+    return {
+      filingId: typeof meta.filingId === "string" ? meta.filingId : null,
+      orgNumber: typeof meta.orgNumber === "string" ? meta.orgNumber : null,
+      fiscalYear: typeof meta.fiscalYear === "number" ? meta.fiscalYear : null,
+      overallVerdict: typeof p.overallVerdict === "string" ? p.overallVerdict : null,
+      passCount: n(p.passCount),
+      warnCount: n(p.warnCount),
+      failCount: n(p.failCount),
+      insufficientDataCount: n(p.insufficientDataCount),
       canUseForProductionRouting: false,
       shadowOnly: true,
     };

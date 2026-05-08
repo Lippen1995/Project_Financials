@@ -34,6 +34,10 @@ import {
 } from "@/server/services/annual-report-legacy-vs-unified-comparison-service";
 import type { AnnualReportLegacyVsUnifiedComparisonReport } from "@/server/services/annual-report-legacy-vs-unified-comparison-service";
 import {
+  validateUnifiedExtractionConfidenceGateReport,
+} from "@/server/services/annual-report-unified-extraction-confidence-gate-service";
+import type { UnifiedExtractionConfidenceGateReport } from "@/server/services/annual-report-unified-extraction-confidence-gate-service";
+import {
   persistPdfModelArtifactSnapshot,
   PdfModelArtifactSnapshotValidationError,
 } from "@/server/services/pdf-model-artifact-snapshot-service";
@@ -245,6 +249,63 @@ export async function persistLegacyVsUnifiedComparisonArtifact(
   return {
     artifactId: snapshot.id,
     kind: "LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON",
+    createdAt: snapshot.createdAt,
+    summary: snapshot.summary as Record<string, unknown>,
+  };
+}
+
+// ── Persist UnifiedExtractionConfidenceGateReport ─────────────────────────────
+
+export type PersistUnifiedExtractionConfidenceGateInput = {
+  report: UnifiedExtractionConfidenceGateReport;
+  sourceCommand?: string | null;
+  sourceCommitSha?: string | null;
+  createdByUserId?: string | null;
+};
+
+/**
+ * Validates and persists a UnifiedExtractionConfidenceGateReport as a
+ * UNIFIED_EXTRACTION_CONFIDENCE_GATE artifact snapshot.
+ *
+ * Safety: canUseForProductionRouting is always false on the persisted payload.
+ */
+export async function persistUnifiedExtractionConfidenceGateArtifact(
+  input: PersistUnifiedExtractionConfidenceGateInput,
+  deps?: PersistDeps,
+): Promise<UnifiedExtractionArtifactResult> {
+  const { report } = input;
+
+  // Safety check
+  if (report.safety.canUseForProductionRouting !== false) {
+    throw new PdfModelArtifactSnapshotValidationError(
+      "Cannot persist UnifiedExtractionConfidenceGateReport with canUseForProductionRouting !== false",
+    );
+  }
+
+  // Validate before persisting
+  const issues = validateUnifiedExtractionConfidenceGateReport(report);
+  if (issues.length > 0) {
+    throw new PdfModelArtifactSnapshotValidationError(
+      `UnifiedExtractionConfidenceGateReport validation failed: ${issues.map((i) => i.message).join("; ")}`,
+    );
+  }
+
+  const snapshot = await persistPdfModelArtifactSnapshot(
+    {
+      kind: "UNIFIED_EXTRACTION_CONFIDENCE_GATE",
+      payload: report,
+      fiscalYear: report.meta.fiscalYear ?? null,
+      orgNumber: report.meta.orgNumber ?? null,
+      sourceCommand: input.sourceCommand ?? null,
+      sourceCommitSha: input.sourceCommitSha ?? null,
+      createdByUserId: input.createdByUserId ?? null,
+    },
+    deps,
+  );
+
+  return {
+    artifactId: snapshot.id,
+    kind: "UNIFIED_EXTRACTION_CONFIDENCE_GATE",
     createdAt: snapshot.createdAt,
     summary: snapshot.summary as Record<string, unknown>,
   };
