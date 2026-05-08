@@ -21,6 +21,35 @@ import {
   DEFAULT_UNIFIED_EXTRACTION_CONFIDENCE_GATE_CONFIG,
 } from "@/server/services/annual-report-unified-extraction-confidence-gate-service";
 import { persistUnifiedExtractionConfidenceGateArtifact } from "@/server/services/annual-report-unified-extraction-artifact-service";
+import type { UnifiedFinancialStatementExtractionResult } from "@/integrations/brreg/annual-report-financials/unified-financial-statement-extractor";
+import type { UnifiedNarrativeExtractionResult } from "@/integrations/brreg/annual-report-financials/unified-narrative-extractor";
+import type { AnnualReportLegacyVsUnifiedComparisonReport } from "@/server/services/annual-report-legacy-vs-unified-comparison-service";
+
+// ── Runtime type guards ────────────────────────────────────────────────────────
+
+function isFinancialResult(v: unknown): v is UnifiedFinancialStatementExtractionResult {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    (v as Record<string, unknown>)["version"] === "unified-financial-statement-extraction-v1"
+  );
+}
+
+function isNarrativeResult(v: unknown): v is UnifiedNarrativeExtractionResult {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    (v as Record<string, unknown>)["version"] === "unified-narrative-extraction-v1"
+  );
+}
+
+function isComparisonReport(v: unknown): v is AnnualReportLegacyVsUnifiedComparisonReport {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    (v as Record<string, unknown>)["version"] === "legacy-vs-unified-comparison-v1"
+  );
+}
 
 // ── Request schema ─────────────────────────────────────────────────────────────
 
@@ -36,11 +65,11 @@ const configOverrideSchema = z.object({
 
 const requestBodySchema = z.object({
   /** Unified financial extraction result (optional) */
-  financial: z.record(z.unknown()).nullable().optional(),
+  financial: z.unknown().nullable().optional(),
   /** Unified narrative extraction result (optional) */
-  narrative: z.record(z.unknown()).nullable().optional(),
+  narrative: z.unknown().nullable().optional(),
   /** Legacy-vs-unified comparison report (optional) */
-  comparison: z.record(z.unknown()).nullable().optional(),
+  comparison: z.unknown().nullable().optional(),
   /** Filing metadata */
   meta: z
     .object({
@@ -80,6 +109,46 @@ export async function POST(request: NextRequest) {
   }
 
   const { financial, narrative, comparison, meta, persistArtifact, config } = parsed.data;
+
+  // Validate input types: non-null values must match expected schema versions
+  if (financial != null && !isFinancialResult(financial)) {
+    return NextResponse.json(
+      { error: "Ugyldig 'financial': forventer unified-financial-statement-extraction-v1." },
+      { status: 400 },
+    );
+  }
+  if (narrative != null && !isNarrativeResult(narrative)) {
+    return NextResponse.json(
+      { error: "Ugyldig 'narrative': forventer unified-narrative-extraction-v1." },
+      { status: 400 },
+    );
+  }
+  if (comparison != null && !isComparisonReport(comparison)) {
+    return NextResponse.json(
+      { error: "Ugyldig 'comparison': forventer legacy-vs-unified-comparison-v1." },
+      { status: 400 },
+    );
+  }
+
+  // Cross-field config validation: fail threshold must be <= pass threshold
+  if (config) {
+    const passRate = config.minComparisonMatchRateForPass ?? DEFAULT_UNIFIED_EXTRACTION_CONFIDENCE_GATE_CONFIG.minComparisonMatchRateForPass;
+    const failRate = config.minComparisonMatchRateForFail ?? DEFAULT_UNIFIED_EXTRACTION_CONFIDENCE_GATE_CONFIG.minComparisonMatchRateForFail;
+    if (failRate > passRate) {
+      return NextResponse.json(
+        { error: "Ugyldig konfig: minComparisonMatchRateForFail kan ikke overskride minComparisonMatchRateForPass." },
+        { status: 400 },
+      );
+    }
+    const passCoverage = config.minCanonicalKeyCoverageForPass ?? DEFAULT_UNIFIED_EXTRACTION_CONFIDENCE_GATE_CONFIG.minCanonicalKeyCoverageForPass;
+    const failCoverage = config.minCanonicalKeyCoverageForFail ?? DEFAULT_UNIFIED_EXTRACTION_CONFIDENCE_GATE_CONFIG.minCanonicalKeyCoverageForFail;
+    if (failCoverage > passCoverage) {
+      return NextResponse.json(
+        { error: "Ugyldig konfig: minCanonicalKeyCoverageForFail kan ikke overskride minCanonicalKeyCoverageForPass." },
+        { status: 400 },
+      );
+    }
+  }
 
   try {
     const report = buildUnifiedExtractionConfidenceGateReport({

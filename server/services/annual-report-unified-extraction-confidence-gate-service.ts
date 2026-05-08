@@ -491,11 +491,29 @@ function checkSafetyFlagsClean(
     return insufficientData("SAFETY_FLAGS_CLEAN", "No inputs available to check safety flags.");
   }
   const violations: string[] = [];
-  if (financial !== null && financial.safety.canUseForProductionRouting !== false) {
-    violations.push("financial.safety.canUseForProductionRouting is not false");
+  if (financial !== null) {
+    if (financial.safety.canUseForProductionRouting !== false)
+      violations.push("financial.safety.canUseForProductionRouting is not false");
+    if (financial.safety.productionRoutingChanged !== false)
+      violations.push("financial.safety.productionRoutingChanged is not false");
+    if (financial.safety.productionFactsMutated !== false)
+      violations.push("financial.safety.productionFactsMutated is not false");
+    if (financial.safety.publishAffected !== false)
+      violations.push("financial.safety.publishAffected is not false");
+    if (financial.safety.shadowOnly !== true)
+      violations.push("financial.safety.shadowOnly is not true");
   }
-  if (narrative !== null && narrative.safety.canUseForProductionRouting !== false) {
-    violations.push("narrative.safety.canUseForProductionRouting is not false");
+  if (narrative !== null) {
+    if (narrative.safety.canUseForProductionRouting !== false)
+      violations.push("narrative.safety.canUseForProductionRouting is not false");
+    if (narrative.safety.productionRoutingChanged !== false)
+      violations.push("narrative.safety.productionRoutingChanged is not false");
+    if (narrative.safety.productionFactsMutated !== false)
+      violations.push("narrative.safety.productionFactsMutated is not false");
+    if (narrative.safety.publishAffected !== false)
+      violations.push("narrative.safety.publishAffected is not false");
+    if (narrative.safety.shadowOnly !== true)
+      violations.push("narrative.safety.shadowOnly is not true");
   }
   if (violations.length > 0) {
     return fail(

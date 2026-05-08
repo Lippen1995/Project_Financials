@@ -44,6 +44,7 @@ const SAFE = {
   productionRoutingChanged: false as const,
   productionFactsMutated: false as const,
   publishAffected: false as const,
+  shadowOnly: true as const,
 };
 
 function makeLineItem(
@@ -79,7 +80,8 @@ function makeStatement(
 ): UnifiedFinancialStatement {
   return {
     kind,
-    year: 2024,
+    pageNumbers: [2],
+    tableIds: [],
     lineItems,
     confidence: 0.9,
     warnings: [],
@@ -96,8 +98,6 @@ function makeFinancialResult(
     generatedAt: new Date().toISOString(),
     source: {
       route: "TEXT_LAYER",
-      documentEngine: null,
-      parserVersion: null,
       filingId: null,
       extractionRunId: null,
       orgNumber: null,
@@ -116,12 +116,14 @@ function makeFinancialResult(
       ]),
     ],
     warnings: [],
+    errors: [],
     metrics: {
-      statementCount: 2,
-      lineItemCount: 5,
-      mappedLineItemCount: 4,
-      unmappedLineItemCount: 1,
-      durationMs: 5,
+      candidateTableCount: 2,
+      parsedLineItemCount: 5,
+      canonicalMappedCount: 4,
+      unmappedCount: 1,
+      warningCount: 0,
+      errorCount: 0,
     },
   };
 }
@@ -131,15 +133,15 @@ function makeNarrativeSection(
     | "EMPHASIS_OF_MATTER" | "GOING_CONCERN" | "OTHER_INFORMATION" | "SIGNATURES",
 ): UnifiedNarrativeSection {
   return {
-    id: `sec-${kind}`,
+    sectionId: `sec-${kind}`,
     kind,
+    title: null,
     confidence: 0.9,
     provenance: "DOCUMENT_SECTION",
     pageStart: 1,
     pageEnd: 2,
     textPreview: "Sample text preview",
     signals: [],
-    warnings: [],
   };
 }
 
@@ -151,10 +153,7 @@ function makeNarrativeResult(
     generatedAt: new Date().toISOString(),
     source: {
       route: "TEXT_LAYER",
-      documentEngine: null,
-      parserVersion: null,
       filingId: null,
-      extractionRunId: null,
       orgNumber: null,
       fiscalYear: null,
     },
@@ -165,11 +164,17 @@ function makeNarrativeResult(
     ],
     warnings: [],
     metrics: {
+      boardReportFound: true,
+      auditorReportFound: true,
+      auditorOpinionFound: false,
+      auditorQualificationFound: false,
+      emphasisOfMatterFound: false,
+      goingConcernSignalFound: false,
+      signaturesFound: false,
+      otherInformationFound: false,
+      totalSignalCount: 0,
       sectionCount: 2,
-      documentSectionCount: 2,
-      headingInferredCount: 0,
-      blockInferredCount: 0,
-      durationMs: 2,
+      warningCount: 0,
     },
   };
 }
@@ -180,13 +185,14 @@ function makeComparison(
   return {
     version: "legacy-vs-unified-comparison-v1",
     generatedAt: new Date().toISOString(),
-    source: { filingId: null, orgNumber: null, fiscalYear: null },
+    source: { filingId: null, orgNumber: null, fiscalYear: null, legacyCandidateCount: 0, unifiedRoute: null, unifiedNarrativeRoute: null },
     safety: { ...SAFE },
     financialComparisons: financialComparisons ?? [
       { canonicalKey: "revenue", year: 2024, legacyValueNok: "1000000", unifiedValueNok: "1000000", deltaNok: "0", match: "EXACT", relativeDeviation: 0 },
       { canonicalKey: "net_income", year: 2024, legacyValueNok: "100000", unifiedValueNok: "101000", deltaNok: "1000", match: "SCALED", relativeDeviation: 0.01 },
     ],
     narrativeComparisons: [],
+    warnings: [],
     summary: {
       financialTotalCompared: 2,
       financialExactMatchCount: 1,
@@ -194,12 +200,10 @@ function makeComparison(
       financialMismatchCount: 0,
       financialMissingInLegacyCount: 0,
       financialMissingInUnifiedCount: 0,
-      narrativeTotalCompared: 0,
-      narrativeBothFoundCount: 0,
-      narrativeMissingInLegacyCount: 0,
-      narrativeMissingInUnifiedCount: 0,
+      narrativeBoardReportCovered: false,
+      narrativeAuditorReportCovered: false,
+      narrativeSignaturesCovered: false,
       narrativeCoverageScore: 0,
-      hasSignificantDeviation: false,
     },
   };
 }
@@ -469,6 +473,72 @@ describe("buildUnifiedExtractionConfidenceGateReport", () => {
       const check = report.checks.find((c) => c.checkCode === "SAFETY_FLAGS_CLEAN")!;
       expect(check.verdict).toBe("FAIL");
     });
+
+    it("SAFETY_FLAGS_CLEAN fails when financial safety.productionRoutingChanged is true", () => {
+      const badFinancial = makeFinancialResult();
+      // @ts-expect-error — deliberately breaking safety for test
+      badFinancial.safety.productionRoutingChanged = true;
+      const report = buildUnifiedExtractionConfidenceGateReport(makeInput({ financial: badFinancial }));
+      const check = report.checks.find((c) => c.checkCode === "SAFETY_FLAGS_CLEAN")!;
+      expect(check.verdict).toBe("FAIL");
+    });
+
+    it("SAFETY_FLAGS_CLEAN fails when financial safety.productionFactsMutated is true", () => {
+      const badFinancial = makeFinancialResult();
+      // @ts-expect-error — deliberately breaking safety for test
+      badFinancial.safety.productionFactsMutated = true;
+      const report = buildUnifiedExtractionConfidenceGateReport(makeInput({ financial: badFinancial }));
+      const check = report.checks.find((c) => c.checkCode === "SAFETY_FLAGS_CLEAN")!;
+      expect(check.verdict).toBe("FAIL");
+    });
+
+    it("SAFETY_FLAGS_CLEAN fails when financial safety.publishAffected is true", () => {
+      const badFinancial = makeFinancialResult();
+      // @ts-expect-error — deliberately breaking safety for test
+      badFinancial.safety.publishAffected = true;
+      const report = buildUnifiedExtractionConfidenceGateReport(makeInput({ financial: badFinancial }));
+      const check = report.checks.find((c) => c.checkCode === "SAFETY_FLAGS_CLEAN")!;
+      expect(check.verdict).toBe("FAIL");
+    });
+
+    it("SAFETY_FLAGS_CLEAN fails when financial safety.shadowOnly is false", () => {
+      const badFinancial = makeFinancialResult();
+      // @ts-expect-error — deliberately breaking safety for test
+      badFinancial.safety.shadowOnly = false;
+      const report = buildUnifiedExtractionConfidenceGateReport(makeInput({ financial: badFinancial }));
+      const check = report.checks.find((c) => c.checkCode === "SAFETY_FLAGS_CLEAN")!;
+      expect(check.verdict).toBe("FAIL");
+    });
+
+    it("SAFETY_FLAGS_CLEAN fails when narrative safety.shadowOnly is false", () => {
+      const badNarrative = makeNarrativeResult();
+      badNarrative.safety.shadowOnly = false;
+      const report = buildUnifiedExtractionConfidenceGateReport(makeInput({ narrative: badNarrative }));
+      const check = report.checks.find((c) => c.checkCode === "SAFETY_FLAGS_CLEAN")!;
+      expect(check.verdict).toBe("FAIL");
+    });
+
+    it("SAFETY_FLAGS_CLEAN returns INSUFFICIENT_DATA only when BOTH financial and narrative are null", () => {
+      const reportBothNull = buildUnifiedExtractionConfidenceGateReport(
+        makeInput({ financial: null, narrative: null }),
+      );
+      const checkBothNull = reportBothNull.checks.find((c) => c.checkCode === "SAFETY_FLAGS_CLEAN")!;
+      expect(checkBothNull.verdict).toBe("INSUFFICIENT_DATA");
+
+      // Only financial null — narrative is present, so not INSUFFICIENT_DATA
+      const reportFinancialNull = buildUnifiedExtractionConfidenceGateReport(
+        makeInput({ financial: null }),
+      );
+      const checkFinancialNull = reportFinancialNull.checks.find((c) => c.checkCode === "SAFETY_FLAGS_CLEAN")!;
+      expect(checkFinancialNull.verdict).not.toBe("INSUFFICIENT_DATA");
+
+      // Only narrative null — financial is present, so not INSUFFICIENT_DATA
+      const reportNarrativeNull = buildUnifiedExtractionConfidenceGateReport(
+        makeInput({ narrative: null }),
+      );
+      const checkNarrativeNull = reportNarrativeNull.checks.find((c) => c.checkCode === "SAFETY_FLAGS_CLEAN")!;
+      expect(checkNarrativeNull.verdict).not.toBe("INSUFFICIENT_DATA");
+    });
   });
 
   describe("WARN cases", () => {
@@ -638,7 +708,6 @@ describe("validateUnifiedExtractionConfidenceGateReport", () => {
 
   it("returns issues for missing generatedAt", () => {
     const report = buildUnifiedExtractionConfidenceGateReport(makeInput());
-    // @ts-expect-error — deliberate
     report.generatedAt = "";
     const issues = validateUnifiedExtractionConfidenceGateReport(report);
     expect(issues.some((i) => i.path === "generatedAt")).toBe(true);
