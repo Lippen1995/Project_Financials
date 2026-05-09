@@ -75,6 +75,7 @@
     "run:annual-report-unified-shadow": "tsx scripts/run-annual-report-unified-shadow.ts",
     "run:annual-report-unified-confidence-batch": "tsx scripts/run-annual-report-unified-confidence-batch.ts",
     "gate:unified-extraction-confidence": "tsx scripts/gate-unified-extraction-confidence.ts",
+    "calibrate:unified-extraction-confidence": "tsx scripts/calibrate-unified-extraction-confidence.ts",
     "opendataloader:java-info": "tsx scripts/opendataloader-java-info.ts",
     "opendataloader:baseline-preflight": "tsx scripts/opendataloader-baseline-preflight.ts",
     "opendataloader:runtime-diagnostics": "tsx scripts/opendataloader-runtime-diagnostics.ts",
