@@ -3,6 +3,19 @@ import { notFound } from "next/navigation";
 import { PdfModelArtifactKind } from "@prisma/client";
 
 import { getUnifiedConfidenceFilingDrilldownForAdmin } from "@/server/services/annual-report-unified-confidence-drilldown-service";
+import {
+  listUnifiedConfidenceReviewFeedbackForFiling,
+  summarizeUnifiedConfidenceReviewFeedback,
+  UnifiedConfidenceReviewFeedbackActionValues,
+  UnifiedConfidenceReviewTargetTypeValues,
+} from "@/server/services/annual-report-unified-confidence-review-feedback-service";
+
+import {
+  acceptUnifiedConfidenceExtractionAction,
+  addUnifiedConfidenceCorrectionAction,
+  markUnifiedConfidenceNeedsReviewAction,
+  rejectUnifiedConfidenceExtractionAction,
+} from "./actions";
 
 import {
   VerdictBadge,
@@ -52,10 +65,13 @@ function ArtifactStatusBadge({ status }: { status: "available" | "missing" | "ma
 
 export default async function AnnualReportUnifiedConfidenceDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ filingId: string }>;
+  searchParams?: Promise<{ ok?: string; error?: string }>;
 }) {
   const { filingId } = await params;
+  const flash = searchParams ? await searchParams : {};
   const drilldown = await getUnifiedConfidenceFilingDrilldownForAdmin(filingId);
 
   if (!drilldown) {
@@ -67,6 +83,8 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
   const financialArtifact = drilldown.artifacts.financialExtraction;
   const narrativeArtifact = drilldown.artifacts.narrativeExtraction;
   const comparisonArtifact = drilldown.artifacts.comparison;
+  const reviewSummary = await summarizeUnifiedConfidenceReviewFeedback(filingId);
+  const reviewFeedback = await listUnifiedConfidenceReviewFeedbackForFiling(filingId);
 
   return (
     <div>
@@ -92,6 +110,17 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
           </div>
         </div>
       </div>
+
+      {flash?.ok ? (
+        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {flash.ok}
+        </div>
+      ) : null}
+      {flash?.error ? (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {flash.error}
+        </div>
+      ) : null}
 
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <section className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
@@ -471,6 +500,199 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
         ) : (
           <div className="mt-3 text-sm text-slate-400">{comparisonArtifact.issues.join(" ")}</div>
         )}
+      </section>
+
+      <section className="mb-6 rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
+          Manual review
+        </h2>
+        <div className="mt-3 grid gap-4 xl:grid-cols-2">
+          <div className="space-y-4">
+            <div className="grid gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <div className="text-slate-500">Latest decision</div>
+                <div className="mt-1 text-slate-700">{reviewSummary.latestDecision?.action ?? "—"}</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Total feedback</div>
+                <div className="mt-1 text-slate-700">{reviewSummary.totalFeedback}</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Accepted / rejected / follow-up</div>
+                <div className="mt-1 text-slate-700">
+                  {reviewSummary.acceptedCount}/{reviewSummary.rejectedCount}/{reviewSummary.needsReviewCount}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500">Corrections</div>
+                <div className="mt-1 text-slate-700">{reviewSummary.correctionCount}</div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <form action={acceptUnifiedConfidenceExtractionAction} className="rounded-md border border-[rgba(15,23,42,0.08)] p-3">
+                <input type="hidden" name="filingId" value={filingId} />
+                <label className="block text-xs font-medium uppercase tracking-widest text-slate-400">
+                  Accept
+                </label>
+                <textarea
+                  name="notes"
+                  rows={3}
+                  className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Optional notes"
+                />
+                <button className="mt-3 rounded bg-green-600 px-3 py-2 text-sm font-medium text-white">
+                  Accept extraction
+                </button>
+              </form>
+
+              <form action={rejectUnifiedConfidenceExtractionAction} className="rounded-md border border-[rgba(15,23,42,0.08)] p-3">
+                <input type="hidden" name="filingId" value={filingId} />
+                <label className="block text-xs font-medium uppercase tracking-widest text-slate-400">
+                  Reject
+                </label>
+                <textarea
+                  name="reason"
+                  required
+                  rows={3}
+                  className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Reason for rejection"
+                />
+                <textarea
+                  name="notes"
+                  rows={2}
+                  className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Optional notes"
+                />
+                <button className="mt-3 rounded bg-red-600 px-3 py-2 text-sm font-medium text-white">
+                  Reject extraction
+                </button>
+              </form>
+
+              <form action={markUnifiedConfidenceNeedsReviewAction} className="rounded-md border border-[rgba(15,23,42,0.08)] p-3">
+                <input type="hidden" name="filingId" value={filingId} />
+                <label className="block text-xs font-medium uppercase tracking-widest text-slate-400">
+                  Needs follow-up
+                </label>
+                <textarea
+                  name="reason"
+                  rows={3}
+                  className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Why this needs follow-up"
+                />
+                <textarea
+                  name="notes"
+                  rows={2}
+                  className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Optional notes"
+                />
+                <button className="mt-3 rounded bg-slate-700 px-3 py-2 text-sm font-medium text-white">
+                  Mark needs review
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <form action={addUnifiedConfidenceCorrectionAction} className="rounded-md border border-[rgba(15,23,42,0.08)] p-3">
+              <input type="hidden" name="filingId" value={filingId} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-sm text-slate-600">
+                  Correction action
+                  <select
+                    name="action"
+                    defaultValue={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_LINE_ITEM}
+                    className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                  >
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_LINE_ITEM}>CORRECT_LINE_ITEM</option>
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_SECTION_CLASSIFICATION}>CORRECT_SECTION_CLASSIFICATION</option>
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_UNIT_SCALE}>CORRECT_UNIT_SCALE</option>
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_CANONICAL_KEY}>CORRECT_CANONICAL_KEY</option>
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_PROVENANCE}>CORRECT_PROVENANCE</option>
+                  </select>
+                </label>
+                <label className="text-sm text-slate-600">
+                  Target type
+                  <select
+                    name="targetType"
+                    defaultValue={UnifiedConfidenceReviewTargetTypeValues.FINANCIAL_LINE_ITEM}
+                    className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                  >
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.FINANCIAL_LINE_ITEM}>FINANCIAL_LINE_ITEM</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.NARRATIVE_SECTION}>NARRATIVE_SECTION</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.UNIT_SCALE}>UNIT_SCALE</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.CANONICAL_KEY}>CANONICAL_KEY</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.PROVENANCE}>PROVENANCE</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.CHECK}>CHECK</option>
+                  </select>
+                </label>
+              </div>
+              <label className="mt-3 block text-sm text-slate-600">
+                Target ref JSON
+                <textarea
+                  name="targetRefJson"
+                  required
+                  rows={4}
+                  className="mt-1 w-full rounded border border-slate-200 px-3 py-2 font-mono text-xs"
+                  placeholder='{"canonicalKey":"revenue","fiscalYear":2024,"pageNumber":1}'
+                />
+              </label>
+              <label className="mt-3 block text-sm text-slate-600">
+                Accepted value JSON
+                <textarea
+                  name="acceptedValueJson"
+                  required
+                  rows={5}
+                  className="mt-1 w-full rounded border border-slate-200 px-3 py-2 font-mono text-xs"
+                  placeholder='{"value":"1000","unitScale":"THOUSANDS","sign":"POSITIVE"}'
+                />
+              </label>
+              <label className="mt-3 block text-sm text-slate-600">
+                Reason
+                <input
+                  name="reason"
+                  className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Optional reason"
+                />
+              </label>
+              <label className="mt-3 block text-sm text-slate-600">
+                Notes
+                <textarea
+                  name="notes"
+                  rows={3}
+                  className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Optional notes"
+                />
+              </label>
+              <button className="mt-3 rounded bg-[#162233] px-3 py-2 text-sm font-medium text-white">
+                Save correction
+              </button>
+            </form>
+
+            <div className="rounded-md border border-[rgba(15,23,42,0.08)] p-3">
+              <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
+                Feedback history
+              </div>
+              {reviewFeedback.length === 0 ? (
+                <div className="mt-2 text-sm text-slate-400">Ingen manual review feedback ennå.</div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {reviewFeedback.slice(0, 8).map((entry) => (
+                    <div key={entry.id} className="rounded border border-[rgba(15,23,42,0.08)] px-3 py-2 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-mono text-xs text-slate-600">{entry.action}</span>
+                        <span className="text-xs text-slate-500">{formatTimestamp(entry.createdAt)}</span>
+                      </div>
+                      <div className="mt-1 text-slate-700">{entry.targetType}</div>
+                      {entry.reason ? <div className="mt-1 text-slate-600">Reason: {entry.reason}</div> : null}
+                      {entry.notes ? <div className="mt-1 text-slate-600">Notes: {entry.notes}</div> : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="mb-6 rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">

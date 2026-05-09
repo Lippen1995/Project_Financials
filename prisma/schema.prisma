@@ -42,6 +42,27 @@ enum PdfTrainingLabelType {
   WIDE_NUMBER_RECONSTRUCTION
 }
 
+enum UnifiedExtractionReviewFeedbackAction {
+  ACCEPT_MACHINE_EXTRACTION
+  REJECT_MACHINE_EXTRACTION
+  MARK_NEEDS_REVIEW
+  CORRECT_LINE_ITEM
+  CORRECT_SECTION_CLASSIFICATION
+  CORRECT_UNIT_SCALE
+  CORRECT_CANONICAL_KEY
+  CORRECT_PROVENANCE
+}
+
+enum UnifiedExtractionReviewTargetType {
+  FULL_EXTRACTION
+  FINANCIAL_LINE_ITEM
+  NARRATIVE_SECTION
+  UNIT_SCALE
+  CANONICAL_KEY
+  PROVENANCE
+  CHECK
+}
+
 enum PdfDecisionGoldSetStatus {
   CANDIDATE
   APPROVED
@@ -426,6 +447,7 @@ model User {
   annualReportReviewDecisions  AnnualReportReviewDecision[]   @relation("ReviewDecisionReviewer")
   pdfTrainingLabels            PdfTrainingLabel[]             @relation("TrainingLabelReviewer")
   annualReportReviewedFacts    AnnualReportReviewedFact[]     @relation("ReviewedFactReviewer")
+  unifiedExtractionReviewFeedback UnifiedExtractionReviewFeedback[] @relation("UnifiedExtractionReviewFeedbackReviewer")
   pdfDecisionGoldSetCreated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetCreatedBy")
   pdfDecisionGoldSetUpdated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetUpdatedBy")
   pdfModelArtifactSnapshots     PdfModelArtifactSnapshot[]
@@ -955,6 +977,33 @@ model PdfTrainingLabel {
   @@index([filingId, labelType])
   @@index([extractionRunId, labelType])
   @@index([reviewerUserId, createdAt])
+}
+
+model UnifiedExtractionReviewFeedback {
+  id                     String                               @id @default(cuid())
+  filingId               String
+  orgNumber              String?
+  fiscalYear             Int?
+  reviewerUserId         String
+  confidenceGateArtifactId String?
+  sourceArtifactIds      Json?
+  action                 UnifiedExtractionReviewFeedbackAction
+  targetType             UnifiedExtractionReviewTargetType
+  targetRef              Json?
+  proposedValue          Json?
+  acceptedValue          Json?
+  reason                 String?
+  notes                  String?
+  createdAt              DateTime                             @default(now())
+  updatedAt              DateTime                             @updatedAt
+
+  reviewer               User @relation("UnifiedExtractionReviewFeedbackReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([filingId, createdAt])
+  @@index([orgNumber, fiscalYear, createdAt])
+  @@index([reviewerUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, createdAt])
 }
 
 model PdfDecisionGoldSetItem {
