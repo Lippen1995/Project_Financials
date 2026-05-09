@@ -286,7 +286,7 @@ export async function inspectJavaRuntime(): Promise<JavaRuntimeSummary> {
       discoveredCandidates: (
         await Promise.all(
           [
-            ...(javaHomePath ? [[javaHomePath, "JAVA_HOME" as const]] : []),
+            ...(javaHomePath ? [[javaHomePath, "JAVA_HOME" as const] as const] : []),
             ...(await findWindowsJavaCandidates()).map(
               (candidate) => [candidate, "WINDOWS_SCAN" as const] as const,
             ),

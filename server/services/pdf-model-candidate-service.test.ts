@@ -5,6 +5,7 @@ import {
   PdfModelCandidateStatus,
   type PdfModelArtifactSnapshot,
 } from "@prisma/client";
+import type { PdfModelCandidateRecord } from "@/server/persistence/pdf-model-candidate-repository";
 import { describe, expect, it, vi } from "vitest";
 
 import { PDF_DECISION_ML_FEATURE_SCHEMA_VERSION } from "./pdf-decision-ml-feature-schema-service";
@@ -118,7 +119,7 @@ function makeCandidate(overrides: Record<string, unknown> = {}) {
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     ...overrides,
-  } as never;
+  } as unknown as PdfModelCandidateRecord;
 }
 
 function makeDeps(candidate = makeCandidate()) {

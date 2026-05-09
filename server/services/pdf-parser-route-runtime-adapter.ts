@@ -209,7 +209,7 @@ export const ocrRuntimeAdapter: PdfParserRouteRuntimeAdapter = {
     if (!availability.available) {
       return {
         status: "RUNTIME_UNAVAILABLE",
-        durationMs: 0,
+        durationMs: 0 as const,
         runtime: availability,
         summary: null,
       };
@@ -229,7 +229,7 @@ export const ocrRuntimeAdapter: PdfParserRouteRuntimeAdapter = {
     const start = Date.now();
     try {
       const { pages, diagnostics } = await extractOcrPagesWithDiagnostics(input.pdfBuffer);
-      const summary = buildOcrShadowSummary(pages, diagnostics);
+      const summary = buildOcrShadowSummary(pages as AnnualReportParsedPage[], diagnostics);
       return {
         status: "SUCCESS",
         durationMs: Date.now() - start,
@@ -303,7 +303,7 @@ export const openDataLoaderRuntimeAdapter: PdfParserRouteRuntimeAdapter = {
       version: packageVersion,
     };
   },
-  async execute(input) {
+  async execute(input): Promise<PdfRouteRuntimeExecutionResult> {
     const availability = await openDataLoaderRuntimeAdapter.isAvailable();
     if (!availability.available) {
       return {
@@ -369,7 +369,7 @@ export const openDataLoaderRuntimeAdapter: PdfParserRouteRuntimeAdapter = {
       if (isAvailabilityError) {
         return {
           status: "RUNTIME_UNAVAILABLE",
-          durationMs: Date.now() - start,
+          durationMs: 0,
           runtime: { available: false, reason: errorMessage.slice(0, 200) },
           summary: null,
         };
@@ -504,7 +504,7 @@ export const hybridRuntimeAdapter: PdfParserRouteRuntimeAdapter = {
     }
     return { available: false, reason: "no_component_runtime_configured" };
   },
-  async execute(input) {
+  async execute(input): Promise<PdfRouteRuntimeExecutionResult> {
     const availability = await hybridRuntimeAdapter.isAvailable();
     if (!availability.available) {
       return {
@@ -527,7 +527,7 @@ export const hybridRuntimeAdapter: PdfParserRouteRuntimeAdapter = {
     if (!ocrSummary && !odlSummary) {
       return {
         status: "SKIPPED",
-        durationMs: Date.now() - start,
+        durationMs: 0,
         reason: "all_component_routes_unavailable_or_failed",
         summary: null,
       };

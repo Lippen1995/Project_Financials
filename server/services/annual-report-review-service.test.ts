@@ -211,11 +211,16 @@ describe("acceptAnnualReportReview", () => {
   it("large BigInt value preserved exactly from machine facts", async () => {
     await acceptAnnualReportReview("review-1", "user-reviewer-1");
 
-    const call = prismaMock.annualReportReviewedFact.createMany.mock.calls[0][0];
-    const revenueFact = call.data.find((d: { metricKey: string }) => d.metricKey === "revenue");
-    expect(revenueFact.value).toBe(BigInt("5000000000"));
+    type CreateManyCall = [{ data: Array<{ metricKey: string; value: unknown }> }];
+    const allCalls = prismaMock.annualReportReviewedFact.createMany.mock.calls as unknown as CreateManyCall[];
+    const call = allCalls.at(0);
+    expect(call).toBeDefined();
+    const [callArg] = call!;
+    const revenueFact = callArg.data.find((d) => d.metricKey === "revenue");
+    expect(revenueFact).toBeDefined();
+    expect(revenueFact!.value).toBe(BigInt("5000000000"));
     // Ensure we didn't convert to number and back
-    expect(typeof revenueFact.value).toBe("bigint");
+    expect(typeof revenueFact!.value).toBe("bigint");
   });
 
   it("skips reviewed facts creation when no extractionRunId", async () => {
@@ -348,14 +353,15 @@ describe("correctAnnualReportReview", () => {
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
 
     // total_assets is in machine facts but not in corrections, so should be ACCEPTED_MACHINE
-    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls;
-    const acceptedMachineCall = calls.find((call: Array<{ data: Array<{ correctionSource: string }> }>) =>
-      call[0].data.some((d: { correctionSource: string }) => d.correctionSource === "ACCEPTED_MACHINE"),
+    type ReviewedFactArg = [{ data: Array<{ correctionSource: string; metricKey: string; value: unknown }> }];
+    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls as unknown as ReviewedFactArg[];
+    const acceptedMachineCall = calls.find(([arg]) =>
+      arg.data.some((d) => d.correctionSource === "ACCEPTED_MACHINE"),
     );
     expect(acceptedMachineCall).toBeDefined();
-    const acceptedData = acceptedMachineCall[0].data;
-    expect(acceptedData.some((d: { metricKey: string }) => d.metricKey === "total_assets")).toBe(true);
-    expect(acceptedData.some((d: { metricKey: string }) => d.metricKey === "revenue")).toBe(false);
+    const acceptedData = acceptedMachineCall![0].data;
+    expect(acceptedData.some((d) => d.metricKey === "total_assets")).toBe(true);
+    expect(acceptedData.some((d) => d.metricKey === "revenue")).toBe(false);
   });
 
   it("converts large integer string to BigInt safely", async () => {
@@ -366,13 +372,15 @@ describe("correctAnnualReportReview", () => {
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
 
-    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls;
-    const manualCall = calls.find((call: Array<{ data: Array<{ correctionSource: string }> }>) =>
-      call[0].data.some((d: { correctionSource: string }) => d.correctionSource === "MANUAL_CORRECTION"),
+    type ReviewedFactArgBigInt = [{ data: Array<{ correctionSource: string; metricKey: string; value: unknown }> }];
+    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls as unknown as ReviewedFactArgBigInt[];
+    const manualCall = calls.find(([arg]) =>
+      arg.data.some((d) => d.correctionSource === "MANUAL_CORRECTION"),
     );
-    const revenueFact = manualCall[0].data.find((d: { metricKey: string }) => d.metricKey === "revenue");
-    expect(revenueFact.value).toBe(BigInt(largeValue));
-    expect(String(revenueFact.value)).toBe(largeValue);
+    expect(manualCall).toBeDefined();
+    const revenueFact = manualCall![0].data.find((d) => d.metricKey === "revenue");
+    expect(revenueFact?.value).toBe(BigInt(largeValue));
+    expect(String(revenueFact?.value)).toBe(largeValue);
   });
 
   it("handles null correction value safely", async () => {
@@ -382,12 +390,14 @@ describe("correctAnnualReportReview", () => {
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
 
-    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls;
-    const manualCall = calls.find((call: Array<{ data: Array<{ correctionSource: string }> }>) =>
-      call[0].data.some((d: { correctionSource: string }) => d.correctionSource === "MANUAL_CORRECTION"),
+    type ReviewedFactArgNull = [{ data: Array<{ correctionSource: string; metricKey: string; value: unknown }> }];
+    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls as unknown as ReviewedFactArgNull[];
+    const manualCall = calls.find(([arg]) =>
+      arg.data.some((d) => d.correctionSource === "MANUAL_CORRECTION"),
     );
-    const revenueFact = manualCall[0].data.find((d: { metricKey: string }) => d.metricKey === "revenue");
-    expect(revenueFact.value).toBeNull();
+    expect(manualCall).toBeDefined();
+    const revenueFact = manualCall![0].data.find((d) => d.metricKey === "revenue");
+    expect(revenueFact?.value).toBeNull();
   });
 
   it("creates FACT_VALUE training labels for corrected facts", async () => {

@@ -46,9 +46,9 @@ function buildJavaGuidance(
       guidance.push(
         `Kompatibel Java ble funnet pa ${compatibleCandidate.path} (${compatibleCandidate.rawVersion ?? "ukjent versjon"}). Sett JAVA_HOME/PATH til denne for du rerunner baseline-batchen.`,
       );
-    } else if (runtime.javaHomePath) {
+    } else if (runtime.java.javaHomePath) {
       guidance.push(
-        `Kontroller JAVA_HOME=${runtime.javaHomePath} og at denne faktisk ligger foran eldre Java pa PATH.`,
+        `Kontroller JAVA_HOME=${runtime.java.javaHomePath} og at denne faktisk ligger foran eldre Java pa PATH.`,
       );
     }
   }

@@ -286,6 +286,6 @@ describe("opendataloader-client", () => {
         },
         annualReportPageCount: 0,
       },
-    } satisfies Partial<OpenDataLoaderParseError>);
+    });
   });
 });

@@ -338,7 +338,6 @@ describe("validateUnifiedParserDocument", () => {
 
   it("rejects missing safety flags", () => {
     const doc = buildUnifiedParserDocumentFromTextLayer({ pages: [makePage(1)] });
-    // @ts-expect-error intentional
     delete (doc.safety as Record<string, unknown>).productionRoutingChanged;
     const { valid, issues } = validateUnifiedParserDocument(doc);
     // productionRoutingChanged is now undefined, which !== false

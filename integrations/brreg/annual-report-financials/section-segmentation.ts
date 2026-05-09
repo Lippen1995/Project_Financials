@@ -77,6 +77,50 @@ const SECTION_SIGNAL_DEFS: Record<SectionKind, SectionSignalDef> = {
     ],
     negativeKeywords: [],
   },
+  BALANCE: {
+    keywords: [
+      { text: "balanse", weight: 3 },
+      { text: "balanseoppstilling", weight: 4 },
+      { text: "balance", weight: 2 },
+    ],
+    negativeKeywords: ["styrets arsberetning", "arsberetning"],
+  },
+  BALANCE_ASSETS: {
+    keywords: [
+      { text: "eiendeler", weight: 3 },
+      { text: "sum eiendeler", weight: 4 },
+      { text: "anleggsmidler", weight: 2 },
+      { text: "omlopsmidler", weight: 2 },
+    ],
+    negativeKeywords: [],
+  },
+  BALANCE_EQUITY_LIABILITIES: {
+    keywords: [
+      { text: "egenkapital og gjeld", weight: 4 },
+      { text: "sum egenkapital", weight: 3 },
+      { text: "sum gjeld", weight: 3 },
+    ],
+    negativeKeywords: [],
+  },
+  CASH_FLOW: {
+    keywords: [
+      { text: "kontantstrom", weight: 4 },
+      { text: "kontantstromoppstilling", weight: 5 },
+      { text: "cash flow", weight: 3 },
+      { text: "likviditetsstrøm", weight: 3 },
+      { text: "likviditetsstrom", weight: 3 },
+    ],
+    negativeKeywords: [],
+  },
+  COVER: {
+    keywords: [
+      { text: "arsregnskap", weight: 3 },
+      { text: "annual report", weight: 2 },
+      { text: "org.nr", weight: 2 },
+      { text: "organisasjonsnummer", weight: 2 },
+    ],
+    negativeKeywords: ["noter til"],
+  },
   UNKNOWN: {
     keywords: [],
     negativeKeywords: [],

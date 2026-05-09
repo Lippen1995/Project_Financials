@@ -55,25 +55,31 @@ function makeUnifiedFinancial(
   }>,
 ): UnifiedFinancialStatementExtractionResult {
   const stmt: UnifiedFinancialStatement = {
-    statementId: "stmt-1",
     kind: "INCOME_STATEMENT",
     pageNumbers: [2],
+    tableIds: [],
     confidence: 0.9,
     lineItems: lineItems.map((item, i) => ({
-      lineItemId: `li-${i}`,
+      statementKind: "INCOME_STATEMENT" as const,
       originalLabel: item.canonicalKey,
       normalizedLabel: item.canonicalKey,
       canonicalKey: item.canonicalKey as never,
       value: item.value,
       year: item.year,
       unitScale: item.unitScale ?? "THOUSANDS",
-      isDebit: null,
-      pageNumber: 2,
-      rowIndex: i,
+      sign: "POSITIVE" as const,
       confidence: 0.9,
+      provenance: {
+        route: "TEXT_LAYER",
+        pageNumber: 2,
+        tableId: null,
+        rowIndex: i,
+        columnIndex: null,
+        blockIds: [],
+      },
+      warnings: [],
     })),
     warnings: [],
-    unitScale: "THOUSANDS",
   };
 
   return {
@@ -82,6 +88,7 @@ function makeUnifiedFinancial(
     source: {
       route: "TEXT_LAYER",
       filingId: null,
+      extractionRunId: null,
       orgNumber: null,
       fiscalYear: null,
     },
@@ -95,6 +102,7 @@ function makeUnifiedFinancial(
       errorCount: 0,
     },
     warnings: [],
+    errors: [],
     safety: {
       canUseForProductionRouting: false,
       productionRoutingChanged: false,

@@ -6,6 +6,7 @@ import { PDFParse } from "pdf-parse";
 import { createWorker } from "tesseract.js";
 
 import {
+  AnnualReportPageBlock,
   AnnualReportParsedPage,
   AnnualReportTable,
   AnnualReportTableCell,
@@ -235,12 +236,11 @@ function partitionNumericTokens(
   const maxGroups = Math.min(expectedValueCount, normalizedTokens.length);
   const minGroups = Math.min(1, maxGroups);
 
-  let best:
-    | {
-        groups: Array<Array<{ token: string; x: number }>>;
-        score: number;
-      }
-    | null = null;
+  type BestCandidate = {
+    groups: Array<Array<{ token: string; x: number }>>;
+    score: number;
+  };
+  const bestRef: { current: BestCandidate | null } = { current: null };
 
   function visit(
     startIndex: number,
@@ -252,8 +252,8 @@ function partitionNumericTokens(
       if (startIndex !== normalizedTokens.length) {
         return;
       }
-      if (!best || score > best.score) {
-        best = {
+      if (!bestRef.current || score > bestRef.current.score) {
+        bestRef.current = {
           groups: groups.map((group) => [...group]),
           score,
         };
@@ -287,7 +287,7 @@ function partitionNumericTokens(
     visit(0, groupCount, [], groupCount === expectedValueCount ? 50 : groupCount * 5);
   }
 
-  if (!best) {
+  if (!bestRef.current) {
     return {
       groups: normalizedTokens.map((item) => [item]),
       mergedTokenCount: 0,
@@ -295,9 +295,10 @@ function partitionNumericTokens(
     };
   }
 
+  const best = bestRef.current;
   return {
     groups: best.groups,
-    mergedTokenCount: best.groups.reduce((sum, group) => sum + Math.max(0, group.length - 1), 0),
+    mergedTokenCount: best.groups.reduce((sum: number, group: Array<{ token: string; x: number }>) => sum + Math.max(0, group.length - 1), 0),
     ambiguous: best.groups.length !== expectedValueCount,
   };
 }
@@ -376,6 +377,8 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
       mergedNumericTokenCount: 0,
       rowsWithAssignedYearColumns: 0,
       ambiguousRowCount: candidateLines.length,
+      inferredNumericColumns: [] as number[],
+      targetValueCount: 0,
     };
   }
 
@@ -542,7 +545,7 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
       rowsWithAssignedYearColumns += 1;
     }
 
-    groupedValues.groups.forEach((group, numericIndex) => {
+    groupedValues.groups.forEach((group: Array<{ token: string; x: number }>, numericIndex: number) => {
       cells.push(
         buildValueCellFromGroupedTokens({
           pageNumber,
@@ -586,6 +589,8 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
       mergedNumericTokenCount,
       rowsWithAssignedYearColumns,
       ambiguousRowCount,
+      inferredNumericColumns,
+      targetValueCount,
     };
   }
 
@@ -618,6 +623,8 @@ function buildSyntheticTableFromLines(pageNumber: number, lines: ExtractedLine[]
     mergedNumericTokenCount,
     rowsWithAssignedYearColumns,
     ambiguousRowCount,
+    inferredNumericColumns,
+    targetValueCount,
   };
 }
 
@@ -634,12 +641,14 @@ function buildStructuredOcrPage(input: {
     mergedNumericTokenCount,
     rowsWithAssignedYearColumns,
     ambiguousRowCount,
+    inferredNumericColumns,
+    targetValueCount,
   } = buildSyntheticTableFromLines(
     input.pageNumber,
     input.lines,
   );
   const tableLineTexts = new Set(table?.rows.map((row) => row.text) ?? []);
-  const blocks = input.lines
+  const blocks: AnnualReportPageBlock[] = input.lines
     .filter((line, index) => !tableLineTexts.has(line.text) || index < 2)
     .map((line, index) => {
       const normalized = normalizeNorwegianText(line.text);
@@ -651,7 +660,7 @@ function buildStructuredOcrPage(input: {
 
       return {
         id: `ocr-block-${input.pageNumber}-${index}`,
-        kind: isHeading ? "heading" : "paragraph",
+        kind: (isHeading ? "heading" : "paragraph") as "heading" | "paragraph",
         rawType: isHeading ? "ocr_heading" : "ocr_line",
         text: line.text,
         normalizedText: normalizeNorwegianText(line.text),

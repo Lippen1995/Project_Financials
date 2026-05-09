@@ -71,6 +71,7 @@ import {
   getPetroleumSyncState,
   PetroleumFieldSnapshotListInput,
   PetroleumLicenceSnapshotListInput,
+  PetroleumMapFeatureSnapshotListInput,
   listPetroleumCompanyLinks,
   listPetroleumDiscoveries,
   listPetroleumDiscoveriesFiltered,
@@ -808,7 +809,7 @@ function buildMapFeatureSnapshotQuery(layerId: PetroleumLayerId, filters: Petrol
 function getFeatureOrderBy(
   layerId: PetroleumLayerId,
   filters: PetroleumMarketFilters,
-): PetroleumFieldSnapshotListInput["orderBy"] {
+): PetroleumMapFeatureSnapshotListInput["orderBy"] {
   const mapMode = getEffectiveMapMode(filters);
 
   if (layerId === "fields") {

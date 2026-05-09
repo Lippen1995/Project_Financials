@@ -726,7 +726,7 @@ async function runShadowCase(
     : await extractOcrPagesWithDiagnostics(pdfBuffer);
   const legacyPages = preflight.hasReliableTextLayer
     ? preflight.parsedPages
-    : legacyOcrResult.pages;
+    : legacyOcrResult?.pages ?? [];
   const legacy = runPipelineFromPages({
     fiscalYear: filing.fiscalYear,
     pages: legacyPages,
@@ -870,7 +870,7 @@ async function runShadowCase(
     pages: parsedPages,
     engine: "OPENDATALOADER",
     mode: openDataLoaderResult.routing.executionMode,
-    runtimeMs: openDataLoaderResult.durationMs,
+    runtimeMs: openDataLoaderResult.metrics.durationMs,
     executionSource: "live_pdf",
     artifactGeneration: {
       attempted: true,
