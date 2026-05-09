@@ -76,8 +76,8 @@ describe("opendataloader-baseline-preflight", () => {
       })),
     }));
 
-    const module = await import("@/server/document-understanding/opendataloader-baseline-preflight");
-    const summary = await module.inspectOpenDataLoaderBaselinePreflight({
+    const baselinePreflightModule = await import("@/server/document-understanding/opendataloader-baseline-preflight");
+    const summary = await baselinePreflightModule.inspectOpenDataLoaderBaselinePreflight({
       config: {
         enabled: true,
         mode: "hybrid",

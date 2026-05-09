@@ -389,24 +389,21 @@ describe("validateLegacyVsUnifiedComparisonReport", () => {
 
   it("fails if canUseForProductionRouting is true", () => {
     const result = compareAnnualReportLegacyVsUnifiedExtraction({ legacyCandidates: [] });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (result.safety as any).canUseForProductionRouting = true;
+    (result.safety as { canUseForProductionRouting: boolean }).canUseForProductionRouting = true;
     const { valid } = validateLegacyVsUnifiedComparisonReport(result);
     expect(valid).toBe(false);
   });
 
   it("fails if version is wrong", () => {
     const result = compareAnnualReportLegacyVsUnifiedExtraction({ legacyCandidates: [] });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (result as any).version = "wrong-version";
+    (result as { version: string }).version = "wrong-version";
     const { valid } = validateLegacyVsUnifiedComparisonReport(result);
     expect(valid).toBe(false);
   });
 
   it("fails if summary counts do not add up", () => {
     const result = compareAnnualReportLegacyVsUnifiedExtraction({ legacyCandidates: [] });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (result.summary as any).financialTotalCompared = 999;
+    (result.summary as { financialTotalCompared: number }).financialTotalCompared = 999;
     const { valid, issues } = validateLegacyVsUnifiedComparisonReport(result);
     expect(valid).toBe(false);
     expect(issues.some((i) => i.code === "SUMMARY_COUNT_MISMATCH")).toBe(true);
