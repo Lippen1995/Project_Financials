@@ -5,7 +5,10 @@ import {
 } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 
-import type { UnifiedExtractionConfidenceGateReport } from "@/server/services/annual-report-unified-extraction-confidence-gate-service";
+import type {
+  UnifiedExtractionConfidenceGateReport,
+  UnifiedExtractionGateCheckResult,
+} from "@/server/services/annual-report-unified-extraction-confidence-gate-service";
 import {
   getUnifiedConfidenceGateResultForAdmin,
   listUnifiedConfidenceGateResultsForAdmin,
@@ -48,7 +51,7 @@ function makeArtifact(
 function makeGateReport(
   overrides: Partial<UnifiedExtractionConfidenceGateReport> = {},
 ): UnifiedExtractionConfidenceGateReport {
-  const checks = [
+  const checks: UnifiedExtractionGateCheckResult[] = [
     {
       checkCode: "FINANCIAL_EXTRACTION_PRESENT",
       verdict: "PASS" as const,
