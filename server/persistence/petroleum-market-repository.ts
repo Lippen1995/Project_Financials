@@ -239,9 +239,9 @@ function buildFieldSnapshotWhere(input?: PetroleumFieldSnapshotListInput): Prism
     licenseeCompanyIds: input?.licenseeCompanyIds?.length ? { hasSome: input.licenseeCompanyIds } : undefined,
     OR: query
       ? [
-          { name: { contains: query, mode: "insensitive" } },
-          { fieldSlug: { contains: query, mode: "insensitive" } },
-          { operatorName: { contains: query, mode: "insensitive" } },
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { fieldSlug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { operatorName: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ]
       : undefined,
   };
@@ -264,9 +264,9 @@ function buildLicenceSnapshotWhere(
     licenseeCompanyIds: input?.licenseeCompanyIds?.length ? { hasSome: input.licenseeCompanyIds } : undefined,
     OR: query
       ? [
-          { name: { contains: query, mode: "insensitive" } },
-          { licenceSlug: { contains: query, mode: "insensitive" } },
-          { operatorName: { contains: query, mode: "insensitive" } },
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { licenceSlug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { operatorName: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ]
       : undefined,
   };
@@ -284,9 +284,9 @@ function buildOperatorSnapshotWhere(
     mainHydrocarbonTypes: input?.hcTypes?.length ? { hasSome: input.hcTypes } : undefined,
     OR: query
       ? [
-          { operatorName: { contains: query, mode: "insensitive" } },
-          { slug: { contains: query, mode: "insensitive" } },
-          { orgNumber: { contains: query, mode: "insensitive" } },
+          { operatorName: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { slug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { orgNumber: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ]
       : undefined,
   };
@@ -296,7 +296,7 @@ function buildAreaSnapshotWhere(input?: PetroleumAreaSnapshotListInput): Prisma.
   const query = input?.query?.trim();
 
   return {
-    area: input?.areas?.length ? { in: input.areas } : query ? { contains: query, mode: "insensitive" } : undefined,
+    area: input?.areas?.length ? { in: input.areas } : query ? { contains: query, mode: Prisma.QueryMode.insensitive } : undefined,
   };
 }
 
@@ -309,32 +309,32 @@ function buildMapFeatureSnapshotWhere(
     input?.logicalFacilityLayer === "subsea"
       ? {
           OR: [
-            { facilityKind: { equals: "SUBSEA STRUCTURE", mode: "insensitive" } },
-            { facilityKind: { equals: "MULTI WELL TEMPLATE", mode: "insensitive" } },
-            { facilityKind: { equals: "SINGLE WELL TEMPLATE", mode: "insensitive" } },
+            { facilityKind: { equals: "SUBSEA STRUCTURE", mode: Prisma.QueryMode.insensitive } },
+            { facilityKind: { equals: "MULTI WELL TEMPLATE", mode: Prisma.QueryMode.insensitive } },
+            { facilityKind: { equals: "SINGLE WELL TEMPLATE", mode: Prisma.QueryMode.insensitive } },
           ],
         }
       : input?.logicalFacilityLayer === "terminals"
         ? {
             OR: [
-              { facilityKind: { equals: "ONSHORE FACILITY", mode: "insensitive" } },
-              { facilityKind: { equals: "LANDFALL", mode: "insensitive" } },
-              { name: { contains: "terminal", mode: "insensitive" } },
-              { area: { contains: "terminal", mode: "insensitive" } },
-              { name: { contains: "landanlegg", mode: "insensitive" } },
+              { facilityKind: { equals: "ONSHORE FACILITY", mode: Prisma.QueryMode.insensitive } },
+              { facilityKind: { equals: "LANDFALL", mode: Prisma.QueryMode.insensitive } },
+              { name: { contains: "terminal", mode: Prisma.QueryMode.insensitive } },
+              { area: { contains: "terminal", mode: Prisma.QueryMode.insensitive } },
+              { name: { contains: "landanlegg", mode: Prisma.QueryMode.insensitive } },
             ],
           }
         : input?.logicalFacilityLayer === "facilities"
           ? {
               NOT: {
                 OR: [
-                  { facilityKind: { equals: "SUBSEA STRUCTURE", mode: "insensitive" } },
-                  { facilityKind: { equals: "MULTI WELL TEMPLATE", mode: "insensitive" } },
-                  { facilityKind: { equals: "SINGLE WELL TEMPLATE", mode: "insensitive" } },
-                  { facilityKind: { equals: "ONSHORE FACILITY", mode: "insensitive" } },
-                  { facilityKind: { equals: "LANDFALL", mode: "insensitive" } },
-                  { facilityKind: { contains: "vessel", mode: "insensitive" } },
-                  { facilityKind: { contains: "offshore wind", mode: "insensitive" } },
+                  { facilityKind: { equals: "SUBSEA STRUCTURE", mode: Prisma.QueryMode.insensitive } },
+                  { facilityKind: { equals: "MULTI WELL TEMPLATE", mode: Prisma.QueryMode.insensitive } },
+                  { facilityKind: { equals: "SINGLE WELL TEMPLATE", mode: Prisma.QueryMode.insensitive } },
+                  { facilityKind: { equals: "ONSHORE FACILITY", mode: Prisma.QueryMode.insensitive } },
+                  { facilityKind: { equals: "LANDFALL", mode: Prisma.QueryMode.insensitive } },
+                  { facilityKind: { contains: "vessel", mode: Prisma.QueryMode.insensitive } },
+                  { facilityKind: { contains: "offshore wind", mode: Prisma.QueryMode.insensitive } },
                 ],
               },
             }
@@ -371,11 +371,11 @@ function buildMapFeatureSnapshotWhere(
     operatorNpdCompanyId: input?.operatorNpdCompanyIds?.length ? { in: input.operatorNpdCompanyIds } : undefined,
     OR: query
       ? [
-          { name: { contains: query, mode: "insensitive" } },
-          { entitySlug: { contains: query, mode: "insensitive" } },
-          { operatorName: { contains: query, mode: "insensitive" } },
-          { relatedFieldName: { contains: query, mode: "insensitive" } },
-          { companyName: { contains: query, mode: "insensitive" } },
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { entitySlug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { operatorName: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { relatedFieldName: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { companyName: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ]
       : undefined,
     AND: and.length ? and : undefined,
@@ -413,10 +413,10 @@ function buildDiscoveryWhere(input?: PetroleumDiscoveryListInput): Prisma.Petrol
     operatorNpdCompanyId: input?.operatorNpdCompanyIds?.length ? { in: input.operatorNpdCompanyIds } : undefined,
     OR: query
       ? [
-          { name: { contains: query, mode: "insensitive" } },
-          { slug: { contains: query, mode: "insensitive" } },
-          { relatedFieldName: { contains: query, mode: "insensitive" } },
-          { operatorCompanyName: { contains: query, mode: "insensitive" } },
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { slug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { relatedFieldName: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { operatorCompanyName: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ]
       : undefined,
   };
@@ -431,10 +431,10 @@ function buildFacilityWhere(input?: PetroleumFacilityListInput): Prisma.Petroleu
     currentOperatorNpdId: input?.operatorNpdCompanyIds?.length ? { in: input.operatorNpdCompanyIds } : undefined,
     OR: query
       ? [
-          { name: { contains: query, mode: "insensitive" } },
-          { slug: { contains: query, mode: "insensitive" } },
-          { kind: { contains: query, mode: "insensitive" } },
-          { currentOperatorName: { contains: query, mode: "insensitive" } },
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { slug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { kind: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { currentOperatorName: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ]
       : undefined,
   };
@@ -450,10 +450,10 @@ function buildTufWhere(input?: PetroleumTufListInput): Prisma.PetroleumTufWhereI
     operatorNpdCompanyId: input?.operatorNpdCompanyIds?.length ? { in: input.operatorNpdCompanyIds } : undefined,
     OR: query
       ? [
-          { name: { contains: query, mode: "insensitive" } },
-          { slug: { contains: query, mode: "insensitive" } },
-          { medium: { contains: query, mode: "insensitive" } },
-          { operatorCompanyName: { contains: query, mode: "insensitive" } },
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { slug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { medium: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { operatorCompanyName: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ]
       : undefined,
   };
@@ -468,12 +468,12 @@ function buildSurveyWhere(input?: PetroleumSurveyListInput): Prisma.PetroleumSur
     companyNpdId: input?.companyNpdIds?.length ? { in: input.companyNpdIds } : undefined,
     OR: query
       ? [
-          { name: { contains: query, mode: "insensitive" } },
-          { slug: { contains: query, mode: "insensitive" } },
-          { category: { contains: query, mode: "insensitive" } },
-          { mainType: { contains: query, mode: "insensitive" } },
-          { subType: { contains: query, mode: "insensitive" } },
-          { companyName: { contains: query, mode: "insensitive" } },
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { slug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { category: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { mainType: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { subType: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { companyName: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ]
       : undefined,
     ...(input?.categories?.length
@@ -503,10 +503,10 @@ function buildWellboreWhere(input?: PetroleumWellboreListInput): Prisma.Petroleu
     content: input?.hcTypes?.length ? { in: input.hcTypes } : undefined,
     OR: query
       ? [
-          { name: { contains: query, mode: "insensitive" } },
-          { slug: { contains: query, mode: "insensitive" } },
-          { fieldName: { contains: query, mode: "insensitive" } },
-          { drillingOperatorName: { contains: query, mode: "insensitive" } },
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { slug: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { fieldName: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { drillingOperatorName: { contains: query, mode: Prisma.QueryMode.insensitive } },
         ]
       : undefined,
     ...(input?.statuses?.length

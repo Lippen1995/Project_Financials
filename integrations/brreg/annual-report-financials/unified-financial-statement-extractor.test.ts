@@ -38,36 +38,6 @@ function makeIncomeTable(overrides: Partial<UnifiedParserTable> = {}): UnifiedPa
       { columnIndex: 1, text: "2024", normalizedText: "2024", year: 2024, isAmountColumn: true },
       { columnIndex: 2, text: "2023", normalizedText: "2023", year: 2023, isAmountColumn: true },
     ],
-    rows: [
-      {
-        rowIndex: 0,
-        label: "Salgsinntekter",
-        normalizedLabel: "salgsinntekter",
-        cells: [
-          { columnIndex: 1, text: "1.234.567", normalizedText: "1.234.567", numericValue: null, confidence: null },
-          { columnIndex: 2, text: "987.654", normalizedText: "987.654", numericValue: null, confidence: null },
-        ],
-      },
-      {
-        rowIndex: 1,
-        label: "Lønnskostnad",
-        normalizedLabel: "lonnskostnad",
-        cells: [
-          { columnIndex: 1, text: "(450.000)", normalizedText: "(450.000)", numericValue: null, confidence: null },
-          { columnIndex: 2, text: "400.000-", normalizedText: "400.000-", numericValue: null, confidence: null },
-        ],
-      },
-      {
-        rowIndex: 2,
-        label: "Årsresultat",
-        normalizedLabel: "arsresultat",
-        cells: [
-          { columnIndex: 1, text: "100.000", normalizedText: "100.000", numericValue: null, confidence: null },
-          { columnIndex: 2, text: "80.000", normalizedText: "80.000", numericValue: null, confidence: null },
-        ],
-      },
-      ...overrides.rows ?? [],
-    ],
     confidence: 0.9,
     warnings: [],
     ...overrides,

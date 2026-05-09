@@ -1,4 +1,5 @@
 import {
+  Prisma,
   PdfModelArtifactKind,
   PdfModelArtifactStatus,
   type PdfModelArtifactSnapshot,
@@ -261,8 +262,8 @@ describe("pdf model artifact snapshot service", () => {
             kind: input.kind,
             modelId: input.modelId ?? null,
             modelVersion: input.modelVersion ?? null,
-            summary: input.summary,
-            payload: input.payload,
+            summary: input.summary as Prisma.JsonValue,
+            payload: input.payload as Prisma.JsonValue,
           }),
       },
     );

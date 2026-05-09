@@ -68,14 +68,14 @@ const RELIABLE_TEXT_INPUT: PdfDecisionGoldSetSnapshotItem["decisionInput"] = {
   },
   pageHints: {
     includePages: [1, 2],
-    excludePages: [],
+    excludePages: new Set<number>(),
     preferredIncomeStatementPages: [1],
     preferredBalancePages: [2],
     notePages: [],
     hasReliableHints: true,
     reasons: ["2 financial statement page(s) detected"],
   },
-  openDataLoaderConfig: { enabled: false, mode: "local" },
+  odlConfig: { enabled: false, mode: "local" },
 };
 
 function makeSnapshot(items: PdfDecisionGoldSetSnapshotItem[]): PdfDecisionGoldSetSnapshot {
