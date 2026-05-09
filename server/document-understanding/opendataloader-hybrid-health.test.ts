@@ -28,8 +28,8 @@ describe("opendataloader-hybrid-health", () => {
       })),
     }));
 
-    const module = await import("@/server/document-understanding/opendataloader-hybrid-health");
-    const summary = await module.inspectOpenDataLoaderHybridHealth({
+    const hybridHealthModule = await import("@/server/document-understanding/opendataloader-hybrid-health");
+    const summary = await hybridHealthModule.inspectOpenDataLoaderHybridHealth({
       config: {
         enabled: true,
         mode: "hybrid",
@@ -91,8 +91,8 @@ describe("opendataloader-hybrid-health", () => {
       }),
     );
 
-    const module = await import("@/server/document-understanding/opendataloader-hybrid-health");
-    const summary = await module.inspectOpenDataLoaderHybridHealth({
+    const hybridHealthModule = await import("@/server/document-understanding/opendataloader-hybrid-health");
+    const summary = await hybridHealthModule.inspectOpenDataLoaderHybridHealth({
       config: {
         enabled: true,
         mode: "hybrid",
@@ -171,8 +171,8 @@ describe("opendataloader-hybrid-health", () => {
       ),
     );
 
-    const module = await import("@/server/document-understanding/opendataloader-hybrid-health");
-    const summary = await module.inspectOpenDataLoaderHybridHealth({
+    const hybridHealthModule = await import("@/server/document-understanding/opendataloader-hybrid-health");
+    const summary = await hybridHealthModule.inspectOpenDataLoaderHybridHealth({
       config: {
         enabled: true,
         mode: "hybrid",
@@ -281,8 +281,8 @@ describe("opendataloader-hybrid-health", () => {
       ),
     );
 
-    const module = await import("@/server/document-understanding/opendataloader-hybrid-health");
-    const summary = await module.inspectOpenDataLoaderHybridHealth({
+    const hybridHealthModule = await import("@/server/document-understanding/opendataloader-hybrid-health");
+    const summary = await hybridHealthModule.inspectOpenDataLoaderHybridHealth({
       config: {
         enabled: true,
         mode: "hybrid",

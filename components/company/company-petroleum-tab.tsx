@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 
 import { Card } from "@/components/ui/card";
 import {
@@ -98,7 +99,7 @@ function PortfolioTable<T extends { entityId: string; name: string; detailUrl?: 
             {rows.slice(0, 8).map((row) => (
               <tr key={row.entityId} className="border-t border-[rgba(15,23,42,0.06)] text-slate-700">
                 <td className="px-3 py-2 font-semibold text-slate-900">
-                  {row.detailUrl ? <Link href={row.detailUrl}>{row.name}</Link> : row.name}
+                  {row.detailUrl ? <Link href={row.detailUrl as Route}>{row.name}</Link> : row.name}
                 </td>
                 {columns.map((column) => (
                   <td key={`${row.entityId}-${column.label}`} className="px-3 py-2">{column.render(row) ?? "-"}</td>
@@ -236,7 +237,7 @@ export function CompanyPetroleumTab({ petroleum }: { petroleum: CompanyPetroleum
 
       {petroleum.marketModuleUrl ? (
         <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-          <Link href={petroleum.marketModuleUrl} className="inline-flex rounded-full border px-4 py-2 text-sm font-semibold">
+          <Link href={petroleum.marketModuleUrl as Route} className="inline-flex rounded-full border px-4 py-2 text-sm font-semibold">
             Åpne full portefølje i markedsmodulen
           </Link>
         </Card>

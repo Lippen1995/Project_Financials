@@ -7,8 +7,8 @@ describe("annual-report-shadow-batch", () => {
   });
 
   it("parses a shadow-batch manifest", async () => {
-    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
-    const manifest = module.parseAnnualReportShadowBatchManifest({
+    const shadowBatchModule = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const manifest = shadowBatchModule.parseAnnualReportShadowBatchManifest({
       name: "batch-a",
       entries: [
         {
@@ -60,8 +60,8 @@ describe("annual-report-shadow-batch", () => {
       getAnnualReportFilingWithArtifacts: vi.fn(),
     }));
 
-    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
-    const manifest = await module.selectAnnualReportShadowBatchManifest({
+    const shadowBatchModule = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const manifest = await shadowBatchModule.selectAnnualReportShadowBatchManifest({
       desiredTags: ["scan_or_ocr"],
       limit: 5,
     });
@@ -110,8 +110,8 @@ describe("annual-report-shadow-batch", () => {
       getAnnualReportFilingWithArtifacts: vi.fn(),
     }));
 
-    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
-    const manifest = await module.buildBaselineAnnualReportShadowBatchManifest({
+    const shadowBatchModule = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const manifest = await shadowBatchModule.buildBaselineAnnualReportShadowBatchManifest({
       fiscalYears: [2024, 2023],
     });
 
@@ -128,8 +128,8 @@ describe("annual-report-shadow-batch", () => {
   });
 
   it("summarizes shadow outcomes by class and evidence quality", async () => {
-    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
-    const manifest = module.parseAnnualReportShadowBatchManifest({
+    const shadowBatchModule = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const manifest = shadowBatchModule.parseAnnualReportShadowBatchManifest({
       name: "shadow-batch",
       entries: [
         { filingId: "f1", orgNumber: "123456789", fiscalYear: 2024, tagHints: ["scan_or_ocr"] },
@@ -137,7 +137,7 @@ describe("annual-report-shadow-batch", () => {
       ],
     });
 
-    const summary = module.summarizeShadowBatch(
+    const summary = shadowBatchModule.summarizeShadowBatch(
       manifest,
       {
         opendataloaderPackageVersion: "2.2.1",
@@ -344,10 +344,10 @@ describe("annual-report-shadow-batch", () => {
   });
 
   it("renders route decisions and OCR diagnostics in markdown summaries", async () => {
-    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
-    const markdown = module.renderAnnualReportShadowBatchMarkdown({
+    const shadowBatchModule = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const markdown = shadowBatchModule.renderAnnualReportShadowBatchMarkdown({
       generatedAt: "2026-04-24T12:00:00.000Z",
-      manifest: module.parseAnnualReportShadowBatchManifest({
+      manifest: shadowBatchModule.parseAnnualReportShadowBatchManifest({
         name: "baseline-shadow-batch",
         entries: [{ filingId: "f1", orgNumber: "918298037", fiscalYear: 2024 }],
       }),
@@ -414,8 +414,8 @@ describe("annual-report-shadow-batch", () => {
         },
       ],
       summary: {
-        ...module.summarizeShadowBatch(
-          module.parseAnnualReportShadowBatchManifest({
+        ...shadowBatchModule.summarizeShadowBatch(
+          shadowBatchModule.parseAnnualReportShadowBatchManifest({
             name: "baseline-shadow-batch",
             entries: [{ filingId: "f1", orgNumber: "918298037", fiscalYear: 2024 }],
           }),
@@ -494,13 +494,13 @@ describe("annual-report-shadow-batch", () => {
   });
 
   it("renders explicit ODL structure diagnostics for a live hybrid baseline case", async () => {
-    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
-    const manifest = module.parseAnnualReportShadowBatchManifest({
+    const shadowBatchModule = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const manifest = shadowBatchModule.parseAnnualReportShadowBatchManifest({
       name: "baseline-shadow-batch",
       entries: [{ filingId: "f1", orgNumber: "918298037", fiscalYear: 2024 }],
     });
 
-    const markdown = module.renderAnnualReportShadowBatchMarkdown({
+    const markdown = shadowBatchModule.renderAnnualReportShadowBatchMarkdown({
       generatedAt: "2026-04-25T12:00:00.000Z",
       manifest,
       runtimeEnvironment: {
@@ -696,7 +696,7 @@ describe("annual-report-shadow-batch", () => {
         },
       ],
       summary: {
-        ...module.summarizeShadowBatch(manifest, {
+        ...shadowBatchModule.summarizeShadowBatch(manifest, {
           opendataloaderPackageVersion: "2.2.1",
           javaVersion: "17.0.18",
           javaMajorVersion: 17,
@@ -891,9 +891,9 @@ describe("annual-report-shadow-batch", () => {
       })),
     }));
 
-    const module = await import("@/server/benchmarking/annual-report-shadow-batch");
-    const run = await module.runAnnualReportShadowBatch(
-      module.parseAnnualReportShadowBatchManifest({
+    const shadowBatchModule = await import("@/server/benchmarking/annual-report-shadow-batch");
+    const run = await shadowBatchModule.runAnnualReportShadowBatch(
+      shadowBatchModule.parseAnnualReportShadowBatchManifest({
         name: "baseline-shadow-batch",
         entries: [{ filingId: "filing-1", orgNumber: "918298037", fiscalYear: 2024 }],
       }),

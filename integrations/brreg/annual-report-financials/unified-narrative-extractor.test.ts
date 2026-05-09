@@ -383,8 +383,7 @@ describe("validateUnifiedNarrativeExtractionResult", () => {
 
   it("fails if canUseForProductionRouting is true", () => {
     const result = extractUnifiedNarratives(makeEmptyDoc());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (result.safety as any).canUseForProductionRouting = true;
+    (result.safety as { canUseForProductionRouting: boolean }).canUseForProductionRouting = true;
     const { valid, issues } = validateUnifiedNarrativeExtractionResult(result);
     expect(valid).toBe(false);
     expect(issues.some((i) => i.code === "SAFETY_VIOLATION_ROUTING")).toBe(true);
@@ -392,16 +391,14 @@ describe("validateUnifiedNarrativeExtractionResult", () => {
 
   it("fails if version is wrong", () => {
     const result = extractUnifiedNarratives(makeEmptyDoc());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (result as any).version = "wrong-version";
+    (result as { version: string }).version = "wrong-version";
     const { valid } = validateUnifiedNarrativeExtractionResult(result);
     expect(valid).toBe(false);
   });
 
   it("fails if metrics.sectionCount does not match sections.length", () => {
     const result = extractUnifiedNarratives(makeEmptyDoc());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (result.metrics as any).sectionCount = 99;
+    (result.metrics as { sectionCount: number }).sectionCount = 99;
     const { valid, issues } = validateUnifiedNarrativeExtractionResult(result);
     expect(valid).toBe(false);
     expect(issues.some((i) => i.code === "METRICS_SECTION_COUNT_MISMATCH")).toBe(true);

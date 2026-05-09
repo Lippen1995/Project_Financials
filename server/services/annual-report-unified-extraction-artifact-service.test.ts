@@ -23,6 +23,13 @@ import {
 } from "@/server/services/annual-report-legacy-vs-unified-comparison-service";
 import type { PdfModelArtifactSnapshot } from "@prisma/client";
 
+type VersionedPayload = {
+  version: string;
+  safety?: {
+    canUseForProductionRouting?: boolean;
+  };
+};
+
 // ── Mock create function ──────────────────────────────────────────────────────
 
 function makeSnapshot(overrides: Partial<PdfModelArtifactSnapshot> = {}): PdfModelArtifactSnapshot {
@@ -79,16 +86,13 @@ describe("persistUnifiedParserDocumentArtifact", () => {
 
     // The compact doc should have version field but be a compact form
     expect(capturedPayload).toBeDefined();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((capturedPayload as any).version).toBe("unified-parser-document-v1");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((capturedPayload as any).safety?.canUseForProductionRouting).toBe(false);
+    expect((capturedPayload as VersionedPayload).version).toBe("unified-parser-document-v1");
+    expect((capturedPayload as VersionedPayload).safety?.canUseForProductionRouting).toBe(false);
   });
 
   it("rejects document with canUseForProductionRouting=true", async () => {
     const doc = buildUnifiedParserDocumentFromTextLayer({ pages: [] });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (doc.safety as any).canUseForProductionRouting = true;
+    (doc.safety as { canUseForProductionRouting: boolean }).canUseForProductionRouting = true;
     const create = mockCreate();
 
     await expect(
@@ -133,8 +137,7 @@ describe("persistUnifiedFinancialExtractionArtifact", () => {
   it("rejects invalid result (wrong version)", async () => {
     const doc = buildUnifiedParserDocumentFromTextLayer({ pages: [] });
     const result = extractUnifiedFinancialStatements(doc);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (result as any).version = "wrong-version";
+    (result as { version: string }).version = "wrong-version";
     const create = mockCreate();
 
     await expect(
@@ -160,8 +163,7 @@ describe("persistUnifiedNarrativeExtractionArtifact", () => {
   it("rejects invalid result (wrong version)", async () => {
     const doc = buildUnifiedParserDocumentFromTextLayer({ pages: [] });
     const result = extractUnifiedNarratives(doc);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (result as any).version = "wrong-version";
+    (result as { version: string }).version = "wrong-version";
     const create = mockCreate();
 
     await expect(
@@ -181,8 +183,7 @@ describe("persistUnifiedNarrativeExtractionArtifact", () => {
 
     await persistUnifiedNarrativeExtractionArtifact({ result }, { create });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((capturedPayload as any).version).toBe("unified-narrative-extraction-v1");
+    expect((capturedPayload as VersionedPayload).version).toBe("unified-narrative-extraction-v1");
   });
 });
 
@@ -201,8 +202,7 @@ describe("persistLegacyVsUnifiedComparisonArtifact", () => {
 
   it("rejects invalid report (wrong version)", async () => {
     const report = compareAnnualReportLegacyVsUnifiedExtraction({ legacyCandidates: [] });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (report as any).version = "wrong-version";
+    (report as { version: string }).version = "wrong-version";
     const create = mockCreate();
 
     await expect(
@@ -212,8 +212,7 @@ describe("persistLegacyVsUnifiedComparisonArtifact", () => {
 
   it("rejects report with canUseForProductionRouting=true", async () => {
     const report = compareAnnualReportLegacyVsUnifiedExtraction({ legacyCandidates: [] });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (report.safety as any).canUseForProductionRouting = true;
+    (report.safety as { canUseForProductionRouting: boolean }).canUseForProductionRouting = true;
     const create = mockCreate();
 
     await expect(
