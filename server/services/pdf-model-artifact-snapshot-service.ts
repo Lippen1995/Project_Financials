@@ -519,12 +519,17 @@ export async function persistPdfModelArtifactSnapshot(
 
 export async function listPersistedPdfModelArtifactSnapshots(input?: {
   kind?: PdfModelArtifactKind;
+  kinds?: PdfModelArtifactKind[];
   modelId?: string;
   modelVersion?: string;
   fiscalYear?: number;
+  fiscalYears?: number[];
   orgNumber?: string;
+  orgNumbers?: string[];
   status?: PdfModelArtifactStatus;
+  statuses?: PdfModelArtifactStatus[];
   limit?: number;
+  offset?: number;
 }): Promise<PdfModelArtifactSnapshot[]> {
   return listPdfModelArtifactSnapshots(input);
 }

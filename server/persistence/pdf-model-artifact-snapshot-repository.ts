@@ -43,24 +43,35 @@ export async function createPdfModelArtifactSnapshot(input: {
 
 export async function listPdfModelArtifactSnapshots(input?: {
   kind?: PdfModelArtifactKind;
+  kinds?: PdfModelArtifactKind[];
   modelId?: string;
   modelVersion?: string;
   fiscalYear?: number;
+  fiscalYears?: number[];
   orgNumber?: string;
+  orgNumbers?: string[];
   status?: PdfModelArtifactStatus;
+  statuses?: PdfModelArtifactStatus[];
   limit?: number;
+  offset?: number;
 }): Promise<PdfModelArtifactSnapshot[]> {
-  const take = Math.min(Math.max(input?.limit ?? 50, 1), 200);
+  const take = Math.min(Math.max(input?.limit ?? 50, 1), 500);
+  const skip = Math.max(input?.offset ?? 0, 0);
   return prisma.pdfModelArtifactSnapshot.findMany({
     where: {
       ...(input?.kind ? { kind: input.kind } : {}),
+      ...(input?.kinds?.length ? { kind: { in: input.kinds } } : {}),
       ...(input?.modelId ? { modelId: input.modelId } : {}),
       ...(input?.modelVersion ? { modelVersion: input.modelVersion } : {}),
       ...(input?.fiscalYear !== undefined ? { fiscalYear: input.fiscalYear } : {}),
+      ...(input?.fiscalYears?.length ? { fiscalYear: { in: input.fiscalYears } } : {}),
       ...(input?.orgNumber ? { orgNumber: input.orgNumber } : {}),
+      ...(input?.orgNumbers?.length ? { orgNumber: { in: input.orgNumbers } } : {}),
       ...(input?.status ? { status: input.status } : {}),
+      ...(input?.statuses?.length ? { status: { in: input.statuses } } : {}),
     },
     orderBy: { createdAt: "desc" },
+    skip,
     take,
   });
 }

@@ -1166,3 +1166,26 @@ export async function getAnnualReportFilingWithArtifacts(filingId: string) {
     },
   });
 }
+
+export async function listAnnualReportFilingsByIds(filingIds: string[]) {
+  if (filingIds.length === 0) {
+    return [];
+  }
+
+  return prisma.annualReportFiling.findMany({
+    where: {
+      id: {
+        in: filingIds,
+      },
+    },
+    include: {
+      company: {
+        select: {
+          id: true,
+          orgNumber: true,
+          name: true,
+        },
+      },
+    },
+  });
+}
