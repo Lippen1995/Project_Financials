@@ -414,7 +414,12 @@ function checkComparisonMatchRate(
   if (total === 0) {
     return insufficientData("COMPARISON_MATCH_RATE", "No financial comparisons to evaluate.");
   }
-  const goodMatches: FinancialFactMatchKind[] = ["EXACT", "SCALED"];
+  const goodMatches: FinancialFactMatchKind[] = [
+    "EXACT",
+    "TOLERANCE",
+    "UNIT_SCALE_ADJUSTED",
+    "LABEL_MAPPED",
+  ];
   const matchCount = comparison.financialComparisons.filter((c) =>
     goodMatches.includes(c.match),
   ).length;
@@ -455,7 +460,7 @@ function checkComparisonNoMajorMismatches(
   }
   const majorMismatches = comparison.financialComparisons.filter(
     (c) =>
-      c.match === "MISMATCH" &&
+      c.match === "CONFLICTING_VALUES" &&
       c.relativeDeviation !== null &&
       c.relativeDeviation > config.majorMismatchDeviationThreshold,
   );

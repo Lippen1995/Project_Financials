@@ -200,7 +200,7 @@ function extractRuleCodes(payload: unknown) {
     .filter((value): value is string => Boolean(value));
 }
 
-function inferTagHintsFromStoredFiling(filing: Awaited<ReturnType<typeof listAnnualReportFilingsForShadowSelection>>[number]) {
+export function inferTagHintsFromStoredFiling(filing: Awaited<ReturnType<typeof listAnnualReportFilingsForShadowSelection>>[number]) {
   const tags = new Set<string>();
   const latestRun = filing.extractionRuns[0];
   const latestReview = filing.reviews[0];

@@ -1167,6 +1167,20 @@ export async function getAnnualReportFilingWithArtifacts(filingId: string) {
   });
 }
 
+export async function listFinancialFactsForFiling(filingId: string) {
+  return prisma.financialFact.findMany({
+    where: { filingId },
+    orderBy: [{ extractionRunId: "desc" }, { createdAt: "desc" }],
+  });
+}
+
+export async function getPublishedFinancialStatementForSourceFiling(filingId: string) {
+  return prisma.financialStatement.findFirst({
+    where: { sourceFilingId: filingId },
+    orderBy: { publishedAt: "desc" },
+  });
+}
+
 export async function listAnnualReportFilingsByIds(filingIds: string[]) {
   if (filingIds.length === 0) {
     return [];

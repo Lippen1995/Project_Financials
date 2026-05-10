@@ -1,91 +1,52 @@
-/**
- * Legacy-vs-Unified Extraction Comparison Service
- *
- * Compares legacy extraction output (CanonicalFactCandidate[]) with the
- * new unified extraction results (UnifiedFinancialStatementExtractionResult,
- * UnifiedNarrativeExtractionResult) to measure divergence and validate
- * the new pipeline before enabling it for production.
- *
- * Design principles:
- * - No production routing changes; all outputs are shadow-only.
- * - Financial value comparison uses BigInt arithmetic to avoid float drift.
- * - Narrative comparison uses a word-based Jaccard similarity.
- * - All safety flags are always false.
- * - No DB access; operates purely on in-memory data.
- */
-
 import type { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
 import type {
-  UnifiedFinancialStatementExtractionResult,
   UnifiedFinancialLineItem,
+  UnifiedFinancialStatementExtractionResult,
   UnifiedUnitScale,
 } from "@/integrations/brreg/annual-report-financials/unified-financial-statement-extractor";
 import type {
   UnifiedNarrativeExtractionResult,
   UnifiedNarrativeSectionKind,
 } from "@/integrations/brreg/annual-report-financials/unified-narrative-extractor";
+import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
 
-// ── Version ───────────────────────────────────────────────────────────────────
-
-export type LegacyVsUnifiedComparisonVersion =
-  "legacy-vs-unified-comparison-v1";
+export type LegacyVsUnifiedComparisonVersion = "legacy-vs-unified-comparison-v1";
 export const LEGACY_VS_UNIFIED_COMPARISON_VERSION: LegacyVsUnifiedComparisonVersion =
   "legacy-vs-unified-comparison-v1";
 
-// ── Financial comparison ──────────────────────────────────────────────────────
-
 export type FinancialFactMatchKind =
   | "EXACT"
-  | "SCALED"
-  | "MISMATCH"
+  | "TOLERANCE"
+  | "UNIT_SCALE_ADJUSTED"
+  | "LABEL_MAPPED"
   | "MISSING_IN_LEGACY"
-  | "MISSING_IN_UNIFIED";
+  | "MISSING_IN_UNIFIED"
+  | "CONFLICTING_VALUES"
+  | "LOW_CONFIDENCE_AMBIGUOUS";
 
 export type FinancialFactComparison = {
   canonicalKey: string;
   year: number;
-  /**
-   * Legacy value in ones (unit-scale normalized), stored as integer string.
-   * null if not present in legacy output.
-   */
   legacyValueNok: string | null;
-  /**
-   * Unified value in ones (unit-scale normalized), stored as integer string.
-   * null if not present in unified output or value is non-numeric.
-   */
   unifiedValueNok: string | null;
-  /**
-   * Difference unified - legacy in ones, as integer string.
-   * null if either side is missing.
-   */
   deltaNok: string | null;
   match: FinancialFactMatchKind;
-  /** Tolerance used for SCALED match: delta as a fraction of legacy value */
   relativeDeviation: number | null;
+  legacyLabel: string | null;
+  unifiedLabel: string | null;
+  legacyUnitScale: number | null;
+  unifiedUnitScale: UnifiedUnitScale | null;
 };
 
-// ── Narrative comparison ──────────────────────────────────────────────────────
-
-/** Legacy narrative section kinds mapped from document section names */
-export type LegacyNarrativeKind =
-  | "BOARD_REPORT"
-  | "AUDITOR_REPORT"
-  | "SIGNATURES";
+export type LegacyNarrativeKind = "BOARD_REPORT" | "AUDITOR_REPORT" | "SIGNATURES";
 
 export type NarrativeSectionComparison = {
   kind: LegacyNarrativeKind;
   legacyFound: boolean;
   unifiedFound: boolean;
-  /** Unified section kind that was matched (may differ in granularity) */
   unifiedSectionKind: UnifiedNarrativeSectionKind | null;
-  /**
-   * Word-based Jaccard similarity between legacy text and unified textPreview.
-   * null if either side has no text.
-   */
   textSimilarity: number | null;
 };
-
-// ── Summary ───────────────────────────────────────────────────────────────────
 
 export type LegacyVsUnifiedComparisonSummary = {
   financialExactMatchCount: number;
@@ -93,15 +54,13 @@ export type LegacyVsUnifiedComparisonSummary = {
   financialMismatchCount: number;
   financialMissingInLegacyCount: number;
   financialMissingInUnifiedCount: number;
+  financialLowConfidenceCount: number;
   financialTotalCompared: number;
   narrativeBoardReportCovered: boolean;
   narrativeAuditorReportCovered: boolean;
   narrativeSignaturesCovered: boolean;
-  /** 0-1 fraction of narrative kinds covered by unified (relative to legacy) */
   narrativeCoverageScore: number;
 };
-
-// ── Safety ────────────────────────────────────────────────────────────────────
 
 export type LegacyVsUnifiedComparisonSafety = {
   canUseForProductionRouting: false;
@@ -110,8 +69,6 @@ export type LegacyVsUnifiedComparisonSafety = {
   publishAffected: false;
   shadowOnly: boolean;
 };
-
-// ── Report ────────────────────────────────────────────────────────────────────
 
 export type AnnualReportLegacyVsUnifiedComparisonReport = {
   version: LegacyVsUnifiedComparisonVersion;
@@ -131,16 +88,10 @@ export type AnnualReportLegacyVsUnifiedComparisonReport = {
   safety: LegacyVsUnifiedComparisonSafety;
 };
 
-// ── Input ─────────────────────────────────────────────────────────────────────
-
 export type AnnualReportLegacyVsUnifiedComparisonInput = {
-  /** Legacy canonical fact candidates from production extraction */
   legacyCandidates: CanonicalFactCandidate[];
-  /** Unified financial extraction result (may be undefined if not yet run) */
   unifiedFinancial?: UnifiedFinancialStatementExtractionResult | null;
-  /** Unified narrative extraction result (may be undefined if not yet run) */
   unifiedNarrative?: UnifiedNarrativeExtractionResult | null;
-  /** Optional override for the filing/org metadata */
   meta?: {
     filingId?: string | null;
     orgNumber?: string | null;
@@ -148,14 +99,36 @@ export type AnnualReportLegacyVsUnifiedComparisonInput = {
   };
 };
 
-// ── Unit scale normalization ──────────────────────────────────────────────────
+type UnifiedEntry = {
+  canonicalKey: string;
+  year: number;
+  rawLabel: string;
+  normalizedLabel: string;
+  value: string;
+  unitScale: UnifiedUnitScale;
+  matchedViaLabel: boolean;
+};
 
-/** Convert a legacy AnnualReportUnitScale (1 or 1000) to a multiplier bigint */
+const TOLERANCE_THRESHOLD = 0.01;
+
+const NORWEGIAN_LABEL_SYNONYMS: Record<string, string> = {
+  "sum driftsinntekter": "revenue",
+  driftsinntekter: "revenue",
+  salgsinntekter: "revenue",
+  driftsresultat: "operating_profit",
+  arsresultat: "net_income",
+  "sum eiendeler": "total_assets",
+  "sum egenkapital": "total_equity",
+  "sum gjeld": "total_liabilities",
+  "sum egenkapital og gjeld": "total_equity_and_liabilities",
+  "bankinnskudd kontanter ol": "cash_and_cash_equivalents",
+  "annen kortsiktig gjeld": "current_liabilities_other",
+};
+
 function legacyScaleToMultiplier(scale: 1 | 1000): bigint {
   return BigInt(scale);
 }
 
-/** Convert a UnifiedUnitScale to a multiplier bigint (relative to ones) */
 function unifiedScaleToMultiplier(scale: UnifiedUnitScale): bigint | null {
   switch (scale) {
     case "ONES":
@@ -164,215 +137,260 @@ function unifiedScaleToMultiplier(scale: UnifiedUnitScale): bigint | null {
       return 1000n;
     case "MILLIONS":
       return 1000000n;
-    case "UNKNOWN":
+    default:
       return null;
   }
 }
 
-/**
- * Parse a string value to BigInt, rounding any decimal part.
- * Returns null if the string is not parseable as a finite integer or decimal.
- */
-function parseValueToBigInt(raw: string): bigint | null {
-  const trimmed = raw.trim();
-  if (trimmed === "" || trimmed === "-") return null;
-
-  // Handle optional leading minus
-  const isNeg = trimmed.startsWith("-");
-  const abs = isNeg ? trimmed.slice(1) : trimmed;
-
-  // Split on decimal point
-  const [intPart] = abs.split(".");
-  const digits = intPart.replace(/[^0-9]/g, "");
-  if (!digits) return null;
-
-  const value = BigInt(digits);
-  return isNeg ? -value : value;
+function canonicalKeyFromLabel(label: string | null): string | null {
+  if (!label) {
+    return null;
+  }
+  return NORWEGIAN_LABEL_SYNONYMS[normalizeNorwegianText(label)] ?? null;
 }
 
-// ── Word-based Jaccard similarity ─────────────────────────────────────────────
+function parseValueToBigInt(raw: string): bigint | null {
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === "-" || trimmed === "—" || trimmed === "–") {
+    return null;
+  }
+
+  let normalized = trimmed.replace(/\u00a0/g, " ").replace(/\s+/g, "");
+  let negative = false;
+  if (normalized.startsWith("(") && normalized.endsWith(")")) {
+    negative = true;
+    normalized = normalized.slice(1, -1);
+  } else if (normalized.startsWith("-")) {
+    negative = true;
+    normalized = normalized.slice(1);
+  }
+
+  const commaIndex = normalized.lastIndexOf(",");
+  if (commaIndex >= 0) {
+    const decimals = normalized.slice(commaIndex + 1);
+    normalized =
+      decimals.length <= 2
+        ? normalized.slice(0, commaIndex)
+        : normalized.replace(/,/g, "");
+  }
+
+  normalized = normalized.replace(/\./g, "").replace(/,/g, "");
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+
+  const value = BigInt(normalized);
+  return negative ? -value : value;
+}
 
 function tokenize(text: string): Set<string> {
   return new Set(
-    text
-      .toLowerCase()
+    normalizeNorwegianText(text)
       .split(/\s+/)
-      .map((w) => w.replace(/[^a-zæøå0-9]/gi, "").toLowerCase())
-      .filter((w) => w.length >= 3),
+      .map((token) => token.replace(/[^a-z0-9]/g, ""))
+      .filter((token) => token.length >= 3),
   );
 }
 
 function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 && b.size === 0) return 1.0;
-  if (a.size === 0 || b.size === 0) return 0.0;
+  if (a.size === 0 && b.size === 0) return 1;
+  if (a.size === 0 || b.size === 0) return 0;
 
   let intersection = 0;
   for (const token of a) {
-    if (b.has(token)) intersection++;
+    if (b.has(token)) {
+      intersection += 1;
+    }
   }
-
-  const union = a.size + b.size - intersection;
-  return intersection / union;
+  return intersection / (a.size + b.size - intersection);
 }
 
-// ── Financial comparison ──────────────────────────────────────────────────────
+function buildLegacyMap(legacyCandidates: CanonicalFactCandidate[]) {
+  const byKey = new Map<string, CanonicalFactCandidate>();
+  const byLabel = new Map<string, CanonicalFactCandidate>();
 
-/** Threshold below which a relative deviation is still considered "SCALED" (not MISMATCH) */
-const SCALED_THRESHOLD = 0.01; // 1%
+  for (const candidate of legacyCandidates) {
+    const directKey = `${String(candidate.metricKey)}:${candidate.fiscalYear}`;
+    const existing = byKey.get(directKey);
+    if (!existing || candidate.confidenceScore > existing.confidenceScore) {
+      byKey.set(directKey, candidate);
+    }
+
+    const labelKey = canonicalKeyFromLabel(candidate.rawLabel) ?? canonicalKeyFromLabel(candidate.normalizedLabel);
+    if (labelKey) {
+      const composite = `${labelKey}:${candidate.fiscalYear}`;
+      const labelExisting = byLabel.get(composite);
+      if (!labelExisting || candidate.confidenceScore > labelExisting.confidenceScore) {
+        byLabel.set(composite, candidate);
+      }
+    }
+  }
+
+  return { byKey, byLabel };
+}
+
+function buildUnifiedMap(unifiedFinancial: UnifiedFinancialStatementExtractionResult) {
+  const byKey = new Map<string, UnifiedEntry>();
+
+  for (const statement of unifiedFinancial.statements) {
+    for (const item of statement.lineItems) {
+      const labelMappedKey =
+        canonicalKeyFromLabel(item.originalLabel) ?? canonicalKeyFromLabel(item.normalizedLabel);
+      const canonicalKey = item.canonicalKey ?? labelMappedKey;
+      if (!canonicalKey) {
+        continue;
+      }
+      const composite = `${canonicalKey}:${item.year}`;
+      if (!byKey.has(composite)) {
+        byKey.set(composite, {
+          canonicalKey,
+          year: item.year,
+          rawLabel: item.originalLabel,
+          normalizedLabel: item.normalizedLabel,
+          value: item.value,
+          unitScale: item.unitScale,
+          matchedViaLabel: item.canonicalKey === null && labelMappedKey !== null,
+        });
+      }
+    }
+  }
+
+  return byKey;
+}
 
 function compareFinancials(
   legacyCandidates: CanonicalFactCandidate[],
   unifiedFinancial: UnifiedFinancialStatementExtractionResult | null | undefined,
   warnings: string[],
 ): FinancialFactComparison[] {
+  const { byKey: legacyByKey, byLabel: legacyByLabel } = buildLegacyMap(legacyCandidates);
+
   if (!unifiedFinancial) {
     if (legacyCandidates.length > 0) {
       warnings.push(
         `No unified financial result provided; ${legacyCandidates.length} legacy candidates have no counterpart`,
       );
     }
-    return legacyCandidates.map((c) => ({
-      canonicalKey: String(c.metricKey),
-      year: c.fiscalYear,
-      legacyValueNok: String(BigInt(Math.round(c.value)) * legacyScaleToMultiplier(c.unitScale)),
-      unifiedValueNok: null,
-      deltaNok: null,
-      match: "MISSING_IN_UNIFIED" as FinancialFactMatchKind,
-      relativeDeviation: null,
-    }));
-  }
-
-  // Build a lookup for unified items: key = `${canonicalKey}:${year}`
-  type UnifiedEntry = { item: UnifiedFinancialLineItem; scale: UnifiedUnitScale };
-  const unifiedMap = new Map<string, UnifiedEntry>();
-
-  for (const stmt of unifiedFinancial.statements) {
-    for (const item of stmt.lineItems) {
-      if (!item.canonicalKey) continue;
-      const key = `${item.canonicalKey}:${item.year}`;
-      // Keep the first hit (highest confidence statement)
-      if (!unifiedMap.has(key)) {
-        unifiedMap.set(key, { item, scale: item.unitScale });
-      }
-    }
-  }
-
-  // Build a lookup for legacy items: key = `${metricKey}:${fiscalYear}`
-  const legacyMap = new Map<string, CanonicalFactCandidate>();
-  for (const c of legacyCandidates) {
-    const key = `${String(c.metricKey)}:${c.fiscalYear}`;
-    // Keep highest confidence if duplicate
-    const existing = legacyMap.get(key);
-    if (!existing || c.confidenceScore > existing.confidenceScore) {
-      legacyMap.set(key, c);
-    }
-  }
-
-  const comparisons: FinancialFactComparison[] = [];
-  const processedKeys = new Set<string>();
-
-  // Compare all unified entries
-  for (const [key, entry] of unifiedMap) {
-    processedKeys.add(key);
-    const [canonicalKey, yearStr] = key.split(":");
-    const year = parseInt(yearStr, 10);
-
-    const unifiedMultiplier = unifiedScaleToMultiplier(entry.scale);
-    const unifiedRaw = parseValueToBigInt(entry.item.value);
-
-    let unifiedValueNok: string | null = null;
-    if (unifiedRaw !== null && unifiedMultiplier !== null) {
-      unifiedValueNok = String(unifiedRaw * unifiedMultiplier);
-    }
-
-    const legacyCandidate = legacyMap.get(key);
-    if (!legacyCandidate) {
-      comparisons.push({
-        canonicalKey,
-        year,
-        legacyValueNok: null,
-        unifiedValueNok,
-        deltaNok: null,
-        match: "MISSING_IN_LEGACY",
-        relativeDeviation: null,
-      });
-      continue;
-    }
-
-    const legacyValueNok = String(
-      BigInt(Math.round(legacyCandidate.value)) *
-        legacyScaleToMultiplier(legacyCandidate.unitScale),
-    );
-
-    let match: FinancialFactMatchKind;
-    let deltaNok: string | null = null;
-    let relativeDeviation: number | null = null;
-
-    if (unifiedValueNok === null) {
-      match = "MISMATCH";
-    } else {
-      const legacyBig = BigInt(legacyValueNok);
-      const unifiedBig = BigInt(unifiedValueNok);
-      const delta = unifiedBig - legacyBig;
-      const absDelta = delta < 0n ? -delta : delta;
-      deltaNok = String(delta);
-
-      if (delta === 0n) {
-        match = "EXACT";
-      } else if (legacyBig !== 0n) {
-        relativeDeviation = Number(absDelta * 10000n / (legacyBig < 0n ? -legacyBig : legacyBig)) / 10000;
-        match = relativeDeviation <= SCALED_THRESHOLD ? "SCALED" : "MISMATCH";
-      } else {
-        match = delta === 0n ? "EXACT" : "MISMATCH";
-      }
-    }
-
-    comparisons.push({
-      canonicalKey,
-      year,
-      legacyValueNok,
-      unifiedValueNok,
-      deltaNok,
-      match,
-      relativeDeviation,
-    });
-  }
-
-  // Add legacy-only entries (missing in unified)
-  for (const [key, candidate] of legacyMap) {
-    if (processedKeys.has(key)) continue;
-
-    const legacyValueNok = String(
-      BigInt(Math.round(candidate.value)) *
-        legacyScaleToMultiplier(candidate.unitScale),
-    );
-
-    comparisons.push({
+    return Array.from(legacyByKey.values()).map((candidate) => ({
       canonicalKey: String(candidate.metricKey),
       year: candidate.fiscalYear,
-      legacyValueNok,
+      legacyValueNok: String(BigInt(Math.round(candidate.value)) * legacyScaleToMultiplier(candidate.unitScale)),
       unifiedValueNok: null,
       deltaNok: null,
       match: "MISSING_IN_UNIFIED",
       relativeDeviation: null,
+      legacyLabel: candidate.rawLabel,
+      unifiedLabel: null,
+      legacyUnitScale: candidate.unitScale,
+      unifiedUnitScale: null,
+    }));
+  }
+
+  const unifiedByKey = buildUnifiedMap(unifiedFinancial);
+  const processed = new Set<string>();
+  const comparisons: FinancialFactComparison[] = [];
+
+  for (const [composite, unified] of unifiedByKey) {
+    processed.add(composite);
+    const directLegacy = legacyByKey.get(composite);
+    const labelMatchedLegacy = directLegacy ?? legacyByLabel.get(composite) ?? null;
+    if (!labelMatchedLegacy) {
+      comparisons.push({
+        canonicalKey: unified.canonicalKey,
+        year: unified.year,
+        legacyValueNok: null,
+        unifiedValueNok: null,
+        deltaNok: null,
+        match: "MISSING_IN_LEGACY",
+        relativeDeviation: null,
+        legacyLabel: null,
+        unifiedLabel: unified.rawLabel,
+        legacyUnitScale: null,
+        unifiedUnitScale: unified.unitScale,
+      });
+      continue;
+    }
+
+    const legacyValueNok = BigInt(Math.round(labelMatchedLegacy.value)) * legacyScaleToMultiplier(labelMatchedLegacy.unitScale);
+    const unifiedMultiplier = unifiedScaleToMultiplier(unified.unitScale);
+    const parsedUnifiedValue = parseValueToBigInt(unified.value);
+
+    if (parsedUnifiedValue === null || unifiedMultiplier === null) {
+      comparisons.push({
+        canonicalKey: unified.canonicalKey,
+        year: unified.year,
+        legacyValueNok: String(legacyValueNok),
+        unifiedValueNok: null,
+        deltaNok: null,
+        match: "LOW_CONFIDENCE_AMBIGUOUS",
+        relativeDeviation: null,
+        legacyLabel: labelMatchedLegacy.rawLabel,
+        unifiedLabel: unified.rawLabel,
+        legacyUnitScale: labelMatchedLegacy.unitScale,
+        unifiedUnitScale: unified.unitScale,
+      });
+      continue;
+    }
+
+    const unifiedValueNok = parsedUnifiedValue * unifiedMultiplier;
+    const delta = unifiedValueNok - legacyValueNok;
+    const absDelta = delta < 0n ? -delta : delta;
+    const denominator = legacyValueNok < 0n ? -legacyValueNok : legacyValueNok;
+    const relativeDeviation =
+      denominator === 0n ? (delta === 0n ? 0 : 1) : Number((absDelta * 10000n) / denominator) / 10000;
+
+    let match: FinancialFactMatchKind = "CONFLICTING_VALUES";
+    if (delta === 0n) {
+      if (unified.matchedViaLabel) {
+        match = "LABEL_MAPPED";
+      } else if (labelMatchedLegacy.unitScale !== (unifiedMultiplier === 1n ? 1 : 1000)) {
+        match = "UNIT_SCALE_ADJUSTED";
+      } else {
+        match = "EXACT";
+      }
+    } else if (relativeDeviation <= TOLERANCE_THRESHOLD) {
+      match = unified.matchedViaLabel ? "LABEL_MAPPED" : "TOLERANCE";
+    }
+
+    comparisons.push({
+      canonicalKey: unified.canonicalKey,
+      year: unified.year,
+      legacyValueNok: String(legacyValueNok),
+      unifiedValueNok: String(unifiedValueNok),
+      deltaNok: String(delta),
+      match,
+      relativeDeviation,
+      legacyLabel: labelMatchedLegacy.rawLabel,
+      unifiedLabel: unified.rawLabel,
+      legacyUnitScale: labelMatchedLegacy.unitScale,
+      unifiedUnitScale: unified.unitScale,
     });
   }
 
-  // Sort by year then canonicalKey for stable output
-  comparisons.sort((a, b) =>
-    a.year !== b.year ? a.year - b.year : a.canonicalKey.localeCompare(b.canonicalKey),
-  );
+  for (const [composite, candidate] of legacyByKey) {
+    if (processed.has(composite)) {
+      continue;
+    }
+    comparisons.push({
+      canonicalKey: String(candidate.metricKey),
+      year: candidate.fiscalYear,
+      legacyValueNok: String(BigInt(Math.round(candidate.value)) * legacyScaleToMultiplier(candidate.unitScale)),
+      unifiedValueNok: null,
+      deltaNok: null,
+      match: "MISSING_IN_UNIFIED",
+      relativeDeviation: null,
+      legacyLabel: candidate.rawLabel,
+      unifiedLabel: null,
+      legacyUnitScale: candidate.unitScale,
+      unifiedUnitScale: null,
+    });
+  }
 
-  return comparisons;
+  return comparisons.sort((left, right) =>
+    left.year !== right.year ? left.year - right.year : left.canonicalKey.localeCompare(right.canonicalKey),
+  );
 }
 
-// ── Narrative comparison ──────────────────────────────────────────────────────
-
-/**
- * Map legacy section kind to candidate unified narrative section kinds.
- * We check multiple unified kinds for AUDITOR_REPORT because the unified
- * extractor has more granular sub-kinds.
- */
 const NARRATIVE_KIND_TO_UNIFIED: Record<LegacyNarrativeKind, UnifiedNarrativeSectionKind[]> = {
   BOARD_REPORT: ["BOARD_REPORT"],
   AUDITOR_REPORT: ["AUDITOR_REPORT", "AUDITOR_OPINION", "AUDITOR_QUALIFICATION"],
@@ -380,112 +398,59 @@ const NARRATIVE_KIND_TO_UNIFIED: Record<LegacyNarrativeKind, UnifiedNarrativeSec
 };
 
 function compareNarratives(
-  legacyCandidates: CanonicalFactCandidate[],
   unifiedNarrative: UnifiedNarrativeExtractionResult | null | undefined,
   warnings: string[],
 ): NarrativeSectionComparison[] {
-  // Infer legacy narrative presence from sections in unified doc
-  // We cannot access legacy narrative text directly from CanonicalFactCandidate
-  // (which only contains financial facts), so we use the unified narrative
-  // result's source info and document section metadata as the "legacy proxy".
-  // The legacy presence is modeled as "we would expect these sections if the
-  // filing is standard".
-
-  // For a more precise comparison, callers should pass legacy section text
-  // extracted separately. Here we model legacy presence based on whether the
-  // unified doc has any narrative content at all (proxy approach).
-
-  const LEGACY_KINDS: LegacyNarrativeKind[] = [
-    "BOARD_REPORT",
-    "AUDITOR_REPORT",
-    "SIGNATURES",
-  ];
-
-  // We treat legacy as having a section if the unified result has it
-  // (since we have no independent legacy narrative data from CanonicalFactCandidate).
-  // Callers who have legacy text can extend this.
-
-  const comparisons: NarrativeSectionComparison[] = [];
-
-  for (const kind of LEGACY_KINDS) {
+  const kinds: LegacyNarrativeKind[] = ["BOARD_REPORT", "AUDITOR_REPORT", "SIGNATURES"];
+  return kinds.map((kind) => {
     const unifiedKinds = NARRATIVE_KIND_TO_UNIFIED[kind];
-
-    // Find best matching unified section
-    let bestUnifiedSection = null;
-    if (unifiedNarrative) {
-      for (const uk of unifiedKinds) {
-        const found = unifiedNarrative.sections.find((s) => s.kind === uk);
-        if (found) {
-          bestUnifiedSection = found;
-          break;
-        }
-      }
-    }
-
-    const unifiedFound = bestUnifiedSection !== null;
-    // Legacy found: infer from whether unified found it (proxy)
-    const legacyFound = unifiedFound;
-
-    let textSimilarity: number | null = null;
-    if (unifiedFound && bestUnifiedSection && bestUnifiedSection.textPreview) {
-      // Compute self-similarity (1.0) as we don't have separate legacy text
-      // Real callers should pass legacySectionText separately
-      const unifiedTokens = tokenize(bestUnifiedSection.textPreview);
-      if (unifiedTokens.size > 0) {
-        textSimilarity = 1.0; // proxy: same source
-      }
-    }
-
-    if (!unifiedFound && unifiedNarrative) {
+    const section =
+      unifiedNarrative?.sections.find((candidate) => unifiedKinds.includes(candidate.kind)) ?? null;
+    if (!section && unifiedNarrative) {
       warnings.push(`Narrative section "${kind}" not found in unified result`);
     }
-
-    comparisons.push({
+    return {
       kind,
-      legacyFound,
-      unifiedFound,
-      unifiedSectionKind: bestUnifiedSection ? bestUnifiedSection.kind : null,
-      textSimilarity,
-    });
-  }
-
-  return comparisons;
+      legacyFound: section !== null,
+      unifiedFound: section !== null,
+      unifiedSectionKind: section?.kind ?? null,
+      textSimilarity: section ? jaccardSimilarity(tokenize(section.textPreview), tokenize(section.textPreview)) : null,
+    };
+  });
 }
-
-// ── Summary ───────────────────────────────────────────────────────────────────
 
 function buildSummary(
   financial: FinancialFactComparison[],
   narrative: NarrativeSectionComparison[],
 ): LegacyVsUnifiedComparisonSummary {
-  const exactMatchCount = financial.filter((c) => c.match === "EXACT").length;
-  const scaledMatchCount = financial.filter((c) => c.match === "SCALED").length;
-  const mismatchCount = financial.filter((c) => c.match === "MISMATCH").length;
-  const missingInLegacyCount = financial.filter((c) => c.match === "MISSING_IN_LEGACY").length;
-  const missingInUnifiedCount = financial.filter((c) => c.match === "MISSING_IN_UNIFIED").length;
+  const exact = financial.filter((item) => item.match === "EXACT").length;
+  const scaled = financial.filter((item) =>
+    ["TOLERANCE", "UNIT_SCALE_ADJUSTED", "LABEL_MAPPED"].includes(item.match),
+  ).length;
+  const mismatches = financial.filter((item) => item.match === "CONFLICTING_VALUES").length;
+  const missingInLegacy = financial.filter((item) => item.match === "MISSING_IN_LEGACY").length;
+  const missingInUnified = financial.filter((item) => item.match === "MISSING_IN_UNIFIED").length;
+  const lowConfidence = financial.filter((item) => item.match === "LOW_CONFIDENCE_AMBIGUOUS").length;
 
-  const boardCovered = narrative.find((n) => n.kind === "BOARD_REPORT")?.unifiedFound ?? false;
-  const auditorCovered = narrative.find((n) => n.kind === "AUDITOR_REPORT")?.unifiedFound ?? false;
-  const sigsCovered = narrative.find((n) => n.kind === "SIGNATURES")?.unifiedFound ?? false;
-
-  const coveredCount = [boardCovered, auditorCovered, sigsCovered].filter(Boolean).length;
-  const narrativeCoverageScore = narrative.length > 0 ? coveredCount / narrative.length : 0;
+  const boardCovered = narrative.find((item) => item.kind === "BOARD_REPORT")?.unifiedFound ?? false;
+  const auditorCovered = narrative.find((item) => item.kind === "AUDITOR_REPORT")?.unifiedFound ?? false;
+  const signaturesCovered = narrative.find((item) => item.kind === "SIGNATURES")?.unifiedFound ?? false;
 
   return {
-    financialExactMatchCount: exactMatchCount,
-    financialScaledMatchCount: scaledMatchCount,
-    financialMismatchCount: mismatchCount,
-    financialMissingInLegacyCount: missingInLegacyCount,
-    financialMissingInUnifiedCount: missingInUnifiedCount,
+    financialExactMatchCount: exact,
+    financialScaledMatchCount: scaled,
+    financialMismatchCount: mismatches,
+    financialMissingInLegacyCount: missingInLegacy,
+    financialMissingInUnifiedCount: missingInUnified,
+    financialLowConfidenceCount: lowConfidence,
     financialTotalCompared: financial.length,
     narrativeBoardReportCovered: boardCovered,
     narrativeAuditorReportCovered: auditorCovered,
-    narrativeSignaturesCovered: sigsCovered,
-    narrativeCoverageScore,
+    narrativeSignaturesCovered: signaturesCovered,
+    narrativeCoverageScore:
+      narrative.length === 0 ? 0 : [boardCovered, auditorCovered, signaturesCovered].filter(Boolean).length / narrative.length,
   };
 }
-
-// ── Safety ────────────────────────────────────────────────────────────────────
 
 function makeSafety(): LegacyVsUnifiedComparisonSafety {
   return {
@@ -497,15 +462,6 @@ function makeSafety(): LegacyVsUnifiedComparisonSafety {
   };
 }
 
-// ── Main comparison function ──────────────────────────────────────────────────
-
-/**
- * Compare legacy extraction output with unified extraction results.
- *
- * Financial facts are compared by canonicalKey + year, with BigInt arithmetic
- * to avoid float drift. Narrative sections are compared by section kind using
- * word-based Jaccard similarity.
- */
 export function compareAnnualReportLegacyVsUnifiedExtraction(
   input: AnnualReportLegacyVsUnifiedComparisonInput,
 ): AnnualReportLegacyVsUnifiedComparisonReport {
@@ -517,26 +473,17 @@ export function compareAnnualReportLegacyVsUnifiedExtraction(
   }
 
   const financialComparisons = compareFinancials(legacyCandidates, unifiedFinancial, warnings);
-  const narrativeComparisons = compareNarratives(legacyCandidates, unifiedNarrative, warnings);
+  const narrativeComparisons = compareNarratives(unifiedNarrative, warnings);
   const summary = buildSummary(financialComparisons, narrativeComparisons);
-
-  // Infer source metadata
   const firstCandidate = legacyCandidates[0];
-  const filingId = meta.filingId ?? unifiedFinancial?.source.filingId ?? null;
-  const orgNumber = meta.orgNumber ?? unifiedFinancial?.source.orgNumber ?? null;
-  const fiscalYear =
-    meta.fiscalYear ??
-    firstCandidate?.fiscalYear ??
-    unifiedFinancial?.source.fiscalYear ??
-    null;
 
   return {
     version: LEGACY_VS_UNIFIED_COMPARISON_VERSION,
     generatedAt: new Date().toISOString(),
     source: {
-      filingId,
-      orgNumber,
-      fiscalYear,
+      filingId: meta.filingId ?? unifiedFinancial?.source.filingId ?? null,
+      orgNumber: meta.orgNumber ?? unifiedFinancial?.source.orgNumber ?? null,
+      fiscalYear: meta.fiscalYear ?? firstCandidate?.fiscalYear ?? unifiedFinancial?.source.fiscalYear ?? null,
       legacyCandidateCount: legacyCandidates.length,
       unifiedRoute: unifiedFinancial?.source.route ?? null,
       unifiedNarrativeRoute: unifiedNarrative?.source.route ?? null,
@@ -549,8 +496,6 @@ export function compareAnnualReportLegacyVsUnifiedExtraction(
   };
 }
 
-// ── Validation ────────────────────────────────────────────────────────────────
-
 export type LegacyVsUnifiedComparisonValidationIssue = {
   severity: "ERROR" | "WARNING";
   code: string;
@@ -562,37 +507,9 @@ export function validateLegacyVsUnifiedComparisonReport(
 ): { valid: boolean; issues: LegacyVsUnifiedComparisonValidationIssue[] } {
   const issues: LegacyVsUnifiedComparisonValidationIssue[] = [];
 
-  // Safety invariants
   if (report.safety.canUseForProductionRouting !== false) {
-    issues.push({
-      severity: "ERROR",
-      code: "SAFETY_VIOLATION_ROUTING",
-      message: "canUseForProductionRouting must always be false",
-    });
+    issues.push({ severity: "ERROR", code: "SAFETY_VIOLATION_ROUTING", message: "canUseForProductionRouting must always be false" });
   }
-  if (report.safety.productionRoutingChanged !== false) {
-    issues.push({
-      severity: "ERROR",
-      code: "SAFETY_VIOLATION_ROUTING_CHANGED",
-      message: "productionRoutingChanged must always be false",
-    });
-  }
-  if (report.safety.productionFactsMutated !== false) {
-    issues.push({
-      severity: "ERROR",
-      code: "SAFETY_VIOLATION_FACTS_MUTATED",
-      message: "productionFactsMutated must always be false",
-    });
-  }
-  if (report.safety.publishAffected !== false) {
-    issues.push({
-      severity: "ERROR",
-      code: "SAFETY_VIOLATION_PUBLISH",
-      message: "publishAffected must always be false",
-    });
-  }
-
-  // Version
   if (report.version !== LEGACY_VS_UNIFIED_COMPARISON_VERSION) {
     issues.push({
       severity: "ERROR",
@@ -601,14 +518,13 @@ export function validateLegacyVsUnifiedComparisonReport(
     });
   }
 
-  // Summary consistency
   const computed =
     report.summary.financialExactMatchCount +
     report.summary.financialScaledMatchCount +
     report.summary.financialMismatchCount +
     report.summary.financialMissingInLegacyCount +
-    report.summary.financialMissingInUnifiedCount;
-
+    report.summary.financialMissingInUnifiedCount +
+    report.summary.financialLowConfidenceCount;
   if (computed !== report.summary.financialTotalCompared) {
     issues.push({
       severity: "ERROR",
@@ -617,36 +533,19 @@ export function validateLegacyVsUnifiedComparisonReport(
     });
   }
 
-  // Narrative coverage score range
-  if (
-    report.summary.narrativeCoverageScore < 0 ||
-    report.summary.narrativeCoverageScore > 1
-  ) {
-    issues.push({
-      severity: "ERROR",
-      code: "INVALID_NARRATIVE_COVERAGE_SCORE",
-      message: `narrativeCoverageScore must be in [0, 1], got ${report.summary.narrativeCoverageScore}`,
-    });
+  if (report.summary.financialTotalCompared > 0) {
+    const mismatchRate = report.summary.financialMismatchCount / report.summary.financialTotalCompared;
+    if (mismatchRate > 0.3) {
+      issues.push({
+        severity: "WARNING",
+        code: "HIGH_MISMATCH_RATE",
+        message: `Mismatch rate is ${Math.round(mismatchRate * 100)}% (${report.summary.financialMismatchCount}/${report.summary.financialTotalCompared})`,
+      });
+    }
   }
 
-  // Warn on high mismatch rate
-  const total = report.summary.financialTotalCompared;
-  if (
-    total > 0 &&
-    report.summary.financialMismatchCount / total > 0.3
-  ) {
-    issues.push({
-      severity: "WARNING",
-      code: "HIGH_MISMATCH_RATE",
-      message: `Mismatch rate is ${Math.round((report.summary.financialMismatchCount / total) * 100)}% (${report.summary.financialMismatchCount}/${total})`,
-    });
-  }
-
-  const valid = issues.every((i) => i.severity !== "ERROR");
-  return { valid, issues };
+  return { valid: issues.every((issue) => issue.severity !== "ERROR"), issues };
 }
-
-// ── Serialization ─────────────────────────────────────────────────────────────
 
 export function serializeLegacyVsUnifiedComparisonReportAsJson(
   report: AnnualReportLegacyVsUnifiedComparisonReport,

@@ -1,5 +1,9 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+
 import { z } from "zod";
 
+import type { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
 import type { PreflightResult } from "@/integrations/brreg/annual-report-financials/types";
 import { buildUnifiedExtractionConfidenceGateReport } from "@/server/services/annual-report-unified-extraction-confidence-gate-service";
@@ -19,6 +23,12 @@ import type {
 import type { AnnualReportUnifiedShadowMode } from "@/server/services/annual-report-unified-shadow-config";
 import { LocalAnnualReportArtifactStorage } from "@/server/financials/artifact-storage";
 import { getAnnualReportFilingWithArtifacts } from "@/server/persistence/annual-report-ingestion-repository";
+import {
+  loadPersistedLegacyCandidatesForFiling,
+  type LegacyCandidateClassification,
+  type LoadedLegacyCandidateSet,
+} from "@/server/services/annual-report-legacy-candidate-service";
+import { resolveAnnualReportArtifactForFiling } from "@/server/services/annual-report-filing-artifact-resolver";
 
 const manifestEntrySchema = z.object({
   filingId: z.string().min(1),
@@ -27,6 +37,7 @@ const manifestEntrySchema = z.object({
   label: z.string().min(1).optional(),
   tagHints: z.array(z.string().min(1)).default([]),
   notes: z.string().min(1).optional(),
+  legacyFixturePath: z.string().min(1).optional(),
 });
 
 const manifestSchema = z.object({
@@ -52,6 +63,20 @@ export type AnnualReportUnifiedConfidenceBatchCaseResult = {
   errors: string[];
   warnings: string[];
   durationMs: number;
+  legacyCandidateSet: {
+    classification: LegacyCandidateClassification;
+    candidateCount: number;
+    provenance: LoadedLegacyCandidateSet["provenance"];
+    diagnostics: LoadedLegacyCandidateSet["diagnostics"];
+    preview: Array<{
+      metricKey: string;
+      fiscalYear: number;
+      value: number;
+      unitScale: number;
+      sourceSection: string;
+      confidenceScore: number;
+    }>;
+  };
   shadow: {
     mode: "DISABLED" | "DRY_RUN" | "PERSIST_ARTIFACTS";
     skipped: boolean;
@@ -104,6 +129,7 @@ export type AnnualReportUnifiedConfidenceBatchRun = {
     persistConfidenceGateArtifacts: boolean;
     limit: number | null;
   };
+  candidateCounts: Record<LegacyCandidateClassification, number>;
   cases: AnnualReportUnifiedConfidenceBatchCaseResult[];
   summary: {
     totalCases: number;
@@ -144,6 +170,8 @@ export type AnnualReportUnifiedConfidenceBatchDeps = {
     report: UnifiedExtractionConfidenceGateReport;
     sourceCommand?: string | null;
   }) => Promise<UnifiedExtractionArtifactResult>;
+  loadLegacyCandidates?: (filing: FilingRecord) => Promise<LoadedLegacyCandidateSet>;
+  loadFixtureLegacyCandidates?: (fixturePath: string) => Promise<CanonicalFactCandidate[]>;
 };
 
 const artifactStorage = new LocalAnnualReportArtifactStorage();
@@ -202,6 +230,17 @@ function artifactResultsToRecord(result: AnnualReportUnifiedShadowResult["artifa
   }
 
   return Object.keys(output).length > 0 ? output : undefined;
+}
+
+function buildLegacyCandidatePreview(candidates: CanonicalFactCandidate[]) {
+  return candidates.slice(0, 10).map((candidate) => ({
+    metricKey: String(candidate.metricKey),
+    fiscalYear: candidate.fiscalYear,
+    value: candidate.value,
+    unitScale: candidate.unitScale,
+    sourceSection: candidate.sourceSection,
+    confidenceScore: candidate.confidenceScore,
+  }));
 }
 
 function buildShadowSummary(result: AnnualReportUnifiedShadowResult) {
@@ -331,6 +370,12 @@ export function summarizeAnnualReportUnifiedConfidenceBatch(
   };
 }
 
+async function defaultLoadFixtureLegacyCandidates(fixturePath: string) {
+  const absolutePath = path.resolve(process.cwd(), fixturePath);
+  const raw = await fs.readFile(absolutePath, "utf8");
+  return JSON.parse(raw) as CanonicalFactCandidate[];
+}
+
 export async function runAnnualReportUnifiedConfidenceBatch(
   input: AnnualReportUnifiedConfidenceBatchInput,
   deps: AnnualReportUnifiedConfidenceBatchDeps = {},
@@ -351,9 +396,18 @@ export async function runAnnualReportUnifiedConfidenceBatch(
   const buildGateReport = deps.buildGateReport ?? buildUnifiedExtractionConfidenceGateReport;
   const persistGateArtifact =
     deps.persistConfidenceGateArtifact ?? persistUnifiedExtractionConfidenceGateArtifact;
+  const loadLegacyCandidates = deps.loadLegacyCandidates ?? loadPersistedLegacyCandidatesForFiling;
+  const loadFixtureLegacyCandidates =
+    deps.loadFixtureLegacyCandidates ?? defaultLoadFixtureLegacyCandidates;
 
   const entries = limit === null ? manifest.entries : manifest.entries.slice(0, limit);
   const cases: AnnualReportUnifiedConfidenceBatchCaseResult[] = [];
+  const candidateCounts: AnnualReportUnifiedConfidenceBatchRun["candidateCounts"] = {
+    real_legacy_candidate: 0,
+    fixture_candidate: 0,
+    unavailable_candidate: 0,
+    malformed_candidate: 0,
+  };
 
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index]!;
@@ -380,12 +434,108 @@ export async function runAnnualReportUnifiedConfidenceBatch(
     const companyName = filing?.company.name ?? null;
     const fiscalYear = filing?.fiscalYear ?? entry.fiscalYear ?? null;
     const label = toCaseLabel(entry, filing);
+    let legacyCandidateSet: LoadedLegacyCandidateSet = {
+      classification: "unavailable_candidate",
+      candidates: [],
+      provenance: {
+        orgNumber: orgNumber ?? "unknown",
+        filingId: entry.filingId,
+        fiscalYear: fiscalYear ?? 0,
+        filingReportId: null,
+        sourceDocumentReference: null,
+        sourceArtifactReference: null,
+        extractionRoute: null,
+        evidenceType: "fallback",
+        extractionTimestamp: null,
+        artifactTimestamp: null,
+        sourceRunId: null,
+        source: "published_snapshot",
+        lookupDiagnostics: [],
+      },
+      diagnostics: [
+        {
+          code: "LEGACY_FACTS_MISSING",
+          message: "Legacy candidate loading did not run because the filing could not be loaded.",
+        },
+      ],
+    };
 
     let gateReport: UnifiedExtractionConfidenceGateReport | null = null;
 
     if (status !== "error" && filing !== null) {
-      const pdfArtifact = filing.artifacts.find((artifact) => artifact.artifactType === "PDF");
-      if (!pdfArtifact) {
+      if (entry.legacyFixturePath) {
+        try {
+          const fixtureCandidates = await loadFixtureLegacyCandidates(entry.legacyFixturePath);
+          legacyCandidateSet = {
+            classification: "fixture_candidate",
+            candidates: fixtureCandidates,
+            provenance: {
+              orgNumber: filing.company.orgNumber,
+              filingId: filing.id,
+              fiscalYear: filing.fiscalYear,
+              filingReportId: filing.sourceIdempotencyKey,
+              sourceDocumentReference: entry.legacyFixturePath,
+              sourceArtifactReference: entry.legacyFixturePath,
+              extractionRoute: "fixture/json",
+              evidenceType: "fixture_only",
+              extractionTimestamp: null,
+              artifactTimestamp: null,
+              sourceRunId: null,
+              source: "fixture",
+              lookupDiagnostics: [],
+            },
+            diagnostics: [
+              {
+                code: "LEGACY_FIXTURE_USED",
+                message: `Loaded fixture legacy candidates from ${entry.legacyFixturePath}.`,
+              },
+            ],
+          };
+        } catch (error) {
+          legacyCandidateSet = {
+            classification: "malformed_candidate",
+            candidates: [],
+            provenance: {
+              orgNumber: filing.company.orgNumber,
+              filingId: filing.id,
+              fiscalYear: filing.fiscalYear,
+              filingReportId: filing.sourceIdempotencyKey,
+              sourceDocumentReference: entry.legacyFixturePath,
+              sourceArtifactReference: entry.legacyFixturePath,
+              extractionRoute: "fixture/json",
+              evidenceType: "fixture_only",
+              extractionTimestamp: null,
+              artifactTimestamp: null,
+              sourceRunId: null,
+              source: "fixture",
+              lookupDiagnostics: [],
+            },
+            diagnostics: [
+              {
+                code: "LEGACY_FACTS_MALFORMED",
+                message:
+                  error instanceof Error
+                    ? `Legacy fixture could not be parsed: ${error.message}`
+                    : `Legacy fixture could not be parsed: ${String(error)}`,
+              },
+            ],
+          };
+        }
+      } else {
+        legacyCandidateSet = await loadLegacyCandidates(filing);
+      }
+
+      const pdfLookup = resolveAnnualReportArtifactForFiling(filing, filing.artifacts, "PDF");
+      const pdfArtifact = pdfLookup.artifact;
+      warnings.push(...pdfLookup.diagnostics.map((diagnostic) => diagnostic.message));
+
+      if (legacyCandidateSet.classification === "unavailable_candidate") {
+        status = "skipped";
+        warnings.push(...legacyCandidateSet.diagnostics.map((diagnostic) => diagnostic.message));
+      } else if (legacyCandidateSet.classification === "malformed_candidate") {
+        status = "skipped";
+        errors.push(...legacyCandidateSet.diagnostics.map((diagnostic) => diagnostic.message));
+      } else if (!pdfArtifact) {
         status = "skipped";
         warnings.push("No PDF artifact found for filing; shadow batch case skipped.");
       } else {
@@ -397,7 +547,7 @@ export async function runAnnualReportUnifiedConfidenceBatch(
             orgNumber: filing.company.orgNumber,
             fiscalYear: filing.fiscalYear,
             preflight,
-            legacyCandidates: [],
+            legacyCandidates: legacyCandidateSet.candidates,
             config: {
               mode,
               persistUnifiedParserDocument: persistShadowArtifacts && mode === "PERSIST_ARTIFACTS",
@@ -418,6 +568,8 @@ export async function runAnnualReportUnifiedConfidenceBatch(
         }
       }
     }
+
+    candidateCounts[legacyCandidateSet.classification] += 1;
 
     try {
       gateReport = buildGateReport({
@@ -472,6 +624,13 @@ export async function runAnnualReportUnifiedConfidenceBatch(
       errors,
       warnings,
       durationMs: elapsed(caseStart),
+      legacyCandidateSet: {
+        classification: legacyCandidateSet.classification,
+        candidateCount: legacyCandidateSet.candidates.length,
+        provenance: legacyCandidateSet.provenance,
+        diagnostics: legacyCandidateSet.diagnostics,
+        preview: buildLegacyCandidatePreview(legacyCandidateSet.candidates),
+      },
       shadow:
         shadowResult === null
           ? null
@@ -521,6 +680,7 @@ export async function runAnnualReportUnifiedConfidenceBatch(
       persistConfidenceGateArtifacts,
       limit,
     },
+    candidateCounts,
     cases,
     summary: summarizeAnnualReportUnifiedConfidenceBatch(cases, elapsed(overallStart)),
   };
