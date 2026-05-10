@@ -487,7 +487,7 @@ function comparisonMismatchSeverity(
   if (match === "MISSING_IN_LEGACY" || match === "MISSING_IN_UNIFIED") {
     return "MISSING";
   }
-  if (match === "MISMATCH") {
+  if (match === "CONFLICTING_VALUES") {
     return relativeDeviation !== null && relativeDeviation >= 0.5 ? "MAJOR" : "MINOR";
   }
   return "UNKNOWN";
@@ -539,7 +539,7 @@ function parseComparisonArtifact(
   }));
   const mismatches = financialComparisons
     .filter((comparison) =>
-      comparison.match === "MISMATCH" ||
+      comparison.match === "CONFLICTING_VALUES" ||
       comparison.match === "MISSING_IN_LEGACY" ||
       comparison.match === "MISSING_IN_UNIFIED",
     )

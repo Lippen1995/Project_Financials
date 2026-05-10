@@ -643,6 +643,30 @@ Kjør batchen:
 npm run financials:run-shadow-batch -- --manifest=output/benchmarks/annual-report-shadow-batches/selected-manifest.json
 ```
 
+Unified confidence-batchen for legacy-vs-unified shadow-evaluering bruker nå persisted legacy-kandidater per filing når de finnes. Batchen skiller eksplisitt mellom:
+
+- `real_legacy_candidate`
+- `fixture_candidate`
+- `unavailable_candidate`
+- `malformed_candidate`
+
+og hver case inkluderer provenance for orgnummer, filing-id, dokumentreferanse, extraction route, evidenstype og extraction/artifact-tidspunkt i JSON-output.
+
+Kjør unified confidence-batch:
+
+```bash
+npm run run:annual-report-unified-confidence-batch -- --manifest=...
+```
+
+For go-live-forberedelse finnes det nå også en egen gold-set-manifestflyt:
+
+```bash
+npm run financials:generate-gold-set
+npm run financials:run-gold-set-shadow-batch -- --manifest=output/benchmarks/annual-report-gold-set/gold-set.json
+```
+
+Gold-set-manifestet validerer tag-dekning, duplicate filing/org-year og evidenskvalitet. Shadow-runen persisterer sammenlignbare JSON/Markdown-snapshots med manifest-hash, git commit, route-konfigurasjon, per-filing-resultater og manuell review-kandidatliste.
+
 Oppsummer siste kjøring:
 
 ```bash

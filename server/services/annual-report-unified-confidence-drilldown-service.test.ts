@@ -335,6 +335,10 @@ function makeComparisonPayload(): AnnualReportLegacyVsUnifiedComparisonReport {
         deltaNok: "0",
         match: "EXACT",
         relativeDeviation: 0,
+        legacyLabel: "Sum driftsinntekter",
+        unifiedLabel: "Sum driftsinntekter",
+        legacyUnitScale: 1,
+        unifiedUnitScale: "ONES",
       },
       {
         canonicalKey: "net_income",
@@ -342,8 +346,12 @@ function makeComparisonPayload(): AnnualReportLegacyVsUnifiedComparisonReport {
         legacyValueNok: "200000",
         unifiedValueNok: "250000",
         deltaNok: "50000",
-        match: "MISMATCH",
+        match: "CONFLICTING_VALUES",
         relativeDeviation: 0.25,
+        legacyLabel: "Årsresultat",
+        unifiedLabel: "Årsresultat",
+        legacyUnitScale: 1,
+        unifiedUnitScale: "ONES",
       },
     ],
     narrativeComparisons: [
@@ -361,6 +369,7 @@ function makeComparisonPayload(): AnnualReportLegacyVsUnifiedComparisonReport {
       financialMismatchCount: 1,
       financialMissingInLegacyCount: 0,
       financialMissingInUnifiedCount: 0,
+      financialLowConfidenceCount: 0,
       financialTotalCompared: 2,
       narrativeBoardReportCovered: false,
       narrativeAuditorReportCovered: true,
@@ -515,6 +524,10 @@ describe("annual-report-unified-confidence-drilldown-service", () => {
       deltaNok: null,
       match: "MISSING_IN_LEGACY",
       relativeDeviation: null,
+      legacyLabel: null,
+      unifiedLabel: "Sum eiendeler",
+      legacyUnitScale: null,
+      unifiedUnitScale: "ONES",
     });
 
     const drilldown = await getUnifiedConfidenceFilingDrilldownForAdmin("filing-1", {

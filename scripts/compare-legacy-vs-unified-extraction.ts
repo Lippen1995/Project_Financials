@@ -159,7 +159,7 @@ function main() {
   console.log(`    ${"Coverage score".padEnd(28)} : ${(s.narrativeCoverageScore * 100).toFixed(0)}%`);
 
   // Show mismatches
-  const mismatches = result.financialComparisons.filter((c) => c.match === "MISMATCH");
+  const mismatches = result.financialComparisons.filter((c) => c.match === "CONFLICTING_VALUES");
   if (mismatches.length > 0) {
     console.log(`\n  Mismatches (first 10):`);
     for (const m of mismatches.slice(0, 10)) {

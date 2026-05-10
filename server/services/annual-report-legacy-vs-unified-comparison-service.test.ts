@@ -223,7 +223,7 @@ describe("compareAnnualReportLegacyVsUnifiedExtraction — exact match", () => {
     };
     const result = compareAnnualReportLegacyVsUnifiedExtraction(input);
     const comp = result.financialComparisons.find((c) => c.canonicalKey === "revenue");
-    expect(comp!.match).toBe("EXACT");
+    expect(comp!.match).toBe("UNIT_SCALE_ADJUSTED");
     expect(comp!.legacyValueNok).toBe("5000000");
     expect(comp!.unifiedValueNok).toBe("5000000");
   });
@@ -232,7 +232,7 @@ describe("compareAnnualReportLegacyVsUnifiedExtraction — exact match", () => {
 // ── Financial comparison — scaled match ──────────────────────────────────────
 
 describe("compareAnnualReportLegacyVsUnifiedExtraction — scaled match", () => {
-  it("reports SCALED when values differ by less than 1%", () => {
+  it("reports TOLERANCE when values differ by less than 1%", () => {
     // Legacy: 5000 thousands = 5,000,000 ones
     // Unified: 5001 thousands = 5,001,000 ones → deviation = 1000/5000000 = 0.02% < 1%
     const input: AnnualReportLegacyVsUnifiedComparisonInput = {
@@ -243,14 +243,14 @@ describe("compareAnnualReportLegacyVsUnifiedExtraction — scaled match", () => 
     };
     const result = compareAnnualReportLegacyVsUnifiedExtraction(input);
     const comp = result.financialComparisons.find((c) => c.canonicalKey === "revenue");
-    expect(comp!.match).toBe("SCALED");
+    expect(comp!.match).toBe("TOLERANCE");
   });
 });
 
 // ── Financial comparison — mismatch ──────────────────────────────────────────
 
 describe("compareAnnualReportLegacyVsUnifiedExtraction — mismatch", () => {
-  it("reports MISMATCH when values differ significantly", () => {
+  it("reports CONFLICTING_VALUES when values differ significantly", () => {
     const input: AnnualReportLegacyVsUnifiedComparisonInput = {
       legacyCandidates: [makeCandidate("revenue", 5000, 2024, 1000)],
       unifiedFinancial: makeUnifiedFinancial([
@@ -259,8 +259,34 @@ describe("compareAnnualReportLegacyVsUnifiedExtraction — mismatch", () => {
     };
     const result = compareAnnualReportLegacyVsUnifiedExtraction(input);
     const comp = result.financialComparisons.find((c) => c.canonicalKey === "revenue");
-    expect(comp!.match).toBe("MISMATCH");
+    expect(comp!.match).toBe("CONFLICTING_VALUES");
     expect(comp!.relativeDeviation).toBeGreaterThan(0.3);
+  });
+
+  it("reports LABEL_MAPPED for common Norwegian label variants when canonical key is absent", () => {
+    const input: AnnualReportLegacyVsUnifiedComparisonInput = {
+      legacyCandidates: [makeCandidate("revenue", 5000, 2024, 1000)],
+      unifiedFinancial: makeUnifiedFinancial([
+        { canonicalKey: null as never, value: "5000", year: 2024, unitScale: "THOUSANDS" },
+      ]),
+    };
+    input.unifiedFinancial!.statements[0]!.lineItems[0]!.originalLabel = "Sum driftsinntekter";
+    input.unifiedFinancial!.statements[0]!.lineItems[0]!.normalizedLabel = "sum driftsinntekter";
+
+    const result = compareAnnualReportLegacyVsUnifiedExtraction(input);
+    expect(result.financialComparisons[0]?.match).toBe("LABEL_MAPPED");
+  });
+
+  it("reports LOW_CONFIDENCE_AMBIGUOUS when unified unit scale is unknown", () => {
+    const input: AnnualReportLegacyVsUnifiedComparisonInput = {
+      legacyCandidates: [makeCandidate("net_income", 500, 2024, 1000)],
+      unifiedFinancial: makeUnifiedFinancial([
+        { canonicalKey: "net_income", value: "(500)", year: 2024, unitScale: "UNKNOWN" },
+      ]),
+    };
+
+    const result = compareAnnualReportLegacyVsUnifiedExtraction(input);
+    expect(result.financialComparisons[0]?.match).toBe("LOW_CONFIDENCE_AMBIGUOUS");
   });
 });
 

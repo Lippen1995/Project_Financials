@@ -9,6 +9,7 @@ import {
   type AnnualReportUnifiedConfidenceBatchCaseResult,
   type AnnualReportUnifiedConfidenceBatchManifest,
 } from "@/server/benchmarking/annual-report-unified-confidence-batch";
+import type { LoadedLegacyCandidateSet } from "@/server/services/annual-report-legacy-candidate-service";
 
 type BatchDeps = NonNullable<Parameters<typeof runAnnualReportUnifiedConfidenceBatch>[1]>;
 type LoadFiling = NonNullable<BatchDeps["loadFiling"]>;
@@ -249,24 +250,26 @@ function makeFiling(
     artifacts?: Array<Partial<FilingRecord["artifacts"][number]>>;
   } = {},
 ): FilingRecord {
+  const { artifacts: overrideArtifacts, ...restOverrides } = overrides;
+  const defaultFilingId = overrides.id ?? "filing-1";
   const baseArtifacts =
-    overrides.artifacts?.map((artifact, index) => ({
+    overrideArtifacts?.map((artifact, index) => ({
       id: artifact.id ?? `artifact-${index + 1}`,
       createdAt: artifact.createdAt ?? new Date("2026-05-09T00:00:00.000Z"),
-      filingId: artifact.filingId ?? "filing-1",
+      filingId: artifact.filingId ?? defaultFilingId,
       metadata: artifact.metadata ?? {},
       artifactType: artifact.artifactType ?? "PDF",
-      storageKey: artifact.storageKey ?? "filing-1.pdf",
+      storageKey: artifact.storageKey ?? `${defaultFilingId}.pdf`,
       checksum: artifact.checksum ?? "checksum",
       mimeType: artifact.mimeType ?? "application/pdf",
     })) ?? [
       {
         id: "artifact-1",
         createdAt: new Date("2026-05-09T00:00:00.000Z"),
-        filingId: "filing-1",
+        filingId: defaultFilingId,
         metadata: {},
         artifactType: "PDF",
-        storageKey: "filing-1.pdf",
+        storageKey: `${defaultFilingId}.pdf`,
         checksum: "checksum",
         mimeType: "application/pdf",
       },
@@ -279,7 +282,7 @@ function makeFiling(
     artifacts: baseArtifacts,
     extractionRuns: [],
     reviews: [],
-    ...overrides,
+    ...restOverrides,
   } as unknown as FilingRecord;
 }
 
@@ -345,6 +348,36 @@ function makeCase(
     errors: [],
     warnings: [],
     durationMs: 10,
+    legacyCandidateSet: {
+      classification: "real_legacy_candidate",
+      candidateCount: 1,
+      provenance: {
+        orgNumber: "123456789",
+        filingId: "filing-1",
+        fiscalYear: 2024,
+        filingReportId: "report-1",
+        sourceDocumentReference: "filing-1.pdf",
+        sourceArtifactReference: "filing-1-extraction.json",
+        extractionRoute: "LEGACY/local",
+        evidenceType: "persisted_artifact",
+        extractionTimestamp: "2026-05-09T00:00:00.000Z",
+        artifactTimestamp: "2026-05-09T00:00:00.000Z",
+        sourceRunId: "run-1",
+        source: "financial_facts",
+        lookupDiagnostics: [],
+      },
+      diagnostics: [],
+      preview: [
+        {
+          metricKey: "revenue",
+          fiscalYear: 2024,
+          value: 1000,
+          unitScale: 1,
+          sourceSection: "STATUTORY_INCOME",
+          confidenceScore: 0.9,
+        },
+      ],
+    },
     shadow: {
       mode: "DRY_RUN",
       skipped: false,
@@ -384,6 +417,50 @@ function makeCase(
       productionFactsMutated: false,
       publishAffected: false,
     },
+    ...overrides,
+  };
+}
+
+function makeLegacyCandidateSet(
+  overrides: Partial<LoadedLegacyCandidateSet> = {},
+): LoadedLegacyCandidateSet {
+  return {
+    classification: "real_legacy_candidate",
+    candidates: [
+      {
+        fiscalYear: 2024,
+        statementType: "INCOME_STATEMENT",
+        metricKey: "revenue",
+        rawLabel: "Sum driftsinntekter",
+        normalizedLabel: "sum driftsinntekter",
+        value: 1000,
+        currency: "NOK",
+        unitScale: 1,
+        sourcePage: 1,
+        sourceSection: "STATUTORY_INCOME",
+        sourceRowText: "Sum driftsinntekter 1 000",
+        noteReference: null,
+        confidenceScore: 0.9,
+        precedence: "STATUTORY_NOK",
+        isDerived: false,
+      },
+    ],
+    provenance: {
+      orgNumber: "123456789",
+      filingId: "filing-1",
+      fiscalYear: 2024,
+      filingReportId: "report-1",
+      sourceDocumentReference: "filing-1.pdf",
+      sourceArtifactReference: "filing-1-extraction.json",
+      extractionRoute: "LEGACY/local",
+      evidenceType: "persisted_artifact",
+      extractionTimestamp: "2026-05-09T00:00:00.000Z",
+      artifactTimestamp: "2026-05-09T00:00:00.000Z",
+      sourceRunId: "run-1",
+      source: "financial_facts",
+      lookupDiagnostics: [],
+    },
+    diagnostics: [],
     ...overrides,
   };
 }
@@ -454,6 +531,7 @@ describe("annual-report-unified-confidence-batch", () => {
       },
       {
         loadFiling: vi.fn(async () => makeFiling({ artifacts: [] })),
+        loadLegacyCandidates: vi.fn(async () => makeLegacyCandidateSet()),
       },
     );
 
@@ -481,6 +559,7 @@ describe("annual-report-unified-confidence-batch", () => {
       {
         loadFiling,
         loadPdfArtifactBuffer: vi.fn(async () => Buffer.from("pdf")),
+        loadLegacyCandidates: vi.fn(async () => makeLegacyCandidateSet()),
         preflight: vi.fn(async () => makePreflight()),
         runShadowExtraction,
       },
@@ -501,6 +580,7 @@ describe("annual-report-unified-confidence-batch", () => {
       {
         loadFiling: vi.fn(async () => makeFiling()),
         loadPdfArtifactBuffer: vi.fn(async () => Buffer.from("pdf")),
+        loadLegacyCandidates: vi.fn(async () => makeLegacyCandidateSet()),
         preflight: vi.fn(async () => makePreflight()),
         runShadowExtraction: vi.fn(async () =>
           makeBaseShadowResult({
@@ -532,6 +612,7 @@ describe("annual-report-unified-confidence-batch", () => {
       {
         loadFiling: vi.fn(async () => makeFiling()),
         loadPdfArtifactBuffer: vi.fn(async () => Buffer.from("pdf")),
+        loadLegacyCandidates: vi.fn(async () => makeLegacyCandidateSet()),
         preflight: vi.fn(async () => makePreflight()),
         runShadowExtraction: vi.fn(async () => makeBaseShadowResult()),
         persistConfidenceGateArtifact,
@@ -558,6 +639,7 @@ describe("annual-report-unified-confidence-batch", () => {
       {
         loadFiling: vi.fn(async () => makeFiling()),
         loadPdfArtifactBuffer: vi.fn(async () => Buffer.from("pdf")),
+        loadLegacyCandidates: vi.fn(async () => makeLegacyCandidateSet()),
         preflight: vi.fn(async () => makePreflight()),
         runShadowExtraction: vi.fn(async () => makeBaseShadowResult({ mode: "PERSIST_ARTIFACTS" })),
         persistConfidenceGateArtifact,
@@ -575,6 +657,7 @@ describe("annual-report-unified-confidence-batch", () => {
       {
         loadFiling: vi.fn(async () => makeFiling()),
         loadPdfArtifactBuffer: vi.fn(async () => Buffer.from("pdf")),
+        loadLegacyCandidates: vi.fn(async () => makeLegacyCandidateSet()),
         preflight: vi.fn(async () => makePreflight()),
         runShadowExtraction: vi.fn(async () => makeBaseShadowResult()),
       },
@@ -608,8 +691,12 @@ describe("annual-report-unified-confidence-batch", () => {
             legacyValueNok: "1000",
             unifiedValueNok: "100",
             deltaNok: "-900",
-            match: "MISMATCH",
+            match: "CONFLICTING_VALUES",
             relativeDeviation: 0.9,
+            legacyLabel: "Sum driftsinntekter",
+            unifiedLabel: "Sum driftsinntekter",
+            legacyUnitScale: 1,
+            unifiedUnitScale: "ONES",
           },
         ],
         summary: {
@@ -634,6 +721,7 @@ describe("annual-report-unified-confidence-batch", () => {
           }),
         ),
         loadPdfArtifactBuffer: vi.fn(async () => Buffer.from("pdf")),
+        loadLegacyCandidates: vi.fn(async () => makeLegacyCandidateSet()),
         preflight: vi.fn(async () => makePreflight()),
         runShadowExtraction: vi
           .fn()
@@ -648,5 +736,55 @@ describe("annual-report-unified-confidence-batch", () => {
     expect(
       result.summary.mostCommonFailingChecks.some((check) => check.checkCode === "FINANCIAL_EXTRACTION_PRESENT"),
     ).toBe(true);
+  });
+
+  it("passes real persisted legacy candidates to the shadow runner and surfaces provenance", async () => {
+    const loadLegacyCandidates = vi.fn(async () => makeLegacyCandidateSet());
+    const runShadowExtraction = vi.fn(async () => makeBaseShadowResult());
+
+    const result = await runAnnualReportUnifiedConfidenceBatch(
+      { manifest: makeManifest([{ filingId: "filing-1" }]) },
+      {
+        loadFiling: vi.fn(async () => makeFiling()),
+        loadLegacyCandidates,
+        loadPdfArtifactBuffer: vi.fn(async () => Buffer.from("pdf")),
+        preflight: vi.fn(async () => makePreflight()),
+        runShadowExtraction,
+      },
+    );
+
+    expect(loadLegacyCandidates).toHaveBeenCalledTimes(1);
+    const shadowCalls = runShadowExtraction.mock.calls as unknown as Array<
+      [{ legacyCandidates?: unknown[] }]
+    >;
+    const shadowCall = shadowCalls[0]?.[0];
+    expect(shadowCall?.legacyCandidates).toHaveLength(1);
+    expect(result.cases[0]?.legacyCandidateSet.classification).toBe("real_legacy_candidate");
+    expect(result.cases[0]?.legacyCandidateSet.provenance.extractionRoute).toBe("LEGACY/local");
+  });
+
+  it("marks unavailable legacy candidates as skipped instead of failing the batch", async () => {
+    const result = await runAnnualReportUnifiedConfidenceBatch(
+      { manifest: makeManifest([{ filingId: "filing-1" }]) },
+      {
+        loadFiling: vi.fn(async () => makeFiling()),
+        loadLegacyCandidates: vi.fn(async () =>
+          makeLegacyCandidateSet({
+            classification: "unavailable_candidate",
+            candidates: [],
+            diagnostics: [
+              {
+                code: "LEGACY_FACTS_MISSING",
+                message: "No persisted legacy extraction facts were available.",
+              },
+            ],
+          }),
+        ),
+      },
+    );
+
+    expect(result.cases[0]?.status).toBe("skipped");
+    expect(result.cases[0]?.legacyCandidateSet.classification).toBe("unavailable_candidate");
+    expect(result.cases[0]?.gateSummary.overallVerdict).toBe("INSUFFICIENT_DATA");
   });
 });
