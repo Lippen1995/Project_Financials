@@ -4,6 +4,7 @@ import { IBM_Plex_Mono, IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
 
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { safeAuth } from "@/lib/auth";
+import { buildGlobalNavItems } from "@/lib/navigation";
 import { logoutAction } from "@/server/actions/auth-actions";
 
 import "./globals.css";
@@ -33,6 +34,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = await safeAuth();
+  const primaryNavItems = buildGlobalNavItems(session?.user);
 
   return (
     <html lang="nb">
@@ -51,24 +53,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 </div>
 
                 <nav className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-600">
-                  <Link href="/search" className="rounded-full px-3 py-2 hover:bg-white hover:text-slate-950">
-                    Søk
-                  </Link>
-                  <Link
-                    href="/market/distress"
-                    className="rounded-full px-3 py-2 hover:bg-white hover:text-slate-950"
-                  >
-                    Distress
-                  </Link>
-                  <Link
-                    href="/market/oil-gas"
-                    className="rounded-full px-3 py-2 hover:bg-white hover:text-slate-950"
-                  >
-                    Olje &amp; gass
-                  </Link>
-                  <Link href="/pricing" className="rounded-full px-3 py-2 hover:bg-white hover:text-slate-950">
-                    Tilgang
-                  </Link>
+                  {primaryNavItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href as never}
+                      className="rounded-full px-3 py-2 hover:bg-white hover:text-slate-950"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
                   {session?.user ? (
                     <>
                       <Link href="/dashboard" className="rounded-full px-3 py-2 hover:bg-white hover:text-slate-950">

@@ -19,6 +19,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center gap-3 text-xs font-medium uppercase tracking-widest text-slate-400">
+        <Link href={"/admin" as never} className="hover:text-slate-600">
+          Control Center
+        </Link>
+        <span>/</span>
         <Link href={"/admin/annual-report-reviews" as never} className="hover:text-slate-600">
           Annual report reviews
         </Link>
