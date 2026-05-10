@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { isFinancialReviewerRole, canAccessAdmin } from "@/lib/admin-access";
 import { prisma } from "@/lib/prisma";
 import { safeAuth } from "@/lib/auth";
 
@@ -66,6 +67,4 @@ export async function getFinancialReviewerOrNull(): Promise<AdminUser | null> {
   };
 }
 
-export function isFinancialReviewerRole(appRole: string | undefined): appRole is "ADMIN" | "FINANCIAL_REVIEWER" {
-  return appRole === "ADMIN" || appRole === "FINANCIAL_REVIEWER";
-}
+export { isFinancialReviewerRole, canAccessAdmin };
