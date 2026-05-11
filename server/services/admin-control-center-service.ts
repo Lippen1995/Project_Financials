@@ -5,6 +5,8 @@ import type { AnnualReportGoldSetShadowRun } from "@/server/benchmarking/annual-
 import type { AnnualReportManualReviewRound } from "@/server/services/annual-report-manual-review-round-service";
 import type { AnnualReportUnifiedConfidenceCalibrationReport } from "@/server/services/annual-report-unified-confidence-calibration-service";
 import { readLatestUnifiedConfidenceThresholdCalibrationReport } from "@/server/services/annual-report-unified-confidence-calibration-service";
+import type { AnnualReportUnifiedFailureTaxonomyReport } from "@/server/services/annual-report-unified-failure-taxonomy-service";
+import { readLatestAnnualReportUnifiedFailureTaxonomyReport } from "@/server/services/annual-report-unified-failure-taxonomy-service";
 import { resolveOpenDataLoaderConfig } from "@/server/document-understanding/opendataloader-config";
 import type { OpenDataLoaderRuntimeSummary } from "@/server/document-understanding/opendataloader-runtime";
 import { inspectOpenDataLoaderRuntime } from "@/server/document-understanding/opendataloader-runtime";
@@ -134,6 +136,7 @@ export type AdminControlCenterServiceDeps = {
   readLatestGoldSetRun?: () => Promise<AnnualReportGoldSetShadowRun | null>;
   readLatestManualReviewRound?: () => Promise<AnnualReportManualReviewRound | null>;
   readLatestCalibrationReport?: () => Promise<AnnualReportUnifiedConfidenceCalibrationReport | null>;
+  readLatestTaxonomyReport?: () => Promise<AnnualReportUnifiedFailureTaxonomyReport | null>;
   getShadowConfig?: typeof getAnnualReportUnifiedShadowConfigFromEnv;
   now?: () => Date;
 };
@@ -320,6 +323,7 @@ function buildAttentionItems(input: {
   latestGoldSetRun: AnnualReportGoldSetShadowRun | null;
   latestManualReviewRound: AnnualReportManualReviewRound | null;
   latestCalibrationReport: AnnualReportUnifiedConfidenceCalibrationReport | null;
+  latestTaxonomyReport: AnnualReportUnifiedFailureTaxonomyReport | null;
   incompleteCoverageCount: number;
   runtime: OpenDataLoaderRuntimeSummary | null;
   diagnostics: string[];
@@ -363,6 +367,19 @@ function buildAttentionItems(input: {
       severity: "HIGH",
       title: "Kalibreringen fant hÃ¸y-alvorlige PASS-saker",
       description: `${input.latestCalibrationReport?.metrics.highSeverityMissCount ?? 0} reviewed saker gikk gjennom som PASS selv om de burde vÃ¦rt stoppet eller sendt til review.`,
+    });
+  }
+
+  if ((input.latestTaxonomyReport?.summary.highSeverityIssueCount ?? 0) > 0) {
+    const topIssue = input.latestTaxonomyReport?.summary.issueClassCounts[0];
+    items.push({
+      key: "taxonomy-high-severity",
+      severity: "HIGH",
+      title: "Failure taxonomy viser høyrisiko-feil",
+      description: topIssue
+        ? `${input.latestTaxonomyReport?.summary.highSeverityIssueCount ?? 0} høyalvorlige taxonomy-funn er registrert. Største klasse er ${topIssue.issueClass}.`
+        : `${input.latestTaxonomyReport?.summary.highSeverityIssueCount ?? 0} høyalvorlige taxonomy-funn er registrert.`,
+      href: "/admin/pdf-parser-remediation",
     });
   }
 
@@ -958,6 +975,7 @@ function buildMainFlow(input: {
 function buildGoLiveFlow(input: {
   latestGoldSetRun: AnnualReportGoldSetShadowRun | null;
   latestCalibrationReport: AnnualReportUnifiedConfidenceCalibrationReport | null;
+  latestTaxonomyReport: AnnualReportUnifiedFailureTaxonomyReport | null;
   reviewQueueCount: number;
   runtime: OpenDataLoaderRuntimeSummary | null;
 }): AdminFlowSection {
@@ -986,6 +1004,22 @@ function buildGoLiveFlow(input: {
           : `${Math.round(input.latestCalibrationReport.metrics.manualReviewRate * 100)}%`
       }`
     : "Ingen kalibreringsrapport funnet";
+  const taxonomyStatus = input.latestTaxonomyReport
+    ? input.latestTaxonomyReport.summary.highSeverityIssueCount > 0
+      ? "WARNING"
+      : "HEALTHY"
+    : "NOT_STARTED";
+  const taxonomyTone =
+    taxonomyStatus === "HEALTHY"
+      ? "GREEN"
+      : taxonomyStatus === "WARNING"
+        ? "YELLOW"
+        : "BLUE";
+  const taxonomyMetric = input.latestTaxonomyReport
+    ? `Top issue class: ${
+        input.latestTaxonomyReport.summary.issueClassCounts[0]?.issueClass ?? "ingen"
+      }. High severity: ${input.latestTaxonomyReport.summary.highSeverityIssueCount}`
+    : "Ingen taxonomy-rapport funnet";
 
   return {
     title: "Veien mot go-live for ny ekstraksjonsmotor",
@@ -1096,9 +1130,9 @@ function buildGoLiveFlow(input: {
         stepNumber: 5,
         title: "Klassifiser feiltyper",
         subtitle: "Sorter feilene i tydelige kategorier slik at vi vet hva som mÃ¥ forbedres.",
-        status: "UNKNOWN",
-        tone: "BLUE",
-        metric: "Remediation-flate finnes, men ikke egen Ã¥rsrapportside",
+        status: taxonomyStatus,
+        tone: taxonomyTone,
+        metric: taxonomyMetric,
         href: "/admin/pdf-parser-remediation",
         linkLabel: "Ã…pne",
         helpSections: buildHelpSections([
@@ -1324,7 +1358,15 @@ export async function buildAdminControlCenterModel(
   const diagnostics: string[] = [];
   const now = deps.now?.() ?? new Date();
 
-  const [overview, confidenceList, runtime, latestGoldSetRun, latestManualReviewRound, latestCalibrationReport] = await Promise.all([
+  const [
+    overview,
+    confidenceList,
+    runtime,
+    latestGoldSetRun,
+    latestManualReviewRound,
+    latestCalibrationReport,
+    latestTaxonomyReport,
+  ] = await Promise.all([
     tryLoad(
       "annual-report overview",
       () => (deps.getOverview ?? getAnnualReportPipelineOverview)(),
@@ -1362,6 +1404,11 @@ export async function buildAdminControlCenterModel(
       () => (deps.readLatestCalibrationReport ?? readLatestUnifiedConfidenceThresholdCalibrationReport)(),
       diagnostics,
     ),
+    tryLoad(
+      "latest failure taxonomy report",
+      () => (deps.readLatestTaxonomyReport ?? readLatestAnnualReportUnifiedFailureTaxonomyReport)(),
+      diagnostics,
+    ),
   ]);
 
   const confidenceRows = confidenceList?.items ?? [];
@@ -1392,6 +1439,7 @@ export async function buildAdminControlCenterModel(
     latestGoldSetRun,
     latestManualReviewRound,
     latestCalibrationReport,
+    latestTaxonomyReport,
     incompleteCoverageCount,
     runtime,
     diagnostics,
@@ -1415,11 +1463,15 @@ export async function buildAdminControlCenterModel(
         : goldSetStatus === "WARNING"
           ? "PURPLE"
           : "GREEN";
-  const topIssueClassEntry = latestManualReviewRound
-    ? Object.entries(latestManualReviewRound.summary.issueClassCounts).sort(
+  const topIssueClassEntry = latestTaxonomyReport
+    ? latestTaxonomyReport.summary.issueClassCounts[0]
+      ? [latestTaxonomyReport.summary.issueClassCounts[0].issueClass, latestTaxonomyReport.summary.issueClassCounts[0].count] as const
+      : null
+    : latestManualReviewRound
+      ? Object.entries(latestManualReviewRound.summary.issueClassCounts).sort(
         (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
       )[0] ?? null
-    : null;
+      : null;
 
   return {
     title: "Admin Control Center",
@@ -1584,6 +1636,28 @@ export async function buildAdminControlCenterModel(
                 : "PURPLE",
       },
       {
+        key: "failure-taxonomy",
+        title: "Failure taxonomy",
+        value: latestTaxonomyReport?.summary.issueClassCounts[0]?.issueClass ?? "Ingen data funnet",
+        detail:
+          latestTaxonomyReport
+            ? `High severity issues: ${latestTaxonomyReport.summary.highSeverityIssueCount}. Report: ${latestTaxonomyReport.output.markdownPath}`
+            : "Ingen persisted failure taxonomy report er funnet ennå.",
+        status:
+          latestTaxonomyReport === null
+            ? "UNKNOWN"
+            : latestTaxonomyReport.summary.highSeverityIssueCount > 0
+              ? "WARNING"
+              : "HEALTHY",
+        tone:
+          latestTaxonomyReport === null
+            ? "BLUE"
+            : latestTaxonomyReport.summary.highSeverityIssueCount > 0
+              ? "YELLOW"
+              : "PURPLE",
+        href: "/admin/pdf-parser-remediation",
+      },
+      {
         key: "go-live-status",
         title: "Go-live status",
         value: goLiveValue,
@@ -1673,6 +1747,7 @@ export async function buildAdminControlCenterModel(
     goLiveFlow: buildGoLiveFlow({
       latestGoldSetRun,
       latestCalibrationReport,
+      latestTaxonomyReport,
       reviewQueueCount,
       runtime,
     }),
