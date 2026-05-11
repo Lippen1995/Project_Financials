@@ -1,4 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const authMocks = vi.hoisted(() => ({
+  safeAuth: vi.fn(),
+  getFinancialReviewerOrNull: vi.fn(),
+}));
 
 const redirectMock = vi.fn((target: string) => {
   throw new Error(`redirect:${target}`);
@@ -9,19 +16,22 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/auth", () => ({
-  safeAuth: vi.fn(),
+  safeAuth: authMocks.safeAuth,
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
-  getFinancialReviewerOrNull: vi.fn(),
+  getFinancialReviewerOrNull: authMocks.getFinancialReviewerOrNull,
 }));
 
 describe("app/admin/layout", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.resetAllMocks();
+  });
+
   it("redirects unauthenticated users to login", async () => {
-    const { safeAuth } = await import("@/lib/auth");
-    const { getFinancialReviewerOrNull } = await import("@/lib/admin-auth");
-    vi.mocked(safeAuth).mockResolvedValueOnce(null as never);
-    vi.mocked(getFinancialReviewerOrNull).mockResolvedValueOnce(null);
+    authMocks.safeAuth.mockResolvedValue(null);
+    authMocks.getFinancialReviewerOrNull.mockResolvedValue(null);
 
     const adminLayoutModule = await import("@/app/admin/layout");
 
@@ -29,17 +39,34 @@ describe("app/admin/layout", () => {
   });
 
   it("redirects authenticated non-admin users to dashboard", async () => {
-    const { safeAuth } = await import("@/lib/auth");
-    const { getFinancialReviewerOrNull } = await import("@/lib/admin-auth");
-    vi.mocked(safeAuth).mockResolvedValueOnce({
+    authMocks.safeAuth.mockResolvedValue({
       user: { id: "user-1", email: "user@example.com", appRole: "USER" },
-    } as never);
-    vi.mocked(getFinancialReviewerOrNull).mockResolvedValueOnce(null);
+    });
+    authMocks.getFinancialReviewerOrNull.mockResolvedValue(null);
 
     const adminLayoutModule = await import("@/app/admin/layout");
 
     await expect(adminLayoutModule.default({ children: null })).rejects.toThrow(
       "redirect:/dashboard",
     );
+  });
+
+  it("allows financial reviewers to access admin pages", async () => {
+    authMocks.safeAuth.mockResolvedValue({
+      user: { id: "user-1", email: "reviewer@example.com", appRole: "FINANCIAL_REVIEWER" },
+    });
+    authMocks.getFinancialReviewerOrNull.mockResolvedValue({
+      id: "user-1",
+      email: "reviewer@example.com",
+      appRole: "FINANCIAL_REVIEWER",
+    });
+
+    const adminLayoutModule = await import("@/app/admin/layout");
+    const html = renderToStaticMarkup(
+      await adminLayoutModule.default({ children: <div>admin child</div> }),
+    );
+
+    expect(html).toContain("admin child");
+    expect(html).toContain("Control Center");
   });
 });

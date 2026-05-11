@@ -2,10 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import type { AnnualReportGoldSetShadowRun } from "@/server/benchmarking/annual-report-gold-set-shadow-run";
+import type { AnnualReportManualReviewRound } from "@/server/services/annual-report-manual-review-round-service";
 import { resolveOpenDataLoaderConfig } from "@/server/document-understanding/opendataloader-config";
 import type { OpenDataLoaderRuntimeSummary } from "@/server/document-understanding/opendataloader-runtime";
 import { inspectOpenDataLoaderRuntime } from "@/server/document-understanding/opendataloader-runtime";
 import { getAnnualReportPipelineOverview } from "@/server/services/annual-report-financials-service";
+import { readLatestAnnualReportManualReviewRound } from "@/server/services/annual-report-manual-review-round-service";
 import { getAnnualReportUnifiedShadowConfigFromEnv } from "@/server/services/annual-report-unified-shadow-config";
 import {
   listUnifiedConfidenceGateResultsForAdmin,
@@ -128,6 +130,7 @@ export type AdminControlCenterServiceDeps = {
   listUnifiedConfidence?: typeof listUnifiedConfidenceGateResultsForAdmin;
   inspectRuntime?: typeof inspectOpenDataLoaderRuntime;
   readLatestGoldSetRun?: () => Promise<AnnualReportGoldSetShadowRun | null>;
+  readLatestManualReviewRound?: () => Promise<AnnualReportManualReviewRound | null>;
   getShadowConfig?: typeof getAnnualReportUnifiedShadowConfigFromEnv;
   now?: () => Date;
 };
@@ -312,6 +315,7 @@ function buildAttentionItems(input: {
   sampleReviewQueue: PipelineOverview["reviewQueue"];
   latestConfidence: UnifiedConfidenceAdminRow | null;
   latestGoldSetRun: AnnualReportGoldSetShadowRun | null;
+  latestManualReviewRound: AnnualReportManualReviewRound | null;
   incompleteCoverageCount: number;
   runtime: OpenDataLoaderRuntimeSummary | null;
   diagnostics: string[];
@@ -325,6 +329,26 @@ function buildAttentionItems(input: {
       severity: "HIGH",
       title: "Rapporter venter på manuell kontroll",
       description: `${input.reviewQueueCount} rapporter ligger i review-køen. Manuell review er et sikkerhetsnett og bør prioriteres før nye saker hoper seg opp.`,
+      href: "/admin/annual-report-reviews",
+    });
+  }
+
+  if (input.latestManualReviewRound?.summary.pendingCount) {
+    items.push({
+      key: "gold-set-manual-review-pending",
+      severity: "HIGH",
+      title: "Gold-set manual review har åpne kandidater",
+      description: `${input.latestManualReviewRound.summary.pendingCount} kandidater venter fortsatt på manuell vurdering fra siste review-runde.`,
+      href: "/admin/annual-report-reviews",
+    });
+  }
+
+  if ((input.latestManualReviewRound?.summary.severityCounts.HIGH ?? 0) > 0) {
+    items.push({
+      key: "gold-set-high-severity",
+      severity: "HIGH",
+      title: "Høy-alvorlige gold-set-saker trenger avklaring",
+      description: `${input.latestManualReviewRound?.summary.severityCounts.HIGH ?? 0} kandidater er klassifisert som HIGH severity i review-runden.`,
       href: "/admin/annual-report-reviews",
     });
   }
@@ -1264,7 +1288,7 @@ export async function buildAdminControlCenterModel(
   const diagnostics: string[] = [];
   const now = deps.now?.() ?? new Date();
 
-  const [overview, confidenceList, runtime, latestGoldSetRun] = await Promise.all([
+  const [overview, confidenceList, runtime, latestGoldSetRun, latestManualReviewRound] = await Promise.all([
     tryLoad(
       "annual-report overview",
       () => (deps.getOverview ?? getAnnualReportPipelineOverview)(),
@@ -1290,6 +1314,11 @@ export async function buildAdminControlCenterModel(
     tryLoad(
       "latest gold-set shadow run",
       () => (deps.readLatestGoldSetRun ?? readLatestAnnualReportGoldSetShadowRun)(),
+      diagnostics,
+    ),
+    tryLoad(
+      "latest manual review round",
+      () => (deps.readLatestManualReviewRound ?? readLatestAnnualReportManualReviewRound)(),
       diagnostics,
     ),
   ]);
@@ -1320,6 +1349,7 @@ export async function buildAdminControlCenterModel(
     sampleReviewQueue: overview?.reviewQueue ?? [],
     latestConfidence,
     latestGoldSetRun,
+    latestManualReviewRound,
     incompleteCoverageCount,
     runtime,
     diagnostics,
@@ -1343,6 +1373,11 @@ export async function buildAdminControlCenterModel(
         : goldSetStatus === "WARNING"
           ? "PURPLE"
           : "GREEN";
+  const topIssueClassEntry = latestManualReviewRound
+    ? Object.entries(latestManualReviewRound.summary.issueClassCounts).sort(
+        (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+      )[0] ?? null
+    : null;
 
   return {
     title: "Admin Control Center",
@@ -1353,69 +1388,122 @@ export async function buildAdminControlCenterModel(
       {
         key: "review-queue",
         title: "Rapporter i review-kø",
-        value: formatCount(reviewQueueCount),
+        value: latestManualReviewRound
+          ? formatCount(latestManualReviewRound.summary.pendingCount)
+          : formatCount(reviewQueueCount),
         detail:
-          reviewQueueCount > 0
-            ? "Rapporter som trenger manuell vurdering eller ny behandling."
-            : "Ingen åpne reviewsaker akkurat nå.",
+          latestManualReviewRound
+            ? "Pending kandidater i siste gold-set manual review round."
+            : reviewQueueCount > 0
+              ? "Rapporter som trenger manuell vurdering eller ny behandling."
+              : "Ingen åpne reviewsaker akkurat nå.",
         status:
-          overview === null
-            ? "UNKNOWN"
-            : reviewQueueCount > 0
+          latestManualReviewRound
+            ? latestManualReviewRound.summary.pendingCount > 0
               ? "WARNING"
-              : "HEALTHY",
+              : "HEALTHY"
+            : overview === null
+              ? "UNKNOWN"
+              : reviewQueueCount > 0
+                ? "WARNING"
+                : "HEALTHY",
         tone:
-          overview === null
-            ? "BLUE"
-            : reviewQueueCount > 0
+          latestManualReviewRound
+            ? latestManualReviewRound.summary.pendingCount > 0
               ? "PURPLE"
-              : "GREEN",
+              : "GREEN"
+            : overview === null
+              ? "BLUE"
+              : reviewQueueCount > 0
+                ? "PURPLE"
+                : "GREEN",
         href: "/admin/annual-report-reviews",
       },
       {
         key: "new-reports",
-        title: "Nye rapporter mottatt",
-        value: formatCount(newReportsCount),
+        title: "Manual review candidates",
+        value: latestManualReviewRound
+          ? formatCount(latestManualReviewRound.summary.reviewCandidateCount)
+          : formatCount(newReportsCount),
         detail:
-          overview === null
-            ? "Ukjent hvor mange nye rapporter som er registrert."
-            : "Rapporter som er oppdaget eller lastet ned, men ikke ferdig behandlet.",
-        status: overview === null ? "UNKNOWN" : "HEALTHY",
-        tone: overview === null ? "BLUE" : "GREEN",
+          latestManualReviewRound
+            ? "Totalt antall kandidater generert fra siste persisted gold-set shadow batch."
+            : overview === null
+              ? "Ukjent hvor mange nye rapporter som er registrert."
+              : "Rapporter som er oppdaget eller lastet ned, men ikke ferdig behandlet.",
+        status: latestManualReviewRound ? "HEALTHY" : overview === null ? "UNKNOWN" : "HEALTHY",
+        tone: latestManualReviewRound ? "GREEN" : overview === null ? "BLUE" : "GREEN",
+        href: latestManualReviewRound ? "/admin/annual-report-reviews" : undefined,
       },
       {
         key: "approved",
-        title: "Godkjente rapporter",
-        value: formatCount(approvedCount),
+        title: "Completed reviews",
+        value: latestManualReviewRound
+          ? formatCount(latestManualReviewRound.summary.reviewedCount)
+          : formatCount(approvedCount),
         detail:
-          overview === null
-            ? "Ingen pålitelig publiseringsstatistikk tilgjengelig."
-            : "Rapporter som er publisert eller lagret som godkjente tall.",
-        status: overview === null ? "UNKNOWN" : approvedCount > 0 ? "HEALTHY" : "UNKNOWN",
-        tone: overview === null ? "BLUE" : approvedCount > 0 ? "GREEN" : "BLUE",
+          latestManualReviewRound
+            ? "Kandidater som allerede har fått filing-nivå beslutning i review-runden."
+            : overview === null
+              ? "Ingen pålitelig publiseringsstatistikk tilgjengelig."
+              : "Rapporter som er publisert eller lagret som godkjente tall.",
+        status:
+          latestManualReviewRound
+            ? latestManualReviewRound.summary.reviewedCount > 0
+              ? "HEALTHY"
+              : "UNKNOWN"
+            : overview === null
+              ? "UNKNOWN"
+              : approvedCount > 0
+                ? "HEALTHY"
+                : "UNKNOWN",
+        tone:
+          latestManualReviewRound
+            ? latestManualReviewRound.summary.reviewedCount > 0
+              ? "GREEN"
+              : "BLUE"
+            : overview === null
+              ? "BLUE"
+              : approvedCount > 0
+                ? "GREEN"
+                : "BLUE",
+        href: latestManualReviewRound ? "/admin/annual-report-reviews" : undefined,
       },
       {
         key: "failed",
-        title: "Rapporter med feil",
-        value: formatCount(failedCount),
+        title: "High severity cases",
+        value: latestManualReviewRound
+          ? formatCount(latestManualReviewRound.summary.severityCounts.HIGH)
+          : formatCount(failedCount),
         detail:
-          overview === null
-            ? "Ukjent hvor mange rapporter som har stoppet med feil."
-            : failedCount > 0
-              ? "Rapporter som stoppet før trygg lagring eller publisering."
-              : "Ingen kjente feilede rapporter i tilgjengelige data.",
+          latestManualReviewRound
+            ? "Kandidater med høy alvorlighet som bør prioriteres først i manuell review."
+            : overview === null
+              ? "Ukjent hvor mange rapporter som har stoppet med feil."
+              : failedCount > 0
+                ? "Rapporter som stoppet før trygg lagring eller publisering."
+                : "Ingen kjente feilede rapporter i tilgjengelige data.",
         status:
-          overview === null
-            ? "UNKNOWN"
-            : failedCount > 0
+          latestManualReviewRound
+            ? latestManualReviewRound.summary.severityCounts.HIGH > 0
               ? "FAILING"
-              : "HEALTHY",
+              : "HEALTHY"
+            : overview === null
+              ? "UNKNOWN"
+              : failedCount > 0
+                ? "FAILING"
+                : "HEALTHY",
         tone:
-          overview === null
-            ? "BLUE"
-            : failedCount > 0
+          latestManualReviewRound
+            ? latestManualReviewRound.summary.severityCounts.HIGH > 0
               ? "RED"
-              : "GREEN",
+              : "GREEN"
+            : overview === null
+              ? "BLUE"
+              : failedCount > 0
+                ? "RED"
+                : "GREEN",
+        href: latestManualReviewRound ? "/admin/annual-report-reviews" : undefined,
       },
       {
         key: "latest-shadow-batch",
@@ -1441,31 +1529,54 @@ export async function buildAdminControlCenterModel(
       },
       {
         key: "highest-priority",
-        title: "Høyeste prioritet nå",
-        value: attentionItems[0]?.title ?? "Ingen åpne problemer",
+        title: latestManualReviewRound ? "Top issue class" : "Høyeste prioritet nå",
+        value: latestManualReviewRound
+          ? topIssueClassEntry?.[0] ?? "Ingen data"
+          : attentionItems[0]?.title ?? "Ingen åpne problemer",
         detail:
-          attentionItems[0]?.description ?? "Ingen åpne problemer funnet basert på tilgjengelige data.",
+          latestManualReviewRound
+            ? topIssueClassEntry
+              ? `${topIssueClassEntry[1]} kandidater i siste review-runde deler denne hovedårsaken.`
+              : "Ingen issue classes er registrert i siste review-runde ennå."
+            : attentionItems[0]?.description ??
+              "Ingen åpne problemer funnet basert på tilgjengelige data.",
         status:
-          attentionItems[0]?.severity === "HIGH"
-            ? "FAILING"
-            : attentionItems[0]?.severity === "MEDIUM"
-              ? "WARNING"
-              : attentionItems[0]?.severity === "LOW"
+          latestManualReviewRound
+            ? topIssueClassEntry
+              ? latestManualReviewRound.summary.severityCounts.HIGH > 0
+                ? "FAILING"
+                : latestManualReviewRound.summary.pendingCount > 0
+                  ? "WARNING"
+                  : "HEALTHY"
+              : "UNKNOWN"
+            : attentionItems[0]?.severity === "HIGH"
+              ? "FAILING"
+              : attentionItems[0]?.severity === "MEDIUM"
                 ? "WARNING"
-                : attentionItems[0]
-                  ? "UNKNOWN"
-                  : "HEALTHY",
+                : attentionItems[0]?.severity === "LOW"
+                  ? "WARNING"
+                  : attentionItems[0]
+                    ? "UNKNOWN"
+                    : "HEALTHY",
         tone:
-          attentionItems[0]?.severity === "HIGH"
-            ? "RED"
-            : attentionItems[0]?.severity === "MEDIUM"
-              ? "YELLOW"
-              : attentionItems[0]?.severity === "LOW"
+          latestManualReviewRound
+            ? topIssueClassEntry
+              ? latestManualReviewRound.summary.severityCounts.HIGH > 0
+                ? "RED"
+                : latestManualReviewRound.summary.pendingCount > 0
+                  ? "PURPLE"
+                  : "GREEN"
+              : "BLUE"
+            : attentionItems[0]?.severity === "HIGH"
+              ? "RED"
+              : attentionItems[0]?.severity === "MEDIUM"
                 ? "YELLOW"
-                : attentionItems[0]
-                  ? "BLUE"
-                  : "GREEN",
-        href: attentionItems[0]?.href,
+                : attentionItems[0]?.severity === "LOW"
+                  ? "YELLOW"
+                  : attentionItems[0]
+                    ? "BLUE"
+                    : "GREEN",
+        href: latestManualReviewRound ? "/admin/annual-report-reviews" : attentionItems[0]?.href,
       },
       {
         key: "publish-safety",
