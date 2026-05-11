@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { resolveOpenDataLoaderConfig } from "@/server/document-understanding/opendataloader-config";
+import { inspectOpenDataLoaderRuntime } from "@/server/document-understanding/opendataloader-runtime";
 import { readLatestUnifiedConfidenceThresholdCalibrationReport } from "@/server/services/annual-report-unified-confidence-calibration-service";
 import { readLatestAnnualReportUnifiedFailureTaxonomyReport } from "@/server/services/annual-report-unified-failure-taxonomy-service";
 
@@ -24,6 +26,14 @@ const LATEST_SHADOW_BATCH_PATH = path.join(
   "output",
   "benchmarks",
   "annual-report-shadow-batches",
+  "latest.json",
+);
+
+const LATEST_GOLD_SET_SHADOW_RUN_PATH = path.join(
+  process.cwd(),
+  "output",
+  "benchmarks",
+  "annual-report-gold-set-shadow-runs",
   "latest.json",
 );
 
@@ -83,6 +93,7 @@ export type AnnualReportExtractionFixReportServiceDeps = {
   now?: () => Date;
   readLatestCalibrationReport?: typeof readLatestUnifiedConfidenceThresholdCalibrationReport;
   readLatestTaxonomyReport?: typeof readLatestAnnualReportUnifiedFailureTaxonomyReport;
+  inspectRuntime?: typeof inspectOpenDataLoaderRuntime;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -148,15 +159,19 @@ export async function buildAnnualReportExtractionFixReport(
   const now = deps.now?.() ?? new Date();
   const benchmark = await readJsonFile(LATEST_BENCHMARK_PATH, deps);
   const shadowBatch = await readJsonFile(LATEST_SHADOW_BATCH_PATH, deps);
+  const goldSetShadowRun = await readJsonFile(LATEST_GOLD_SET_SHADOW_RUN_PATH, deps);
   const readLatestCalibrationReport =
     deps.readLatestCalibrationReport ?? readLatestUnifiedConfidenceThresholdCalibrationReport;
   const readLatestTaxonomyReport =
     deps.readLatestTaxonomyReport ?? readLatestAnnualReportUnifiedFailureTaxonomyReport;
+  const inspectRuntime = deps.inspectRuntime ?? inspectOpenDataLoaderRuntime;
   const calibrationReport = await readLatestCalibrationReport();
   const taxonomyReport = await readLatestTaxonomyReport();
+  const runtime = await inspectRuntime(resolveOpenDataLoaderConfig());
 
   const benchmarkCases = asArray(benchmark?.cases);
   const shadowCases = asArray(shadowBatch?.cases);
+  const goldSetShadowSummary = asRecord(goldSetShadowRun?.summary);
   const benchmarkSummary = asRecord(benchmark?.summary);
   const runtimeEnvironment = asRecord(shadowBatch?.runtimeEnvironment);
 
@@ -177,14 +192,14 @@ export async function buildAnnualReportExtractionFixReport(
       before: asNumber(benchmarkSummary?.differentialCases),
       after: null,
       unit: "count",
-      note: "Post-fix benchmark rerun er ikke persisted lokalt ennå.",
+      note: "Gold-set shadow run er persisted, men benchmark-differensialer er ikke kjort pa nytt enda.",
     },
     {
       label: "Material disagreements",
       before: asNumber(benchmarkSummary?.materialDisagreements),
       after: null,
       unit: "count",
-      note: "Post-fix benchmark rerun er ikke persisted lokalt ennå.",
+      note: "Gold-set shadow run er persisted, men benchmark-disagreements er ikke kjort pa nytt enda.",
     },
     {
       label: "Unit-scale-sensitive cases",
@@ -210,9 +225,9 @@ export async function buildAnnualReportExtractionFixReport(
     {
       label: "Skipped shadow cases",
       before: countSkippedCases(shadowCases),
-      after: null,
+      after: asNumber(goldSetShadowSummary?.skipCount),
       unit: "count",
-      note: "Skyldes fortsatt manglende hybrid-runtime lokalt.",
+      note: "After-verdien kommer fra ny persisted gold-set shadow run.",
     },
     {
       label: "Hybrid runtime ready",
@@ -220,16 +235,15 @@ export async function buildAnnualReportExtractionFixReport(
         typeof runtimeEnvironment?.liveHybridBenchmarkReady === "boolean"
           ? Number(runtimeEnvironment.liveHybridBenchmarkReady)
           : null,
-      after: null,
+      after: Number(runtime.liveHybridBenchmarkReady),
       unit: "boolean",
-      note: "0 betyr at hybrid-runtime ikke er klar i dette miljøet.",
+      note: "0 betyr at hybrid-runtime ikke er klar i dette miljoet.",
     },
   ];
 
   const remainingBlockers: string[] = [];
-  const hybridReason = asString(runtimeEnvironment?.liveHybridBenchmarkReason);
-  if (hybridReason && runtimeEnvironment?.liveHybridBenchmarkReady === false) {
-    remainingBlockers.push(hybridReason);
+  if (!runtime.liveHybridBenchmarkReady && runtime.liveHybridBenchmarkReason) {
+    remainingBlockers.push(runtime.liveHybridBenchmarkReason);
   }
   if (benchmarkCases.length === 0) {
     remainingBlockers.push("Ingen persisted annual-report benchmark-caser ble funnet lokalt.");
@@ -253,12 +267,12 @@ export async function buildAnnualReportExtractionFixReport(
     targetedIssueClasses,
     fixesImplemented: [
       "Utvidet unit-scale-deteksjon for tusen-kroner-formuleringer i legacy parser-pathen.",
-      "Lagt til millions/MNOK-deteksjon i unified extractor uten å påvirke publish safety.",
+      "Lagt til millions/MNOK-deteksjon i unified extractor uten a pavirke publish safety.",
       "Rettet continuation-tabeller med tittelen 'Egenkapital og gjeld' til balansekontekst.",
       "Utvidet norsk label-mapping for profit_before_tax og cash_and_cash_equivalents.",
     ],
     testsAdded: [
-      "unit-scale.test.ts: tusen-kroner og tusen-NOK erklæringer",
+      "unit-scale.test.ts: tusen-kroner og tusen-NOK erklaringer",
       "unified-financial-statement-extractor.test.ts: millions scale",
       "unified-financial-statement-extractor.test.ts: continuation-balance role detection",
       "unified-financial-statement-extractor.test.ts: Norwegian label mapping aliases",
@@ -272,9 +286,9 @@ export async function buildAnnualReportExtractionFixReport(
     baselineMetrics,
     remainingBlockers,
     recommendationsForPr80: [
-      "Kjør ny persisted gold-set/shadow-batch etter PR79 for å måle faktisk før/etter-effekt.",
+      "Kjor ny persisted annual-report benchmark nar det finnes flere post-fix caser med levende evidens.",
       "Hold unified shadow-only til readiness-rapporten kan vise oppdatert post-fix evidens.",
-      "Behandle manglende hybrid-runtime som egen readiness-blokkerer hvis den fortsatt mangler ved PR80.",
+      "Behandle manglende legacy-resultater og unavailable gold-set entries som egne readiness-blokkere i PR80.",
     ],
     output,
     safety: {

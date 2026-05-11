@@ -1,0 +1,193 @@
+{
+  "version": "annual-report-go-live-gold-set-v1",
+  "name": "annual-report-go-live-gold-set",
+  "generatedAt": "2026-05-11T16:28:33.518Z",
+  "entries": [
+    {
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "accountingYear": 2018,
+      "filingId": "cmobtujsi000dvmvoroqrrdwe",
+      "artifactDocumentReference": "cmobtujsi000dvmvoroqrrdwe/pdf/918298037-2018-5a8d5457b7f1.pdf",
+      "expectedTags": [
+        "digital_simple"
+      ],
+      "evidenceType": "persisted_artifact",
+      "reasonForInclusion": "Representative persisted filing selected for tag digital_simple.",
+      "knownRisks": [],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "accountingYear": 2024,
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "artifactDocumentReference": "cmobtujqo0001vmvoz4tcie6q/pdf/918298037-2024-c104e976c579.pdf",
+      "expectedTags": [
+        "continuation_complex",
+        "degraded_ambiguous",
+        "digital_note_heavy",
+        "manual_review_expected",
+        "multi_page_balance",
+        "supplementary_present",
+        "unit_scale_sensitive"
+      ],
+      "evidenceType": "persisted_artifact",
+      "reasonForInclusion": "Representative persisted filing selected for tag digital_note_heavy.",
+      "knownRisks": [
+        "Blocked by publish gate"
+      ],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": null,
+      "companyName": null,
+      "accountingYear": null,
+      "filingId": null,
+      "artifactDocumentReference": null,
+      "expectedTags": [
+        "multi_page_balance"
+      ],
+      "evidenceType": "unavailable",
+      "reasonForInclusion": "No persisted filing currently covers tag multi_page_balance in the local environment.",
+      "knownRisks": [
+        "TODO: replace unavailable placeholder with a real filing before go-live review."
+      ],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": null,
+      "companyName": null,
+      "accountingYear": null,
+      "filingId": null,
+      "artifactDocumentReference": null,
+      "expectedTags": [
+        "supplementary_present"
+      ],
+      "evidenceType": "unavailable",
+      "reasonForInclusion": "No persisted filing currently covers tag supplementary_present in the local environment.",
+      "knownRisks": [
+        "TODO: replace unavailable placeholder with a real filing before go-live review."
+      ],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": null,
+      "companyName": null,
+      "accountingYear": null,
+      "filingId": null,
+      "artifactDocumentReference": null,
+      "expectedTags": [
+        "unit_scale_sensitive"
+      ],
+      "evidenceType": "unavailable",
+      "reasonForInclusion": "No persisted filing currently covers tag unit_scale_sensitive in the local environment.",
+      "knownRisks": [
+        "TODO: replace unavailable placeholder with a real filing before go-live review."
+      ],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "accountingYear": 2023,
+      "filingId": "cmobtujr90003vmvorzjg483p",
+      "artifactDocumentReference": "cmobtujr90003vmvorzjg483p/pdf/918298037-2023-d5a56c067e3b.pdf",
+      "expectedTags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "evidenceType": "persisted_artifact",
+      "reasonForInclusion": "Representative persisted filing selected for tag scan_or_ocr.",
+      "knownRisks": [
+        "Blocked by publish gate"
+      ],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "accountingYear": 2022,
+      "filingId": "cmobtujrj0005vmvopubneto4",
+      "artifactDocumentReference": "cmobtujrj0005vmvopubneto4/pdf/918298037-2022-7285b016687f.pdf",
+      "expectedTags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "evidenceType": "persisted_artifact",
+      "reasonForInclusion": "Representative persisted filing selected for tag ocr_token_noise.",
+      "knownRisks": [
+        "Blocked by publish gate"
+      ],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": null,
+      "companyName": null,
+      "accountingYear": null,
+      "filingId": null,
+      "artifactDocumentReference": null,
+      "expectedTags": [
+        "formatting_edge"
+      ],
+      "evidenceType": "unavailable",
+      "reasonForInclusion": "No persisted filing currently covers tag formatting_edge in the local environment.",
+      "knownRisks": [
+        "TODO: replace unavailable placeholder with a real filing before go-live review."
+      ],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "accountingYear": 2021,
+      "filingId": "cmobtujrs0007vmvos2b14yat",
+      "artifactDocumentReference": "cmobtujrs0007vmvos2b14yat/pdf/918298037-2021-89f98fee9481.pdf",
+      "expectedTags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "evidenceType": "persisted_artifact",
+      "reasonForInclusion": "Representative persisted filing selected for tag manual_review_expected.",
+      "knownRisks": [
+        "Blocked by publish gate"
+      ],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": null,
+      "companyName": null,
+      "accountingYear": null,
+      "filingId": null,
+      "artifactDocumentReference": null,
+      "expectedTags": [
+        "degraded_ambiguous"
+      ],
+      "evidenceType": "unavailable",
+      "reasonForInclusion": "No persisted filing currently covers tag degraded_ambiguous in the local environment.",
+      "knownRisks": [
+        "TODO: replace unavailable placeholder with a real filing before go-live review."
+      ],
+      "allowDuplicateOrgYear": false
+    },
+    {
+      "orgNumber": null,
+      "companyName": null,
+      "accountingYear": null,
+      "filingId": null,
+      "artifactDocumentReference": null,
+      "expectedTags": [
+        "continuation_complex"
+      ],
+      "evidenceType": "unavailable",
+      "reasonForInclusion": "No persisted filing currently covers tag continuation_complex in the local environment.",
+      "knownRisks": [
+        "TODO: replace unavailable placeholder with a real filing before go-live review."
+      ],
+      "allowDuplicateOrgYear": false
+    }
+  ]
+}

@@ -50,6 +50,27 @@ describe("annual-report-extraction-fix-report-service", () => {
       },
       readLatestCalibrationReport: async () => null,
       readLatestTaxonomyReport: async () => null,
+      inspectRuntime: async () => ({
+        packageInstalled: true,
+        packageVersion: "2.2.1",
+        java: {
+          rawVersion: "17.0.18",
+          majorVersion: 17,
+          available: true,
+          executablePath: "java",
+          pathCandidates: ["java"],
+          javaHomePath: null,
+          discoveredCandidates: [],
+        },
+        localModeReady: true,
+        hybridConfigured: false,
+        localModeReason: "ok",
+        hybridModeReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+        liveLocalBenchmarkReady: true,
+        liveLocalBenchmarkReason: "ok",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+      }),
     };
 
     const report = await buildAnnualReportExtractionFixReport(deps);
@@ -75,6 +96,27 @@ describe("annual-report-extraction-fix-report-service", () => {
       },
       readLatestCalibrationReport: async () => null,
       readLatestTaxonomyReport: async () => null,
+      inspectRuntime: async () => ({
+        packageInstalled: true,
+        packageVersion: "2.2.1",
+        java: {
+          rawVersion: "17.0.18",
+          majorVersion: 17,
+          available: true,
+          executablePath: "java",
+          pathCandidates: ["java"],
+          javaHomePath: null,
+          discoveredCandidates: [],
+        },
+        localModeReady: true,
+        hybridConfigured: false,
+        localModeReason: "ok",
+        hybridModeReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+        liveLocalBenchmarkReady: true,
+        liveLocalBenchmarkReason: "ok",
+        liveHybridBenchmarkReady: false,
+        liveHybridBenchmarkReason: "OPENDATALOADER_HYBRID_URL is not configured.",
+      }),
     });
 
     const markdown = renderAnnualReportExtractionFixMarkdown(report);

@@ -1,0 +1,70 @@
+# Unified failure taxonomy
+
+- Generated at: 2026-05-11T16:30:01.464Z
+- Review round: gold-set-2026-05-11T16-29-43-822Z
+- Gold-set run: gold-set-2026-05-11T16-29-43-822Z
+- Total candidates: 5
+- Total mapped issues: 41
+- High severity issues: 17
+
+## Top issue classes
+
+- ARTIFACT_MISSING: 5 (medium, remediation=artifact_pipeline)
+- LEGACY_UNIFIED_MISMATCH: 5 (medium, remediation=review_policy)
+- STRUCTURED_DOCUMENT_MISSING: 5 (high, remediation=artifact_pipeline)
+- MANUAL_REVIEW_EXPECTED: 4 (low, remediation=review_policy)
+- PARSER_RUNTIME_UNAVAILABLE: 4 (high, remediation=parser_runtime)
+- OCR_REQUIRED_OR_LOW_QUALITY_SCAN: 3 (medium, remediation=ocr_quality)
+- OCR_TOKEN_NOISE: 3 (medium, remediation=ocr_quality)
+- AMBIGUOUS_REPORT_STRUCTURE: 1 (medium, remediation=table_reconstruction)
+- AUDITOR_REPORT_MISSING: 1 (low, remediation=narrative_segmentation)
+- BOARD_REPORT_MISSING: 1 (low, remediation=narrative_segmentation)
+
+## Affected canonical keys
+
+- total_assets: 3
+- total_equity: 3
+- total_liabilities: 3
+- cost_of_goods_sold: 2
+- deferred_tax_asset: 2
+- intangible_assets: 2
+- net_financial_items: 2
+- net_income: 2
+- operating_profit: 2
+- other_current_liabilities: 2
+
+## First divergence stages
+
+- structured_document: 41
+
+## PR79 recommendations
+
+- Følg opp artifact-kjeden før nye quality-konklusjoner trekkes.
+- Bruk taxonomy-data til å avgrense OCR-støy og skanningsproblemer før bredere utrulling.
+
+## Representative examples
+
+- STRUCTURED_DOCUMENT_MISSING: PROFF AS (918298037)
+  - Filing: cmobtujsi000dvmvoroqrrdwe
+  - Evidence: Første divergenssteg: structured_document; Review-runden fant manglende strukturert dokument.; Structured document JSON er missing.
+- ARTIFACT_MISSING: PROFF AS (918298037)
+  - Filing: cmobtujsi000dvmvoroqrrdwe
+  - Evidence: Legacy extraction er missing.; Review-runden fant manglende strukturert dokument.; Review-runden mangler artifact: legacy_extraction
+- LEGACY_UNIFIED_MISMATCH: PROFF AS (918298037)
+  - Filing: cmobtujsi000dvmvoroqrrdwe
+  - Evidence: Review issue class: missing_legacy_result; Review issue class: missing_unified_result
+- PARSER_RUNTIME_UNAVAILABLE: PROFF AS (918298037)
+  - Filing: cmobtujsi000dvmvoroqrrdwe
+  - Evidence: Review-runden markerte artifact/runtime-blokkering.
+- NORWEGIAN_LABEL_MAPPING_ERROR: PROFF AS (918298037)
+  - Filing: cmobtujqo0001vmvoz4tcie6q
+  - Evidence: Review-runden fant konflikt i norske regnskapslinjer.
+- PRIMARY_INCOME_STATEMENT_MISSING: PROFF AS (918298037)
+  - Filing: cmobtujqo0001vmvoz4tcie6q
+  - Evidence: FINANCIAL_EXTRACTION_PRESENT: No financial line items extracted (0 items found).; INCOME_STATEMENT_COVERAGE: No income statement line items found.
+- PRIMARY_BALANCE_SHEET_MISSING: PROFF AS (918298037)
+  - Filing: cmobtujqo0001vmvoz4tcie6q
+  - Evidence: BALANCE_SHEET_COVERAGE: No balance sheet line items found.
+- CANONICAL_KEY_MISSING: PROFF AS (918298037)
+  - Filing: cmobtujqo0001vmvoz4tcie6q
+  - Evidence: NET_INCOME_FOUND: Canonical key "net_income" not found in extracted line items.; REVENUE_FOUND: Canonical key "revenue" not found in extracted line items.; TOTAL_ASSETS_FOUND: Canonical key "total_assets" not found in extracted line items.

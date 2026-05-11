@@ -54,6 +54,9 @@ describe("admin-control-center-service", () => {
       }),
       inspectRuntime: async () => makeRuntime(),
       readLatestGoldSetRun: async () => null,
+      readLatestCalibrationReport: async () => null,
+      readLatestTaxonomyReport: async () => null,
+      readLatestExtractionFixReport: async () => null,
       now: () => new Date("2026-05-10T12:00:00.000Z"),
     });
 
@@ -138,6 +141,9 @@ describe("admin-control-center-service", () => {
       }),
       inspectRuntime: async () => makeRuntime(),
       readLatestGoldSetRun: async () => null,
+      readLatestCalibrationReport: async () => null,
+      readLatestTaxonomyReport: async () => null,
+      readLatestExtractionFixReport: async () => null,
       now: () => new Date("2026-05-10T12:00:00.000Z"),
     });
 
