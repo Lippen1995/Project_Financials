@@ -193,6 +193,15 @@ export function parseAmountString(raw: string): ParsedAmount {
 
 function detectUnitScaleFromText(text: string): UnifiedUnitScale {
   if (!text.trim()) return "UNKNOWN";
+  const normalized = normalizeNorwegianText(text);
+  if (
+    /\bmnok\b/.test(normalized) ||
+    /\bm nok\b/.test(normalized) ||
+    /millioner?\s+(?:kroner|kr|nok)\b/.test(normalized) ||
+    /belop i\s+(?:nok\s+)?millioner\b/.test(normalized)
+  ) {
+    return "MILLIONS";
+  }
   try {
     const result = detectUnitScale(text);
     if (result.unitScale === 1000) return "THOUSANDS";
@@ -250,7 +259,8 @@ function detectTableRole(
   if (table.title) {
     const n = normalizeNorwegianText(table.title);
     if (/resultatregnskap|resultat\s*regnskap/.test(n)) return "INCOME_STATEMENT";
-    if (/balanse/.test(n)) return "BALANCE_SHEET";
+    if (/balanse|balanse fortsatt/.test(n)) return "BALANCE_SHEET";
+    if (/egenkapital og gjeld|gjeld og egenkapital/.test(n)) return "BALANCE_SHEET";
     if (/kontantstrom|kontantstr|likviditet/.test(n)) return "CASH_FLOW_STATEMENT";
     if (/egenkapital/.test(n) && !/sum\s+egenkapital/.test(n)) return "EQUITY";
   }
@@ -279,7 +289,13 @@ function detectTableRole(
   for (const row of firstRows) {
     const n = normalizeNorwegianText(row.normalizedLabel || row.label);
     if (/driftsinntekt|salgsinntekt|arsresultat/.test(n)) return "INCOME_STATEMENT";
-    if (/sum eiendeler|anleggsmidler|omlopsmidler/.test(n)) return "BALANCE_SHEET";
+    if (
+      /sum eiendeler|anleggsmidler|omlopsmidler|sum egenkapital|sum gjeld|sum egenkapital og gjeld|langsiktig gjeld|kortsiktig gjeld/.test(
+        n,
+      )
+    ) {
+      return "BALANCE_SHEET";
+    }
     if (/kontantstr|betalinger/.test(n)) return "CASH_FLOW_STATEMENT";
   }
 

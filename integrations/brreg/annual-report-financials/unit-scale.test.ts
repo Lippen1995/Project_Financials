@@ -25,6 +25,20 @@ describe("detectUnitScale", () => {
     expect(result.confidence).toBeGreaterThan(0.9);
   });
 
+  it("detects tusen-kroner declarations written as plain Norwegian text", () => {
+    const result = detectUnitScale("Alle tall er oppgitt i tusen kroner.");
+
+    expect(result.unitScale).toBe(1000);
+    expect(result.confidence).toBeGreaterThan(0.85);
+  });
+
+  it("detects tusen-NOK declarations regardless of word order", () => {
+    const result = detectUnitScale("Resultatregnskap 2024 - tusen NOK");
+
+    expect(result.unitScale).toBe(1000);
+    expect(result.confidence).toBeGreaterThan(0.85);
+  });
+
   it("detects note-level NOK 1.000 declarations", () => {
     const result = detectUnitScale(
       "Alle tall i notene er NOK 1.000 dersom annet ikke er oppgitt.",
