@@ -1,6 +1,6 @@
 {
   "version": "annual-report-go-no-go-readiness-v1",
-  "generatedAt": "2026-05-11T21:29:01.908Z",
+  "generatedAt": "2026-05-11T21:28:24.203Z",
   "decision": "NO_GO",
   "executiveSummary": "Unified-ekstraksjonen er ikke klar for neste go-live-steg. 5 blokkerere er fortsatt åpne.",
   "evidenceUsed": {
@@ -198,8 +198,8 @@
     ]
   },
   "output": {
-    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-29-01-908Z.json",
-    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-29-01-908Z.md"
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-28-24-203Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-28-24-203Z.md"
   },
   "safety": {
     "publishSourceOfTruth": "LEGACY",

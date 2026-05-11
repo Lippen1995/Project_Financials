@@ -1,6 +1,6 @@
 {
   "version": "annual-report-extraction-fix-report-v1",
-  "generatedAt": "2026-05-11T21:21:20.190Z",
+  "generatedAt": "2026-05-11T21:20:37.420Z",
   "status": "REGRESSION_VERIFIED",
   "targetedIssueClasses": [
     "UNIT_SCALE_MISMATCH",
@@ -24,8 +24,8 @@
   "evidenceUsed": {
     "benchmarkPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-golden\\latest.json",
     "shadowBatchPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-shadow-batches\\latest.json",
-    "calibrationReportPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-confidence-calibration\\gold-set-2026-05-11T21-21-16-484Z.json",
-    "taxonomyReportPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-21-19-312Z.json"
+    "calibrationReportPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-confidence-calibration\\gold-set-2026-05-11T21-20-33-105Z.json",
+    "taxonomyReportPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-20-36-351Z.json"
   },
   "baselineMetrics": [
     {
@@ -66,7 +66,7 @@
     {
       "label": "Skipped shadow cases",
       "before": 1,
-      "after": 4,
+      "after": 0,
       "unit": "count",
       "note": "After-verdien kommer fra ny persisted gold-set shadow run."
     },
@@ -85,8 +85,8 @@
     "Behandle manglende legacy-resultater og unavailable gold-set entries som egne readiness-blokkere i PR80."
   ],
   "output": {
-    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-extraction-fixes\\pr79-extraction-fix-summary-2026-05-11T21-21-20-190Z.json",
-    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-extraction-fixes\\pr79-extraction-fix-summary-2026-05-11T21-21-20-190Z.md"
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-extraction-fixes\\pr79-extraction-fix-summary-2026-05-11T21-20-37-420Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-extraction-fixes\\pr79-extraction-fix-summary-2026-05-11T21-20-37-420Z.md"
   },
   "safety": {
     "canUseForProductionRouting": false,

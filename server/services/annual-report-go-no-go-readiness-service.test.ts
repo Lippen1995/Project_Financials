@@ -573,6 +573,55 @@ describe("annual-report-go-no-go-readiness-service", () => {
     );
   });
 
+  it("treats data-related skips separately from runtime blockers when runtime is healthy", async () => {
+    const report = await buildAnnualReportGoNoGoReadinessReport({
+      readLatestGoldSetRun: async () =>
+        makeGoldSetRun({
+          summary: {
+            ...makeGoldSetRun().summary,
+            skipCount: 4,
+            failCount: 1,
+          },
+        }),
+      readLatestManualReviewRound: async () => makeManualReviewRound(),
+      readLatestCalibrationReport: async () => makeCalibrationReport(),
+      readLatestTaxonomyReport: async () =>
+        makeTaxonomyReport({
+          summary: {
+            ...makeTaxonomyReport().summary,
+            highSeverityIssueCount: 1,
+            issueClassCounts: [
+              {
+                issueClass: "PARSER_RUNTIME_UNAVAILABLE",
+                count: 1,
+                severity: "HIGH",
+                remediationArea: "parser_runtime",
+              },
+            ],
+          },
+        }),
+      readLatestExtractionFixReport: async () => makeExtractionFixReport(),
+      inspectRuntime: async () => makeRuntime(),
+      getShadowConfig: () => ({
+        mode: "PERSIST_ARTIFACTS",
+        persistUnifiedParserDocument: true,
+        persistUnifiedFinancialExtraction: true,
+        persistUnifiedNarrativeExtraction: true,
+        persistLegacyVsUnifiedComparison: true,
+      }),
+    });
+
+    const shadowRuntimeCriterion = report.criteria.find((item) => item.key === "shadow-runtime");
+    const remediationCriterion = report.criteria.find((item) => item.key === "remediation-plan");
+    const shadowSkipMetric = report.metricTable.find((item) => item.label === "Shadow skip count");
+
+    expect(shadowRuntimeCriterion?.status).toBe("PASS");
+    expect(remediationCriterion?.status).toBe("PASS");
+    expect(report.blockers.some((item) => item.includes("Shadow batch kjÃ¸rer uten runtime-blokkere"))).toBe(false);
+    expect(shadowSkipMetric?.status).toBe("WARNING");
+    expect(shadowSkipMetric?.note).toContain("data-/artifact-relaterte");
+  });
+
   it("renders markdown with decision, blockers and recommendations", async () => {
     const report = await buildAnnualReportGoNoGoReadinessReport({
       readLatestGoldSetRun: async () => makeGoldSetRun(),

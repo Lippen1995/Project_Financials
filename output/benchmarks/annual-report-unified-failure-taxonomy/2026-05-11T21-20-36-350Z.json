@@ -1,14 +1,14 @@
 {
   "version": "annual-report-unified-failure-taxonomy-v1",
-  "generatedAt": "2026-05-11T21:29:00.993Z",
+  "generatedAt": "2026-05-11T21:20:36.351Z",
   "input": {
-    "runId": "gold-set-2026-05-11T21-21-16-484Z",
+    "runId": "gold-set-2026-05-11T21-20-33-105Z",
     "generatedBy": "scripts/generate-annual-report-unified-failure-taxonomy.ts"
   },
   "sourceRun": {
-    "reviewRoundId": "gold-set-2026-05-11T21-21-16-484Z",
-    "reviewRoundGeneratedAt": "2026-05-11T21:29:00.147Z",
-    "goldSetRunId": "gold-set-2026-05-11T21-21-16-484Z",
+    "reviewRoundId": "gold-set-2026-05-11T21-20-33-105Z",
+    "reviewRoundGeneratedAt": "2026-05-11T21:20:34.287Z",
+    "goldSetRunId": "gold-set-2026-05-11T21-20-33-105Z",
     "manifestName": "annual-report-go-live-gold-set",
     "gitCommitSha": "b41327f83bf32750d68df339c4cd8f89a7c15948"
   },
@@ -20,9 +20,15 @@
   },
   "summary": {
     "totalCandidates": 5,
-    "totalMappedIssues": 39,
-    "highSeverityIssueCount": 16,
+    "totalMappedIssues": 43,
+    "highSeverityIssueCount": 17,
     "issueClassCounts": [
+      {
+        "issueClass": "ARTIFACT_MISSING",
+        "count": 5,
+        "severity": "MEDIUM",
+        "remediationArea": "artifact_pipeline"
+      },
       {
         "issueClass": "LEGACY_UNIFIED_MISMATCH",
         "count": 5,
@@ -30,9 +36,27 @@
         "remediationArea": "review_policy"
       },
       {
-        "issueClass": "ARTIFACT_MISSING",
-        "count": 4,
+        "issueClass": "PARSER_RUNTIME_UNAVAILABLE",
+        "count": 5,
+        "severity": "HIGH",
+        "remediationArea": "parser_runtime"
+      },
+      {
+        "issueClass": "PREFLIGHT_UNAVAILABLE",
+        "count": 5,
         "severity": "MEDIUM",
+        "remediationArea": "artifact_pipeline"
+      },
+      {
+        "issueClass": "SOURCE_PDF_MISSING",
+        "count": 5,
+        "severity": "HIGH",
+        "remediationArea": "artifact_pipeline"
+      },
+      {
+        "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+        "count": 5,
+        "severity": "HIGH",
         "remediationArea": "artifact_pipeline"
       },
       {
@@ -40,18 +64,6 @@
         "count": 4,
         "severity": "LOW",
         "remediationArea": "review_policy"
-      },
-      {
-        "issueClass": "PARSER_RUNTIME_UNAVAILABLE",
-        "count": 4,
-        "severity": "HIGH",
-        "remediationArea": "parser_runtime"
-      },
-      {
-        "issueClass": "STRUCTURED_DOCUMENT_MISSING",
-        "count": 4,
-        "severity": "HIGH",
-        "remediationArea": "artifact_pipeline"
       },
       {
         "issueClass": "OCR_REQUIRED_OR_LOW_QUALITY_SCAN",
@@ -72,55 +84,7 @@
         "remediationArea": "table_reconstruction"
       },
       {
-        "issueClass": "AUDITOR_REPORT_MISSING",
-        "count": 1,
-        "severity": "LOW",
-        "remediationArea": "narrative_segmentation"
-      },
-      {
-        "issueClass": "BOARD_REPORT_MISSING",
-        "count": 1,
-        "severity": "LOW",
-        "remediationArea": "narrative_segmentation"
-      },
-      {
-        "issueClass": "CANONICAL_KEY_MISSING",
-        "count": 1,
-        "severity": "HIGH",
-        "remediationArea": "financial_mapping"
-      },
-      {
         "issueClass": "MULTI_PAGE_BALANCE_ERROR",
-        "count": 1,
-        "severity": "HIGH",
-        "remediationArea": "table_reconstruction"
-      },
-      {
-        "issueClass": "NARRATIVE_SECTION_MISSING",
-        "count": 1,
-        "severity": "MEDIUM",
-        "remediationArea": "narrative_segmentation"
-      },
-      {
-        "issueClass": "NORWEGIAN_LABEL_MAPPING_ERROR",
-        "count": 1,
-        "severity": "HIGH",
-        "remediationArea": "financial_mapping"
-      },
-      {
-        "issueClass": "PRIMARY_BALANCE_SHEET_MISSING",
-        "count": 1,
-        "severity": "HIGH",
-        "remediationArea": "financial_mapping"
-      },
-      {
-        "issueClass": "PRIMARY_INCOME_STATEMENT_MISSING",
-        "count": 1,
-        "severity": "HIGH",
-        "remediationArea": "financial_mapping"
-      },
-      {
-        "issueClass": "TABLE_RECONSTRUCTION_ERROR",
         "count": 1,
         "severity": "HIGH",
         "remediationArea": "table_reconstruction"
@@ -130,216 +94,137 @@
         "count": 1,
         "severity": "HIGH",
         "remediationArea": "unit_scale_normalization"
-      },
-      {
-        "issueClass": "UNIT_SCALE_UNKNOWN",
-        "count": 1,
-        "severity": "HIGH",
-        "remediationArea": "unit_scale_normalization"
       }
     ],
     "severityCounts": {
-      "HIGH": 16,
-      "MEDIUM": 17,
-      "LOW": 6
+      "HIGH": 17,
+      "MEDIUM": 22,
+      "LOW": 4
     },
     "affectedTags": [
       {
         "tag": "manual_review_expected",
-        "count": 35
+        "count": 37
       },
       {
         "tag": "ocr_token_noise",
-        "count": 21
+        "count": 27
       },
       {
         "tag": "scan_or_ocr",
-        "count": 21
+        "count": 27
       },
       {
         "tag": "continuation_complex",
-        "count": 14
+        "count": 10
       },
       {
         "tag": "degraded_ambiguous",
-        "count": 14
+        "count": 10
       },
       {
         "tag": "digital_note_heavy",
-        "count": 14
+        "count": 10
       },
       {
         "tag": "multi_page_balance",
-        "count": 14
+        "count": 10
       },
       {
         "tag": "supplementary_present",
-        "count": 14
+        "count": 10
       },
       {
         "tag": "unit_scale_sensitive",
-        "count": 14
+        "count": 10
       },
       {
         "tag": "digital_simple",
-        "count": 4
+        "count": 6
       }
     ],
-    "affectedCanonicalKeys": [
-      {
-        "canonicalKey": "total_assets",
-        "count": 3
-      },
-      {
-        "canonicalKey": "total_equity",
-        "count": 3
-      },
-      {
-        "canonicalKey": "total_liabilities",
-        "count": 3
-      },
-      {
-        "canonicalKey": "cost_of_goods_sold",
-        "count": 2
-      },
-      {
-        "canonicalKey": "deferred_tax_asset",
-        "count": 2
-      },
-      {
-        "canonicalKey": "intangible_assets",
-        "count": 2
-      },
-      {
-        "canonicalKey": "net_financial_items",
-        "count": 2
-      },
-      {
-        "canonicalKey": "net_income",
-        "count": 2
-      },
-      {
-        "canonicalKey": "operating_profit",
-        "count": 2
-      },
-      {
-        "canonicalKey": "other_current_liabilities",
-        "count": 2
-      },
-      {
-        "canonicalKey": "other_operating_expense",
-        "count": 2
-      },
-      {
-        "canonicalKey": "other_receivables",
-        "count": 2
-      },
-      {
-        "canonicalKey": "payroll_expense",
-        "count": 2
-      },
-      {
-        "canonicalKey": "profit_before_tax",
-        "count": 2
-      },
-      {
-        "canonicalKey": "retained_earnings",
-        "count": 2
-      },
-      {
-        "canonicalKey": "revenue",
-        "count": 2
-      },
-      {
-        "canonicalKey": "share_premium",
-        "count": 2
-      },
-      {
-        "canonicalKey": "tangible_assets",
-        "count": 2
-      },
-      {
-        "canonicalKey": "tax_expense",
-        "count": 2
-      },
-      {
-        "canonicalKey": "trade_receivables",
-        "count": 2
-      }
-    ],
+    "affectedCanonicalKeys": [],
     "firstDivergenceStages": [
       {
-        "stage": "structured_document",
-        "count": 25
-      },
-      {
-        "stage": "comparison",
-        "count": 14
+        "stage": "source_pdf",
+        "count": 43
       }
     ],
     "remediationAreaCounts": [
       {
-        "remediationArea": "review_policy",
-        "count": 9
+        "remediationArea": "artifact_pipeline",
+        "count": 20
       },
       {
-        "remediationArea": "artifact_pipeline",
-        "count": 8
+        "remediationArea": "review_policy",
+        "count": 9
       },
       {
         "remediationArea": "ocr_quality",
         "count": 6
       },
       {
-        "remediationArea": "financial_mapping",
-        "count": 4
-      },
-      {
         "remediationArea": "parser_runtime",
-        "count": 4
-      },
-      {
-        "remediationArea": "narrative_segmentation",
-        "count": 3
+        "count": 5
       },
       {
         "remediationArea": "table_reconstruction",
-        "count": 3
+        "count": 2
       },
       {
         "remediationArea": "unit_scale_normalization",
-        "count": 2
+        "count": 1
       }
     ],
     "representativeExamples": [
       {
-        "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+        "issueClass": "SOURCE_PDF_MISSING",
         "filingId": "cmobtujsi000dvmvoroqrrdwe",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2018,
         "evidence": [
-          "Første divergenssteg: structured_document",
-          "Review-runden fant manglende strukturert dokument.",
-          "Structured document JSON er missing."
+          "Første divergenssteg: source_pdf",
+          "Source PDF er missing."
         ]
       },
       {
         "issueClass": "ARTIFACT_MISSING",
         "filingId": "cmobtujsi000dvmvoroqrrdwe",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2018,
         "evidence": [
+          "Confidence gate output er unavailable.",
           "Legacy extraction er missing.",
+          "Preflight artifact er missing."
+        ]
+      },
+      {
+        "issueClass": "PREFLIGHT_UNAVAILABLE",
+        "filingId": "cmobtujsi000dvmvoroqrrdwe",
+        "companyName": null,
+        "orgNumber": "918298037",
+        "accountingYear": 2018,
+        "evidence": [
+          "Preflight artifact er missing."
+        ]
+      },
+      {
+        "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+        "filingId": "cmobtujsi000dvmvoroqrrdwe",
+        "companyName": null,
+        "orgNumber": "918298037",
+        "accountingYear": 2018,
+        "evidence": [
           "Review-runden fant manglende strukturert dokument.",
-          "Review-runden mangler artifact: legacy_extraction"
+          "Structured document JSON er missing."
         ]
       },
       {
         "issueClass": "LEGACY_UNIFIED_MISMATCH",
         "filingId": "cmobtujsi000dvmvoroqrrdwe",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2018,
         "evidence": [
@@ -350,7 +235,7 @@
       {
         "issueClass": "PARSER_RUNTIME_UNAVAILABLE",
         "filingId": "cmobtujsi000dvmvoroqrrdwe",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2018,
         "evidence": [
@@ -358,94 +243,19 @@
         ]
       },
       {
-        "issueClass": "NORWEGIAN_LABEL_MAPPING_ERROR",
-        "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
-        "orgNumber": "918298037",
-        "accountingYear": 2024,
-        "evidence": [
-          "Review-runden fant konflikt i norske regnskapslinjer."
-        ]
-      },
-      {
-        "issueClass": "PRIMARY_INCOME_STATEMENT_MISSING",
-        "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
-        "orgNumber": "918298037",
-        "accountingYear": 2024,
-        "evidence": [
-          "FINANCIAL_EXTRACTION_PRESENT: No financial line items extracted (0 items found).",
-          "INCOME_STATEMENT_COVERAGE: No income statement line items found."
-        ]
-      },
-      {
-        "issueClass": "PRIMARY_BALANCE_SHEET_MISSING",
-        "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
-        "orgNumber": "918298037",
-        "accountingYear": 2024,
-        "evidence": [
-          "BALANCE_SHEET_COVERAGE: No balance sheet line items found."
-        ]
-      },
-      {
-        "issueClass": "CANONICAL_KEY_MISSING",
-        "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
-        "orgNumber": "918298037",
-        "accountingYear": 2024,
-        "evidence": [
-          "NET_INCOME_FOUND: Canonical key \"net_income\" not found in extracted line items.",
-          "REVENUE_FOUND: Canonical key \"revenue\" not found in extracted line items.",
-          "TOTAL_ASSETS_FOUND: Canonical key \"total_assets\" not found in extracted line items."
-        ]
-      },
-      {
-        "issueClass": "NARRATIVE_SECTION_MISSING",
-        "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
-        "orgNumber": "918298037",
-        "accountingYear": 2024,
-        "evidence": [
-          "NARRATIVE_EXTRACTION_PRESENT: No narrative sections found."
-        ]
-      },
-      {
-        "issueClass": "BOARD_REPORT_MISSING",
-        "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
-        "orgNumber": "918298037",
-        "accountingYear": 2024,
-        "evidence": [
-          "BOARD_REPORT_FOUND: Board report not found in narrative sections."
-        ]
-      },
-      {
-        "issueClass": "AUDITOR_REPORT_MISSING",
-        "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
-        "orgNumber": "918298037",
-        "accountingYear": 2024,
-        "evidence": [
-          "AUDITOR_REPORT_FOUND: Auditor report or opinion not found in narrative sections."
-        ]
-      },
-      {
         "issueClass": "MULTI_PAGE_BALANCE_ERROR",
         "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2024,
         "evidence": [
-          "Gold-set-tag: continuation_complex",
-          "total_assets 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-          "total_equity 2024: match=MISSING_IN_UNIFIED delta=ukjent"
+          "Gold-set-tag: continuation_complex"
         ]
       },
       {
         "issueClass": "AMBIGUOUS_REPORT_STRUCTURE",
         "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2024,
         "evidence": [
@@ -455,7 +265,7 @@
       {
         "issueClass": "MANUAL_REVIEW_EXPECTED",
         "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2024,
         "evidence": [
@@ -465,7 +275,7 @@
       {
         "issueClass": "UNIT_SCALE_MISMATCH",
         "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2024,
         "evidence": [
@@ -473,31 +283,9 @@
         ]
       },
       {
-        "issueClass": "UNIT_SCALE_UNKNOWN",
-        "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
-        "orgNumber": "918298037",
-        "accountingYear": 2024,
-        "evidence": [
-          "cost_of_goods_sold 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-          "deferred_tax_asset 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-          "intangible_assets 2024: match=MISSING_IN_UNIFIED delta=ukjent"
-        ]
-      },
-      {
-        "issueClass": "TABLE_RECONSTRUCTION_ERROR",
-        "filingId": "cmobtujqo0001vmvoz4tcie6q",
-        "companyName": "PROFF AS",
-        "orgNumber": "918298037",
-        "accountingYear": 2024,
-        "evidence": [
-          "Tekstlig evidens peker på tabellrekonstruksjon som feilkilde."
-        ]
-      },
-      {
         "issueClass": "OCR_TOKEN_NOISE",
         "filingId": "cmobtujr90003vmvorzjg483p",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2023,
         "evidence": [
@@ -507,7 +295,7 @@
       {
         "issueClass": "OCR_REQUIRED_OR_LOW_QUALITY_SCAN",
         "filingId": "cmobtujr90003vmvorzjg483p",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "orgNumber": "918298037",
         "accountingYear": 2023,
         "evidence": [
@@ -519,47 +307,52 @@
   },
   "issues": [
     {
-      "candidateId": "767a10b035ba9cb1",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "33b394e4ffa79c6f",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujsi000dvmvoroqrrdwe",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2018,
-      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "issueClass": "SOURCE_PDF_MISSING",
       "severity": "HIGH",
       "source": "artifact_ref",
       "evidence": [
-        "Første divergenssteg: structured_document",
-        "Review-runden fant manglende strukturert dokument.",
-        "Structured document JSON er missing."
+        "Første divergenssteg: source_pdf",
+        "Source PDF er missing."
       ],
       "affectedCanonicalKeys": [],
       "tags": [
         "digital_simple"
       ],
-      "firstDivergenceStage": "structured_document",
-      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Original PDF mangler, så grunnlaget for kontroll og ny kjøring er borte.",
       "remediationArea": "artifact_pipeline",
       "reviewDecision": null
     },
     {
-      "candidateId": "767a10b035ba9cb1",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "33b394e4ffa79c6f",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujsi000dvmvoroqrrdwe",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2018,
       "issueClass": "ARTIFACT_MISSING",
       "severity": "MEDIUM",
       "source": "artifact_ref",
       "evidence": [
+        "Confidence gate output er unavailable.",
         "Legacy extraction er missing.",
+        "Preflight artifact er missing.",
         "Review-runden fant manglende strukturert dokument.",
+        "Review-runden mangler artifact: confidence_gate_output",
         "Review-runden mangler artifact: legacy_extraction",
+        "Review-runden mangler artifact: preflight_artifact",
         "Review-runden mangler artifact: shadow_comparison_output",
+        "Review-runden mangler artifact: source_pdf",
         "Review-runden mangler artifact: structured_document_json",
         "Review-runden mangler artifact: unified_extraction",
-        "Shadow comparison output er missing.",
+        "Shadow comparison output er unavailable.",
+        "Source PDF er missing.",
         "Structured document JSON er missing.",
         "Unified extraction er unavailable."
       ],
@@ -567,17 +360,62 @@
       "tags": [
         "digital_simple"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Et nødvendig mellomresultat mangler, så rapporten kan ikke vurderes fullt ut.",
       "remediationArea": "artifact_pipeline",
       "reviewDecision": null
     },
     {
-      "candidateId": "767a10b035ba9cb1",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "33b394e4ffa79c6f",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujsi000dvmvoroqrrdwe",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
+      "accountingYear": 2018,
+      "issueClass": "PREFLIGHT_UNAVAILABLE",
+      "severity": "MEDIUM",
+      "source": "artifact_ref",
+      "evidence": [
+        "Preflight artifact er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "digital_simple"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "PDF-kvalitetssjekken mangler eller kunne ikke brukes.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "33b394e4ffa79c6f",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujsi000dvmvoroqrrdwe",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2018,
+      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "severity": "HIGH",
+      "source": "artifact_ref",
+      "evidence": [
+        "Review-runden fant manglende strukturert dokument.",
+        "Structured document JSON er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "digital_simple"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "33b394e4ffa79c6f",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujsi000dvmvoroqrrdwe",
+      "orgNumber": "918298037",
+      "companyName": null,
       "accountingYear": 2018,
       "issueClass": "LEGACY_UNIFIED_MISMATCH",
       "severity": "MEDIUM",
@@ -590,17 +428,17 @@
       "tags": [
         "digital_simple"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Legacy og unified gir ulike resultater for samme rapport og krever forklaring.",
       "remediationArea": "review_policy",
       "reviewDecision": null
     },
     {
-      "candidateId": "767a10b035ba9cb1",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "33b394e4ffa79c6f",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujsi000dvmvoroqrrdwe",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2018,
       "issueClass": "PARSER_RUNTIME_UNAVAILABLE",
       "severity": "HIGH",
@@ -612,25 +450,152 @@
       "tags": [
         "digital_simple"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Parser- eller runtime-miljøet var ikke tilgjengelig da rapporten skulle behandles.",
       "remediationArea": "parser_runtime",
       "reviewDecision": null
     },
     {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujqo0001vmvoz4tcie6q",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
+      "accountingYear": 2024,
+      "issueClass": "SOURCE_PDF_MISSING",
+      "severity": "HIGH",
+      "source": "artifact_ref",
+      "evidence": [
+        "Første divergenssteg: source_pdf",
+        "Source PDF er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "continuation_complex",
+        "degraded_ambiguous",
+        "digital_note_heavy",
+        "manual_review_expected",
+        "multi_page_balance",
+        "supplementary_present",
+        "unit_scale_sensitive"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Original PDF mangler, så grunnlaget for kontroll og ny kjøring er borte.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2024,
+      "issueClass": "ARTIFACT_MISSING",
+      "severity": "MEDIUM",
+      "source": "artifact_ref",
+      "evidence": [
+        "Confidence gate output er unavailable.",
+        "Legacy extraction er missing.",
+        "Preflight artifact er missing.",
+        "Review-runden fant manglende strukturert dokument.",
+        "Review-runden mangler artifact: confidence_gate_output",
+        "Review-runden mangler artifact: legacy_extraction",
+        "Review-runden mangler artifact: preflight_artifact",
+        "Review-runden mangler artifact: shadow_comparison_output",
+        "Review-runden mangler artifact: source_pdf",
+        "Review-runden mangler artifact: structured_document_json",
+        "Review-runden mangler artifact: unified_extraction",
+        "Shadow comparison output er unavailable.",
+        "Source PDF er missing.",
+        "Structured document JSON er missing.",
+        "Unified extraction er unavailable."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "continuation_complex",
+        "degraded_ambiguous",
+        "digital_note_heavy",
+        "manual_review_expected",
+        "multi_page_balance",
+        "supplementary_present",
+        "unit_scale_sensitive"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Et nødvendig mellomresultat mangler, så rapporten kan ikke vurderes fullt ut.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2024,
+      "issueClass": "PREFLIGHT_UNAVAILABLE",
+      "severity": "MEDIUM",
+      "source": "artifact_ref",
+      "evidence": [
+        "Preflight artifact er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "continuation_complex",
+        "degraded_ambiguous",
+        "digital_note_heavy",
+        "manual_review_expected",
+        "multi_page_balance",
+        "supplementary_present",
+        "unit_scale_sensitive"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "PDF-kvalitetssjekken mangler eller kunne ikke brukes.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2024,
+      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "severity": "HIGH",
+      "source": "artifact_ref",
+      "evidence": [
+        "Review-runden fant manglende strukturert dokument.",
+        "Structured document JSON er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "continuation_complex",
+        "degraded_ambiguous",
+        "digital_note_heavy",
+        "manual_review_expected",
+        "multi_page_balance",
+        "supplementary_present",
+        "unit_scale_sensitive"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "companyName": null,
       "accountingYear": 2024,
       "issueClass": "LEGACY_UNIFIED_MISMATCH",
       "severity": "MEDIUM",
       "source": "manual_review_issue_class",
       "evidence": [
-        "COMPARISON_MATCH_RATE: Match rate 0% (0/20) is below FAIL threshold of 50%.",
-        "Første divergenssteg: comparison",
-        "Review issue class: confidence_gate_fail"
+        "Review issue class: missing_legacy_result",
+        "Review issue class: missing_unified_result"
       ],
       "affectedCanonicalKeys": [],
       "tags": [
@@ -642,23 +607,23 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Legacy og unified gir ulike resultater for samme rapport og krever forklaring.",
       "remediationArea": "review_policy",
       "reviewDecision": null
     },
     {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujqo0001vmvoz4tcie6q",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2024,
-      "issueClass": "NORWEGIAN_LABEL_MAPPING_ERROR",
+      "issueClass": "PARSER_RUNTIME_UNAVAILABLE",
       "severity": "HIGH",
       "source": "manual_review_issue_class",
       "evidence": [
-        "Review-runden fant konflikt i norske regnskapslinjer."
+        "Review-runden markerte artifact/runtime-blokkering."
       ],
       "affectedCanonicalKeys": [],
       "tags": [
@@ -670,244 +635,25 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
-      "humanExplanationNo": "Norske regnskapslinjer ser ut til å være mappet til feil canonical key eller tolket ulikt.",
-      "remediationArea": "financial_mapping",
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Parser- eller runtime-miljøet var ikke tilgjengelig da rapporten skulle behandles.",
+      "remediationArea": "parser_runtime",
       "reviewDecision": null
     },
     {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujqo0001vmvoz4tcie6q",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
-      "accountingYear": 2024,
-      "issueClass": "PRIMARY_INCOME_STATEMENT_MISSING",
-      "severity": "HIGH",
-      "source": "confidence_gate_check",
-      "evidence": [
-        "FINANCIAL_EXTRACTION_PRESENT: No financial line items extracted (0 items found).",
-        "INCOME_STATEMENT_COVERAGE: No income statement line items found."
-      ],
-      "affectedCanonicalKeys": [],
-      "tags": [
-        "continuation_complex",
-        "degraded_ambiguous",
-        "digital_note_heavy",
-        "manual_review_expected",
-        "multi_page_balance",
-        "supplementary_present",
-        "unit_scale_sensitive"
-      ],
-      "firstDivergenceStage": "comparison",
-      "humanExplanationNo": "Resultatregnskapet ser ut til å mangle eller være for svakt identifisert.",
-      "remediationArea": "financial_mapping",
-      "reviewDecision": null
-    },
-    {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
-      "filingId": "cmobtujqo0001vmvoz4tcie6q",
-      "orgNumber": "918298037",
-      "companyName": "PROFF AS",
-      "accountingYear": 2024,
-      "issueClass": "PRIMARY_BALANCE_SHEET_MISSING",
-      "severity": "HIGH",
-      "source": "confidence_gate_check",
-      "evidence": [
-        "BALANCE_SHEET_COVERAGE: No balance sheet line items found."
-      ],
-      "affectedCanonicalKeys": [],
-      "tags": [
-        "continuation_complex",
-        "degraded_ambiguous",
-        "digital_note_heavy",
-        "manual_review_expected",
-        "multi_page_balance",
-        "supplementary_present",
-        "unit_scale_sensitive"
-      ],
-      "firstDivergenceStage": "comparison",
-      "humanExplanationNo": "Balansen ser ut til å mangle eller være for svakt identifisert.",
-      "remediationArea": "financial_mapping",
-      "reviewDecision": null
-    },
-    {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
-      "filingId": "cmobtujqo0001vmvoz4tcie6q",
-      "orgNumber": "918298037",
-      "companyName": "PROFF AS",
-      "accountingYear": 2024,
-      "issueClass": "CANONICAL_KEY_MISSING",
-      "severity": "HIGH",
-      "source": "confidence_gate_check",
-      "evidence": [
-        "NET_INCOME_FOUND: Canonical key \"net_income\" not found in extracted line items.",
-        "REVENUE_FOUND: Canonical key \"revenue\" not found in extracted line items.",
-        "TOTAL_ASSETS_FOUND: Canonical key \"total_assets\" not found in extracted line items.",
-        "cost_of_goods_sold 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "deferred_tax_asset 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "intangible_assets 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "net_financial_items 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "net_income 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "operating_profit 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "other_current_liabilities 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "other_operating_expense 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "other_receivables 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "payroll_expense 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "profit_before_tax 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "retained_earnings 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "revenue 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "share_premium 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "tangible_assets 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "tax_expense 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "total_assets 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "total_equity 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "total_liabilities 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "trade_receivables 2024: match=MISSING_IN_UNIFIED delta=ukjent"
-      ],
-      "affectedCanonicalKeys": [
-        "cost_of_goods_sold",
-        "deferred_tax_asset",
-        "intangible_assets",
-        "net_financial_items",
-        "net_income",
-        "operating_profit",
-        "other_current_liabilities",
-        "other_operating_expense",
-        "other_receivables",
-        "payroll_expense",
-        "profit_before_tax",
-        "retained_earnings",
-        "revenue",
-        "share_premium",
-        "tangible_assets",
-        "tax_expense",
-        "total_assets",
-        "total_equity",
-        "total_liabilities",
-        "trade_receivables"
-      ],
-      "tags": [
-        "continuation_complex",
-        "degraded_ambiguous",
-        "digital_note_heavy",
-        "manual_review_expected",
-        "multi_page_balance",
-        "supplementary_present",
-        "unit_scale_sensitive"
-      ],
-      "firstDivergenceStage": "comparison",
-      "humanExplanationNo": "Minst ett sentralt nøkkelfelt mangler i én av ekstraksjonsrutene.",
-      "remediationArea": "financial_mapping",
-      "reviewDecision": null
-    },
-    {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
-      "filingId": "cmobtujqo0001vmvoz4tcie6q",
-      "orgNumber": "918298037",
-      "companyName": "PROFF AS",
-      "accountingYear": 2024,
-      "issueClass": "NARRATIVE_SECTION_MISSING",
-      "severity": "MEDIUM",
-      "source": "confidence_gate_check",
-      "evidence": [
-        "NARRATIVE_EXTRACTION_PRESENT: No narrative sections found."
-      ],
-      "affectedCanonicalKeys": [],
-      "tags": [
-        "continuation_complex",
-        "degraded_ambiguous",
-        "digital_note_heavy",
-        "manual_review_expected",
-        "multi_page_balance",
-        "supplementary_present",
-        "unit_scale_sensitive"
-      ],
-      "firstDivergenceStage": "comparison",
-      "humanExplanationNo": "Styreberetning, revisorberetning eller annen narrativ seksjon mangler eller er for svak.",
-      "remediationArea": "narrative_segmentation",
-      "reviewDecision": null
-    },
-    {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
-      "filingId": "cmobtujqo0001vmvoz4tcie6q",
-      "orgNumber": "918298037",
-      "companyName": "PROFF AS",
-      "accountingYear": 2024,
-      "issueClass": "BOARD_REPORT_MISSING",
-      "severity": "LOW",
-      "source": "confidence_gate_check",
-      "evidence": [
-        "BOARD_REPORT_FOUND: Board report not found in narrative sections."
-      ],
-      "affectedCanonicalKeys": [],
-      "tags": [
-        "continuation_complex",
-        "degraded_ambiguous",
-        "digital_note_heavy",
-        "manual_review_expected",
-        "multi_page_balance",
-        "supplementary_present",
-        "unit_scale_sensitive"
-      ],
-      "firstDivergenceStage": "comparison",
-      "humanExplanationNo": "Styrets beretning ble ikke funnet eller segmentert tydelig.",
-      "remediationArea": "narrative_segmentation",
-      "reviewDecision": null
-    },
-    {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
-      "filingId": "cmobtujqo0001vmvoz4tcie6q",
-      "orgNumber": "918298037",
-      "companyName": "PROFF AS",
-      "accountingYear": 2024,
-      "issueClass": "AUDITOR_REPORT_MISSING",
-      "severity": "LOW",
-      "source": "confidence_gate_check",
-      "evidence": [
-        "AUDITOR_REPORT_FOUND: Auditor report or opinion not found in narrative sections."
-      ],
-      "affectedCanonicalKeys": [],
-      "tags": [
-        "continuation_complex",
-        "degraded_ambiguous",
-        "digital_note_heavy",
-        "manual_review_expected",
-        "multi_page_balance",
-        "supplementary_present",
-        "unit_scale_sensitive"
-      ],
-      "firstDivergenceStage": "comparison",
-      "humanExplanationNo": "Revisorberetningen ble ikke funnet eller segmentert tydelig.",
-      "remediationArea": "narrative_segmentation",
-      "reviewDecision": null
-    },
-    {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
-      "filingId": "cmobtujqo0001vmvoz4tcie6q",
-      "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2024,
       "issueClass": "MULTI_PAGE_BALANCE_ERROR",
       "severity": "HIGH",
       "source": "gold_set_tag",
       "evidence": [
-        "Gold-set-tag: continuation_complex",
-        "total_assets 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "total_equity 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "total_liabilities 2024: match=MISSING_IN_UNIFIED delta=ukjent"
+        "Gold-set-tag: continuation_complex"
       ],
-      "affectedCanonicalKeys": [
-        "total_assets",
-        "total_equity",
-        "total_liabilities"
-      ],
+      "affectedCanonicalKeys": [],
       "tags": [
         "continuation_complex",
         "degraded_ambiguous",
@@ -917,17 +663,17 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Balansen ser ut til å være delt over flere sider på en måte som gir feil eller manglende totalsummer.",
       "remediationArea": "table_reconstruction",
       "reviewDecision": null
     },
     {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujqo0001vmvoz4tcie6q",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2024,
       "issueClass": "AMBIGUOUS_REPORT_STRUCTURE",
       "severity": "MEDIUM",
@@ -945,17 +691,17 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Rapportstrukturen er uklar nok til at ekstra manuell kontroll er nødvendig.",
       "remediationArea": "table_reconstruction",
       "reviewDecision": null
     },
     {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujqo0001vmvoz4tcie6q",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2024,
       "issueClass": "MANUAL_REVIEW_EXPECTED",
       "severity": "LOW",
@@ -973,17 +719,17 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Denne rapporttypen er på forhånd markert som en sak som ofte krever manuell kontroll.",
       "remediationArea": "review_policy",
       "reviewDecision": null
     },
     {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "2b693f0edefc65f7",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujqo0001vmvoz4tcie6q",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2024,
       "issueClass": "UNIT_SCALE_MISMATCH",
       "severity": "HIGH",
@@ -1001,121 +747,24 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Legacy og unified ser ut til å bruke ulik enhetsskala for de samme tallene.",
       "remediationArea": "unit_scale_normalization",
       "reviewDecision": null
     },
     {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
-      "filingId": "cmobtujqo0001vmvoz4tcie6q",
-      "orgNumber": "918298037",
-      "companyName": "PROFF AS",
-      "accountingYear": 2024,
-      "issueClass": "UNIT_SCALE_UNKNOWN",
-      "severity": "HIGH",
-      "source": "financial_comparison",
-      "evidence": [
-        "cost_of_goods_sold 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "deferred_tax_asset 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "intangible_assets 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "net_financial_items 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "net_income 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "operating_profit 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "other_current_liabilities 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "other_operating_expense 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "other_receivables 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "payroll_expense 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "profit_before_tax 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "retained_earnings 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "revenue 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "share_premium 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "tangible_assets 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "tax_expense 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "total_assets 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "total_equity 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "total_liabilities 2024: match=MISSING_IN_UNIFIED delta=ukjent",
-        "trade_receivables 2024: match=MISSING_IN_UNIFIED delta=ukjent"
-      ],
-      "affectedCanonicalKeys": [
-        "cost_of_goods_sold",
-        "deferred_tax_asset",
-        "intangible_assets",
-        "net_financial_items",
-        "net_income",
-        "operating_profit",
-        "other_current_liabilities",
-        "other_operating_expense",
-        "other_receivables",
-        "payroll_expense",
-        "profit_before_tax",
-        "retained_earnings",
-        "revenue",
-        "share_premium",
-        "tangible_assets",
-        "tax_expense",
-        "total_assets",
-        "total_equity",
-        "total_liabilities",
-        "trade_receivables"
-      ],
-      "tags": [
-        "continuation_complex",
-        "degraded_ambiguous",
-        "digital_note_heavy",
-        "manual_review_expected",
-        "multi_page_balance",
-        "supplementary_present",
-        "unit_scale_sensitive"
-      ],
-      "firstDivergenceStage": "comparison",
-      "humanExplanationNo": "Systemet vet ikke om tallene er oppgitt i kroner, tusen eller millioner.",
-      "remediationArea": "unit_scale_normalization",
-      "reviewDecision": null
-    },
-    {
-      "candidateId": "5ba569d5037ffa79",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
-      "filingId": "cmobtujqo0001vmvoz4tcie6q",
-      "orgNumber": "918298037",
-      "companyName": "PROFF AS",
-      "accountingYear": 2024,
-      "issueClass": "TABLE_RECONSTRUCTION_ERROR",
-      "severity": "HIGH",
-      "source": "candidate_text",
-      "evidence": [
-        "Tekstlig evidens peker på tabellrekonstruksjon som feilkilde."
-      ],
-      "affectedCanonicalKeys": [],
-      "tags": [
-        "continuation_complex",
-        "degraded_ambiguous",
-        "digital_note_heavy",
-        "manual_review_expected",
-        "multi_page_balance",
-        "supplementary_present",
-        "unit_scale_sensitive"
-      ],
-      "firstDivergenceStage": "comparison",
-      "humanExplanationNo": "Tabellstrukturen ble ikke gjenoppbygd stabilt nok til å stole på radene og kolonnene.",
-      "remediationArea": "table_reconstruction",
-      "reviewDecision": null
-    },
-    {
-      "candidateId": "ba796c74c3816930",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "5144424f76613796",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujr90003vmvorzjg483p",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2023,
-      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "issueClass": "SOURCE_PDF_MISSING",
       "severity": "HIGH",
       "source": "artifact_ref",
       "evidence": [
-        "Første divergenssteg: structured_document",
-        "Review-runden fant manglende strukturert dokument.",
-        "Structured document JSON er missing."
+        "Første divergenssteg: source_pdf",
+        "Source PDF er missing."
       ],
       "affectedCanonicalKeys": [],
       "tags": [
@@ -1123,27 +772,35 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
-      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Original PDF mangler, så grunnlaget for kontroll og ny kjøring er borte.",
       "remediationArea": "artifact_pipeline",
       "reviewDecision": null
     },
     {
-      "candidateId": "ba796c74c3816930",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "5144424f76613796",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujr90003vmvorzjg483p",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2023,
       "issueClass": "ARTIFACT_MISSING",
       "severity": "MEDIUM",
       "source": "artifact_ref",
       "evidence": [
+        "Confidence gate output er unavailable.",
+        "Legacy extraction er missing.",
+        "Preflight artifact er missing.",
         "Review-runden fant manglende strukturert dokument.",
+        "Review-runden mangler artifact: confidence_gate_output",
+        "Review-runden mangler artifact: legacy_extraction",
+        "Review-runden mangler artifact: preflight_artifact",
         "Review-runden mangler artifact: shadow_comparison_output",
+        "Review-runden mangler artifact: source_pdf",
         "Review-runden mangler artifact: structured_document_json",
         "Review-runden mangler artifact: unified_extraction",
-        "Shadow comparison output er missing.",
+        "Shadow comparison output er unavailable.",
+        "Source PDF er missing.",
         "Structured document JSON er missing.",
         "Unified extraction er unavailable."
       ],
@@ -1153,17 +810,66 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Et nødvendig mellomresultat mangler, så rapporten kan ikke vurderes fullt ut.",
       "remediationArea": "artifact_pipeline",
       "reviewDecision": null
     },
     {
-      "candidateId": "ba796c74c3816930",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "5144424f76613796",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujr90003vmvorzjg483p",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
+      "accountingYear": 2023,
+      "issueClass": "PREFLIGHT_UNAVAILABLE",
+      "severity": "MEDIUM",
+      "source": "artifact_ref",
+      "evidence": [
+        "Preflight artifact er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "PDF-kvalitetssjekken mangler eller kunne ikke brukes.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "5144424f76613796",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujr90003vmvorzjg483p",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2023,
+      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "severity": "HIGH",
+      "source": "artifact_ref",
+      "evidence": [
+        "Review-runden fant manglende strukturert dokument.",
+        "Structured document JSON er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "5144424f76613796",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujr90003vmvorzjg483p",
+      "orgNumber": "918298037",
+      "companyName": null,
       "accountingYear": 2023,
       "issueClass": "LEGACY_UNIFIED_MISMATCH",
       "severity": "MEDIUM",
@@ -1178,17 +884,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Legacy og unified gir ulike resultater for samme rapport og krever forklaring.",
       "remediationArea": "review_policy",
       "reviewDecision": null
     },
     {
-      "candidateId": "ba796c74c3816930",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "5144424f76613796",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujr90003vmvorzjg483p",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2023,
       "issueClass": "PARSER_RUNTIME_UNAVAILABLE",
       "severity": "HIGH",
@@ -1202,17 +908,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Parser- eller runtime-miljøet var ikke tilgjengelig da rapporten skulle behandles.",
       "remediationArea": "parser_runtime",
       "reviewDecision": null
     },
     {
-      "candidateId": "ba796c74c3816930",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "5144424f76613796",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujr90003vmvorzjg483p",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2023,
       "issueClass": "MANUAL_REVIEW_EXPECTED",
       "severity": "LOW",
@@ -1226,17 +932,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Denne rapporttypen er på forhånd markert som en sak som ofte krever manuell kontroll.",
       "remediationArea": "review_policy",
       "reviewDecision": null
     },
     {
-      "candidateId": "ba796c74c3816930",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "5144424f76613796",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujr90003vmvorzjg483p",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2023,
       "issueClass": "OCR_TOKEN_NOISE",
       "severity": "MEDIUM",
@@ -1250,17 +956,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "OCR-støy gjør at tall eller tekst blir delt opp, slått sammen eller lest feil.",
       "remediationArea": "ocr_quality",
       "reviewDecision": null
     },
     {
-      "candidateId": "ba796c74c3816930",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "5144424f76613796",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujr90003vmvorzjg483p",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2023,
       "issueClass": "OCR_REQUIRED_OR_LOW_QUALITY_SCAN",
       "severity": "MEDIUM",
@@ -1275,25 +981,24 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "PDF-en ser ut til å være skannet eller ha så lav kvalitet at OCR eller ekstra kontroll trengs.",
       "remediationArea": "ocr_quality",
       "reviewDecision": null
     },
     {
-      "candidateId": "f0226e96eec79908",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "cee5827422297b9e",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrj0005vmvopubneto4",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2022,
-      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "issueClass": "SOURCE_PDF_MISSING",
       "severity": "HIGH",
       "source": "artifact_ref",
       "evidence": [
-        "Første divergenssteg: structured_document",
-        "Review-runden fant manglende strukturert dokument.",
-        "Structured document JSON er missing."
+        "Første divergenssteg: source_pdf",
+        "Source PDF er missing."
       ],
       "affectedCanonicalKeys": [],
       "tags": [
@@ -1301,27 +1006,35 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
-      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Original PDF mangler, så grunnlaget for kontroll og ny kjøring er borte.",
       "remediationArea": "artifact_pipeline",
       "reviewDecision": null
     },
     {
-      "candidateId": "f0226e96eec79908",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "cee5827422297b9e",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrj0005vmvopubneto4",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2022,
       "issueClass": "ARTIFACT_MISSING",
       "severity": "MEDIUM",
       "source": "artifact_ref",
       "evidence": [
+        "Confidence gate output er unavailable.",
+        "Legacy extraction er missing.",
+        "Preflight artifact er missing.",
         "Review-runden fant manglende strukturert dokument.",
+        "Review-runden mangler artifact: confidence_gate_output",
+        "Review-runden mangler artifact: legacy_extraction",
+        "Review-runden mangler artifact: preflight_artifact",
         "Review-runden mangler artifact: shadow_comparison_output",
+        "Review-runden mangler artifact: source_pdf",
         "Review-runden mangler artifact: structured_document_json",
         "Review-runden mangler artifact: unified_extraction",
-        "Shadow comparison output er missing.",
+        "Shadow comparison output er unavailable.",
+        "Source PDF er missing.",
         "Structured document JSON er missing.",
         "Unified extraction er unavailable."
       ],
@@ -1331,17 +1044,66 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Et nødvendig mellomresultat mangler, så rapporten kan ikke vurderes fullt ut.",
       "remediationArea": "artifact_pipeline",
       "reviewDecision": null
     },
     {
-      "candidateId": "f0226e96eec79908",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "cee5827422297b9e",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrj0005vmvopubneto4",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
+      "accountingYear": 2022,
+      "issueClass": "PREFLIGHT_UNAVAILABLE",
+      "severity": "MEDIUM",
+      "source": "artifact_ref",
+      "evidence": [
+        "Preflight artifact er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "PDF-kvalitetssjekken mangler eller kunne ikke brukes.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "cee5827422297b9e",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujrj0005vmvopubneto4",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2022,
+      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "severity": "HIGH",
+      "source": "artifact_ref",
+      "evidence": [
+        "Review-runden fant manglende strukturert dokument.",
+        "Structured document JSON er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "cee5827422297b9e",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujrj0005vmvopubneto4",
+      "orgNumber": "918298037",
+      "companyName": null,
       "accountingYear": 2022,
       "issueClass": "LEGACY_UNIFIED_MISMATCH",
       "severity": "MEDIUM",
@@ -1356,17 +1118,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Legacy og unified gir ulike resultater for samme rapport og krever forklaring.",
       "remediationArea": "review_policy",
       "reviewDecision": null
     },
     {
-      "candidateId": "f0226e96eec79908",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "cee5827422297b9e",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrj0005vmvopubneto4",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2022,
       "issueClass": "PARSER_RUNTIME_UNAVAILABLE",
       "severity": "HIGH",
@@ -1380,17 +1142,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Parser- eller runtime-miljøet var ikke tilgjengelig da rapporten skulle behandles.",
       "remediationArea": "parser_runtime",
       "reviewDecision": null
     },
     {
-      "candidateId": "f0226e96eec79908",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "cee5827422297b9e",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrj0005vmvopubneto4",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2022,
       "issueClass": "MANUAL_REVIEW_EXPECTED",
       "severity": "LOW",
@@ -1404,17 +1166,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Denne rapporttypen er på forhånd markert som en sak som ofte krever manuell kontroll.",
       "remediationArea": "review_policy",
       "reviewDecision": null
     },
     {
-      "candidateId": "f0226e96eec79908",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "cee5827422297b9e",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrj0005vmvopubneto4",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2022,
       "issueClass": "OCR_TOKEN_NOISE",
       "severity": "MEDIUM",
@@ -1428,17 +1190,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "OCR-støy gjør at tall eller tekst blir delt opp, slått sammen eller lest feil.",
       "remediationArea": "ocr_quality",
       "reviewDecision": null
     },
     {
-      "candidateId": "f0226e96eec79908",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "cee5827422297b9e",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrj0005vmvopubneto4",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2022,
       "issueClass": "OCR_REQUIRED_OR_LOW_QUALITY_SCAN",
       "severity": "MEDIUM",
@@ -1453,25 +1215,24 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "PDF-en ser ut til å være skannet eller ha så lav kvalitet at OCR eller ekstra kontroll trengs.",
       "remediationArea": "ocr_quality",
       "reviewDecision": null
     },
     {
-      "candidateId": "9d29cd243a7a6a37",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "f963c3de4ab9e760",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrs0007vmvos2b14yat",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2021,
-      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "issueClass": "SOURCE_PDF_MISSING",
       "severity": "HIGH",
       "source": "artifact_ref",
       "evidence": [
-        "Første divergenssteg: structured_document",
-        "Review-runden fant manglende strukturert dokument.",
-        "Structured document JSON er missing."
+        "Første divergenssteg: source_pdf",
+        "Source PDF er missing."
       ],
       "affectedCanonicalKeys": [],
       "tags": [
@@ -1479,27 +1240,35 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
-      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Original PDF mangler, så grunnlaget for kontroll og ny kjøring er borte.",
       "remediationArea": "artifact_pipeline",
       "reviewDecision": null
     },
     {
-      "candidateId": "9d29cd243a7a6a37",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "f963c3de4ab9e760",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrs0007vmvos2b14yat",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2021,
       "issueClass": "ARTIFACT_MISSING",
       "severity": "MEDIUM",
       "source": "artifact_ref",
       "evidence": [
+        "Confidence gate output er unavailable.",
+        "Legacy extraction er missing.",
+        "Preflight artifact er missing.",
         "Review-runden fant manglende strukturert dokument.",
+        "Review-runden mangler artifact: confidence_gate_output",
+        "Review-runden mangler artifact: legacy_extraction",
+        "Review-runden mangler artifact: preflight_artifact",
         "Review-runden mangler artifact: shadow_comparison_output",
+        "Review-runden mangler artifact: source_pdf",
         "Review-runden mangler artifact: structured_document_json",
         "Review-runden mangler artifact: unified_extraction",
-        "Shadow comparison output er missing.",
+        "Shadow comparison output er unavailable.",
+        "Source PDF er missing.",
         "Structured document JSON er missing.",
         "Unified extraction er unavailable."
       ],
@@ -1509,17 +1278,66 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Et nødvendig mellomresultat mangler, så rapporten kan ikke vurderes fullt ut.",
       "remediationArea": "artifact_pipeline",
       "reviewDecision": null
     },
     {
-      "candidateId": "9d29cd243a7a6a37",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "f963c3de4ab9e760",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrs0007vmvos2b14yat",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
+      "accountingYear": 2021,
+      "issueClass": "PREFLIGHT_UNAVAILABLE",
+      "severity": "MEDIUM",
+      "source": "artifact_ref",
+      "evidence": [
+        "Preflight artifact er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "PDF-kvalitetssjekken mangler eller kunne ikke brukes.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "f963c3de4ab9e760",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujrs0007vmvos2b14yat",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2021,
+      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "severity": "HIGH",
+      "source": "artifact_ref",
+      "evidence": [
+        "Review-runden fant manglende strukturert dokument.",
+        "Structured document JSON er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "firstDivergenceStage": "source_pdf",
+      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "f963c3de4ab9e760",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "filingId": "cmobtujrs0007vmvos2b14yat",
+      "orgNumber": "918298037",
+      "companyName": null,
       "accountingYear": 2021,
       "issueClass": "LEGACY_UNIFIED_MISMATCH",
       "severity": "MEDIUM",
@@ -1534,17 +1352,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Legacy og unified gir ulike resultater for samme rapport og krever forklaring.",
       "remediationArea": "review_policy",
       "reviewDecision": null
     },
     {
-      "candidateId": "9d29cd243a7a6a37",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "f963c3de4ab9e760",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrs0007vmvos2b14yat",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2021,
       "issueClass": "PARSER_RUNTIME_UNAVAILABLE",
       "severity": "HIGH",
@@ -1558,17 +1376,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Parser- eller runtime-miljøet var ikke tilgjengelig da rapporten skulle behandles.",
       "remediationArea": "parser_runtime",
       "reviewDecision": null
     },
     {
-      "candidateId": "9d29cd243a7a6a37",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "f963c3de4ab9e760",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrs0007vmvos2b14yat",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2021,
       "issueClass": "MANUAL_REVIEW_EXPECTED",
       "severity": "LOW",
@@ -1582,17 +1400,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "Denne rapporttypen er på forhånd markert som en sak som ofte krever manuell kontroll.",
       "remediationArea": "review_policy",
       "reviewDecision": null
     },
     {
-      "candidateId": "9d29cd243a7a6a37",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "f963c3de4ab9e760",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrs0007vmvos2b14yat",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2021,
       "issueClass": "OCR_TOKEN_NOISE",
       "severity": "MEDIUM",
@@ -1606,17 +1424,17 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "OCR-støy gjør at tall eller tekst blir delt opp, slått sammen eller lest feil.",
       "remediationArea": "ocr_quality",
       "reviewDecision": null
     },
     {
-      "candidateId": "9d29cd243a7a6a37",
-      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "candidateId": "f963c3de4ab9e760",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
       "filingId": "cmobtujrs0007vmvos2b14yat",
       "orgNumber": "918298037",
-      "companyName": "PROFF AS",
+      "companyName": null,
       "accountingYear": 2021,
       "issueClass": "OCR_REQUIRED_OR_LOW_QUALITY_SCAN",
       "severity": "MEDIUM",
@@ -1631,7 +1449,7 @@
         "ocr_token_noise",
         "scan_or_ocr"
       ],
-      "firstDivergenceStage": "structured_document",
+      "firstDivergenceStage": "source_pdf",
       "humanExplanationNo": "PDF-en ser ut til å være skannet eller ha så lav kvalitet at OCR eller ekstra kontroll trengs.",
       "remediationArea": "ocr_quality",
       "reviewDecision": null
@@ -1644,8 +1462,8 @@
     ]
   },
   "output": {
-    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-29-00-993Z.json",
-    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-29-00-993Z.md"
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-20-36-351Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-20-36-351Z.md"
   },
   "safety": {
     "canUseForProductionRouting": false,

@@ -1,6 +1,6 @@
 # PR79 extraction fix summary
 
-- Generated at: 2026-05-11T21:21:20.190Z
+- Generated at: 2026-05-11T21:20:37.420Z
 - Status: REGRESSION_VERIFIED
 
 ## Targeted issue classes
@@ -25,7 +25,7 @@
 - Unit-scale-sensitive cases: before=5, after=unknown (Brukes som baseline for skala-relaterte fikser.)
 - Multi-page balance cases: before=3, after=unknown (Brukes som baseline for continuation-/balansefikser.)
 - OCR token noise cases: before=3, after=unknown (Brukes som baseline for numerisk/OCR-relatert parsing.)
-- Skipped shadow cases: before=1, after=4 (After-verdien kommer fra ny persisted gold-set shadow run.)
+- Skipped shadow cases: before=1, after=0 (After-verdien kommer fra ny persisted gold-set shadow run.)
 - Hybrid runtime ready: before=0, after=1 (0 betyr at hybrid-runtime ikke er klar i dette miljoet.)
 
 ## Tests added

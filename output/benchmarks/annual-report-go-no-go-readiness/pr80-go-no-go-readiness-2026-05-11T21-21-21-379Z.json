@@ -1,8 +1,8 @@
 {
   "version": "annual-report-go-no-go-readiness-v1",
-  "generatedAt": "2026-05-11T21:29:01.908Z",
+  "generatedAt": "2026-05-11T21:21:21.379Z",
   "decision": "NO_GO",
-  "executiveSummary": "Unified-ekstraksjonen er ikke klar for neste go-live-steg. 5 blokkerere er fortsatt åpne.",
+  "executiveSummary": "Unified-ekstraksjonen er ikke klar for neste go-live-steg. 6 blokkerere er fortsatt åpne.",
   "evidenceUsed": {
     "goldSetShadowRunPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-gold-set-shadow-runs\\latest.json",
     "manualReviewRoundPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-manual-review-rounds\\latest.json",
@@ -41,7 +41,7 @@
       "blocker": true,
       "summary": "Det finnes fortsatt kritiske mangler i structured document eller andre nøkkel-artifacts.",
       "evidence": [
-        "Missing structured_document_json: 4",
+        "Missing structured_document_json: 5",
         "Missing legacy_extraction: 1",
         "Missing unified_extraction: 4",
         "Unavailable gold-set entries: 6"
@@ -87,21 +87,20 @@
       "blocker": true,
       "summary": "Noen høyrisiko-feil står fortsatt uten lukket utbedringsløp eller akseptabel residual risiko.",
       "evidence": [
-        "Unresolved high-severity classes: STRUCTURED_DOCUMENT_MISSING, CANONICAL_KEY_MISSING, PRIMARY_BALANCE_SHEET_MISSING, PRIMARY_INCOME_STATEMENT_MISSING, UNIT_SCALE_UNKNOWN"
+        "Unresolved high-severity classes: STRUCTURED_DOCUMENT_MISSING, PARSER_RUNTIME_UNAVAILABLE, CANONICAL_KEY_MISSING, PRIMARY_BALANCE_SHEET_MISSING, PRIMARY_INCOME_STATEMENT_MISSING, UNIT_SCALE_UNKNOWN"
       ]
     },
     {
       "key": "shadow-runtime",
       "title": "Shadow batch kjører uten runtime-blokkere",
-      "status": "PASS",
-      "blocker": false,
-      "summary": "Siste shadow batch fullførte uten skip/fail, og runtime er klar.",
+      "status": "FAIL",
+      "blocker": true,
+      "summary": "Siste shadow batch viser skips/failures eller runtime er ikke helt klar for representativ kjøring.",
       "evidence": [
         "Shadow skip count: 4",
         "Shadow fail count: 1",
-        "Runtime-blocked cases: 0",
-        "Non-runtime skipped cases: 4",
-        "Non-runtime failed cases: 0"
+        "Hybrid runtime ready: ja",
+        "Environment is ready for live hybrid OpenDataLoader benchmark cases."
       ]
     },
     {
@@ -131,7 +130,8 @@
     "Manuell review-runde er gjennomført: Manual review round finnes, men ingen kandidater er faktisk reviewet ennå.",
     "Artifact-dekning har ingen kritiske hull: Det finnes fortsatt kritiske mangler i structured document eller andre nøkkel-artifacts.",
     "Primæroppstillinger blir funnet eller trygt reviewet: Det finnes fortsatt åpne funn for manglende resultatregnskap eller balanse, og review-runden er ikke lukket.",
-    "Toppfeilene har en tydelig utbedringsplan: Noen høyrisiko-feil står fortsatt uten lukket utbedringsløp eller akseptabel residual risiko."
+    "Toppfeilene har en tydelig utbedringsplan: Noen høyrisiko-feil står fortsatt uten lukket utbedringsløp eller akseptabel residual risiko.",
+    "Shadow batch kjører uten runtime-blokkere: Siste shadow batch viser skips/failures eller runtime er ikke helt klar for representativ kjøring."
   ],
   "warnings": [
     "Ingen høyalvorlige false auto-pass er kjent: Kalibreringen har ingen reviewed cases og kan derfor ikke bevise at auto-pass er trygge.",
@@ -161,18 +161,17 @@
     {
       "label": "Shadow skip count",
       "value": "4",
-      "status": "WARNING",
-      "note": "Skips ser data-/artifact-relaterte ut. Runtime-blocked cases: 0"
+      "status": "FAIL"
     },
     {
       "label": "Top failure class",
-      "value": "LEGACY_UNIFIED_MISMATCH",
+      "value": "ARTIFACT_MISSING",
       "status": "WARNING",
-      "note": "High severity issues: 16"
+      "note": "High severity issues: 17"
     },
     {
       "label": "Readiness blockers",
-      "value": "5",
+      "value": "6",
       "status": "FAIL"
     },
     {
@@ -198,8 +197,8 @@
     ]
   },
   "output": {
-    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-29-01-908Z.json",
-    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-29-01-908Z.md"
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-21-21-379Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-21-21-379Z.md"
   },
   "safety": {
     "publishSourceOfTruth": "LEGACY",

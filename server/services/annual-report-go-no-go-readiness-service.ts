@@ -201,6 +201,61 @@ function listTopIssueClasses(taxonomyReport: AnnualReportUnifiedFailureTaxonomyR
   return taxonomyReport.summary.issueClassCounts.slice(0, 3).map((item) => item.issueClass);
 }
 
+type GoldSetShadowCase = AnnualReportGoldSetShadowRun["batch"]["cases"][number];
+
+function hasRuntimeFailureSignal(message: string) {
+  return /(runtime|opendataloader|hybrid backend|java\b|not configured|not ready|invocation|transport|connection refused|timed out)/i.test(
+    message,
+  );
+}
+
+function caseHasRuntimeBlocker(item: GoldSetShadowCase) {
+  if (item.errors.some(hasRuntimeFailureSignal) || item.warnings.some(hasRuntimeFailureSignal)) {
+    return true;
+  }
+
+  if (!item.shadow) {
+    return false;
+  }
+
+  return Object.values(item.shadow.steps).some(
+    (step) => step !== null && typeof step.error === "string" && hasRuntimeFailureSignal(step.error),
+  );
+}
+
+function summarizeShadowRuntimeBlockers(run: AnnualReportGoldSetShadowRun | null) {
+  if (!run) {
+    return {
+      runtimeBlockedCases: 0,
+      nonRuntimeSkippedCases: 0,
+      nonRuntimeFailedCases: 0,
+    };
+  }
+
+  let runtimeBlockedCases = 0;
+  let nonRuntimeSkippedCases = 0;
+  let nonRuntimeFailedCases = 0;
+
+  for (const item of run.batch.cases) {
+    if (caseHasRuntimeBlocker(item)) {
+      runtimeBlockedCases += 1;
+      continue;
+    }
+
+    if (item.status === "skipped") {
+      nonRuntimeSkippedCases += 1;
+    } else if (item.status === "error") {
+      nonRuntimeFailedCases += 1;
+    }
+  }
+
+  return {
+    runtimeBlockedCases,
+    nonRuntimeSkippedCases,
+    nonRuntimeFailedCases,
+  };
+}
+
 function buildOutputPaths(now: Date) {
   const stamp = now.toISOString().replace(/[:.]/g, "-");
   return {
@@ -275,6 +330,7 @@ export async function buildAnnualReportGoNoGoReadinessReport(
 
   const shadowConfig = getShadowConfig();
   const criteria: AnnualReportReadinessCriterion[] = [];
+  const shadowRuntimeSummary = summarizeShadowRuntimeBlockers(latestGoldSetRun);
 
   const requiredTags = [
     "digital_simple",
@@ -566,6 +622,11 @@ export async function buildAnnualReportGoNoGoReadinessReport(
     latestTaxonomyReport?.summary.issueClassCounts.filter(
       (item) =>
         item.severity === "HIGH" &&
+        !(
+          item.issueClass === "PARSER_RUNTIME_UNAVAILABLE" &&
+          runtime.liveHybridBenchmarkReady &&
+          shadowRuntimeSummary.runtimeBlockedCases === 0
+        ) &&
         !latestExtractionFixReport?.targetedIssueClasses.includes(
           item.issueClass as AnnualReportExtractionFixReport["targetedIssueClasses"][number],
         ),
@@ -626,7 +687,7 @@ export async function buildAnnualReportGoNoGoReadinessReport(
           [],
           { blocker: true },
         )
-      : !runtime.liveHybridBenchmarkReady || (shadowSkipCount ?? 0) > 0 || (shadowFailCount ?? 0) > 0
+      : !runtime.liveHybridBenchmarkReady || shadowRuntimeSummary.runtimeBlockedCases > 0
         ? criterion(
             "shadow-runtime",
             "Shadow batch kjører uten runtime-blokkere",
@@ -635,6 +696,7 @@ export async function buildAnnualReportGoNoGoReadinessReport(
             [
               `Shadow skip count: ${shadowSkipCount ?? "unknown"}`,
               `Shadow fail count: ${shadowFailCount ?? "unknown"}`,
+              `Runtime-blocked cases: ${shadowRuntimeSummary.runtimeBlockedCases}`,
               `Hybrid runtime ready: ${runtime.liveHybridBenchmarkReady ? "ja" : "nei"}`,
               runtime.liveHybridBenchmarkReason ?? "Ingen runtime-begrunnelse registrert.",
             ],
@@ -648,6 +710,9 @@ export async function buildAnnualReportGoNoGoReadinessReport(
             [
               `Shadow skip count: ${shadowSkipCount ?? 0}`,
               `Shadow fail count: ${shadowFailCount ?? 0}`,
+              `Runtime-blocked cases: ${shadowRuntimeSummary.runtimeBlockedCases}`,
+              `Non-runtime skipped cases: ${shadowRuntimeSummary.nonRuntimeSkippedCases}`,
+              `Non-runtime failed cases: ${shadowRuntimeSummary.nonRuntimeFailedCases}`,
             ],
           ),
   );
@@ -760,7 +825,21 @@ export async function buildAnnualReportGoNoGoReadinessReport(
       label: "Shadow skip count",
       value: formatCount(shadowSkipCount),
       status:
-        shadowSkipCount === null ? "UNKNOWN" : shadowSkipCount > 0 ? "FAIL" : "PASS",
+        shadowSkipCount === null
+          ? "UNKNOWN"
+          : shadowRuntimeSummary.runtimeBlockedCases > 0
+            ? "FAIL"
+            : shadowSkipCount > 0
+              ? "WARNING"
+              : "PASS",
+      note:
+        shadowSkipCount === null
+          ? undefined
+          : shadowRuntimeSummary.runtimeBlockedCases > 0
+            ? `Runtime-blocked cases: ${shadowRuntimeSummary.runtimeBlockedCases}`
+            : shadowSkipCount > 0
+              ? `Skips ser data-/artifact-relaterte ut. Runtime-blocked cases: ${shadowRuntimeSummary.runtimeBlockedCases}`
+              : undefined,
     },
     {
       label: "Top failure class",

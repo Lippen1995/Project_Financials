@@ -1,0 +1,814 @@
+{
+  "version": "annual-report-manual-review-round-v1",
+  "reviewRoundId": "gold-set-2026-05-11T21-20-33-105Z",
+  "generatedAt": "2026-05-11T21:20:34.287Z",
+  "sourceRun": {
+    "runId": "gold-set-2026-05-11T21-20-33-105Z",
+    "generatedAt": "2026-05-11T21:20:33.105Z",
+    "manifestName": "annual-report-go-live-gold-set",
+    "manifestHash": "6f2140bc1f332ea8739c1cb4143fed897e020d11e845764264e9cfa5c027f59d",
+    "gitCommitSha": "b41327f83bf32750d68df339c4cd8f89a7c15948"
+  },
+  "summary": {
+    "totalFilings": 5,
+    "reviewCandidateCount": 5,
+    "reviewedCount": 0,
+    "pendingCount": 5,
+    "blockedCount": 0,
+    "severityCounts": {
+      "HIGH": 5,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "issueClassCounts": {
+      "missing_legacy_result": 5,
+      "missing_unified_result": 5,
+      "artifact_or_runtime_blocker": 5,
+      "missing_structured_document": 5,
+      "missing_artifact:source_pdf": 5,
+      "missing_artifact:preflight_artifact": 5,
+      "missing_artifact:structured_document_json": 5,
+      "missing_artifact:legacy_extraction": 5,
+      "missing_artifact:unified_extraction": 5,
+      "missing_artifact:shadow_comparison_output": 5,
+      "missing_artifact:confidence_gate_output": 5,
+      "tag:continuation_complex": 1,
+      "tag:degraded_ambiguous": 1,
+      "tag:manual_review_expected": 4,
+      "tag:unit_scale_sensitive": 1,
+      "tag:ocr_token_noise": 3,
+      "tag:scan_or_ocr": 3
+    },
+    "tagCoverage": {
+      "digital_simple": 1,
+      "continuation_complex": 1,
+      "degraded_ambiguous": 1,
+      "digital_note_heavy": 1,
+      "manual_review_expected": 4,
+      "multi_page_balance": 1,
+      "supplementary_present": 1,
+      "unit_scale_sensitive": 1,
+      "ocr_token_noise": 3,
+      "scan_or_ocr": 3
+    },
+    "evidenceQualitySummary": {
+      "unavailable_candidate": 5
+    },
+    "topFailingCanonicalFinancialKeys": [],
+    "topDivergenceStages": [
+      {
+        "stage": "source_pdf",
+        "count": 5
+      }
+    ],
+    "missingArtifactCounts": {
+      "source_pdf": 5,
+      "preflight_artifact": 5,
+      "structured_document_json": 5,
+      "legacy_extraction": 5,
+      "unified_extraction": 5,
+      "shadow_comparison_output": 5,
+      "confidence_gate_output": 5
+    },
+    "narrativeMismatchCount": 0,
+    "unitScaleAmbiguityCount": 0
+  },
+  "candidates": [
+    {
+      "candidateId": "33b394e4ffa79c6f",
+      "reviewRoundId": "gold-set-2026-05-11T21-20-33-105Z",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2018,
+      "filingId": "cmobtujsi000dvmvoroqrrdwe",
+      "reportId": null,
+      "documentRef": null,
+      "tags": [
+        "digital_simple"
+      ],
+      "evidenceType": "fallback",
+      "evidenceQuality": "unavailable_candidate",
+      "confidenceGateResult": "INSUFFICIENT_DATA",
+      "comparisonResult": {
+        "mismatchCount": 0,
+        "narrativeMismatchCount": 0,
+        "exactMatchCount": null,
+        "matchRate": null
+      },
+      "firstDivergenceStage": "source_pdf",
+      "severity": "HIGH",
+      "reviewReasons": [
+        "Legacy-resultat mangler for denne rapporten.",
+        "Unified-resultat mangler eller kunne ikke leses.",
+        "Kjøringen ble hoppet over eller stoppet på grunn av artifact/runtime/parser-problem.",
+        "Strukturert dokument-artifact mangler.",
+        "Legacy candidate loading did not run because the filing could not be loaded."
+      ],
+      "issueClasses": [
+        "missing_legacy_result",
+        "missing_unified_result",
+        "artifact_or_runtime_blocker",
+        "missing_structured_document",
+        "missing_artifact:source_pdf",
+        "missing_artifact:preflight_artifact",
+        "missing_artifact:structured_document_json",
+        "missing_artifact:legacy_extraction",
+        "missing_artifact:unified_extraction",
+        "missing_artifact:shadow_comparison_output",
+        "missing_artifact:confidence_gate_output"
+      ],
+      "financialComparisons": [],
+      "narrativeComparisons": [],
+      "artifactRefs": [
+        {
+          "key": "source_pdf",
+          "label": "Source PDF",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Source PDF missing."
+        },
+        {
+          "key": "preflight_artifact",
+          "label": "Preflight artifact",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "No persisted preflight artifact found."
+        },
+        {
+          "key": "structured_document_json",
+          "label": "Structured document JSON",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Structured document artifact missing."
+        },
+        {
+          "key": "legacy_extraction",
+          "label": "Legacy extraction",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Legacy candidate unavailable."
+        },
+        {
+          "key": "unified_extraction",
+          "label": "Unified extraction",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_FINANCIAL_EXTRACTION",
+          "href": null,
+          "note": "No unified extraction artifact found."
+        },
+        {
+          "key": "shadow_comparison_output",
+          "label": "Shadow comparison output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON",
+          "href": null,
+          "note": null
+        },
+        {
+          "key": "confidence_gate_output",
+          "label": "Confidence gate output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_EXTRACTION_CONFIDENCE_GATE",
+          "href": null,
+          "note": null
+        }
+      ],
+      "confidenceGateDiagnostics": [],
+      "parserOrEvidence": "published_snapshot",
+      "status": "PENDING",
+      "updatedAt": null,
+      "latestDecision": null,
+      "diagnostics": [
+        "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load filing: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load drilldown: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
+      ]
+    },
+    {
+      "candidateId": "2b693f0edefc65f7",
+      "reviewRoundId": "gold-set-2026-05-11T21-20-33-105Z",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2024,
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "reportId": null,
+      "documentRef": null,
+      "tags": [
+        "continuation_complex",
+        "degraded_ambiguous",
+        "digital_note_heavy",
+        "manual_review_expected",
+        "multi_page_balance",
+        "supplementary_present",
+        "unit_scale_sensitive"
+      ],
+      "evidenceType": "fallback",
+      "evidenceQuality": "unavailable_candidate",
+      "confidenceGateResult": "INSUFFICIENT_DATA",
+      "comparisonResult": {
+        "mismatchCount": 0,
+        "narrativeMismatchCount": 0,
+        "exactMatchCount": null,
+        "matchRate": null
+      },
+      "firstDivergenceStage": "source_pdf",
+      "severity": "HIGH",
+      "reviewReasons": [
+        "Legacy-resultat mangler for denne rapporten.",
+        "Unified-resultat mangler eller kunne ikke leses.",
+        "Kjøringen ble hoppet over eller stoppet på grunn av artifact/runtime/parser-problem.",
+        "Strukturert dokument-artifact mangler.",
+        "Gold-set-taggen \"continuation_complex\" tilsier manuell kontroll.",
+        "Gold-set-taggen \"degraded_ambiguous\" tilsier manuell kontroll.",
+        "Gold-set-taggen \"manual_review_expected\" tilsier manuell kontroll.",
+        "Gold-set-taggen \"unit_scale_sensitive\" tilsier manuell kontroll.",
+        "Legacy candidate loading did not run because the filing could not be loaded."
+      ],
+      "issueClasses": [
+        "missing_legacy_result",
+        "missing_unified_result",
+        "artifact_or_runtime_blocker",
+        "missing_structured_document",
+        "tag:continuation_complex",
+        "tag:degraded_ambiguous",
+        "tag:manual_review_expected",
+        "tag:unit_scale_sensitive",
+        "missing_artifact:source_pdf",
+        "missing_artifact:preflight_artifact",
+        "missing_artifact:structured_document_json",
+        "missing_artifact:legacy_extraction",
+        "missing_artifact:unified_extraction",
+        "missing_artifact:shadow_comparison_output",
+        "missing_artifact:confidence_gate_output"
+      ],
+      "financialComparisons": [],
+      "narrativeComparisons": [],
+      "artifactRefs": [
+        {
+          "key": "source_pdf",
+          "label": "Source PDF",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Source PDF missing."
+        },
+        {
+          "key": "preflight_artifact",
+          "label": "Preflight artifact",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "No persisted preflight artifact found."
+        },
+        {
+          "key": "structured_document_json",
+          "label": "Structured document JSON",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Structured document artifact missing."
+        },
+        {
+          "key": "legacy_extraction",
+          "label": "Legacy extraction",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Legacy candidate unavailable."
+        },
+        {
+          "key": "unified_extraction",
+          "label": "Unified extraction",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_FINANCIAL_EXTRACTION",
+          "href": null,
+          "note": "No unified extraction artifact found."
+        },
+        {
+          "key": "shadow_comparison_output",
+          "label": "Shadow comparison output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON",
+          "href": null,
+          "note": null
+        },
+        {
+          "key": "confidence_gate_output",
+          "label": "Confidence gate output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_EXTRACTION_CONFIDENCE_GATE",
+          "href": null,
+          "note": null
+        }
+      ],
+      "confidenceGateDiagnostics": [],
+      "parserOrEvidence": "published_snapshot",
+      "status": "PENDING",
+      "updatedAt": null,
+      "latestDecision": null,
+      "diagnostics": [
+        "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load filing: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load drilldown: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
+      ]
+    },
+    {
+      "candidateId": "5144424f76613796",
+      "reviewRoundId": "gold-set-2026-05-11T21-20-33-105Z",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2023,
+      "filingId": "cmobtujr90003vmvorzjg483p",
+      "reportId": null,
+      "documentRef": null,
+      "tags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "evidenceType": "fallback",
+      "evidenceQuality": "unavailable_candidate",
+      "confidenceGateResult": "INSUFFICIENT_DATA",
+      "comparisonResult": {
+        "mismatchCount": 0,
+        "narrativeMismatchCount": 0,
+        "exactMatchCount": null,
+        "matchRate": null
+      },
+      "firstDivergenceStage": "source_pdf",
+      "severity": "HIGH",
+      "reviewReasons": [
+        "Legacy-resultat mangler for denne rapporten.",
+        "Unified-resultat mangler eller kunne ikke leses.",
+        "Kjøringen ble hoppet over eller stoppet på grunn av artifact/runtime/parser-problem.",
+        "Strukturert dokument-artifact mangler.",
+        "Gold-set-taggen \"manual_review_expected\" tilsier manuell kontroll.",
+        "Gold-set-taggen \"ocr_token_noise\" tilsier manuell kontroll.",
+        "Gold-set-taggen \"scan_or_ocr\" tilsier manuell kontroll.",
+        "Legacy candidate loading did not run because the filing could not be loaded."
+      ],
+      "issueClasses": [
+        "missing_legacy_result",
+        "missing_unified_result",
+        "artifact_or_runtime_blocker",
+        "missing_structured_document",
+        "tag:manual_review_expected",
+        "tag:ocr_token_noise",
+        "tag:scan_or_ocr",
+        "missing_artifact:source_pdf",
+        "missing_artifact:preflight_artifact",
+        "missing_artifact:structured_document_json",
+        "missing_artifact:legacy_extraction",
+        "missing_artifact:unified_extraction",
+        "missing_artifact:shadow_comparison_output",
+        "missing_artifact:confidence_gate_output"
+      ],
+      "financialComparisons": [],
+      "narrativeComparisons": [],
+      "artifactRefs": [
+        {
+          "key": "source_pdf",
+          "label": "Source PDF",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Source PDF missing."
+        },
+        {
+          "key": "preflight_artifact",
+          "label": "Preflight artifact",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "No persisted preflight artifact found."
+        },
+        {
+          "key": "structured_document_json",
+          "label": "Structured document JSON",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Structured document artifact missing."
+        },
+        {
+          "key": "legacy_extraction",
+          "label": "Legacy extraction",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Legacy candidate unavailable."
+        },
+        {
+          "key": "unified_extraction",
+          "label": "Unified extraction",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_FINANCIAL_EXTRACTION",
+          "href": null,
+          "note": "No unified extraction artifact found."
+        },
+        {
+          "key": "shadow_comparison_output",
+          "label": "Shadow comparison output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON",
+          "href": null,
+          "note": null
+        },
+        {
+          "key": "confidence_gate_output",
+          "label": "Confidence gate output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_EXTRACTION_CONFIDENCE_GATE",
+          "href": null,
+          "note": null
+        }
+      ],
+      "confidenceGateDiagnostics": [],
+      "parserOrEvidence": "published_snapshot",
+      "status": "PENDING",
+      "updatedAt": null,
+      "latestDecision": null,
+      "diagnostics": [
+        "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load filing: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load drilldown: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
+      ]
+    },
+    {
+      "candidateId": "cee5827422297b9e",
+      "reviewRoundId": "gold-set-2026-05-11T21-20-33-105Z",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2022,
+      "filingId": "cmobtujrj0005vmvopubneto4",
+      "reportId": null,
+      "documentRef": null,
+      "tags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "evidenceType": "fallback",
+      "evidenceQuality": "unavailable_candidate",
+      "confidenceGateResult": "INSUFFICIENT_DATA",
+      "comparisonResult": {
+        "mismatchCount": 0,
+        "narrativeMismatchCount": 0,
+        "exactMatchCount": null,
+        "matchRate": null
+      },
+      "firstDivergenceStage": "source_pdf",
+      "severity": "HIGH",
+      "reviewReasons": [
+        "Legacy-resultat mangler for denne rapporten.",
+        "Unified-resultat mangler eller kunne ikke leses.",
+        "Kjøringen ble hoppet over eller stoppet på grunn av artifact/runtime/parser-problem.",
+        "Strukturert dokument-artifact mangler.",
+        "Gold-set-taggen \"manual_review_expected\" tilsier manuell kontroll.",
+        "Gold-set-taggen \"ocr_token_noise\" tilsier manuell kontroll.",
+        "Gold-set-taggen \"scan_or_ocr\" tilsier manuell kontroll.",
+        "Legacy candidate loading did not run because the filing could not be loaded."
+      ],
+      "issueClasses": [
+        "missing_legacy_result",
+        "missing_unified_result",
+        "artifact_or_runtime_blocker",
+        "missing_structured_document",
+        "tag:manual_review_expected",
+        "tag:ocr_token_noise",
+        "tag:scan_or_ocr",
+        "missing_artifact:source_pdf",
+        "missing_artifact:preflight_artifact",
+        "missing_artifact:structured_document_json",
+        "missing_artifact:legacy_extraction",
+        "missing_artifact:unified_extraction",
+        "missing_artifact:shadow_comparison_output",
+        "missing_artifact:confidence_gate_output"
+      ],
+      "financialComparisons": [],
+      "narrativeComparisons": [],
+      "artifactRefs": [
+        {
+          "key": "source_pdf",
+          "label": "Source PDF",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Source PDF missing."
+        },
+        {
+          "key": "preflight_artifact",
+          "label": "Preflight artifact",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "No persisted preflight artifact found."
+        },
+        {
+          "key": "structured_document_json",
+          "label": "Structured document JSON",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Structured document artifact missing."
+        },
+        {
+          "key": "legacy_extraction",
+          "label": "Legacy extraction",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Legacy candidate unavailable."
+        },
+        {
+          "key": "unified_extraction",
+          "label": "Unified extraction",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_FINANCIAL_EXTRACTION",
+          "href": null,
+          "note": "No unified extraction artifact found."
+        },
+        {
+          "key": "shadow_comparison_output",
+          "label": "Shadow comparison output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON",
+          "href": null,
+          "note": null
+        },
+        {
+          "key": "confidence_gate_output",
+          "label": "Confidence gate output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_EXTRACTION_CONFIDENCE_GATE",
+          "href": null,
+          "note": null
+        }
+      ],
+      "confidenceGateDiagnostics": [],
+      "parserOrEvidence": "published_snapshot",
+      "status": "PENDING",
+      "updatedAt": null,
+      "latestDecision": null,
+      "diagnostics": [
+        "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load filing: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load drilldown: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
+      ]
+    },
+    {
+      "candidateId": "f963c3de4ab9e760",
+      "reviewRoundId": "gold-set-2026-05-11T21-20-33-105Z",
+      "runId": "gold-set-2026-05-11T21-20-33-105Z",
+      "orgNumber": "918298037",
+      "companyName": null,
+      "accountingYear": 2021,
+      "filingId": "cmobtujrs0007vmvos2b14yat",
+      "reportId": null,
+      "documentRef": null,
+      "tags": [
+        "manual_review_expected",
+        "ocr_token_noise",
+        "scan_or_ocr"
+      ],
+      "evidenceType": "fallback",
+      "evidenceQuality": "unavailable_candidate",
+      "confidenceGateResult": "INSUFFICIENT_DATA",
+      "comparisonResult": {
+        "mismatchCount": 0,
+        "narrativeMismatchCount": 0,
+        "exactMatchCount": null,
+        "matchRate": null
+      },
+      "firstDivergenceStage": "source_pdf",
+      "severity": "HIGH",
+      "reviewReasons": [
+        "Legacy-resultat mangler for denne rapporten.",
+        "Unified-resultat mangler eller kunne ikke leses.",
+        "Kjøringen ble hoppet over eller stoppet på grunn av artifact/runtime/parser-problem.",
+        "Strukturert dokument-artifact mangler.",
+        "Gold-set-taggen \"manual_review_expected\" tilsier manuell kontroll.",
+        "Gold-set-taggen \"ocr_token_noise\" tilsier manuell kontroll.",
+        "Gold-set-taggen \"scan_or_ocr\" tilsier manuell kontroll.",
+        "Legacy candidate loading did not run because the filing could not be loaded."
+      ],
+      "issueClasses": [
+        "missing_legacy_result",
+        "missing_unified_result",
+        "artifact_or_runtime_blocker",
+        "missing_structured_document",
+        "tag:manual_review_expected",
+        "tag:ocr_token_noise",
+        "tag:scan_or_ocr",
+        "missing_artifact:source_pdf",
+        "missing_artifact:preflight_artifact",
+        "missing_artifact:structured_document_json",
+        "missing_artifact:legacy_extraction",
+        "missing_artifact:unified_extraction",
+        "missing_artifact:shadow_comparison_output",
+        "missing_artifact:confidence_gate_output"
+      ],
+      "financialComparisons": [],
+      "narrativeComparisons": [],
+      "artifactRefs": [
+        {
+          "key": "source_pdf",
+          "label": "Source PDF",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Source PDF missing."
+        },
+        {
+          "key": "preflight_artifact",
+          "label": "Preflight artifact",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "No persisted preflight artifact found."
+        },
+        {
+          "key": "structured_document_json",
+          "label": "Structured document JSON",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Structured document artifact missing."
+        },
+        {
+          "key": "legacy_extraction",
+          "label": "Legacy extraction",
+          "status": "missing",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": null,
+          "href": null,
+          "note": "Legacy candidate unavailable."
+        },
+        {
+          "key": "unified_extraction",
+          "label": "Unified extraction",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_FINANCIAL_EXTRACTION",
+          "href": null,
+          "note": "No unified extraction artifact found."
+        },
+        {
+          "key": "shadow_comparison_output",
+          "label": "Shadow comparison output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON",
+          "href": null,
+          "note": null
+        },
+        {
+          "key": "confidence_gate_output",
+          "label": "Confidence gate output",
+          "status": "unavailable",
+          "artifactId": null,
+          "storageKey": null,
+          "artifactType": null,
+          "kind": "UNIFIED_EXTRACTION_CONFIDENCE_GATE",
+          "href": null,
+          "note": null
+        }
+      ],
+      "confidenceGateDiagnostics": [],
+      "parserOrEvidence": "published_snapshot",
+      "status": "PENDING",
+      "updatedAt": null,
+      "latestDecision": null,
+      "diagnostics": [
+        "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load filing: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+        "Could not load drilldown: \nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
+      ]
+    }
+  ],
+  "decisions": [],
+  "diagnostics": [],
+  "recommendedNextActions": {
+    "pr77Calibration": [
+      "Vent med kalibrering til flere kandidater er ferdig manuelt vurdert, slik at terskeljusteringene får bedre fasitgrunnlag."
+    ],
+    "pr78FailureTaxonomy": [
+      "Bruk \"artifact_or_runtime_blocker\" som startpunkt for første failure-taxonomy-gruppering."
+    ],
+    "pr79ExtractionFixes": [
+      "Undersøk hvorfor strukturert dokument-artifact mangler for flere kandidater før nye ekstraksjonsendringer vurderes."
+    ]
+  }
+}

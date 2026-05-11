@@ -1,8 +1,8 @@
 {
   "version": "annual-report-go-no-go-readiness-v1",
-  "generatedAt": "2026-05-11T21:29:01.908Z",
+  "generatedAt": "2026-05-11T21:20:38.589Z",
   "decision": "NO_GO",
-  "executiveSummary": "Unified-ekstraksjonen er ikke klar for neste go-live-steg. 5 blokkerere er fortsatt åpne.",
+  "executiveSummary": "Unified-ekstraksjonen er ikke klar for neste go-live-steg. 4 blokkerere er fortsatt åpne.",
   "evidenceUsed": {
     "goldSetShadowRunPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-gold-set-shadow-runs\\latest.json",
     "manualReviewRoundPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-manual-review-rounds\\latest.json",
@@ -41,9 +41,9 @@
       "blocker": true,
       "summary": "Det finnes fortsatt kritiske mangler i structured document eller andre nøkkel-artifacts.",
       "evidence": [
-        "Missing structured_document_json: 4",
-        "Missing legacy_extraction: 1",
-        "Missing unified_extraction: 4",
+        "Missing structured_document_json: 5",
+        "Missing legacy_extraction: 5",
+        "Missing unified_extraction: 5",
         "Unavailable gold-set entries: 6"
       ]
     },
@@ -66,19 +66,16 @@
       "summary": "Gate-policyen blokkerer usikker skala, men taxonomy viser fortsatt saker som må følges opp.",
       "evidence": [
         "Policy: FAIL",
-        "Open unit-scale issues: 2"
+        "Open unit-scale issues: 1"
       ]
     },
     {
       "key": "primary-statements",
       "title": "Primæroppstillinger blir funnet eller trygt reviewet",
-      "status": "FAIL",
-      "blocker": true,
-      "summary": "Det finnes fortsatt åpne funn for manglende resultatregnskap eller balanse, og review-runden er ikke lukket.",
-      "evidence": [
-        "Open primary statement issues: 2",
-        "Pending review candidates: 5"
-      ]
+      "status": "PASS",
+      "blocker": false,
+      "summary": "Taxonomy viser ingen åpne funn for manglende primæroppstillinger.",
+      "evidence": []
     },
     {
       "key": "remediation-plan",
@@ -87,7 +84,7 @@
       "blocker": true,
       "summary": "Noen høyrisiko-feil står fortsatt uten lukket utbedringsløp eller akseptabel residual risiko.",
       "evidence": [
-        "Unresolved high-severity classes: STRUCTURED_DOCUMENT_MISSING, CANONICAL_KEY_MISSING, PRIMARY_BALANCE_SHEET_MISSING, PRIMARY_INCOME_STATEMENT_MISSING, UNIT_SCALE_UNKNOWN"
+        "Unresolved high-severity classes: PARSER_RUNTIME_UNAVAILABLE, SOURCE_PDF_MISSING, STRUCTURED_DOCUMENT_MISSING"
       ]
     },
     {
@@ -97,11 +94,8 @@
       "blocker": false,
       "summary": "Siste shadow batch fullførte uten skip/fail, og runtime er klar.",
       "evidence": [
-        "Shadow skip count: 4",
-        "Shadow fail count: 1",
-        "Runtime-blocked cases: 0",
-        "Non-runtime skipped cases: 4",
-        "Non-runtime failed cases: 0"
+        "Shadow skip count: 0",
+        "Shadow fail count: 0"
       ]
     },
     {
@@ -130,7 +124,6 @@
     "Gold-set er representativt nok: Gold-set har fortsatt coverage-hull eller unavailable entries som svekker readiness-evidensen.",
     "Manuell review-runde er gjennomført: Manual review round finnes, men ingen kandidater er faktisk reviewet ennå.",
     "Artifact-dekning har ingen kritiske hull: Det finnes fortsatt kritiske mangler i structured document eller andre nøkkel-artifacts.",
-    "Primæroppstillinger blir funnet eller trygt reviewet: Det finnes fortsatt åpne funn for manglende resultatregnskap eller balanse, og review-runden er ikke lukket.",
     "Toppfeilene har en tydelig utbedringsplan: Noen høyrisiko-feil står fortsatt uten lukket utbedringsløp eller akseptabel residual risiko."
   ],
   "warnings": [
@@ -160,19 +153,18 @@
     },
     {
       "label": "Shadow skip count",
-      "value": "4",
-      "status": "WARNING",
-      "note": "Skips ser data-/artifact-relaterte ut. Runtime-blocked cases: 0"
+      "value": "0",
+      "status": "PASS"
     },
     {
       "label": "Top failure class",
-      "value": "LEGACY_UNIFIED_MISMATCH",
+      "value": "ARTIFACT_MISSING",
       "status": "WARNING",
-      "note": "High severity issues: 16"
+      "note": "High severity issues: 17"
     },
     {
       "label": "Readiness blockers",
-      "value": "5",
+      "value": "4",
       "status": "FAIL"
     },
     {
@@ -198,8 +190,8 @@
     ]
   },
   "output": {
-    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-29-01-908Z.json",
-    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-29-01-908Z.md"
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-20-38-589Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-20-38-589Z.md"
   },
   "safety": {
     "publishSourceOfTruth": "LEGACY",

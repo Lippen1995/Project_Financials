@@ -1,13 +1,13 @@
 {
   "version": "annual-report-unified-failure-taxonomy-v1",
-  "generatedAt": "2026-05-11T21:29:00.993Z",
+  "generatedAt": "2026-05-11T21:28:23.232Z",
   "input": {
     "runId": "gold-set-2026-05-11T21-21-16-484Z",
     "generatedBy": "scripts/generate-annual-report-unified-failure-taxonomy.ts"
   },
   "sourceRun": {
     "reviewRoundId": "gold-set-2026-05-11T21-21-16-484Z",
-    "reviewRoundGeneratedAt": "2026-05-11T21:29:00.147Z",
+    "reviewRoundGeneratedAt": "2026-05-11T21:28:22.334Z",
     "goldSetRunId": "gold-set-2026-05-11T21-21-16-484Z",
     "manifestName": "annual-report-go-live-gold-set",
     "gitCommitSha": "b41327f83bf32750d68df339c4cd8f89a7c15948"
@@ -1644,8 +1644,8 @@
     ]
   },
   "output": {
-    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-29-00-993Z.json",
-    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-29-00-993Z.md"
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-28-23-232Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-28-23-232Z.md"
   },
   "safety": {
     "canUseForProductionRouting": false,

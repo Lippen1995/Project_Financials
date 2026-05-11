@@ -487,7 +487,7 @@ describe("annual-report-manual-review-round-service", () => {
     const round = await buildAnnualReportManualReviewRound({}, deps);
 
     expect(round?.summary.missingArtifactCounts.source_pdf).toBe(1);
-    expect(round?.summary.missingArtifactCounts.structured_document_json).toBe(1);
+    expect(round?.summary.missingArtifactCounts.structured_document_json ?? 0).toBe(0);
     expect(round?.summary.pendingCount).toBe(1);
     expect(round?.summary.topFailingCanonicalFinancialKeys).toEqual(
       expect.arrayContaining([
@@ -497,6 +497,22 @@ describe("annual-report-manual-review-round-service", () => {
         },
       ]),
     );
+  });
+
+  it("treats persisted unified parser artifacts as structured-document evidence", async () => {
+    const { deps } = createMemoryDeps(makeRun());
+
+    const round = await buildAnnualReportManualReviewRound({}, deps);
+
+    expect(round?.summary.missingArtifactCounts.structured_document_json ?? 0).toBe(0);
+    expect(round?.candidates[0]?.artifactRefs.find((ref) => ref.key === "structured_document_json"))
+      .toEqual(
+        expect.objectContaining({
+          status: "available",
+          artifactId: "parser-1",
+          kind: "UNIFIED_PARSER_DOCUMENT",
+        }),
+      );
   });
 
   it("persists reviewer decisions and updates latest round outputs", async () => {

@@ -1,6 +1,6 @@
 {
   "version": "annual-report-go-no-go-readiness-v1",
-  "generatedAt": "2026-05-11T21:29:01.908Z",
+  "generatedAt": "2026-05-11T21:26:11.583Z",
   "decision": "NO_GO",
   "executiveSummary": "Unified-ekstraksjonen er ikke klar for neste go-live-steg. 5 blokkerere er fortsatt åpne.",
   "evidenceUsed": {
@@ -41,7 +41,7 @@
       "blocker": true,
       "summary": "Det finnes fortsatt kritiske mangler i structured document eller andre nøkkel-artifacts.",
       "evidence": [
-        "Missing structured_document_json: 4",
+        "Missing structured_document_json: 5",
         "Missing legacy_extraction: 1",
         "Missing unified_extraction: 4",
         "Unavailable gold-set entries: 6"
@@ -166,9 +166,9 @@
     },
     {
       "label": "Top failure class",
-      "value": "LEGACY_UNIFIED_MISMATCH",
+      "value": "ARTIFACT_MISSING",
       "status": "WARNING",
-      "note": "High severity issues: 16"
+      "note": "High severity issues: 17"
     },
     {
       "label": "Readiness blockers",
@@ -198,8 +198,8 @@
     ]
   },
   "output": {
-    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-29-01-908Z.json",
-    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-29-01-908Z.md"
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-26-11-583Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-26-11-583Z.md"
   },
   "safety": {
     "publishSourceOfTruth": "LEGACY",
