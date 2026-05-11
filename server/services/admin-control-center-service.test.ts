@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 
 import { buildAdminControlCenterModel } from "@/server/services/admin-control-center-service";
 
@@ -58,8 +58,8 @@ describe("admin-control-center-service", () => {
     });
 
     expect(model.title).toBe("Admin Control Center");
-    expect(model.attentionTitle).toBe("Hva trenger oppmerksomhet nå?");
-    expect(model.mainFlow.title).toBe("Fra årsrapport til tall i databasen");
+    expect(model.attentionTitle).toBe("Hva trenger oppmerksomhet nÃ¥?");
+    expect(model.mainFlow.title).toBe("Fra Ã¥rsrapport til tall i databasen");
     expect(model.mainFlow.nodes).toHaveLength(11);
     expect(model.goLiveFlow.title).toBe("Veien mot go-live for ny ekstraksjonsmotor");
     expect(model.goLiveFlow.nodes).toHaveLength(13);
@@ -72,7 +72,7 @@ describe("admin-control-center-service", () => {
         "Tall og tekst hentes ut",
         "Resultatene sammenlignes",
         "Systemet vurderer kvaliteten",
-        "Må rapporten kontrolleres manuelt?",
+        "MÃ¥ rapporten kontrolleres manuelt?",
         "Manuell kontroll",
         "Godkjente tall lagres",
         "Tallene blir tilgjengelige i produktet",
@@ -81,16 +81,16 @@ describe("admin-control-center-service", () => {
     expect(model.goLiveFlow.nodes.map((item) => item.title)).toEqual(
       expect.arrayContaining([
         "Bygg representativt testsett",
-        "Kjør shadow batch",
-        "Gjennomfør manuell kontroll",
+        "KjÃ¸r shadow batch",
+        "GjennomfÃ¸r manuell kontroll",
         "Juster terskler og regler",
         "Klassifiser feiltyper",
         "Rett de viktigste feilene",
         "Lag go/no-go-vurdering",
-        "Kjør canary uten produksjonseffekt",
+        "KjÃ¸r canary uten produksjonseffekt",
         "Aktiver routing bak feature flag",
         "Sikre publish gate",
-        "Overvåkning, varsler og kill switch",
+        "OvervÃ¥kning, varsler og kill switch",
         "Begrenset go-live",
         "Gradvis utvidelse",
       ]),
@@ -148,8 +148,14 @@ describe("admin-control-center-service", () => {
       "Ukjent",
     );
     expect(model.attentionEmptyState).toBe(
-      "Ingen åpne problemer funnet basert på tilgjengelige data.",
+      "Ingen Ã¥pne problemer funnet basert pÃ¥ tilgjengelige data.",
     );
     expect(model.attentionItems.some((item) => item.key === "shadow-missing")).toBe(true);
+    expect(model.summaryCards.find((item) => item.key === "calibration-status")?.value).toBe(
+      "Ingen data funnet",
+    );
   });
 });
+
+
+

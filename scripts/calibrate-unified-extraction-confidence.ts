@@ -3,17 +3,13 @@ import path from "node:path";
 
 import {
   buildUnifiedConfidenceThresholdCalibrationReport,
+  persistUnifiedConfidenceThresholdCalibrationArtifacts,
 } from "@/server/services/annual-report-unified-confidence-calibration-service";
-import { readFlag, readListFlag, readNumberFlag } from "@/scripts/financial-script-utils";
+import { readFlag } from "@/scripts/financial-script-utils";
 
 type CliOptions = {
-  fiscalYearFrom?: number;
-  fiscalYearTo?: number;
-  orgNumbers?: string[];
-  verdicts?: Array<"PASS" | "WARN" | "FAIL" | "INSUFFICIENT_DATA">;
-  minReviewedCases?: number;
+  runId?: string;
   includeUnreviewed: boolean;
-  limit?: number;
   outputJson: boolean;
   outputPath?: string;
 };
@@ -22,30 +18,10 @@ function hasBooleanFlag(name: string) {
   return process.argv.slice(2).includes(`--${name}`);
 }
 
-function parseVerdicts() {
-  const values = readListFlag("verdicts");
-  if (!values) {
-    return undefined;
-  }
-
-  return values.filter(
-    (value): value is "PASS" | "WARN" | "FAIL" | "INSUFFICIENT_DATA" =>
-      value === "PASS" ||
-      value === "WARN" ||
-      value === "FAIL" ||
-      value === "INSUFFICIENT_DATA",
-  );
-}
-
 function parseCliOptions(): CliOptions {
   return {
-    fiscalYearFrom: readNumberFlag("fiscal-year-from"),
-    fiscalYearTo: readNumberFlag("fiscal-year-to"),
-    orgNumbers: readListFlag("org-numbers"),
-    verdicts: parseVerdicts(),
-    minReviewedCases: readNumberFlag("min-reviewed-cases"),
+    runId: readFlag("run-id"),
     includeUnreviewed: hasBooleanFlag("include-unreviewed"),
-    limit: readNumberFlag("limit"),
     outputJson: hasBooleanFlag("json"),
     outputPath: readFlag("out"),
   };
@@ -58,60 +34,53 @@ function defaultOutputPath() {
     "output",
     "benchmarks",
     "annual-report-unified-confidence-calibration",
-    `${timestamp}-report.json`,
+    `${timestamp}.json`,
   );
-}
-
-function summarizeRecommendations(
-  recommendations: Awaited<ReturnType<typeof buildUnifiedConfidenceThresholdCalibrationReport>>["proposedThresholdAdjustments"],
-  kind: "RELAX" | "TIGHTEN" | "NEEDS_MORE_DATA",
-) {
-  const matches = recommendations.filter((item) => item.recommendation === kind);
-  if (matches.length === 0) {
-    return "none";
-  }
-  return matches
-    .slice(0, 5)
-    .map((item) => `${item.checkCode} (${item.sampleSize})`)
-    .join(", ");
 }
 
 async function main() {
   const options = parseCliOptions();
   const report = await buildUnifiedConfidenceThresholdCalibrationReport({
-    fiscalYearFrom: options.fiscalYearFrom,
-    fiscalYearTo: options.fiscalYearTo,
-    orgNumbers: options.orgNumbers,
-    verdicts: options.verdicts,
-    minReviewedCases: options.minReviewedCases,
+    runId: options.runId,
     includeUnreviewed: options.includeUnreviewed,
-    limit: options.limit,
     generatedBy: "scripts/calibrate-unified-extraction-confidence.ts",
   });
 
   const outputPath = path.resolve(process.cwd(), options.outputPath ?? defaultOutputPath());
+  const markdownPath = outputPath.replace(/\.json$/i, ".md");
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   await fs.writeFile(outputPath, JSON.stringify(report, null, 2), "utf8");
+  await fs.writeFile(
+    markdownPath,
+    [
+      "# Unified confidence calibration",
+      "",
+      `Primary JSON output: ${outputPath}`,
+      `Latest persisted report: ${report.output.jsonPath}`,
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  await persistUnifiedConfidenceThresholdCalibrationArtifacts(report);
 
   if (options.outputJson) {
     console.log(JSON.stringify(report, null, 2));
   }
 
-  console.log(`Total gate artifacts: ${report.sampleSummary.totalGateArtifacts}`);
-  console.log(`Reviewed cases: ${report.sampleSummary.reviewedCases}`);
+  console.log(`Source run: ${report.sourceRun.runId ?? "unknown"}`);
+  console.log(`Reviewed cases: ${report.metrics.totalReviewedCases}`);
+  console.log(`False pass count: ${report.metrics.falsePassCount}`);
+  console.log(`False review count: ${report.metrics.falseReviewCount}`);
+  console.log(`High severity miss count: ${report.metrics.highSeverityMissCount}`);
   console.log(
-    `Accepted/rejected/corrected: ${report.sampleSummary.acceptedCases}/${report.sampleSummary.rejectedCases}/${report.sampleSummary.correctedCases}`,
+    `Calibration status: ${report.thresholdBehavior.after.status}`,
   );
   console.log(
-    `Top checks to tighten: ${summarizeRecommendations(report.proposedThresholdAdjustments, "TIGHTEN")}`,
-  );
-  console.log(
-    `Top checks to relax: ${summarizeRecommendations(report.proposedThresholdAdjustments, "RELAX")}`,
-  );
-  console.log(
-    `Checks needing more data: ${summarizeRecommendations(report.proposedThresholdAdjustments, "NEEDS_MORE_DATA")}`,
+    `Distribution before/after: PASS ${report.thresholdBehavior.before.distribution.PASS}->${report.thresholdBehavior.after.distribution.PASS}, WARN ${report.thresholdBehavior.before.distribution.WARN}->${report.thresholdBehavior.after.distribution.WARN}, FAIL ${report.thresholdBehavior.before.distribution.FAIL}->${report.thresholdBehavior.after.distribution.FAIL}`,
   );
   console.log(`Output: ${outputPath}`);
+  console.log(`Markdown: ${markdownPath}`);
+  console.log(`Latest persisted report: ${report.output.jsonPath}`);
 }
 
 main().catch((error) => {
