@@ -4,6 +4,8 @@ import path from "node:path";
 import type { AnnualReportGoldSetShadowRun } from "@/server/benchmarking/annual-report-gold-set-shadow-run";
 import type { AnnualReportExtractionFixReport } from "@/server/services/annual-report-extraction-fix-report-service";
 import { readLatestAnnualReportExtractionFixReport } from "@/server/services/annual-report-extraction-fix-report-service";
+import type { AnnualReportGoNoGoReadinessReport } from "@/server/services/annual-report-go-no-go-readiness-service";
+import { readLatestAnnualReportGoNoGoReadinessReport } from "@/server/services/annual-report-go-no-go-readiness-service";
 import type { AnnualReportManualReviewRound } from "@/server/services/annual-report-manual-review-round-service";
 import type { AnnualReportUnifiedConfidenceCalibrationReport } from "@/server/services/annual-report-unified-confidence-calibration-service";
 import { readLatestUnifiedConfidenceThresholdCalibrationReport } from "@/server/services/annual-report-unified-confidence-calibration-service";
@@ -138,6 +140,7 @@ export type AdminControlCenterServiceDeps = {
   readLatestGoldSetRun?: () => Promise<AnnualReportGoldSetShadowRun | null>;
   readLatestManualReviewRound?: () => Promise<AnnualReportManualReviewRound | null>;
   readLatestExtractionFixReport?: () => Promise<AnnualReportExtractionFixReport | null>;
+  readLatestReadinessReport?: () => Promise<AnnualReportGoNoGoReadinessReport | null>;
   readLatestCalibrationReport?: () => Promise<AnnualReportUnifiedConfidenceCalibrationReport | null>;
   readLatestTaxonomyReport?: () => Promise<AnnualReportUnifiedFailureTaxonomyReport | null>;
   getShadowConfig?: typeof getAnnualReportUnifiedShadowConfigFromEnv;
@@ -326,6 +329,7 @@ function buildAttentionItems(input: {
   latestGoldSetRun: AnnualReportGoldSetShadowRun | null;
   latestManualReviewRound: AnnualReportManualReviewRound | null;
   latestExtractionFixReport: AnnualReportExtractionFixReport | null;
+  latestReadinessReport: AnnualReportGoNoGoReadinessReport | null;
   latestCalibrationReport: AnnualReportUnifiedConfidenceCalibrationReport | null;
   latestTaxonomyReport: AnnualReportUnifiedFailureTaxonomyReport | null;
   incompleteCoverageCount: number;
@@ -396,6 +400,26 @@ function buildAttentionItems(input: {
         input.latestExtractionFixReport?.remainingBlockers[0] ??
         "Det finnes fortsatt åpne blokkerere etter PR79-fiksene.",
       href: "/admin/pdf-parser-remediation",
+    });
+  }
+
+  if ((input.latestReadinessReport?.blockers.length ?? 0) > 0) {
+    items.push({
+      key: "readiness-blockers",
+      severity: "HIGH",
+      title: "Readiness-rapporten blokkerer videre utrulling",
+      description:
+        input.latestReadinessReport?.blockers[0] ??
+        "Siste readiness-rapport viser åpne blokkerere som må lukkes før neste go-live-steg.",
+    });
+  } else if (input.latestReadinessReport?.decision === "CONDITIONAL_GO") {
+    items.push({
+      key: "readiness-warnings",
+      severity: "MEDIUM",
+      title: "Readiness krever oppfølging før neste steg",
+      description:
+        input.latestReadinessReport.warnings[0] ??
+        "Siste readiness-rapport har åpne varsler som bør lukkes før neste steg i roadmapen.",
     });
   }
 
@@ -991,6 +1015,7 @@ function buildMainFlow(input: {
 function buildGoLiveFlow(input: {
   latestGoldSetRun: AnnualReportGoldSetShadowRun | null;
   latestExtractionFixReport: AnnualReportExtractionFixReport | null;
+  latestReadinessReport: AnnualReportGoNoGoReadinessReport | null;
   latestCalibrationReport: AnnualReportUnifiedConfidenceCalibrationReport | null;
   latestTaxonomyReport: AnnualReportUnifiedFailureTaxonomyReport | null;
   reviewQueueCount: number;
@@ -1055,6 +1080,24 @@ function buildGoLiveFlow(input: {
   const extractionFixMetric = input.latestExtractionFixReport
     ? `Status: ${input.latestExtractionFixReport.status}. Målrettede klasser: ${input.latestExtractionFixReport.targetedIssueClasses.slice(0, 3).join(", ")}`
     : "Ingen PR79-rapport funnet";
+  const readinessStatus = input.latestReadinessReport
+    ? input.latestReadinessReport.decision === "GO"
+      ? "HEALTHY"
+      : input.latestReadinessReport.decision === "CONDITIONAL_GO"
+        ? "WARNING"
+        : "BLOCKED"
+    : "NOT_STARTED";
+  const readinessTone =
+    readinessStatus === "HEALTHY"
+      ? "GREEN"
+      : readinessStatus === "WARNING"
+        ? "YELLOW"
+        : readinessStatus === "BLOCKED"
+          ? "RED"
+          : "BLUE";
+  const readinessMetric = input.latestReadinessReport
+    ? `Beslutning: ${input.latestReadinessReport.decision}. Blokkere: ${input.latestReadinessReport.blockers.length}.`
+    : "Ingen persisted readiness-rapport funnet";
 
   return {
     title: "Veien mot go-live for ny ekstraksjonsmotor",
@@ -1215,10 +1258,10 @@ function buildGoLiveFlow(input: {
         stepNumber: 7,
         title: "Lag go/no-go-vurdering",
         subtitle: "Oppsummer om systemet er klart for kontrollert utrulling.",
-        status: "NOT_STARTED",
-        tone: "BLUE",
-        metric: "Ingen egen readiness-side ennÃ¥",
-        unavailableLabel: "Planlagt",
+        status: readinessStatus,
+        tone: readinessTone,
+        metric: readinessMetric,
+        unavailableLabel: "Ingen egen side ennÃ¥",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
@@ -1400,6 +1443,7 @@ export async function buildAdminControlCenterModel(
     latestGoldSetRun,
     latestManualReviewRound,
     latestExtractionFixReport,
+    latestReadinessReport,
     latestCalibrationReport,
     latestTaxonomyReport,
   ] = await Promise.all([
@@ -1438,6 +1482,11 @@ export async function buildAdminControlCenterModel(
     tryLoad(
       "latest extraction fix report",
       () => (deps.readLatestExtractionFixReport ?? readLatestAnnualReportExtractionFixReport)(),
+      diagnostics,
+    ),
+    tryLoad(
+      "latest readiness report",
+      () => (deps.readLatestReadinessReport ?? readLatestAnnualReportGoNoGoReadinessReport)(),
       diagnostics,
     ),
     tryLoad(
@@ -1480,6 +1529,7 @@ export async function buildAdminControlCenterModel(
     latestGoldSetRun,
     latestManualReviewRound,
     latestExtractionFixReport,
+    latestReadinessReport,
     latestCalibrationReport,
     latestTaxonomyReport,
     incompleteCoverageCount,
@@ -1490,7 +1540,13 @@ export async function buildAdminControlCenterModel(
 
   const goldSetStatus = deriveGoldSetStatus(latestGoldSetRun, now);
   const goLiveValue =
-    !latestGoldSetRun
+    latestReadinessReport
+      ? latestReadinessReport.decision === "GO"
+        ? "Go"
+        : latestReadinessReport.decision === "CONDITIONAL_GO"
+          ? "Conditional go"
+          : "No-go"
+      : !latestGoldSetRun
       ? "Ukjent"
       : goldSetStatus === "FAILING"
         ? "Krever oppfÃ¸lging"
@@ -1498,7 +1554,13 @@ export async function buildAdminControlCenterModel(
           ? "Under testing"
           : "Ser stabil ut";
   const goLiveTone =
-    !latestGoldSetRun
+    latestReadinessReport
+      ? latestReadinessReport.decision === "GO"
+        ? "GREEN"
+        : latestReadinessReport.decision === "CONDITIONAL_GO"
+          ? "YELLOW"
+          : "RED"
+      : !latestGoldSetRun
       ? "BLUE"
       : goldSetStatus === "FAILING"
         ? "RED"
@@ -1726,11 +1788,47 @@ export async function buildAdminControlCenterModel(
         title: "Go-live status",
         value: goLiveValue,
         detail:
-          latestGoldSetRun
-            ? "Bygger pÃ¥ siste shadow batch, review-kÃ¸ og tilgjengelig quality-data."
-            : "For lite samlet evidens til Ã¥ vurdere go-live.",
-        status: latestGoldSetRun ? goldSetStatus : "UNKNOWN",
+          latestReadinessReport
+            ? `Blokkere: ${latestReadinessReport.blockers.length}. Rapport: ${latestReadinessReport.output.markdownPath}`
+            : latestGoldSetRun
+              ? "Bygger pÃ¥ siste shadow batch, review-kÃ¸ og tilgjengelig quality-data."
+              : "For lite samlet evidens til Ã¥ vurdere go-live.",
+        status:
+          latestReadinessReport
+            ? latestReadinessReport.decision === "GO"
+              ? "HEALTHY"
+              : latestReadinessReport.decision === "CONDITIONAL_GO"
+                ? "WARNING"
+                : "BLOCKED"
+            : latestGoldSetRun
+              ? goldSetStatus
+              : "UNKNOWN",
         tone: goLiveTone,
+      },
+      {
+        key: "readiness-report",
+        title: "Readiness report",
+        value: latestReadinessReport?.decision ?? "Ingen data funnet",
+        detail:
+          latestReadinessReport
+            ? `Generert ${formatTimestamp(latestReadinessReport.generatedAt)}. Blokkere: ${latestReadinessReport.blockers.length}. Report: ${latestReadinessReport.output.markdownPath}`
+            : "Ingen persisted readiness-rapport er funnet ennå.",
+        status:
+          latestReadinessReport === null
+            ? "UNKNOWN"
+            : latestReadinessReport.decision === "GO"
+              ? "HEALTHY"
+              : latestReadinessReport.decision === "CONDITIONAL_GO"
+                ? "WARNING"
+                : "BLOCKED",
+        tone:
+          latestReadinessReport === null
+            ? "BLUE"
+            : latestReadinessReport.decision === "GO"
+              ? "GREEN"
+              : latestReadinessReport.decision === "CONDITIONAL_GO"
+                ? "YELLOW"
+                : "RED",
       },
       {
         key: "highest-priority",
@@ -1811,6 +1909,7 @@ export async function buildAdminControlCenterModel(
       goLiveFlow: buildGoLiveFlow({
         latestGoldSetRun,
         latestExtractionFixReport,
+        latestReadinessReport,
         latestCalibrationReport,
         latestTaxonomyReport,
         reviewQueueCount,

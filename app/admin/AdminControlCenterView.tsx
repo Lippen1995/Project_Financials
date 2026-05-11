@@ -402,6 +402,7 @@ export default function AdminControlCenterView({
     (card) => card.key === "calibration-status",
   );
   const goLiveStatusCard = model.summaryCards.find((card) => card.key === "go-live-status");
+  const readinessReportCard = model.summaryCards.find((card) => card.key === "readiness-report");
   const reviewQueueCard = model.summaryCards.find((card) => card.key === "review-queue");
   const failedCard = model.summaryCards.find((card) => card.key === "failed");
   const latestShadowBatchHeaderValue = latestShadowBatchCard?.detail?.startsWith("Sist lagret ")
@@ -414,6 +415,7 @@ export default function AdminControlCenterView({
     latestShadowBatchCard,
     calibrationStatusCard,
     goLiveStatusCard,
+    readinessReportCard,
     publishSafetyCard,
     {
       key: "unified-mode",
