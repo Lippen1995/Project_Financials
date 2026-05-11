@@ -294,6 +294,73 @@ describe("extractUnifiedFinancialStatements — balance sheet", () => {
     const tel = stmt?.lineItems.find((i) => i.canonicalKey === "total_equity_and_liabilities");
     expect(tel).toBeDefined();
   });
+
+  it("treats 'Egenkapital og gjeld' continuation tables as balance-sheet tables", () => {
+    const table: UnifiedParserTable = {
+      tableId: "t-balance-continuation",
+      role: "UNKNOWN",
+      pageNumber: 4,
+      blockIds: [],
+      title: "Egenkapital og gjeld",
+      columns: [
+        { columnIndex: 1, text: "2024", normalizedText: "2024", year: 2024, isAmountColumn: true },
+        { columnIndex: 2, text: "2023", normalizedText: "2023", year: 2023, isAmountColumn: true },
+      ],
+      rows: [
+        {
+          rowIndex: 0,
+          label: "Sum egenkapital",
+          normalizedLabel: "sum egenkapital",
+          cells: [
+            { columnIndex: 1, text: "15.840.000", normalizedText: "15.840.000", numericValue: null, confidence: null },
+            { columnIndex: 2, text: "14.990.000", normalizedText: "14.990.000", numericValue: null, confidence: null },
+          ],
+        },
+        {
+          rowIndex: 1,
+          label: "Sum gjeld",
+          normalizedLabel: "sum gjeld",
+          cells: [
+            { columnIndex: 1, text: "107.765.000", normalizedText: "107.765.000", numericValue: null, confidence: null },
+            { columnIndex: 2, text: "100.421.000", normalizedText: "100.421.000", numericValue: null, confidence: null },
+          ],
+        },
+      ],
+      confidence: 0.9,
+      warnings: [],
+    };
+
+    const doc = makeDocWithTable(table);
+    const result = extractUnifiedFinancialStatements(doc);
+    const stmt = result.statements.find((s) => s.kind === "BALANCE_SHEET");
+
+    expect(stmt).toBeDefined();
+    expect(stmt?.lineItems.some((item) => item.canonicalKey === "total_equity")).toBe(true);
+    expect(stmt?.lineItems.some((item) => item.canonicalKey === "total_liabilities")).toBe(true);
+  });
+
+  it("maps 'Bankinnskudd, kontanter og kontantekvivalenter' to cash equivalents", () => {
+    const table: UnifiedParserTable = {
+      ...makeBalanceTable(),
+      rows: [
+        {
+          rowIndex: 0,
+          label: "Bankinnskudd, kontanter og kontantekvivalenter",
+          normalizedLabel: "bankinnskudd kontanter og kontantekvivalenter",
+          cells: [
+            { columnIndex: 1, text: "5.000.000", normalizedText: "5.000.000", numericValue: null, confidence: null },
+            { columnIndex: 2, text: "4.500.000", normalizedText: "4.500.000", numericValue: null, confidence: null },
+          ],
+        },
+      ],
+    };
+    const doc = makeDocWithTable(table);
+    const result = extractUnifiedFinancialStatements(doc);
+    const stmt = result.statements.find((s) => s.kind === "BALANCE_SHEET");
+    const cash = stmt?.lineItems.find((i) => i.canonicalKey === "cash_and_cash_equivalents");
+
+    expect(cash).toBeDefined();
+  });
 });
 
 // ---- Note reference column --------------------------------------------------
@@ -353,6 +420,39 @@ describe("unit scale detection", () => {
     // All items should have UNKNOWN scale (no explicit hint in plain title)
     const unknownItems = items.filter((i) => i.unitScale === "UNKNOWN");
     expect(unknownItems.length).toBeGreaterThan(0);
+  });
+
+  it("detects millions scale from Norwegian title hints", () => {
+    const table = makeIncomeTable({ title: "Resultatregnskap (belÃ¸p i millioner kroner)" });
+    const doc = makeDocWithTable(table);
+    const result = extractUnifiedFinancialStatements(doc);
+    const items = result.statements[0]?.lineItems ?? [];
+
+    expect(items.some((item) => item.unitScale === "MILLIONS")).toBe(true);
+  });
+});
+
+describe("Norwegian label mapping", () => {
+  it("maps 'OrdinÃ¦rt resultat fÃ¸r skatt' to profit_before_tax", () => {
+    const table = makeIncomeTable({
+      rows: [
+        {
+          rowIndex: 0,
+          label: "OrdinÃ¦rt resultat fÃ¸r skatt",
+          normalizedLabel: "ordinaert resultat for skatt",
+          cells: [
+            { columnIndex: 1, text: "1.234.000", normalizedText: "1.234.000", numericValue: null, confidence: null },
+            { columnIndex: 2, text: "1.100.000", normalizedText: "1.100.000", numericValue: null, confidence: null },
+          ],
+        },
+      ],
+    });
+    const doc = makeDocWithTable(table);
+    const result = extractUnifiedFinancialStatements(doc);
+    const stmt = result.statements[0];
+    const pbt = stmt?.lineItems.find((item) => item.canonicalKey === "profit_before_tax");
+
+    expect(pbt).toBeDefined();
   });
 });
 

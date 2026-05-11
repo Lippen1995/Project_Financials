@@ -54,6 +54,9 @@ describe("admin-control-center-service", () => {
       }),
       inspectRuntime: async () => makeRuntime(),
       readLatestGoldSetRun: async () => null,
+      readLatestCalibrationReport: async () => null,
+      readLatestTaxonomyReport: async () => null,
+      readLatestExtractionFixReport: async () => null,
       now: () => new Date("2026-05-10T12:00:00.000Z"),
     });
 
@@ -138,6 +141,9 @@ describe("admin-control-center-service", () => {
       }),
       inspectRuntime: async () => makeRuntime(),
       readLatestGoldSetRun: async () => null,
+      readLatestCalibrationReport: async () => null,
+      readLatestTaxonomyReport: async () => null,
+      readLatestExtractionFixReport: async () => null,
       now: () => new Date("2026-05-10T12:00:00.000Z"),
     });
 
@@ -250,6 +256,72 @@ describe("admin-control-center-service", () => {
       "WARNING",
     );
     expect(model.attentionItems.some((item) => item.key === "taxonomy-high-severity")).toBe(true);
+  });
+
+  it("surfaces PR79 extraction-fix summary in admin cards and go-live flow when a report exists", async () => {
+    const model = await buildAdminControlCenterModel({
+      getOverview: async () => ({
+        parserVersion: "annual-report-pipeline-v4-opendataloader",
+        metrics: {
+          filings: [],
+          runs: [],
+          reviews: [],
+          incompleteCoverageCount: 0,
+        },
+        reviewQueue: [],
+        pendingFilings: [],
+        dueCoverage: [],
+      }) as never,
+      listUnifiedConfidence: async () => ({
+        items: [],
+        total: 0,
+        limit: 5,
+        offset: 0,
+        summary: { total: 0, PASS: 0, WARN: 0, FAIL: 0, INSUFFICIENT_DATA: 0 },
+      }),
+      inspectRuntime: async () => makeRuntime(),
+      readLatestGoldSetRun: async () => null,
+      readLatestExtractionFixReport: async () => ({
+        version: "annual-report-extraction-fix-report-v1",
+        generatedAt: "2026-05-11T11:00:00.000Z",
+        status: "POST_FIX_VALIDATION_PENDING",
+        targetedIssueClasses: [
+          "UNIT_SCALE_MISMATCH",
+          "NORWEGIAN_LABEL_MAPPING_ERROR",
+          "MULTI_PAGE_BALANCE_ERROR",
+        ],
+        fixesImplemented: [],
+        testsAdded: [],
+        evidenceUsed: {
+          benchmarkPath: "output/benchmarks/annual-report-golden/latest.json",
+          shadowBatchPath: "output/benchmarks/annual-report-shadow-batches/latest.json",
+          calibrationReportPath: null,
+          taxonomyReportPath: null,
+        },
+        baselineMetrics: [],
+        remainingBlockers: ["OPENDATALOADER_HYBRID_URL is not configured."],
+        recommendationsForPr80: [],
+        output: {
+          jsonPath: "output/benchmarks/annual-report-extraction-fixes/latest.json",
+          markdownPath: "output/benchmarks/annual-report-extraction-fixes/latest.md",
+        },
+        safety: {
+          canUseForProductionRouting: false,
+          productionRoutingChanged: false,
+          productionFactsMutated: false,
+          publishAffected: false,
+        },
+      }),
+      now: () => new Date("2026-05-11T12:00:00.000Z"),
+    });
+
+    expect(model.summaryCards.find((item) => item.key === "extraction-fixes")?.value).toBe(
+      "UNIT_SCALE_MISMATCH",
+    );
+    expect(model.goLiveFlow.nodes.find((item) => item.key === "fix-errors")?.status).toBe(
+      "WARNING",
+    );
+    expect(model.attentionItems.some((item) => item.key === "pr79-post-fix-blockers")).toBe(true);
   });
 });
 

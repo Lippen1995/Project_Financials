@@ -46,8 +46,20 @@ const THOUSAND_PATTERNS: ScalePattern[] = [
   },
   {
     unitScale: 1000,
+    regex: /tall i tusen(?:\s+(?:nok|kroner|kr))?\b/,
+    confidence: 0.94,
+    source: "PAGE_BODY",
+  },
+  {
+    unitScale: 1000,
     regex: /(?:nok|kr)\s*tusen\b/,
     confidence: 0.9,
+    source: "PAGE_BODY",
+  },
+  {
+    unitScale: 1000,
+    regex: /tusen\s+(?:nok|kroner|kr)\b/,
+    confidence: 0.92,
     source: "PAGE_BODY",
   },
   {
@@ -55,6 +67,12 @@ const THOUSAND_PATTERNS: ScalePattern[] = [
     regex: /\bt[\s-]?nok\b/,
     confidence: 0.97,
     source: "PAGE_HEADER",
+  },
+  {
+    unitScale: 1000,
+    regex: /alle tall(?:ene)? i (?:tnok|tusen(?:\s+(?:nok|kroner|kr))?)\b/,
+    confidence: 0.97,
+    source: "PAGE_BODY",
   },
   {
     unitScale: 1000,

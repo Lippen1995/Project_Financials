@@ -1,0 +1,267 @@
+{
+  "version": "annual-report-unified-confidence-calibration-v2",
+  "generatedAt": "2026-05-11T16:29:55.958Z",
+  "input": {
+    "runId": "gold-set-2026-05-11T16-29-43-822Z",
+    "includeUnreviewed": false,
+    "generatedBy": "scripts/calibrate-unified-extraction-confidence.ts"
+  },
+  "sourceRun": {
+    "runId": "gold-set-2026-05-11T16-29-43-822Z",
+    "generatedAt": "2026-05-11T16:29:43.822Z",
+    "gitCommitSha": "e15b758a1a0c169f777f488119487437ec2e5148",
+    "manifestName": "annual-report-go-live-gold-set"
+  },
+  "evidenceUsed": {
+    "totalGoldSetFilings": 5,
+    "totalManualReviewCandidates": 5,
+    "reviewedCandidates": 0,
+    "pendingCandidates": 5,
+    "blockedCandidates": 0
+  },
+  "thresholdBehavior": {
+    "before": {
+      "gateConfig": {
+        "minCanonicalKeyCoverageForPass": 0.5,
+        "minCanonicalKeyCoverageForFail": 0.2,
+        "minComparisonMatchRateForPass": 0.8,
+        "minComparisonMatchRateForFail": 0.5,
+        "majorMismatchDeviationThreshold": 0.5,
+        "maxMajorMismatchCountForFail": 0,
+        "narrativeAbsenceIsFail": false
+      },
+      "policy": {
+        "minComparisonMatchRateForPass": 0.8,
+        "majorMismatchDeviationThreshold": 0.5,
+        "missingSourcePdfDecision": "WARN",
+        "missingStructuredDocumentDecision": "WARN",
+        "parserRuntimeUnavailableDecision": "WARN",
+        "unitScaleAmbiguityDecision": "FAIL",
+        "missingPrimaryStatementDecision": "WARN",
+        "narrativeMismatchDecision": "WARN",
+        "highSeverityCandidateDecision": "WARN",
+        "highRiskTagsForceReview": [
+          "manual_review_expected",
+          "degraded_ambiguous",
+          "ocr_token_noise",
+          "continuation_complex",
+          "unit_scale_sensitive",
+          "formatting_edge",
+          "scan_or_ocr"
+        ],
+        "explanationNotes": [
+          "Baseline policy mirrors dagens gate og holder strukturelle mangler på WARN der vi ennå mangler review-fasit."
+        ]
+      },
+      "distribution": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "INSUFFICIENT_DATA": 0
+      }
+    },
+    "after": {
+      "gateConfig": {
+        "minCanonicalKeyCoverageForPass": 0.5,
+        "minCanonicalKeyCoverageForFail": 0.2,
+        "minComparisonMatchRateForPass": 0.8,
+        "minComparisonMatchRateForFail": 0.5,
+        "majorMismatchDeviationThreshold": 0.5,
+        "maxMajorMismatchCountForFail": 0,
+        "narrativeAbsenceIsFail": false
+      },
+      "policy": {
+        "minComparisonMatchRateForPass": 0.8,
+        "majorMismatchDeviationThreshold": 0.5,
+        "missingSourcePdfDecision": "WARN",
+        "missingStructuredDocumentDecision": "WARN",
+        "parserRuntimeUnavailableDecision": "WARN",
+        "unitScaleAmbiguityDecision": "FAIL",
+        "missingPrimaryStatementDecision": "WARN",
+        "narrativeMismatchDecision": "WARN",
+        "highSeverityCandidateDecision": "WARN",
+        "highRiskTagsForceReview": [
+          "manual_review_expected",
+          "degraded_ambiguous",
+          "ocr_token_noise",
+          "continuation_complex",
+          "unit_scale_sensitive",
+          "formatting_edge",
+          "scan_or_ocr"
+        ],
+        "explanationNotes": [
+          "No reviewed unsafe PASS cases forced a tighter comparison-match PASS threshold."
+        ]
+      },
+      "distribution": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 0,
+        "INSUFFICIENT_DATA": 0
+      },
+      "status": "INSUFFICIENT_EVIDENCE"
+    }
+  },
+  "metrics": {
+    "totalReviewedCases": 0,
+    "autoPassCandidates": 0,
+    "reviewCandidates": 0,
+    "blockedCandidates": 0,
+    "falsePassCount": 0,
+    "falsePassRate": null,
+    "falseReviewCount": 0,
+    "falseReviewRate": null,
+    "falseBlockCount": 0,
+    "falseBlockRate": null,
+    "safeAutoPassPrecision": null,
+    "safeAutoPassRecall": null,
+    "highSeverityMissCount": 0,
+    "manualReviewRate": null,
+    "narrativeMismatchCount": 0,
+    "unitScaleAmbiguityCount": 0
+  },
+  "distributions": {
+    "byTag": [],
+    "byIssueClass": [],
+    "canonicalKeyMismatchRates": [
+      {
+        "canonicalKey": "revenue",
+        "reviewedCount": 0,
+        "mismatchCount": 0,
+        "mismatchRate": null
+      },
+      {
+        "canonicalKey": "operating_result",
+        "reviewedCount": 0,
+        "mismatchCount": 0,
+        "mismatchRate": null
+      },
+      {
+        "canonicalKey": "net_income",
+        "reviewedCount": 0,
+        "mismatchCount": 0,
+        "mismatchRate": null
+      },
+      {
+        "canonicalKey": "total_assets",
+        "reviewedCount": 0,
+        "mismatchCount": 0,
+        "mismatchRate": null
+      },
+      {
+        "canonicalKey": "total_equity",
+        "reviewedCount": 0,
+        "mismatchCount": 0,
+        "mismatchRate": null
+      },
+      {
+        "canonicalKey": "total_liabilities",
+        "reviewedCount": 0,
+        "mismatchCount": 0,
+        "mismatchRate": null
+      },
+      {
+        "canonicalKey": "cash_and_cash_equivalents",
+        "reviewedCount": 0,
+        "mismatchCount": 0,
+        "mismatchRate": null
+      }
+    ]
+  },
+  "thresholdAdjustments": [
+    {
+      "key": "minComparisonMatchRateForPass",
+      "direction": "KEEP",
+      "currentValue": "0.8",
+      "proposedValue": "0.8",
+      "sampleSize": 0,
+      "rationale": "Calibrated from reviewed PASS cases versus unsafe outcomes."
+    },
+    {
+      "key": "majorMismatchDeviationThreshold",
+      "direction": "KEEP",
+      "currentValue": "0.5",
+      "proposedValue": "0.5",
+      "sampleSize": 0,
+      "rationale": "Calibrated from reviewed conflicting-value deviations."
+    },
+    {
+      "key": "missingSourcePdfDecision",
+      "direction": "KEEP",
+      "currentValue": "WARN",
+      "proposedValue": "WARN",
+      "sampleSize": 0,
+      "rationale": "Structural calibration for missingSourcePdfDecision."
+    },
+    {
+      "key": "missingStructuredDocumentDecision",
+      "direction": "KEEP",
+      "currentValue": "WARN",
+      "proposedValue": "WARN",
+      "sampleSize": 0,
+      "rationale": "Structural calibration for missingStructuredDocumentDecision."
+    },
+    {
+      "key": "parserRuntimeUnavailableDecision",
+      "direction": "KEEP",
+      "currentValue": "WARN",
+      "proposedValue": "WARN",
+      "sampleSize": 0,
+      "rationale": "Structural calibration for parserRuntimeUnavailableDecision."
+    },
+    {
+      "key": "unitScaleAmbiguityDecision",
+      "direction": "KEEP",
+      "currentValue": "FAIL",
+      "proposedValue": "FAIL",
+      "sampleSize": 0,
+      "rationale": "Structural calibration for unitScaleAmbiguityDecision."
+    },
+    {
+      "key": "missingPrimaryStatementDecision",
+      "direction": "KEEP",
+      "currentValue": "WARN",
+      "proposedValue": "WARN",
+      "sampleSize": 0,
+      "rationale": "Structural calibration for missingPrimaryStatementDecision."
+    },
+    {
+      "key": "narrativeMismatchDecision",
+      "direction": "KEEP",
+      "currentValue": "WARN",
+      "proposedValue": "WARN",
+      "sampleSize": 0,
+      "rationale": "Structural calibration for narrativeMismatchDecision."
+    },
+    {
+      "key": "highSeverityCandidateDecision",
+      "direction": "KEEP",
+      "currentValue": "WARN",
+      "proposedValue": "WARN",
+      "sampleSize": 0,
+      "rationale": "Structural calibration for highSeverityCandidateDecision."
+    }
+  ],
+  "remainingHighRiskCases": [],
+  "affectedExamples": [],
+  "recommendations": {
+    "pr78FailureTaxonomy": [
+      "Calibration did not surface a dominant reviewed unsafe issue class yet.",
+      "Unit-scale ambiguity was not a dominant reviewed pattern in this sample."
+    ],
+    "pr79ExtractionFixes": [
+      "Calibration did not surface a single dominant canonical key mismatch yet.",
+      "No reviewed HIGH-severity PASS misses were found in this calibration sample."
+    ]
+  },
+  "output": {
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr79\\output\\benchmarks\\annual-report-unified-confidence-calibration\\gold-set-2026-05-11T16-29-43-822Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr79\\output\\benchmarks\\annual-report-unified-confidence-calibration\\gold-set-2026-05-11T16-29-43-822Z.md"
+  },
+  "safety": {
+    "canUseForProductionRouting": false,
+    "productionRoutingChanged": false,
+    "productionFactsMutated": false,
+    "publishAffected": false
+  }
+}

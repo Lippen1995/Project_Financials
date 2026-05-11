@@ -13,7 +13,8 @@ RUN apt-get update \
 RUN pip install --no-cache-dir "opendataloader-pdf[hybrid]==2.2.1"
 
 COPY docker/opendataloader-hybrid/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh \
+  && chmod +x /entrypoint.sh
 
 EXPOSE 5002
 

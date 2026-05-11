@@ -1,0 +1,101 @@
+{
+  "version": "annual-report-extraction-fix-report-v1",
+  "generatedAt": "2026-05-11T15:57:17.769Z",
+  "status": "POST_FIX_VALIDATION_PENDING",
+  "targetedIssueClasses": [
+    "UNIT_SCALE_MISMATCH",
+    "NORWEGIAN_LABEL_MAPPING_ERROR",
+    "MULTI_PAGE_BALANCE_ERROR",
+    "TABLE_RECONSTRUCTION_ERROR",
+    "OCR_TOKEN_NOISE"
+  ],
+  "fixesImplemented": [
+    "Utvidet unit-scale-deteksjon for tusen-kroner-formuleringer i legacy parser-pathen.",
+    "Lagt til millions/MNOK-deteksjon i unified extractor uten å påvirke publish safety.",
+    "Rettet continuation-tabeller med tittelen 'Egenkapital og gjeld' til balansekontekst.",
+    "Utvidet norsk label-mapping for profit_before_tax og cash_and_cash_equivalents."
+  ],
+  "testsAdded": [
+    "unit-scale.test.ts: tusen-kroner og tusen-NOK erklæringer",
+    "unified-financial-statement-extractor.test.ts: millions scale",
+    "unified-financial-statement-extractor.test.ts: continuation-balance role detection",
+    "unified-financial-statement-extractor.test.ts: Norwegian label mapping aliases"
+  ],
+  "evidenceUsed": {
+    "benchmarkPath": "C:\\Users\\simen\\Project_Financials_pr79\\output\\benchmarks\\annual-report-golden\\latest.json",
+    "shadowBatchPath": "C:\\Users\\simen\\Project_Financials_pr79\\output\\benchmarks\\annual-report-shadow-batches\\latest.json",
+    "calibrationReportPath": null,
+    "taxonomyReportPath": null
+  },
+  "baselineMetrics": [
+    {
+      "label": "Differential benchmark cases",
+      "before": 3,
+      "after": null,
+      "unit": "count",
+      "note": "Post-fix benchmark rerun er ikke persisted lokalt ennå."
+    },
+    {
+      "label": "Material disagreements",
+      "before": null,
+      "after": null,
+      "unit": "count",
+      "note": "Post-fix benchmark rerun er ikke persisted lokalt ennå."
+    },
+    {
+      "label": "Unit-scale-sensitive cases",
+      "before": 5,
+      "after": null,
+      "unit": "count",
+      "note": "Brukes som baseline for skala-relaterte fikser."
+    },
+    {
+      "label": "Multi-page balance cases",
+      "before": 3,
+      "after": null,
+      "unit": "count",
+      "note": "Brukes som baseline for continuation-/balansefikser."
+    },
+    {
+      "label": "OCR token noise cases",
+      "before": 3,
+      "after": null,
+      "unit": "count",
+      "note": "Brukes som baseline for numerisk/OCR-relatert parsing."
+    },
+    {
+      "label": "Skipped shadow cases",
+      "before": 1,
+      "after": null,
+      "unit": "count",
+      "note": "Skyldes fortsatt manglende hybrid-runtime lokalt."
+    },
+    {
+      "label": "Hybrid runtime ready",
+      "before": 0,
+      "after": null,
+      "unit": "boolean",
+      "note": "0 betyr at hybrid-runtime ikke er klar i dette miljøet."
+    }
+  ],
+  "remainingBlockers": [
+    "OPENDATALOADER_HYBRID_URL is not configured.",
+    "Ingen persisted PR78 failure taxonomy-report ble funnet lokalt.",
+    "Ingen persisted PR77 calibration-report ble funnet lokalt."
+  ],
+  "recommendationsForPr80": [
+    "Kjør ny persisted gold-set/shadow-batch etter PR79 for å måle faktisk før/etter-effekt.",
+    "Hold unified shadow-only til readiness-rapporten kan vise oppdatert post-fix evidens.",
+    "Behandle manglende hybrid-runtime som egen readiness-blokkerer hvis den fortsatt mangler ved PR80."
+  ],
+  "output": {
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr79\\output\\benchmarks\\annual-report-extraction-fixes\\pr79-extraction-fix-summary-2026-05-11T15-57-17-769Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr79\\output\\benchmarks\\annual-report-extraction-fixes\\pr79-extraction-fix-summary-2026-05-11T15-57-17-769Z.md"
+  },
+  "safety": {
+    "canUseForProductionRouting": false,
+    "productionRoutingChanged": false,
+    "productionFactsMutated": false,
+    "publishAffected": false
+  }
+}

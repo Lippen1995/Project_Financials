@@ -2,6 +2,8 @@
 import path from "node:path";
 
 import type { AnnualReportGoldSetShadowRun } from "@/server/benchmarking/annual-report-gold-set-shadow-run";
+import type { AnnualReportExtractionFixReport } from "@/server/services/annual-report-extraction-fix-report-service";
+import { readLatestAnnualReportExtractionFixReport } from "@/server/services/annual-report-extraction-fix-report-service";
 import type { AnnualReportManualReviewRound } from "@/server/services/annual-report-manual-review-round-service";
 import type { AnnualReportUnifiedConfidenceCalibrationReport } from "@/server/services/annual-report-unified-confidence-calibration-service";
 import { readLatestUnifiedConfidenceThresholdCalibrationReport } from "@/server/services/annual-report-unified-confidence-calibration-service";
@@ -135,6 +137,7 @@ export type AdminControlCenterServiceDeps = {
   inspectRuntime?: typeof inspectOpenDataLoaderRuntime;
   readLatestGoldSetRun?: () => Promise<AnnualReportGoldSetShadowRun | null>;
   readLatestManualReviewRound?: () => Promise<AnnualReportManualReviewRound | null>;
+  readLatestExtractionFixReport?: () => Promise<AnnualReportExtractionFixReport | null>;
   readLatestCalibrationReport?: () => Promise<AnnualReportUnifiedConfidenceCalibrationReport | null>;
   readLatestTaxonomyReport?: () => Promise<AnnualReportUnifiedFailureTaxonomyReport | null>;
   getShadowConfig?: typeof getAnnualReportUnifiedShadowConfigFromEnv;
@@ -322,6 +325,7 @@ function buildAttentionItems(input: {
   latestConfidence: UnifiedConfidenceAdminRow | null;
   latestGoldSetRun: AnnualReportGoldSetShadowRun | null;
   latestManualReviewRound: AnnualReportManualReviewRound | null;
+  latestExtractionFixReport: AnnualReportExtractionFixReport | null;
   latestCalibrationReport: AnnualReportUnifiedConfidenceCalibrationReport | null;
   latestTaxonomyReport: AnnualReportUnifiedFailureTaxonomyReport | null;
   incompleteCoverageCount: number;
@@ -379,6 +383,18 @@ function buildAttentionItems(input: {
       description: topIssue
         ? `${input.latestTaxonomyReport?.summary.highSeverityIssueCount ?? 0} høyalvorlige taxonomy-funn er registrert. Største klasse er ${topIssue.issueClass}.`
         : `${input.latestTaxonomyReport?.summary.highSeverityIssueCount ?? 0} høyalvorlige taxonomy-funn er registrert.`,
+      href: "/admin/pdf-parser-remediation",
+    });
+  }
+
+  if ((input.latestExtractionFixReport?.remainingBlockers.length ?? 0) > 0) {
+    items.push({
+      key: "pr79-post-fix-blockers",
+      severity: "MEDIUM",
+      title: "PR79 har fortsatt åpne valideringsblokkerere",
+      description:
+        input.latestExtractionFixReport?.remainingBlockers[0] ??
+        "Det finnes fortsatt åpne blokkerere etter PR79-fiksene.",
       href: "/admin/pdf-parser-remediation",
     });
   }
@@ -974,6 +990,7 @@ function buildMainFlow(input: {
 
 function buildGoLiveFlow(input: {
   latestGoldSetRun: AnnualReportGoldSetShadowRun | null;
+  latestExtractionFixReport: AnnualReportExtractionFixReport | null;
   latestCalibrationReport: AnnualReportUnifiedConfidenceCalibrationReport | null;
   latestTaxonomyReport: AnnualReportUnifiedFailureTaxonomyReport | null;
   reviewQueueCount: number;
@@ -1020,6 +1037,24 @@ function buildGoLiveFlow(input: {
         input.latestTaxonomyReport.summary.issueClassCounts[0]?.issueClass ?? "ingen"
       }. High severity: ${input.latestTaxonomyReport.summary.highSeverityIssueCount}`
     : "Ingen taxonomy-rapport funnet";
+  const extractionFixStatus = input.latestExtractionFixReport
+    ? input.latestExtractionFixReport.status === "REGRESSION_VERIFIED"
+      ? "HEALTHY"
+      : input.latestExtractionFixReport.status === "TARGETED_FIXES_APPLIED"
+        ? "WARNING"
+        : input.latestExtractionFixReport.status === "POST_FIX_VALIDATION_PENDING"
+          ? "WARNING"
+          : "UNKNOWN"
+    : "NOT_STARTED";
+  const extractionFixTone =
+    extractionFixStatus === "HEALTHY"
+      ? "GREEN"
+      : extractionFixStatus === "WARNING"
+        ? "PURPLE"
+        : "BLUE";
+  const extractionFixMetric = input.latestExtractionFixReport
+    ? `Status: ${input.latestExtractionFixReport.status}. Målrettede klasser: ${input.latestExtractionFixReport.targetedIssueClasses.slice(0, 3).join(", ")}`
+    : "Ingen PR79-rapport funnet";
 
   return {
     title: "Veien mot go-live for ny ekstraksjonsmotor",
@@ -1155,9 +1190,9 @@ function buildGoLiveFlow(input: {
         stepNumber: 6,
         title: "Rett de viktigste feilene",
         subtitle: "Utviklingsteamet fikser de feilene som gir stÃ¸rst utslag i kvaliteten.",
-        status: "UNKNOWN",
-        tone: "BLUE",
-        metric: "Read-only oppfÃ¸lging via remediation",
+        status: extractionFixStatus,
+        tone: extractionFixTone,
+        metric: extractionFixMetric,
         href: "/admin/pdf-parser-remediation",
         linkLabel: "Ã…pne",
         helpSections: buildHelpSections([
@@ -1364,6 +1399,7 @@ export async function buildAdminControlCenterModel(
     runtime,
     latestGoldSetRun,
     latestManualReviewRound,
+    latestExtractionFixReport,
     latestCalibrationReport,
     latestTaxonomyReport,
   ] = await Promise.all([
@@ -1397,6 +1433,11 @@ export async function buildAdminControlCenterModel(
     tryLoad(
       "latest manual review round",
       () => (deps.readLatestManualReviewRound ?? readLatestAnnualReportManualReviewRound)(),
+      diagnostics,
+    ),
+    tryLoad(
+      "latest extraction fix report",
+      () => (deps.readLatestExtractionFixReport ?? readLatestAnnualReportExtractionFixReport)(),
       diagnostics,
     ),
     tryLoad(
@@ -1438,6 +1479,7 @@ export async function buildAdminControlCenterModel(
     latestConfidence,
     latestGoldSetRun,
     latestManualReviewRound,
+    latestExtractionFixReport,
     latestCalibrationReport,
     latestTaxonomyReport,
     incompleteCoverageCount,
@@ -1636,6 +1678,28 @@ export async function buildAdminControlCenterModel(
                 : "PURPLE",
       },
       {
+        key: "extraction-fixes",
+        title: "Extraction fixes",
+        value: latestExtractionFixReport?.targetedIssueClasses[0] ?? "Ingen data funnet",
+        detail:
+          latestExtractionFixReport
+            ? `Status: ${latestExtractionFixReport.status}. Report: ${latestExtractionFixReport.output.markdownPath}`
+            : "Ingen persisted PR79 extraction-fix report er funnet ennå.",
+        status:
+          latestExtractionFixReport === null
+            ? "UNKNOWN"
+            : latestExtractionFixReport.status === "REGRESSION_VERIFIED"
+              ? "HEALTHY"
+              : "WARNING",
+        tone:
+          latestExtractionFixReport === null
+            ? "BLUE"
+            : latestExtractionFixReport.status === "REGRESSION_VERIFIED"
+              ? "GREEN"
+              : "PURPLE",
+        href: "/admin/pdf-parser-remediation",
+      },
+      {
         key: "failure-taxonomy",
         title: "Failure taxonomy",
         value: latestTaxonomyReport?.summary.issueClassCounts[0]?.issueClass ?? "Ingen data funnet",
@@ -1744,13 +1808,14 @@ export async function buildAdminControlCenterModel(
       latestConfidence,
       runtime,
     }),
-    goLiveFlow: buildGoLiveFlow({
-      latestGoldSetRun,
-      latestCalibrationReport,
-      latestTaxonomyReport,
-      reviewQueueCount,
-      runtime,
-    }),
+      goLiveFlow: buildGoLiveFlow({
+        latestGoldSetRun,
+        latestExtractionFixReport,
+        latestCalibrationReport,
+        latestTaxonomyReport,
+        reviewQueueCount,
+        runtime,
+      }),
     onboardingTitle: "Slik bruker du admin-siden",
     onboardingItems: [
       {

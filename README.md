@@ -391,7 +391,7 @@ npm run opendataloader:hybrid-up
 Dette bygger en lokal container som installerer `opendataloader-pdf[hybrid]` og starter:
 
 ```bash
-opendataloader-pdf-hybrid --port 5002 --force-ocr --ocr-lang "nor,en"
+opendataloader-pdf-hybrid --port 5002 --force-ocr --ocr-lang "no,en"
 ```
 
 Stopp backend:
