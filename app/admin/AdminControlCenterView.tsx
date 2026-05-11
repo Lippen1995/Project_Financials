@@ -398,6 +398,9 @@ export default function AdminControlCenterView({
   const latestShadowBatchCard = model.summaryCards.find(
     (card) => card.key === "latest-shadow-batch",
   );
+  const calibrationStatusCard = model.summaryCards.find(
+    (card) => card.key === "calibration-status",
+  );
   const goLiveStatusCard = model.summaryCards.find((card) => card.key === "go-live-status");
   const reviewQueueCard = model.summaryCards.find((card) => card.key === "review-queue");
   const failedCard = model.summaryCards.find((card) => card.key === "failed");
@@ -409,6 +412,7 @@ export default function AdminControlCenterView({
     reviewQueueCard,
     failedCard,
     latestShadowBatchCard,
+    calibrationStatusCard,
     goLiveStatusCard,
     publishSafetyCard,
     {
