@@ -154,6 +154,102 @@ describe("admin-control-center-service", () => {
     expect(model.summaryCards.find((item) => item.key === "calibration-status")?.value).toBe(
       "Ingen data funnet",
     );
+    expect(model.summaryCards.find((item) => item.key === "failure-taxonomy")?.value).toBe(
+      "Ingen data funnet",
+    );
+  });
+
+  it("surfaces taxonomy summary in admin cards and go-live flow when a report exists", async () => {
+    const model = await buildAdminControlCenterModel({
+      getOverview: async () => ({
+        parserVersion: "annual-report-pipeline-v4-opendataloader",
+        metrics: {
+          filings: [],
+          runs: [],
+          reviews: [],
+          incompleteCoverageCount: 0,
+        },
+        reviewQueue: [],
+        pendingFilings: [],
+        dueCoverage: [],
+      }) as never,
+      listUnifiedConfidence: async () => ({
+        items: [],
+        total: 0,
+        limit: 5,
+        offset: 0,
+        summary: { total: 0, PASS: 0, WARN: 0, FAIL: 0, INSUFFICIENT_DATA: 0 },
+      }),
+      inspectRuntime: async () => makeRuntime(),
+      readLatestGoldSetRun: async () => null,
+      readLatestTaxonomyReport: async () => ({
+        version: "annual-report-unified-failure-taxonomy-v1",
+        generatedAt: "2026-05-11T09:30:00.000Z",
+        input: {
+          runId: "gold-set-2026-05-11",
+          generatedBy: "test",
+        },
+        sourceRun: {
+          reviewRoundId: "gold-set-2026-05-11",
+          reviewRoundGeneratedAt: "2026-05-11T09:00:00.000Z",
+          goldSetRunId: "gold-set-2026-05-11",
+          manifestName: "go-live-gold-set",
+          gitCommitSha: "abc123",
+        },
+        evidenceUsed: {
+          totalCandidates: 4,
+          reviewedCandidates: 2,
+          pendingCandidates: 2,
+          blockedCandidates: 0,
+        },
+        summary: {
+          totalCandidates: 4,
+          totalMappedIssues: 6,
+          highSeverityIssueCount: 2,
+          issueClassCounts: [
+            {
+              issueClass: "UNIT_SCALE_UNKNOWN",
+              count: 2,
+              severity: "HIGH",
+              remediationArea: "unit_scale_normalization",
+            },
+          ],
+          severityCounts: {
+            HIGH: 2,
+            MEDIUM: 3,
+            LOW: 1,
+          },
+          affectedTags: [],
+          affectedCanonicalKeys: [],
+          firstDivergenceStages: [],
+          remediationAreaCounts: [],
+          representativeExamples: [],
+        },
+        issues: [],
+        recommendations: {
+          pr79ExtractionFixes: ["Prioriter unit-scale-deteksjon og propagasjon i PR79."],
+        },
+        output: {
+          jsonPath: "output/benchmarks/annual-report-unified-failure-taxonomy/latest.json",
+          markdownPath: "output/benchmarks/annual-report-unified-failure-taxonomy/latest.md",
+        },
+        safety: {
+          canUseForProductionRouting: false,
+          productionRoutingChanged: false,
+          productionFactsMutated: false,
+          publishAffected: false,
+        },
+      }),
+      now: () => new Date("2026-05-11T10:00:00.000Z"),
+    });
+
+    expect(model.summaryCards.find((item) => item.key === "failure-taxonomy")?.value).toBe(
+      "UNIT_SCALE_UNKNOWN",
+    );
+    expect(model.goLiveFlow.nodes.find((item) => item.key === "failure-taxonomy")?.status).toBe(
+      "WARNING",
+    );
+    expect(model.attentionItems.some((item) => item.key === "taxonomy-high-severity")).toBe(true);
   });
 });
 
