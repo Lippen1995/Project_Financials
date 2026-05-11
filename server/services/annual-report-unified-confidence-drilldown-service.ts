@@ -119,6 +119,10 @@ export type UnifiedConfidenceComparisonFact = {
   deltaNok: string | null;
   match: string | null;
   relativeDeviation: number | null;
+  legacyLabel: string | null;
+  unifiedLabel: string | null;
+  legacyUnitScale: number | null;
+  unifiedUnitScale: string | null;
 };
 
 export type UnifiedConfidenceComparisonMismatch = UnifiedConfidenceComparisonFact & {
@@ -536,6 +540,10 @@ function parseComparisonArtifact(
     deltaNok: asString(comparison.deltaNok),
     match: asString(comparison.match),
     relativeDeviation: asNumber(comparison.relativeDeviation),
+    legacyLabel: asString(comparison.legacyLabel),
+    unifiedLabel: asString(comparison.unifiedLabel),
+    legacyUnitScale: asNumber(comparison.legacyUnitScale),
+    unifiedUnitScale: asString(comparison.unifiedUnitScale),
   }));
   const mismatches = financialComparisons
     .filter((comparison) =>
