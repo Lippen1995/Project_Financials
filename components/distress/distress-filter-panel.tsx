@@ -32,7 +32,7 @@ function MultiSelectDropdown({
   selectedValues: string[];
 }) {
   return (
-    <details className="rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white">
+    <details className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white">
       <summary className="cursor-pointer list-none px-4 py-3 text-sm text-slate-700">
         <span>{summary}</span>
       </summary>
@@ -97,7 +97,7 @@ export function DistressFilterPanel({
         name="industryCodePrefix"
         defaultValue={String(searchParams.industryCodePrefix ?? "")}
         placeholder="Næringskode, f.eks. 43"
-        className="rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
+        className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
       />
       <input
         name="minDaysInStatus"
@@ -105,7 +105,7 @@ export function DistressFilterPanel({
         min="0"
         defaultValue={String(searchParams.minDaysInStatus ?? "")}
         placeholder="Min dager i status"
-        className="rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
+        className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
       />
       <input
         name="maxDaysInStatus"
@@ -113,31 +113,31 @@ export function DistressFilterPanel({
         min="0"
         defaultValue={String(searchParams.maxDaysInStatus ?? "")}
         placeholder="Maks dager i status"
-        className="rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
+        className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
       />
       <input
         name="lastReportedYearFrom"
         type="number"
         defaultValue={String(searchParams.lastReportedYearFrom ?? "")}
         placeholder="Fra regnskapsår"
-        className="rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
+        className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
       />
       <input
         name="lastReportedYearTo"
         type="number"
         defaultValue={String(searchParams.lastReportedYearTo ?? "")}
         placeholder="Til regnskapsår"
-        className="rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
+        className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
       />
 
-      <div className="rounded-[0.85rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.72)] px-4 py-3 text-sm text-slate-500">
+      <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.72)] px-4 py-3 text-sm text-slate-500">
         Sorter ved å trykke på kolonneoverskriftene. Første trykk sorterer, neste snur retningen, tredje går tilbake til standardrekkefølge.
       </div>
-      <div className="rounded-[0.85rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.72)] px-4 py-3 text-sm text-slate-500">
+      <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.72)] px-4 py-3 text-sm text-slate-500">
         Distress score-filter kommer senere. Feltet holdes deaktivert til modellen er reell.
       </div>
       <div className="flex items-center">
-        <button type="submit" className="rounded-full bg-[#182535] px-5 py-3 text-sm font-semibold text-white">
+        <button type="submit" className="rounded-full bg-[var(--px-action)] px-5 py-3 text-sm font-semibold text-white">
           Oppdater filtre
         </button>
       </div>

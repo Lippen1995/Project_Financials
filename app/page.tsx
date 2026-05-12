@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { SearchForm } from "@/components/search/search-form";
+import { safeAuth } from "@/lib/auth";
 
 const exampleSearches = [
   "Orgnr 928846466",
@@ -37,18 +38,102 @@ const sourceRows = [
   ["Produktlogikk", "Tomme tilstander når offisielle data mangler"],
 ];
 
-export default function HomePage() {
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return "God morgen";
+  if (hour >= 12 && hour < 18) return "God ettermiddag";
+  return "God kveld";
+}
+
+function AuthenticatedHome({ userName }: { userName?: string | null }) {
+  const greeting = getGreeting();
+  const firstName = userName?.split(" ")[0] ?? null;
+
+  return (
+    <main className="space-y-12 pb-16">
+      <section className="flex flex-col items-center pb-12 pt-16 text-center">
+        <div className="data-label text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--px-muted)]">
+          {greeting}{firstName ? `, ${firstName}` : ""}
+        </div>
+
+        <h1 className="editorial-display mt-5 max-w-3xl text-[3.5rem] leading-[0.96] text-[var(--px-text)] sm:text-[5rem] xl:text-[5.8rem]">
+          Hva vil du undersøke i dag?
+        </h1>
+
+        <div className="mt-10 w-full max-w-2xl">
+          <Suspense
+            fallback={
+              <div className="min-h-16 rounded-2xl border border-[rgba(15,23,42,0.1)] bg-white/80" />
+            }
+          >
+            <SearchForm />
+          </Suspense>
+        </div>
+
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {exampleSearches.map((item) => (
+            <span
+              key={item}
+              className="rounded-full border border-[rgba(15,23,42,0.1)] bg-[rgba(255,255,255,0.76)] px-3 py-1.5 text-xs font-medium text-[var(--px-muted)]"
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="data-label mb-5 text-[11px] font-semibold uppercase text-[var(--px-muted)]">
+          Moduler
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link
+            href="/market/distress"
+            className="group rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-6 hover:border-[rgba(15,23,42,0.18)] transition-colors"
+          >
+            <span className="material-symbols-outlined text-[var(--px-muted)]">warning</span>
+            <h2 className="mt-3 text-[1.25rem] font-semibold text-[var(--px-text)]">Distress</h2>
+            <p className="mt-2 text-sm leading-7 text-[var(--px-muted)]">
+              Screen selskaper i distress med status, varighet og siste tilgjengelige regnskapssignaler.
+            </p>
+            <div className="mt-4 flex items-center gap-1 text-sm font-semibold text-[var(--px-text)]">
+              <span>Åpne modul</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </Link>
+
+          <Link
+            href="/market/oil-gas"
+            className="group rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-6 hover:border-[rgba(15,23,42,0.18)] transition-colors"
+          >
+            <span className="material-symbols-outlined text-[var(--px-muted)]">oil_barrel</span>
+            <h2 className="mt-3 text-[1.25rem] font-semibold text-[var(--px-text)]">Olje &amp; gass</h2>
+            <p className="mt-2 text-sm leading-7 text-[var(--px-muted)]">
+              Følg felt, operatører, hendelser og makrosignaler i én samlet markedsflate.
+            </p>
+            <div className="mt-4 flex items-center gap-1 text-sm font-semibold text-[var(--px-text)]">
+              <span>Åpne modul</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function PublicHome() {
   return (
     <main className="space-y-10 pb-12">
       <section className="border-b border-[rgba(15,23,42,0.08)] pb-8">
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1.45fr),360px]">
           <div className="grid gap-6">
             <div className="grid gap-4">
-              <div className="data-label inline-flex w-fit rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
+              <div className="data-label inline-flex w-fit rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-[var(--px-muted)]">
                 Norsk selskapsanalyse
               </div>
               <div className="grid gap-5">
-                <h1 className="editorial-display max-w-5xl text-[3.5rem] leading-[0.96] text-[#111827] sm:text-[4.8rem] xl:text-[6.15rem]">
+                <h1 className="editorial-display max-w-5xl text-[3.5rem] leading-[0.96] text-[var(--px-text)] sm:text-[4.8rem] xl:text-[6.15rem]">
                   Skarp innsikt for kritiske forretningsbeslutninger.
                 </h1>
                 <p className="max-w-3xl text-[1.06rem] leading-8 text-slate-600">
@@ -62,7 +147,7 @@ export default function HomePage() {
             <div className="max-w-3xl">
               <Suspense
                 fallback={
-                  <div className="min-h-16 rounded-[1rem] border border-[rgba(15,23,42,0.1)] bg-white/80" />
+                  <div className="min-h-16 rounded-2xl border border-[rgba(15,23,42,0.1)] bg-white/80" />
                 }
               >
                 <SearchForm />
@@ -81,7 +166,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <aside className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[#192536] text-white">
+          <aside className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] text-white">
             <div className="border-b border-white/10 p-6">
               <div className="data-label text-[11px] font-semibold uppercase text-white/60">
                 Hva produktet gjør
@@ -89,7 +174,7 @@ export default function HomePage() {
               <div className="mt-4 text-[1.7rem] font-semibold leading-tight">
                 Fra registerdata til skarpere vurderinger.
               </div>
-              <p className="mt-4 text-sm leading-7 text-white/72">
+              <p className="mt-4 text-sm leading-7 text-white/80">
                 ProjectX er designet som et analyseverktøy, ikke en bedriftskatalog. Hver flate
                 skal bidra til å vurdere et foretak raskt, presist og på et sporbart grunnlag.
               </p>
@@ -99,7 +184,7 @@ export default function HomePage() {
                 <div className="data-label text-[11px] font-semibold uppercase text-white/60">
                   Datagrunnlag
                 </div>
-                <div className="mt-2 text-sm leading-7 text-white/76">
+                <div className="mt-2 text-sm leading-7 text-white/80">
                   Informasjonen er strukturert for vurdering og kontroll, med tydelig skille mellom
                   det som er registrert, og det som ikke er tilgjengelig i offisielle kilder.
                 </div>
@@ -108,7 +193,7 @@ export default function HomePage() {
                 <div className="data-label text-[11px] font-semibold uppercase text-white/60">
                   Produktdisiplin
                 </div>
-                <div className="mt-2 text-sm leading-7 text-white/76">
+                <div className="mt-2 text-sm leading-7 text-white/80">
                   Ingen plassholdere, ingen pyntede signaler og ingen snarveier når datagrunnlaget
                   er tynt.
                 </div>
@@ -149,7 +234,7 @@ export default function HomePage() {
         <div className="grid gap-4 md:grid-cols-2">
           <Link
             href="/market/oil-gas"
-            className="group rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-6 hover:border-[rgba(15,23,42,0.18)]"
+            className="group rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-6 hover:border-[rgba(15,23,42,0.18)]"
           >
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Marked</div>
             <h2 className="mt-3 text-[1.4rem] font-semibold text-slate-950">Olje &amp; gass</h2>
@@ -163,7 +248,7 @@ export default function HomePage() {
 
           <Link
             href="/market/distress"
-            className="group rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-6 hover:border-[rgba(15,23,42,0.18)]"
+            className="group rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-6 hover:border-[rgba(15,23,42,0.18)]"
           >
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Analyse</div>
             <h2 className="mt-3 text-[1.4rem] font-semibold text-slate-950">Distress</h2>
@@ -252,4 +337,14 @@ export default function HomePage() {
       </section>
     </main>
   );
+}
+
+export default async function HomePage() {
+  const session = await safeAuth();
+
+  if (session?.user) {
+    return <AuthenticatedHome userName={session.user.name} />;
+  }
+
+  return <PublicHome />;
 }

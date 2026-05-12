@@ -35,7 +35,7 @@ export function CompanyFinancialDiscussions({
   }) {
     return (
       <div className={depth > 0 ? "border-l border-[rgba(15,23,42,0.08)] pl-4" : ""}>
-        <div className="rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.76)] p-3">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.76)] p-3">
           <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
             <span className="font-semibold text-slate-900">{comment.author.name ?? comment.author.email}</span>
             <span>{formatDateTime(comment.createdAt)}</span>
@@ -51,7 +51,7 @@ export function CompanyFinancialDiscussions({
               rows={2}
               required
               placeholder="Svar i tråden"
-              className="w-full rounded-[0.75rem] border border-[rgba(15,23,42,0.1)] bg-white px-3 py-2 text-sm outline-none focus:border-[#31495f]"
+              className="w-full rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--px-accent)]"
             />
             <button
               type="submit"
@@ -79,7 +79,7 @@ export function CompanyFinancialDiscussions({
 
   if (discussions.length === 0) {
     return (
-      <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-7 text-slate-600">
+      <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-7 text-slate-600">
         Regnskapskommentarer blir tilgjengelige når regnskapet finnes som lagret, sporbar artefakt i ProjectX.
       </div>
     );
@@ -87,7 +87,7 @@ export function CompanyFinancialDiscussions({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
+      <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
         <div className="text-[11px] font-semibold uppercase text-slate-500">DD-diskusjon</div>
         <div className="mt-2 text-lg font-semibold text-slate-950">{roomName}</div>
         <p className="mt-1 text-sm leading-6 text-slate-600">
@@ -96,7 +96,7 @@ export function CompanyFinancialDiscussions({
       </div>
 
       {discussions.map((discussion) => (
-        <div key={discussion.financialStatementId} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+        <div key={discussion.financialStatementId} className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
           {(() => {
             const comments = discussion.thread ? buildThreadedComments(discussion.thread.comments) : [];
 
@@ -125,7 +125,7 @@ export function CompanyFinancialDiscussions({
                 />
               ))
             ) : (
-              <div className="rounded-[0.85rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-3 text-sm leading-6 text-slate-600">
+              <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-3 text-sm leading-6 text-slate-600">
           Ingen kommentarer ennå. Bruk denne flaten til å diskutere regnskapstall, kvalitet og tolkning.
               </div>
             )}
@@ -140,7 +140,7 @@ export function CompanyFinancialDiscussions({
               rows={3}
               required
               placeholder="Skriv en kommentar"
-              className="w-full rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[#31495f]"
+              className="w-full rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--px-accent)]"
             />
             <button
               type="submit"

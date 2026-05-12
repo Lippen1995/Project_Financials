@@ -35,7 +35,7 @@ export function DistressSectorOverview({
                 <td className="px-4 py-3">
                   <Link
                     href={`/workspaces/${workspaceId}/distress/search?sectorCode=${sector.sectorCode}&view=ALL`}
-                    className="font-semibold text-[#162233] hover:text-[#31495f]"
+                    className="font-semibold text-[var(--px-text)] hover:text-[var(--px-accent)]"
                   >
                     {sector.sectorCode} {sector.sectorLabel}
                   </Link>

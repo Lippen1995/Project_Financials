@@ -241,7 +241,7 @@ export function LegalStructure({ structure }: { structure: BrregLegalStructureSn
                             <div
                               className={cn(
                                 "mt-1 text-xs",
-                                node.type === "main_entity" ? "text-white/75" : "opacity-75",
+                                node.type === "main_entity" ? "text-white/80" : "opacity-75",
                               )}
                             >
                               {node.metadata?.orgNumber ??

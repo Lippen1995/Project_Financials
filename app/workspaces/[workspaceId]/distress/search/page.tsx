@@ -262,12 +262,12 @@ export default async function DistressWorkspacePage({
           </div>
         </div>
 
-        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[#192536] p-8 text-white xl:border-l xl:border-t-0">
+        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] p-8 text-white xl:border-l xl:border-t-0">
           <div className="data-label text-[11px] font-semibold uppercase text-white/60">Screening</div>
           <div className="mt-4 text-[1.45rem] font-semibold leading-tight">
             {screening.totalUniverseCount} distress-kandidater i arbeidsflaten
           </div>
-          <p className="mt-4 text-sm leading-7 text-white/76">
+          <p className="mt-4 text-sm leading-7 text-white/80">
             {isBestFitView
               ? "Prioritert visning favoriserer rekonstruksjon, konkurs og selskaper med sterkere ferske signaler."
               : "Du ser hele distress-universet. Standardrekkefolgen starter med varighet i status, deretter siste hendelse og selskapsnavn."}
@@ -319,7 +319,7 @@ export default async function DistressWorkspacePage({
                 <Link
                   href={buildViewHref(workspaceId, query, "BEST_FIT")}
                   className={`rounded-full px-3 py-2 text-sm font-semibold ${
-                    isBestFitView ? "bg-[#162233] text-white" : "text-slate-600 hover:text-slate-950"
+                    isBestFitView ? "bg-[var(--px-action)] text-white" : "text-slate-600 hover:text-slate-950"
                   }`}
                 >
                   Prioritert visning
@@ -327,7 +327,7 @@ export default async function DistressWorkspacePage({
                 <Link
                   href={buildViewHref(workspaceId, query, "ALL")}
                   className={`rounded-full px-3 py-2 text-sm font-semibold ${
-                    !isBestFitView ? "bg-[#162233] text-white" : "text-slate-600 hover:text-slate-950"
+                    !isBestFitView ? "bg-[var(--px-action)] text-white" : "text-slate-600 hover:text-slate-950"
                   }`}
                 >
                   Alle treff
@@ -364,7 +364,7 @@ export default async function DistressWorkspacePage({
               {hasNextPage ? (
                 <Link
                   href={buildPageHref(workspaceId, query, screening.page + 1)}
-                  className="rounded-full bg-[#162233] px-4 py-2 text-sm font-semibold text-white hover:bg-[#223246]"
+                  className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--px-action-hover)]"
                 >
                   Neste
                 </Link>

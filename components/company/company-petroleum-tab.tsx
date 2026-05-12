@@ -40,7 +40,7 @@ function BreakdownBars({ title, rows }: { title: string; rows: CompanyPetroleumP
               <span>{formatNumber(row.value)}</span>
             </div>
             <div className="mt-1 h-2 rounded-full bg-slate-100">
-              <div className="h-2 rounded-full bg-[#31495f]" style={{ width: `${Math.min(100, row.sharePercent ?? 0)}%` }} />
+              <div className="h-2 rounded-full bg-[var(--px-action)]" style={{ width: `${Math.min(100, row.sharePercent ?? 0)}%` }} />
             </div>
           </div>
         ))}
@@ -56,7 +56,7 @@ function PipelineAssetList({ title, rows }: { title: string; rows: CompanyPetrol
       <div className="text-sm font-semibold text-slate-900">{title}</div>
       <div className="mt-2 space-y-2">
         {rows.slice(0, 5).map((row) => (
-          <div key={`${row.entityType}-${row.entityId}`} className="rounded-[0.85rem] border p-3 text-sm text-slate-700">
+          <div key={`${row.entityType}-${row.entityId}`} className="rounded-xl border p-3 text-sm text-slate-700">
             <div className="font-semibold text-slate-900">{row.name}</div>
             <div className="text-xs uppercase text-slate-500">{row.entityType} · {row.status ?? "Status ukjent"}</div>
             {row.area ? <div className="mt-1">{row.area}</div> : null}
@@ -224,7 +224,7 @@ export function CompanyPetroleumTab({ petroleum }: { petroleum: CompanyPetroleum
           <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Hendelser</div>
           <div className="mt-4 space-y-3">
             {petroleum.recentEvents.slice(0, 10).map((event) => (
-              <div key={event.id} className="rounded-[0.85rem] border p-3">
+              <div key={event.id} className="rounded-xl border p-3">
                 <div className="font-semibold text-slate-900">{event.title}</div>
                 <div className="text-xs uppercase text-slate-500">{event.source} · {event.eventType}</div>
                 {event.summary ? <div className="mt-1 text-sm text-slate-600">{event.summary}</div> : null}

@@ -38,7 +38,7 @@ function formatSignedPercent(value?: number | null) {
 
 function MetricCard({ label, value, hint }: { label: string; value: string; hint?: string | null }) {
   return (
-    <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+    <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
       <div className="data-label text-[11px] font-semibold uppercase text-slate-500">{label}</div>
       <div className="mt-2 text-[1.35rem] font-semibold text-slate-950">{value}</div>
       {hint ? <div className="mt-1 text-xs text-slate-500">{hint}</div> : null}
@@ -113,7 +113,7 @@ function ExcerptList({
 }) {
   return (
     <div className="space-y-3">
-      <div className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4 text-sm leading-6 text-slate-700">
+      <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4 text-sm leading-6 text-slate-700">
         <div className="font-semibold text-slate-950">{title}</div>
         <div className="mt-2">{status}</div>
       </div>
@@ -123,7 +123,7 @@ function ExcerptList({
           {excerpts.map((excerpt) => (
             <div
               key={`${title}-${excerpt.year}-${excerpt.pageNumber ?? "na"}-${excerpt.text.slice(0, 24)}`}
-              className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] p-4"
+              className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] p-4"
             >
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
                 {excerpt.year}
@@ -204,14 +204,14 @@ export function DistressCompanyOverview({
             </Link>
             <Link
               href={`/companies/${detail.company.orgNumber}`}
-              className="rounded-full bg-[#162233] px-4 py-2 text-sm font-semibold text-white hover:bg-[#223246]"
+              className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--px-action-hover)]"
             >
               Åpne klassisk selskapsprofil
             </Link>
           </div>
         </div>
 
-        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[#192536] p-8 text-white xl:border-l xl:border-t-0">
+        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] p-8 text-white xl:border-l xl:border-t-0">
           <div className="data-label text-[11px] font-semibold uppercase text-white/60">Statuskort</div>
           <div className="mt-5 space-y-4 text-sm">
             <div className="border-b border-white/10 pb-4">
@@ -256,13 +256,13 @@ export function DistressCompanyOverview({
           </div>
 
           {detail.financials.trends.length === 0 ? (
-            <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
+            <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
               Ingen regnskap er lagret for denne distress-kandidaten ennå.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)]">
+            <div className="overflow-x-auto rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)]">
               <table className="min-w-full divide-y divide-[rgba(15,23,42,0.08)] text-sm">
-                <thead className="bg-white/72">
+                <thead className="bg-white/80">
                   <tr className="text-left">
                     <th className="data-label px-4 py-3 font-semibold uppercase text-slate-500">Linje</th>
                     {financialMatrix.years.map((year) => (
@@ -311,7 +311,7 @@ export function DistressCompanyOverview({
             </p>
           </div>
 
-          <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] p-5">
+          <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] p-5">
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Virksomhetsbeskrivelse</div>
             <p className="mt-3 text-sm leading-7 text-slate-700">{detail.operations.businessDescription}</p>
           </div>
@@ -336,7 +336,7 @@ export function DistressCompanyOverview({
               {detail.operations.operatingSignals.map((signal) => (
                 <div
                   key={signal}
-                  className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-3 text-sm leading-6 text-slate-700"
+                  className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-3 text-sm leading-6 text-slate-700"
                 >
                   {signal}
                 </div>
@@ -371,7 +371,7 @@ export function DistressCompanyOverview({
               {detail.operations.documentNotes.map((note) => (
                 <div
                   key={note}
-                  className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-3 text-sm leading-6 text-slate-700"
+                  className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-3 text-sm leading-6 text-slate-700"
                 >
                   {note}
                 </div>
@@ -379,7 +379,7 @@ export function DistressCompanyOverview({
             </div>
 
             {visibleDocuments.length === 0 ? (
-              <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
+              <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
                 Ingen regnskapsdokumenter er tilgjengelige for denne virksomheten akkurat nå.
               </div>
             ) : (
@@ -404,7 +404,7 @@ export function DistressCompanyOverview({
                     return (
                       <div
                         key={`${document.sourceId}-${document.year}`}
-                        className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4"
+                        className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4"
                       >
                         {content}
                       </div>
@@ -417,7 +417,7 @@ export function DistressCompanyOverview({
                       href={href}
                       target="_blank"
                       rel="noreferrer"
-                      className="block rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4 transition hover:border-[rgba(15,23,42,0.18)] hover:bg-[rgba(248,249,250,0.9)]"
+                      className="block rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4 transition hover:border-[rgba(15,23,42,0.18)] hover:bg-[rgba(248,249,250,0.9)]"
                     >
                       {content}
                     </a>
@@ -446,7 +446,7 @@ export function DistressCompanyOverview({
           </div>
 
           {visibleAnnouncements.length === 0 ? (
-            <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
+            <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
               Ingen kunngjøringer er tilgjengelige for denne virksomheten akkurat nå.
             </div>
           ) : (
@@ -457,7 +457,7 @@ export function DistressCompanyOverview({
                   href={announcement.detailUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4 transition hover:border-[rgba(15,23,42,0.18)] hover:bg-[rgba(248,249,250,0.9)]"
+                  className="block rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4 transition hover:border-[rgba(15,23,42,0.18)] hover:bg-[rgba(248,249,250,0.9)]"
                 >
                   <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
                     {formatDate(announcement.publishedAt)}
@@ -491,14 +491,14 @@ export function DistressCompanyOverview({
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Datadekning</div>
             <h2 className="mt-2 text-[1.4rem] font-semibold text-slate-950">Kildegrunnlag</h2>
           </div>
-          <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] p-4 text-sm text-slate-700">
+          <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] p-4 text-sm text-slate-700">
             {detail.coverage.dataCoverage}
           </div>
           <div className="space-y-2">
             {detail.coverage.sourceNotes.map((note) => (
               <div
                 key={note}
-                className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-3 text-sm leading-6 text-slate-700"
+                className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-3 text-sm leading-6 text-slate-700"
               >
                 {note}
               </div>

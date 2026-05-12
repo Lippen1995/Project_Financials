@@ -10,7 +10,7 @@ export function DistressTimelineChart({ points }: { points: DistressOverviewTime
         <h2 className="mt-2 text-[1.7rem] font-semibold text-slate-950">Månedlig signalvolum</h2>
       </div>
 
-      <div className="grid gap-3 rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-5">
+      <div className="grid gap-3 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5">
         {points.map((point) => {
           const width = maxValue > 0 ? (point.total / maxValue) * 100 : 0;
           return (

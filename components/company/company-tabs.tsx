@@ -35,17 +35,17 @@ export function CompanyTabs({
   tabs?: Array<{ id: CompanyTabId; label: string }>;
 }) {
   return (
-    <div className="sticky top-4 z-30 overflow-x-auto rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(247,247,245,0.86)] px-2 py-2 backdrop-blur-sm">
-      <div className="inline-flex min-w-full gap-1">
+    <div className="sticky top-[4.25rem] z-30 -mx-1 overflow-x-auto bg-[var(--px-bg)] pb-px backdrop-blur-sm">
+      <div className="flex gap-6 border-b border-[rgba(15,23,42,0.1)] px-1">
         {tabs.map((tab) => (
           <Link
             key={tab.id}
             href={`/companies/${companySlug}?tab=${tab.id}${activeDdRoomId ? `&ddRoom=${activeDdRoomId}` : ""}`}
             className={cn(
-              "rounded-[0.8rem] px-4 py-2.5 text-sm font-medium transition",
+              "data-label whitespace-nowrap pb-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.1em] transition-colors",
               activeTab === tab.id
-                ? "bg-[#182535] text-white"
-                : "text-slate-600 hover:bg-white hover:text-slate-900",
+                ? "border-b-2 border-[var(--px-accent)] text-[var(--px-text)]"
+                : "text-[var(--px-muted)] hover:text-[var(--px-text)]",
             )}
           >
             {tab.label}

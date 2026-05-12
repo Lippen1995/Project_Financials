@@ -24,14 +24,14 @@ export default function LoginPage() {
         </div>
       </section>
 
-      <Card className="border-[rgba(15,23,42,0.08)] bg-[#192536] text-white">
+      <Card className="border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] text-white">
         <p className="data-label text-[11px] font-semibold uppercase text-white/60">Ny bruker</p>
         <h2 className="mt-4 text-[2rem] font-semibold">Opprett konto for team som trenger skarp innsikt</h2>
-        <p className="mt-4 text-sm leading-7 text-white/76">
+        <p className="mt-4 text-sm leading-7 text-white/80">
           Nye brukere får standard tilgang. Utvidet tilgang gir mer komplett innsyn der offisielle
           kilder faktisk støtter det.
         </p>
-        <div className="mt-8 rounded-[0.95rem] border border-white/10 bg-white/5 p-6">
+        <div className="mt-8 rounded-xl border border-white/10 bg-white/5 p-6">
           <RegisterForm />
         </div>
         <Link

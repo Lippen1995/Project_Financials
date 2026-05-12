@@ -173,7 +173,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Søk i personer, selskaper og roller"
-                  className="w-full rounded-[1rem] border border-[#D7DEE7] bg-white px-10 py-2.5 text-sm text-[#101828] outline-none focus:border-[#98A2B3] focus:ring-2 focus:ring-[#D6E4FF]"
+                  className="w-full rounded-2xl border border-[#D7DEE7] bg-white px-10 py-2.5 text-sm text-[#101828] outline-none focus:border-[#98A2B3] focus:ring-2 focus:ring-[#D6E4FF]"
                 />
               </div>
 
@@ -230,7 +230,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                   key={bucket}
                   type="button"
                   onClick={() => setOpen((current) => ({ ...current, [bucket]: !current[bucket] }))}
-                  className="flex items-center justify-between rounded-[1rem] border border-[#E5EAF0] bg-[#FAFBFC] px-4 py-3 text-left hover:border-[#CBD5E1]"
+                  className="flex items-center justify-between rounded-2xl border border-[#E5EAF0] bg-[#FAFBFC] px-4 py-3 text-left hover:border-[#CBD5E1]"
                 >
                   <div>
                     <div className="text-sm font-semibold text-[#101828]">{bucketLabels[bucket]}</div>
@@ -258,11 +258,11 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="text-xl font-semibold tracking-tight">{model.company.name}</div>
-                          <div className="mt-2 text-sm text-white/72">
+                          <div className="mt-2 text-sm text-white/80">
                             {model.company.legalForm ?? "Foretak"} · {model.company.orgNumber}
                           </div>
                         </div>
-                        <Building2 className="mt-1 size-5 text-white/70" />
+                        <Building2 className="mt-1 size-5 text-white/80" />
                       </div>
                       <div className="mt-5 flex flex-wrap gap-2">
                         <span className="rounded-full bg-white/14 px-2.5 py-1 text-[10px] font-semibold text-white">
@@ -300,7 +300,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                           .map((bucket) => (
                             <div
                               key={bucket}
-                              className="rounded-[1rem] border border-[#E7ECF1] bg-[#F8FAFC] p-3"
+                              className="rounded-2xl border border-[#E7ECF1] bg-[#F8FAFC] p-3"
                             >
                               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#667085]">
                                 {bucketLabels[bucket]}
@@ -313,7 +313,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                       </div>
 
                       {highlightMulti ? (
-                        <div className="mt-4 rounded-[1rem] border border-[#E7D6C3] bg-[#FCF6EE] p-3 text-sm text-[#6F4D20]">
+                        <div className="mt-4 rounded-2xl border border-[#E7D6C3] bg-[#FCF6EE] p-3 text-sm text-[#6F4D20]">
                           Flere roller:{" "}
                           {formatHoverList(filteredActors.filter((actor) => actor.hasMultipleRoles))}
                         </div>
@@ -332,7 +332,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
             description="Rollene er gruppert etter kontroll, styring, fullmakter og eksterne funksjoner."
           />
           {!profile.rolesAvailability.available ? (
-            <div className="mt-5 rounded-[1rem] border border-[#F0D8C2] bg-[#FFF8F1] p-4 text-sm leading-6 text-[#8A4B14]">
+            <div className="mt-5 rounded-2xl border border-[#F0D8C2] bg-[#FFF8F1] p-4 text-sm leading-6 text-[#8A4B14]">
               {profile.rolesAvailability.message}
             </div>
           ) : null}
@@ -352,7 +352,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               </div>
               <div className="mt-4 space-y-3">
                 {model.ownerships.map((owner) => (
-                  <div key={owner.id} className="rounded-[1rem] border border-white/70 bg-white/80 p-4">
+                  <div key={owner.id} className="rounded-2xl border border-white/70 bg-white/80 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className="text-sm font-semibold text-[#101828]">{owner.name}</div>
@@ -394,7 +394,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                     key={actor.id}
                     type="button"
                     onClick={() => setSelectedId(actor.id)}
-                    className="w-full rounded-[1rem] border border-white/70 bg-white/80 p-4 text-left hover:border-[#CBD5E1]"
+                    className="w-full rounded-2xl border border-white/70 bg-white/80 p-4 text-left hover:border-[#CBD5E1]"
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div>
@@ -433,7 +433,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                 </span>
               </div>
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <div className="rounded-[1rem] border border-white/70 bg-white/80 p-4">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <div className="text-xs font-semibold uppercase tracking-[0.12em] text-[#764494]">
                     Signatur
                   </div>
@@ -441,14 +441,14 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                     {model.signatureRules.map((rule) => (
                       <div
                         key={rule.id}
-                        className="rounded-[0.95rem] border border-[#EBDDF2] bg-[#FBF7FD] p-3 text-sm text-[#43244F]"
+                        className="rounded-xl border border-[#EBDDF2] bg-[#FBF7FD] p-3 text-sm text-[#43244F]"
                       >
                         {rule.text}
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="rounded-[1rem] border border-white/70 bg-white/80 p-4">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <div className="text-xs font-semibold uppercase tracking-[0.12em] text-[#764494]">
                     Prokura
                   </div>
@@ -456,7 +456,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                     {model.procurationRules.map((rule) => (
                       <div
                         key={rule.id}
-                        className="rounded-[0.95rem] border border-[#EBDDF2] bg-[#FBF7FD] p-3 text-sm text-[#43244F]"
+                        className="rounded-xl border border-[#EBDDF2] bg-[#FBF7FD] p-3 text-sm text-[#43244F]"
                       >
                         {rule.text}
                       </div>
@@ -480,12 +480,12 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               </div>
               <div className="mt-4 space-y-3">
                 {model.advisors.length === 0 ? (
-                  <div className="rounded-[1rem] border border-dashed border-[#D5DCE5] bg-white/80 p-4 text-sm text-[#667085]">
+                  <div className="rounded-2xl border border-dashed border-[#D5DCE5] bg-white/80 p-4 text-sm text-[#667085]">
                     Ingen revisor eller regnskapsfører er registrert i tilgjengelige rolldata.
                   </div>
                 ) : (
                   model.advisors.map((advisor) => (
-                    <div key={advisor.id} className="rounded-[1rem] border border-white/70 bg-white/80 p-4">
+                    <div key={advisor.id} className="rounded-2xl border border-white/70 bg-white/80 p-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <div className="text-sm font-semibold text-[#101828]">{advisor.name}</div>
@@ -526,7 +526,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               </div>
               <div className="mt-4 space-y-3">
                 {model.groupedActors.other.length === 0 ? (
-                  <div className="rounded-[1rem] border border-dashed border-[#D5DCE5] bg-white/80 p-4 text-sm text-[#667085]">
+                  <div className="rounded-2xl border border-dashed border-[#D5DCE5] bg-white/80 p-4 text-sm text-[#667085]">
                     Ingen andre registrerte roller ble funnet.
                   </div>
                 ) : (
@@ -535,7 +535,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                       key={actor.id}
                       type="button"
                       onClick={() => setSelectedId(actor.id)}
-                      className="w-full rounded-[1rem] border border-white/70 bg-white/80 p-4 text-left hover:border-[#CBD5E1]"
+                      className="w-full rounded-2xl border border-white/70 bg-white/80 p-4 text-left hover:border-[#CBD5E1]"
                     >
                       <div className="text-sm font-semibold text-[#101828]">{actor.name}</div>
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -565,7 +565,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               <div
                 key={insight.id}
                 className={cn(
-                  "rounded-[1rem] border p-4",
+                  "rounded-2xl border p-4",
                   insight.tone === "flag"
                     ? "border-[#F1D2D6] bg-[#FFF6F7]"
                     : insight.tone === "positive"
@@ -618,7 +618,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                 {selected.roles.map((role) => (
                   <div
                     key={`${selected.id}-${role.sourceId}-${role.title}`}
-                    className="rounded-[1rem] border border-[#E7ECF1] bg-white p-4"
+                    className="rounded-2xl border border-[#E7ECF1] bg-white p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -636,7 +636,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               </div>
             </div>
           ) : (
-            <div className="mt-5 rounded-[1rem] border border-dashed border-[#D5DCE5] bg-[#FAFBFC] p-4 text-sm text-[#667085]">
+            <div className="mt-5 rounded-2xl border border-dashed border-[#D5DCE5] bg-[#FAFBFC] p-4 text-sm text-[#667085]">
               Ingen node er valgt ennå.
             </div>
           )}

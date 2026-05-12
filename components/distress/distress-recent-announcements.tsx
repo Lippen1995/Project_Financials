@@ -27,11 +27,11 @@ export function DistressRecentAnnouncements({
 
       <div className="grid gap-3">
         {items.map((item) => (
-          <div key={`${item.orgNumber}-${item.publishedAt?.toISOString() ?? item.status}`} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+          <div key={`${item.orgNumber}-${item.publishedAt?.toISOString() ?? item.status}`} className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Link
                 href={`/workspaces/${workspaceId}/distress/companies/${item.orgNumber}`}
-                className="text-base font-semibold text-[#162233] hover:text-[#31495f]"
+                className="text-base font-semibold text-[var(--px-text)] hover:text-[var(--px-accent)]"
               >
                 {item.companyName}
               </Link>

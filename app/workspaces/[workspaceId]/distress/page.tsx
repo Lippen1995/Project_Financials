@@ -40,13 +40,13 @@ export default async function DistressWorkspaceLandingPage({
       <DistressSectorOverview workspaceId={workspaceId} sectors={overview.sectors} />
 
       <section className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Definisjon</div>
           <p className="mt-2 text-sm leading-7 text-slate-600">
             Regnskapsdekning teller profiler med <em>FINANCIALS_AVAILABLE</em> eller <em>FINANCIALS_PARTIAL</em>.
           </p>
         </div>
-        <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Tidslinjegrunnlag</div>
           <p className="mt-2 text-sm leading-7 text-slate-600">
             Månedsgrafen er basert på siste registrerte kunngjøringsdato per distress-profil.

@@ -31,20 +31,20 @@ export function SearchForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="flex w-full flex-col gap-3 rounded-[1rem] border border-[rgba(15,23,42,0.1)] bg-[rgba(255,255,255,0.92)] p-2 sm:flex-row"
+      className="flex w-full flex-col gap-3 rounded-2xl border border-[rgba(15,23,42,0.1)] bg-[rgba(255,255,255,0.92)] p-2 sm:flex-row"
     >
       <input
         name="query"
         defaultValue={searchParams.get("query") ?? ""}
         placeholder={placeholder}
-        className="min-h-14 flex-1 rounded-[0.85rem] bg-transparent px-4 text-[15px] text-slate-900 outline-none placeholder:text-slate-400"
+        className="min-h-14 flex-1 rounded-xl bg-transparent px-4 text-[15px] text-[var(--px-text)] outline-none placeholder:text-[var(--px-muted)]"
       />
       <button
         type="submit"
-        className={`min-h-14 rounded-[0.85rem] px-5 text-sm font-semibold ${
+        className={`min-h-14 rounded-xl px-5 text-sm font-semibold ${
           compact
-            ? "border border-[rgba(15,23,42,0.12)] bg-[rgba(49,73,95,0.06)] text-slate-800"
-            : "bg-[#182535] text-white"
+            ? "border border-[rgba(15,23,42,0.12)] bg-[var(--px-subtle)] text-[var(--px-text)]"
+            : "bg-[var(--px-action)] text-white hover:bg-[var(--px-action-hover)]"
         }`}
       >
         Søk selskaper

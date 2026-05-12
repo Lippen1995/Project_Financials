@@ -13,7 +13,7 @@ export function PremiumLock({
       <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600">{description}</p>
       <Link
         href="/pricing"
-        className="mt-5 inline-flex rounded-full bg-[#182535] px-5 py-3 text-sm font-semibold text-white"
+        className="mt-5 inline-flex rounded-full bg-[var(--px-action)] px-5 py-3 text-sm font-semibold text-white hover:bg-[var(--px-action-hover)]"
       >
         Se tilgangsnivåer
       </Link>

@@ -143,7 +143,7 @@ export function CompanyIpTab({ companySlug, initialRights, initialOverview }: Pr
                 className={cn(
                   "rounded-full border px-3 py-1.5 text-sm font-semibold",
                   filter === id
-                    ? "border-[#162233] bg-[#162233] text-white"
+                    ? "border-[var(--px-action)] bg-[var(--px-action)] text-white"
                     : "border-[rgba(15,23,42,0.12)] bg-white text-slate-700",
                 )}
               >
@@ -152,7 +152,7 @@ export function CompanyIpTab({ companySlug, initialRights, initialOverview }: Pr
             ))}
           </div>
 
-          <label className="inline-flex items-center gap-2 rounded-[0.7rem] border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-700">
+          <label className="inline-flex items-center gap-2 rounded-xl border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-700">
             <ChevronDown className="h-4 w-4" />
             <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)} className="bg-transparent outline-none">
               <option value="latest-activity">Nyeste aktivitet</option>
@@ -162,7 +162,7 @@ export function CompanyIpTab({ companySlug, initialRights, initialOverview }: Pr
             </select>
           </label>
 
-          <label className="inline-flex items-center gap-2 rounded-[0.7rem] border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-600">
+          <label className="inline-flex items-center gap-2 rounded-xl border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-600">
             <Search className="h-4 w-4" />
             <input
               value={query}

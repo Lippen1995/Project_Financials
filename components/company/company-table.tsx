@@ -32,7 +32,7 @@ export function CompanyTable({ companies }: { companies: RankedCompanySearchResu
               <td className="px-5 py-4">
                 <Link
                   href={`/companies/${company.orgNumber}`}
-                  className="font-semibold text-[#162233] hover:text-[#31495f]"
+                  className="font-semibold text-[var(--px-text)] hover:text-[var(--px-accent)]"
                 >
                   {company.name}
                 </Link>
