@@ -579,7 +579,7 @@ export async function publishFinancialStatementSnapshot(input: {
   normalizedAt: Date;
   rawPayload: Prisma.InputJsonValue;
   sourceFilingId: string;
-  sourceExtractionRunId: string;
+  sourceExtractionRunId?: string | null;
   qualityStatus: Prisma.FinancialStatementUncheckedCreateInput["qualityStatus"];
   qualityScore: number;
   unitScale: number;
@@ -597,11 +597,34 @@ export async function publishFinancialStatementSnapshot(input: {
         },
       });
 
+      const existingPayload =
+        existing?.rawPayload && typeof existing.rawPayload === "object"
+          ? (existing.rawPayload as Record<string, unknown>)
+          : null;
+      const inputPayload =
+        input.rawPayload && typeof input.rawPayload === "object"
+          ? (input.rawPayload as Record<string, unknown>)
+          : null;
+      const existingReviewed =
+        existing?.sourceSystem === "PROJECT_FINANCIALS_REVIEW" ||
+        existing?.sourceEntityType === "annualReportReviewedFact" ||
+        existingPayload?.reviewed === true;
+      const inputReviewed =
+        input.sourceSystem === "PROJECT_FINANCIALS_REVIEW" ||
+        input.sourceEntityType === "annualReportReviewedFact" ||
+        inputPayload?.reviewed === true;
+
       const canReplace =
         !existing ||
-        existing.sourceFilingId === input.sourceFilingId ||
-        existing.qualityStatus !== "HIGH_CONFIDENCE" ||
-        (existing.qualityScore ?? 0) <= input.qualityScore;
+        (inputReviewed && !existingReviewed) ||
+        (inputReviewed &&
+          existingReviewed &&
+          (existing.sourceId === input.sourceId || existing.sourceFilingId === input.sourceFilingId)) ||
+        (!inputReviewed &&
+          !existingReviewed &&
+          (existing.sourceFilingId === input.sourceFilingId ||
+            existing.qualityStatus !== "HIGH_CONFIDENCE" ||
+            (existing.qualityScore ?? 0) <= input.qualityScore));
 
       if (!canReplace) {
         return existing;
@@ -628,7 +651,7 @@ export async function publishFinancialStatementSnapshot(input: {
           normalizedAt: input.normalizedAt,
           rawPayload: input.rawPayload,
           sourceFilingId: input.sourceFilingId,
-          sourceExtractionRunId: input.sourceExtractionRunId,
+          sourceExtractionRunId: input.sourceExtractionRunId ?? null,
           qualityStatus: input.qualityStatus,
           qualityScore: input.qualityScore,
           unitScale: input.unitScale,
@@ -651,7 +674,7 @@ export async function publishFinancialStatementSnapshot(input: {
           normalizedAt: input.normalizedAt,
           rawPayload: input.rawPayload,
           sourceFilingId: input.sourceFilingId,
-          sourceExtractionRunId: input.sourceExtractionRunId,
+          sourceExtractionRunId: input.sourceExtractionRunId ?? null,
           qualityStatus: input.qualityStatus,
           qualityScore: input.qualityScore,
           unitScale: input.unitScale,

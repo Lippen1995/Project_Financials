@@ -215,6 +215,9 @@ export type OpenDataLoaderPipelineSnapshot = {
   }>;
   blockingRuleCodes: string[];
   shouldPublish: boolean;
+  reviewRuleCodes?: string[];
+  canPublishSnapshot?: boolean;
+  canSkipManualReview?: boolean;
   confidenceScore: number;
   durationMs?: number;
 };

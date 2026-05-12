@@ -749,7 +749,7 @@ describe("annual-report-financials-service", () => {
     expect(repo.createAnnualReportArtifact.mock.calls.some((call) => call[0].artifactType === "ANNOTATED_PDF")).toBe(true);
   });
 
-  it("populates the manual review queue instead of publishing invalid filings", async () => {
+  it("publishes provisionally and creates a review case for usable low-trust filings", async () => {
     const validationModule = await import(
       "@/integrations/brreg/annual-report-financials/validation"
     );
@@ -778,13 +778,18 @@ describe("annual-report-financials-service", () => {
     );
     const result = await processAnnualReportFiling("filing-1");
 
-    expect(result.published).toBe(false);
-    expect(repo.publishFinancialStatementSnapshot).not.toHaveBeenCalled();
+    expect(result.published).toBe(true);
+    expect(repo.publishFinancialStatementSnapshot).toHaveBeenCalledTimes(1);
     expect(repo.upsertAnnualReportReview).toHaveBeenCalledTimes(1);
     expect(repo.upsertAnnualReportReview.mock.calls[0][0]).toMatchObject({
       filingId: "filing-1",
       extractionRunId: "run-1",
       status: "PENDING_REVIEW",
+      latestActionNote: "Published provisionally; awaiting manual review.",
+      blockingRuleCodes: expect.arrayContaining([
+        "STRICT_TRUST_GATE_FAILED",
+        "BALANCE_VALIDATION_MISMATCH",
+      ]),
     });
     const reviewPayload = repo.upsertAnnualReportReview.mock.calls[0][0]
       .reviewPayload as Record<string, any>;
@@ -944,6 +949,66 @@ describe("annual-report-financials-service", () => {
     expect(result.published).toBe(true);
     expect(repo.publishFinancialStatementSnapshot).toHaveBeenCalledTimes(1);
     expect(repo.upsertAnnualReportReview).not.toHaveBeenCalled();
+  });
+
+  it("sanitizes public financial output while preserving internal provenance for admin flows", async () => {
+    repo.getPublishedFinancialsForCompany.mockResolvedValue({
+      id: "company-1",
+      orgNumber: "928846466",
+      name: "Example AS",
+      financialStatements: [
+        {
+          id: "statement-1",
+          fiscalYear: 2024,
+          currency: "NOK",
+          revenue: 5000000n,
+          operatingProfit: 1000000n,
+          netIncome: 800000n,
+          equity: 3000000n,
+          assets: 7000000n,
+          sourceSystem: "BRREG",
+          sourceEntityType: "financialStatement",
+          sourceId: "statement-1",
+          fetchedAt: new Date("2026-04-17T10:00:00.000Z"),
+          normalizedAt: new Date("2026-04-17T10:00:00.000Z"),
+          rawPayload: { internal: true },
+          sourceFilingId: "filing-1",
+          sourceExtractionRunId: "run-1",
+          qualityStatus: "LOW_CONFIDENCE",
+          qualityScore: 0.62,
+          sourcePrecedence: "STATUTORY_NOK",
+          unitScale: 1,
+          publishedAt: new Date("2026-04-17T10:00:00.000Z"),
+        },
+      ],
+      annualReportFilings: [],
+      financialCoverage: null,
+    });
+
+    const {
+      getPublishedAnnualReportFinancials,
+      getLatestPublishedStatementProvenance,
+    } = await import("@/server/services/annual-report-financials-service");
+
+    const published = await getPublishedAnnualReportFinancials("928846466");
+    const statement = published.statements[0] as Record<string, unknown>;
+    const provenance = await getLatestPublishedStatementProvenance("928846466", 2024);
+
+    expect(statement.qualityStatus).toBeUndefined();
+    expect(statement.qualityScore).toBeUndefined();
+    expect(statement.sourceExtractionRunId).toBeUndefined();
+    expect(statement.sourceFilingId).toBeUndefined();
+    expect(statement.sourcePrecedence).toBeUndefined();
+    expect(statement.unitScale).toBeUndefined();
+    expect(statement.publishedAt).toBeUndefined();
+    expect(statement.revenue).toBe(5000000);
+    expect(provenance).toMatchObject({
+      statementId: "statement-1",
+      sourceFilingId: "filing-1",
+      sourceExtractionRunId: "run-1",
+      qualityStatus: "LOW_CONFIDENCE",
+      qualityScore: 0.62,
+    });
   });
 
   it("returns an operator overview with metrics, pending reviews, and pending filings", async () => {

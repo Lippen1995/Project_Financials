@@ -211,6 +211,113 @@ export function canPublishAutomatically(input: {
   );
 }
 
+const catastrophicRuleCodes = new Set([
+  "PRIMARY_INCOME_PAGE_MISSING",
+  "PRIMARY_BALANCE_PAGE_MISSING",
+  "PAGE_UNIT_SCALE_CONFLICT",
+  "PAGE_UNIT_SCALE_UNCERTAIN",
+  "SUSPICIOUS_COLUMN_SWAP",
+]);
+
+const keyProvisionallyUsefulMetricKeys = [
+  "revenue",
+  "total_operating_income",
+  "operating_profit",
+  "net_income",
+  "total_assets",
+  "total_equity",
+  "total_liabilities",
+] as const;
+
+function hasClearlyAbsurdValues(selectedFacts: ReturnType<typeof chooseCanonicalFacts>) {
+  return Array.from(selectedFacts.values()).some((fact) => {
+    if (!Number.isFinite(fact.value)) {
+      return true;
+    }
+    const absolute = Math.abs(fact.value);
+    return absolute > 1_000_000_000_000_000;
+  });
+}
+
+function hasSafeUnitScale(input: {
+  classifications: PageClassification[];
+  selectedFacts: ReturnType<typeof chooseCanonicalFacts>;
+}) {
+  if (hasKnownUnitScale(input.classifications)) {
+    return true;
+  }
+
+  const factScales = Array.from(input.selectedFacts.values())
+    .map((fact) => fact.unitScale)
+    .filter((scale): scale is 1 | 1000 => scale === 1 || scale === 1000);
+
+  if (factScales.length === 0) {
+    return false;
+  }
+
+  const distinct = new Set(factScales);
+  return distinct.size === 1 && [...distinct][0] > 0;
+}
+
+export function canPublishProvisionally(input: {
+  filingFiscalYear: number;
+  classifications: PageClassification[];
+  selectedFacts: ReturnType<typeof chooseCanonicalFacts>;
+  validationIssues: ValidationIssueDraft[];
+  confidenceScore: number;
+}) {
+  if (!Number.isInteger(input.filingFiscalYear) || input.filingFiscalYear < 1900) {
+    return false;
+  }
+
+  if (input.selectedFacts.size === 0) {
+    return false;
+  }
+
+  const usefulMetricCount = keyProvisionallyUsefulMetricKeys.filter((metricKey) =>
+    input.selectedFacts.has(metricKey),
+  ).length;
+
+  if (usefulMetricCount < 2) {
+    return false;
+  }
+
+  if (!hasSafeUnitScale(input)) {
+    return false;
+  }
+
+  if (hasClearlyAbsurdValues(input.selectedFacts)) {
+    return false;
+  }
+
+  const hasCatastrophicIssue = input.validationIssues.some(
+    (issue) =>
+      issue.severity === "ERROR" && catastrophicRuleCodes.has(issue.ruleCode),
+  );
+
+  if (hasCatastrophicIssue) {
+    return false;
+  }
+
+  const primaryPages = primaryStatementPages(input.classifications);
+  if (primaryPages.length === 0) {
+    return false;
+  }
+
+  const hasConfidentYearConflict = primaryPages.some(
+    (page) =>
+      page.yearHeaderYears.length > 0 &&
+      page.yearHeaderYears[0] !== input.filingFiscalYear &&
+      page.confidence >= 0.74,
+  );
+
+  if (hasConfidentYearConflict) {
+    return false;
+  }
+
+  return true;
+}
+
 export function summarizeProcessingResults(
   results: Array<{
     published?: boolean;

@@ -368,7 +368,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                 href={pdfUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-[#31495f] underline"
+                className="text-sm text-[var(--px-accent)] underline"
               >
                 Åpne PDF i nytt vindu
               </a>
@@ -402,7 +402,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
             <ul className="space-y-3">
               {review.decisions.map((d) => (
                 <li key={d.id} className="border-l-2 border-slate-200 pl-3 text-sm">
-                  <span className="font-medium text-[#162233]">{d.decisionType}</span>
+                  <span className="font-medium text-[var(--px-text)]">{d.decisionType}</span>
                   <span className="ml-2 text-slate-400">
                     {new Date(d.createdAt).toLocaleString("nb-NO")}
                   </span>
@@ -426,13 +426,13 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           </h2>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <dt className="text-slate-500">Org.nr</dt>
-            <dd className="font-mono font-medium text-[#162233]">{review.company.orgNumber}</dd>
+            <dd className="font-mono font-medium text-[var(--px-text)]">{review.company.orgNumber}</dd>
             <dt className="text-slate-500">Status</dt>
-            <dd className="font-medium text-[#162233]">{review.status}</dd>
+            <dd className="font-medium text-[var(--px-text)]">{review.status}</dd>
             <dt className="text-slate-500">Regnskapsår</dt>
-            <dd className="font-medium text-[#162233]">{review.fiscalYear}</dd>
+            <dd className="font-medium text-[var(--px-text)]">{review.fiscalYear}</dd>
             <dt className="text-slate-500">Kvalitetsscore</dt>
-            <dd className="font-medium text-[#162233]">
+            <dd className="font-medium text-[var(--px-text)]">
               {review.qualityScore != null ? `${(review.qualityScore * 100).toFixed(1)}%` : "—"}
             </dd>
             <dt className="text-slate-500">Parser</dt>
@@ -590,7 +590,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
               Korriger verdier
             </h2>
             <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Korrigerte verdier lagres som reviewed facts og treningslabels. De publiseres ikke automatisk.
+              Korrigerte verdier lagres som reviewed facts og publiseres automatisk til aktivt regnskapssnapshot når valideringen består.
             </p>
             <div className="space-y-2">
               {editableFacts.map((f, i) => (
@@ -739,7 +739,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                 <button
                   onClick={handleCorrect}
                   disabled={loading}
-                  className="rounded bg-[#31495f] px-4 py-2 text-sm font-medium text-white hover:bg-[#223246] disabled:opacity-50"
+                  className="rounded bg-[var(--px-action)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--px-action-hover)] disabled:opacity-50"
                 >
                   Lagre korrigeringer
                 </button>
@@ -765,21 +765,15 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
             >
               {validating ? "Validerer…" : "Valider reviewed facts"}
             </button>
-            {canPublish && (
-              <button
-                onClick={handlePublish}
-                disabled={publishing || validating}
-                className="rounded bg-[#162233] px-4 py-2 text-sm font-medium text-white hover:bg-[#1e3044] disabled:opacity-50"
-              >
-                {publishing ? "Publiserer…" : "Publiser reviewed facts"}
-              </button>
-            )}
           </div>
         )}
 
         {isResolved && (
           <div className="rounded bg-slate-50 px-4 py-3 text-sm text-slate-600">
             Denne saken er avsluttet med status <strong>{review.status}</strong>.
+            {isAccepted && hasReviewedFacts
+              ? " Reviewed values saved and published to the active financial statement."
+              : ""}
           </div>
         )}
       </div>
@@ -803,7 +797,7 @@ function FactTable({ facts }: { facts: Fact[] }) {
         {facts.map((f) => (
           <tr key={f.id} className="border-b border-[rgba(15,23,42,0.04)] last:border-0">
             <td className="py-1 font-mono text-slate-600">{f.metricKey}</td>
-            <td className="py-1 text-right font-mono text-[#162233]">
+            <td className="py-1 text-right font-mono text-[var(--px-text)]">
               {formatIntegerString(f.value)}
             </td>
             <td className="py-1 text-right font-mono text-slate-400">{f.unitScale}</td>
@@ -1215,7 +1209,7 @@ function ReviewedFactTable({ facts }: { facts: ReviewedFact[] }) {
         {facts.map((f) => (
           <tr key={f.id} className="border-b border-emerald-100 last:border-0">
             <td className="py-1 font-mono text-emerald-800">{f.metricKey}</td>
-            <td className="py-1 text-right font-mono text-[#162233]">
+            <td className="py-1 text-right font-mono text-[var(--px-text)]">
               {formatIntegerString(f.value)}
             </td>
             <td className="py-1 text-right font-mono text-slate-400">{f.unitScale}</td>

@@ -3,6 +3,7 @@ import { AddressType, CompanyStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   NormalizedCompany,
+  InternalNormalizedFinancialStatement,
   NormalizedFinancialStatement,
   NormalizedIndustryCode,
   NormalizedRole,
@@ -338,7 +339,7 @@ export async function upsertRolesSnapshot(companyOrgNumber: string, roles: Norma
 
 export async function upsertFinancialStatementsSnapshot(
   companyOrgNumber: string,
-  statements: NormalizedFinancialStatement[],
+  statements: InternalNormalizedFinancialStatement[],
 ) {
   const company = await prisma.company.findUnique({
     where: { orgNumber: companyOrgNumber },
