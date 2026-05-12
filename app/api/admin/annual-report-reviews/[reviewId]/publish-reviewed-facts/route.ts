@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
-import { publishReviewedAnnualReportFacts } from "@/server/services/annual-report-review-service";
+import { finalizeAnnualReportReviewAndPublish } from "@/server/services/annual-report-review-service";
 
 export async function POST(
   _request: NextRequest,
@@ -13,7 +13,10 @@ export async function POST(
   const { reviewId } = await params;
 
   try {
-    const result = await publishReviewedAnnualReportFacts(reviewId, user!.id);
+    const result = await finalizeAnnualReportReviewAndPublish({
+      reviewId,
+      reviewerUserId: user!.id,
+    });
     return NextResponse.json({ data: result });
   } catch (err) {
     return NextResponse.json(

@@ -6,6 +6,7 @@ import {
   buildClassificationIssues,
   calculateConfidenceScore,
   canPublishAutomatically,
+  canPublishProvisionally,
   hasKnownUnitScale,
 } from "@/integrations/brreg/annual-report-financials/publish-gate";
 import { buildNormalizedFinancialPayload } from "@/integrations/brreg/annual-report-financials/normalized-payload";
@@ -109,10 +110,12 @@ type FinancialPipelineComputation = {
   duplicateSupport: number;
   noteSupport: number;
   confidenceScore: number;
-  shouldPublish: boolean;
+  canPublishSnapshot: boolean;
+  canSkipManualReview: boolean;
   sourcePrecedence: CanonicalFactCandidate["precedence"];
   normalizedPayload: ReturnType<typeof buildNormalizedFinancialPayload>;
   blockingRuleCodes: string[];
+  reviewRuleCodes: string[];
   durationMs: number;
 };
 
@@ -163,14 +166,21 @@ function mapPublishedStatements(statements: Array<{ fiscalYear: number; currency
     netIncome: toSafeNumber(statement.netIncome),
     equity: toSafeNumber(statement.equity),
     assets: toSafeNumber(statement.assets),
-    sourceFilingId: statement.sourceFilingId,
-    sourceExtractionRunId: statement.sourceExtractionRunId,
-    qualityStatus: statement.qualityStatus as NormalizedFinancialStatement["qualityStatus"],
-    qualityScore: statement.qualityScore,
-    unitScale: statement.unitScale,
-    sourcePrecedence: statement.sourcePrecedence as NormalizedFinancialStatement["sourcePrecedence"],
-    publishedAt: statement.publishedAt,
   }));
+}
+
+function buildPublicAvailability(statements: NormalizedFinancialStatement[]): DataAvailability {
+  return statements.length === 0
+    ? {
+        available: false,
+        sourceSystem: "BRREG",
+        message: "Regnskapstall hentes fra offisielle årsrapporter og oppdateres fortløpende.",
+      }
+    : {
+        available: true,
+        sourceSystem: "BRREG",
+        message: "Regnskap oppdateres automatisk når nye årsrapporter behandles.",
+      };
 }
 
 function getNumberAtPath(payload: Record<string, any>, path: string[]) {
@@ -364,10 +374,52 @@ function buildPipelineSnapshot(input: {
       precedence: fact.precedence,
     })),
     blockingRuleCodes: input.computation.blockingRuleCodes,
-    shouldPublish: input.computation.shouldPublish,
+    shouldPublish: input.computation.canPublishSnapshot,
+    reviewRuleCodes: input.computation.reviewRuleCodes,
+    canPublishSnapshot: input.computation.canPublishSnapshot,
+    canSkipManualReview: input.computation.canSkipManualReview,
     confidenceScore: input.computation.confidenceScore,
     durationMs: input.computation.durationMs,
   } satisfies OpenDataLoaderPipelineSnapshot;
+}
+
+function buildReviewRuleCodes(input: {
+  selectedFacts: ReturnType<typeof chooseCanonicalFacts>;
+  issues: ValidationIssueDraft[];
+  confidenceScore: number;
+  canSkipManualReview: boolean;
+}) {
+  const codes = new Set<string>(input.issues.map((issue) => issue.ruleCode));
+
+  if (!input.canSkipManualReview) {
+    codes.add("STRICT_TRUST_GATE_FAILED");
+  }
+  if (input.confidenceScore < 0.9) {
+    codes.add("LOW_CONFIDENCE_SCORE");
+  }
+  if (!input.selectedFacts.has("revenue") && !input.selectedFacts.has("total_operating_income")) {
+    codes.add("REVENUE_MISSING");
+  }
+  if (!input.selectedFacts.has("net_income")) {
+    codes.add("NET_INCOME_MISSING");
+  }
+  if (!input.selectedFacts.has("total_assets")) {
+    codes.add("TOTAL_ASSETS_MISSING");
+  }
+  if (!input.selectedFacts.has("total_equity")) {
+    codes.add("TOTAL_EQUITY_MISSING");
+  }
+  if (input.issues.some((issue) => issue.ruleCode.includes("BALANCE") || issue.ruleCode === "BS_TOTAL_BALANCES")) {
+    codes.add("BALANCE_VALIDATION_MISMATCH");
+  }
+  if (input.issues.some((issue) => issue.ruleCode.includes("UNIT_SCALE"))) {
+    codes.add("UNIT_SCALE_UNCERTAINTY");
+  }
+  if (input.issues.some((issue) => issue.ruleCode.includes("CLASSIFICATION"))) {
+    codes.add("CLASSIFICATION_UNCERTAINTY");
+  }
+
+  return [...codes].sort();
 }
 
 function runFinancialPipeline(input: {
@@ -411,7 +463,14 @@ function runFinancialPipeline(input: {
     noteSupport,
     issueCount: issues.length,
   });
-  const shouldPublish = canPublishAutomatically({
+  const canPublishSnapshot = canPublishProvisionally({
+    filingFiscalYear: input.fiscalYear,
+    classifications,
+    selectedFacts,
+    validationIssues: issues,
+    confidenceScore,
+  });
+  const canSkipManualReview = canPublishAutomatically({
     filingFiscalYear: input.fiscalYear,
     classifications,
     selectedFacts,
@@ -426,6 +485,12 @@ function runFinancialPipeline(input: {
   const blockingRuleCodes = Array.from(
     new Set(issues.filter((issue) => issue.severity === "ERROR").map((issue) => issue.ruleCode)),
   );
+  const reviewRuleCodes = buildReviewRuleCodes({
+    selectedFacts,
+    issues,
+    confidenceScore,
+    canSkipManualReview,
+  });
 
   return {
     engine: input.engine,
@@ -439,10 +504,12 @@ function runFinancialPipeline(input: {
     duplicateSupport,
     noteSupport,
     confidenceScore,
-    shouldPublish,
+    canPublishSnapshot,
+    canSkipManualReview,
     sourcePrecedence,
     normalizedPayload,
     blockingRuleCodes,
+    reviewRuleCodes,
     durationMs: Date.now() - startedAt,
   } satisfies FinancialPipelineComputation;
 }
@@ -1237,7 +1304,7 @@ export async function processAnnualReportFiling(
           ? openDataLoaderResult?.engineVersion ?? null
           : null,
       documentEngineMode: primaryMode,
-      status: primaryComputation.shouldPublish ? "SUCCEEDED" : "MANUAL_REVIEW",
+      status: primaryComputation.canPublishSnapshot ? "SUCCEEDED" : "MANUAL_REVIEW",
       finishedAt: new Date(),
       confidenceScore: primaryComputation.confidenceScore,
       validationScore: primaryComputation.validation.validationScore,
@@ -1266,13 +1333,32 @@ export async function processAnnualReportFiling(
       } as unknown as Prisma.InputJsonValue,
     });
 
-    if (primaryComputation.shouldPublish) {
+    if (primaryComputation.canPublishSnapshot) {
       const publishedAt = new Date();
-      await publishFinancialStatementSnapshot({ companyId: filing.company.id, fiscalYear: filing.fiscalYear, currency: "NOK", revenue: primaryComputation.selectedFacts.get("revenue")?.value ?? primaryComputation.selectedFacts.get("total_operating_income")?.value ?? null, operatingProfit: primaryComputation.selectedFacts.get("operating_profit")?.value ?? null, netIncome: primaryComputation.selectedFacts.get("net_income")?.value ?? null, equity: primaryComputation.selectedFacts.get("total_equity")?.value ?? null, assets: primaryComputation.selectedFacts.get("total_assets")?.value ?? null, sourceSystem: "BRREG", sourceEntityType: "financialStatement", sourceId: `${filing.company.orgNumber}-${filing.fiscalYear}-${filing.id}`, fetchedAt: publishedAt, normalizedAt: publishedAt, rawPayload: primaryComputation.normalizedPayload as unknown as Prisma.InputJsonValue, sourceFilingId: filing.id, sourceExtractionRunId: extractionRun.id, qualityStatus: "HIGH_CONFIDENCE", qualityScore: primaryComputation.confidenceScore, unitScale: primaryComputation.selectedFacts.get("revenue")?.unitScale ?? primaryComputation.selectedFacts.get("total_assets")?.unitScale ?? 1, sourcePrecedence: primaryComputation.sourcePrecedence, publishedAt });
-      await updateAnnualReportFiling(filing.id, { status: "PUBLISHED", publishedSnapshotAt: publishedAt, unitHints: { classifications: primaryComputation.classifications, hasKnownUnitScale: hasKnownUnitScale(primaryComputation.classifications), primaryEngine, primaryMode } });
-      await resolveAnnualReportReviewsForFiling(filing.id);
+      const publishedQualityStatus = primaryComputation.canSkipManualReview
+        ? "HIGH_CONFIDENCE"
+        : "LOW_CONFIDENCE";
+      await publishFinancialStatementSnapshot({ companyId: filing.company.id, fiscalYear: filing.fiscalYear, currency: "NOK", revenue: primaryComputation.selectedFacts.get("revenue")?.value ?? primaryComputation.selectedFacts.get("total_operating_income")?.value ?? null, operatingProfit: primaryComputation.selectedFacts.get("operating_profit")?.value ?? null, netIncome: primaryComputation.selectedFacts.get("net_income")?.value ?? null, equity: primaryComputation.selectedFacts.get("total_equity")?.value ?? null, assets: primaryComputation.selectedFacts.get("total_assets")?.value ?? null, sourceSystem: "BRREG", sourceEntityType: "financialStatement", sourceId: `${filing.company.orgNumber}-${filing.fiscalYear}-${filing.id}`, fetchedAt: publishedAt, normalizedAt: publishedAt, rawPayload: primaryComputation.normalizedPayload as unknown as Prisma.InputJsonValue, sourceFilingId: filing.id, sourceExtractionRunId: extractionRun.id, qualityStatus: publishedQualityStatus, qualityScore: primaryComputation.confidenceScore, unitScale: primaryComputation.selectedFacts.get("revenue")?.unitScale ?? primaryComputation.selectedFacts.get("total_assets")?.unitScale ?? 1, sourcePrecedence: primaryComputation.sourcePrecedence, publishedAt });
+      await updateAnnualReportFiling(filing.id, { status: "PUBLISHED", publishedSnapshotAt: publishedAt, manualReviewAt: primaryComputation.canSkipManualReview ? null : new Date(), unitHints: { classifications: primaryComputation.classifications, hasKnownUnitScale: hasKnownUnitScale(primaryComputation.classifications), primaryEngine, primaryMode } });
+      if (primaryComputation.canSkipManualReview) {
+        await resolveAnnualReportReviewsForFiling(filing.id);
+      } else {
+        await upsertAnnualReportReview({
+          filingId: filing.id,
+          extractionRunId: extractionRun.id,
+          companyId: filing.company.id,
+          fiscalYear: filing.fiscalYear,
+          status: "PENDING_REVIEW",
+          qualityScore: primaryComputation.confidenceScore,
+          sourcePrecedenceAttempted: primaryComputation.sourcePrecedence,
+          blockingRuleCodes: primaryComputation.reviewRuleCodes,
+          pageReferences: reviewSummary.pageReferences,
+          latestActionNote: "Published provisionally; awaiting manual review.",
+          reviewPayload: reviewSummary.reviewPayload as unknown as Prisma.InputJsonValue,
+        });
+      }
       await upsertCompanyFinancialCoverage({ companyId: filing.company.id, latestDownloadedFiscalYear: filing.fiscalYear, latestPublishedFiscalYear: filing.fiscalYear, latestDiscoveredFiscalYear: filing.fiscalYear, lastCheckedAt: new Date(), nextCheckAt: nextCheckDate(24), coverageStatus: "PUBLISHED", latestSuccessfulFilingId: filing.id });
-      logPipelineEvent("filing.published", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore: primaryComputation.confidenceScore, sourcePrecedence: primaryComputation.sourcePrecedence, primaryEngine, primaryMode });
+      logPipelineEvent("filing.published", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore: primaryComputation.confidenceScore, sourcePrecedence: primaryComputation.sourcePrecedence, canSkipManualReview: primaryComputation.canSkipManualReview, primaryEngine, primaryMode });
     } else {
       await updateAnnualReportFiling(filing.id, { status: "MANUAL_REVIEW", manualReviewAt: new Date(), lastError: primaryComputation.issues.map((issue) => `${issue.ruleCode}: ${issue.message}`).join(" | ").slice(0, 1_000) });
       await upsertAnnualReportReview({
@@ -1283,16 +1369,16 @@ export async function processAnnualReportFiling(
         status: "PENDING_REVIEW",
         qualityScore: primaryComputation.confidenceScore,
         sourcePrecedenceAttempted: primaryComputation.sourcePrecedence,
-        blockingRuleCodes: primaryComputation.blockingRuleCodes,
+        blockingRuleCodes: primaryComputation.reviewRuleCodes,
         pageReferences: reviewSummary.pageReferences,
-        latestActionNote: "Blocked by publish gate",
+        latestActionNote: "Blocked by provisional publish gate",
         reviewPayload: reviewSummary.reviewPayload as unknown as Prisma.InputJsonValue,
       });
       await upsertCompanyFinancialCoverage({ companyId: filing.company.id, latestDownloadedFiscalYear: filing.fiscalYear, latestDiscoveredFiscalYear: filing.fiscalYear, lastCheckedAt: new Date(), nextCheckAt: nextCheckDate(12), coverageStatus: "MANUAL_REVIEW" });
-      logPipelineEvent("filing.manual_review", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore: primaryComputation.confidenceScore, blockingRuleCodes: primaryComputation.blockingRuleCodes, primaryEngine, primaryMode });
+      logPipelineEvent("filing.manual_review", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore: primaryComputation.confidenceScore, blockingRuleCodes: primaryComputation.reviewRuleCodes, primaryEngine, primaryMode });
     }
 
-    return { filingId: filing.id, fiscalYear: filing.fiscalYear, confidenceScore: primaryComputation.confidenceScore, published: primaryComputation.shouldPublish, issueCount: primaryComputation.issues.length };
+    return { filingId: filing.id, fiscalYear: filing.fiscalYear, confidenceScore: primaryComputation.confidenceScore, published: primaryComputation.canPublishSnapshot, issueCount: primaryComputation.issues.length };
   } catch (error) {
     await completeFinancialExtractionRun(extractionRun.id, { status: "FAILED", finishedAt: new Date(), errorMessage: error instanceof Error ? error.message : "Unknown extraction error", rawSummary: { openDataLoaderError: openDataLoaderError?.message ?? null, artifactReferences } as unknown as Prisma.InputJsonValue });
     await updateAnnualReportFiling(filing.id, { status: "FAILED", failedAt: new Date(), lastError: error instanceof Error ? error.message : "Unknown extraction error" });
@@ -1684,7 +1770,7 @@ export async function getPublishedAnnualReportFinancials(orgNumber: string): Pro
   if (!record) return { statements: [], documents: [], availability: { available: false, sourceSystem: "BRREG", message: "Virksomheten finnes ikke i lokal ProjectX-lagring ennå." } };
   const statements = mapPublishedStatements(record.financialStatements);
   const documents = mapPublishedDocuments(record.annualReportFilings);
-  return { statements, documents, availability: buildAvailability(statements) };
+  return { statements, documents, availability: buildPublicAvailability(statements) };
 }
 
 export async function syncCompanyAnnualReportFinancials(orgNumber: string) {

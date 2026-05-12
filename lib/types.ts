@@ -85,6 +85,9 @@ export type NormalizedFinancialStatement = SourceMetadata & {
   netIncome?: number | null;
   equity?: number | null;
   assets?: number | null;
+};
+
+export type InternalNormalizedFinancialStatement = NormalizedFinancialStatement & {
   sourceFilingId?: string | null;
   sourceExtractionRunId?: string | null;
   qualityStatus?: FinancialStatementQualityStatus | null;

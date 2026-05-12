@@ -60,15 +60,50 @@ const { prismaMock } = vi.hoisted(() => {
     },
   ];
 
+  let currentReview = { ...dbReview };
+  let reviewedFactsStore: Array<Record<string, unknown>> = [];
+
   const labelsMock = vi.fn(async () => ({ count: 0 }));
-  const reviewedFactCreateManyMock = vi.fn(async () => ({ count: 0 }));
+  const reviewedFactCreateManyMock = vi.fn(async (args: { data: Array<Record<string, unknown>> }) => {
+    reviewedFactsStore.push(...args.data);
+    return { count: args.data.length };
+  });
+  const publishFinancialStatementSnapshotMock = vi.fn(async (input: Record<string, unknown>) =>
+    (prismaMock.financialStatement.upsert as any)({
+      where: {
+        companyId_fiscalYear: {
+          companyId: input.companyId as string,
+          fiscalYear: input.fiscalYear as number,
+        },
+      },
+      create: input,
+      update: input,
+    } as any),
+  );
 
   const prismaMock = {
     _dbReview: dbReview,
     _dbMachineFacts: dbMachineFacts,
+    _getCurrentReview: () => currentReview,
+    _setCurrentReview: (next: typeof dbReview) => {
+      currentReview = next;
+    },
+    _getReviewedFacts: () => reviewedFactsStore,
+    _setReviewedFacts: (next: Array<Record<string, unknown>>) => {
+      reviewedFactsStore = next;
+    },
+    _resetReviewedFacts: () => {
+      reviewedFactsStore = [];
+    },
     annualReportReview: {
-      findUnique: vi.fn(async () => dbReview as typeof dbReview | null),
-      update: vi.fn(async () => ({ ...dbReview, status: "ACCEPTED" })),
+      findUnique: vi.fn(async () => currentReview as typeof dbReview | null),
+      update: vi.fn(async (args: { data?: Record<string, unknown> }) => {
+        currentReview = {
+          ...currentReview,
+          ...(args.data ?? {}),
+        };
+        return currentReview;
+      }),
     },
     annualReportReviewDecision: {
       create: vi.fn(async (args: unknown) => ({ id: "decision-1", ...(args as Record<string, unknown>) })),
@@ -81,7 +116,7 @@ const { prismaMock } = vi.hoisted(() => {
     },
     annualReportReviewedFact: {
       createMany: reviewedFactCreateManyMock,
-      findMany: vi.fn(async () => [] as typeof dbMachineFacts),
+      findMany: vi.fn(async () => reviewedFactsStore as typeof dbMachineFacts),
     },
     financialFact: {
       findMany: vi.fn(async () => dbMachineFacts),
@@ -90,6 +125,7 @@ const { prismaMock } = vi.hoisted(() => {
       findUnique: vi.fn(async () => null),
       upsert: vi.fn(async () => ({ id: "stmt-1" })),
     },
+    publishFinancialStatementSnapshot: publishFinancialStatementSnapshotMock,
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prismaMock)),
   };
 
@@ -111,6 +147,7 @@ vi.mock("@/server/persistence/annual-report-review-repository", () => ({
 }));
 
 vi.mock("@/server/persistence/annual-report-ingestion-repository", () => ({
+  publishFinancialStatementSnapshot: prismaMock.publishFinancialStatementSnapshot,
   upsertCompanyFinancialCoverage: vi.fn(async () => ({})),
 }));
 
@@ -135,15 +172,42 @@ import {
 
 function resetMocks() {
   vi.clearAllMocks();
-  prismaMock.annualReportReview.findUnique.mockResolvedValue(prismaMock._dbReview);
-  prismaMock.annualReportReview.update.mockResolvedValue({ ...prismaMock._dbReview, status: "ACCEPTED" });
+  prismaMock._setCurrentReview({ ...prismaMock._dbReview });
+  prismaMock._resetReviewedFacts();
+  prismaMock.annualReportReview.findUnique.mockImplementation(async () => prismaMock._getCurrentReview());
+  prismaMock.annualReportReview.update.mockImplementation(async (args: { data?: Record<string, unknown> }) => {
+    const next = {
+      ...prismaMock._getCurrentReview(),
+      ...(args.data ?? {}),
+    };
+    prismaMock._setCurrentReview(next);
+    return next;
+  });
   prismaMock.annualReportReviewDecision.create.mockResolvedValue({ id: "decision-1" });
   prismaMock.pdfTrainingLabel.createMany.mockResolvedValue({ count: 0 });
-  prismaMock.annualReportReviewedFact.createMany.mockResolvedValue({ count: 0 });
-  prismaMock.annualReportReviewedFact.findMany.mockResolvedValue([]);
+  prismaMock.annualReportReviewedFact.createMany.mockImplementation(async (args: { data: Array<Record<string, unknown>> }) => {
+    const stored = args.data.map((item, index) => ({
+      id: `reviewed-fact-${prismaMock._getReviewedFacts().length + index + 1}`,
+      currency: "NOK",
+      sourcePage: null,
+      rawLabel: null,
+      ...item,
+    }));
+    prismaMock._setReviewedFacts([...prismaMock._getReviewedFacts(), ...stored]);
+    return { count: args.data.length };
+  });
+  prismaMock.annualReportReviewedFact.findMany.mockImplementation(
+    (async (args?: { where?: { reviewId?: string } }) => {
+      const reviewId = args?.where?.reviewId;
+      return prismaMock
+        ._getReviewedFacts()
+        .filter((fact) => !reviewId || fact.reviewId === reviewId);
+    }) as any,
+  );
   prismaMock.financialFact.findMany.mockResolvedValue(prismaMock._dbMachineFacts);
   prismaMock.financialStatement.findUnique.mockResolvedValue(null);
   prismaMock.financialStatement.upsert.mockResolvedValue({ id: "stmt-1" });
+  prismaMock.publishFinancialStatementSnapshot.mockClear();
   prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prismaMock));
 }
 
@@ -224,13 +288,15 @@ describe("acceptAnnualReportReview", () => {
   });
 
   it("skips reviewed facts creation when no extractionRunId", async () => {
-    prismaMock.annualReportReview.findUnique.mockResolvedValue({
+    prismaMock._setCurrentReview({
       ...prismaMock._dbReview,
       extractionRunId: null,
       extractionRun: null,
     } as never);
 
-    await acceptAnnualReportReview("review-1", "user-reviewer-1");
+    await expect(
+      acceptAnnualReportReview("review-1", "user-reviewer-1"),
+    ).rejects.toThrow("NO_REVIEWED_FACTS");
 
     expect(prismaMock.annualReportReviewedFact.createMany).not.toHaveBeenCalled();
   });
@@ -309,7 +375,7 @@ describe("correctAnnualReportReview", () => {
 
   it("creates CORRECTED decision with beforePayload and afterPayload", async () => {
     const corrections = {
-      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: "4500000" }],
+      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: "4500000", unitScale: 1000 }],
     };
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections, "Korrigert tall");
@@ -327,7 +393,7 @@ describe("correctAnnualReportReview", () => {
 
   it("stores corrected facts as MANUAL_CORRECTION reviewed facts", async () => {
     const corrections = {
-      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: "4500000" }],
+      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: "4500000", unitScale: 1000 }],
     };
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
@@ -347,7 +413,7 @@ describe("correctAnnualReportReview", () => {
 
   it("stores uncorrected machine facts as ACCEPTED_MACHINE", async () => {
     const corrections = {
-      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: "4500000" }],
+      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: "4500000", unitScale: 1000 }],
     };
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
@@ -367,7 +433,7 @@ describe("correctAnnualReportReview", () => {
   it("converts large integer string to BigInt safely", async () => {
     const largeValue = "9007199254740993"; // beyond Number.MAX_SAFE_INTEGER
     const corrections = {
-      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: largeValue }],
+      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: largeValue, unitScale: 1000 }],
     };
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
@@ -402,7 +468,7 @@ describe("correctAnnualReportReview", () => {
 
   it("creates FACT_VALUE training labels for corrected facts", async () => {
     const corrections = {
-      facts: [{ metricKey: "net_income", fiscalYear: 2023, value: "200000" }],
+      facts: [{ metricKey: "net_income", fiscalYear: 2023, value: "200000", unitScale: 1000 }],
     };
 
     await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
@@ -809,7 +875,8 @@ describe("publishReviewedAnnualReportFacts", () => {
         create: expect.objectContaining({
           companyId: "company-1",
           fiscalYear: 2023,
-          sourceEntityType: "annualReportReview",
+          sourceEntityType: "annualReportReviewedFact",
+          sourceSystem: "PROJECT_FINANCIALS_REVIEW",
         }),
       }),
     );
@@ -964,11 +1031,11 @@ describe("publishReviewedAnnualReportFacts — realistic golden fixture", () => 
     expect(prismaMock.financialStatement.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
-          revenue:         BigInt(fixture.facts.total_operating_income),
-          operatingProfit: BigInt(fixture.facts.operating_profit),
-          netIncome:       BigInt(fixture.facts.net_income),
-          equity:          BigInt(fixture.facts.total_equity),
-          assets:          BigInt(fixture.facts.total_assets),
+          revenue:         Number(fixture.facts.total_operating_income),
+          operatingProfit: Number(fixture.facts.operating_profit),
+          netIncome:       Number(fixture.facts.net_income),
+          equity:          Number(fixture.facts.total_equity),
+          assets:          Number(fixture.facts.total_assets),
         }),
       }),
     );
@@ -1085,15 +1152,15 @@ describe("validateReviewedAnnualReportFacts — BigInt serialization", () => {
 describe("atomicity", () => {
   beforeEach(resetMocks);
 
-  it("all writes in acceptAnnualReportReview happen inside a single $transaction call", async () => {
+  it("accept flow persists review data first and then publishes reviewed values", async () => {
     await acceptAnnualReportReview("review-1", "user-reviewer-1");
 
-    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
-    expect(prismaMock.annualReportReviewDecision.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(2);
+    expect(prismaMock.annualReportReviewDecision.create).toHaveBeenCalledTimes(2);
     expect(prismaMock.annualReportReview.update).toHaveBeenCalledTimes(1);
     expect(prismaMock.pdfTrainingLabel.createMany).toHaveBeenCalledTimes(1);
-    // reviewed facts created inside transaction too
     expect(prismaMock.annualReportReviewedFact.createMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.financialStatement.upsert).toHaveBeenCalledTimes(1);
   });
 
   it("labels and reviewed facts are not written if transaction throws", async () => {

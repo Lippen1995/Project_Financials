@@ -1,11 +1,16 @@
 import { AnnualReportReviewStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { buildNormalizedFinancialPayload } from "@/integrations/brreg/annual-report-financials/normalized-payload";
+import type { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
 import {
   getAdminReviewDetail,
   listAdminReviewQueue,
 } from "@/server/persistence/annual-report-review-repository";
-import { upsertCompanyFinancialCoverage } from "@/server/persistence/annual-report-ingestion-repository";
+import {
+  publishFinancialStatementSnapshot,
+  upsertCompanyFinancialCoverage,
+} from "@/server/persistence/annual-report-ingestion-repository";
 import { getStatementTypeForMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import {
   validateReviewedFacts,
@@ -137,6 +142,50 @@ function safeStringToBigInt(value: string | null | undefined): bigint | null {
   } catch {
     return null;
   }
+}
+
+function reviewedFactToCandidate(
+  fact: {
+    metricKey: string;
+    fiscalYear: number;
+    statementType: string;
+    value: bigint | null;
+    currency: string;
+    unitScale: number;
+    sourcePage: number | null;
+    rawLabel: string | null;
+  },
+) {
+  if (fact.value === null) {
+    return null;
+  }
+
+  return {
+    fiscalYear: fact.fiscalYear,
+    statementType:
+      fact.statementType === "BALANCE_SHEET"
+        ? "BALANCE_SHEET"
+        : fact.statementType === "NOTE"
+            ? "NOTE"
+            : "INCOME_STATEMENT",
+    metricKey: fact.metricKey as CanonicalFactCandidate["metricKey"],
+    rawLabel: fact.rawLabel ?? fact.metricKey,
+    normalizedLabel: fact.metricKey,
+    value: Number(fact.value),
+    currency: fact.currency,
+    unitScale: (fact.unitScale === 1000 ? 1000 : 1) as CanonicalFactCandidate["unitScale"],
+    sourcePage: fact.sourcePage ?? 0,
+    sourceSection:
+      fact.statementType === "BALANCE_SHEET" ? "STATUTORY_BALANCE" : "STATUTORY_INCOME",
+    sourceRowText: fact.rawLabel ?? fact.metricKey,
+    noteReference: null,
+    confidenceScore: 1,
+    precedence: "STATUTORY_NOK",
+    isDerived: false,
+    rawPayload: {
+      reviewed: true,
+    },
+  } satisfies CanonicalFactCandidate;
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +322,10 @@ export async function acceptAnnualReportReview(
     }
   });
 
-  return { reviewId: review.id, status: "ACCEPTED" as const };
+  return finalizeAnnualReportReviewAndPublish({
+    reviewId: review.id,
+    reviewerUserId,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -451,7 +503,10 @@ export async function correctAnnualReportReview(
     }
   });
 
-  return { reviewId: review.id, status: "ACCEPTED" as const };
+  return finalizeAnnualReportReviewAndPublish({
+    reviewId: review.id,
+    reviewerUserId,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -758,85 +813,45 @@ export async function publishReviewedAnnualReportFacts(
   const equity = factMap.get("total_equity")?.value ?? null;
   const assets = factMap.get("total_assets")?.value ?? null;
   const unitScale = facts.find((f) => f.value !== null)?.unitScale ?? 1;
-  const hasManuaCorrection = facts.some((f) => f.correctionSource === "MANUAL_CORRECTION");
-  const qualityStatus = hasManuaCorrection ? "MANUAL_REVIEW" : "HIGH_CONFIDENCE";
+  const hasManualCorrection = facts.some((f) => f.correctionSource === "MANUAL_CORRECTION");
+  const qualityStatus = hasManualCorrection ? "MANUAL_REVIEW" : "HIGH_CONFIDENCE";
+  const selectedFacts = new Map(
+    facts
+      .map((fact) => reviewedFactToCandidate(fact))
+      .filter((fact): fact is NonNullable<ReturnType<typeof reviewedFactToCandidate>> => fact !== null)
+      .map((fact) => [fact.metricKey, fact]),
+  );
 
   const publishedAt = new Date();
   const sourceId = `review:${review.id}`;
+  const normalizedPayload = buildNormalizedFinancialPayload(review.fiscalYear, selectedFacts);
+
+  await publishFinancialStatementSnapshot({
+    companyId: review.companyId,
+    fiscalYear: review.fiscalYear,
+    currency: "NOK",
+    revenue: revenue === null ? null : Number(revenue),
+    operatingProfit: operatingProfit === null ? null : Number(operatingProfit),
+    netIncome: netIncome === null ? null : Number(netIncome),
+    equity: equity === null ? null : Number(equity),
+    assets: assets === null ? null : Number(assets),
+    sourceSystem: "PROJECT_FINANCIALS_REVIEW",
+    sourceEntityType: "annualReportReviewedFact",
+    sourceId,
+    fetchedAt: publishedAt,
+    normalizedAt: publishedAt,
+    rawPayload: normalizedPayload as unknown as Prisma.InputJsonValue,
+    sourceFilingId: review.filingId,
+    sourceExtractionRunId: review.extractionRunId ?? null,
+    qualityStatus,
+    qualityScore: 1.0,
+    unitScale,
+    sourcePrecedence: "STATUTORY_NOK",
+    publishedAt,
+  });
 
   await prisma.$transaction(
     async (tx) => {
-      const existing = await tx.financialStatement.findUnique({
-        where: {
-          companyId_fiscalYear: {
-            companyId: review.companyId,
-            fiscalYear: review.fiscalYear,
-          },
-        },
-      });
-
-      // Only replace if we don't have a higher-confidence existing entry from a different review
-      const canReplace =
-        !existing ||
-        existing.sourceId === sourceId ||
-        existing.qualityStatus !== "HIGH_CONFIDENCE" ||
-        qualityStatus === "HIGH_CONFIDENCE";
-
-      if (canReplace) {
-        await tx.financialStatement.upsert({
-          where: {
-            companyId_fiscalYear: {
-              companyId: review.companyId,
-              fiscalYear: review.fiscalYear,
-            },
-          },
-          create: {
-            companyId: review.companyId,
-            fiscalYear: review.fiscalYear,
-            currency: "NOK",
-            revenue,
-            operatingProfit,
-            netIncome,
-            equity,
-            assets,
-            sourceSystem: "BRREG_REVIEWED",
-            sourceEntityType: "annualReportReview",
-            sourceId,
-            fetchedAt: publishedAt,
-            normalizedAt: publishedAt,
-            rawPayload: { reviewId, reviewedFactCount: facts.length, publishedFromReview: true } as Prisma.InputJsonValue,
-            sourceFilingId: review.filingId,
-            sourceExtractionRunId: review.extractionRunId ?? null,
-            qualityStatus,
-            qualityScore: 1.0,
-            unitScale,
-            sourcePrecedence: "STATUTORY_NOK",
-            publishedAt,
-          },
-          update: {
-            currency: "NOK",
-            revenue,
-            operatingProfit,
-            netIncome,
-            equity,
-            assets,
-            sourceSystem: "BRREG_REVIEWED",
-            sourceEntityType: "annualReportReview",
-            sourceId,
-            fetchedAt: publishedAt,
-            normalizedAt: publishedAt,
-            rawPayload: { reviewId, reviewedFactCount: facts.length, publishedFromReview: true } as Prisma.InputJsonValue,
-            sourceFilingId: review.filingId,
-            sourceExtractionRunId: review.extractionRunId ?? null,
-            qualityStatus,
-            qualityScore: 1.0,
-            unitScale,
-            sourcePrecedence: "STATUTORY_NOK",
-            publishedAt,
-          },
-        });
-      }
-
       await tx.annualReportFiling.update({
         where: { id: review.filingId },
         data: {
@@ -856,7 +871,7 @@ export async function publishReviewedAnnualReportFacts(
           reviewerUserId,
           decisionType: "PUBLISHED_FROM_REVIEW",
           validationPassed: true,
-          correctionNotes: `Publisert ${facts.length} reviewed facts (${hasManuaCorrection ? "med manuelle korreksjoner" : "maskinuttak godkjent"}).`,
+          correctionNotes: `Publisert ${facts.length} reviewed facts (${hasManualCorrection ? "med manuelle korreksjoner" : "maskinuttak godkjent"}).`,
         },
       });
     },
@@ -873,4 +888,25 @@ export async function publishReviewedAnnualReportFacts(
   });
 
   return { published: true, fiscalYear: review.fiscalYear, companyId: review.companyId };
+}
+
+export async function finalizeAnnualReportReviewAndPublish(input: {
+  reviewId: string;
+  reviewerUserId: string;
+}) {
+  const result = await publishReviewedAnnualReportFacts(input.reviewId, input.reviewerUserId);
+  if (!result.published) {
+    throw new Error(
+      result.issues.map((issue) => `${issue.ruleCode}: ${issue.message}`).join(" | "),
+    );
+  }
+
+  return {
+    reviewId: input.reviewId,
+    status: "ACCEPTED" as const,
+    published: true as const,
+    fiscalYear: result.fiscalYear,
+    companyId: result.companyId,
+    message: "Reviewed values saved and published to the active financial statement.",
+  };
 }

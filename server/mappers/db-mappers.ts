@@ -230,12 +230,5 @@ export function mapDbFinancialStatements(
     netIncome: toSafeNumber(statement.netIncome),
     equity: toSafeNumber(statement.equity),
     assets: toSafeNumber(statement.assets),
-    sourceFilingId: statement.sourceFilingId,
-    sourceExtractionRunId: statement.sourceExtractionRunId,
-    qualityStatus: statement.qualityStatus,
-    qualityScore: statement.qualityScore,
-    unitScale: statement.unitScale,
-    sourcePrecedence: statement.sourcePrecedence,
-    publishedAt: statement.publishedAt,
   }));
 }
