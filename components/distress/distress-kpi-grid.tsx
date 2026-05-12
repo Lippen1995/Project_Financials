@@ -3,7 +3,7 @@ import { formatNumber } from "@/lib/utils";
 
 function KpiCard({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+    <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
       <div className="data-label text-[11px] font-semibold uppercase text-slate-500">{label}</div>
       <div className="mt-2 text-2xl font-semibold text-slate-950">{value}</div>
     </div>

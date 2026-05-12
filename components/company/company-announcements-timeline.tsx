@@ -332,7 +332,7 @@ export function CompanyAnnouncementsTimeline({
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
+            <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
                 Registrerte hendelser
               </div>
@@ -340,7 +340,7 @@ export function CompanyAnnouncementsTimeline({
                 {sortedAnnouncements.length}
               </div>
             </div>
-            <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
+            <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
                 Tidsrom
               </div>
@@ -351,7 +351,7 @@ export function CompanyAnnouncementsTimeline({
                 Siste publisering {formatDetailDate(latestAnnouncement?.publishedAt)}
               </div>
             </div>
-            <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
+            <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
                 Hendelsestyper
               </div>
@@ -380,7 +380,7 @@ export function CompanyAnnouncementsTimeline({
                   className={cn(
                     "rounded-full px-3 py-2 text-xs font-semibold transition",
                     activeYear === "alle"
-                      ? "bg-[#182535] text-white"
+                      ? "bg-[var(--px-action)] text-white"
                       : "border border-[rgba(15,23,42,0.12)] bg-white text-slate-600 hover:text-slate-900",
                   )}
                 >
@@ -394,7 +394,7 @@ export function CompanyAnnouncementsTimeline({
                     className={cn(
                       "rounded-full px-3 py-2 text-xs font-semibold transition",
                       activeYear === year
-                        ? "bg-[#182535] text-white"
+                        ? "bg-[var(--px-action)] text-white"
                         : "border border-[rgba(15,23,42,0.12)] bg-white text-slate-600 hover:text-slate-900",
                     )}
                   >
@@ -418,7 +418,7 @@ export function CompanyAnnouncementsTimeline({
           </div>
 
           {groupedAnnouncements.length === 0 ? (
-            <div className="mt-5 rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-6 text-slate-600">
+            <div className="mt-5 rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-6 text-slate-600">
               {sortedAnnouncements.length === 0
                 ? "Brreg har ingen registrerte kunngjøringer for dette foretaket akkurat nå."
                 : "Ingen kunngjøringer matcher gjeldende søk eller filtre."}
@@ -446,9 +446,9 @@ export function CompanyAnnouncementsTimeline({
                             onMouseEnter={() => void fetchAnnouncementDetail(announcement)}
                             onFocus={() => void fetchAnnouncementDetail(announcement)}
                             className={cn(
-                              "group relative w-full rounded-[1rem] border px-5 py-4 text-left transition",
+                              "group relative w-full rounded-2xl border px-5 py-4 text-left transition",
                               isSelected
-                                ? "border-[#182535] bg-[rgba(249,250,251,0.96)] shadow-[0_14px_30px_rgba(15,23,42,0.08)]"
+                                ? "border-[var(--px-action)] bg-[rgba(249,250,251,0.96)] shadow-[0_14px_30px_rgba(15,23,42,0.08)]"
                                 : "border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] hover:border-[rgba(24,37,53,0.2)] hover:bg-white",
                             )}
                           >
@@ -470,7 +470,7 @@ export function CompanyAnnouncementsTimeline({
                                     {getAnnouncementType(announcement)}
                                   </span>
                                   {isSelected ? (
-                                    <span className="data-label rounded-full bg-[#182535] px-2.5 py-1 text-[11px] font-semibold uppercase text-white">
+                                    <span className="data-label rounded-full bg-[var(--px-action)] px-2.5 py-1 text-[11px] font-semibold uppercase text-white">
                                       Åpen
                                     </span>
                                   ) : null}
@@ -516,7 +516,7 @@ export function CompanyAnnouncementsTimeline({
               <button
                 type="button"
                 onClick={() => setTypeDropdownOpen((current) => !current)}
-                className="flex w-full items-center justify-between rounded-[0.95rem] border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition hover:border-[rgba(24,37,53,0.22)]"
+                className="flex w-full items-center justify-between rounded-xl border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition hover:border-[rgba(24,37,53,0.22)]"
               >
                 <span className="truncate">{selectedTypeLabel}</span>
                 <ChevronDown
@@ -528,12 +528,12 @@ export function CompanyAnnouncementsTimeline({
               </button>
 
               {typeDropdownOpen ? (
-                <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-2 shadow-[0_16px_40px_rgba(15,23,42,0.12)]">
+                <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-2 shadow-[0_16px_40px_rgba(15,23,42,0.12)]">
                   <button
                     type="button"
                     onClick={() => setActiveTypes([])}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-[0.75rem] px-3 py-2 text-left text-sm transition",
+                      "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition",
                       activeTypes.length === 0 ? "bg-[rgba(24,37,53,0.06)] text-slate-950" : "text-slate-600 hover:bg-[rgba(248,249,250,0.9)]",
                     )}
                   >
@@ -550,7 +550,7 @@ export function CompanyAnnouncementsTimeline({
                           type="button"
                           onClick={() => toggleAnnouncementType(type)}
                           className={cn(
-                            "flex w-full items-center justify-between rounded-[0.75rem] px-3 py-2 text-left text-sm transition",
+                            "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition",
                             checked ? "bg-[rgba(24,37,53,0.06)] text-slate-950" : "text-slate-600 hover:bg-[rgba(248,249,250,0.9)]",
                           )}
                         >
@@ -585,12 +585,12 @@ export function CompanyAnnouncementsTimeline({
           </div>
 
           {!selectedAnnouncement ? (
-            <div className="mt-5 rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm text-slate-600">
+            <div className="mt-5 rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm text-slate-600">
               Velg en hendelse i tidslinjen for å åpne detaljene.
             </div>
           ) : (
             <div className="mt-5 space-y-4">
-              <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
+              <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-lg font-semibold text-slate-950">{selectedAnnouncement.title}</div>
@@ -613,20 +613,20 @@ export function CompanyAnnouncementsTimeline({
               </div>
 
               {loadingId === selectedAnnouncement.id && !selectedDetail ? (
-                <div className="flex items-center gap-3 rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4 text-sm text-slate-600">
+                <div className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-4 text-sm text-slate-600">
                   <LoaderCircle className="size-4 animate-spin text-[#2f5d9f]" />
                   Henter kunngjøring fra Brreg...
                 </div>
               ) : null}
 
               {detailError && !selectedDetail ? (
-                <div className="rounded-[0.95rem] border border-[rgba(146,91,33,0.16)] bg-[rgba(255,246,236,0.9)] p-4 text-sm leading-6 text-[#8a5b21]">
+                <div className="rounded-xl border border-[rgba(146,91,33,0.16)] bg-[rgba(255,246,236,0.9)] p-4 text-sm leading-6 text-[#8a5b21]">
                   {detailError}
                 </div>
               ) : null}
 
               {selectedDetail ? (
-                <div className="max-h-[min(70vh,900px)] overflow-y-auto rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white">
+                <div className="max-h-[min(70vh,900px)] overflow-y-auto rounded-xl border border-[rgba(15,23,42,0.08)] bg-white">
                   <div
                     className={cn(
                       "p-4 text-sm leading-7 text-slate-700",

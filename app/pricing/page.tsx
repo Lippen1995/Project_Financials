@@ -22,12 +22,12 @@ export default async function PricingPage() {
           </p>
         </div>
 
-        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[#192536] p-8 text-white xl:border-l xl:border-t-0">
+        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] p-8 text-white xl:border-l xl:border-t-0">
           <div className="data-label text-[11px] font-semibold uppercase text-white/60">Status</div>
           <div className="mt-4 text-[1.45rem] font-semibold leading-tight">
             {premium ? "Kontoen din har utvidet tilgang." : "Kontoen din har standard tilgang."}
           </div>
-          <p className="mt-4 text-sm leading-7 text-white/76">
+          <p className="mt-4 text-sm leading-7 text-white/80">
             Tilgang styrer hvor mye av produktets analyseflate som er synlig for brukeren i dag.
           </p>
         </aside>
@@ -44,15 +44,15 @@ export default async function PricingPage() {
           </ul>
         </Card>
 
-        <Card className="border-[rgba(15,23,42,0.08)] bg-[#192536] text-white">
+        <Card className="border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] text-white">
           <p className="data-label text-[11px] font-semibold uppercase text-white/60">Utvidet</p>
           <h2 className="mt-4 text-[2rem] font-semibold">Utvidet innsikt for dypere analyse</h2>
-          <ul className="mt-5 space-y-3 text-sm leading-7 text-white/76">
+          <ul className="mt-5 space-y-3 text-sm leading-7 text-white/80">
             <li>Fullere innsyn i roller og struktur når data er tilgjengelig</li>
             <li>Mer komplett visning for analyse og oppfølging</li>
             <li>Klargjort for tilgangsstyring på tvers av produktet</li>
           </ul>
-          <div className="mt-6 rounded-[0.9rem] border border-white/10 bg-white/5 p-4 text-sm text-white/82">
+          <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
             {premium
               ? "Denne brukeren er markert med utvidet tilgang."
               : "Utvidet tilgang kan aktiveres for brukere som trenger mer komplett innsyn."}

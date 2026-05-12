@@ -67,14 +67,14 @@ export default async function SearchPage({
           </div>
         </div>
 
-        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[#192536] p-8 text-white xl:border-l xl:border-t-0">
+        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] p-8 text-white xl:border-l xl:border-t-0">
           <div className="data-label text-[11px] font-semibold uppercase text-white/60">
             Arbeidsflate
           </div>
           <div className="mt-4 text-[1.45rem] font-semibold leading-tight">
             Trefflisten er laget for vurdering, ikke bare oppslag.
           </div>
-          <p className="mt-4 text-sm leading-7 text-white/76">
+          <p className="mt-4 text-sm leading-7 text-white/80">
             Bruk fritekstsøk først, og snevr inn med filtrene når du vil vurdere geografi,
             selskapsform, status eller bransje nærmere.
           </p>
@@ -110,13 +110,13 @@ export default async function SearchPage({
           </div>
 
           {searchError ? (
-            <div className="border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
               {searchError}
             </div>
           ) : null}
 
           {!searchError && query ? (
-            <div className="border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.72)] p-5 text-sm text-slate-600">
+            <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.72)] p-5 text-sm text-slate-600">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-slate-900">
                   {searchResult.interpretation.aiAssisted ? "Tolket søk" : "Direkte søk"}

@@ -366,7 +366,7 @@ function OptionChecklist({
   onToggle: (value: string) => void;
 }) {
   return (
-    <details className="rounded-[0.95rem] border border-[rgba(15,23,42,0.1)] bg-white">
+    <details className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white">
       <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-700">
         {title}
       </summary>
@@ -582,7 +582,7 @@ function MarketTabNav({
   onSelectTab: (tab: PetroleumMarketTab) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(247,247,245,0.86)] px-2 py-2 backdrop-blur-sm">
+    <div className="overflow-x-auto rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[rgba(247,247,245,0.86)] px-2 py-2 backdrop-blur-sm">
       <div className="inline-flex min-w-full gap-1">
         {MARKET_TABS.map((tab) => (
           <button
@@ -590,9 +590,9 @@ function MarketTabNav({
             type="button"
             onClick={() => onSelectTab(tab)}
             className={cn(
-              "rounded-[0.8rem] px-4 py-2.5 text-sm font-medium transition",
+              "rounded-xl px-4 py-2.5 text-sm font-medium transition",
               activeTab === tab
-                ? "bg-[#182535] text-white"
+                ? "bg-[var(--px-action)] text-white"
                 : "text-slate-600 hover:bg-white hover:text-slate-900",
             )}
           >
@@ -660,25 +660,25 @@ function ForecastPanel({ summary }: { summary: PetroleumSummaryResponse | null }
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Publisert</div>
           <div className="mt-2 text-sm font-medium text-slate-900">
             {forecast.publishedAt ? formatDate(forecast.publishedAt) : "Ikke tilgjengelig"}
           </div>
         </div>
-        <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Horisont</div>
           <div className="mt-2 text-sm font-medium text-slate-900">
             {forecast.horizonLabel ?? "Ikke tilgjengelig"}
           </div>
         </div>
-        <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Trend</div>
           <div className="mt-2 text-sm font-medium text-slate-900">
             {forecast.trendLabel ?? "Ikke tilgjengelig"}
           </div>
         </div>
-        <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Decline / investering</div>
           <div className="mt-2 text-sm font-medium text-slate-900">
             {forecast.declineRatePercent !== null && forecast.declineRatePercent !== undefined
@@ -693,7 +693,7 @@ function ForecastPanel({ summary }: { summary: PetroleumSummaryResponse | null }
           {forecast.keyPoints.map((point) => (
             <div
               key={point}
-              className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 text-sm leading-6 text-slate-700"
+              className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 text-sm leading-6 text-slate-700"
             >
               {point}
             </div>
@@ -740,7 +740,7 @@ function ConceptGrid({
         <div
           key={concept.id}
           id={`concept-${concept.slug}`}
-          className="rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-5"
+          className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -1911,7 +1911,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             return (
               <label
                 key={`${compareMode}-${index}`}
-                className="rounded-[0.95rem] border border-[rgba(15,23,42,0.1)] bg-white p-4"
+                className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white p-4"
               >
                 <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                   {compareMode === "field" ? `Felt ${index + 1}` : `Operatør ${index + 1}`}
@@ -1919,7 +1919,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 <select
                   value={currentValue}
                   onChange={(event) => setCompareSelection(index, event.target.value)}
-                  className="mt-3 w-full rounded-[0.75rem] border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none"
+                  className="mt-3 w-full rounded-xl border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none"
                 >
                   <option value="">Velg objekt</option>
                   {options.map((option) => (
@@ -1984,7 +1984,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
           {publications.map((publication) => (
             <div
               key={publication.id}
-              className="rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-4"
+              className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4"
             >
               <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                 {getPublicationCategoryLabel(publication.category)}
@@ -2057,7 +2057,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-[#E6ECF1]">
                       <div
-                        className="h-full rounded-full bg-[#31495f]"
+                        className="h-full rounded-full bg-[var(--px-action)]"
                         style={{
                           width: `${Math.min(100, ((row.oe ?? 0) / operatorMax) * 100)}%`,
                         }}
@@ -2065,7 +2065,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     </div>
                   </div>
                 ))}
-                <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
+                <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
                   Recoverable OE: {formatOe(summary?.benchmark.selectedRecoverableOe)}
                   <br />
                   Historiske investeringer: {formatCompactNok(summary?.benchmark.selectedHistoricalInvestmentsNok)}
@@ -2091,7 +2091,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Funn nær infrastruktur</h2>
               <div className="mt-5 space-y-3">
                 {discoveryFeatures.slice(0, 10).map((feature) => (
-                  <div key={feature.id} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
+                  <div key={feature.id} className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
                     <div className="text-sm font-semibold text-slate-900">{feature.name}</div>
                     <div className="mt-1 text-sm text-slate-600">
                       {feature.area ?? "Område ikke tilgjengelig"} · {feature.status ?? "Status ikke tilgjengelig"}
@@ -2110,7 +2110,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 Bruk lisenslaget i kartet sammen med markedstabellen for å vurdere modne områder, Petreg-meldinger og
                 aktivitet rundt funn som kan knyttes til eksisterende infrastruktur.
               </p>
-              <div className="mt-5 rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
+              <div className="mt-5 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
                 Aktive lisenser: {formatNumber(summary?.kpis.activeLicenceCount)}
                 <br />
                 Operatører i utvalget: {formatNumber(summary?.kpis.selectedOperatorCount)}
@@ -2158,7 +2158,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   key={feature.id}
                   type="button"
                   onClick={() => handleSelectEntity(feature.entityType, feature.entityId)}
-                  className="rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-4 text-left"
+                  className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4 text-left"
                 >
                   <div className="text-sm font-semibold text-slate-900">{feature.name}</div>
                   <div className="mt-2 text-sm text-slate-600">
@@ -2189,7 +2189,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     key={feature.id}
                     type="button"
                     onClick={() => handleSelectEntity(feature.entityType, feature.entityId)}
-                    className="w-full rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 text-left"
+                    className="w-full rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 text-left"
                   >
                     <div className="text-sm font-semibold text-slate-900">{feature.name}</div>
                     <div className="mt-1 text-sm text-slate-600">
@@ -2202,7 +2202,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <Card className="p-5">
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Nettverk</div>
               <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Tilknytning og modenhet</h2>
-              <div className="mt-5 rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
+              <div className="mt-5 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
                 Infrastruktur i utsnitt: {formatNumber(infrastructureFeatures.length)}
                 <br />
                 Funn i utsnitt: {formatNumber(discoveryFeatures.length)}
@@ -2281,7 +2281,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               </div>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label className="rounded-[0.95rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm text-slate-700">
+                <label className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm text-slate-700">
                   <div className="mb-2 font-medium">Fra år</div>
                   <input
                     type="number"
@@ -2298,7 +2298,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     className="w-full rounded-md border border-[rgba(15,23,42,0.12)] px-3 py-2 text-sm outline-none"
                   />
                 </label>
-                <label className="rounded-[0.95rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm text-slate-700">
+                <label className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm text-slate-700">
                   <div className="mb-2 font-medium">Til år</div>
                   <input
                     type="number"
@@ -2317,7 +2317,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 </label>
               </div>
 
-              <div className="mt-4 rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
+              <div className="mt-4 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
                 Siste surveyår i gjeldende utsnitt:{" "}
                 <span className="font-semibold text-slate-900">
                   {seismicSummary?.kpis.latestSurveyYear ?? "Ikke tilgjengelig"}
@@ -2340,7 +2340,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     key={`${item.entityType}:${item.entityId}`}
                     type="button"
                     onClick={() => handleSelectEntity(item.entityType, item.entityId)}
-                    className="w-full rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-4 text-left"
+                    className="w-full rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4 text-left"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -2356,7 +2356,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   </button>
                 ))}
                 {seismicRecentItems.length === 0 ? (
-                  <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[#F8FAFC] p-4 text-sm text-slate-500">
+                  <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[#F8FAFC] p-4 text-sm text-slate-500">
                     Ingen surveys eller wellbores matcher gjeldende utsnitt og filtre ennå.
                   </div>
                 ) : null}
@@ -2425,7 +2425,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 </tbody>
               </table>
               {seismicRows.length === 0 ? (
-                <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[#F8FAFC] p-4 text-sm text-slate-500">
+                <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[#F8FAFC] p-4 text-sm text-slate-500">
                   Ingen rader er tilgjengelige for gjeldende kombinasjon av utsnitt og seismikkfiltre.
                 </div>
               ) : null}
@@ -2442,7 +2442,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
           <Card className="p-5">
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Havbunn & nye næringer</div>
             <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Publikasjonsgrunnlag først</h2>
-            <div className="mt-4 rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
+            <div className="mt-4 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600">
               Vi viser foreløpig rapport- og begrepsgrunnlaget for havbunn, CO2 og nye næringer mens egne objektlag fra
               SODIR bygges inn som separate domeneobjekter. Kartet beholdes, men vi fyller ikke denne fanen med
               uverifisert eller syntetisk innhold.
@@ -2483,7 +2483,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     key={field.entityId}
                     type="button"
                     onClick={() => handleSelectEntity("FIELD", field.entityId)}
-                    className="w-full rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 text-left"
+                    className="w-full rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 text-left"
                   >
                     <div className="text-sm font-semibold text-slate-900">{field.name}</div>
                     <div className="mt-1 text-sm text-slate-600">
@@ -2509,7 +2509,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Regulatorisk og operasjonelt</h2>
               <div className="mt-5 space-y-3">
                 {marketEvents.slice(0, 12).map((event) => (
-                  <div key={event.id} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
+                  <div key={event.id} className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
                     <div className="text-sm font-semibold text-slate-900">{event.title}</div>
                     <div className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">{event.source}</div>
                     <div className="mt-2 text-sm leading-6 text-slate-600">
@@ -2524,7 +2524,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Nomineringer</h2>
               <div className="mt-5 space-y-3">
                 {gasscoRealtimeEvents.slice(0, 12).map((event) => (
-                  <div key={event.id} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
+                  <div key={event.id} className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
                     <div className="text-sm font-semibold text-slate-900">{event.title}</div>
                     <div className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">
                       {event.publishedAt ? `Oppdatert ${formatDate(event.publishedAt)}` : "Sanntidsfeed"}
@@ -2569,20 +2569,20 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             lisenser, innretninger og hovedinfrastruktur.
           </p>
         </div>
-        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[#182535] p-8 text-white xl:border-l xl:border-t-0">
+        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[var(--px-action)] p-8 text-white xl:border-l xl:border-t-0">
           <div className="data-label text-[11px] font-semibold uppercase text-white/60">Premium analyseflate</div>
           <div className="mt-4 text-[1.45rem] font-semibold leading-tight">
             {premium ? "Premium-tilgang aktiv" : "Preview-modus"}
           </div>
-          <p className="mt-4 text-sm leading-7 text-white/78">
+          <p className="mt-4 text-sm leading-7 text-white/80">
             {premium
               ? "Du ser den fulle markedsflaten med SODIR-masterdata, tidsserier og overlays."
               : "Visningen er aktiv, men er tydelig merket som premium-modul i denne første versjonen."}
           </p>
-          <div className="hidden mt-5 rounded-[1rem] border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/82">
+          <div className="hidden mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/80">
             Gassco-overlay er koblet ærlig som utilgjengelig når UMM ikke lar seg hente stabilt maskinelt.
           </div>
-          <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/82">
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/80">
             Gassco sanntidsnomineringer hentes nå fra direkte Atom-feed. Full UMM-dekning holdes fortsatt
             konservativ til feedene er stabile over tid.
           </div>
@@ -2592,10 +2592,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       <MarketTabNav activeTab={activeTab} onSelectTab={handleSelectTab} />
 
       {error ? (
-        <div className="rounded-[1rem] border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800">{error}</div>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800">{error}</div>
       ) : null}
 
-      <section className="grid gap-4 rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white p-5 xl:grid-cols-[1.6fr,1fr]">
+      <section className="grid gap-4 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5 xl:grid-cols-[1.6fr,1fr]">
         <div>
           <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Analysemodus</div>
           <div className="mt-3 flex flex-wrap gap-3">
@@ -2651,7 +2651,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             />
           </div>
         </div>
-        <div className="rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
+        <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Nå valgt</div>
           <div className="mt-2 text-lg font-semibold text-slate-950">{selectedMetricLabel}</div>
           <div className="mt-2 text-sm leading-6 text-slate-600">
@@ -2675,10 +2675,10 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               value={queryInput}
               onChange={(event) => setQueryInput(event.target.value)}
               placeholder="Søk etter felt, lisens eller innretning"
-              className="w-full rounded-[0.9rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[#31495f]"
+              className="w-full rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--px-accent)]"
             />
 
-            <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3">
+            <div className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3">
               <div className="text-sm font-medium text-slate-700">Kartlag</div>
               <div className="mt-3 space-y-2">
                 {ALL_PETROLEUM_LAYERS.map((layer) => (
@@ -2887,7 +2887,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 <button
                   type="button"
                   onClick={() => setIsMapExpanded((current) => !current)}
-                  className="inline-flex items-center rounded-full border border-[rgba(15,23,42,0.12)] bg-[#172535] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#223246]"
+                  className="inline-flex items-center rounded-full border border-[rgba(15,23,42,0.12)] bg-[#172535] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[var(--px-action-hover)]"
                 >
                   {isMapExpanded ? "Lukk kartfokus" : "Ekspander kart"}
                 </button>
@@ -2912,7 +2912,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                 )}
               />
               {selectedEntityKey ? (
-                <div className="absolute bottom-4 left-4 z-[2] w-[20rem] max-w-[calc(100%-2rem)] rounded-[1rem] border border-white/80 bg-white/95 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.14)] backdrop-blur">
+                <div className="absolute bottom-4 left-4 z-[2] w-[20rem] max-w-[calc(100%-2rem)] rounded-2xl border border-white/80 bg-white/95 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.14)] backdrop-blur">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="data-label text-[10px] font-semibold uppercase text-slate-500">Kartinspektør</div>
@@ -2934,7 +2934,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                       Lukk
                     </button>
                   </div>
-                  <div className="mt-4 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-3">
+                  <div className="mt-4 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-3">
                     {compactInspectorRows.length > 0 ? (
                       <div className="space-y-2">
                         {compactInspectorRows.map((row) => (
@@ -2975,7 +2975,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     </div>
                   ) : null}
                   {overlappingSelectionFeatures.length > 0 ? (
-                    <div className="mt-4 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[#EEF2FF] p-3">
+                    <div className="mt-4 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#EEF2FF] p-3">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                         Andre treff under samme punkt
                       </div>
@@ -3002,7 +3002,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     </div>
                   ) : null}
                   {relatedMapFeatures.length > 0 ? (
-                    <div className="mt-4 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-[#FFF7ED] p-3">
+                    <div className="mt-4 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#FFF7ED] p-3">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                         Relaterte objekter
                       </div>
@@ -3052,7 +3052,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             </div>
             <div className="border-t border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] px-5 py-4">
               {isMapExpanded ? (
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-900">Kartfokus aktiv</div>
                     <div className="mt-1 text-xs text-slate-500">
@@ -3124,7 +3124,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   {dynamicLegendItems.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-2 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2"
+                      className="flex items-center gap-2 rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2"
                     >
                       {item.symbol === "line" ? (
                         <span className="h-0.5 w-6" style={{ backgroundColor: item.color }} />
@@ -3159,7 +3159,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                   ))}
                 </div>
               ) : (
-                <div className="mt-4 rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-3 text-xs text-slate-500">
+                <div className="mt-4 rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-3 py-3 text-xs text-slate-500">
                   Legend oppdateres nÃ¥r kartet har synlige objekter i valgt utsnitt.
                 </div>
               )}
@@ -3185,7 +3185,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                     {detail.status ?? "Status ikke tilgjengelig"} · {detail.area ?? "Område ikke tilgjengelig"}
                   </div>
                 </div>
-                <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-700">
+                <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-700">
                   Selskap: {detail.operator?.companyName ?? "Ikke tilgjengelig"}
                   <br />
                   Hydrokarbon: {detail.hcType ?? "Ikke tilgjengelig"}
@@ -3201,7 +3201,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                       {detailMetadataEntries.map(([key, value]) => (
                         <div
                           key={key}
-                          className="rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2 text-sm text-slate-700"
+                          className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2 text-sm text-slate-700"
                         >
                           <span className="font-medium text-slate-900">{key}</span>: {formatDetailMetadataValue(value)}
                         </div>
@@ -3216,7 +3216,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
                       <div className="text-sm text-slate-500">Ingen lisensandeler tilgjengelig.</div>
                     ) : (
                       detail.licensees.map((licensee, index) => (
-                        <div key={`${licensee.companyName}-${index}`} className="rounded-[0.85rem] border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2 text-sm text-slate-700">
+                        <div key={`${licensee.companyName}-${index}`} className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-3 py-2 text-sm text-slate-700">
                           {licensee.companyName ?? "Ukjent"} · {licensee.share ?? ""}%
                         </div>
                       ))
@@ -3231,7 +3231,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Datakilder</div>
             <div className="mt-4 space-y-3">
               {summary?.sourceStatus.map((source) => (
-                <div key={source.source} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
+                <div key={source.source} className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="font-medium text-slate-900">{source.source}</div>
                     <span className={cn("text-xs font-semibold uppercase", source.available ? "text-emerald-700" : "text-amber-700")}>
@@ -3251,7 +3251,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
               <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Gassco Sanntid</div>
               <div className="mt-4 space-y-3">
                 {gasscoRealtimeEvents.slice(0, 10).map((event) => (
-                  <div key={event.id} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
+                  <div key={event.id} className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
                     <div className="text-sm font-semibold text-slate-900">{event.title}</div>
                     <div className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">
                       {event.publishedAt ? `Oppdatert ${formatDate(event.publishedAt)}` : "Sanntidsfeed"}
@@ -3269,14 +3269,14 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Hendelser</div>
             <div className="mt-4 space-y-3">
               {marketEvents.slice(0, 8).map((event) => (
-                <div key={event.id} className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
+                <div key={event.id} className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3">
                   <div className="text-sm font-semibold text-slate-900">{event.title}</div>
                   <div className="mt-1 text-xs uppercase tracking-[0.08em] text-slate-500">{event.source}</div>
                   <div className="mt-2 text-sm leading-6 text-slate-600">{event.summary ?? "Ingen sammendrag tilgjengelig."}</div>
                 </div>
               ))}
               {marketEvents.length === 0 ? (
-                <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 text-sm text-slate-500">
+                <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 text-sm text-slate-500">
                   Ingen regulatoriske eller lisensrelaterte hendelser tilgjengelig for gjeldende utsnitt.
                 </div>
               ) : null}

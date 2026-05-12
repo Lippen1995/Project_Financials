@@ -52,7 +52,7 @@ function FlashMessage({
   return (
     <div
       className={cn(
-        "rounded-[1rem] border px-5 py-4 text-sm",
+        "rounded-2xl border px-5 py-4 text-sm",
         tone === "success"
           ? "border-emerald-200 bg-emerald-50 text-emerald-800"
           : "border-rose-200 bg-rose-50 text-rose-800",
@@ -136,17 +136,17 @@ function WorkspaceOverviewCard({ workspace }: { workspace: WorkspaceSummary }) {
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <div className="data-label text-[11px] font-semibold uppercase text-slate-500">DD-rom</div>
           <div className="mt-2 text-xl font-semibold text-slate-950">{workspace.activeDdRoomCount}</div>
           <div className="mt-1 text-xs text-slate-500">{workspace.archivedDdRoomCount} inaktive</div>
         </div>
-        <div className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Abonnementer</div>
           <div className="mt-2 text-xl font-semibold text-slate-950">{workspace.activeWatchCount}</div>
           <div className="mt-1 text-xs text-slate-500">{workspace.archivedWatchCount} inaktive</div>
         </div>
-        <div className="rounded-[0.9rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Uleste varsler</div>
           <div className="mt-2 text-xl font-semibold text-slate-950">{workspace.unreadNotificationCount}</div>
           <div className="mt-1 text-xs text-slate-500">Samlet oversikt for aktiv arbeidsflate</div>
@@ -197,15 +197,15 @@ export default async function DashboardPage({
           </p>
         </div>
 
-        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[#192536] p-8 text-white xl:border-l xl:border-t-0">
+        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] p-8 text-white xl:border-l xl:border-t-0">
           <div className="data-label text-[11px] font-semibold uppercase text-white/60">Konto og tilgang</div>
           <div className="mt-4 text-[1.45rem] font-semibold leading-tight">
             {subscription?.status ? `Status: ${subscription.status}` : "Standard tilgang aktiv"}
           </div>
-          <p className="mt-4 text-sm leading-7 text-white/76">
+          <p className="mt-4 text-sm leading-7 text-white/80">
             Plan: {subscription?.plan ?? "Standard"} · neste periode {formatDate(subscription?.currentPeriodEnd)}
           </p>
-          <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/82">
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 text-sm leading-6 text-white/80">
             Aktiv arbeidsflate styrer hvilke medlemmer, invitasjoner og oppgaver du arbeider med.
           </div>
         </aside>
@@ -249,7 +249,7 @@ export default async function DashboardPage({
                   {currentWorkspace.members.map((member) => (
                     <div
                       key={member.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.78)] p-4"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.78)] p-4"
                     >
                       <div>
                         <div className="font-semibold text-slate-950">
@@ -279,7 +279,7 @@ export default async function DashboardPage({
                 </div>
               </div>
 
-              <div className="space-y-4 rounded-[1rem] border border-[rgba(15,23,42,0.08)] bg-[#F8FAFC] p-5">
+              <div className="space-y-4 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[var(--px-subtle)] p-5">
                 <div>
                   <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
                     Inviter nytt medlem
@@ -296,7 +296,7 @@ export default async function DashboardPage({
                         name="email"
                         type="email"
                         required
-                        className="w-full rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[#31495f]"
+                        className="w-full rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--px-accent)]"
                       />
                     </div>
                     <div>
@@ -304,7 +304,7 @@ export default async function DashboardPage({
                       <select
                         name="role"
                         defaultValue="MEMBER"
-                        className="w-full rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[#31495f]"
+                        className="w-full rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--px-accent)]"
                       >
                         <option value="MEMBER">Medlem</option>
                         <option value="ADMIN">Administrator</option>
@@ -312,13 +312,13 @@ export default async function DashboardPage({
                     </div>
                     <button
                       type="submit"
-                      className="w-full rounded-full bg-[#162233] px-5 py-3 text-sm font-semibold text-white hover:bg-[#223246]"
+                      className="w-full rounded-full bg-[var(--px-action)] px-5 py-3 text-sm font-semibold text-white hover:bg-[var(--px-action-hover)]"
                     >
                       Send invitasjon
                     </button>
                   </form>
                 ) : (
-                  <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-white p-4 text-sm leading-6 text-slate-600">
+                  <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-white p-4 text-sm leading-6 text-slate-600">
                     {currentWorkspace.type === "PERSONAL"
                       ? "Personlige arbeidsflater støtter ikke flere medlemmer. Opprett en teamarbeidsflate for samarbeid."
                       : "Bare eiere og administratorer kan invitere nye medlemmer."}
@@ -334,7 +334,7 @@ export default async function DashboardPage({
                       name="name"
                       placeholder="F.eks. DD-team Nordics"
                       required
-                      className="w-full rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[#31495f]"
+                      className="w-full rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--px-accent)]"
                     />
                     <button
                       type="submit"
@@ -357,14 +357,14 @@ export default async function DashboardPage({
             <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Ventende invitasjoner</h2>
             <div className="mt-5 space-y-3">
               {incomingInvitations.length === 0 ? (
-                <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
+                <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
                   Du har ingen ventende invitasjoner akkurat nå.
                 </div>
               ) : (
                 incomingInvitations.map((invitation) => (
                   <div
                     key={invitation.id}
-                    className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.76)] p-4"
+                    className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.76)] p-4"
                   >
                     <div className="font-semibold text-slate-950">
                       {invitation.invitedByName ?? invitation.email}
@@ -380,7 +380,7 @@ export default async function DashboardPage({
                             <input type="hidden" name="invitationId" value={invitation.id} />
                             <button
                               type="submit"
-                              className="rounded-full bg-[#162233] px-4 py-2 text-sm font-semibold text-white hover:bg-[#223246]"
+                              className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--px-action-hover)]"
                             >
                               Aksepter
                             </button>
@@ -405,13 +405,13 @@ export default async function DashboardPage({
             </div>
           </Card>
 
-          <Card className="bg-[#F8FAFC]">
+          <Card className="bg-[var(--px-subtle)]">
             <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
               Aktiv arbeidsflate
             </div>
             <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Oversikt akkurat nå</h2>
             <div className="mt-5 grid gap-3">
-              <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+              <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
                 <div className="data-label text-[11px] font-semibold uppercase text-slate-500">DD-rom</div>
                 <div className="mt-2 text-[1.5rem] font-semibold text-slate-950">
                   {currentWorkspace.activeDdRoomCount}
@@ -421,7 +421,7 @@ export default async function DashboardPage({
                 </p>
               </div>
 
-              <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+              <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
                 <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
                   Abonnementer
                 </div>
@@ -433,7 +433,7 @@ export default async function DashboardPage({
                 </p>
               </div>
 
-              <div className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white p-4">
+              <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
                 <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Varsler</div>
                 <div className="mt-2 text-[1.5rem] font-semibold text-slate-950">
                   {currentWorkspace.unreadNotificationCount}
@@ -452,14 +452,14 @@ export default async function DashboardPage({
             <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">Historikk for aktiv arbeidsflate</h2>
             <div className="mt-5 space-y-3">
               {currentWorkspace.invitations.length === 0 ? (
-                <div className="rounded-[0.95rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
+                <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-5 text-sm leading-6 text-slate-600">
                   Ingen invitasjoner er sendt fra denne arbeidsflaten ennå.
                 </div>
               ) : (
                 currentWorkspace.invitations.map((invitation) => (
                   <div
                     key={invitation.id}
-                    className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.76)] p-4"
+                    className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.76)] p-4"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="font-semibold text-slate-950">{invitation.email}</div>

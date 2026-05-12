@@ -28,7 +28,7 @@ function AuthForm({
           <input
             name="name"
             required
-            className="w-full border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 outline-none focus:border-[#31495f]"
+            className="w-full border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 outline-none focus:border-[var(--px-accent)]"
           />
         </div>
       ) : null}
@@ -38,7 +38,7 @@ function AuthForm({
           name="email"
           type="email"
           required
-          className="w-full border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 outline-none focus:border-[#31495f]"
+          className="w-full border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 outline-none focus:border-[var(--px-accent)]"
         />
       </div>
       <div>
@@ -47,14 +47,14 @@ function AuthForm({
           name="password"
           type="password"
           required
-          className="w-full border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 outline-none focus:border-[#31495f]"
+          className="w-full border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 outline-none focus:border-[var(--px-accent)]"
         />
       </div>
       {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-full bg-[#162233] px-5 py-3 text-sm font-semibold text-white disabled:opacity-70"
+        className="w-full rounded-full bg-[var(--px-action)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-70"
       >
         {pending ? pendingLabel : submitLabel}
       </button>

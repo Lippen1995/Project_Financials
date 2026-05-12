@@ -318,7 +318,7 @@ export function DistressTable({
               <td className="px-5 py-4 align-top">
                 <Link
                   href={`/workspaces/${workspaceId}/distress/companies/${row.company.orgNumber}`}
-                  className="font-semibold text-[#162233] hover:text-[#31495f]"
+                  className="font-semibold text-[var(--px-text)] hover:text-[var(--px-accent)]"
                 >
                   {row.company.name}
                 </Link>

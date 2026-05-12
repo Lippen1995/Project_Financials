@@ -14,7 +14,7 @@ export function DistressOpportunityClusters({ clusters }: { clusters: DistressOp
           <a
             key={cluster.key}
             href={cluster.href}
-            className="rounded-[0.95rem] border border-[rgba(15,23,42,0.08)] bg-white p-4 hover:border-[rgba(15,23,42,0.18)]"
+            className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4 hover:border-[rgba(15,23,42,0.18)]"
           >
             <div className="text-sm font-semibold text-slate-900">{cluster.title}</div>
             <div className="mt-1 text-sm leading-6 text-slate-600">{cluster.description}</div>

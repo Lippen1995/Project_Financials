@@ -5,14 +5,19 @@
 
 :root {
   color-scheme: light;
-  --px-bg: #f5f4f0;
+  --px-bg: #f8f9ff;
   --px-surface: rgba(255, 255, 255, 0.9);
   --px-surface-strong: #ffffff;
   --px-border: rgba(15, 23, 42, 0.1);
+  --px-border-subtle: rgba(15, 23, 42, 0.08);
   --px-text: #111827;
   --px-muted: #5f6b7a;
-  --px-accent: #31495f;
-  --px-accent-soft: #e7edf3;
+  --px-accent: #00668a;
+  --px-accent-soft: rgba(0, 102, 138, 0.09);
+  --px-panel: #192536;
+  --px-action: #00668a;
+  --px-action-hover: #00526e;
+  --px-subtle: rgba(239, 244, 255, 0.9);
 }
 
 html {
@@ -20,13 +25,19 @@ html {
 }
 
 body {
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.75), transparent 30%),
-    linear-gradient(180deg, #f7f6f2 0%, #f3f2ee 100%);
+  background-color: var(--px-bg);
   color: var(--px-text);
   @apply min-h-screen antialiased;
   font-family: var(--font-sans), sans-serif;
   font-feature-settings: "cv11" 1, "tnum" 1, "lnum" 1;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 a {

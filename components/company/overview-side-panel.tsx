@@ -15,15 +15,15 @@ export function OverviewSidePanel({
 
   return (
     <aside className="border border-[rgba(15,23,42,0.08)] bg-white">
-      <div className="border-b border-[rgba(15,23,42,0.08)] bg-[#162233] px-5 py-5 text-white">
+      <div className="border-b border-[rgba(15,23,42,0.08)] bg-[var(--px-action)] px-5 py-5 text-white">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-[1.05rem] font-semibold">Analytisk sammendrag</h3>
-            <p className="mt-1 text-sm leading-6 text-white/72">
+            <p className="mt-1 text-sm leading-6 text-white/80">
               Kompakt lesning av nøkkelsignalene for valgt år i oversikten.
             </p>
           </div>
-          <div className="data-label rounded-full border border-white/15 bg-white/8 px-3 py-1 text-[11px] font-semibold uppercase text-white/78">
+          <div className="data-label rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase text-white/80">
             {summary.activeYearLabel}
           </div>
         </div>

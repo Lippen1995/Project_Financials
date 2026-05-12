@@ -23,7 +23,7 @@ export function DistressOverviewHero({
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={`/workspaces/${workspaceId}/distress/search`}
-            className="rounded-full bg-[#162233] px-4 py-2 text-sm font-semibold text-white hover:bg-[#223246]"
+            className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--px-action-hover)]"
           >
             Start screening
           </Link>
@@ -36,10 +36,10 @@ export function DistressOverviewHero({
         </div>
       </div>
 
-      <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[#192536] p-8 text-white xl:border-l xl:border-t-0">
+      <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] p-8 text-white xl:border-l xl:border-t-0">
         <div className="data-label text-[11px] font-semibold uppercase text-white/60">Arbeidsflyt</div>
         <div className="mt-4 text-[1.45rem] font-semibold leading-tight">Oversikt først, filtrering deretter</div>
-        <p className="mt-4 text-sm leading-7 text-white/76">
+        <p className="mt-4 text-sm leading-7 text-white/80">
           Denne inngangen samler hovedbildet og peker deg videre til målrettede søk med ferdige filterspor.
         </p>
       </aside>

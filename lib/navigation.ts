@@ -3,18 +3,19 @@ import { canAccessAdmin } from "@/lib/admin-access";
 export type GlobalNavItem = {
   href: string;
   label: string;
+  icon: string;
 };
 
 export function buildGlobalNavItems(user?: { appRole?: string | null } | null): GlobalNavItem[] {
   const items: GlobalNavItem[] = [
-    { href: "/search", label: "Sok" },
-    { href: "/market/distress", label: "Distress" },
-    { href: "/market/oil-gas", label: "Olje & gass" },
-    { href: "/pricing", label: "Tilgang" },
+    { href: "/search", label: "Søk", icon: "search" },
+    { href: "/market/distress", label: "Distress", icon: "warning" },
+    { href: "/market/oil-gas", label: "Olje & gass", icon: "oil_barrel" },
+    { href: "/pricing", label: "Tilgang", icon: "key" },
   ];
 
   if (canAccessAdmin(user)) {
-    items.push({ href: "/admin", label: "Admin" });
+    items.push({ href: "/admin", label: "Admin", icon: "admin_panel_settings" });
   }
 
   return items;

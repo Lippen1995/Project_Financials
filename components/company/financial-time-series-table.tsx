@@ -157,7 +157,7 @@ function SegmentedControl<T extends string>({
           className={cn(
             "rounded-full px-3 py-2 text-sm font-medium transition",
             value === option.value
-              ? "bg-[#162233] text-white"
+              ? "bg-[var(--px-action)] text-white"
               : "text-slate-600 hover:bg-white hover:text-slate-950",
           )}
         >
@@ -247,7 +247,7 @@ function FinancialCommentList({
   }) {
     return (
       <div className={depth > 0 ? "border-l border-[rgba(15,23,42,0.08)] pl-3" : ""}>
-        <div className="rounded-[0.75rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-3">
+        <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)] p-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span className="font-semibold text-slate-900">{comment.author.name ?? comment.author.email}</span>
             <span>{formatCommentDateTime(comment.createdAt)}</span>
@@ -292,7 +292,7 @@ function FinancialCellHoverCard({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[340px] rounded-[1rem] border border-[rgba(15,23,42,0.12)] bg-white p-4 shadow-[0_20px_45px_rgba(15,23,42,0.16)]">
+    <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[340px] rounded-2xl border border-[rgba(15,23,42,0.12)] bg-white p-4 shadow-[0_20px_45px_rgba(15,23,42,0.16)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-semibold uppercase text-slate-500">DD-trad</div>
@@ -323,7 +323,7 @@ function FinancialCellHoverCard({
           onChange={(event) => onReplyChange(event.target.value)}
           rows={2}
           placeholder="Svar i tråden"
-          className="w-full rounded-[0.75rem] border border-[rgba(15,23,42,0.1)] bg-white px-3 py-2 text-sm outline-none focus:border-[#31495f]"
+          className="w-full rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--px-accent)]"
         />
         <button
           type="button"
@@ -389,7 +389,7 @@ function FinancialCellDialog({
           {thread ? (
             <FinancialCommentList thread={thread} expanded />
           ) : (
-            <div className="rounded-[0.9rem] border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-4 text-sm leading-6 text-slate-600">
+            <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-4 text-sm leading-6 text-slate-600">
               Ingen kommentarer enda. Første kommentar starter tråden for dette datapunktet.
             </div>
           )}
@@ -401,14 +401,14 @@ function FinancialCellDialog({
             onChange={(event) => onValueChange(event.target.value)}
             rows={4}
             placeholder="Skriv en kommentar"
-            className="w-full rounded-[0.85rem] border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[#31495f]"
+            className="w-full rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm outline-none focus:border-[var(--px-accent)]"
           />
           <div className="flex justify-end">
             <button
               type="button"
               onClick={onSubmit}
               disabled={submitting || value.trim().length < 2}
-              className="rounded-full bg-[#162233] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full bg-[var(--px-action)] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Lagrer..." : thread ? "Svar i tråden" : "Start tråd"}
             </button>
@@ -644,10 +644,10 @@ export function FinancialTimeSeriesTable({
             {meta.title} vist som tidsserie med år fra venstre til høyre og verdier i NOK.
           </caption>
           <thead className="sticky top-0 z-20">
-            <tr className="bg-[#162233]">
+            <tr className="bg-[var(--px-action)]">
               <th
                 scope="col"
-                className="data-label sticky left-0 z-30 min-w-[320px] border-b border-[#101826] bg-[#162233] px-5 py-4 text-left text-xs font-semibold uppercase text-slate-200"
+                className="data-label sticky left-0 z-30 min-w-[320px] border-b border-[#101826] bg-[var(--px-action)] px-5 py-4 text-left text-xs font-semibold uppercase text-slate-200"
               >
                 Linje
               </th>
@@ -820,7 +820,7 @@ export function FinancialTimeSeriesTable({
                                     setDialogDraft("");
                                   }}
                                   className={cn(
-                                    "relative rounded-[0.75rem] px-1.5 py-1 text-right transition",
+                                    "relative rounded-xl px-1.5 py-1 text-right transition",
                                     commentable
                                       ? "hover:bg-[rgba(47,93,159,0.08)]"
                                       : "cursor-default",
