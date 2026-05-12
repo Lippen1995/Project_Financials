@@ -258,21 +258,45 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
   );
 }
 
-function HealthGauge({ score }: { score: number }) {
+function healthScoreLabel(score: number): string {
+  if (score >= 80) return "Utmerket";
+  if (score >= 60) return "God";
+  if (score >= 40) return "Akseptabel";
+  if (score >= 20) return "Svak";
+  return "Kritisk";
+}
+
+function HealthGaugeCard({ score }: { score: number }) {
   const r = 34;
   const circ = 2 * Math.PI * r;
   const offset = circ * (1 - score / 100);
   return (
-    <div className="relative h-[80px] w-[80px]">
-      <svg className="h-full w-full -rotate-90" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(0,102,138,0.12)" strokeWidth="6" />
-        <circle
-          cx="40" cy="40" r={r} fill="none" stroke="var(--px-accent)" strokeWidth="6"
-          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="material-symbols-outlined text-[22px] text-[var(--px-accent)]">favorite</span>
+    <div className="hidden items-center gap-6 rounded-xl border border-[rgba(15,23,42,0.08)] bg-slate-50 p-5 md:flex">
+      <div className="text-right">
+        <p className="data-label mb-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--px-muted)]">
+          Finansiell helse
+        </p>
+        <div className="flex items-baseline justify-end gap-1.5">
+          <span className="text-[2.75rem] font-semibold tabular-nums leading-none text-[var(--px-accent)]">
+            {score}
+          </span>
+          <span className="data-label text-sm text-[var(--px-muted)]">/ 100</span>
+        </div>
+        <p className="data-label mt-1 text-[10px] text-[var(--px-muted)]">
+          {healthScoreLabel(score)}
+        </p>
+      </div>
+      <div className="relative h-20 w-20 shrink-0">
+        <svg className="h-full w-full -rotate-90" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(0,102,138,0.1)" strokeWidth="6" />
+          <circle
+            cx="40" cy="40" r={r} fill="none" stroke="var(--px-accent)" strokeWidth="6"
+            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="material-symbols-outlined text-[28px] text-[var(--px-accent)]">favorite</span>
+        </div>
       </div>
     </div>
   );
@@ -350,52 +374,50 @@ function CompanyHeader({ profile, healthScore }: { profile: CompanyProfile; heal
   const { company } = profile;
   const municipality = company.municipality ?? company.addresses[0]?.city ?? null;
 
+  const statusChip =
+    company.status === "ACTIVE"
+      ? { bg: "bg-[rgba(233,246,238,1)] border-[#a5d6b7] text-[#2e7d42]", icon: "verified", label: "Aktiv" }
+      : company.status === "BANKRUPT"
+        ? { bg: "bg-red-50 border-red-200 text-red-700", icon: "cancel", label: "Konkurs" }
+        : { bg: "bg-slate-100 border-slate-200 text-slate-600", icon: "info", label: company.status };
+
   return (
     <section className="border-b border-[rgba(15,23,42,0.08)] pb-8">
-      <div className="flex items-start justify-between gap-6">
+      <div className="flex items-start justify-between gap-8">
         <div className="min-w-0 flex-1">
           {company.legalForm ? (
-            <div className="inline-flex items-center rounded-md bg-[var(--px-text)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-white">
+            <div className="inline-flex items-center rounded bg-[var(--px-text)] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-white">
               {company.legalForm}
             </div>
           ) : null}
           <h1 className="editorial-display mt-3 text-[3rem] leading-[0.96] text-slate-950 sm:text-[4rem] xl:text-[4.5rem]">
             {company.name}
           </h1>
-          <div className="mt-3 text-sm text-slate-500">
+          <p className="mt-3 text-sm text-slate-500">
             Org.nr. {company.orgNumber}
             {company.registeredAt
               ? ` · Registrert ${new Date(company.registeredAt).getFullYear()}`
               : ""}
-          </div>
+          </p>
           <div className="mt-4 flex flex-wrap gap-2">
+            {/* Status */}
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${
-                company.status === "ACTIVE"
-                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : company.status === "BANKRUPT"
-                    ? "border border-red-200 bg-red-50 text-red-700"
-                    : "border border-[rgba(15,23,42,0.1)] bg-[rgba(248,249,250,0.8)] text-slate-600"
-              }`}
+              className={`inline-flex items-center gap-1.5 rounded border px-3 py-1 text-[11px] font-semibold uppercase ${statusChip.bg}`}
             >
-              <span className="material-symbols-outlined text-[13px]">
-                {company.status === "ACTIVE" ? "check_circle" : "cancel"}
-              </span>
-              {company.status === "ACTIVE"
-                ? "Aktiv"
-                : company.status === "BANKRUPT"
-                  ? "Konkurs"
-                  : company.status}
+              <span className="material-symbols-outlined text-[14px]">{statusChip.icon}</span>
+              {statusChip.label}
             </span>
+            {/* Municipality */}
             {municipality ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-                <span className="material-symbols-outlined text-[13px]">location_on</span>
+              <span className="inline-flex items-center gap-1.5 rounded border border-[rgba(15,23,42,0.12)] bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
+                <span className="material-symbols-outlined text-[14px]">location_on</span>
                 {municipality}
               </span>
             ) : null}
+            {/* Industry */}
             {company.industryCode?.code ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-                <span className="material-symbols-outlined text-[13px]">category</span>
+              <span className="inline-flex items-center gap-1.5 rounded border border-[rgba(15,23,42,0.12)] bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
+                <span className="material-symbols-outlined text-[14px]">category</span>
                 {company.industryCode.code}
                 {company.industryCode.title ? ` · ${company.industryCode.title}` : ""}
               </span>
@@ -403,15 +425,7 @@ function CompanyHeader({ profile, healthScore }: { profile: CompanyProfile; heal
           </div>
         </div>
 
-        <div className="hidden shrink-0 flex-col items-center gap-3 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5 md:flex">
-          <HealthGauge score={healthScore} />
-          <div className="text-center">
-            <div className="text-[1.8rem] font-semibold tabular-nums text-slate-950">{healthScore}</div>
-            <div className="data-label text-[10px] font-semibold uppercase text-[var(--px-muted)]">
-              Finansiell helse
-            </div>
-          </div>
-        </div>
+        <HealthGaugeCard score={healthScore} />
       </div>
     </section>
   );
