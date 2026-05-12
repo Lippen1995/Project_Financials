@@ -45,6 +45,14 @@ const model: AdminControlCenterModel = {
       tone: "PURPLE",
     },
     {
+      key: "readiness-report",
+      title: "Readiness report",
+      value: "CONDITIONAL_GO",
+      detail: "Blokkere: 1. Report: output/benchmarks/annual-report-go-no-go-readiness/latest.md",
+      status: "WARNING",
+      tone: "YELLOW",
+    },
+    {
       key: "publish-safety",
       title: "Publish safety mode",
       value: "Legacy-only publish",
@@ -189,6 +197,7 @@ describe("AdminControlCenterView", () => {
     expect(html).toContain("Hva trenger oppmerksomhet nå?");
     expect(html).toContain("Fra årsrapport til tall i databasen");
     expect(html).toContain("Veien mot go-live for ny ekstraksjonsmotor");
+    expect(html).toContain("Readiness report");
     expect(html).toContain("Slik bruker du admin-siden");
     expect(html).toContain("Begreper");
     expect(html).toContain("Statusforklaring");

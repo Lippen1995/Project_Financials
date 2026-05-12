@@ -407,6 +407,7 @@ function buildArtifactRefs(
     filing,
     AnnualReportArtifactType.STRUCTURED_DOCUMENT_JSON,
   );
+  const parserDocumentArtifact = drilldown?.artifacts.parserDocument;
   const legacyExtraction = findAnnualReportArtifact(filing, AnnualReportArtifactType.EXTRACTION_JSON);
 
   const financialArtifact = drilldown?.artifacts.financialExtraction;
@@ -449,13 +450,32 @@ function buildArtifactRefs(
     {
       key: "structured_document_json",
       label: "Structured document JSON",
-      status: structuredDocument ? "available" : "missing",
-      artifactId: structuredDocument?.id ?? null,
+      status:
+        structuredDocument || parserDocumentArtifact?.status === "available"
+          ? "available"
+          : parserDocumentArtifact?.status === "missing"
+            ? "missing"
+            : "missing",
+      artifactId: structuredDocument?.id ?? parserDocumentArtifact?.artifactId ?? null,
       storageKey: structuredDocument?.storageKey ?? null,
       artifactType: structuredDocument?.artifactType ?? null,
-      kind: null,
-      href: null,
-      note: structuredDocument ? null : "Structured document artifact missing.",
+      kind:
+        structuredDocument !== null
+          ? null
+          : parserDocumentArtifact?.artifactId !== null
+            ? PdfModelArtifactKind.UNIFIED_PARSER_DOCUMENT
+            : null,
+      href:
+        structuredDocument !== null
+          ? null
+          : artifactApiHref(parserDocumentArtifact?.artifactId ?? null),
+      note:
+        structuredDocument
+          ? null
+          : parserDocumentArtifact?.issues.join(" ") ||
+            (parserDocumentArtifact?.status === "available"
+              ? "Structured document is available via persisted unified parser artifact."
+              : "Structured document artifact missing."),
     },
     {
       key: "legacy_extraction",

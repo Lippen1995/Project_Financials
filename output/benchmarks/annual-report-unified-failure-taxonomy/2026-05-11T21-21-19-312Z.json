@@ -1,13 +1,13 @@
 {
   "version": "annual-report-unified-failure-taxonomy-v1",
-  "generatedAt": "2026-05-11T21:29:00.993Z",
+  "generatedAt": "2026-05-11T21:21:19.312Z",
   "input": {
     "runId": "gold-set-2026-05-11T21-21-16-484Z",
     "generatedBy": "scripts/generate-annual-report-unified-failure-taxonomy.ts"
   },
   "sourceRun": {
     "reviewRoundId": "gold-set-2026-05-11T21-21-16-484Z",
-    "reviewRoundGeneratedAt": "2026-05-11T21:29:00.147Z",
+    "reviewRoundGeneratedAt": "2026-05-11T21:21:17.595Z",
     "goldSetRunId": "gold-set-2026-05-11T21-21-16-484Z",
     "manifestName": "annual-report-go-live-gold-set",
     "gitCommitSha": "b41327f83bf32750d68df339c4cd8f89a7c15948"
@@ -20,9 +20,15 @@
   },
   "summary": {
     "totalCandidates": 5,
-    "totalMappedIssues": 39,
-    "highSeverityIssueCount": 16,
+    "totalMappedIssues": 41,
+    "highSeverityIssueCount": 17,
     "issueClassCounts": [
+      {
+        "issueClass": "ARTIFACT_MISSING",
+        "count": 5,
+        "severity": "MEDIUM",
+        "remediationArea": "artifact_pipeline"
+      },
       {
         "issueClass": "LEGACY_UNIFIED_MISMATCH",
         "count": 5,
@@ -30,9 +36,9 @@
         "remediationArea": "review_policy"
       },
       {
-        "issueClass": "ARTIFACT_MISSING",
-        "count": 4,
-        "severity": "MEDIUM",
+        "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+        "count": 5,
+        "severity": "HIGH",
         "remediationArea": "artifact_pipeline"
       },
       {
@@ -46,12 +52,6 @@
         "count": 4,
         "severity": "HIGH",
         "remediationArea": "parser_runtime"
-      },
-      {
-        "issueClass": "STRUCTURED_DOCUMENT_MISSING",
-        "count": 4,
-        "severity": "HIGH",
-        "remediationArea": "artifact_pipeline"
       },
       {
         "issueClass": "OCR_REQUIRED_OR_LOW_QUALITY_SCAN",
@@ -139,14 +139,14 @@
       }
     ],
     "severityCounts": {
-      "HIGH": 16,
-      "MEDIUM": 17,
+      "HIGH": 17,
+      "MEDIUM": 18,
       "LOW": 6
     },
     "affectedTags": [
       {
         "tag": "manual_review_expected",
-        "count": 35
+        "count": 37
       },
       {
         "tag": "ocr_token_noise",
@@ -158,27 +158,27 @@
       },
       {
         "tag": "continuation_complex",
-        "count": 14
+        "count": 16
       },
       {
         "tag": "degraded_ambiguous",
-        "count": 14
+        "count": 16
       },
       {
         "tag": "digital_note_heavy",
-        "count": 14
+        "count": 16
       },
       {
         "tag": "multi_page_balance",
-        "count": 14
+        "count": 16
       },
       {
         "tag": "supplementary_present",
-        "count": 14
+        "count": 16
       },
       {
         "tag": "unit_scale_sensitive",
-        "count": 14
+        "count": 16
       },
       {
         "tag": "digital_simple",
@@ -270,21 +270,17 @@
     "firstDivergenceStages": [
       {
         "stage": "structured_document",
-        "count": 25
-      },
-      {
-        "stage": "comparison",
-        "count": 14
+        "count": 41
       }
     ],
     "remediationAreaCounts": [
       {
-        "remediationArea": "review_policy",
-        "count": 9
+        "remediationArea": "artifact_pipeline",
+        "count": 10
       },
       {
-        "remediationArea": "artifact_pipeline",
-        "count": 8
+        "remediationArea": "review_policy",
+        "count": 9
       },
       {
         "remediationArea": "ocr_quality",
@@ -624,12 +620,71 @@
       "orgNumber": "918298037",
       "companyName": "PROFF AS",
       "accountingYear": 2024,
+      "issueClass": "STRUCTURED_DOCUMENT_MISSING",
+      "severity": "HIGH",
+      "source": "artifact_ref",
+      "evidence": [
+        "Første divergenssteg: structured_document",
+        "Review-runden fant manglende strukturert dokument.",
+        "Structured document JSON er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "continuation_complex",
+        "degraded_ambiguous",
+        "digital_note_heavy",
+        "manual_review_expected",
+        "multi_page_balance",
+        "supplementary_present",
+        "unit_scale_sensitive"
+      ],
+      "firstDivergenceStage": "structured_document",
+      "humanExplanationNo": "Strukturert dokument mangler, så unified-løpet mister viktig mellomgrunnlag.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "5ba569d5037ffa79",
+      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "accountingYear": 2024,
+      "issueClass": "ARTIFACT_MISSING",
+      "severity": "MEDIUM",
+      "source": "artifact_ref",
+      "evidence": [
+        "Review-runden fant manglende strukturert dokument.",
+        "Review-runden mangler artifact: structured_document_json",
+        "Structured document JSON er missing."
+      ],
+      "affectedCanonicalKeys": [],
+      "tags": [
+        "continuation_complex",
+        "degraded_ambiguous",
+        "digital_note_heavy",
+        "manual_review_expected",
+        "multi_page_balance",
+        "supplementary_present",
+        "unit_scale_sensitive"
+      ],
+      "firstDivergenceStage": "structured_document",
+      "humanExplanationNo": "Et nødvendig mellomresultat mangler, så rapporten kan ikke vurderes fullt ut.",
+      "remediationArea": "artifact_pipeline",
+      "reviewDecision": null
+    },
+    {
+      "candidateId": "5ba569d5037ffa79",
+      "runId": "gold-set-2026-05-11T21-21-16-484Z",
+      "filingId": "cmobtujqo0001vmvoz4tcie6q",
+      "orgNumber": "918298037",
+      "companyName": "PROFF AS",
+      "accountingYear": 2024,
       "issueClass": "LEGACY_UNIFIED_MISMATCH",
       "severity": "MEDIUM",
       "source": "manual_review_issue_class",
       "evidence": [
         "COMPARISON_MATCH_RATE: Match rate 0% (0/20) is below FAIL threshold of 50%.",
-        "Første divergenssteg: comparison",
         "Review issue class: confidence_gate_fail"
       ],
       "affectedCanonicalKeys": [],
@@ -642,7 +697,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Legacy og unified gir ulike resultater for samme rapport og krever forklaring.",
       "remediationArea": "review_policy",
       "reviewDecision": null
@@ -670,7 +725,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Norske regnskapslinjer ser ut til å være mappet til feil canonical key eller tolket ulikt.",
       "remediationArea": "financial_mapping",
       "reviewDecision": null
@@ -699,7 +754,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Resultatregnskapet ser ut til å mangle eller være for svakt identifisert.",
       "remediationArea": "financial_mapping",
       "reviewDecision": null
@@ -727,7 +782,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Balansen ser ut til å mangle eller være for svakt identifisert.",
       "remediationArea": "financial_mapping",
       "reviewDecision": null
@@ -798,7 +853,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Minst ett sentralt nøkkelfelt mangler i én av ekstraksjonsrutene.",
       "remediationArea": "financial_mapping",
       "reviewDecision": null
@@ -826,7 +881,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Styreberetning, revisorberetning eller annen narrativ seksjon mangler eller er for svak.",
       "remediationArea": "narrative_segmentation",
       "reviewDecision": null
@@ -854,7 +909,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Styrets beretning ble ikke funnet eller segmentert tydelig.",
       "remediationArea": "narrative_segmentation",
       "reviewDecision": null
@@ -882,7 +937,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Revisorberetningen ble ikke funnet eller segmentert tydelig.",
       "remediationArea": "narrative_segmentation",
       "reviewDecision": null
@@ -917,7 +972,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Balansen ser ut til å være delt over flere sider på en måte som gir feil eller manglende totalsummer.",
       "remediationArea": "table_reconstruction",
       "reviewDecision": null
@@ -945,7 +1000,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Rapportstrukturen er uklar nok til at ekstra manuell kontroll er nødvendig.",
       "remediationArea": "table_reconstruction",
       "reviewDecision": null
@@ -973,7 +1028,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Denne rapporttypen er på forhånd markert som en sak som ofte krever manuell kontroll.",
       "remediationArea": "review_policy",
       "reviewDecision": null
@@ -1001,7 +1056,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Legacy og unified ser ut til å bruke ulik enhetsskala for de samme tallene.",
       "remediationArea": "unit_scale_normalization",
       "reviewDecision": null
@@ -1069,7 +1124,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Systemet vet ikke om tallene er oppgitt i kroner, tusen eller millioner.",
       "remediationArea": "unit_scale_normalization",
       "reviewDecision": null
@@ -1097,7 +1152,7 @@
         "supplementary_present",
         "unit_scale_sensitive"
       ],
-      "firstDivergenceStage": "comparison",
+      "firstDivergenceStage": "structured_document",
       "humanExplanationNo": "Tabellstrukturen ble ikke gjenoppbygd stabilt nok til å stole på radene og kolonnene.",
       "remediationArea": "table_reconstruction",
       "reviewDecision": null
@@ -1644,8 +1699,8 @@
     ]
   },
   "output": {
-    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-29-00-993Z.json",
-    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-29-00-993Z.md"
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-21-19-312Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\2026-05-11T21-21-19-312Z.md"
   },
   "safety": {
     "canUseForProductionRouting": false,

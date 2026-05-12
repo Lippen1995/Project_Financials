@@ -54,6 +54,7 @@ describe("admin-control-center-service", () => {
       }),
       inspectRuntime: async () => makeRuntime(),
       readLatestGoldSetRun: async () => null,
+      readLatestReadinessReport: async () => null,
       readLatestCalibrationReport: async () => null,
       readLatestTaxonomyReport: async () => null,
       readLatestExtractionFixReport: async () => null,
@@ -141,6 +142,7 @@ describe("admin-control-center-service", () => {
       }),
       inspectRuntime: async () => makeRuntime(),
       readLatestGoldSetRun: async () => null,
+      readLatestReadinessReport: async () => null,
       readLatestCalibrationReport: async () => null,
       readLatestTaxonomyReport: async () => null,
       readLatestExtractionFixReport: async () => null,
@@ -152,6 +154,9 @@ describe("admin-control-center-service", () => {
     );
     expect(model.summaryCards.find((item) => item.key === "go-live-status")?.value).toBe(
       "Ukjent",
+    );
+    expect(model.summaryCards.find((item) => item.key === "readiness-report")?.value).toBe(
+      "Ingen data funnet",
     );
     expect(model.attentionEmptyState).toBe(
       "Ingen Ã¥pne problemer funnet basert pÃ¥ tilgjengelige data.",
@@ -188,6 +193,7 @@ describe("admin-control-center-service", () => {
       }),
       inspectRuntime: async () => makeRuntime(),
       readLatestGoldSetRun: async () => null,
+      readLatestReadinessReport: async () => null,
       readLatestTaxonomyReport: async () => ({
         version: "annual-report-unified-failure-taxonomy-v1",
         generatedAt: "2026-05-11T09:30:00.000Z",
@@ -281,6 +287,7 @@ describe("admin-control-center-service", () => {
       }),
       inspectRuntime: async () => makeRuntime(),
       readLatestGoldSetRun: async () => null,
+      readLatestReadinessReport: async () => null,
       readLatestExtractionFixReport: async () => ({
         version: "annual-report-extraction-fix-report-v1",
         generatedAt: "2026-05-11T11:00:00.000Z",
@@ -322,6 +329,78 @@ describe("admin-control-center-service", () => {
       "WARNING",
     );
     expect(model.attentionItems.some((item) => item.key === "pr79-post-fix-blockers")).toBe(true);
+  });
+
+  it("surfaces PR80 readiness decision in admin cards, attention list and go-live flow", async () => {
+    const model = await buildAdminControlCenterModel({
+      getOverview: async () => ({
+        parserVersion: "annual-report-pipeline-v4-opendataloader",
+        metrics: {
+          filings: [],
+          runs: [],
+          reviews: [],
+          incompleteCoverageCount: 0,
+        },
+        reviewQueue: [],
+        pendingFilings: [],
+        dueCoverage: [],
+      }) as never,
+      listUnifiedConfidence: async () => ({
+        items: [],
+        total: 0,
+        limit: 5,
+        offset: 0,
+        summary: { total: 0, PASS: 0, WARN: 0, FAIL: 0, INSUFFICIENT_DATA: 0 },
+      }),
+      inspectRuntime: async () => makeRuntime(),
+      readLatestGoldSetRun: async () => null,
+      readLatestReadinessReport: async () => ({
+        version: "annual-report-go-no-go-readiness-v1",
+        generatedAt: "2026-05-11T12:00:00.000Z",
+        decision: "NO_GO",
+        executiveSummary: "Not ready.",
+        evidenceUsed: {
+          goldSetShadowRunPath: "output/benchmarks/annual-report-gold-set-shadow-runs/latest.json",
+          manualReviewRoundPath: "output/benchmarks/annual-report-manual-review-rounds/latest.json",
+          calibrationReportPath: "output/benchmarks/annual-report-unified-confidence-calibration/latest.json",
+          failureTaxonomyReportPath: "output/benchmarks/annual-report-unified-failure-taxonomy/latest.json",
+          extractionFixReportPath: "output/benchmarks/annual-report-extraction-fixes/latest.json",
+        },
+        criteria: [],
+        blockers: ["Manual review is not completed."],
+        warnings: [],
+        metricTable: [],
+        residualRisks: [],
+        recommendedNextActions: {
+          pr81ReadinessWorkflow: ["Wait."],
+          pr82ShadowCanary: ["Wait."],
+        },
+        output: {
+          jsonPath: "output/benchmarks/annual-report-go-no-go-readiness/latest.json",
+          markdownPath: "output/benchmarks/annual-report-go-no-go-readiness/latest.md",
+        },
+        safety: {
+          publishSourceOfTruth: "LEGACY",
+          unifiedMode: "SHADOW_ONLY",
+          canUseForProductionRouting: false,
+          productionRoutingChanged: false,
+          publishAffected: false,
+        },
+      }),
+      readLatestCalibrationReport: async () => null,
+      readLatestTaxonomyReport: async () => null,
+      readLatestExtractionFixReport: async () => null,
+      now: () => new Date("2026-05-11T12:30:00.000Z"),
+    });
+
+    expect(model.summaryCards.find((item) => item.key === "go-live-status")?.value).toBe("No-go");
+    expect(model.summaryCards.find((item) => item.key === "readiness-report")?.value).toBe(
+      "NO_GO",
+    );
+    expect(model.goLiveFlow.nodes.find((item) => item.key === "go-no-go")?.status).toBe(
+      "BLOCKED",
+    );
+    expect(model.attentionItems.some((item) => item.key === "readiness-blockers")).toBe(true);
   });
 });
 

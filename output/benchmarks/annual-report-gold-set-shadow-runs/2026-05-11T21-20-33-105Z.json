@@ -1,7 +1,7 @@
 {
   "version": "annual-report-gold-set-shadow-run-v1",
-  "runId": "gold-set-2026-05-11T21-21-16-484Z",
-  "generatedAt": "2026-05-11T21:21:16.484Z",
+  "runId": "gold-set-2026-05-11T21-20-33-105Z",
+  "generatedAt": "2026-05-11T21:20:33.105Z",
   "gitCommitSha": "b41327f83bf32750d68df339c4cd8f89a7c15948",
   "environment": {
     "nodeEnv": null,
@@ -51,7 +51,7 @@
   },
   "batch": {
     "version": "annual-report-unified-confidence-batch-v1",
-    "generatedAt": "2026-05-11T21:21:16.484Z",
+    "generatedAt": "2026-05-11T21:20:33.104Z",
     "manifest": {
       "name": "annual-report-go-live-gold-set",
       "generatedAt": "2026-05-11T16:28:33.518Z",
@@ -128,9 +128,9 @@
       "limit": null
     },
     "candidateCounts": {
-      "real_legacy_candidate": 1,
+      "real_legacy_candidate": 0,
       "fixture_candidate": 0,
-      "unavailable_candidate": 4,
+      "unavailable_candidate": 5,
       "malformed_candidate": 0
     },
     "cases": [
@@ -138,19 +138,19 @@
         "caseId": "cmobtujsi000dvmvoroqrrdwe:1",
         "filingId": "cmobtujsi000dvmvoroqrrdwe",
         "orgNumber": "918298037",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "fiscalYear": 2018,
         "label": "PROFF AS",
         "tagHints": [
           "digital_simple"
         ],
-        "status": "skipped",
-        "errors": [],
-        "warnings": [
-          "Resolved PDF artifact by exact filing id.",
-          "No persisted legacy extraction facts or published legacy snapshot were available for this filing."
+        "status": "error",
+        "errors": [
+          "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+          "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
         ],
-        "durationMs": 183,
+        "warnings": [],
+        "durationMs": 58,
         "legacyCandidateSet": {
           "classification": "unavailable_candidate",
           "candidateCount": 0,
@@ -158,32 +158,21 @@
             "orgNumber": "918298037",
             "filingId": "cmobtujsi000dvmvoroqrrdwe",
             "fiscalYear": 2018,
-            "filingReportId": "BRREG::918298037::2018::annual-report::5a8d5457b7f17c2cea92bc7ec996a46d41700caf85dad716a24ce0c19ed1697f",
-            "sourceDocumentReference": "cmobtujsi000dvmvoroqrrdwe/pdf/918298037-2018-5a8d5457b7f1.pdf",
+            "filingReportId": null,
+            "sourceDocumentReference": null,
             "sourceArtifactReference": null,
             "extractionRoute": null,
             "evidenceType": "fallback",
             "extractionTimestamp": null,
-            "artifactTimestamp": "2026-04-23T18:58:27.462Z",
+            "artifactTimestamp": null,
             "sourceRunId": null,
             "source": "published_snapshot",
-            "lookupDiagnostics": [
-              {
-                "code": "LOOKUP_EXACT_FILING_ID",
-                "strategy": "EXACT_FILING_ID",
-                "message": "Resolved PDF artifact by exact filing id."
-              },
-              {
-                "code": "LOOKUP_MISSING",
-                "strategy": "MISSING",
-                "message": "No EXTRACTION_JSON artifact found for filing cmobtujsi000dvmvoroqrrdwe."
-              }
-            ]
+            "lookupDiagnostics": []
           },
           "diagnostics": [
             {
               "code": "LEGACY_FACTS_MISSING",
-              "message": "No persisted legacy extraction facts or published legacy snapshot were available for this filing."
+              "message": "Legacy candidate loading did not run because the filing could not be loaded."
             }
           ],
           "preview": []
@@ -191,7 +180,7 @@
         "shadow": null,
         "gate": {
           "version": "unified-extraction-confidence-gate-v1",
-          "generatedAt": "2026-05-11T21:21:15.900Z",
+          "generatedAt": "2026-05-11T21:20:33.062Z",
           "meta": {
             "filingId": "cmobtujsi000dvmvoroqrrdwe",
             "orgNumber": "918298037",
@@ -340,7 +329,7 @@
         "caseId": "cmobtujqo0001vmvoz4tcie6q:2",
         "filingId": "cmobtujqo0001vmvoz4tcie6q",
         "orgNumber": "918298037",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "fiscalYear": 2024,
         "label": "PROFF AS",
         "tagHints": [
@@ -352,251 +341,43 @@
           "supplementary_present",
           "unit_scale_sensitive"
         ],
-        "status": "completed",
-        "errors": [],
-        "warnings": [
-          "Resolved PDF artifact by exact filing id.",
-          "[financial] No tables found in document. Cannot extract financial statements from table data.",
-          "[narrative] No narrative sections detected in document"
+        "status": "error",
+        "errors": [
+          "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+          "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
         ],
-        "durationMs": 494,
+        "warnings": [],
+        "durationMs": 10,
         "legacyCandidateSet": {
-          "classification": "real_legacy_candidate",
-          "candidateCount": 24,
+          "classification": "unavailable_candidate",
+          "candidateCount": 0,
           "provenance": {
             "orgNumber": "918298037",
             "filingId": "cmobtujqo0001vmvoz4tcie6q",
             "fiscalYear": 2024,
-            "filingReportId": "BRREG::918298037::2024::annual-report::c104e976c579e03aaf95c14629b41c6379a9a2867618868821e014293b61cd12",
-            "sourceDocumentReference": "cmobtujqo0001vmvoz4tcie6q/pdf/918298037-2024-c104e976c579.pdf",
-            "sourceArtifactReference": "cmobtujqo0001vmvoz4tcie6q/extraction_json/extraction.json",
-            "extractionRoute": "LEGACY/legacy/OPENDATALOADER_HYBRID_OCR",
-            "evidenceType": "persisted_artifact",
-            "extractionTimestamp": "2026-04-27T18:43:49.874Z",
-            "artifactTimestamp": "2026-04-27T18:10:37.976Z",
-            "sourceRunId": "cmohjpqqr0001vmys4w5c7qjm",
-            "source": "financial_facts",
-            "lookupDiagnostics": [
-              {
-                "code": "LOOKUP_EXACT_FILING_ID",
-                "strategy": "EXACT_FILING_ID",
-                "message": "Resolved PDF artifact by exact filing id."
-              },
-              {
-                "code": "LOOKUP_EXACT_FILING_ID",
-                "strategy": "EXACT_FILING_ID",
-                "message": "Resolved EXTRACTION_JSON artifact by exact filing id."
-              }
-            ]
+            "filingReportId": null,
+            "sourceDocumentReference": null,
+            "sourceArtifactReference": null,
+            "extractionRoute": null,
+            "evidenceType": "fallback",
+            "extractionTimestamp": null,
+            "artifactTimestamp": null,
+            "sourceRunId": null,
+            "source": "published_snapshot",
+            "lookupDiagnostics": []
           },
           "diagnostics": [
             {
-              "code": "LEGACY_FACTS_FOUND",
-              "message": "Loaded 24 persisted legacy candidates from FinancialFact rows."
+              "code": "LEGACY_FACTS_MISSING",
+              "message": "Legacy candidate loading did not run because the filing could not be loaded."
             }
           ],
-          "preview": [
-            {
-              "metricKey": "total_equity",
-              "fiscalYear": 2024,
-              "value": 15842156,
-              "unitScale": 1,
-              "sourceSection": "NOTE",
-              "confidenceScore": 0.678
-            },
-            {
-              "metricKey": "total_equity",
-              "fiscalYear": 2024,
-              "value": 1584,
-              "unitScale": 1,
-              "sourceSection": "NOTE",
-              "confidenceScore": 0.678
-            },
-            {
-              "metricKey": "total_liabilities",
-              "fiscalYear": 2024,
-              "value": 832,
-              "unitScale": 1,
-              "sourceSection": "NOTE",
-              "confidenceScore": 0.678
-            },
-            {
-              "metricKey": "other_current_liabilities",
-              "fiscalYear": 2024,
-              "value": 832,
-              "unitScale": 1,
-              "sourceSection": "NOTE",
-              "confidenceScore": 0.678
-            },
-            {
-              "metricKey": "trade_receivables",
-              "fiscalYear": 2024,
-              "value": 0,
-              "unitScale": 1,
-              "sourceSection": "NOTE",
-              "confidenceScore": 0.678
-            },
-            {
-              "metricKey": "other_current_liabilities",
-              "fiscalYear": 2024,
-              "value": 3332,
-              "unitScale": 1,
-              "sourceSection": "NOTE",
-              "confidenceScore": 0.678
-            },
-            {
-              "metricKey": "other_receivables",
-              "fiscalYear": 2024,
-              "value": 2426,
-              "unitScale": 1,
-              "sourceSection": "NOTE",
-              "confidenceScore": 0.678
-            },
-            {
-              "metricKey": "payroll_expense",
-              "fiscalYear": 2024,
-              "value": 2024000,
-              "unitScale": 1000,
-              "sourceSection": "NOTE",
-              "confidenceScore": 0.678
-            },
-            {
-              "metricKey": "retained_earnings",
-              "fiscalYear": 2024,
-              "value": 32632000,
-              "unitScale": 1,
-              "sourceSection": "STATUTORY_BALANCE",
-              "confidenceScore": 0.978
-            },
-            {
-              "metricKey": "share_premium",
-              "fiscalYear": 2024,
-              "value": 2156000,
-              "unitScale": 1,
-              "sourceSection": "STATUTORY_BALANCE",
-              "confidenceScore": 0.978
-            }
-          ]
+          "preview": []
         },
-        "shadow": {
-          "mode": "PERSIST_ARTIFACTS",
-          "skipped": false,
-          "totalDurationMs": 50,
-          "canUseForProductionRouting": false,
-          "steps": {
-            "document": {
-              "ok": true,
-              "durationMs": 1,
-              "error": null
-            },
-            "financial": {
-              "ok": true,
-              "durationMs": 0,
-              "error": null
-            },
-            "narrative": {
-              "ok": true,
-              "durationMs": 0,
-              "error": null
-            },
-            "comparison": {
-              "ok": true,
-              "durationMs": 11,
-              "error": null
-            }
-          },
-          "summary": {
-            "documentPageCount": 25,
-            "documentSectionCount": 0,
-            "financialStatementCount": 0,
-            "financialLineItemCount": 0,
-            "narrativeSectionCount": 0,
-            "comparisonFactCount": 20,
-            "comparisonExactMatchCount": 0,
-            "comparisonMismatchCount": 0,
-            "comparisonMatchRate": 0
-          },
-          "artifacts": {
-            "document": {
-              "ok": true,
-              "artifactId": "cmp1pi8v80003vmt4j9o39msp",
-              "kind": "UNIFIED_PARSER_DOCUMENT",
-              "durationMs": 16,
-              "summary": {
-                "route": "TEXT_LAYER",
-                "filingId": "cmobtujqo0001vmvoz4tcie6q",
-                "orgNumber": "918298037",
-                "pageCount": 25,
-                "errorCount": 0,
-                "fiscalYear": 2024,
-                "shadowOnly": true,
-                "tableCount": 0,
-                "sectionCount": 0,
-                "warningCount": 0,
-                "canUseForProductionRouting": false
-              }
-            },
-            "financial": {
-              "ok": true,
-              "artifactId": "cmp1pi8vn0005vmt4pcm2wqwo",
-              "kind": "UNIFIED_FINANCIAL_EXTRACTION",
-              "durationMs": 8,
-              "summary": {
-                "route": "TEXT_LAYER",
-                "filingId": "cmobtujqo0001vmvoz4tcie6q",
-                "orgNumber": "918298037",
-                "fiscalYear": 2024,
-                "shadowOnly": true,
-                "warningCount": 1,
-                "unmappedCount": 0,
-                "statementCount": 0,
-                "candidateTableCount": 0,
-                "parsedLineItemCount": 0,
-                "canonicalMappedCount": 0,
-                "canUseForProductionRouting": false
-              }
-            },
-            "narrative": {
-              "ok": true,
-              "artifactId": "cmp1pi8vv0007vmt4cnehpllp",
-              "kind": "UNIFIED_NARRATIVE_EXTRACTION",
-              "durationMs": 5,
-              "summary": {
-                "route": "TEXT_LAYER",
-                "filingId": "cmobtujqo0001vmvoz4tcie6q",
-                "orgNumber": "918298037",
-                "fiscalYear": 2024,
-                "shadowOnly": true,
-                "sectionCount": 0,
-                "boardReportFound": false,
-                "totalSignalCount": 0,
-                "auditorReportFound": false,
-                "goingConcernSignalFound": false,
-                "canUseForProductionRouting": false
-              }
-            },
-            "comparison": {
-              "ok": true,
-              "artifactId": "cmp1pi8w10009vmt4be4yjtol",
-              "kind": "LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON",
-              "durationMs": 8,
-              "summary": {
-                "filingId": "cmobtujqo0001vmvoz4tcie6q",
-                "orgNumber": "918298037",
-                "fiscalYear": 2024,
-                "shadowOnly": true,
-                "mismatchCount": 0,
-                "totalCompared": 20,
-                "exactMatchCount": 0,
-                "narrativeCoverageScore": 0,
-                "canUseForProductionRouting": false
-              }
-            }
-          }
-        },
+        "shadow": null,
         "gate": {
           "version": "unified-extraction-confidence-gate-v1",
-          "generatedAt": "2026-05-11T21:21:16.423Z",
+          "generatedAt": "2026-05-11T21:20:33.077Z",
           "meta": {
             "filingId": "cmobtujqo0001vmvoz4tcie6q",
             "orgNumber": "918298037",
@@ -617,206 +398,122 @@
             "maxMajorMismatchCountForFail": 0,
             "narrativeAbsenceIsFail": false
           },
-          "overallVerdict": "FAIL",
-          "passCount": 2,
-          "warnCount": 6,
-          "failCount": 4,
-          "insufficientDataCount": 2,
-          "blockingChecks": [
-            {
-              "checkCode": "FINANCIAL_EXTRACTION_PRESENT",
-              "verdict": "FAIL",
-              "message": "No financial line items extracted (0 items found).",
-              "value": 0,
-              "threshold": null
-            },
-            {
-              "checkCode": "INCOME_STATEMENT_COVERAGE",
-              "verdict": "FAIL",
-              "message": "No income statement line items found.",
-              "value": 0,
-              "threshold": null
-            },
-            {
-              "checkCode": "BALANCE_SHEET_COVERAGE",
-              "verdict": "FAIL",
-              "message": "No balance sheet line items found.",
-              "value": 0,
-              "threshold": null
-            },
-            {
-              "checkCode": "COMPARISON_MATCH_RATE",
-              "verdict": "FAIL",
-              "message": "Match rate 0% (0/20) is below FAIL threshold of 50%.",
-              "value": 0,
-              "threshold": 0.5
-            }
-          ],
-          "warningChecks": [
-            {
-              "checkCode": "REVENUE_FOUND",
-              "verdict": "WARN",
-              "message": "Canonical key \"revenue\" not found in extracted line items.",
-              "value": null,
-              "threshold": null
-            },
-            {
-              "checkCode": "NET_INCOME_FOUND",
-              "verdict": "WARN",
-              "message": "Canonical key \"net_income\" not found in extracted line items.",
-              "value": null,
-              "threshold": null
-            },
-            {
-              "checkCode": "TOTAL_ASSETS_FOUND",
-              "verdict": "WARN",
-              "message": "Canonical key \"total_assets\" not found in extracted line items.",
-              "value": null,
-              "threshold": null
-            },
-            {
-              "checkCode": "NARRATIVE_EXTRACTION_PRESENT",
-              "verdict": "WARN",
-              "message": "No narrative sections found.",
-              "value": null,
-              "threshold": null
-            },
-            {
-              "checkCode": "BOARD_REPORT_FOUND",
-              "verdict": "WARN",
-              "message": "Board report not found in narrative sections.",
-              "value": null,
-              "threshold": null
-            },
-            {
-              "checkCode": "AUDITOR_REPORT_FOUND",
-              "verdict": "WARN",
-              "message": "Auditor report or opinion not found in narrative sections.",
-              "value": null,
-              "threshold": null
-            }
-          ],
+          "overallVerdict": "INSUFFICIENT_DATA",
+          "passCount": 0,
+          "warnCount": 0,
+          "failCount": 0,
+          "insufficientDataCount": 14,
+          "blockingChecks": [],
+          "warningChecks": [],
           "checks": [
             {
               "checkCode": "FINANCIAL_EXTRACTION_PRESENT",
-              "verdict": "FAIL",
-              "message": "No financial line items extracted (0 items found).",
-              "value": 0,
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Financial extraction was not run.",
+              "value": null,
               "threshold": null
             },
             {
               "checkCode": "UNIT_SCALE_RESOLVED",
               "verdict": "INSUFFICIENT_DATA",
-              "message": "No financial line items to evaluate unit scale.",
+              "message": "Financial extraction was not run.",
               "value": null,
               "threshold": null
             },
             {
               "checkCode": "INCOME_STATEMENT_COVERAGE",
-              "verdict": "FAIL",
-              "message": "No income statement line items found.",
-              "value": 0,
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Financial extraction was not run.",
+              "value": null,
               "threshold": null
             },
             {
               "checkCode": "BALANCE_SHEET_COVERAGE",
-              "verdict": "FAIL",
-              "message": "No balance sheet line items found.",
-              "value": 0,
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Financial extraction was not run.",
+              "value": null,
               "threshold": null
             },
             {
               "checkCode": "REVENUE_FOUND",
-              "verdict": "WARN",
-              "message": "Canonical key \"revenue\" not found in extracted line items.",
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Financial extraction was not run.",
               "value": null,
               "threshold": null
             },
             {
               "checkCode": "NET_INCOME_FOUND",
-              "verdict": "WARN",
-              "message": "Canonical key \"net_income\" not found in extracted line items.",
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Financial extraction was not run.",
               "value": null,
               "threshold": null
             },
             {
               "checkCode": "TOTAL_ASSETS_FOUND",
-              "verdict": "WARN",
-              "message": "Canonical key \"total_assets\" not found in extracted line items.",
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Financial extraction was not run.",
               "value": null,
               "threshold": null
             },
             {
               "checkCode": "CANONICAL_KEY_COVERAGE",
               "verdict": "INSUFFICIENT_DATA",
-              "message": "No financial line items to evaluate.",
+              "message": "Financial extraction was not run.",
               "value": null,
               "threshold": null
             },
             {
               "checkCode": "NARRATIVE_EXTRACTION_PRESENT",
-              "verdict": "WARN",
-              "message": "No narrative sections found.",
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Narrative extraction was not run.",
               "value": null,
               "threshold": null
             },
             {
               "checkCode": "BOARD_REPORT_FOUND",
-              "verdict": "WARN",
-              "message": "Board report not found in narrative sections.",
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Narrative extraction was not run.",
               "value": null,
               "threshold": null
             },
             {
               "checkCode": "AUDITOR_REPORT_FOUND",
-              "verdict": "WARN",
-              "message": "Auditor report or opinion not found in narrative sections.",
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Narrative extraction was not run.",
               "value": null,
               "threshold": null
             },
             {
               "checkCode": "COMPARISON_MATCH_RATE",
-              "verdict": "FAIL",
-              "message": "Match rate 0% (0/20) is below FAIL threshold of 50%.",
-              "value": 0,
-              "threshold": 0.5
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Comparison report was not run.",
+              "value": null,
+              "threshold": null
             },
             {
               "checkCode": "COMPARISON_NO_MAJOR_MISMATCHES",
-              "verdict": "PASS",
-              "message": "No major mismatches found.",
-              "value": 0,
-              "threshold": 0.5
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "Comparison report was not run.",
+              "value": null,
+              "threshold": null
             },
             {
               "checkCode": "SAFETY_FLAGS_CLEAN",
-              "verdict": "PASS",
-              "message": "All safety flags are clean.",
+              "verdict": "INSUFFICIENT_DATA",
+              "message": "No inputs available to check safety flags.",
               "value": null,
               "threshold": null
             }
           ]
         },
         "gateSummary": {
-          "overallVerdict": "FAIL",
-          "passCount": 2,
-          "warnCount": 6,
-          "failCount": 4,
-          "insufficientDataCount": 2,
-          "blockingCheckCodes": [
-            "FINANCIAL_EXTRACTION_PRESENT",
-            "INCOME_STATEMENT_COVERAGE",
-            "BALANCE_SHEET_COVERAGE",
-            "COMPARISON_MATCH_RATE"
-          ],
-          "warningCheckCodes": [
-            "REVENUE_FOUND",
-            "NET_INCOME_FOUND",
-            "TOTAL_ASSETS_FOUND",
-            "NARRATIVE_EXTRACTION_PRESENT",
-            "BOARD_REPORT_FOUND",
-            "AUDITOR_REPORT_FOUND"
-          ]
+          "overallVerdict": "INSUFFICIENT_DATA",
+          "passCount": 0,
+          "warnCount": 0,
+          "failCount": 0,
+          "insufficientDataCount": 14,
+          "blockingCheckCodes": [],
+          "warningCheckCodes": []
         },
         "safety": {
           "canUseForProductionRouting": false,
@@ -829,7 +526,7 @@
         "caseId": "cmobtujr90003vmvorzjg483p:3",
         "filingId": "cmobtujr90003vmvorzjg483p",
         "orgNumber": "918298037",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "fiscalYear": 2023,
         "label": "PROFF AS",
         "tagHints": [
@@ -837,13 +534,13 @@
           "ocr_token_noise",
           "scan_or_ocr"
         ],
-        "status": "skipped",
-        "errors": [],
-        "warnings": [
-          "Resolved PDF artifact by exact filing id.",
-          "No persisted legacy extraction facts or published legacy snapshot were available for this filing."
+        "status": "error",
+        "errors": [
+          "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+          "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
         ],
-        "durationMs": 19,
+        "warnings": [],
+        "durationMs": 8,
         "legacyCandidateSet": {
           "classification": "unavailable_candidate",
           "candidateCount": 0,
@@ -851,32 +548,21 @@
             "orgNumber": "918298037",
             "filingId": "cmobtujr90003vmvorzjg483p",
             "fiscalYear": 2023,
-            "filingReportId": "BRREG::918298037::2023::annual-report::d5a56c067e3b914285fe4b1b1adff5827009b6ba1ca03b5d0db85f8b35c73505",
-            "sourceDocumentReference": "cmobtujr90003vmvorzjg483p/pdf/918298037-2023-d5a56c067e3b.pdf",
-            "sourceArtifactReference": "cmobtujr90003vmvorzjg483p/extraction_json/extraction.json",
-            "extractionRoute": "LEGACY/legacy/TESSERACT",
+            "filingReportId": null,
+            "sourceDocumentReference": null,
+            "sourceArtifactReference": null,
+            "extractionRoute": null,
             "evidenceType": "fallback",
-            "extractionTimestamp": "2026-04-23T18:46:51.000Z",
-            "artifactTimestamp": "2026-04-23T18:46:50.982Z",
-            "sourceRunId": "cmobu2blc000qvmygvv305jl7",
+            "extractionTimestamp": null,
+            "artifactTimestamp": null,
+            "sourceRunId": null,
             "source": "published_snapshot",
-            "lookupDiagnostics": [
-              {
-                "code": "LOOKUP_EXACT_FILING_ID",
-                "strategy": "EXACT_FILING_ID",
-                "message": "Resolved PDF artifact by exact filing id."
-              },
-              {
-                "code": "LOOKUP_EXACT_FILING_ID",
-                "strategy": "EXACT_FILING_ID",
-                "message": "Resolved EXTRACTION_JSON artifact by exact filing id."
-              }
-            ]
+            "lookupDiagnostics": []
           },
           "diagnostics": [
             {
               "code": "LEGACY_FACTS_MISSING",
-              "message": "No persisted legacy extraction facts or published legacy snapshot were available for this filing."
+              "message": "Legacy candidate loading did not run because the filing could not be loaded."
             }
           ],
           "preview": []
@@ -884,7 +570,7 @@
         "shadow": null,
         "gate": {
           "version": "unified-extraction-confidence-gate-v1",
-          "generatedAt": "2026-05-11T21:21:16.443Z",
+          "generatedAt": "2026-05-11T21:20:33.086Z",
           "meta": {
             "filingId": "cmobtujr90003vmvorzjg483p",
             "orgNumber": "918298037",
@@ -1033,7 +719,7 @@
         "caseId": "cmobtujrj0005vmvopubneto4:4",
         "filingId": "cmobtujrj0005vmvopubneto4",
         "orgNumber": "918298037",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "fiscalYear": 2022,
         "label": "PROFF AS",
         "tagHints": [
@@ -1041,13 +727,13 @@
           "ocr_token_noise",
           "scan_or_ocr"
         ],
-        "status": "skipped",
-        "errors": [],
-        "warnings": [
-          "Resolved PDF artifact by exact filing id.",
-          "No persisted legacy extraction facts or published legacy snapshot were available for this filing."
+        "status": "error",
+        "errors": [
+          "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+          "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
         ],
-        "durationMs": 18,
+        "warnings": [],
+        "durationMs": 8,
         "legacyCandidateSet": {
           "classification": "unavailable_candidate",
           "candidateCount": 0,
@@ -1055,32 +741,21 @@
             "orgNumber": "918298037",
             "filingId": "cmobtujrj0005vmvopubneto4",
             "fiscalYear": 2022,
-            "filingReportId": "BRREG::918298037::2022::annual-report::7285b016687f5aff0053b0c5cbc0d891a94e6cc662d9cd145eb0216611146490",
-            "sourceDocumentReference": "cmobtujrj0005vmvopubneto4/pdf/918298037-2022-7285b016687f.pdf",
-            "sourceArtifactReference": "cmobtujrj0005vmvopubneto4/extraction_json/extraction.json",
-            "extractionRoute": "LEGACY/legacy/TESSERACT",
+            "filingReportId": null,
+            "sourceDocumentReference": null,
+            "sourceArtifactReference": null,
+            "extractionRoute": null,
             "evidenceType": "fallback",
-            "extractionTimestamp": "2026-04-23T18:49:45.673Z",
-            "artifactTimestamp": "2026-04-23T18:49:45.656Z",
-            "sourceRunId": "cmobu62dq0019vmyg1nh57k3p",
+            "extractionTimestamp": null,
+            "artifactTimestamp": null,
+            "sourceRunId": null,
             "source": "published_snapshot",
-            "lookupDiagnostics": [
-              {
-                "code": "LOOKUP_EXACT_FILING_ID",
-                "strategy": "EXACT_FILING_ID",
-                "message": "Resolved PDF artifact by exact filing id."
-              },
-              {
-                "code": "LOOKUP_EXACT_FILING_ID",
-                "strategy": "EXACT_FILING_ID",
-                "message": "Resolved EXTRACTION_JSON artifact by exact filing id."
-              }
-            ]
+            "lookupDiagnostics": []
           },
           "diagnostics": [
             {
               "code": "LEGACY_FACTS_MISSING",
-              "message": "No persisted legacy extraction facts or published legacy snapshot were available for this filing."
+              "message": "Legacy candidate loading did not run because the filing could not be loaded."
             }
           ],
           "preview": []
@@ -1088,7 +763,7 @@
         "shadow": null,
         "gate": {
           "version": "unified-extraction-confidence-gate-v1",
-          "generatedAt": "2026-05-11T21:21:16.462Z",
+          "generatedAt": "2026-05-11T21:20:33.093Z",
           "meta": {
             "filingId": "cmobtujrj0005vmvopubneto4",
             "orgNumber": "918298037",
@@ -1237,7 +912,7 @@
         "caseId": "cmobtujrs0007vmvos2b14yat:5",
         "filingId": "cmobtujrs0007vmvos2b14yat",
         "orgNumber": "918298037",
-        "companyName": "PROFF AS",
+        "companyName": null,
         "fiscalYear": 2021,
         "label": "PROFF AS",
         "tagHints": [
@@ -1245,13 +920,13 @@
           "ocr_token_noise",
           "scan_or_ocr"
         ],
-        "status": "skipped",
-        "errors": [],
-        "warnings": [
-          "Resolved PDF artifact by exact filing id.",
-          "No persisted legacy extraction facts or published legacy snapshot were available for this filing."
+        "status": "error",
+        "errors": [
+          "\nInvalid `prisma.annualReportFiling.findUnique()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\annual-report-ingestion-repository.ts:1149:36\n\n  1146 }\n  1147 \n  1148 export async function getAnnualReportFilingWithArtifacts(filingId: string) {\n→ 1149   return prisma.annualReportFiling.findUnique(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1",
+          "Confidence gate artifact persistence failed: \nInvalid `prisma.pdfModelArtifactSnapshot.create()` invocation in\nC:\\Users\\simen\\Project_Financials_pr80\\server\\persistence\\pdf-model-artifact-snapshot-repository.ts:25:42\n\n  22   sourceCommitSha?: string | null;\n  23   createdByUserId?: string | null;\n  24 }): Promise<PdfModelArtifactSnapshot> {\n→ 25   return prisma.pdfModelArtifactSnapshot.create(\nerror: Environment variable not found: DATABASE_URL.\n  -->  schema.prisma:7\n   | \n 6 |   provider = \"postgresql\"\n 7 |   url      = env(\"DATABASE_URL\")\n   | \n\nValidation Error Count: 1"
         ],
-        "durationMs": 17,
+        "warnings": [],
+        "durationMs": 7,
         "legacyCandidateSet": {
           "classification": "unavailable_candidate",
           "candidateCount": 0,
@@ -1259,32 +934,21 @@
             "orgNumber": "918298037",
             "filingId": "cmobtujrs0007vmvos2b14yat",
             "fiscalYear": 2021,
-            "filingReportId": "BRREG::918298037::2021::annual-report::89f98fee94819335b493e57cf93f000316716a3b64657fac02f47c82cd1e3179",
-            "sourceDocumentReference": "cmobtujrs0007vmvos2b14yat/pdf/918298037-2021-89f98fee9481.pdf",
-            "sourceArtifactReference": "cmobtujrs0007vmvos2b14yat/extraction_json/extraction.json",
-            "extractionRoute": "LEGACY/legacy/TESSERACT",
+            "filingReportId": null,
+            "sourceDocumentReference": null,
+            "sourceArtifactReference": null,
+            "extractionRoute": null,
             "evidenceType": "fallback",
-            "extractionTimestamp": "2026-04-23T18:52:36.687Z",
-            "artifactTimestamp": "2026-04-23T18:52:36.666Z",
-            "sourceRunId": "cmobu9qbl001svmygkay57lqg",
+            "extractionTimestamp": null,
+            "artifactTimestamp": null,
+            "sourceRunId": null,
             "source": "published_snapshot",
-            "lookupDiagnostics": [
-              {
-                "code": "LOOKUP_EXACT_FILING_ID",
-                "strategy": "EXACT_FILING_ID",
-                "message": "Resolved PDF artifact by exact filing id."
-              },
-              {
-                "code": "LOOKUP_EXACT_FILING_ID",
-                "strategy": "EXACT_FILING_ID",
-                "message": "Resolved EXTRACTION_JSON artifact by exact filing id."
-              }
-            ]
+            "lookupDiagnostics": []
           },
           "diagnostics": [
             {
               "code": "LEGACY_FACTS_MISSING",
-              "message": "No persisted legacy extraction facts or published legacy snapshot were available for this filing."
+              "message": "Legacy candidate loading did not run because the filing could not be loaded."
             }
           ],
           "preview": []
@@ -1292,7 +956,7 @@
         "shadow": null,
         "gate": {
           "version": "unified-extraction-confidence-gate-v1",
-          "generatedAt": "2026-05-11T21:21:16.479Z",
+          "generatedAt": "2026-05-11T21:20:33.101Z",
           "meta": {
             "filingId": "cmobtujrs0007vmvos2b14yat",
             "orgNumber": "918298037",
@@ -1440,72 +1104,30 @@
     ],
     "summary": {
       "totalCases": 5,
-      "completedCases": 1,
-      "skippedCases": 4,
-      "errorCases": 0,
+      "completedCases": 0,
+      "skippedCases": 0,
+      "errorCases": 5,
       "verdictCounts": {
         "PASS": 0,
         "WARN": 0,
-        "FAIL": 1,
-        "INSUFFICIENT_DATA": 4
+        "FAIL": 0,
+        "INSUFFICIENT_DATA": 5
       },
-      "mostCommonFailingChecks": [
-        {
-          "checkCode": "BALANCE_SHEET_COVERAGE",
-          "count": 1
-        },
-        {
-          "checkCode": "COMPARISON_MATCH_RATE",
-          "count": 1
-        },
-        {
-          "checkCode": "FINANCIAL_EXTRACTION_PRESENT",
-          "count": 1
-        },
-        {
-          "checkCode": "INCOME_STATEMENT_COVERAGE",
-          "count": 1
-        }
-      ],
-      "mostCommonWarningChecks": [
-        {
-          "checkCode": "AUDITOR_REPORT_FOUND",
-          "count": 1
-        },
-        {
-          "checkCode": "BOARD_REPORT_FOUND",
-          "count": 1
-        },
-        {
-          "checkCode": "NARRATIVE_EXTRACTION_PRESENT",
-          "count": 1
-        },
-        {
-          "checkCode": "NET_INCOME_FOUND",
-          "count": 1
-        },
-        {
-          "checkCode": "REVENUE_FOUND",
-          "count": 1
-        },
-        {
-          "checkCode": "TOTAL_ASSETS_FOUND",
-          "count": 1
-        }
-      ],
-      "averageFinancialLineItemCount": 0,
-      "averageNarrativeSectionCount": 0,
-      "averageComparisonMatchRate": 0,
-      "totalDurationMs": 732,
+      "mostCommonFailingChecks": [],
+      "mostCommonWarningChecks": [],
+      "averageFinancialLineItemCount": null,
+      "averageNarrativeSectionCount": null,
+      "averageComparisonMatchRate": null,
+      "totalDurationMs": 91,
       "safetyInvariantViolations": []
     }
   },
   "summary": {
     "passCount": 0,
     "warnCount": 0,
-    "failCount": 1,
-    "skipCount": 4,
-    "parityCount": 1,
+    "failCount": 0,
+    "skipCount": 0,
+    "parityCount": 0,
     "divergenceCount": 0,
     "manualReviewCandidates": [
       "cmobtujsi000dvmvoroqrrdwe",
@@ -1519,26 +1141,25 @@
         "unavailable_candidate": 1
       },
       "continuation_complex": {
-        "real_legacy_candidate": 1
+        "unavailable_candidate": 1
       },
       "degraded_ambiguous": {
-        "real_legacy_candidate": 1
+        "unavailable_candidate": 1
       },
       "digital_note_heavy": {
-        "real_legacy_candidate": 1
+        "unavailable_candidate": 1
       },
       "manual_review_expected": {
-        "real_legacy_candidate": 1,
-        "unavailable_candidate": 3
+        "unavailable_candidate": 4
       },
       "multi_page_balance": {
-        "real_legacy_candidate": 1
+        "unavailable_candidate": 1
       },
       "supplementary_present": {
-        "real_legacy_candidate": 1
+        "unavailable_candidate": 1
       },
       "unit_scale_sensitive": {
-        "real_legacy_candidate": 1
+        "unavailable_candidate": 1
       },
       "ocr_token_noise": {
         "unavailable_candidate": 3

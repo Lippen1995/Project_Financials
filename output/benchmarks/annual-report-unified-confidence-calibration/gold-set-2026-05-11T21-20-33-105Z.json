@@ -1,14 +1,14 @@
 {
   "version": "annual-report-unified-confidence-calibration-v2",
-  "generatedAt": "2026-05-11T21:21:18.446Z",
+  "generatedAt": "2026-05-11T21:20:35.287Z",
   "input": {
-    "runId": "gold-set-2026-05-11T21-21-16-484Z",
+    "runId": "gold-set-2026-05-11T21-20-33-105Z",
     "includeUnreviewed": false,
     "generatedBy": "scripts/calibrate-unified-extraction-confidence.ts"
   },
   "sourceRun": {
-    "runId": "gold-set-2026-05-11T21-21-16-484Z",
-    "generatedAt": "2026-05-11T21:21:16.484Z",
+    "runId": "gold-set-2026-05-11T21-20-33-105Z",
+    "generatedAt": "2026-05-11T21:20:33.105Z",
     "gitCommitSha": "b41327f83bf32750d68df339c4cd8f89a7c15948",
     "manifestName": "annual-report-go-live-gold-set"
   },
@@ -255,8 +255,8 @@
     ]
   },
   "output": {
-    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-confidence-calibration\\gold-set-2026-05-11T21-21-16-484Z.json",
-    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-confidence-calibration\\gold-set-2026-05-11T21-21-16-484Z.md"
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-confidence-calibration\\gold-set-2026-05-11T21-20-33-105Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-confidence-calibration\\gold-set-2026-05-11T21-20-33-105Z.md"
   },
   "safety": {
     "canUseForProductionRouting": false,

@@ -42,6 +42,7 @@
     "financials:generate-manual-review-round": "tsx scripts/generate-annual-report-manual-review-round.ts",
     "financials:generate-failure-taxonomy": "tsx scripts/generate-annual-report-unified-failure-taxonomy.ts",
     "financials:generate-extraction-fix-summary": "tsx scripts/generate-annual-report-extraction-fix-summary.ts",
+    "financials:generate-go-no-go-readiness": "tsx scripts/generate-annual-report-go-no-go-readiness.ts",
     "evaluate:pdf-decision": "tsx scripts/evaluate-pdf-decision-engine.ts",
     "evaluate:pdf-decision-shadow": "tsx scripts/evaluate-pdf-decision-shadow.ts",
     "check:pdf-decision-regression": "tsx scripts/check-pdf-decision-regression.ts",

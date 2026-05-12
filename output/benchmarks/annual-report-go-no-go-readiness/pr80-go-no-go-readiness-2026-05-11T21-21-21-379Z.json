@@ -1,0 +1,210 @@
+{
+  "version": "annual-report-go-no-go-readiness-v1",
+  "generatedAt": "2026-05-11T21:21:21.379Z",
+  "decision": "NO_GO",
+  "executiveSummary": "Unified-ekstraksjonen er ikke klar for neste go-live-steg. 6 blokkerere er fortsatt åpne.",
+  "evidenceUsed": {
+    "goldSetShadowRunPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-gold-set-shadow-runs\\latest.json",
+    "manualReviewRoundPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-manual-review-rounds\\latest.json",
+    "calibrationReportPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-confidence-calibration\\latest.json",
+    "failureTaxonomyReportPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-unified-failure-taxonomy\\latest.json",
+    "extractionFixReportPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-extraction-fixes\\latest.json"
+  },
+  "criteria": [
+    {
+      "key": "gold-set-coverage",
+      "title": "Gold-set er representativt nok",
+      "status": "FAIL",
+      "blocker": true,
+      "summary": "Gold-set har fortsatt coverage-hull eller unavailable entries som svekker readiness-evidensen.",
+      "evidence": [
+        "Missing tags: ingen",
+        "Unavailable entries: 6",
+        "Gold-set still contains unavailable entries."
+      ]
+    },
+    {
+      "key": "manual-review-completed",
+      "title": "Manuell review-runde er gjennomført",
+      "status": "FAIL",
+      "blocker": true,
+      "summary": "Manual review round finnes, men ingen kandidater er faktisk reviewet ennå.",
+      "evidence": [
+        "Review candidates: 5",
+        "Pending: 5"
+      ]
+    },
+    {
+      "key": "artifact-coverage",
+      "title": "Artifact-dekning har ingen kritiske hull",
+      "status": "FAIL",
+      "blocker": true,
+      "summary": "Det finnes fortsatt kritiske mangler i structured document eller andre nøkkel-artifacts.",
+      "evidence": [
+        "Missing structured_document_json: 5",
+        "Missing legacy_extraction: 1",
+        "Missing unified_extraction: 4",
+        "Unavailable gold-set entries: 6"
+      ]
+    },
+    {
+      "key": "false-auto-pass",
+      "title": "Ingen høyalvorlige false auto-pass er kjent",
+      "status": "WARNING",
+      "blocker": false,
+      "summary": "Kalibreringen har ingen reviewed cases og kan derfor ikke bevise at auto-pass er trygge.",
+      "evidence": [
+        "Calibration status: INSUFFICIENT_EVIDENCE",
+        "Reviewed cases: 0"
+      ]
+    },
+    {
+      "key": "unit-scale-safety",
+      "title": "Enhetsskala blir blokkert eller sendt til review",
+      "status": "WARNING",
+      "blocker": false,
+      "summary": "Gate-policyen blokkerer usikker skala, men taxonomy viser fortsatt saker som må følges opp.",
+      "evidence": [
+        "Policy: FAIL",
+        "Open unit-scale issues: 2"
+      ]
+    },
+    {
+      "key": "primary-statements",
+      "title": "Primæroppstillinger blir funnet eller trygt reviewet",
+      "status": "FAIL",
+      "blocker": true,
+      "summary": "Det finnes fortsatt åpne funn for manglende resultatregnskap eller balanse, og review-runden er ikke lukket.",
+      "evidence": [
+        "Open primary statement issues: 2",
+        "Pending review candidates: 5"
+      ]
+    },
+    {
+      "key": "remediation-plan",
+      "title": "Toppfeilene har en tydelig utbedringsplan",
+      "status": "FAIL",
+      "blocker": true,
+      "summary": "Noen høyrisiko-feil står fortsatt uten lukket utbedringsløp eller akseptabel residual risiko.",
+      "evidence": [
+        "Unresolved high-severity classes: STRUCTURED_DOCUMENT_MISSING, PARSER_RUNTIME_UNAVAILABLE, CANONICAL_KEY_MISSING, PRIMARY_BALANCE_SHEET_MISSING, PRIMARY_INCOME_STATEMENT_MISSING, UNIT_SCALE_UNKNOWN"
+      ]
+    },
+    {
+      "key": "shadow-runtime",
+      "title": "Shadow batch kjører uten runtime-blokkere",
+      "status": "FAIL",
+      "blocker": true,
+      "summary": "Siste shadow batch viser skips/failures eller runtime er ikke helt klar for representativ kjøring.",
+      "evidence": [
+        "Shadow skip count: 4",
+        "Shadow fail count: 1",
+        "Hybrid runtime ready: ja",
+        "Environment is ready for live hybrid OpenDataLoader benchmark cases."
+      ]
+    },
+    {
+      "key": "publish-safety",
+      "title": "Legacy er fortsatt publish-safe kilde",
+      "status": "PASS",
+      "blocker": false,
+      "summary": "Alle rapporter og konfigurasjoner viser at legacy fortsatt er eneste publish-safe source of truth.",
+      "evidence": [
+        "Legacy remains publish-safe source of truth.",
+        "Unified remains shadow/evaluation-only."
+      ]
+    },
+    {
+      "key": "shadow-only-mode",
+      "title": "Unified er fortsatt shadow-only",
+      "status": "PASS",
+      "blocker": false,
+      "summary": "Unified-kjøring er fortsatt begrenset til shadow/evaluation-modus.",
+      "evidence": [
+        "Shadow mode: PERSIST_ARTIFACTS"
+      ]
+    }
+  ],
+  "blockers": [
+    "Gold-set er representativt nok: Gold-set har fortsatt coverage-hull eller unavailable entries som svekker readiness-evidensen.",
+    "Manuell review-runde er gjennomført: Manual review round finnes, men ingen kandidater er faktisk reviewet ennå.",
+    "Artifact-dekning har ingen kritiske hull: Det finnes fortsatt kritiske mangler i structured document eller andre nøkkel-artifacts.",
+    "Primæroppstillinger blir funnet eller trygt reviewet: Det finnes fortsatt åpne funn for manglende resultatregnskap eller balanse, og review-runden er ikke lukket.",
+    "Toppfeilene har en tydelig utbedringsplan: Noen høyrisiko-feil står fortsatt uten lukket utbedringsløp eller akseptabel residual risiko.",
+    "Shadow batch kjører uten runtime-blokkere: Siste shadow batch viser skips/failures eller runtime er ikke helt klar for representativ kjøring."
+  ],
+  "warnings": [
+    "Ingen høyalvorlige false auto-pass er kjent: Kalibreringen har ingen reviewed cases og kan derfor ikke bevise at auto-pass er trygge.",
+    "Enhetsskala blir blokkert eller sendt til review: Gate-policyen blokkerer usikker skala, men taxonomy viser fortsatt saker som må følges opp."
+  ],
+  "metricTable": [
+    {
+      "label": "Gold-set filings",
+      "value": "5",
+      "status": "PASS"
+    },
+    {
+      "label": "Unavailable gold-set entries",
+      "value": "6",
+      "status": "FAIL"
+    },
+    {
+      "label": "Manual review completion",
+      "value": "0/5",
+      "status": "FAIL"
+    },
+    {
+      "label": "High severity false auto-pass",
+      "value": "0",
+      "status": "WARNING"
+    },
+    {
+      "label": "Shadow skip count",
+      "value": "4",
+      "status": "FAIL"
+    },
+    {
+      "label": "Top failure class",
+      "value": "ARTIFACT_MISSING",
+      "status": "WARNING",
+      "note": "High severity issues: 17"
+    },
+    {
+      "label": "Readiness blockers",
+      "value": "6",
+      "status": "FAIL"
+    },
+    {
+      "label": "Publish safety mode",
+      "value": "Legacy-only publish",
+      "status": "PASS"
+    }
+  ],
+  "residualRisks": [
+    "Gold-set still contains unavailable entries.",
+    "Kjor ny persisted annual-report benchmark nar det finnes flere post-fix caser med levende evidens.",
+    "Hold unified shadow-only til readiness-rapporten kan vise oppdatert post-fix evidens.",
+    "Behandle manglende legacy-resultater og unavailable gold-set entries som egne readiness-blokkere i PR80."
+  ],
+  "recommendedNextActions": {
+    "pr81ReadinessWorkflow": [
+      "Ikke start PR81 som håndhevbar guard før manual review-runden er ferdig og readiness-blokkere er lukket.",
+      "Bruk blokkeringene i denne rapporten som eksplisitte inngangskrav til PR81."
+    ],
+    "pr82ShadowCanary": [
+      "Ikke gå videre til PR82 canary-forberedelser før shadow skips, artifact coverage og manual review er avklart.",
+      "Kjør ny persisted shadow batch etter at blokkerne er lukket."
+    ]
+  },
+  "output": {
+    "jsonPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-21-21-379Z.json",
+    "markdownPath": "C:\\Users\\simen\\Project_Financials_pr80\\output\\benchmarks\\annual-report-go-no-go-readiness\\pr80-go-no-go-readiness-2026-05-11T21-21-21-379Z.md"
+  },
+  "safety": {
+    "publishSourceOfTruth": "LEGACY",
+    "unifiedMode": "SHADOW_ONLY",
+    "canUseForProductionRouting": false,
+    "productionRoutingChanged": false,
+    "publishAffected": false
+  }
+}
