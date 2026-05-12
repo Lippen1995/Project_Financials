@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 type Fact = {
@@ -142,13 +142,10 @@ function groupReviewedFacts(facts: ReviewedFact[]) {
   return { income, balance, other };
 }
 
-function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"]): string | null {
-  if (!artifacts || artifacts.length === 0) {
-    return filing.sourceUrl ?? null;
-  }
-  const pdf = artifacts.find((a) => a.artifactType === "PDF");
-  if (pdf) {
-    return filing.sourceUrl ?? null;
+function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"], reviewId: string): string | null {
+  const hasPdfArtifact = artifacts?.some((a) => a.artifactType === "PDF");
+  if (hasPdfArtifact) {
+    return `/api/admin/annual-report-reviews/${reviewId}/pdf`;
   }
   return filing.sourceUrl ?? null;
 }
@@ -170,7 +167,29 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     ...(review.extractionRun?.validationIssues ?? []),
     ...review.filing.validationIssues,
   ];
-  const pdfUrl = getPdfArtifactUrl(review.filing.artifacts, review.filing);
+  const pdfUrl = getPdfArtifactUrl(review.filing.artifacts, review.filing, review.id);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pdfUrl) return;
+    let objectUrl: string;
+    fetch(pdfUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setPdfBlobUrl(objectUrl);
+      })
+      .catch((err: unknown) => {
+        setPdfError(err instanceof Error ? err.message : "Ukjent feil");
+      });
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [pdfUrl]);
 
   const reviewedFacts = review.reviewedFacts ?? [];
   const { income: rfIncome, balance: rfBalance } = groupReviewedFacts(reviewedFacts);
@@ -357,21 +376,27 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
             PDF-dokument
           </h2>
-          {pdfUrl ? (
+          {pdfError ? (
+            <p className="text-sm text-red-500">Kunne ikke laste PDF: {pdfError}</p>
+          ) : pdfBlobUrl ? (
             <div className="flex flex-col gap-2">
-              <iframe
-                src={pdfUrl}
-                className="h-[600px] w-full rounded border border-[rgba(15,23,42,0.08)]"
-                title="Årsrapport PDF"
+              <embed
+                src={pdfBlobUrl}
+                type="application/pdf"
+                className="h-[800px] w-full rounded border border-[rgba(15,23,42,0.08)]"
               />
               <a
-                href={pdfUrl}
+                href={pdfBlobUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-[var(--px-accent)] underline"
               >
                 Åpne PDF i nytt vindu
               </a>
+            </div>
+          ) : pdfUrl ? (
+            <div className="flex h-[800px] items-center justify-center rounded border border-[rgba(15,23,42,0.08)]">
+              <p className="text-sm text-slate-400">Laster PDF...</p>
             </div>
           ) : (
             <p className="text-sm text-slate-400">Ingen PDF-visning tilgjengelig.</p>
