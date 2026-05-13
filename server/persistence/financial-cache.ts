@@ -17,7 +17,7 @@ type CachedFinancials = {
   availability: DataAvailability;
 };
 
-const cacheDirectory = path.join(process.cwd(), ".projectx-cache", "financials");
+const cacheDirectory = path.join(process.cwd(), ".Fjord Insight-cache", "financials");
 const cacheVersion = 16;
 
 function getCachePath(orgNumber: string) {

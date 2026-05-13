@@ -2,7 +2,7 @@
 
 ## Produkt og identitet
 
-ProjectX er en norsk B2B-plattform for selskapsanalyse. Produktet skal føles som et presist analyseverktøy for investorer, rådgivere, selgere, regnskapsførere og ledere — ikke en bedriftskatalog, annonseportal eller generisk SaaS-mal.
+Fjord Insight er en norsk B2B-plattform for selskapsanalyse. Produktet skal føles som et presist analyseverktøy for investorer, rådgivere, selgere, regnskapsførere og ledere — ikke en bedriftskatalog, annonseportal eller generisk SaaS-mal.
 
 ### Designkarakter
 - Nordic enterprise editorial
@@ -400,4 +400,4 @@ rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emera
 
 ## Hurtigprompt for agenter
 
-> Bygg i ProjectX-stil: horisontal toppbar med Material Symbols-ikoner + tekst i nav, lys nordisk enterprise editorial, data-first, premium analytisk. Source Serif 4 for primær H1 og store redaksjonelle seksjonsoverskrifter. IBM Plex Sans for funksjonelle overskrifter og UI. IBM Plex Mono (.data-label) for metadata, labels, tabelloverskrifter og kategoripills. Fargepalett: kjølig bakgrunn (#f8f9ff), teal aksent (#00668a). Knapper er `rounded-full`. Kort er `rounded-2xl`. Indre bokser er `rounded-xl`. Ingen andre radius-verdier. Selskapsprofil bruker 9/3-kolonner gjennom alle faner. Innlogget startside bruker sentrert søkehero med linje-søkefelt. Offentlig forside er todelt (lys venstre + mørk høyrepanel). Unngå generisk SaaS-dashboard.
+> Bygg i Fjord Insight-stil: horisontal toppbar med Material Symbols-ikoner + tekst i nav, lys nordisk enterprise editorial, data-first, premium analytisk. Source Serif 4 for primær H1 og store redaksjonelle seksjonsoverskrifter. IBM Plex Sans for funksjonelle overskrifter og UI. IBM Plex Mono (.data-label) for metadata, labels, tabelloverskrifter og kategoripills. Fargepalett: kjølig bakgrunn (#f8f9ff), teal aksent (#00668a). Knapper er `rounded-full`. Kort er `rounded-2xl`. Indre bokser er `rounded-xl`. Ingen andre radius-verdier. Selskapsprofil bruker 9/3-kolonner gjennom alle faner. Innlogget startside bruker sentrert søkehero med linje-søkefelt. Offentlig forside er todelt (lys venstre + mørk høyrepanel). Unngå generisk SaaS-dashboard.

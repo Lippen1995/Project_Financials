@@ -125,13 +125,13 @@ function buildAvailability(statements: NormalizedFinancialStatement[]): DataAvai
         available: false,
         sourceSystem: "BRREG",
         message:
-          "ProjectX har registrert årsrapporter, men publiserer bare regnskap automatisk når klassifisering, skala og validering passerer.",
+          "Fjord Insight har registrert årsrapporter, men publiserer bare regnskap automatisk når klassifisering, skala og validering passerer.",
       }
     : {
         available: true,
         sourceSystem: "BRREG",
         message:
-          "ProjectX viser publiserte regnskapssnapshots bygget fra offisielle Brreg-kopier av årsregnskap med lagret provenance og streng publiseringsgate.",
+          "Fjord Insight viser publiserte regnskapssnapshots bygget fra offisielle Brreg-kopier av årsregnskap med lagret provenance og streng publiseringsgate.",
       };
 }
 
@@ -1767,7 +1767,7 @@ export async function getLatestPublishedStatementProvenance(
 
 export async function getPublishedAnnualReportFinancials(orgNumber: string): Promise<{ statements: NormalizedFinancialStatement[]; documents: NormalizedFinancialDocument[]; availability: DataAvailability }> {
   const record = await getPublishedFinancialsForCompany(orgNumber);
-  if (!record) return { statements: [], documents: [], availability: { available: false, sourceSystem: "BRREG", message: "Virksomheten finnes ikke i lokal ProjectX-lagring ennå." } };
+  if (!record) return { statements: [], documents: [], availability: { available: false, sourceSystem: "BRREG", message: "Virksomheten finnes ikke i lokal Fjord Insight-lagring ennå." } };
   const statements = mapPublishedStatements(record.financialStatements);
   const documents = mapPublishedDocuments(record.annualReportFilings);
   return { statements, documents, availability: buildPublicAvailability(statements) };

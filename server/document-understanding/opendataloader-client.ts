@@ -204,7 +204,7 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
     throw new Error("OpenDataLoader is disabled.");
   }
 
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "projectx-odl-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "Fjord Insight-odl-"));
   const inputPath = path.join(tempRoot, input.sourceFilename);
   const outputDir = path.join(tempRoot, "output");
   await fs.mkdir(outputDir, { recursive: true });

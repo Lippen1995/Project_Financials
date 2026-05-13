@@ -132,7 +132,7 @@ export async function syncPetroleumCompanyExposureSnapshots() {
             ? "NULL_IF_LICENCE_SHARES_UNAVAILABLE"
             : "FIELD_LICENSEE_SHARE_WHEN_AVAILABLE",
       },
-      sourceSystem: "PROJECTX",
+      sourceSystem: "Fjord Insight",
       sourceEntityType: "PETROLEUM_COMPANY_EXPOSURE",
       sourceId: `company:${entry.companyId}`,
       fetchedAt: now,

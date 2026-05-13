@@ -80,7 +80,7 @@ export function CompanyFinancialDiscussions({
   if (discussions.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-7 text-slate-600">
-        Regnskapskommentarer blir tilgjengelige når regnskapet finnes som lagret, sporbar artefakt i ProjectX.
+        Regnskapskommentarer blir tilgjengelige når regnskapet finnes som lagret, sporbar artefakt i Fjord Insight.
       </div>
     );
   }

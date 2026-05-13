@@ -11,7 +11,7 @@ type CachedIpPortfolio = {
   rights: IPRightSummary[];
 };
 
-const cacheDirectory = path.join(process.cwd(), ".projectx-cache", "ip-rights");
+const cacheDirectory = path.join(process.cwd(), ".Fjord Insight-cache", "ip-rights");
 const cacheVersion = 1;
 
 function getCachePath(orgNumber: string) {

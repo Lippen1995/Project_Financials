@@ -948,7 +948,7 @@ export async function extractOcrPagesWithDiagnostics(
   const suppressedFailures = new Map<string, number>();
 
   const worker = await createWorker("nor+eng", 1, {
-    cachePath: path.join(os.tmpdir(), "projectx-tesseract-cache"),
+    cachePath: path.join(os.tmpdir(), "Fjord Insight-tesseract-cache"),
     logger: () => undefined,
     errorHandler: (error: string) => {
       const message = summarizeRecognitionError(error);
@@ -983,7 +983,7 @@ export async function extractOcrPagesWithDiagnostics(
         continue;
       }
 
-      const imagePath = path.join(os.tmpdir(), `projectx-financials-${page.pageNumber}.png`);
+      const imagePath = path.join(os.tmpdir(), `Fjord Insight-financials-${page.pageNumber}.png`);
       const imageBuffer = Buffer.from(page.data);
       await fs.writeFile(imagePath, imageBuffer);
       const recognitionResults: Array<{

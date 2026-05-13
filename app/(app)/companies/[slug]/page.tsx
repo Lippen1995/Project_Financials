@@ -673,7 +673,7 @@ export default async function CompanyPage({
                   Kommentarer per lagret regnskapsartefakt
                 </h3>
                 <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                  Denne flaten bruker bare lagrede og sporbare regnskapsartefakter i ProjectX.
+                  Denne flaten bruker bare lagrede og sporbare regnskapsartefakter i Fjord Insight.
                 </p>
               </div>
               <div className="mt-6">

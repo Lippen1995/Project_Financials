@@ -805,7 +805,7 @@ export async function createDdFindingEvidence(
 
     payload = {
       label: `Oppgave: ${task.title}`,
-      sourceSystem: "PROJECTX",
+      sourceSystem: "Fjord Insight",
       sourceEntityType: "DdTask",
       sourceId: task.id,
       targetTaskId: task.id,
@@ -826,7 +826,7 @@ export async function createDdFindingEvidence(
 
     payload = {
       label: `Funn: ${relatedFinding.title}`,
-      sourceSystem: "PROJECTX",
+      sourceSystem: "Fjord Insight",
       sourceEntityType: "DdFinding",
       sourceId: relatedFinding.id,
       targetFindingId: relatedFinding.id,

@@ -13,7 +13,7 @@ Begge fanene skal:
 
 - bruke kun reelle, åpne og gratis datakilder
 - gjenbruke dagens kartmotor, filterstate og URL-state
-- eksponere kun normaliserte ProjectX-API-er til frontend
+- eksponere kun normaliserte Fjord Insight-API-er til frontend
 - være ærlige om dekning, kvalitet og begrensninger
 
 Målet er ikke å vise proprietære 3D-volumer eller engineering-grade route design. Målet er å gi en sterk screening- og innsiktsflate for:

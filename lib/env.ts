@@ -28,7 +28,7 @@ const env = {
   eiaBaseUrl: process.env.EIA_BASE_URL ?? "https://api.eia.gov/v2",
   eiaApiKey: process.env.EIA_API_KEY ?? "",
   ssbIndustryClassificationId: process.env.SSB_INDUSTRY_CLASSIFICATION_ID ?? "6",
-  cacheHours: Number(process.env.PROJECTX_CACHE_HOURS ?? "24"),
+  cacheHours: Number(process.env.Fjord Insight_CACHE_HOURS ?? "24"),
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
   stripePriceId: process.env.STRIPE_PRICE_ID ?? "",
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",

@@ -1,19 +1,19 @@
 # Design Inspiration
 
-Denne filen lagrer relevante referanser som kan brukes dersom ProjectX skal justere eller fornye designspråket senere.
+Denne filen lagrer relevante referanser som kan brukes dersom Fjord Insight skal justere eller fornye designspråket senere.
 
 ## Kilder
 - [VoltAgent / awesome-design-md](https://github.com/VoltAgent/awesome-design-md/tree/main)
 - [design-md-mappen](https://github.com/VoltAgent/awesome-design-md/tree/main/design-md)
 
 ## Hva repoet brukes til
-`awesome-design-md` er en samling `DESIGN.md`-filer som beskriver designretningen til kjente produkter og nettsteder i et format AI-agenter kan lese direkte. For ProjectX er dette nyttig som:
+`awesome-design-md` er en samling `DESIGN.md`-filer som beskriver designretningen til kjente produkter og nettsteder i et format AI-agenter kan lese direkte. For Fjord Insight er dette nyttig som:
 
 - inspirasjonsbibliotek
 - referanse for senere redesign
 - sammenligningsgrunnlag når vi vil justere stil uten å miste konsistens
 
-## Nåværende hovedmiks for ProjectX
+## Nåværende hovedmiks for Fjord Insight
 
 ### `linear.app`
 Brukes for:
@@ -42,7 +42,7 @@ Brukes for:
 
 ## Ny visuell inspirasjon: Nordic research terminal
 
-Den vedlagte referanseskissen med venstrestilt navigasjon, toppbar, serif-selskapsheader og høyre research-kolonne er nå en aktiv inspirasjon for ProjectX.
+Den vedlagte referanseskissen med venstrestilt navigasjon, toppbar, serif-selskapsheader og høyre research-kolonne er nå en aktiv inspirasjon for Fjord Insight.
 
 ### Elementer vi ønsker å ta med videre
 - fast venstrestilt navigasjonsrail
@@ -55,7 +55,7 @@ Den vedlagte referanseskissen med venstrestilt navigasjon, toppbar, serif-selska
 - svært nøkterne delere og seksjonsskift
 - grafer med tynn strek og dempet sand- eller gulltone
 
-### Hvorfor denne retningen passer ProjectX
+### Hvorfor denne retningen passer Fjord Insight
 - den gjør produktet mindre dashboard-preget
 - den styrker research- og beslutningsfølelsen
 - den passer godt med nordisk enterprise editorial
@@ -63,7 +63,7 @@ Den vedlagte referanseskissen med venstrestilt navigasjon, toppbar, serif-selska
 
 ### Det vi ikke skal kopiere direkte
 - spesifikke merkenavn
-- konkret informasjonsarkitektur som ikke passer ProjectX
+- konkret informasjonsarkitektur som ikke passer Fjord Insight
 - innhold og datafelter som ikke støttes i vårt produkt
 - layoutvalg som svekker søkbarhet eller lesbarhet på våre faktiske datamodeller
 
@@ -80,7 +80,7 @@ Relevant for:
 - gode tabell- og grid-ideer
 
 Brukes med forsiktighet fordi:
-- ProjectX skal være roligere og mindre operativt grid-preget
+- Fjord Insight skal være roligere og mindre operativt grid-preget
 
 ### `stripe`
 Relevant for:
@@ -89,7 +89,7 @@ Relevant for:
 - premium-følelse
 
 Brukes med forsiktighet fordi:
-- uttrykket lett kan bli for marketing-preget for ProjectX
+- uttrykket lett kan bli for marketing-preget for Fjord Insight
 
 ## Referanser vi bør være forsiktige med
 
@@ -97,7 +97,7 @@ Brukes med forsiktighet fordi:
 Sterk referanse for eleganse, men kan trekke oss for langt mot kampanje- og marketing-estetikk.
 
 ### `framer`
-Bra for visuell dristighet, men for mye motion og brand-energi for ProjectX.
+Bra for visuell dristighet, men for mye motion og brand-energi for Fjord Insight.
 
 ### `lovable`
 Ofte for vennlig og startup-preget for den analytiske retningen vi ønsker.
@@ -106,7 +106,7 @@ Ofte for vennlig og startup-preget for den analytiske retningen vi ønsker.
 For varm og illustrasjonsnær til å være riktig hovedretning.
 
 ### `cohere`
-Mer dashboard- og plattformestetikk enn ønsket for ProjectX.
+Mer dashboard- og plattformestetikk enn ønsket for Fjord Insight.
 
 ## Anbefalt fremtidig miks hvis designet skal videreutvikles
 
@@ -120,7 +120,7 @@ Hvis vi senere ønsker å stramme eller fornye stilen uten å miste identiteten,
 
 ## Operativ regel
 
-Hvis ProjectX skal redesignes senere:
+Hvis Fjord Insight skal redesignes senere:
 1. Start alltid med å sammenligne mot `linear.app`, `wise` og `notion`
 2. Test om den nye løsningen fortsatt holder samme research-preg som den nye venstrerail-referansen
 3. Bevar lys bakgrunn, mørk tekst og én dempet aksent

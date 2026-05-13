@@ -19,7 +19,7 @@ function LandingPage() {
         <div className="flex justify-between items-center max-w-container-max mx-auto px-margin-lg h-20">
           <div className="flex items-center gap-8">
             <span className="font-headline-sm text-headline-sm font-bold tracking-tight text-primary">
-              Arctic Intel
+              Fjord Insight
             </span>
             <div className="hidden md:flex gap-6">
               <a className="text-primary border-b-2 border-primary pb-1 font-body-md text-body-md" href="#">
@@ -281,10 +281,10 @@ function LandingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter max-w-container-max mx-auto px-margin-lg">
           <div>
             <span className="font-headline-sm text-headline-sm text-primary mb-6 block">
-              Arctic Intel
+              Fjord Insight
             </span>
             <p className="font-label-caps text-label-caps text-on-surface-variant mb-4">
-              © 2024 Arctic Intel AS. All rights reserved.
+              © 2024 Fjord Insight AS. All rights reserved.
             </p>
           </div>
           <div>

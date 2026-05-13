@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Prosjekt
-Dette repoet bygger ProjectX, en B2B webapplikasjon for selskapsinformasjon og innsikt i Norge.
+Dette repoet bygger Fjord Insight, en B2B webapplikasjon for selskapsinformasjon og innsikt i Norge.
 
 ## Overordnet mål
 Bygg et fungerende MVP-produkt som lar brukere:
@@ -118,4 +118,4 @@ Hvis en kilde ikke gir nok data til en funksjon:
 - Dokumenter setup tydelig i README
 
 ## Definisjon av ferdig
-Løsningen skal kunne kjøres lokalt, bruke reelle offentlige data, og demonstrere en fungerende kjerne for ProjectX uten syntetisk innhold.
+Løsningen skal kunne kjøres lokalt, bruke reelle offentlige data, og demonstrere en fungerende kjerne for Fjord Insight uten syntetisk innhold.

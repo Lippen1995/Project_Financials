@@ -1,9 +1,9 @@
 # PLANS.md
 
-# ProjectX MVP Exec Plan
+# Fjord Insight MVP Exec Plan
 
 ## Mål
-Bygg et fungerende MVP for ProjectX som bruker reelle offentlige data for norske virksomheter og ikke inneholder mock data eller seed-data.
+Bygg et fungerende MVP for Fjord Insight som bruker reelle offentlige data for norske virksomheter og ikke inneholder mock data eller seed-data.
 
 ## Suksesskriterier
 Produktet skal:
@@ -126,4 +126,4 @@ Lever:
 - dokumentasjon
 
 ## Done
-Oppgaven er ferdig når repoet kan kjøres lokalt og demonstrerer ProjectX med reelle offentlige data og uten syntetisk innhold.
+Oppgaven er ferdig når repoet kan kjøres lokalt og demonstrerer Fjord Insight med reelle offentlige data og uten syntetisk innhold.

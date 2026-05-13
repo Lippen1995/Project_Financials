@@ -1775,7 +1775,7 @@ export function OilGasMarketClient({ premium }: { premium: boolean }) {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `projectx-oil-gas-${exportTable.mode}-${new Date().toISOString().slice(0, 10)}.csv`;
+      anchor.download = `Fjord Insight-oil-gas-${exportTable.mode}-${new Date().toISOString().slice(0, 10)}.csv`;
       anchor.click();
       URL.revokeObjectURL(url);
     } catch {

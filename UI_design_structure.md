@@ -1,14 +1,14 @@
 # UI Design Structure
 
 ## Formål
-Dette dokumentet beskriver den aktive designstrukturen i ProjectX slik produktet ser ut nå. Målet er å sikre kontinuitet når nye flater bygges eller eksisterende flater videreutvikles.
+Dette dokumentet beskriver den aktive designstrukturen i Fjord Insight slik produktet ser ut nå. Målet er å sikre kontinuitet når nye flater bygges eller eksisterende flater videreutvikles.
 
-Dette er ikke en løs inspirasjonsliste. Det er en praktisk standard for hvordan ProjectX skal se ut, oppføre seg og kommunisere videre.
+Dette er ikke en løs inspirasjonsliste. Det er en praktisk standard for hvordan Fjord Insight skal se ut, oppføre seg og kommunisere videre.
 
 `DESIGN.md` er nå hoveddokumentet for designretning. Denne filen fungerer som et mer praktisk arbeidsnotat og sjekkliste for videre UI-arbeid i repoet.
 
 ## Designretning
-ProjectX følger en stil som kombinerer:
+Fjord Insight følger en stil som kombinerer:
 
 - Nordic enterprise editorial
 - data-first product UI
@@ -99,7 +99,7 @@ Praktisk bruk:
 ## Typografi
 
 ### Fontroller
-ProjectX bruker tre tydelige typografiske roller:
+Fjord Insight bruker tre tydelige typografiske roller:
 
 - serif-display for store overskrifter
 - sans for UI, lesetekst og tabeller

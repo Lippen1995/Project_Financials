@@ -56,7 +56,7 @@ export default function LoginPage() {
             href="/"
             className="font-headline-sm text-headline-sm font-bold tracking-tight text-primary"
           >
-            Arctic Intel
+            Fjord Insight
           </Link>
           <div className="md:hidden">
             <a
@@ -112,7 +112,7 @@ export default function LoginPage() {
 
         <footer className="flex justify-between items-center pt-margin-md border-t border-outline-variant/20">
           <span className="font-label-caps text-label-caps text-on-tertiary-container uppercase">
-            © 2024 Arctic Intel AS
+            © 2024 Fjord Insight AS
           </span>
           <div className="flex gap-margin-sm">
             <a
