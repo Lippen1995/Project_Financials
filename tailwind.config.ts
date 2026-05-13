@@ -9,22 +9,107 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Legacy app tokens
         ink: "#0E1B1E",
         mist: "#E7EEF0",
         tide: "#0F4C5C",
         sand: "#F8F4EC",
         ember: "#C06C3E",
-        moss: "#2D6A4F"
+        moss: "#2D6A4F",
+        // MD3 tokens (landing page)
+        primary: "#000000",
+        "on-primary": "#ffffff",
+        "primary-container": "#131b2e",
+        "on-primary-container": "#7c839b",
+        "primary-fixed": "#dae2fd",
+        "primary-fixed-dim": "#bec6e0",
+        "on-primary-fixed": "#131b2e",
+        "on-primary-fixed-variant": "#3f465c",
+        "inverse-primary": "#bec6e0",
+        secondary: "#00668a",
+        "on-secondary": "#ffffff",
+        "secondary-container": "#40c2fd",
+        "on-secondary-container": "#004d6a",
+        "secondary-fixed": "#c4e7ff",
+        "secondary-fixed-dim": "#7bd0ff",
+        "on-secondary-fixed": "#001e2c",
+        "on-secondary-fixed-variant": "#004c69",
+        tertiary: "#000000",
+        "on-tertiary": "#ffffff",
+        "tertiary-container": "#191c1e",
+        "on-tertiary-container": "#818486",
+        "tertiary-fixed": "#e0e3e5",
+        "tertiary-fixed-dim": "#c4c7c9",
+        "on-tertiary-fixed": "#191c1e",
+        "on-tertiary-fixed-variant": "#444749",
+        surface: "#f8f9ff",
+        "surface-bright": "#f8f9ff",
+        "surface-dim": "#cbdbf5",
+        "surface-container-lowest": "#ffffff",
+        "surface-container-low": "#eff4ff",
+        "surface-container": "#e5eeff",
+        "surface-container-high": "#dce9ff",
+        "surface-container-highest": "#d3e4fe",
+        "surface-variant": "#d3e4fe",
+        "surface-tint": "#565e74",
+        "on-surface": "#0b1c30",
+        "on-surface-variant": "#45464d",
+        "inverse-surface": "#213145",
+        "inverse-on-surface": "#eaf1ff",
+        background: "#f8f9ff",
+        "on-background": "#0b1c30",
+        error: "#ba1a1a",
+        "on-error": "#ffffff",
+        "error-container": "#ffdad6",
+        "on-error-container": "#93000a",
+        outline: "#76777d",
+        "outline-variant": "#c6c6cd",
+      },
+      borderRadius: {
+        DEFAULT: "0.125rem",
+        lg: "0.25rem",
+        xl: "0.5rem",
+        full: "0.75rem",
+      },
+      spacing: {
+        gutter: "32px",
+        "margin-md": "32px",
+        unit: "4px",
+        "margin-sm": "16px",
+        "section-padding": "64px",
+        "margin-lg": "80px",
+        "container-max": "1440px",
+      },
+      fontFamily: {
+        "display-lg": ["var(--font-serif)", "serif"],
+        "headline-md": ["var(--font-serif)", "serif"],
+        "headline-sm": ["var(--font-serif)", "serif"],
+        "body-lg": ["var(--font-sans)", "sans-serif"],
+        "body-md": ["var(--font-sans)", "sans-serif"],
+        "label-caps": ["var(--font-sans)", "sans-serif"],
+        "data-mono": ["var(--font-mono)", "monospace"],
+      },
+      fontSize: {
+        "display-lg": ["48px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "600" }],
+        "headline-md": ["32px", { lineHeight: "1.2", fontWeight: "500" }],
+        "headline-sm": ["24px", { lineHeight: "1.3", fontWeight: "500" }],
+        "body-lg": ["18px", { lineHeight: "1.6", fontWeight: "400" }],
+        "body-md": ["16px", { lineHeight: "1.5", fontWeight: "400" }],
+        "label-caps": ["12px", { lineHeight: "1.2", letterSpacing: "0.08em", fontWeight: "600" }],
+        "data-mono": ["14px", { lineHeight: "1.4", letterSpacing: "-0.01em", fontWeight: "450" }],
+      },
+      maxWidth: {
+        "container-max": "1440px",
       },
       boxShadow: {
-        panel: "0 24px 80px rgba(15, 76, 92, 0.12)"
+        panel: "0 24px 80px rgba(15, 76, 92, 0.12)",
       },
       backgroundImage: {
-        mesh: "radial-gradient(circle at top left, rgba(192,108,62,0.18), transparent 26%), radial-gradient(circle at top right, rgba(15,76,92,0.18), transparent 28%), linear-gradient(180deg, rgba(248,244,236,0.98), rgba(231,238,240,0.98))"
-      }
-    }
+        mesh: "radial-gradient(circle at top left, rgba(192,108,62,0.18), transparent 26%), radial-gradient(circle at top right, rgba(15,76,92,0.18), transparent 28%), linear-gradient(180deg, rgba(248,244,236,0.98), rgba(231,238,240,0.98))",
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 };
 
 export default config;
