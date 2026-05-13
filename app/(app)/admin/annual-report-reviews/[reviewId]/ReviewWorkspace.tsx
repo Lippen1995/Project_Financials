@@ -1,0 +1,1258 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+type Fact = {
+  id: string;
+  metricKey: string;
+  fiscalYear: number;
+  value: bigint | null;
+  unitScale: number;
+  sourcePage: number | null;
+  confidenceScore: number | null;
+  rawLabel: string | null;
+  statementType: string;
+};
+
+type ReviewedFact = {
+  id: string;
+  metricKey: string;
+  fiscalYear: number;
+  value: bigint | null;
+  unitScale: number;
+  sourcePage: number | null;
+  rawLabel: string | null;
+  statementType: string;
+  correctionSource: string;
+};
+
+type ValidationIssue = {
+  id: string;
+  severity: string;
+  ruleCode: string;
+  message: string;
+};
+
+type Artifact = {
+  id: string;
+  artifactType: string;
+  storageKey: string;
+  mimeType: string;
+  metadata: unknown;
+};
+
+type Decision = {
+  id: string;
+  decisionType: string;
+  correctionNotes: string | null;
+  createdAt: Date;
+  reviewer: { id: string; name: string | null; email: string | null };
+};
+
+type ReviewDetail = {
+  id: string;
+  status: string;
+  fiscalYear: number;
+  qualityScore: number | null;
+  sourcePrecedenceAttempted: string | null;
+  blockingRuleCodes: string[];
+  blockingIssueCount: number;
+  latestActionNote: string | null;
+  reviewPayload: unknown;
+  company: { orgNumber: string; name: string; slug: string };
+  filing: {
+    id: string;
+    status: string;
+    sourceUrl: string | null;
+    lastError: string | null;
+    artifacts: Artifact[];
+    validationIssues: ValidationIssue[];
+  };
+  extractionRun: {
+    id: string;
+    status: string;
+    confidenceScore: number | null;
+    validationScore: number | null;
+    documentEngine: string | null;
+    documentEngineMode: string | null;
+    parserVersion: string;
+    rawSummary: unknown;
+    facts: Fact[];
+    validationIssues: ValidationIssue[];
+  } | null;
+  decisions: Decision[];
+  reviewedFacts?: ReviewedFact[];
+};
+
+type EditableFact = {
+  metricKey: string;
+  fiscalYear: number;
+  value: string;
+  rawLabel: string;
+  sourcePage: string;
+  unitScale: string;
+};
+
+type ValidationResult = {
+  passed: boolean;
+  hasBlockingErrors: boolean;
+  validationScore: number;
+  blockingIssues: Array<{ ruleCode: string; message: string; expectedValue?: string | null; actualValue?: string | null }>;
+  warnings: Array<{ ruleCode: string; message: string; expectedValue?: string | null; actualValue?: string | null }>;
+  issues: Array<{ ruleCode: string; message: string; severity: string }>;
+  reviewedFactCount: number;
+};
+
+function bigintToDisplay(v: bigint | null): string {
+  if (v === null || v === undefined) return "";
+  return String(v);
+}
+
+function formatIntegerString(value: string | bigint | number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  const raw = typeof value === "bigint" ? value.toString() : String(value);
+  const sign = raw.startsWith("-") ? "-" : "";
+  const digits = sign ? raw.slice(1) : raw;
+  if (!/^[0-9]+$/.test(digits)) return raw;
+  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+function groupFacts(facts: Fact[]) {
+  const income: Fact[] = [];
+  const balance: Fact[] = [];
+  const other: Fact[] = [];
+  for (const f of facts) {
+    if (f.statementType === "INCOME_STATEMENT") income.push(f);
+    else if (f.statementType === "BALANCE_SHEET") balance.push(f);
+    else other.push(f);
+  }
+  return { income, balance, other };
+}
+
+function groupReviewedFacts(facts: ReviewedFact[]) {
+  const income: ReviewedFact[] = [];
+  const balance: ReviewedFact[] = [];
+  const other: ReviewedFact[] = [];
+  for (const f of facts) {
+    if (f.statementType === "INCOME_STATEMENT") income.push(f);
+    else if (f.statementType === "BALANCE_SHEET") balance.push(f);
+    else other.push(f);
+  }
+  return { income, balance, other };
+}
+
+function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"], reviewId: string): string | null {
+  const hasPdfArtifact = artifacts?.some((a) => a.artifactType === "PDF");
+  if (hasPdfArtifact) {
+    return `/api/admin/annual-report-reviews/${reviewId}/pdf`;
+  }
+  return filing.sourceUrl ?? null;
+}
+
+export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
+  const router = useRouter();
+  const [mode, setMode] = useState<"view" | "correct">("view");
+  const [notes, setNotes] = useState("");
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  const facts = review.extractionRun?.facts ?? [];
+  const { income, balance } = groupFacts(facts);
+  const issues = [
+    ...(review.extractionRun?.validationIssues ?? []),
+    ...review.filing.validationIssues,
+  ];
+  const pdfUrl = getPdfArtifactUrl(review.filing.artifacts, review.filing, review.id);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pdfUrl) return;
+    let objectUrl: string;
+    fetch(pdfUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setPdfBlobUrl(objectUrl);
+      })
+      .catch((err: unknown) => {
+        setPdfError(err instanceof Error ? err.message : "Ukjent feil");
+      });
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [pdfUrl]);
+
+  const reviewedFacts = review.reviewedFacts ?? [];
+  const { income: rfIncome, balance: rfBalance } = groupReviewedFacts(reviewedFacts);
+
+  const payload =
+    review.reviewPayload && typeof review.reviewPayload === "object"
+      ? (review.reviewPayload as Record<string, unknown>)
+      : null;
+
+  // Correction form state
+  const [editableFacts, setEditableFacts] = useState<EditableFact[]>(
+    facts.map((f) => ({
+      metricKey: f.metricKey,
+      fiscalYear: f.fiscalYear,
+      value: bigintToDisplay(f.value),
+      rawLabel: f.rawLabel ?? "",
+      sourcePage: String(f.sourcePage ?? ""),
+      unitScale: String(f.unitScale),
+    })),
+  );
+  const boardProposal = payload?.boardReportProposal as Record<string, unknown> | null | undefined;
+  const auditorProposal = payload?.auditorReportProposal as Record<string, unknown> | null | undefined;
+  const [boardReportText, setBoardReportText] = useState(
+    (payload?.boardReportText as string | undefined) ??
+      (typeof boardProposal?.fullText === "string" ? boardProposal.fullText : "") ?? "",
+  );
+  const [auditorReportText, setAuditorReportText] = useState(
+    (payload?.auditorReportText as string | undefined) ??
+      (typeof auditorProposal?.fullText === "string" ? auditorProposal.fullText : "") ?? "",
+  );
+  const [auditorOpinion, setAuditorOpinion] = useState<string>(
+    (payload as Record<string, unknown> | null)?.auditorOpinion != null &&
+    typeof (payload as Record<string, unknown>)?.auditorOpinion === "object"
+      ? String(
+          ((payload as Record<string, unknown>).auditorOpinion as Record<string, unknown>)
+            ?.opinionType ?? "UNKNOWN",
+        )
+      : "UNKNOWN",
+  );
+
+  async function call(path: string, body: unknown) {
+    setLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/annual-report-reviews/${review.id}/${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Feil fra server.");
+      router.refresh();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Ukjent feil.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleValidate() {
+    setValidating(true);
+    setActionError(null);
+    setValidationResult(null);
+    try {
+      const res = await fetch(
+        `/api/admin/annual-report-reviews/${review.id}/validate-reviewed-facts`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Valideringsfeil fra server.");
+      setValidationResult(json.data as ValidationResult);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Ukjent feil ved validering.");
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  async function handlePublish() {
+    setPublishing(true);
+    setActionError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/annual-report-reviews/${review.id}/publish-reviewed-facts`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Publiseringsfeil fra server.");
+      const data = json.data as { published: boolean; issues?: unknown[] };
+      if (!data.published) {
+        setValidationResult({
+          passed: false,
+          hasBlockingErrors: true,
+          validationScore: 0,
+          blockingIssues: (data.issues ?? []) as ValidationResult["blockingIssues"],
+          warnings: [],
+          issues: (data.issues ?? []) as ValidationResult["issues"],
+          reviewedFactCount: reviewedFacts.length,
+        });
+        throw new Error("Validering feilet — se issues nedenfor.");
+      }
+      router.refresh();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Ukjent feil ved publisering.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  function handleAccept() {
+    call("accept", { notes: notes || undefined });
+  }
+
+  function handleReject() {
+    if (!reason.trim()) {
+      setActionError("Begrunnelse er påkrevd.");
+      return;
+    }
+    call("reject", { reason });
+  }
+
+  function handleReprocess() {
+    if (!reason.trim()) {
+      setActionError("Begrunnelse er påkrevd.");
+      return;
+    }
+    call("reprocess", { reason });
+  }
+
+  function handleUnreadable() {
+    if (!reason.trim()) {
+      setActionError("Begrunnelse er påkrevd.");
+      return;
+    }
+    call("unreadable", { reason });
+  }
+
+  function handleCorrect() {
+    const correctedFacts = editableFacts
+      .map((f) => ({
+        metricKey: f.metricKey,
+        fiscalYear: f.fiscalYear,
+        value: f.value.trim() !== "" ? f.value.trim() : null,
+        rawLabel: f.rawLabel || null,
+        sourcePage: f.sourcePage.trim() !== "" ? parseInt(f.sourcePage, 10) : null,
+        unitScale: f.unitScale.trim() !== "" ? parseInt(f.unitScale, 10) : null,
+      }))
+      .filter((f) => !isNaN(f.fiscalYear));
+
+    const sections: { sectionType: string; text: string }[] = [];
+    if (boardReportText.trim()) {
+      sections.push({ sectionType: "BOARD_REPORT", text: boardReportText.trim() });
+    }
+    if (auditorReportText.trim()) {
+      sections.push({ sectionType: "AUDITOR_REPORT", text: auditorReportText.trim() });
+    }
+
+    const corrections: Record<string, unknown> = { facts: correctedFacts };
+    if (sections.length > 0) {
+      corrections.sections = sections;
+    }
+    if (auditorOpinion !== "UNKNOWN") {
+      corrections.auditorOpinion = { opinionType: auditorOpinion };
+    }
+
+    call("correct", {
+      corrections,
+      notes: notes || undefined,
+    });
+  }
+
+  const isResolved =
+    review.status === "ACCEPTED" || review.status === "REJECTED" || review.status === "RESOLVED_BY_NEW_RUN";
+
+  const isAccepted = review.status === "ACCEPTED";
+  const hasReviewedFacts = reviewedFacts.length > 0;
+  const canPublish = validationResult?.passed === true;
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+      {/* ---- Left: PDF viewer ---- */}
+      <div className="flex flex-col gap-4">
+        <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+            PDF-dokument
+          </h2>
+          {pdfError ? (
+            <p className="text-sm text-red-500">Kunne ikke laste PDF: {pdfError}</p>
+          ) : pdfBlobUrl ? (
+            <div className="flex flex-col gap-2">
+              <embed
+                src={pdfBlobUrl}
+                type="application/pdf"
+                className="h-[800px] w-full rounded border border-[rgba(15,23,42,0.08)]"
+              />
+              <a
+                href={pdfBlobUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[var(--px-accent)] underline"
+              >
+                Åpne PDF i nytt vindu
+              </a>
+            </div>
+          ) : pdfUrl ? (
+            <div className="flex h-[800px] items-center justify-center rounded border border-[rgba(15,23,42,0.08)]">
+              <p className="text-sm text-slate-400">Laster PDF...</p>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">Ingen PDF-visning tilgjengelig.</p>
+          )}
+
+          {review.filing.artifacts.length > 0 && (
+            <div className="mt-4">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Artefakter
+              </h3>
+              <ul className="space-y-1">
+                {review.filing.artifacts.map((a) => (
+                  <li key={a.id} className="font-mono text-xs text-slate-500">
+                    {a.artifactType} — {a.storageKey}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Previous decisions */}
+        {review.decisions.length > 0 && (
+          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+              Audit trail
+            </h2>
+            <ul className="space-y-3">
+              {review.decisions.map((d) => (
+                <li key={d.id} className="border-l-2 border-slate-200 pl-3 text-sm">
+                  <span className="font-medium text-[var(--px-text)]">{d.decisionType}</span>
+                  <span className="ml-2 text-slate-400">
+                    {new Date(d.createdAt).toLocaleString("nb-NO")}
+                  </span>
+                  <span className="ml-2 text-slate-500">av {d.reviewer.name ?? d.reviewer.email}</span>
+                  {d.correctionNotes && (
+                    <p className="mt-1 text-slate-500">{d.correctionNotes}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* ---- Right: Review workspace ---- */}
+      <div className="flex flex-col gap-4">
+        {/* Summary */}
+        <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+            Sammendrag
+          </h2>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <dt className="text-slate-500">Org.nr</dt>
+            <dd className="font-mono font-medium text-[var(--px-text)]">{review.company.orgNumber}</dd>
+            <dt className="text-slate-500">Status</dt>
+            <dd className="font-medium text-[var(--px-text)]">{review.status}</dd>
+            <dt className="text-slate-500">Regnskapsår</dt>
+            <dd className="font-medium text-[var(--px-text)]">{review.fiscalYear}</dd>
+            <dt className="text-slate-500">Kvalitetsscore</dt>
+            <dd className="font-medium text-[var(--px-text)]">
+              {review.qualityScore != null ? `${(review.qualityScore * 100).toFixed(1)}%` : "—"}
+            </dd>
+            <dt className="text-slate-500">Parser</dt>
+            <dd className="font-mono text-xs text-slate-600">
+              {review.extractionRun?.documentEngine ?? review.sourcePrecedenceAttempted ?? "—"}
+            </dd>
+            <dt className="text-slate-500">Blokkeringer</dt>
+            <dd className="font-medium text-amber-700">
+              {review.blockingRuleCodes.length > 0
+                ? review.blockingRuleCodes.join(", ")
+                : "Ingen"}
+            </dd>
+          </dl>
+          {review.latestActionNote && (
+            <p className="mt-3 text-sm text-slate-500">
+              <span className="font-medium">Siste notat:</span> {review.latestActionNote}
+            </p>
+          )}
+        </div>
+
+        {/* Document structure summary */}
+        <DocumentSummaryPanel payload={payload} />
+
+        {/* PDF Decision Engine summary */}
+        <PdfDecisionPanel payload={payload} />
+
+        {/* Validation issues */}
+        {issues.length > 0 && (
+          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+              Valideringsfeil ({issues.length})
+            </h2>
+            <ul className="space-y-2">
+              {issues.slice(0, 20).map((issue) => (
+                <li key={issue.id} className="text-sm">
+                  <span
+                    className={`mr-2 font-mono text-xs font-semibold ${
+                      issue.severity === "ERROR"
+                        ? "text-red-600"
+                        : issue.severity === "WARNING"
+                          ? "text-amber-600"
+                          : "text-slate-500"
+                    }`}
+                  >
+                    {issue.severity}
+                  </span>
+                  <span className="font-mono text-xs text-slate-500">{issue.ruleCode}</span>
+                  <span className="ml-2 text-slate-700">{issue.message}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Proposed machine facts */}
+        {mode === "view" && (income.length > 0 || balance.length > 0) && (
+          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+              Foreslåtte tall (maskin)
+            </h2>
+            {income.length > 0 && (
+              <div className="mb-4">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Resultatregnskap
+                </h3>
+                <FactTable facts={income} />
+              </div>
+            )}
+            {balance.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Balanse
+                </h3>
+                <FactTable facts={balance} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reviewed facts — shown after accept/correct */}
+        {hasReviewedFacts && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-emerald-700">
+              Kuraterte facts ({reviewedFacts.length})
+            </h2>
+            {rfIncome.length > 0 && (
+              <div className="mb-4">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600">
+                  Resultatregnskap
+                </h3>
+                <ReviewedFactTable facts={rfIncome} />
+              </div>
+            )}
+            {rfBalance.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600">
+                  Balanse
+                </h3>
+                <ReviewedFactTable facts={rfBalance} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Validation result */}
+        {validationResult && (
+          <div
+            className={`rounded-lg border p-4 ${
+              validationResult.passed
+                ? "border-green-200 bg-green-50"
+                : "border-red-200 bg-red-50"
+            }`}
+          >
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
+              Valideringsresultat
+            </h2>
+            {validationResult.passed ? (
+              <p className="text-sm font-medium text-green-700">
+                Validering bestått — {validationResult.reviewedFactCount} facts klar for publisering.
+              </p>
+            ) : (
+              <>
+                <p className="mb-2 text-sm font-medium text-red-700">
+                  Validering feilet ({validationResult.blockingIssues.length} blokkeringer):
+                </p>
+                <ul className="space-y-1">
+                  {validationResult.blockingIssues.map((issue, i) => (
+                    <li key={i} className="text-sm">
+                      <span className="font-mono text-xs font-semibold text-red-600">
+                        {issue.ruleCode}
+                      </span>
+                      <span className="ml-2 text-red-800">{issue.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {validationResult.warnings.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {validationResult.warnings.map((w, i) => (
+                  <li key={i} className="text-sm">
+                    <span className="font-mono text-xs font-semibold text-amber-600">WARNING</span>
+                    <span className="ml-2 text-amber-800">{w.message}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* Correction form */}
+        {mode === "correct" && (
+          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+              Korriger verdier
+            </h2>
+            <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Korrigerte verdier lagres som reviewed facts og publiseres automatisk til aktivt regnskapssnapshot når valideringen består.
+            </p>
+            <div className="space-y-2">
+              {editableFacts.map((f, i) => (
+                <div key={f.metricKey + f.fiscalYear} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 text-xs">
+                  <span className="font-mono text-slate-600 self-center">{f.metricKey}</span>
+                  <input
+                    value={f.value}
+                    onChange={(e) => {
+                      const next = [...editableFacts];
+                      next[i] = { ...next[i], value: e.target.value };
+                      setEditableFacts(next);
+                    }}
+                    placeholder="Verdi"
+                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 font-mono text-xs text-slate-700 focus:outline-none"
+                  />
+                  <input
+                    value={f.sourcePage}
+                    onChange={(e) => {
+                      const next = [...editableFacts];
+                      next[i] = { ...next[i], sourcePage: e.target.value };
+                      setEditableFacts(next);
+                    }}
+                    placeholder="Side"
+                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 font-mono text-xs text-slate-700 focus:outline-none"
+                  />
+                  <input
+                    value={f.unitScale}
+                    onChange={(e) => {
+                      const next = [...editableFacts];
+                      next[i] = { ...next[i], unitScale: e.target.value };
+                      setEditableFacts(next);
+                    }}
+                    placeholder="Skala"
+                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 font-mono text-xs text-slate-700 focus:outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Styrets beretning (tekst)
+                </label>
+                <textarea
+                  value={boardReportText}
+                  onChange={(e) => setBoardReportText(e.target.value)}
+                  rows={3}
+                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Revisorberetning (tekst)
+                </label>
+                <textarea
+                  value={auditorReportText}
+                  onChange={(e) => setAuditorReportText(e.target.value)}
+                  rows={3}
+                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Revisjonskonklusjon
+                </label>
+                <select
+                  value={auditorOpinion}
+                  onChange={(e) => setAuditorOpinion(e.target.value)}
+                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none"
+                >
+                  <option value="UNKNOWN">Ukjent</option>
+                  <option value="CLEAN">Ren (Clean)</option>
+                  <option value="QUALIFIED">Modifisert (Qualified)</option>
+                  <option value="ADVERSE">Negativ (Adverse)</option>
+                  <option value="DISCLAIMER">Fraskrivelse (Disclaimer)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notes / reason field */}
+        <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+            {mode === "correct" ? "Korrigeringsnotat" : "Begrunnelse / notat"}
+          </label>
+          <textarea
+            value={mode === "correct" ? notes : reason}
+            onChange={(e) =>
+              mode === "correct" ? setNotes(e.target.value) : setReason(e.target.value)
+            }
+            rows={3}
+            placeholder={mode === "correct" ? "Valgfritt notat..." : "Påkrevd for avvis/reprocess/uleselig"}
+            className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none"
+          />
+        </div>
+
+        {actionError && (
+          <p className="rounded bg-red-50 px-4 py-2 text-sm text-red-700">{actionError}</p>
+        )}
+
+        {/* Action buttons — pending review */}
+        {!isResolved && (
+          <div className="flex flex-wrap gap-2">
+            {mode === "view" ? (
+              <>
+                <button
+                  onClick={handleAccept}
+                  disabled={loading}
+                  className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  Godkjenn
+                </button>
+                <button
+                  onClick={() => setMode("correct")}
+                  disabled={loading}
+                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Korriger
+                </button>
+                <button
+                  onClick={handleReprocess}
+                  disabled={loading}
+                  className="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                >
+                  Send til reprocess
+                </button>
+                <button
+                  onClick={handleReject}
+                  disabled={loading}
+                  className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                >
+                  Avvis
+                </button>
+                <button
+                  onClick={handleUnreadable}
+                  disabled={loading}
+                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Uleselig
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleCorrect}
+                  disabled={loading}
+                  className="rounded bg-[var(--px-action)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--px-action-hover)] disabled:opacity-50"
+                >
+                  Lagre korrigeringer
+                </button>
+                <button
+                  onClick={() => setMode("view")}
+                  disabled={loading}
+                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Avbryt
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Reviewed facts actions — shown after accept/correct */}
+        {isAccepted && hasReviewedFacts && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleValidate}
+              disabled={validating || publishing}
+              className="rounded border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              {validating ? "Validerer…" : "Valider reviewed facts"}
+            </button>
+          </div>
+        )}
+
+        {isResolved && (
+          <div className="rounded bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            Denne saken er avsluttet med status <strong>{review.status}</strong>.
+            {isAccepted && hasReviewedFacts
+              ? " Reviewed values saved and published to the active financial statement."
+              : ""}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FactTable({ facts }: { facts: Fact[] }) {
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-[rgba(15,23,42,0.06)]">
+          <th className="pb-1 text-left font-medium text-slate-400">Nøkkel</th>
+          <th className="pb-1 text-right font-medium text-slate-400">Verdi (NOK)</th>
+          <th className="pb-1 text-right font-medium text-slate-400">Skala</th>
+          <th className="pb-1 text-right font-medium text-slate-400">Side</th>
+          <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
+        </tr>
+      </thead>
+      <tbody>
+        {facts.map((f) => (
+          <tr key={f.id} className="border-b border-[rgba(15,23,42,0.04)] last:border-0">
+            <td className="py-1 font-mono text-slate-600">{f.metricKey}</td>
+            <td className="py-1 text-right font-mono text-[var(--px-text)]">
+              {formatIntegerString(f.value)}
+            </td>
+            <td className="py-1 text-right font-mono text-slate-400">{f.unitScale}</td>
+            <td className="py-1 text-right font-mono text-slate-400">{f.sourcePage ?? "—"}</td>
+            <td className="py-1 text-right font-mono text-slate-400">
+              {f.confidenceScore != null ? `${(f.confidenceScore * 100).toFixed(0)}%` : "—"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+type DocumentSection = {
+  kind: string;
+  startPage: number;
+  endPage: number;
+  confidenceScore: number;
+  pageCount: number;
+};
+
+type DocumentDiagnostics = {
+  qualityRisk?: string;
+  recommendedRouteHint?: string;
+  parserRiskReasons?: string[];
+  extractionWarnings?: string[];
+  textLayerDensityScore?: number;
+};
+
+function DocumentSummaryPanel({ payload }: { payload: Record<string, unknown> | null }) {
+  const diagnostics = payload?.documentDiagnostics as DocumentDiagnostics | null | undefined;
+  const sections = payload?.documentSections as DocumentSection[] | null | undefined;
+
+  if (!diagnostics && (!sections || sections.length === 0)) return null;
+
+  const riskColor =
+    diagnostics?.qualityRisk === "HIGH"
+      ? "text-red-600"
+      : diagnostics?.qualityRisk === "MEDIUM"
+        ? "text-amber-600"
+        : "text-emerald-600";
+
+  return (
+    <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+        Dokumentstruktur
+      </h2>
+
+      {diagnostics && (
+        <div className="mb-3 space-y-1 text-xs">
+          {diagnostics.qualityRisk && (
+            <div>
+              <span className="text-slate-500">Risiko: </span>
+              <span className={`font-semibold ${riskColor}`}>{diagnostics.qualityRisk}</span>
+              {diagnostics.recommendedRouteHint && (
+                <span className="ml-2 font-mono text-slate-400">
+                  ({diagnostics.recommendedRouteHint})
+                </span>
+              )}
+            </div>
+          )}
+          {diagnostics.textLayerDensityScore != null && (
+            <div>
+              <span className="text-slate-500">Teksttetthet: </span>
+              <span className="font-mono text-slate-600">
+                {(diagnostics.textLayerDensityScore * 100).toFixed(0)}%
+              </span>
+            </div>
+          )}
+          {diagnostics.parserRiskReasons && diagnostics.parserRiskReasons.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-red-600">
+              {diagnostics.parserRiskReasons.map((r, i) => (
+                <li key={i}>⚠ {r}</li>
+              ))}
+            </ul>
+          )}
+          {diagnostics.extractionWarnings && diagnostics.extractionWarnings.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-amber-600">
+              {diagnostics.extractionWarnings.map((w, i) => (
+                <li key={i}>ℹ {w}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {sections && sections.length > 0 && (
+        <div>
+          <p className="mb-1 text-xs font-medium text-slate-400">Seksjoner</p>
+          <ul className="space-y-0.5">
+            {sections.map((s, i) => (
+              <li key={i} className="flex items-center gap-2 text-xs">
+                <span className="w-36 font-mono text-slate-600">{s.kind}</span>
+                <span className="text-slate-400">
+                  s.{s.startPage}–{s.endPage}
+                </span>
+                <span className="text-slate-400">
+                  ({(s.confidenceScore * 100).toFixed(0)}%)
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PDF Decision Panel
+// ---------------------------------------------------------------------------
+
+type PdfDecision = {
+  version?: string | null;
+  route?: string | null;
+  risk?: string | null;
+  riskLevel?: string | null;
+  confidenceScore?: number | null;
+  reasons?: string[] | null;
+  financialFacts?: boolean | null;
+  manualReviewRequired?: boolean | null;
+  manualReviewReasons?: string[] | null;
+  blockingRuleCodes?: string[] | null;
+  odlEnabled?: boolean | null;
+  engineVersion?: string | null;
+  decidedAt?: string | null;
+  pageHintSummary?: {
+    hasReliableHints?: boolean | null;
+    includePageCount?: number | null;
+    excludePageCount?: number | null;
+    reasons?: string[] | null;
+  } | null;
+  enabledExtractors?: {
+    financialFacts?: boolean | null;
+    boardReport?: boolean | null;
+    auditorReport?: boolean | null;
+    notes?: boolean | null;
+  } | null;
+  pageHints?: {
+    hasReliableHints?: boolean | null;
+    includePages?: number[] | null;
+    excludePages?: number[] | null;
+    preferredIncomeStatementPages?: number[] | null;
+    preferredBalancePages?: number[] | null;
+    notePages?: number[] | null;
+    reasons?: string[] | null;
+  } | null;
+  diagnostics?: {
+    detectedSections?: Array<{ kind?: string | null }> | null;
+    missingCoreSections?: string[] | null;
+  } | null;
+  preflightSignals?: {
+    hasTextLayer?: boolean | null;
+    hasReliableTextLayer?: boolean | null;
+    pageCount?: number | null;
+    qualityRisk?: string | null;
+    financialStatementPageCount?: number | null;
+    likelyImageOnlyPageCount?: number | null;
+    sectionsFound?: number | null;
+    sectionKinds?: string[] | null;
+    missingExpectedSections?: string[] | null;
+  } | null;
+};
+
+function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null }) {
+  const decision = payload?.pdfDecision as PdfDecision | null | undefined;
+
+  if (!decision) return null;
+
+  decision.risk = decision.risk ?? decision.riskLevel ?? null;
+  decision.financialFacts =
+    decision.financialFacts ?? decision.enabledExtractors?.financialFacts ?? null;
+  decision.manualReviewRequired =
+    decision.manualReviewRequired ??
+    (decision.route === "MANUAL_REVIEW" || Boolean(decision.manualReviewReasons?.length));
+
+  const riskLevel = decision.riskLevel ?? decision.risk ?? null;
+  const confidence =
+    typeof decision.confidenceScore === "number"
+      ? `${(decision.confidenceScore * 100).toFixed(0)}%`
+      : "â€”";
+  const financialFactsEnabled =
+    decision.enabledExtractors?.financialFacts ?? decision.financialFacts ?? null;
+  const sectionKinds =
+    decision.preflightSignals?.sectionKinds ??
+    decision.diagnostics?.detectedSections
+      ?.map((section) => section.kind)
+      .filter((kind): kind is string => typeof kind === "string") ??
+    [];
+  const hints = decision.pageHints
+    ? {
+        hasReliableHints: decision.pageHints.hasReliableHints,
+        includePageCount: decision.pageHints.includePages?.length ?? null,
+        excludePageCount: decision.pageHints.excludePages?.length ?? null,
+        incomePageCount: decision.pageHints.preferredIncomeStatementPages?.length ?? null,
+        balancePageCount: decision.pageHints.preferredBalancePages?.length ?? null,
+        notePageCount: decision.pageHints.notePages?.length ?? null,
+        reasons: decision.pageHints.reasons ?? [],
+      }
+    : decision.pageHintSummary
+      ? {
+          hasReliableHints: decision.pageHintSummary.hasReliableHints,
+          includePageCount: decision.pageHintSummary.includePageCount ?? null,
+          excludePageCount: decision.pageHintSummary.excludePageCount ?? null,
+          incomePageCount: null,
+          balancePageCount: null,
+          notePageCount: null,
+          reasons: decision.pageHintSummary.reasons ?? [],
+        }
+      : null;
+
+  const riskColor =
+    riskLevel === "HIGH"
+      ? "text-red-600 font-semibold"
+      : riskLevel === "MEDIUM"
+        ? "text-amber-600 font-semibold"
+        : "text-emerald-600 font-semibold";
+
+  const routeColor =
+    decision.route === "MANUAL_REVIEW"
+      ? "text-red-600 font-semibold"
+      : decision.route === "FORCE_OCR" || decision.route === "OPENDATALOADER_HYBRID"
+        ? "text-amber-600 font-semibold"
+        : "text-emerald-600 font-semibold";
+
+  const signals = decision.preflightSignals;
+
+  return (
+    <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+        PDF Decision Engine
+      </h2>
+
+      <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        <span className="text-slate-500">Rute</span>
+        <span className={routeColor}>{decision.route ?? "—"}</span>
+
+        <span className="text-slate-500">Confidence</span>
+        <span className="font-mono text-slate-600">{confidence}</span>
+
+        <span className="text-slate-500">Risiko</span>
+        <span className={riskColor}>{decision.risk ?? "—"}</span>
+
+        <span className="text-slate-500">Finansielle seksjoner</span>
+        <span className={`font-semibold ${decision.financialFacts ? "text-emerald-600" : "text-red-600"}`}>
+          {decision.financialFacts === true ? "Ja" : decision.financialFacts === false ? "Nei" : "—"}
+        </span>
+
+        <span className="text-slate-500">Manuell gjennomgang</span>
+        <span className={`font-semibold ${decision.manualReviewRequired ? "text-red-600" : "text-emerald-600"}`}>
+          {decision.manualReviewRequired === true ? "Ja" : decision.manualReviewRequired === false ? "Nei" : "—"}
+        </span>
+
+        <span className="text-slate-500">ODL aktivert</span>
+        <span className="font-mono text-slate-600">
+          {decision.odlEnabled === true ? "Ja" : decision.odlEnabled === false ? "Nei" : "—"}
+        </span>
+
+        {signals?.pageCount != null && (
+          <>
+            <span className="text-slate-500">Sider</span>
+            <span className="font-mono text-slate-600">{signals.pageCount}</span>
+          </>
+        )}
+
+        {signals?.financialStatementPageCount != null && (
+          <>
+            <span className="text-slate-500">Regnskapssider</span>
+            <span className="font-mono text-slate-600">{signals.financialStatementPageCount}</span>
+          </>
+        )}
+
+        {signals?.likelyImageOnlyPageCount != null && signals.likelyImageOnlyPageCount > 0 && (
+          <>
+            <span className="text-slate-500">Bilds.-sider</span>
+            <span className="font-mono text-amber-600">{signals.likelyImageOnlyPageCount}</span>
+          </>
+        )}
+
+        {signals?.hasReliableTextLayer != null && (
+          <>
+            <span className="text-slate-500">Pålitelig tekstlag</span>
+            <span className={`font-semibold ${signals.hasReliableTextLayer ? "text-emerald-600" : "text-red-600"}`}>
+              {signals.hasReliableTextLayer ? "Ja" : "Nei"}
+            </span>
+          </>
+        )}
+      </div>
+
+      {decision.enabledExtractors && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-slate-400">Aktive ekstraktorer</p>
+          <p className="font-mono text-xs text-slate-500">
+            {[
+              decision.enabledExtractors.financialFacts ? "financialFacts" : null,
+              decision.enabledExtractors.boardReport ? "boardReport" : null,
+              decision.enabledExtractors.auditorReport ? "auditorReport" : null,
+              decision.enabledExtractors.notes ? "notes" : null,
+            ]
+              .filter(Boolean)
+              .join(", ") || "Ingen"}
+          </p>
+        </div>
+      )}
+
+      {decision.reasons && decision.reasons.length > 0 && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-slate-400">Rute- og risikogrunnlag</p>
+          <ul className="space-y-0.5">
+            {decision.reasons.map((r, i) => (
+              <li key={i} className="text-xs text-slate-600">
+                {r}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {decision.manualReviewReasons && decision.manualReviewReasons.length > 0 && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-red-500">Grunner til manuell gjennomgang</p>
+          <ul className="space-y-0.5">
+            {decision.manualReviewReasons.map((r, i) => (
+              <li key={i} className="text-xs text-red-600">
+                {r}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hints && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-slate-400">Side-hint</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+            <span className="text-slate-500">Pålitelig</span>
+            <span className={hints.hasReliableHints ? "text-emerald-600" : "text-slate-400"}>
+              {hints.hasReliableHints ? "Ja" : "Nei"}
+            </span>
+            {hints.includePageCount != null && (
+              <>
+                <span className="text-slate-500">Inkluderte</span>
+                <span className="font-mono text-slate-600">{hints.includePageCount}</span>
+              </>
+            )}
+            {hints.excludePageCount != null && (
+              <>
+                <span className="text-slate-500">Ekskluderte</span>
+                <span className="font-mono text-slate-600">{hints.excludePageCount}</span>
+              </>
+            )}
+            {hints.incomePageCount != null && (
+              <>
+                <span className="text-slate-500">Resultat</span>
+                <span className="font-mono text-slate-600">{hints.incomePageCount}</span>
+              </>
+            )}
+            {hints.balancePageCount != null && (
+              <>
+                <span className="text-slate-500">Balanse</span>
+                <span className="font-mono text-slate-600">{hints.balancePageCount}</span>
+              </>
+            )}
+            {hints.notePageCount != null && (
+              <>
+                <span className="text-slate-500">Noter</span>
+                <span className="font-mono text-slate-600">{hints.notePageCount}</span>
+              </>
+            )}
+          </div>
+          {hints.reasons.length > 0 && (
+            <p className="mt-1 text-xs text-slate-500">{hints.reasons.join(" | ")}</p>
+          )}
+        </div>
+      )}
+
+      {sectionKinds.length > 0 && (
+        <div className="mb-2">
+          <p className="mb-1 text-xs font-medium text-slate-400">Seksjonstyper</p>
+          <p className="font-mono text-xs text-slate-500">
+            {sectionKinds.join(", ")}
+          </p>
+        </div>
+      )}
+
+      {(decision.version || decision.engineVersion) && (
+        <p className="mt-2 font-mono text-[10px] text-slate-300">
+          {decision.version ?? decision.engineVersion}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ReviewedFactTable({ facts }: { facts: ReviewedFact[] }) {
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-emerald-200">
+          <th className="pb-1 text-left font-medium text-emerald-600">Nøkkel</th>
+          <th className="pb-1 text-right font-medium text-emerald-600">Verdi (NOK)</th>
+          <th className="pb-1 text-right font-medium text-emerald-600">Skala</th>
+          <th className="pb-1 text-right font-medium text-emerald-600">Side</th>
+          <th className="pb-1 text-right font-medium text-emerald-600">Kilde</th>
+        </tr>
+      </thead>
+      <tbody>
+        {facts.map((f) => (
+          <tr key={f.id} className="border-b border-emerald-100 last:border-0">
+            <td className="py-1 font-mono text-emerald-800">{f.metricKey}</td>
+            <td className="py-1 text-right font-mono text-[var(--px-text)]">
+              {formatIntegerString(f.value)}
+            </td>
+            <td className="py-1 text-right font-mono text-slate-400">{f.unitScale}</td>
+            <td className="py-1 text-right font-mono text-slate-400">{f.sourcePage ?? "—"}</td>
+            <td className="py-1 text-right font-mono">
+              <span
+                className={
+                  f.correctionSource === "MANUAL_CORRECTION"
+                    ? "text-amber-600"
+                    : "text-slate-400"
+                }
+              >
+                {f.correctionSource === "MANUAL_CORRECTION" ? "KORRIGERT" : "MASKIN"}
+              </span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
