@@ -55,15 +55,16 @@ function LandingPage() {
 
       {/* Hero */}
       <header className="relative h-screen w-full flex items-center justify-center overflow-hidden pt-20">
-        <div className="absolute inset-0 bg-primary-container z-0">
+        <div className="absolute inset-0 z-0">
           <video
-            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+            className="w-full h-full object-cover"
             src="/hero.mp4"
             autoPlay
             muted
             loop
             playsInline
           />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
         <div className="relative z-10 text-center px-margin-lg max-w-4xl">
           <h1 className="font-display-lg text-display-lg text-on-primary mb-6">
