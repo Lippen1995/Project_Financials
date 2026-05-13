@@ -58,6 +58,9 @@ function LandingPage() {
         <div className="absolute inset-0 z-0">
           <video
             className="w-full h-full object-cover"
+        <div className="absolute inset-0 bg-primary-container z-0">
+          <video
+            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
             src="/hero.mp4"
             autoPlay
             muted
