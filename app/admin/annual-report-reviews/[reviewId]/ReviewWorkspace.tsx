@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 type Fact = {
@@ -142,6 +142,33 @@ function groupReviewedFacts(facts: ReviewedFact[]) {
   return { income, balance, other };
 }
 
+const INCOME_METRIC_ORDER: string[] = [
+  "revenue", "other_operating_income", "total_operating_income",
+  "cost_of_goods_sold", "payroll_expense", "depreciation_amortization",
+  "other_operating_expense", "total_operating_expenses", "operating_profit",
+  "financial_income", "financial_expense", "net_financial_items",
+  "profit_before_tax", "tax_expense", "net_income",
+];
+const BALANCE_METRIC_ORDER: string[] = [
+  "intangible_assets", "tangible_assets", "financial_fixed_assets",
+  "deferred_tax_asset", "inventory", "trade_receivables", "other_receivables",
+  "cash_and_cash_equivalents", "current_assets", "total_assets",
+  "share_capital", "share_premium", "retained_earnings", "total_equity",
+  "long_term_liabilities", "trade_payables", "tax_payable",
+  "public_duties_payable", "other_current_liabilities", "current_liabilities",
+  "total_liabilities", "total_equity_and_liabilities",
+];
+const CANONICAL_ORDER_MAP = new Map<string, number>(
+  [...INCOME_METRIC_ORDER, ...BALANCE_METRIC_ORDER].map((k, i) => [k, i]),
+);
+function sortByCanonical(facts: Fact[]): Fact[] {
+  return [...facts].sort((a, b) => {
+    const ia = CANONICAL_ORDER_MAP.get(a.metricKey) ?? 9999;
+    const ib = CANONICAL_ORDER_MAP.get(b.metricKey) ?? 9999;
+    return ia - ib;
+  });
+}
+
 function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"], reviewId: string): string | null {
   const hasPdfArtifact = artifacts?.some((a) => a.artifactType === "PDF");
   if (hasPdfArtifact) {
@@ -152,9 +179,7 @@ function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"]
 
 export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"view" | "correct">("view");
   const [notes, setNotes] = useState("");
-  const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -162,7 +187,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   const [publishing, setPublishing] = useState(false);
 
   const facts = review.extractionRun?.facts ?? [];
-  const { income, balance } = groupFacts(facts);
+  const { income, balance, other } = groupFacts(facts);
   const issues = [
     ...(review.extractionRun?.validationIssues ?? []),
     ...review.filing.validationIssues,
@@ -199,17 +224,35 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       ? (review.reviewPayload as Record<string, unknown>)
       : null;
 
-  // Correction form state
-  const [editableFacts, setEditableFacts] = useState<EditableFact[]>(
-    facts.map((f) => ({
-      metricKey: f.metricKey,
-      fiscalYear: f.fiscalYear,
-      value: bigintToDisplay(f.value),
-      rawLabel: f.rawLabel ?? "",
-      sourcePage: String(f.sourcePage ?? ""),
-      unitScale: String(f.unitScale),
-    })),
-  );
+  // Correction form state — all canonical keys + any non-canonical extracted facts
+  const [editableFacts, setEditableFacts] = useState<EditableFact[]>(() => {
+    const factsByKey = new Map(facts.map((f) => [f.metricKey, f]));
+    const canonicalKeys = [...INCOME_METRIC_ORDER, ...BALANCE_METRIC_ORDER];
+    const entries: EditableFact[] = canonicalKeys.map((key) => {
+      const f = factsByKey.get(key);
+      return {
+        metricKey: key,
+        fiscalYear: f?.fiscalYear ?? review.fiscalYear,
+        value: f ? bigintToDisplay(f.value) : "",
+        rawLabel: f?.rawLabel ?? "",
+        sourcePage: String(f?.sourcePage ?? ""),
+        unitScale: String(f?.unitScale ?? 1000),
+      };
+    });
+    for (const f of facts) {
+      if (!CANONICAL_ORDER_MAP.has(f.metricKey)) {
+        entries.push({
+          metricKey: f.metricKey,
+          fiscalYear: f.fiscalYear,
+          value: bigintToDisplay(f.value),
+          rawLabel: f.rawLabel ?? "",
+          sourcePage: String(f.sourcePage ?? ""),
+          unitScale: String(f.unitScale),
+        });
+      }
+    }
+    return entries;
+  });
   const boardProposal = payload?.boardReportProposal as Record<string, unknown> | null | undefined;
   const auditorProposal = payload?.auditorReportProposal as Record<string, unknown> | null | undefined;
   const [boardReportText, setBoardReportText] = useState(
@@ -304,27 +347,27 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   }
 
   function handleReject() {
-    if (!reason.trim()) {
+    if (!notes.trim()) {
       setActionError("Begrunnelse er påkrevd.");
       return;
     }
-    call("reject", { reason });
+    call("reject", { reason: notes });
   }
 
   function handleReprocess() {
-    if (!reason.trim()) {
+    if (!notes.trim()) {
       setActionError("Begrunnelse er påkrevd.");
       return;
     }
-    call("reprocess", { reason });
+    call("reprocess", { reason: notes });
   }
 
   function handleUnreadable() {
-    if (!reason.trim()) {
+    if (!notes.trim()) {
       setActionError("Begrunnelse er påkrevd.");
       return;
     }
-    call("unreadable", { reason });
+    call("unreadable", { reason: notes });
   }
 
   function handleCorrect() {
@@ -363,7 +406,6 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
 
   const isResolved =
     review.status === "ACCEPTED" || review.status === "REJECTED" || review.status === "RESOLVED_BY_NEW_RUN";
-
   const isAccepted = review.status === "ACCEPTED";
   const hasReviewedFacts = reviewedFacts.length > 0;
   const canPublish = validationResult?.passed === true;
@@ -444,6 +486,83 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
 
       {/* ---- Right: Review workspace ---- */}
       <div className="flex flex-col gap-4">
+
+        {/* Foreslåtte tall med inline redigering — øverst, ved siden av PDF */}
+        {facts.length > 0 && (
+          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wider text-slate-400">
+              Foreslåtte tall
+            </h2>
+            <p className="mb-3 text-xs text-slate-400">
+              Fyll inn manuell verdi for å overstyre maskinforslag. Effektivt tall er det som lagres.
+            </p>
+            {income.length > 0 && (
+              <InlineFactTable
+                title="Resultatregnskap"
+                facts={sortByCanonical(income)}
+                editableFacts={editableFacts}
+                setEditableFacts={setEditableFacts}
+              />
+            )}
+            {balance.length > 0 && (
+              <InlineFactTable
+                title="Balanse"
+                facts={sortByCanonical(balance)}
+                editableFacts={editableFacts}
+                setEditableFacts={setEditableFacts}
+              />
+            )}
+            {other.length > 0 && (
+              <InlineFactTable
+                title="Andre"
+                facts={other}
+                editableFacts={editableFacts}
+                setEditableFacts={setEditableFacts}
+              />
+            )}
+            <div className="mt-4 space-y-3 border-t border-[rgba(15,23,42,0.06)] pt-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Styrets beretning (tekst)
+                </label>
+                <textarea
+                  value={boardReportText}
+                  onChange={(e) => setBoardReportText(e.target.value)}
+                  rows={2}
+                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Revisorberetning (tekst)
+                </label>
+                <textarea
+                  value={auditorReportText}
+                  onChange={(e) => setAuditorReportText(e.target.value)}
+                  rows={2}
+                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Revisjonskonklusjon
+                </label>
+                <select
+                  value={auditorOpinion}
+                  onChange={(e) => setAuditorOpinion(e.target.value)}
+                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none"
+                >
+                  <option value="UNKNOWN">Ukjent</option>
+                  <option value="CLEAN">Ren (Clean)</option>
+                  <option value="QUALIFIED">Modifisert (Qualified)</option>
+                  <option value="ADVERSE">Negativ (Adverse)</option>
+                  <option value="DISCLAIMER">Fraskrivelse (Disclaimer)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Summary */}
         <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
@@ -478,12 +597,6 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           )}
         </div>
 
-        {/* Document structure summary */}
-        <DocumentSummaryPanel payload={payload} />
-
-        {/* PDF Decision Engine summary */}
-        <PdfDecisionPanel payload={payload} />
-
         {/* Validation issues */}
         {issues.length > 0 && (
           <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
@@ -509,31 +622,6 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                 </li>
               ))}
             </ul>
-          </div>
-        )}
-
-        {/* Proposed machine facts */}
-        {mode === "view" && (income.length > 0 || balance.length > 0) && (
-          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Foreslåtte tall (maskin)
-            </h2>
-            {income.length > 0 && (
-              <div className="mb-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Resultatregnskap
-                </h3>
-                <FactTable facts={income} />
-              </div>
-            )}
-            {balance.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Balanse
-                </h3>
-                <FactTable facts={balance} />
-              </div>
-            )}
           </div>
         )}
 
@@ -608,108 +696,22 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           </div>
         )}
 
-        {/* Correction form */}
-        {mode === "correct" && (
-          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Korriger verdier
-            </h2>
-            <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Korrigerte verdier lagres som reviewed facts og publiseres automatisk til aktivt regnskapssnapshot når valideringen består.
-            </p>
-            <div className="space-y-2">
-              {editableFacts.map((f, i) => (
-                <div key={f.metricKey + f.fiscalYear} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 text-xs">
-                  <span className="font-mono text-slate-600 self-center">{f.metricKey}</span>
-                  <input
-                    value={f.value}
-                    onChange={(e) => {
-                      const next = [...editableFacts];
-                      next[i] = { ...next[i], value: e.target.value };
-                      setEditableFacts(next);
-                    }}
-                    placeholder="Verdi"
-                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 font-mono text-xs text-slate-700 focus:outline-none"
-                  />
-                  <input
-                    value={f.sourcePage}
-                    onChange={(e) => {
-                      const next = [...editableFacts];
-                      next[i] = { ...next[i], sourcePage: e.target.value };
-                      setEditableFacts(next);
-                    }}
-                    placeholder="Side"
-                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 font-mono text-xs text-slate-700 focus:outline-none"
-                  />
-                  <input
-                    value={f.unitScale}
-                    onChange={(e) => {
-                      const next = [...editableFacts];
-                      next[i] = { ...next[i], unitScale: e.target.value };
-                      setEditableFacts(next);
-                    }}
-                    placeholder="Skala"
-                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 font-mono text-xs text-slate-700 focus:outline-none"
-                  />
-                </div>
-              ))}
-            </div>
+        {/* Document structure summary */}
+        <DocumentSummaryPanel payload={payload} />
 
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">
-                  Styrets beretning (tekst)
-                </label>
-                <textarea
-                  value={boardReportText}
-                  onChange={(e) => setBoardReportText(e.target.value)}
-                  rows={3}
-                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">
-                  Revisorberetning (tekst)
-                </label>
-                <textarea
-                  value={auditorReportText}
-                  onChange={(e) => setAuditorReportText(e.target.value)}
-                  rows={3}
-                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">
-                  Revisjonskonklusjon
-                </label>
-                <select
-                  value={auditorOpinion}
-                  onChange={(e) => setAuditorOpinion(e.target.value)}
-                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none"
-                >
-                  <option value="UNKNOWN">Ukjent</option>
-                  <option value="CLEAN">Ren (Clean)</option>
-                  <option value="QUALIFIED">Modifisert (Qualified)</option>
-                  <option value="ADVERSE">Negativ (Adverse)</option>
-                  <option value="DISCLAIMER">Fraskrivelse (Disclaimer)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* PDF Decision Engine summary */}
+        <PdfDecisionPanel payload={payload} />
 
-        {/* Notes / reason field */}
+        {/* Notes / reason */}
         <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {mode === "correct" ? "Korrigeringsnotat" : "Begrunnelse / notat"}
+            Notat / begrunnelse
           </label>
           <textarea
-            value={mode === "correct" ? notes : reason}
-            onChange={(e) =>
-              mode === "correct" ? setNotes(e.target.value) : setReason(e.target.value)
-            }
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder={mode === "correct" ? "Valgfritt notat..." : "Påkrevd for avvis/reprocess/uleselig"}
+            placeholder="Påkrevd for avvis/reprocess/uleselig. Valgfritt for korrigeringer."
             className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none"
           />
         </div>
@@ -721,62 +723,41 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         {/* Action buttons — pending review */}
         {!isResolved && (
           <div className="flex flex-wrap gap-2">
-            {mode === "view" ? (
-              <>
-                <button
-                  onClick={handleAccept}
-                  disabled={loading}
-                  className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                >
-                  Godkjenn
-                </button>
-                <button
-                  onClick={() => setMode("correct")}
-                  disabled={loading}
-                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Korriger
-                </button>
-                <button
-                  onClick={handleReprocess}
-                  disabled={loading}
-                  className="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                >
-                  Send til reprocess
-                </button>
-                <button
-                  onClick={handleReject}
-                  disabled={loading}
-                  className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-                >
-                  Avvis
-                </button>
-                <button
-                  onClick={handleUnreadable}
-                  disabled={loading}
-                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Uleselig
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleCorrect}
-                  disabled={loading}
-                  className="rounded bg-[var(--px-action)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--px-action-hover)] disabled:opacity-50"
-                >
-                  Lagre korrigeringer
-                </button>
-                <button
-                  onClick={() => setMode("view")}
-                  disabled={loading}
-                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Avbryt
-                </button>
-              </>
-            )}
+            <button
+              onClick={handleAccept}
+              disabled={loading}
+              className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              Godkjenn
+            </button>
+            <button
+              onClick={handleCorrect}
+              disabled={loading}
+              className="rounded bg-[var(--px-action)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--px-action-hover)] disabled:opacity-50"
+            >
+              Lagre korrigeringer
+            </button>
+            <button
+              onClick={handleReprocess}
+              disabled={loading}
+              className="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            >
+              Send til reprocess
+            </button>
+            <button
+              onClick={handleReject}
+              disabled={loading}
+              className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+            >
+              Avvis
+            </button>
+            <button
+              onClick={handleUnreadable}
+              disabled={loading}
+              className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Uleselig
+            </button>
           </div>
         )}
 
@@ -806,34 +787,119 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   );
 }
 
-function FactTable({ facts }: { facts: Fact[] }) {
+function InlineFactTable({
+  title,
+  facts,
+  editableFacts,
+  setEditableFacts,
+}: {
+  title: string;
+  facts: Fact[];
+  editableFacts: EditableFact[];
+  setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
+}) {
+  const suggestedByKey = new Map(facts.map((f) => [f.metricKey, f]));
+
   return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="border-b border-[rgba(15,23,42,0.06)]">
-          <th className="pb-1 text-left font-medium text-slate-400">Nøkkel</th>
-          <th className="pb-1 text-right font-medium text-slate-400">Verdi (NOK)</th>
-          <th className="pb-1 text-right font-medium text-slate-400">Skala</th>
-          <th className="pb-1 text-right font-medium text-slate-400">Side</th>
-          <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
-        </tr>
-      </thead>
-      <tbody>
-        {facts.map((f) => (
-          <tr key={f.id} className="border-b border-[rgba(15,23,42,0.04)] last:border-0">
-            <td className="py-1 font-mono text-slate-600">{f.metricKey}</td>
-            <td className="py-1 text-right font-mono text-[var(--px-text)]">
-              {formatIntegerString(f.value)}
-            </td>
-            <td className="py-1 text-right font-mono text-slate-400">{f.unitScale}</td>
-            <td className="py-1 text-right font-mono text-slate-400">{f.sourcePage ?? "—"}</td>
-            <td className="py-1 text-right font-mono text-slate-400">
-              {f.confidenceScore != null ? `${(f.confidenceScore * 100).toFixed(0)}%` : "—"}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="mb-4">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-[rgba(15,23,42,0.08)]">
+              <th className="pb-1 pr-2 text-left font-medium text-slate-400">Nøkkel</th>
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Foreslått</th>
+              <th className="pb-1 pr-1 text-left font-medium text-slate-400">Manuell</th>
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Effektivt</th>
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Diff</th>
+              <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
+            </tr>
+          </thead>
+          <tbody>
+            {facts.map((f) => {
+              const original = suggestedByKey.get(f.metricKey);
+              const editIdx = editableFacts.findIndex((e) => e.metricKey === f.metricKey);
+              const editable = editIdx >= 0 ? editableFacts[editIdx] : null;
+
+              const suggestedStr = original ? bigintToDisplay(original.value) : "";
+              const manualStr = editable?.value ?? "";
+              const hasManual = manualStr.trim() !== "" && manualStr.trim() !== suggestedStr;
+
+              let diff: bigint | null = null;
+              if (hasManual && manualStr.trim() !== "" && suggestedStr !== "") {
+                try {
+                  diff = BigInt(manualStr.trim()) - BigInt(suggestedStr);
+                } catch {
+                  // non-parseable input
+                }
+              }
+
+              const effectiveStr = hasManual ? manualStr.trim() : suggestedStr;
+
+              return (
+                <tr key={f.id} className="border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50">
+                  <td className="py-1 pr-2 font-mono text-slate-600">{f.metricKey}</td>
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
+                      hasManual ? "text-slate-300 line-through" : "text-[var(--px-text)]"
+                    }`}
+                  >
+                    {suggestedStr ? formatIntegerString(suggestedStr) : "—"}
+                  </td>
+                  <td className="py-1 pr-1">
+                    <input
+                      value={manualStr}
+                      onChange={(e) => {
+                        if (editIdx >= 0) {
+                          setEditableFacts((prev) => {
+                            const next = [...prev];
+                            next[editIdx] = { ...next[editIdx], value: e.target.value };
+                            return next;
+                          });
+                        }
+                      }}
+                      placeholder="—"
+                      className={`w-full min-w-[90px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none ${
+                        hasManual
+                          ? "border-amber-300 bg-amber-50 text-amber-800 focus:border-amber-400"
+                          : "border-[rgba(15,23,42,0.10)] bg-white text-slate-600 focus:border-[var(--px-accent)]"
+                      }`}
+                    />
+                  </td>
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums font-medium ${
+                      hasManual ? "text-amber-700" : "text-[var(--px-text)]"
+                    }`}
+                  >
+                    {effectiveStr ? formatIntegerString(effectiveStr) : "—"}
+                  </td>
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
+                      diff === null
+                        ? "text-slate-300"
+                        : diff > 0n
+                          ? "text-green-600"
+                          : diff < 0n
+                            ? "text-red-600"
+                            : "text-slate-400"
+                    }`}
+                  >
+                    {diff !== null
+                      ? (diff >= 0n ? "+" : "") + formatIntegerString(diff)
+                      : "—"}
+                  </td>
+                  <td className="py-1 text-right font-mono text-slate-400">
+                    {f.confidenceScore != null
+                      ? `${(f.confidenceScore * 100).toFixed(0)}%`
+                      : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
