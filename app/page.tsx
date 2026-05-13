@@ -56,10 +56,13 @@ function LandingPage() {
       {/* Hero */}
       <header className="relative h-screen w-full flex items-center justify-center overflow-hidden pt-20">
         <div className="absolute inset-0 bg-primary-container z-0">
-          <img
+          <video
             className="w-full h-full object-cover opacity-40 mix-blend-overlay"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuZUxTjq8We-ieEFdQAWRy52tMiK0hkbsfWK2ChAbZvGKjPqRCZrT5B1ohuTO_W0wkd5wAmyOYXTPXjK9vRVxEfmML1yatROrI1HpOyIOllNk6Kf4_uZa0e0DUKHn7RvNw7bAbY6oInXF4HeGN3kKdrlTaLWnbC5chsroI3rpAd7fxJ-IDfQtUiB01yhS6rt0uQl2asQ1zcot04ZKRSdDNzU8CpgSMjfRQnRFeCYZ-cEjhnGFnyLA_rT7iAgJ9VGaERU7dPDfSYwQ"
-            alt="Arctic data center"
+            src="/hero.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
           />
         </div>
         <div className="relative z-10 text-center px-margin-lg max-w-4xl">
