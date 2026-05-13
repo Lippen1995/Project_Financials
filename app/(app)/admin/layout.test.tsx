@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -70,4 +70,3 @@ describe("app/admin/layout", () => {
     expect(html).toContain("Control Center");
   });
 });
-

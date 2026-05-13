@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -102,4 +102,3 @@ describe("app/admin/annual-report-reviews/gold-set/[candidateId]/page", () => {
     expect(html).toContain("LEGACY_CORRECT");
   });
 });
-
