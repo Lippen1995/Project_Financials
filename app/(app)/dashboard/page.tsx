@@ -23,7 +23,7 @@ export default async function DashboardPage() {
           Hi {firstName}, what should we analyse today?
         </p>
         <h2 className="font-display-lg text-display-lg text-primary mb-8">
-          Arctic Intel Explorer
+          Fjord Insight Explorer
         </h2>
 
         {/* Search Input */}
