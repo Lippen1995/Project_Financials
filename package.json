@@ -38,6 +38,7 @@
     "financials:run-baseline-ocr-shadow-batch": "tsx scripts/run-baseline-ocr-shadow-batch.ts",
     "financials:summarize-shadow-batch": "tsx scripts/summarize-annual-report-shadow-batch.ts",
     "financials:generate-gold-set": "tsx scripts/generate-annual-report-gold-set.ts",
+    "financials:prepare-gold-set-shadow-data": "tsx scripts/prepare-gold-set-shadow-data.ts",
     "financials:run-gold-set-shadow-batch": "tsx scripts/run-annual-report-gold-set-shadow-batch.ts",
     "financials:generate-manual-review-round": "tsx scripts/generate-annual-report-manual-review-round.ts",
     "financials:generate-failure-taxonomy": "tsx scripts/generate-annual-report-unified-failure-taxonomy.ts",
