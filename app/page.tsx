@@ -55,9 +55,6 @@ function LandingPage() {
 
       {/* Hero */}
       <header className="relative h-screen w-full flex items-center justify-center overflow-hidden pt-20">
-        <div className="absolute inset-0 z-0">
-          <video
-            className="w-full h-full object-cover"
         <div className="absolute inset-0 bg-primary-container z-0">
           <video
             className="w-full h-full object-cover opacity-40 mix-blend-overlay"
