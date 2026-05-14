@@ -24,7 +24,7 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Arctic Intel",
+  title: "Fjord Insight",
   description: "Norsk forretningsinnsikt, redefinert.",
 };
 

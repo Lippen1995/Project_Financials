@@ -1,278 +1,251 @@
-# UI Design Structure
+# UI Design Structure — Fjord Insight
 
 ## Formål
-Dette dokumentet beskriver den aktive designstrukturen i ProjectX slik produktet ser ut nå. Målet er å sikre kontinuitet når nye flater bygges eller eksisterende flater videreutvikles.
 
-Dette er ikke en løs inspirasjonsliste. Det er en praktisk standard for hvordan ProjectX skal se ut, oppføre seg og kommunisere videre.
+Dette dokumentet er et praktisk arbeidsnotat og sjekkliste for UI-arbeid i Fjord Insight. Det utfyller `DESIGN.md`, som er hoveddokumentet for designretning og tekniske spesifikasjoner.
 
-`DESIGN.md` er nå hoveddokumentet for designretning. Denne filen fungerer som et mer praktisk arbeidsnotat og sjekkliste for videre UI-arbeid i repoet.
+Bruk `DESIGN.md` for: fargetokens, typografiklasser, komponentspesifikasjoner, og hurtigprompt.
+Bruk dette dokumentet for: prinsipper, mønstre per side, og sjekkliste før merge.
+
+---
 
 ## Designretning
-ProjectX følger en stil som kombinerer:
 
-- Nordic enterprise editorial
-- data-first product UI
-- premium analytical software
+Fjord Insight kombinerer:
 
-Referanseretningen er nær:
+- **Nordic enterprise editorial** — rolig, analytisk, presis
+- **Data-first product UI** — data i sentrum, pynt i periferien
+- **Premium analytical software** — institusjonell troverdighet, ikke SaaS-startup
 
-- Linear for presisjon og disiplin
-- Wise for tillit og kommersiell klarhet
-- Notion for editorial ro og lesbarhet
-- HashiCorp som enterprise-korrektiv
+Referanser: Linear (presisjon), Wise (tillit), Notion (editorial ro), HashiCorp (enterprise-korrektiv).
 
-Retningen skal være langt unna:
+**Langt unna:**
+- Generisk Tailwind SaaS-template
+- Startup-gradienter og overdekorert UI
+- Katalog- eller portalestetikk
+- Overfylte kort-stabler uten hierarki
+- Markedsføringsspråk og growth-UI
 
-- generisk Tailwind SaaS-template
-- startup-gradienter
-- katalog- eller portalestetikk
-- overfylt card-stabling
-- markedsføringsspråk og growth-UI
+---
 
 ## Kjerneprinsipper
 
 ### 1. Analyse først
 Hver skjerm skal hjelpe brukeren å forstå noe raskt.
 
-- Forsiden: start søk og forstå produktets verdi
-- Søkesiden: snevre inn og vurdere treff raskt
-- Selskapsprofil: gå fra oversikt til dyp analyse
-- Organisasjon: forstå kontroll, roller og struktur
-- Regnskap: lese tidsserier og verifiserbare tall
+- Forside → forstå produktets verdi og start søk
+- Søk → snevre inn og vurdere treff
+- Selskapsprofil → gå fra oversikt til dyp analyse
+- Regnskap → lese tidsserier og finansielle tall
+- Organisasjon → forstå kontroll, roller og struktur
 
 ### 2. Informasjon i lag
-Informasjon skal presenteres i tydelige lag:
+Hvert innholdsområde skal ha tydelig visuell hierarki:
 
-- seksjonslabel
-- overskrift
-- kort forklaring
-- primær analyseflate
-- sekundær signalflate eller detaljer
+1. Seksjonslabel (`.data-label`, mono, uppercase)
+2. Overskrift (sans eller `.editorial-display`)
+3. Kort forklaring
+4. Primær analyseflate
+5. Sekundære detaljer og signaler
 
-Brukeren skal kunne skanne først og fordype seg etterpå.
+Bruker skal kunne skanne siden på 3 sekunder og forstå hva de ser på.
 
 ### 3. Troverdighet foran pynt
-Typografi, spacing, struktur og datadisiplin skal skape premium-følelse, ikke effekter.
+Premium-følelse skapes av typografi, spacing og datadisiplin — ikke effekter.
 
-- lite skyggebruk
-- ingen sterke gradients
-- ingen illustrasjoner uten funksjon
-- ingen visuelle elementer som konkurrerer med data
+- Minimal skyggebruk
+- Ingen sterke gradienter
+- Ingen illustrasjoner uten funksjon
+- Ingen visuelle elementer som konkurrerer med data
 
 ### 4. Desktop-first arbeidsflate
-Selskapsanalyse er hovedsakelig en desktop-opplevelse. Mobil skal fungere godt, men strukturen prioriteres for bredere flater.
+Selskapsanalyse er primært en desktop-opplevelse. Strukturen prioriteres for brede flater; mobil skal fungere, men er sekundært.
 
-## Visuell stil
+---
 
-### Overordnet tone
+## Gjeldende fargepalett
 
-- sober
-- analytisk
-- lys og rolig
-- høy tillit
-- premium B2B
-- presis
+Hentet fra `app/globals.css` — bruk alltid CSS-variabelnavnene, aldri hardkodede hex.
 
-### Fargebruk
-Basen er lys og nøytral.
+| Token | Verdi | Bruk |
+|---|---|---|
+| `--px-bg` | `#f8f9ff` | Sidens bakgrunn |
+| `--px-surface` | `rgba(255,255,255,0.9)` | Kortflater |
+| `--px-surface-strong` | `#ffffff` | Hvite flater |
+| `--px-border` | `rgba(15,23,42,0.10)` | Standardkant |
+| `--px-border-subtle` | `rgba(15,23,42,0.08)` | Diskrete skiller |
+| `--px-text` | `#111827` | Primærtekst |
+| `--px-muted` | `#5f6b7a` | Sekundærtekst |
+| `--px-accent` | `#00668a` | Aksent og lenker (teal) |
+| `--px-accent-soft` | `rgba(0,102,138,0.09)` | Lys aksent-bakgrunn |
+| `--px-panel` | `#192536` | Mørke kontrastpaneler |
+| `--px-action` | `#00668a` | Primærknapper |
+| `--px-action-hover` | `#00526e` | Hover på primærknapper |
+| `--px-subtle` | `rgba(239,244,255,0.9)` | Lys sekundær bakgrunn |
 
-Fra dagens implementasjon i [globals.css](C:\Users\simen\Project_Financials\app\globals.css):
-
-- `--px-bg: #f5f4f0`
-- `--px-surface: rgba(255, 255, 255, 0.9)`
-- `--px-surface-strong: #ffffff`
-- `--px-border: rgba(15, 23, 42, 0.1)`
-- `--px-text: #111827`
-- `--px-muted: #5f6b7a`
-- `--px-accent: #31495f`
-- `--px-accent-soft: #e7edf3`
-
-Praktisk bruk:
-
-- bakgrunn: varm, lys, diskret off-white
-- hovedflater: hvit eller nesten hvit
-- tekst: mørk blåsvart eller kull
-- aksent: dempet blågrå eller marine
-- sekundær dataserie i grafer: jordet brun
-- statusfarger skal være diskrete og funksjonelle
+---
 
 ## Typografi
 
-### Fontroller
-ProjectX bruker tre tydelige typografiske roller:
+Tre fontroller — aldri blandes på tvers av sin funksjon.
 
-- serif-display for store overskrifter
-- sans for UI, lesetekst og tabeller
-- mono for metadata, seksjonslabeler og tabulære data
+| Font | CSS-variabel | Klasse | Bruk |
+|---|---|---|---|
+| Source Serif 4 | `--font-serif` | `.editorial-display` | Primær H1, selskapsnavnet, store redaksjonelle overskrifter |
+| IBM Plex Sans | `--font-sans` | *(ingen klasse)* | All UI-tekst, brødtekst, funksjonelle overskrifter, tabeller |
+| IBM Plex Mono | `--font-mono` | `.data-label` | Metadata, seksjonslabels, tabelloverskrifter, badges |
 
-Nåværende oppsett i [layout.tsx](C:\Users\simen\Project_Financials\app\layout.tsx):
+**Tommelfingerregel:** Er det redaksjonell inngang til innhold? → Serif. Er det et funksjonelt UI-element? → Sans.
 
-- `Source Serif 4`
-- `IBM Plex Sans`
-- `IBM Plex Mono`
+---
 
-### Klassenavn som bør videreføres
+## Mønstre per sidetype
 
-- `.editorial-display`
-- `.data-label`
+### Offentlig forside (`app/page.tsx`)
+- Todelt layout: lys venstre + mørk høyrepanel (`--px-panel`)
+- Venstre: H1 `.editorial-display`, ingresstekst, søkefelt, feature-poeng
+- Høyre: live data-panel med nøkkeltall og troverdighets-signaler
+- Aldri: markedsføringsspråk, illustrasjoner, startup-gradienter
 
-## Layoutsystem
+### Innlogget startside (`app/(app)/dashboard/page.tsx`)
+- Sentrert, `max-w-4xl`, `text-center`
+- `.data-label` personlig hilsen øverst
+- H1 `.editorial-display` som produktets søketittel
+- Søkefelt i **linje-stil**: `border-b-2`, ingen kortramme
+- Forslag-tags under søk
+- Redaksjonelle seksjoner med editorial overskrifter
 
-### Primært layoutmønster
-Mange sider følger dette oppsettet:
+### Selskapsprofil (`app/(app)/companies/[slug]/page.tsx`)
+- CompanyHeader: kompakt med juridisk metadata + selskapsnavn (`.editorial-display`)
+- Sticky sekundærnavigasjon med faner
+- **9/3-grid** gjennom alle faner — aldri bryte denne strukturen
+- col-span-9: primært analyseinnhold
+- col-span-3: analytisk støttekolonne (kontekst, varsler, DD-notater)
 
-- bred hovedkolonne for analyse
-- smal høyrekolonne for signaler, status eller kontekst
+### Søkeside (`app/(app)/search/page.tsx`)
+- Todelt: filterpanel til venstre (~320px), resultatliste til høyre
+- Kompakt, skanerbart format på søkeresultater
 
-Dette mønsteret brukes på:
-
-- forside
-- søk
-- selskapsprofil
-- oversikt
-- organisasjon
-- dashboard
-
-### Sticky navigasjon
-Lange selskapsprofiler skal bruke sticky lokal navigasjon når det gir mening, slik vi gjør i fanene på selskapsprofilen.
+---
 
 ## Komponentmønstre
 
-### 1. Hero-seksjoner
-Hero brukes på forside, søk, login, pricing og dashboard.
+### Hero-seksjoner
+- Liten `.data-label` label øverst
+- Stor `.editorial-display` overskrift
+- Én kort forklarende ingress (sans)
+- Eventuell mørk høyrespalte for status eller kontekst
+- Hero skal aldri se ut som en marketing-side
 
-Mønster:
+### Kort (Cards)
+- Flate og stramme — `rounded-2xl border bg-[var(--px-surface)]`
+- Informasjonsmoduler, ikke dekorasjon
+- Ingen tunge skygger
+- Ikke stable kort uten tydelig informasjonshierarki
 
-- liten uppercase label øverst
-- stor editorial overskrift
-- én kort forklarende ingress
-- eventuell mørk høyrespalte for status eller kontekst
+### Datapaneler
+- Kompakte og tydelige
+- Brukt til: analytisk sammendrag, fakta- og statuspaneler, innsiktspaneler
+- Innhold: `rounded-xl border border-[var(--px-border-subtle)]`
 
-Hero skal aldri se ut som en marketing-side.
+### Tabeller
+- Ingen radius — bevisst analytisk preg
+- `.data-label` tabelloverskrifter
+- `tabular-nums` på alle tall
+- Rolig header-bakgrunn
+- Hover: `bg-[var(--px-subtle)]`
+- Finansielle, ikke generiske
 
-### 2. Cards
-Cards brukes, men kontrollert.
+### Grafer
+- Én tydelig jobb per graf
+- Tynn strek, rolige gridlines, minimal fill
+- Primær serie: `--px-accent`
+- Sekundær serie: dempet brun/sand
+- Tooltip: kompakt hvit boks
 
-Kort skal:
+### Organisasjons- og strukturflater
+- Analyseverktøy, ikke infografikk
+- Tydelig gruppering og nøktern node-/relasjonsbruk
+- Hover og detaljpaneler for tunge data
 
-- være flate og stramme
-- fungere som informasjonsmoduler
-- ikke stables i overdreven grad
+---
 
-Kort skal ikke:
+## Språkregler
 
-- være den primære designideen i seg selv
-- ha tunge skygger
-- ha overdreven radius
+All synlig tekst skal være norsk, profesjonell og presis.
 
-### 3. Datapaneler
-Signalpaneler og sidepaneler skal være kompakte og tydelige.
+- Korrekt norsk alfabet: `Æ Ø Å` — aldri `Ae`, `Oe`, `Aa`
+- Unngå engelske produktord der norsk fungerer like godt
+- Behold juridiske/tekniske termer der de er standard (BRREG, NACE, EBIT, EBITDA)
+- Aldri intern MVP-copy i synlig UI: `TODO`, `mockdata`, `kildeoppslag`, `placeholder`
 
-Eksempler:
+| Unngå | Bruk heller |
+|---|---|
+| Executive snapshot | Hovedsignaler |
+| Workspace (synlig UI) | Arbeidsflate |
+| Admin (knapp/label) | Administrator |
+| Dashboard | Oversikt / Startside |
+| Loading... | Laster... |
 
-- analytisk sammendrag i oversikt
-- fakta- og statuspaneler i selskapsprofil
-- innsiktspanel i organisasjon
+---
 
-### 4. Tabeller
-Tabeller er en kjernekomponent i produktet.
+## Hva vi aktivt unngår
 
-Tabeller skal:
+- Nye sider som faller tilbake til standard SaaS-dashboard
+- Tunge kortstabler uten tydelig informasjonshierarki
+- Tilfeldige nye aksentfarger — bruk kun `--px-accent`
+- Inkonsistente radius-, border- eller shadow-mønstre
+- Engelske labels i ellers norske flater
+- Hardkodede hex-farger — alltid CSS-variabler
 
-- ha tydelige kolonneoverskrifter
-- bruke tabulære tall
-- ha rolig headerbakgrunn
-- ha høy lesbarhet i rader og negative tall
-- føles finansielle, ikke generiske
+---
 
-### 5. Grafer
-Grafer skal være sobere og analytiske.
-
-Regler:
-
-- én tydelig jobb per graf
-- rolige akser og gridlines
-- tooltip som forklarer uten å dominere
-- tydelig aktivt år eller valgt punkt
-- mørk marine for primær dataserie
-- dempet brun for sekundær eller alternativ serie
-
-### 6. Struktur- og organisasjonsflater
-Disse skal se ut som analyseverktøy, ikke infografikk.
-
-Regler:
-
-- tydelig gruppering
-- nøktern node- og relasjonsbruk
-- klare labels
-- hover og detaljpaneler skal gjøre tunge data lesbare
-- rolle- og strukturinformasjon skal skilles tydelig
-
-## Språk og microcopy
-
-### Tone
-All tekst skal være:
-
-- norsk
-- presis
-- profesjonell
-- konkret
-- rolig
-
-### Språkregler
-
-- bruk korrekt norsk alfabet: `Æ Ø Å`
-- unngå engelske produktord hvis det finnes en god norsk form
-- behold tekniske eller juridiske termer bare når de faktisk er best forstått slik
-
-Eksempler:
-
-- bruk `Hovedsignaler` heller enn `Executive snapshot`
-- bruk `arbeidsflate` heller enn `workspace` i synlig UI
-- bruk `administrator` heller enn `admin` i synlig UI når det passer
-- bruk `Åpne kunngjøringer`, `årsregnskap`, `regnskapsår`, `nøkkeltall`
-
-## Hva vi aktivt skal unngå videre
-
-- nye sider som faller tilbake til standard SaaS-dashboard
-- tunge kortstabler uten tydelig informasjonshierarki
-- tilfeldige nye aksentfarger
-- inkonsistente radius-, border- eller shadow-mønstre
-- engelske labels i ellers norske flater
-- `MVP`, `mockdata`, `kildeoppslag` og annen intern formulering i synlig UI
-- visuelle avvik mellom forside og underflater
-
-## Praktisk sjekkliste før ny UI merges
+## Sjekkliste før ny UI merges
 
 ### Visuell kontroll
+- [ ] Følger siden fargesystem og radius fra `DESIGN.md`?
+- [ ] Bruker siden riktige typografiklasser (`.editorial-display`, `.data-label`)?
+- [ ] Ser komponenten ut som en del av samme produkt som selskapsprofilen?
+- [ ] Er det for mange kort eller for mye dashboard-preget UI?
+- [ ] Er det hardkodede farger som burde vært CSS-variabler?
 
-- bruker siden samme typografiske hierarki som forsiden?
-- følger siden samme farge- og border-system?
-- ser modulen ut som en del av samme produkt som selskapsprofilen?
-- er det for mange kort eller for mye dashboard-preget UI?
+### Layout
+- [ ] Horisontal toppbar — ikke venstrerail?
+- [ ] Selskapsprofil: 9/3-grid gjennom alle faner?
+- [ ] Innlogget startside: sentrert med linje-søkefelt?
+
+### Typografi
+- [ ] `.editorial-display` kun for H1 og redaksjonelle seksjonsoverskrifter?
+- [ ] `.data-label` for alle metadata, labels og tabelloverskrifter?
 
 ### Språk
+- [ ] All tekst på korrekt norsk?
+- [ ] Korrekt bruk av `Æ Ø Å`?
+- [ ] Ingen intern MVP-copy eller engelske labels?
 
-- er all tekst på korrekt norsk?
-- finnes det mojibake eller ASCII-erstatninger for `Æ Ø Å`?
-- høres teksten ut som et kommersielt analyseprodukt, ikke intern MVP-copy?
+### Data og tilstander
+- [ ] Er data gruppert og lett å skanne?
+- [ ] Er tomme tilstander definert (`rounded-2xl border-dashed`)?
+- [ ] Er loading-tilstand definert (skeleton)?
+- [ ] Er feil-tilstand definert (rød flash-melding)?
 
-### Data
+---
 
-- er data tydelig gruppert og lett å skanne?
-- er hovedpoenget på skjermen klart innen få sekunder?
-- er detaljer underordnet oversikten?
+## Referansefiler
 
-## Standard for videre arbeid
-Når nye flater bygges, skal de ta utgangspunkt i eksisterende mønstre i:
+Nye komponenter skal ta utgangspunkt i eksisterende mønstre:
 
-- [page.tsx](C:\Users\simen\Project_Financials\app\page.tsx)
-- [page.tsx](C:\Users\simen\Project_Financials\app\search\page.tsx)
-- [page.tsx](C:\Users\simen\Project_Financials\app\companies\[slug]\page.tsx)
-- [overview-analytics.tsx](C:\Users\simen\Project_Financials\components\company\overview-analytics.tsx)
-- [financial-time-series-table.tsx](C:\Users\simen\Project_Financials\components\company\financial-time-series-table.tsx)
-- [organization-tab.tsx](C:\Users\simen\Project_Financials\components\company\organization-tab.tsx)
-- [globals.css](C:\Users\simen\Project_Financials\app\globals.css)
+| Mønster | Fil |
+|---|---|
+| CSS-tokens | `app/globals.css` |
+| Fonter og metadata | `app/layout.tsx` |
+| Offentlig forside | `app/page.tsx` |
+| Innlogget startside | `app/(app)/dashboard/page.tsx` |
+| Selskapsprofil | `app/(app)/companies/[slug]/page.tsx` |
+| Søkeside | `app/(app)/search/page.tsx` |
+| Finansielle tabeller | `components/company/financial-time-series-table.tsx` |
+| Organisasjonsstruktur | `components/company/organization-tab.tsx` |
+| Analytisk oversikt | `components/company/overview-analytics.tsx` |
+| Tailwind-konfig | `tailwind.config.ts` |
 
 Hvis en ny komponent bryter med disse mønstrene, skal det være et bevisst valg med tydelig grunn.
-
