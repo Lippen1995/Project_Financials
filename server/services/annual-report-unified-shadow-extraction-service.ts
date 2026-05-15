@@ -19,6 +19,8 @@ import { FinancialFactStatementType } from "@prisma/client";
 import {
   createRawFinancialLineItems,
   type RawFinancialLineItemDraft,
+  createAnnualReportNarratives,
+  type AnnualReportNarrativeDraft,
 } from "@/server/persistence/annual-report-ingestion-repository";
 import type {
   UnifiedFinancialStatementKind,
@@ -398,6 +400,31 @@ export async function runAnnualReportUnifiedShadowExtraction(
           { filingId, fiscalYear },
         );
         artifactResults.narrative = stepError(err, elapsed(stepStart));
+      }
+
+      try {
+        const narrativeDrafts: AnnualReportNarrativeDraft[] = narrative.sections.map((section) => ({
+          fiscalYear,
+          sectionKind: section.kind,
+          title: section.title ?? null,
+          textPreview: section.textPreview,
+          fullText: section.fullText ?? section.textPreview,
+          pageStart: section.pageStart ?? null,
+          pageEnd: section.pageEnd ?? null,
+          confidence: section.confidence,
+          provenance: section.provenance,
+        }));
+        await createAnnualReportNarratives({
+          filingId,
+          companyId,
+          items: narrativeDrafts,
+        });
+      } catch (err) {
+        logRecoverableError(
+          "annual-report-unified-shadow.persistNarrativeRows",
+          err,
+          { filingId, fiscalYear },
+        );
       }
     }
 

@@ -577,6 +577,44 @@ export async function createRawFinancialLineItems(input: {
   ]);
 }
 
+export type AnnualReportNarrativeDraft = {
+  fiscalYear: number;
+  sectionKind: string;
+  title?: string | null;
+  textPreview: string;
+  fullText: string;
+  pageStart?: number | null;
+  pageEnd?: number | null;
+  confidence: number;
+  provenance: string;
+};
+
+export async function createAnnualReportNarratives(input: {
+  filingId: string;
+  companyId: string;
+  items: AnnualReportNarrativeDraft[];
+}): Promise<void> {
+  if (input.items.length === 0) return;
+  await prisma.$transaction([
+    prisma.annualReportNarrative.deleteMany({ where: { filingId: input.filingId } }),
+    prisma.annualReportNarrative.createMany({
+      data: input.items.map((item) => ({
+        filingId: input.filingId,
+        companyId: input.companyId,
+        fiscalYear: item.fiscalYear,
+        sectionKind: item.sectionKind,
+        title: item.title ?? null,
+        textPreview: item.textPreview,
+        fullText: item.fullText,
+        pageStart: item.pageStart ?? null,
+        pageEnd: item.pageEnd ?? null,
+        confidence: item.confidence,
+        provenance: item.provenance,
+      })),
+    }),
+  ]);
+}
+
 export async function createFinancialValidationIssues(input: {
   extractionRunId: string;
   filingId: string;

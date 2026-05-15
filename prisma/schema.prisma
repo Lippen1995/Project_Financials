@@ -574,6 +574,7 @@ model Company {
   petroleumExposureSnapshot PetroleumCompanyExposureSnapshot?
   annualReportReviewedFacts AnnualReportReviewedFact[]
   rawLineItems              RawFinancialLineItem[]
+  narratives                AnnualReportNarrative[]
   industryCodeId            String?
   industryCode              IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
 
@@ -778,6 +779,7 @@ model AnnualReportFiling {
   reviewedFacts            AnnualReportReviewedFact[]
   pdfDecisionGoldSetItem    PdfDecisionGoldSetItem?
   rawLineItems             RawFinancialLineItem[]
+  narratives               AnnualReportNarrative[]
 
   @@index([companyId, fiscalYear])
   @@index([companyId, status, discoveredAt])
@@ -2458,4 +2460,26 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model AnnualReportNarrative {
+  id          String   @id @default(cuid())
+  filingId    String
+  companyId   String
+  fiscalYear  Int
+  sectionKind String
+  title       String?
+  textPreview String
+  fullText    String
+  pageStart   Int?
+  pageEnd     Int?
+  confidence  Float
+  provenance  String
+  createdAt   DateTime @default(now())
+
+  filing  AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([filingId, sectionKind])
+  @@index([companyId, fiscalYear])
 }
