@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
 import { CompanyFinancialDiscussions } from "@/components/company/company-financial-discussions";
+import { CompanyNarrativesTab } from "@/components/company/company-narratives-tab";
 import { CompanyPetroleumTab } from "@/components/company/company-petroleum-tab";
 import { CompanyTabId, CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
 import { FinancialDocuments } from "@/components/company/financial-documents";
@@ -15,6 +16,7 @@ import { OverviewAnalytics } from "@/components/company/overview-analytics";
 import { PremiumLock } from "@/components/paywall/premium-lock";
 import { Card } from "@/components/ui/card";
 import { safeAuth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { CompanyProfile, NormalizedCompany, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { isPremium } from "@/server/billing/subscription";
@@ -503,6 +505,7 @@ export default async function CompanyPage({
     { id: "nokkeltall", label: "Nøkkeltall" },
     { id: "organisasjon", label: "Organisasjon" },
     { id: "kunngjoringer", label: "Kunngjøringer" },
+    { id: "dokumenter", label: "Dokumenter" },
   ];
   if (petroleumVisibility.available) {
     availableTabs.push({ id: "sokkeleksponering", label: "Sokkeleksponering" });
@@ -517,6 +520,25 @@ export default async function CompanyPage({
   const legalStructure = activeTab === "organisasjon" ? await getLegalStructure(company.orgNumber) : null;
   const announcementsData =
     activeTab === "kunngjoringer" ? await getCompanyAnnouncements(company.orgNumber) : null;
+
+  const narratives =
+    activeTab === "dokumenter"
+      ? await prisma.annualReportNarrative.findMany({
+          where: { company: { slug } },
+          orderBy: [{ fiscalYear: "desc" }, { sectionKind: "asc" }],
+          select: {
+            id: true,
+            fiscalYear: true,
+            sectionKind: true,
+            title: true,
+            textPreview: true,
+            fullText: true,
+            pageStart: true,
+            pageEnd: true,
+            confidence: true,
+          },
+        })
+      : [];
   const initialAnnouncementDetail =
     activeTab === "kunngjoringer" && announcementsData?.announcements[0]
       ? await getCompanyAnnouncementDetail(
@@ -776,6 +798,26 @@ export default async function CompanyPage({
           </Card>
         </div>
       ) : null}
+
+          {activeTab === "dokumenter" ? (
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
+                <div className="border-b border-[rgba(15,23,42,0.08)] px-5 py-4">
+                  <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
+                    Dokumenter
+                  </div>
+                  <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
+                    Styreberetning og revisjonsberetning
+                  </h2>
+                  <p className="mt-1.5 text-sm leading-6 text-slate-500">
+                    Narrativt innhold fra årsrapporter, inkludert styrets beretning og revisors
+                    beretning.
+                  </p>
+                </div>
+                <CompanyNarrativesTab narratives={narratives} />
+              </div>
+            </div>
+          ) : null}
 
           {activeTab === "sokkeleksponering" && petroleumProfile ? (
             <CompanyPetroleumTab petroleum={petroleumProfile} />
