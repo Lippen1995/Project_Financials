@@ -637,6 +637,7 @@ export default async function CompanyPage({
               <FinancialTimeSeriesTable
                 statements={financialStatements}
                 documents={financialDocuments}
+                companySlug={slug}
                 discussionRoomId={discussionContext?.selectedRoomId ?? null}
                 discussionRoomName={discussionContext?.selectedRoomName ?? null}
                 discussionStatements={financialDiscussions}

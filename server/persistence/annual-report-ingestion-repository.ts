@@ -1,4 +1,9 @@
-import { Prisma, AnnualReportFilingStatus, AnnualReportReviewStatus } from "@prisma/client";
+import {
+  Prisma,
+  AnnualReportFilingStatus,
+  AnnualReportReviewStatus,
+  FinancialFactStatementType,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -520,6 +525,56 @@ export async function createFinancialFacts(input: {
       rawPayload: fact.rawPayload as Prisma.InputJsonValue,
     })),
   });
+}
+
+export type RawFinancialLineItemDraft = {
+  fiscalYear: number;
+  statementType: FinancialFactStatementType;
+  originalLabel: string;
+  originalValue: string;
+  parsedValue?: bigint;
+  canonicalKey?: string;
+  unitScale: number;
+  sourcePage?: number;
+  rowIndex?: number;
+  extractionRoute?: string;
+  confidence: number;
+};
+
+export async function createRawFinancialLineItems(input: {
+  filingId: string;
+  companyId: string;
+  extractionRunId?: string;
+  items: RawFinancialLineItemDraft[];
+}): Promise<void> {
+  if (input.items.length === 0) return;
+
+  await prisma.$transaction([
+    prisma.rawFinancialLineItem.deleteMany({
+      where: {
+        filingId: input.filingId,
+        extractionRoute: input.items[0]?.extractionRoute ?? null,
+      },
+    }),
+    prisma.rawFinancialLineItem.createMany({
+      data: input.items.map((item) => ({
+        filingId: input.filingId,
+        companyId: input.companyId,
+        extractionRunId: input.extractionRunId ?? null,
+        fiscalYear: item.fiscalYear,
+        statementType: item.statementType,
+        originalLabel: item.originalLabel,
+        originalValue: item.originalValue,
+        parsedValue: item.parsedValue ?? null,
+        canonicalKey: item.canonicalKey ?? null,
+        unitScale: item.unitScale,
+        sourcePage: item.sourcePage ?? null,
+        rowIndex: item.rowIndex ?? null,
+        extractionRoute: item.extractionRoute ?? null,
+        confidence: item.confidence,
+      })),
+    }),
+  ]);
 }
 
 export async function createFinancialValidationIssues(input: {

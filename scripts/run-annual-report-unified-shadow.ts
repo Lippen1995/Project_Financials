@@ -133,6 +133,7 @@ async function main() {
   console.log(`  Running unified shadow extraction (mode=${mode})...`);
   const result = await runAnnualReportUnifiedShadowExtraction({
     filingId: filingId!,
+    companyId: filing.company.id,
     orgNumber: filing.company.orgNumber,
     fiscalYear: filing.fiscalYear,
     preflight,

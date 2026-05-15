@@ -215,6 +215,7 @@ async function main() {
     try {
       const result = await runAnnualReportUnifiedShadowExtraction({
         filingId,
+        companyId: filing.company.id,
         orgNumber: filing.company.orgNumber,
         fiscalYear: filing.fiscalYear,
         preflight,
