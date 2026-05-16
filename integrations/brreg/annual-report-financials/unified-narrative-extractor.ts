@@ -714,7 +714,6 @@ export function compactUnifiedNarrativeExtractionResultForArtifact(
   return {
     ...result,
     sections: result.sections.map((s) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { fullText: _omit, ...rest } = s;
       return {
         ...rest,
