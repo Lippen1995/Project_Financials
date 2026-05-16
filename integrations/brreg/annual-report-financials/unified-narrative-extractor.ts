@@ -72,6 +72,8 @@ export type UnifiedNarrativeSection = {
   pageEnd: number | null;
   /** Text preview (max 500 chars) from the section body */
   textPreview: string;
+  /** Full text of the section body (may be large) */
+  fullText?: string;
   /** Signals that caused this section to be detected */
   signals: UnifiedNarrativeSignal[];
   /**
@@ -339,6 +341,7 @@ function buildSectionsFromDocumentSections(
       pageStart: docSection.pageStart,
       pageEnd: docSection.pageEnd,
       textPreview: makeTextPreview(combinedText || docSection.textPreview),
+      fullText: combinedText || docSection.textPreview,
       signals,
       confidence: 1.0,
       provenance: "DOCUMENT_SECTION",
@@ -446,6 +449,7 @@ function buildSectionsFromInference(
         pageStart,
         pageEnd,
         textPreview: makeTextPreview(combinedText),
+        fullText: combinedText,
         signals: dedupedSignals,
         confidence,
         provenance: headingBlock ? "HEADING_INFERRED" : "BLOCK_INFERRED",
@@ -709,19 +713,22 @@ export function compactUnifiedNarrativeExtractionResultForArtifact(
 
   return {
     ...result,
-    sections: result.sections.map((s) => ({
-      ...s,
-      textPreview:
-        s.textPreview.length > COMPACT_PREVIEW_MAX
-          ? s.textPreview.slice(0, COMPACT_PREVIEW_MAX - 1) + "…"
-          : s.textPreview,
-      signals: s.signals.map((sig) => ({
-        ...sig,
-        context:
-          sig.context.length > COMPACT_CONTEXT_MAX
-            ? sig.context.slice(0, COMPACT_CONTEXT_MAX - 1) + "…"
-          : sig.context,
-      })),
-    })),
+    sections: result.sections.map((s) => {
+      const { fullText: _omit, ...rest } = s;
+      return {
+        ...rest,
+        textPreview:
+          s.textPreview.length > COMPACT_PREVIEW_MAX
+            ? s.textPreview.slice(0, COMPACT_PREVIEW_MAX - 1) + "…"
+            : s.textPreview,
+        signals: s.signals.map((sig) => ({
+          ...sig,
+          context:
+            sig.context.length > COMPACT_CONTEXT_MAX
+              ? sig.context.slice(0, COMPACT_CONTEXT_MAX - 1) + "…"
+              : sig.context,
+        })),
+      };
+    }),
   };
 }

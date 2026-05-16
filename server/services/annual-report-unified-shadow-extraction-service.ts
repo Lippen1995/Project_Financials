@@ -15,6 +15,18 @@
  */
 
 import { logRecoverableError } from "@/lib/recoverable-error";
+import { FinancialFactStatementType } from "@prisma/client";
+import {
+  createRawFinancialLineItems,
+  type RawFinancialLineItemDraft,
+  createAnnualReportNarratives,
+  type AnnualReportNarrativeDraft,
+} from "@/server/persistence/annual-report-ingestion-repository";
+import type {
+  UnifiedFinancialStatementKind,
+  UnifiedUnitScale,
+  UnifiedFinancialStatement,
+} from "@/integrations/brreg/annual-report-financials/unified-financial-statement-extractor";
 import type { CanonicalFactCandidate, PreflightResult } from "@/integrations/brreg/annual-report-financials/types";
 import {
   buildUnifiedParserDocumentFromPreflightResult,
@@ -56,6 +68,8 @@ import type {
 export type AnnualReportUnifiedShadowInput = {
   /** Filing identifier (for logging and artifact persistence) */
   filingId: string;
+  /** Company database ID */
+  companyId: string;
   /** Org number (for artifact metadata) */
   orgNumber: string;
   /** Fiscal year (for artifact metadata) */
@@ -204,7 +218,7 @@ export async function runAnnualReportUnifiedShadowExtraction(
     };
   }
 
-  const { filingId, orgNumber, fiscalYear, preflight, legacyCandidates, config, sourceCommand } = input;
+  const { filingId, companyId, orgNumber, fiscalYear, preflight, legacyCandidates, config, sourceCommand } = input;
   const warnings: string[] = [];
 
   // ── Step 1: Build unified parser document ─────────────────────────────────
@@ -354,6 +368,23 @@ export async function runAnnualReportUnifiedShadowExtraction(
       }
     }
 
+    if (config.persistUnifiedFinancialExtraction && financial !== null) {
+      try {
+        const rawItems = buildRawLineItemDrafts(financial.statements);
+        await createRawFinancialLineItems({
+          filingId,
+          companyId,
+          items: rawItems,
+        });
+      } catch (err) {
+        logRecoverableError(
+          "annual-report-unified-shadow.persistRawLineItems",
+          err,
+          { filingId, fiscalYear },
+        );
+      }
+    }
+
     if (config.persistUnifiedNarrativeExtraction && narrative !== null) {
       const stepStart = Date.now();
       try {
@@ -369,6 +400,31 @@ export async function runAnnualReportUnifiedShadowExtraction(
           { filingId, fiscalYear },
         );
         artifactResults.narrative = stepError(err, elapsed(stepStart));
+      }
+
+      try {
+        const narrativeDrafts: AnnualReportNarrativeDraft[] = narrative.sections.map((section) => ({
+          fiscalYear,
+          sectionKind: section.kind,
+          title: section.title ?? null,
+          textPreview: section.textPreview,
+          fullText: section.fullText ?? section.textPreview,
+          pageStart: section.pageStart ?? null,
+          pageEnd: section.pageEnd ?? null,
+          confidence: section.confidence,
+          provenance: section.provenance,
+        }));
+        await createAnnualReportNarratives({
+          filingId,
+          companyId,
+          items: narrativeDrafts,
+        });
+      } catch (err) {
+        logRecoverableError(
+          "annual-report-unified-shadow.persistNarrativeRows",
+          err,
+          { filingId, fiscalYear },
+        );
       }
     }
 
@@ -409,4 +465,59 @@ export async function runAnnualReportUnifiedShadowExtraction(
     artifacts: artifactResults,
     warnings,
   };
+}
+
+// ── Helpers for raw line item persistence ──────────────────────────────────────
+
+function mapStatementKind(
+  kind: UnifiedFinancialStatementKind,
+): FinancialFactStatementType | null {
+  switch (kind) {
+    case "INCOME_STATEMENT": return FinancialFactStatementType.INCOME_STATEMENT;
+    case "BALANCE_SHEET": return FinancialFactStatementType.BALANCE_SHEET;
+    case "CASH_FLOW_STATEMENT": return FinancialFactStatementType.CASH_FLOW;
+    default: return null;
+  }
+}
+
+function mapUnitScale(scale: UnifiedUnitScale): number {
+  switch (scale) {
+    case "THOUSANDS": return 1000;
+    case "MILLIONS": return 1000000;
+    default: return 1;
+  }
+}
+
+function tryParseBigInt(value: string, sign: string): bigint | undefined {
+  const digits = value.replace(/\s/g, "").replace(/[^0-9]/g, "");
+  if (!digits) return undefined;
+  const n = BigInt(digits);
+  return sign === "NEGATIVE" ? -n : n;
+}
+
+function buildRawLineItemDrafts(
+  statements: UnifiedFinancialStatement[],
+): RawFinancialLineItemDraft[] {
+  const drafts: RawFinancialLineItemDraft[] = [];
+  for (const stmt of statements) {
+    const statementType = mapStatementKind(stmt.kind);
+    if (!statementType) continue;
+    for (let i = 0; i < stmt.lineItems.length; i++) {
+      const item = stmt.lineItems[i]!;
+      drafts.push({
+        fiscalYear: item.year,
+        statementType,
+        originalLabel: item.originalLabel,
+        originalValue: item.value,
+        parsedValue: tryParseBigInt(item.value, item.sign),
+        canonicalKey: item.canonicalKey ?? undefined,
+        unitScale: mapUnitScale(item.unitScale),
+        sourcePage: item.provenance.pageNumber,
+        rowIndex: item.provenance.rowIndex ?? i,
+        extractionRoute: item.provenance.route,
+        confidence: item.confidence,
+      });
+    }
+  }
+  return drafts;
 }

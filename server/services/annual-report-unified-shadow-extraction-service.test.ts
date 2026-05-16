@@ -80,6 +80,7 @@ function makePersistConfig(flags?: Partial<Omit<AnnualReportUnifiedShadowConfig,
 function makeBaseInput(config: AnnualReportUnifiedShadowConfig): AnnualReportUnifiedShadowInput {
   return {
     filingId: FAKE_FILING_ID,
+    companyId: "company-fake",
     orgNumber: FAKE_ORG_NUMBER,
     fiscalYear: FAKE_FISCAL_YEAR,
     preflight: makePreflight(),

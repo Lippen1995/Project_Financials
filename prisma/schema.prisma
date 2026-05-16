@@ -573,6 +573,8 @@ model Company {
   financialCoverage         CompanyFinancialCoverage?
   petroleumExposureSnapshot PetroleumCompanyExposureSnapshot?
   annualReportReviewedFacts AnnualReportReviewedFact[]
+  rawLineItems              RawFinancialLineItem[]
+  narratives                AnnualReportNarrative[]
   industryCodeId            String?
   industryCode              IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
 
@@ -776,6 +778,8 @@ model AnnualReportFiling {
   coverageAsLatestSuccess  CompanyFinancialCoverage[] @relation("CoverageLatestSuccessfulFiling")
   reviewedFacts            AnnualReportReviewedFact[]
   pdfDecisionGoldSetItem    PdfDecisionGoldSetItem?
+  rawLineItems             RawFinancialLineItem[]
+  narratives               AnnualReportNarrative[]
 
   @@index([companyId, fiscalYear])
   @@index([companyId, status, discoveredAt])
@@ -880,6 +884,31 @@ model FinancialValidationIssue {
   @@index([extractionRunId, severity])
   @@index([companyId, fiscalYear, severity])
   @@index([filingId, severity])
+}
+
+model RawFinancialLineItem {
+  id              String                     @id @default(cuid())
+  filingId        String
+  extractionRunId String?
+  companyId       String
+  fiscalYear      Int
+  statementType   FinancialFactStatementType
+  originalLabel   String
+  originalValue   String
+  parsedValue     BigInt?
+  canonicalKey    String?
+  unitScale       Int                        @default(1)
+  sourcePage      Int?
+  rowIndex        Int?
+  extractionRoute String?
+  confidence      Float
+  createdAt       DateTime                   @default(now())
+
+  filing  AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([filingId, statementType])
+  @@index([companyId, fiscalYear])
 }
 
 model CompanyFinancialCoverage {
@@ -2431,4 +2460,26 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model AnnualReportNarrative {
+  id          String   @id @default(cuid())
+  filingId    String
+  companyId   String
+  fiscalYear  Int
+  sectionKind String
+  title       String?
+  textPreview String
+  fullText    String
+  pageStart   Int?
+  pageEnd     Int?
+  confidence  Float
+  provenance  String
+  createdAt   DateTime @default(now())
+
+  filing  AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([filingId, sectionKind])
+  @@index([companyId, fiscalYear])
 }

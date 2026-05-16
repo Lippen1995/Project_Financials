@@ -123,7 +123,7 @@ function formatCell(value: number | null, mode: FinancialValueMode) {
   return formatPercent(value);
 }
 
-function NegativeValue({ children, negative }: { children: string; negative: boolean }) {
+function NegativeValue({ children, negative }: { children: ReactNode; negative: boolean }) {
   return (
     <span
       className={cn(
@@ -171,35 +171,52 @@ function SegmentedControl<T extends string>({
 function TableControls({
   mode,
   densityMode,
+  standardizationMode,
   onModeChange,
   onDensityChange,
+  onStandardizationChange,
 }: {
   mode: FinancialValueMode;
   densityMode: FinancialDensityMode;
+  standardizationMode: "standardized" | "reported";
   onModeChange: (value: FinancialValueMode) => void;
   onDensityChange: (value: FinancialDensityMode) => void;
+  onStandardizationChange: (value: "standardized" | "reported") => void;
 }) {
   return (
     <div className="flex flex-col gap-3 border-y border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] px-5 py-4 md:flex-row md:items-center md:justify-between">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-wrap gap-3 sm:items-center">
         <SegmentedControl
-          value={mode}
-          onChange={onModeChange}
+          value={standardizationMode}
+          onChange={onStandardizationChange}
           options={[
-            { value: "amount", label: modeLabels.amount },
-            { value: "margin", label: modeLabels.margin },
-            { value: "growth", label: modeLabels.growth },
+            { value: "standardized", label: "Standardisert" },
+            { value: "reported", label: "Som rapportert" },
           ]}
         />
 
-        <SegmentedControl
-          value={densityMode}
-          onChange={onDensityChange}
-          options={[
-            { value: "main", label: densityLabels.main },
-            { value: "all", label: densityLabels.all },
-          ]}
-        />
+        {standardizationMode === "standardized" && (
+          <>
+            <SegmentedControl
+              value={mode}
+              onChange={onModeChange}
+              options={[
+                { value: "amount", label: modeLabels.amount },
+                { value: "margin", label: modeLabels.margin },
+                { value: "growth", label: modeLabels.growth },
+              ]}
+            />
+
+            <SegmentedControl
+              value={densityMode}
+              onChange={onDensityChange}
+              options={[
+                { value: "main", label: densityLabels.main },
+                { value: "all", label: densityLabels.all },
+              ]}
+            />
+          </>
+        )}
       </div>
 
       <p className="data-label text-[11px] font-semibold uppercase text-slate-500">Tall i NOK</p>
@@ -419,9 +436,25 @@ function FinancialCellDialog({
   );
 }
 
+type RawLineItem = {
+  id: string;
+  fiscalYear: number;
+  statementType: string;
+  originalLabel: string;
+  originalValue: string;
+  parsedValue: string | null;
+  canonicalKey: string | null;
+  unitScale: number;
+  sourcePage: number | null;
+  rowIndex: number | null;
+  extractionRoute: string | null;
+  confidence: number;
+};
+
 export function FinancialTimeSeriesTable({
   statements,
   documents,
+  companySlug,
   discussionRoomId,
   discussionRoomName,
   discussionStatements,
@@ -429,6 +462,7 @@ export function FinancialTimeSeriesTable({
 }: {
   statements: NormalizedFinancialStatement[];
   documents: NormalizedFinancialDocument[];
+  companySlug: string;
   discussionRoomId?: string | null;
   discussionRoomName?: string | null;
   discussionStatements?: CompanyFinancialStatementDiscussionSummary[];
@@ -438,6 +472,9 @@ export function FinancialTimeSeriesTable({
   const [activeStatement, setActiveStatement] = useState<FinancialStatementType>("income");
   const [mode, setMode] = useState<FinancialValueMode>("amount");
   const [densityMode, setDensityMode] = useState<FinancialDensityMode>("main");
+  const [standardizationMode, setStandardizationMode] = useState<"standardized" | "reported">("standardized");
+  const [rawItems, setRawItems] = useState<RawLineItem[] | null>(null);
+  const [rawLoading, setRawLoading] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [hoveredCellKey, setHoveredCellKey] = useState<string | null>(null);
   const [hoverReplyDrafts, setHoverReplyDrafts] = useState<Record<string, string>>({});
@@ -628,17 +665,36 @@ export function FinancialTimeSeriesTable({
       <TableControls
         mode={mode}
         densityMode={densityMode}
+        standardizationMode={standardizationMode}
         onModeChange={setMode}
         onDensityChange={setDensityMode}
+        onStandardizationChange={(v) => {
+          setStandardizationMode(v);
+          if (v === "reported" && rawItems === null && !rawLoading) {
+            setRawLoading(true);
+            const latestYear = dataset.years[0];
+            fetch(`/api/companies/${companySlug}/raw-financials${latestYear ? `?year=${latestYear}` : ""}`)
+              .then((r) => r.json())
+              .then((body: { data: RawLineItem[] }) => setRawItems(body.data))
+              .catch(() => setRawItems([]))
+              .finally(() => setRawLoading(false));
+          }
+        }}
       />
 
-      {discussionRoomId && discussionRoomName ? (
-        <div className="border-b border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] px-5 py-3 text-sm text-slate-600">
-          Klikk på et tall i tabellen for å starte eller åpne en kommentartråd for akkurat det datapunktet.
-        </div>
-      ) : null}
+      {standardizationMode === "reported" ? (
+        <RawLineItemsTable items={rawItems} loading={rawLoading} />
+      ) : (
+        <>
+          {discussionRoomId && discussionRoomName ? (
+            <div className="border-b border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)] px-5 py-3 text-sm text-slate-600">
+              Klikk på et tall i tabellen for å starte eller åpne en kommentartråd for akkurat det datapunktet.
+            </div>
+          ) : null}
+        </>
+      )}
 
-      <div className="overflow-x-auto">
+      {standardizationMode === "standardized" && <div className="overflow-x-auto">
         <table className="min-w-[980px] border-separate border-spacing-0 text-sm">
           <caption className="sr-only">
             {meta.title} vist som tidsserie med år fra venstre til høyre og verdier i NOK.
@@ -865,7 +921,7 @@ export function FinancialTimeSeriesTable({
             })}
           </tbody>
         </table>
-      </div>
+      </div>}
 
       {discussionError ? (
         <div className="border-t border-[rgba(15,23,42,0.08)] bg-[rgba(255,246,236,0.9)] px-5 py-3 text-sm text-[#8a5b21]">
@@ -920,5 +976,91 @@ function FragmentSection({
       </tr>
       {children}
     </>
+  );
+}
+
+function RawLineItemsTable({
+  items,
+  loading,
+}: {
+  items: RawLineItem[] | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center px-5 py-12 text-sm text-slate-500">
+        Laster rådata…
+      </div>
+    );
+  }
+
+  if (items === null || items.length === 0) {
+    return (
+      <div className="px-5 py-10 text-sm text-slate-500">
+        <p className="font-medium text-slate-700">Rådata ikke tilgjengelig</p>
+        <p className="mt-1">
+          Kjør unified shadow extraction for å generere «som rapportert»-data for dette selskapet.
+        </p>
+        <pre className="mt-3 rounded-xl bg-slate-100 px-4 py-3 text-xs text-slate-600">
+          npm run financials:prepare-gold-set-shadow-data
+        </pre>
+      </div>
+    );
+  }
+
+  const byStatement: Record<string, RawLineItem[]> = {};
+  for (const item of items) {
+    (byStatement[item.statementType] ??= []).push(item);
+  }
+
+  const statementLabels: Record<string, string> = {
+    INCOME_STATEMENT: "Resultatregnskap",
+    BALANCE_SHEET: "Balanse",
+    CASH_FLOW: "Kontantstrøm",
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      {Object.entries(byStatement).map(([stmtType, rows]) => (
+        <table key={stmtType} className="w-full border-separate border-spacing-0 text-sm">
+          <thead>
+            <tr className="bg-[var(--px-action)]">
+              <th
+                scope="col"
+                className="data-label sticky left-0 z-10 min-w-[320px] border-b border-[#101826] bg-[var(--px-action)] px-5 py-4 text-left text-xs font-semibold uppercase text-slate-200"
+              >
+                {statementLabels[stmtType] ?? stmtType}
+              </th>
+              <th
+                scope="col"
+                className="data-label border-b border-[#101826] bg-[var(--px-action)] px-5 py-4 text-right text-xs font-semibold uppercase text-slate-200"
+              >
+                Verdi
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.id}
+                className="group border-b border-[rgba(15,23,42,0.06)] hover:bg-[rgba(248,249,250,0.8)]"
+              >
+                <td className="sticky left-0 min-w-[320px] bg-white px-5 py-2 font-medium text-slate-800 group-hover:bg-[rgba(248,249,250,0.8)]">
+                  {row.originalLabel}
+                  {row.canonicalKey && (
+                    <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                      {row.canonicalKey}
+                    </span>
+                  )}
+                </td>
+                <td className="px-5 py-2 text-right font-mono text-slate-700">
+                  {row.originalValue}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ))}
+    </div>
   );
 }

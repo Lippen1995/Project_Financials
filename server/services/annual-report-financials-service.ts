@@ -1127,6 +1127,7 @@ export async function processAnnualReportFiling(
       } else if (unifiedShadowConfig.mode !== "DISABLED") {
         const unifiedShadowResult = await runAnnualReportUnifiedShadowExtraction({
           filingId: filing.id,
+          companyId: filing.company.id,
           orgNumber: filing.company.orgNumber,
           fiscalYear: filing.fiscalYear,
           preflight,

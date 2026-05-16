@@ -16,7 +16,10 @@ import type { OpenDataLoaderRuntimeSummary } from "@/server/document-understandi
 import { inspectOpenDataLoaderRuntime } from "@/server/document-understanding/opendataloader-runtime";
 import { getAnnualReportPipelineOverview } from "@/server/services/annual-report-financials-service";
 import { readLatestAnnualReportManualReviewRound } from "@/server/services/annual-report-manual-review-round-service";
-import { getAnnualReportUnifiedShadowConfigFromEnv } from "@/server/services/annual-report-unified-shadow-config";
+import {
+  getAnnualReportUnifiedShadowConfigFromEnv,
+  type AnnualReportUnifiedShadowConfig,
+} from "@/server/services/annual-report-unified-shadow-config";
 import {
   listUnifiedConfidenceGateResultsForAdmin,
   type UnifiedConfidenceAdminRow,
@@ -334,6 +337,7 @@ function buildAttentionItems(input: {
   latestTaxonomyReport: AnnualReportUnifiedFailureTaxonomyReport | null;
   incompleteCoverageCount: number;
   runtime: OpenDataLoaderRuntimeSummary | null;
+  shadowConfig: AnnualReportUnifiedShadowConfig;
   diagnostics: string[];
   now: Date;
 }): AdminAttentionItem[] {
@@ -504,7 +508,7 @@ function buildAttentionItems(input: {
       key: "shadow-missing",
       severity: "INFO",
       title: "Ingen persisted shadow batch er funnet",
-      description: "Det finnes forelÃ¸pig ingen lagret gold-set shadow batch Ã¥ sammenligne mot. Go-live-vurderingen blir derfor svakere.",
+      description: "Det finnes foreløpig ingen lagret gold-set shadow batch å sammenligne mot. Go-live-vurderingen blir derfor svakere.",
     });
   } else {
     const ageDays = daysBetween(input.latestGoldSetRun.generatedAt, input.now);
@@ -512,8 +516,8 @@ function buildAttentionItems(input: {
       items.push({
         key: "shadow-stale",
         severity: "MEDIUM",
-        title: "Shadow batchen begynner Ã¥ bli gammel",
-        description: `Siste persisted shadow batch er ${ageDays} dager gammel. Vurder ny kjÃ¸ring fÃ¸r videre go-live-beslutninger.`,
+        title: "Shadow batchen begynner å bli gammel",
+        description: `Siste persisted shadow batch er ${ageDays} dager gammel. Vurder ny kjøring før videre go-live-beslutninger.`,
       });
     }
 
@@ -525,6 +529,52 @@ function buildAttentionItems(input: {
         description: error,
       });
     }
+
+    // ODL / unified shadow-diagnose
+    const goldSetCases = input.latestGoldSetRun.batch.cases ?? [];
+    const insufficientCount = goldSetCases.filter(
+      (c) => c.gateSummary?.overallVerdict === "INSUFFICIENT_DATA",
+    ).length;
+    const shadowlessCases = goldSetCases.filter(
+      (c) => !c.shadow,
+    ).length;
+
+    if (insufficientCount > 0 && insufficientCount === goldSetCases.length) {
+      items.push({
+        key: "odl-gold-set-no-data",
+        severity: "MEDIUM",
+        title: "ODL viser ingen resultater i Gold set",
+        description:
+          `Alle ${insufficientCount} Gold set-filings mangler unified shadow-data. ` +
+          "Kjør: npm run financials:prepare-gold-set-shadow-data " +
+          "(sett OPENDATALOADER_ENABLED=true og OPENDATALOADER_MODE=local først). " +
+          "Deretter: npm run financials:run-gold-set-shadow-batch",
+      });
+    } else if (shadowlessCases > 0) {
+      items.push({
+        key: "odl-gold-set-partial-data",
+        severity: "INFO",
+        title: `${shadowlessCases} Gold set-filings mangler ODL shadow-data`,
+        description:
+          "Noen filings har ikke unified shadow-artefakter ennå. " +
+          "Kjør: npm run financials:prepare-gold-set-shadow-data for å fylle ut manglende data.",
+      });
+    }
+  }
+
+  // Unified shadow mode-advarsel
+  if (input.shadowConfig.mode === "DISABLED") {
+    items.push({
+      key: "unified-shadow-disabled",
+      severity: "INFO",
+      title: "Unified shadow extraction er deaktivert",
+      description:
+        "ODL-resultater akkumuleres ikke under ny pipeline-prosessering. " +
+        "For å aktivere: sett ANNUAL_REPORT_UNIFIED_SHADOW_MODE=PERSIST_ARTIFACTS, " +
+        "ANNUAL_REPORT_UNIFIED_SHADOW_PERSIST_FIN=true, " +
+        "ANNUAL_REPORT_UNIFIED_SHADOW_PERSIST_NAR=true, " +
+        "ANNUAL_REPORT_UNIFIED_SHADOW_PERSIST_CMP=true i .env.local",
+    });
   }
 
   for (const diagnostic of input.diagnostics) {
@@ -1534,6 +1584,7 @@ export async function buildAdminControlCenterModel(
     latestTaxonomyReport,
     incompleteCoverageCount,
     runtime,
+    shadowConfig,
     diagnostics,
     now,
   });

@@ -544,6 +544,7 @@ export async function runAnnualReportUnifiedConfidenceBatch(
           const preflight = await runPreflight(pdfBuffer);
           shadowResult = await runShadowExtraction({
             filingId: filing.id,
+            companyId: filing.company.id,
             orgNumber: filing.company.orgNumber,
             fiscalYear: filing.fiscalYear,
             preflight,
