@@ -16,9 +16,26 @@ export type ParsedRssItem = {
 };
 
 export const RSS_FEEDS: RssFeedDef[] = [
+  // Norske økonomi/næringsliv
   { id: "e24", name: "E24", url: "https://e24.no/rss2" },
   { id: "dn", name: "Dagens Næringsliv", url: "https://www.dn.no/rss" },
   { id: "nrk-okonomi", name: "NRK Økonomi", url: "https://www.nrk.no/nyheter/okonomi/rss.xml" },
+  { id: "finansavisen", name: "Finansavisen", url: "https://finansavisen.no/rss" },
+  { id: "tu", name: "Teknisk Ukeblad", url: "https://www.tu.no/feed" },
+
+  // Myndigheter og offisielle kilder
+  { id: "regjeringen", name: "Regjeringen.no", url: "https://www.regjeringen.no/rss/no/pressemeldinger/" },
+  { id: "oslobors", name: "Oslo Børs", url: "https://newsweb.oslobors.no/rss" },
+
+  // Bransjefeeder
+  { id: "norsk-olje-gass", name: "Norsk olje og gass", url: "https://www.norskoljeoggass.no/feed/" },
+  { id: "intrafish", name: "Intrafish", url: "https://www.intrafish.no/rss" },
+  { id: "bygg", name: "Bygg.no", url: "https://www.bygg.no/feed" },
+
+  // Internasjonale
+  { id: "reuters-business", name: "Reuters Business", url: "https://feeds.reuters.com/reuters/businessNews" },
+  { id: "upstream", name: "Upstream Online", url: "https://www.upstreamonline.com/rss" },
+  { id: "tradewinds", name: "TradeWinds", url: "https://www.tradewindsnews.com/rss" },
 ];
 
 const parser = new XMLParser({

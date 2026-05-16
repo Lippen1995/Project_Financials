@@ -6,6 +6,16 @@ const SOURCE_LABELS: Record<string, string> = {
   e24: "E24",
   dn: "Dagens Næringsliv",
   "nrk-okonomi": "NRK Økonomi",
+  finansavisen: "Finansavisen",
+  tu: "Teknisk Ukeblad",
+  regjeringen: "Regjeringen.no",
+  oslobors: "Oslo Børs",
+  "norsk-olje-gass": "Norsk olje og gass",
+  intrafish: "Intrafish",
+  bygg: "Bygg.no",
+  "reuters-business": "Reuters",
+  upstream: "Upstream Online",
+  tradewinds: "TradeWinds",
 };
 
 function formatRelativeDate(date: Date): string {
@@ -72,7 +82,7 @@ export async function CompanyNewsTab({
         <span className="data-label text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">
           {articles.length} artikler
         </span>
-        <span className="text-xs text-slate-400">Kilde: E24, DN, NRK Økonomi</span>
+        <span className="text-xs text-slate-400">E24 · DN · NRK · Finansavisen · TU · Oslo Børs · Regjeringen · Reuters · m.fl.</span>
       </div>
       <div>
         {articles.map((article) => (
