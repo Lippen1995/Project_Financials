@@ -123,7 +123,7 @@ function formatCell(value: number | null, mode: FinancialValueMode) {
   return formatPercent(value);
 }
 
-function NegativeValue({ children, negative }: { children: string; negative: boolean }) {
+function NegativeValue({ children, negative }: { children: ReactNode; negative: boolean }) {
   return (
     <span
       className={cn(
