@@ -575,6 +575,7 @@ model Company {
   annualReportReviewedFacts AnnualReportReviewedFact[]
   rawLineItems              RawFinancialLineItem[]
   narratives                AnnualReportNarrative[]
+  newsArticles              NewsArticleCompany[]
   industryCodeId            String?
   industryCode              IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
 
@@ -2482,4 +2483,31 @@ model AnnualReportNarrative {
 
   @@unique([filingId, sectionKind])
   @@index([companyId, fiscalYear])
+}
+
+model NewsArticle {
+  id          String   @id @default(cuid())
+  guid        String   @unique
+  title       String
+  summary     String?
+  url         String
+  publishedAt DateTime
+  source      String
+  companies   NewsArticleCompany[]
+  createdAt   DateTime @default(now())
+
+  @@index([publishedAt(sort: Desc)])
+  @@index([source])
+}
+
+model NewsArticleCompany {
+  newsArticleId String
+  companyId     String
+  matchScore    Float
+
+  newsArticle NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([newsArticleId, companyId])
+  @@index([companyId])
 }

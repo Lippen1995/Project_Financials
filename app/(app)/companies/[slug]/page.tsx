@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
 import { CompanyFinancialDiscussions } from "@/components/company/company-financial-discussions";
 import { CompanyNarrativesTab } from "@/components/company/company-narratives-tab";
+import { CompanyNewsTab } from "@/components/company/company-news-tab";
 import { WatchButton } from "@/components/company/watch-button";
 import { CompanyPetroleumTab } from "@/components/company/company-petroleum-tab";
 import { CompanyTabId, CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
@@ -518,6 +519,8 @@ export default async function CompanyPage({
     regulatoryAvailability,
   } = profile;
   const visibleRoles = premium ? roles : roles.slice(0, 5);
+  const companyRecord = await prisma.company.findUnique({ where: { slug }, select: { id: true } });
+  const companyId = companyRecord?.id ?? null;
   const petroleumVisibility = await getCompanyPetroleumTabVisibility(company);
   const availableTabs: Array<{ id: CompanyTabId; label: string }> = [
     { id: "oversikt", label: "Oversikt" },
@@ -526,6 +529,7 @@ export default async function CompanyPage({
     { id: "organisasjon", label: "Organisasjon" },
     { id: "kunngjoringer", label: "Kunngjøringer" },
     { id: "dokumenter", label: "Dokumenter" },
+    { id: "nyheter", label: "Nyheter" },
   ];
   if (petroleumVisibility.available) {
     availableTabs.push({ id: "sokkeleksponering", label: "Sokkeleksponering" });
@@ -851,6 +855,12 @@ export default async function CompanyPage({
                 </div>
                 <CompanyNarrativesTab narratives={narratives} />
               </div>
+            </div>
+          ) : null}
+
+          {activeTab === "nyheter" && companyId ? (
+            <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white">
+              <CompanyNewsTab companyId={companyId} />
             </div>
           ) : null}
 
