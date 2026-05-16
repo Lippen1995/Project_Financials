@@ -557,7 +557,7 @@ export function CompanyAnnouncementsTimeline({
                           <span className="pr-3">{type}</span>
                           <span
                             className={cn(
-                              "flex size-4 items-center justify-center rounded-[0.3rem] border",
+                              "flex size-4 items-center justify-center rounded border",
                               checked
                                 ? "border-[#2f5d9f] bg-[#2f5d9f] text-white"
                                 : "border-[rgba(15,23,42,0.15)] bg-white text-transparent",

@@ -230,7 +230,7 @@ export function LegalStructure({ structure }: { structure: BrregLegalStructureSn
                         }
                         onClick={() => setSelectedNodeId(node.id)}
                         className={cn(
-                          "h-full w-full rounded-[1.3rem] border px-4 py-3 text-left transition",
+                          "h-full w-full rounded-2xl border px-4 py-3 text-left transition",
                           nodeTone(node.type),
                           selectedNode.id === node.id ? "ring-2 ring-[#9EC1F7] ring-offset-2" : "",
                         )}
