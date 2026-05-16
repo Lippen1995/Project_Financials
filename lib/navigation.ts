@@ -9,6 +9,7 @@ export type GlobalNavItem = {
 export function buildGlobalNavItems(user?: { appRole?: string | null } | null): GlobalNavItem[] {
   const items: GlobalNavItem[] = [
     { href: "/search", label: "Søk", icon: "search" },
+    { href: "/watchlist", label: "Watchlist", icon: "star" },
     { href: "/market/distress", label: "Distress", icon: "warning" },
     { href: "/market/oil-gas", label: "Olje & gass", icon: "oil_barrel" },
     { href: "/pricing", label: "Tilgang", icon: "key" },
