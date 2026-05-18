@@ -18,14 +18,12 @@ export type ParsedRssItem = {
 export const RSS_FEEDS: RssFeedDef[] = [
   // Norske økonomi/næringsliv
   { id: "e24", name: "E24", url: "https://e24.no/rss2" },
-  { id: "dn", name: "Dagens Næringsliv", url: "https://www.dn.no/rss" },
+  { id: "dn", name: "Dagens Næringsliv", url: "https://services.dn.no/api/feed/rss/" },
   { id: "nrk-okonomi", name: "NRK Nyheter", url: "https://www.nrk.no/nyheter/siste.rss" },
   { id: "tu", name: "Teknisk Ukeblad", url: "https://www.tu.no/feeds/general.xml" },
 
   // Myndigheter og offisielle kilder
   { id: "regjeringen", name: "Regjeringen.no", url: "https://www.regjeringen.no/no/rss/Rss/2581966/" },
-  { id: "oslobors", name: "Oslo Børs", url: "https://newsweb.oslobors.no/rss" },
-
   // Bransjefeeder
   { id: "norsk-olje-gass", name: "Norsk olje og gass", url: "https://www.norskoljeoggass.no/feed/" },
 

@@ -16,14 +16,24 @@ function normalizeForMatch(text: string): string {
     .trim();
 }
 
+function wordBoundaryMatch(needle: string, haystack: string): boolean {
+  const idx = haystack.indexOf(needle);
+  if (idx === -1) return false;
+  const before = idx === 0 || !/\w/.test(haystack[idx - 1]);
+  const after = idx + needle.length >= haystack.length || !/\w/.test(haystack[idx + needle.length]);
+  return before && after;
+}
+
 function scoreMatch(companyName: string, articleText: string): number {
   const needle = normalizeForMatch(companyName);
-  if (needle.length < 3) return 0;
+  // Require at least 4 chars to avoid matching common 3-char words (e.g. "lie", "mad", "sel")
+  if (needle.length < 4) return 0;
   const haystack = normalizeForMatch(articleText);
-  if (haystack.includes(needle)) return needle.length >= 8 ? 1.0 : 0.7;
-  // Check word-by-word for multi-word names (min 2 significant words)
-  const words = needle.split(" ").filter((w) => w.length >= 4);
-  if (words.length >= 2 && words.every((w) => haystack.includes(w))) return 0.6;
+  // Whole-word match only — prevents "selg" matching "selger", "endre" matching "endring" etc.
+  if (wordBoundaryMatch(needle, haystack)) return needle.length >= 8 ? 1.0 : 0.7;
+  // Multi-word names: all words must be long enough to be distinctive (avoids "alle", "for", "en")
+  const words = needle.split(" ").filter((w) => w.length >= 6);
+  if (words.length >= 2 && words.every((w) => wordBoundaryMatch(w, haystack))) return 0.6;
   return 0;
 }
 
