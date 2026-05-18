@@ -519,7 +519,7 @@ export default async function CompanyPage({
     regulatoryAvailability,
   } = profile;
   const visibleRoles = premium ? roles : roles.slice(0, 5);
-  const companyRecord = await prisma.company.findUnique({ where: { slug }, select: { id: true } });
+  const companyRecord = await prisma.company.findUnique({ where: { slug: company.slug }, select: { id: true } });
   const companyId = companyRecord?.id ?? null;
   const petroleumVisibility = await getCompanyPetroleumTabVisibility(company);
   const availableTabs: Array<{ id: CompanyTabId; label: string }> = [
