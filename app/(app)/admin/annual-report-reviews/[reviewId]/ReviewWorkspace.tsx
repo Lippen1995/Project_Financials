@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 type Fact = {
@@ -12,7 +12,44 @@ type Fact = {
   sourcePage: number | null;
   confidenceScore: number | null;
   rawLabel: string | null;
+  normalizedLabel: string | null;
+  sourceSection: string | null;
+  sourceRowText: string | null;
+  isDerived: boolean;
   statementType: string;
+};
+
+/** One extracted table row from the EXTRACTION_JSON artifact (before canonical mapping). */
+type RawRow = {
+  pageNumber: number;
+  sectionType: string;
+  label: string;
+  normalizedLabel: string;
+  rowText: string;
+  unitScale: number;
+  confidence: number;
+  values: Array<{ value: number; columnIndex: number }>;
+};
+
+/** One canonical-mapped fact from EXTRACTION_JSON (richer than DB facts). */
+type MappedFactRaw = {
+  metricKey: string;
+  fiscalYear: number;
+  rawLabel: string;
+  normalizedLabel: string;
+  value: number;
+  unitScale: number;
+  sourcePage: number;
+  sourceSection: string;
+  confidenceScore: number;
+  isDerived: boolean;
+};
+
+type ExtractionData = {
+  engine: string | null;
+  mode: string | null;
+  rows: RawRow[];
+  mappedFacts: MappedFactRaw[];
 };
 
 type ReviewedFact = {
@@ -142,6 +179,33 @@ function groupReviewedFacts(facts: ReviewedFact[]) {
   return { income, balance, other };
 }
 
+const INCOME_METRIC_ORDER: string[] = [
+  "revenue", "other_operating_income", "total_operating_income",
+  "cost_of_goods_sold", "payroll_expense", "depreciation_amortization",
+  "other_operating_expense", "total_operating_expenses", "operating_profit",
+  "financial_income", "financial_expense", "net_financial_items",
+  "profit_before_tax", "tax_expense", "net_income",
+];
+const BALANCE_METRIC_ORDER: string[] = [
+  "intangible_assets", "tangible_assets", "financial_fixed_assets",
+  "deferred_tax_asset", "inventory", "trade_receivables", "other_receivables",
+  "cash_and_cash_equivalents", "current_assets", "total_assets",
+  "share_capital", "share_premium", "retained_earnings", "total_equity",
+  "long_term_liabilities", "trade_payables", "tax_payable",
+  "public_duties_payable", "other_current_liabilities", "current_liabilities",
+  "total_liabilities", "total_equity_and_liabilities",
+];
+const CANONICAL_ORDER_MAP = new Map<string, number>(
+  [...INCOME_METRIC_ORDER, ...BALANCE_METRIC_ORDER].map((k, i) => [k, i]),
+);
+function sortByCanonical(facts: Fact[]): Fact[] {
+  return [...facts].sort((a, b) => {
+    const ia = CANONICAL_ORDER_MAP.get(a.metricKey) ?? 9999;
+    const ib = CANONICAL_ORDER_MAP.get(b.metricKey) ?? 9999;
+    return ia - ib;
+  });
+}
+
 function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"], reviewId: string): string | null {
   const hasPdfArtifact = artifacts?.some((a) => a.artifactType === "PDF");
   if (hasPdfArtifact) {
@@ -152,17 +216,40 @@ function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"]
 
 export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"view" | "correct">("view");
   const [notes, setNotes] = useState("");
-  const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [validating, setValidating] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
+  // "Som rapportert" vs "Standardisert" toggle
+  const [viewMode, setViewMode] = useState<"standardized" | "as-reported">("standardized");
+  const [extractionData, setExtractionData] = useState<ExtractionData | null>(null);
+  const [extractionLoading, setExtractionLoading] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
+  const hasExtractionArtifact = review.filing.artifacts.some(
+    (a) => a.artifactType === "EXTRACTION_JSON",
+  );
+
+  useEffect(() => {
+    if (viewMode !== "as-reported" || extractionData || extractionLoading) return;
+    setExtractionLoading(true);
+    setExtractionError(null);
+    fetch(`/api/admin/annual-report-reviews/${review.id}/extraction`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<ExtractionData>;
+      })
+      .then((data) => setExtractionData(data))
+      .catch((err: unknown) =>
+        setExtractionError(err instanceof Error ? err.message : "Ukjent feil"),
+      )
+      .finally(() => setExtractionLoading(false));
+  }, [viewMode, extractionData, extractionLoading, review.id]);
+
   const facts = review.extractionRun?.facts ?? [];
-  const { income, balance } = groupFacts(facts);
+  const { income, balance, other } = groupFacts(facts);
   const issues = [
     ...(review.extractionRun?.validationIssues ?? []),
     ...review.filing.validationIssues,
@@ -199,17 +286,35 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       ? (review.reviewPayload as Record<string, unknown>)
       : null;
 
-  // Correction form state
-  const [editableFacts, setEditableFacts] = useState<EditableFact[]>(
-    facts.map((f) => ({
-      metricKey: f.metricKey,
-      fiscalYear: f.fiscalYear,
-      value: bigintToDisplay(f.value),
-      rawLabel: f.rawLabel ?? "",
-      sourcePage: String(f.sourcePage ?? ""),
-      unitScale: String(f.unitScale),
-    })),
-  );
+  // Correction form state — all canonical keys + any non-canonical extracted facts
+  const [editableFacts, setEditableFacts] = useState<EditableFact[]>(() => {
+    const factsByKey = new Map(facts.map((f) => [f.metricKey, f]));
+    const canonicalKeys = [...INCOME_METRIC_ORDER, ...BALANCE_METRIC_ORDER];
+    const entries: EditableFact[] = canonicalKeys.map((key) => {
+      const f = factsByKey.get(key);
+      return {
+        metricKey: key,
+        fiscalYear: f?.fiscalYear ?? review.fiscalYear,
+        value: f ? bigintToDisplay(f.value) : "",
+        rawLabel: f?.rawLabel ?? "",
+        sourcePage: String(f?.sourcePage ?? ""),
+        unitScale: String(f?.unitScale ?? 1000),
+      };
+    });
+    for (const f of facts) {
+      if (!CANONICAL_ORDER_MAP.has(f.metricKey)) {
+        entries.push({
+          metricKey: f.metricKey,
+          fiscalYear: f.fiscalYear,
+          value: bigintToDisplay(f.value),
+          rawLabel: f.rawLabel ?? "",
+          sourcePage: String(f.sourcePage ?? ""),
+          unitScale: String(f.unitScale),
+        });
+      }
+    }
+    return entries;
+  });
   const boardProposal = payload?.boardReportProposal as Record<string, unknown> | null | undefined;
   const auditorProposal = payload?.auditorReportProposal as Record<string, unknown> | null | undefined;
   const [boardReportText, setBoardReportText] = useState(
@@ -304,27 +409,27 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   }
 
   function handleReject() {
-    if (!reason.trim()) {
+    if (!notes.trim()) {
       setActionError("Begrunnelse er påkrevd.");
       return;
     }
-    call("reject", { reason });
+    call("reject", { reason: notes });
   }
 
   function handleReprocess() {
-    if (!reason.trim()) {
+    if (!notes.trim()) {
       setActionError("Begrunnelse er påkrevd.");
       return;
     }
-    call("reprocess", { reason });
+    call("reprocess", { reason: notes });
   }
 
   function handleUnreadable() {
-    if (!reason.trim()) {
+    if (!notes.trim()) {
       setActionError("Begrunnelse er påkrevd.");
       return;
     }
-    call("unreadable", { reason });
+    call("unreadable", { reason: notes });
   }
 
   function handleCorrect() {
@@ -363,7 +468,6 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
 
   const isResolved =
     review.status === "ACCEPTED" || review.status === "REJECTED" || review.status === "RESOLVED_BY_NEW_RUN";
-
   const isAccepted = review.status === "ACCEPTED";
   const hasReviewedFacts = reviewedFacts.length > 0;
   const canPublish = validationResult?.passed === true;
@@ -389,7 +493,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                 href={pdfBlobUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-[var(--px-accent)] underline"
+                className="text-sm text-[#31495f] underline"
               >
                 Åpne PDF i nytt vindu
               </a>
@@ -427,7 +531,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
             <ul className="space-y-3">
               {review.decisions.map((d) => (
                 <li key={d.id} className="border-l-2 border-slate-200 pl-3 text-sm">
-                  <span className="font-medium text-[var(--px-text)]">{d.decisionType}</span>
+                  <span className="font-medium text-[#162233]">{d.decisionType}</span>
                   <span className="ml-2 text-slate-400">
                     {new Date(d.createdAt).toLocaleString("nb-NO")}
                   </span>
@@ -444,6 +548,136 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
 
       {/* ---- Right: Review workspace ---- */}
       <div className="flex flex-col gap-4">
+
+        {/* Foreslåtte tall — med toggle mellom standardisert og som rapportert */}
+        {facts.length > 0 && (
+          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
+            {/* Header med toggle-knapper */}
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                Finansielle tall
+              </h2>
+              <div className="flex rounded border border-[rgba(15,23,42,0.10)] text-xs overflow-hidden">
+                <button
+                  onClick={() => setViewMode("standardized")}
+                  className={`px-3 py-1.5 font-medium transition-colors ${
+                    viewMode === "standardized"
+                      ? "bg-[var(--px-action)] text-white"
+                      : "bg-white text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  Standardisert
+                </button>
+                <button
+                  onClick={() => setViewMode("as-reported")}
+                  disabled={!hasExtractionArtifact}
+                  title={!hasExtractionArtifact ? "Ingen EXTRACTION_JSON tilgjengelig" : undefined}
+                  className={`px-3 py-1.5 font-medium transition-colors border-l border-[rgba(15,23,42,0.10)] ${
+                    viewMode === "as-reported"
+                      ? "bg-[var(--px-action)] text-white"
+                      : "bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  }`}
+                >
+                  Som rapportert
+                </button>
+              </div>
+            </div>
+
+            {/* Standardisert view — inline redigering med kanonisk rekkefølge */}
+            {viewMode === "standardized" && (
+              <>
+                <p className="mb-3 text-xs text-slate-400">
+                  Fyll inn manuell verdi for å overstyre maskinforslag. Effektivt tall er det som lagres.
+                </p>
+                {income.length > 0 && (
+                  <InlineFactTable
+                    title="Resultatregnskap"
+                    facts={sortByCanonical(income)}
+                    editableFacts={editableFacts}
+                    setEditableFacts={setEditableFacts}
+                  />
+                )}
+                {balance.length > 0 && (
+                  <InlineFactTable
+                    title="Balanse"
+                    facts={sortByCanonical(balance)}
+                    editableFacts={editableFacts}
+                    setEditableFacts={setEditableFacts}
+                  />
+                )}
+                {other.length > 0 && (
+                  <InlineFactTable
+                    title="Andre"
+                    facts={other}
+                    editableFacts={editableFacts}
+                    setEditableFacts={setEditableFacts}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Som rapportert view — alle rå linjer fra PDF */}
+            {viewMode === "as-reported" && (
+              <>
+                {extractionLoading && (
+                  <p className="py-6 text-center text-xs text-slate-400">Laster ekstraheringsdata…</p>
+                )}
+                {extractionError && (
+                  <p className="rounded bg-red-50 px-3 py-2 text-xs text-red-600">{extractionError}</p>
+                )}
+                {extractionData && (
+                  <AsReportedPanel
+                    data={extractionData}
+                    fiscalYear={review.fiscalYear}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Tekst-seksjoner — alltid synlig */}
+            <div className="mt-4 space-y-3 border-t border-[rgba(15,23,42,0.06)] pt-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Styrets beretning (tekst)
+                </label>
+                <textarea
+                  value={boardReportText}
+                  onChange={(e) => setBoardReportText(e.target.value)}
+                  rows={2}
+                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Revisorberetning (tekst)
+                </label>
+                <textarea
+                  value={auditorReportText}
+                  onChange={(e) => setAuditorReportText(e.target.value)}
+                  rows={2}
+                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">
+                  Revisjonskonklusjon
+                </label>
+                <select
+                  value={auditorOpinion}
+                  onChange={(e) => setAuditorOpinion(e.target.value)}
+                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none"
+                >
+                  <option value="UNKNOWN">Ukjent</option>
+                  <option value="CLEAN">Ren (Clean)</option>
+                  <option value="QUALIFIED">Modifisert (Qualified)</option>
+                  <option value="ADVERSE">Negativ (Adverse)</option>
+                  <option value="DISCLAIMER">Fraskrivelse (Disclaimer)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Summary */}
         <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
@@ -451,13 +685,13 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           </h2>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <dt className="text-slate-500">Org.nr</dt>
-            <dd className="font-mono font-medium text-[var(--px-text)]">{review.company.orgNumber}</dd>
+            <dd className="font-mono font-medium text-[#162233]">{review.company.orgNumber}</dd>
             <dt className="text-slate-500">Status</dt>
-            <dd className="font-medium text-[var(--px-text)]">{review.status}</dd>
+            <dd className="font-medium text-[#162233]">{review.status}</dd>
             <dt className="text-slate-500">Regnskapsår</dt>
-            <dd className="font-medium text-[var(--px-text)]">{review.fiscalYear}</dd>
+            <dd className="font-medium text-[#162233]">{review.fiscalYear}</dd>
             <dt className="text-slate-500">Kvalitetsscore</dt>
-            <dd className="font-medium text-[var(--px-text)]">
+            <dd className="font-medium text-[#162233]">
               {review.qualityScore != null ? `${(review.qualityScore * 100).toFixed(1)}%` : "—"}
             </dd>
             <dt className="text-slate-500">Parser</dt>
@@ -478,12 +712,6 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           )}
         </div>
 
-        {/* Document structure summary */}
-        <DocumentSummaryPanel payload={payload} />
-
-        {/* PDF Decision Engine summary */}
-        <PdfDecisionPanel payload={payload} />
-
         {/* Validation issues */}
         {issues.length > 0 && (
           <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
@@ -491,8 +719,8 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
               Valideringsfeil ({issues.length})
             </h2>
             <ul className="space-y-2">
-              {issues.slice(0, 20).map((issue) => (
-                <li key={issue.id} className="text-sm">
+              {issues.slice(0, 20).map((issue, i) => (
+                <li key={`${issue.id}-${i}`} className="text-sm">
                   <span
                     className={`mr-2 font-mono text-xs font-semibold ${
                       issue.severity === "ERROR"
@@ -509,31 +737,6 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                 </li>
               ))}
             </ul>
-          </div>
-        )}
-
-        {/* Proposed machine facts */}
-        {mode === "view" && (income.length > 0 || balance.length > 0) && (
-          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Foreslåtte tall (maskin)
-            </h2>
-            {income.length > 0 && (
-              <div className="mb-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Resultatregnskap
-                </h3>
-                <FactTable facts={income} />
-              </div>
-            )}
-            {balance.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Balanse
-                </h3>
-                <FactTable facts={balance} />
-              </div>
-            )}
           </div>
         )}
 
@@ -608,108 +811,22 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           </div>
         )}
 
-        {/* Correction form */}
-        {mode === "correct" && (
-          <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Korriger verdier
-            </h2>
-            <p className="mb-4 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Korrigerte verdier lagres som reviewed facts og publiseres automatisk til aktivt regnskapssnapshot når valideringen består.
-            </p>
-            <div className="space-y-2">
-              {editableFacts.map((f, i) => (
-                <div key={f.metricKey + f.fiscalYear} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 text-xs">
-                  <span className="font-mono text-slate-600 self-center">{f.metricKey}</span>
-                  <input
-                    value={f.value}
-                    onChange={(e) => {
-                      const next = [...editableFacts];
-                      next[i] = { ...next[i], value: e.target.value };
-                      setEditableFacts(next);
-                    }}
-                    placeholder="Verdi"
-                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 font-mono text-xs text-slate-700 focus:outline-none"
-                  />
-                  <input
-                    value={f.sourcePage}
-                    onChange={(e) => {
-                      const next = [...editableFacts];
-                      next[i] = { ...next[i], sourcePage: e.target.value };
-                      setEditableFacts(next);
-                    }}
-                    placeholder="Side"
-                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 font-mono text-xs text-slate-700 focus:outline-none"
-                  />
-                  <input
-                    value={f.unitScale}
-                    onChange={(e) => {
-                      const next = [...editableFacts];
-                      next[i] = { ...next[i], unitScale: e.target.value };
-                      setEditableFacts(next);
-                    }}
-                    placeholder="Skala"
-                    className="rounded border border-[rgba(15,23,42,0.12)] px-2 py-1 font-mono text-xs text-slate-700 focus:outline-none"
-                  />
-                </div>
-              ))}
-            </div>
+        {/* Document structure summary */}
+        <DocumentSummaryPanel payload={payload} />
 
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">
-                  Styrets beretning (tekst)
-                </label>
-                <textarea
-                  value={boardReportText}
-                  onChange={(e) => setBoardReportText(e.target.value)}
-                  rows={3}
-                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">
-                  Revisorberetning (tekst)
-                </label>
-                <textarea
-                  value={auditorReportText}
-                  onChange={(e) => setAuditorReportText(e.target.value)}
-                  rows={3}
-                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">
-                  Revisjonskonklusjon
-                </label>
-                <select
-                  value={auditorOpinion}
-                  onChange={(e) => setAuditorOpinion(e.target.value)}
-                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none"
-                >
-                  <option value="UNKNOWN">Ukjent</option>
-                  <option value="CLEAN">Ren (Clean)</option>
-                  <option value="QUALIFIED">Modifisert (Qualified)</option>
-                  <option value="ADVERSE">Negativ (Adverse)</option>
-                  <option value="DISCLAIMER">Fraskrivelse (Disclaimer)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* PDF Decision Engine summary */}
+        <PdfDecisionPanel payload={payload} />
 
-        {/* Notes / reason field */}
+        {/* Notes / reason */}
         <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {mode === "correct" ? "Korrigeringsnotat" : "Begrunnelse / notat"}
+            Notat / begrunnelse
           </label>
           <textarea
-            value={mode === "correct" ? notes : reason}
-            onChange={(e) =>
-              mode === "correct" ? setNotes(e.target.value) : setReason(e.target.value)
-            }
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder={mode === "correct" ? "Valgfritt notat..." : "Påkrevd for avvis/reprocess/uleselig"}
+            placeholder="Påkrevd for avvis/reprocess/uleselig. Valgfritt for korrigeringer."
             className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none"
           />
         </div>
@@ -721,62 +838,41 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         {/* Action buttons — pending review */}
         {!isResolved && (
           <div className="flex flex-wrap gap-2">
-            {mode === "view" ? (
-              <>
-                <button
-                  onClick={handleAccept}
-                  disabled={loading}
-                  className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                >
-                  Godkjenn
-                </button>
-                <button
-                  onClick={() => setMode("correct")}
-                  disabled={loading}
-                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Korriger
-                </button>
-                <button
-                  onClick={handleReprocess}
-                  disabled={loading}
-                  className="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                >
-                  Send til reprocess
-                </button>
-                <button
-                  onClick={handleReject}
-                  disabled={loading}
-                  className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-                >
-                  Avvis
-                </button>
-                <button
-                  onClick={handleUnreadable}
-                  disabled={loading}
-                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Uleselig
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleCorrect}
-                  disabled={loading}
-                  className="rounded bg-[var(--px-action)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--px-action-hover)] disabled:opacity-50"
-                >
-                  Lagre korrigeringer
-                </button>
-                <button
-                  onClick={() => setMode("view")}
-                  disabled={loading}
-                  className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Avbryt
-                </button>
-              </>
-            )}
+            <button
+              onClick={handleAccept}
+              disabled={loading}
+              className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              Godkjenn
+            </button>
+            <button
+              onClick={handleCorrect}
+              disabled={loading}
+              className="rounded bg-[var(--px-action)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--px-action-hover)] disabled:opacity-50"
+            >
+              Lagre korrigeringer
+            </button>
+            <button
+              onClick={handleReprocess}
+              disabled={loading}
+              className="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            >
+              Send til reprocess
+            </button>
+            <button
+              onClick={handleReject}
+              disabled={loading}
+              className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+            >
+              Avvis
+            </button>
+            <button
+              onClick={handleUnreadable}
+              disabled={loading}
+              className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Uleselig
+            </button>
           </div>
         )}
 
@@ -790,15 +886,21 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
             >
               {validating ? "Validerer…" : "Valider reviewed facts"}
             </button>
+            {canPublish && (
+              <button
+                onClick={handlePublish}
+                disabled={publishing || validating}
+                className="rounded bg-[#162233] px-4 py-2 text-sm font-medium text-white hover:bg-[#1e3044] disabled:opacity-50"
+              >
+                {publishing ? "Publiserer…" : "Publiser reviewed facts"}
+              </button>
+            )}
           </div>
         )}
 
         {isResolved && (
           <div className="rounded bg-slate-50 px-4 py-3 text-sm text-slate-600">
             Denne saken er avsluttet med status <strong>{review.status}</strong>.
-            {isAccepted && hasReviewedFacts
-              ? " Reviewed values saved and published to the active financial statement."
-              : ""}
           </div>
         )}
       </div>
@@ -806,34 +908,384 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   );
 }
 
-function FactTable({ facts }: { facts: Fact[] }) {
+function InlineFactTable({
+  title,
+  facts,
+  editableFacts,
+  setEditableFacts,
+}: {
+  title: string;
+  facts: Fact[];
+  editableFacts: EditableFact[];
+  setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
+}) {
+  const suggestedByKey = new Map(facts.map((f) => [f.metricKey, f]));
+
   return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="border-b border-[rgba(15,23,42,0.06)]">
-          <th className="pb-1 text-left font-medium text-slate-400">Nøkkel</th>
-          <th className="pb-1 text-right font-medium text-slate-400">Verdi (NOK)</th>
-          <th className="pb-1 text-right font-medium text-slate-400">Skala</th>
-          <th className="pb-1 text-right font-medium text-slate-400">Side</th>
-          <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
-        </tr>
-      </thead>
-      <tbody>
-        {facts.map((f) => (
-          <tr key={f.id} className="border-b border-[rgba(15,23,42,0.04)] last:border-0">
-            <td className="py-1 font-mono text-slate-600">{f.metricKey}</td>
-            <td className="py-1 text-right font-mono text-[var(--px-text)]">
-              {formatIntegerString(f.value)}
-            </td>
-            <td className="py-1 text-right font-mono text-slate-400">{f.unitScale}</td>
-            <td className="py-1 text-right font-mono text-slate-400">{f.sourcePage ?? "—"}</td>
-            <td className="py-1 text-right font-mono text-slate-400">
-              {f.confidenceScore != null ? `${(f.confidenceScore * 100).toFixed(0)}%` : "—"}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="mb-4">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-[rgba(15,23,42,0.08)]">
+              <th className="pb-1 pr-2 text-left font-medium text-slate-400">Nøkkel</th>
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Foreslått</th>
+              <th className="pb-1 pr-1 text-left font-medium text-slate-400">Manuell</th>
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Effektivt</th>
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Diff</th>
+              <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
+            </tr>
+          </thead>
+          <tbody>
+            {facts.map((f) => {
+              const original = suggestedByKey.get(f.metricKey);
+              const editIdx = editableFacts.findIndex((e) => e.metricKey === f.metricKey);
+              const editable = editIdx >= 0 ? editableFacts[editIdx] : null;
+
+              const suggestedStr = original ? bigintToDisplay(original.value) : "";
+              const manualStr = editable?.value ?? "";
+              const hasManual = manualStr.trim() !== "" && manualStr.trim() !== suggestedStr;
+
+              let diff: bigint | null = null;
+              if (hasManual && manualStr.trim() !== "" && suggestedStr !== "") {
+                try {
+                  diff = BigInt(manualStr.trim()) - BigInt(suggestedStr);
+                } catch {
+                  // non-parseable input
+                }
+              }
+
+              const effectiveStr = hasManual ? manualStr.trim() : suggestedStr;
+
+              return (
+                <tr key={f.id} className="border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50">
+                  <td className="py-1 pr-2 font-mono text-slate-600">{f.metricKey}</td>
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
+                      hasManual ? "text-slate-300 line-through" : "text-[var(--px-text)]"
+                    }`}
+                  >
+                    {suggestedStr ? formatIntegerString(suggestedStr) : "—"}
+                  </td>
+                  <td className="py-1 pr-1">
+                    <input
+                      value={manualStr}
+                      onChange={(e) => {
+                        if (editIdx >= 0) {
+                          setEditableFacts((prev) => {
+                            const next = [...prev];
+                            next[editIdx] = { ...next[editIdx], value: e.target.value };
+                            return next;
+                          });
+                        }
+                      }}
+                      placeholder="—"
+                      className={`w-full min-w-[90px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none ${
+                        hasManual
+                          ? "border-amber-300 bg-amber-50 text-amber-800 focus:border-amber-400"
+                          : "border-[rgba(15,23,42,0.10)] bg-white text-slate-600 focus:border-[var(--px-accent)]"
+                      }`}
+                    />
+                  </td>
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums font-medium ${
+                      hasManual ? "text-amber-700" : "text-[var(--px-text)]"
+                    }`}
+                  >
+                    {effectiveStr ? formatIntegerString(effectiveStr) : "—"}
+                  </td>
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
+                      diff === null
+                        ? "text-slate-300"
+                        : diff > 0n
+                          ? "text-green-600"
+                          : diff < 0n
+                            ? "text-red-600"
+                            : "text-slate-400"
+                    }`}
+                  >
+                    {diff !== null
+                      ? (diff >= 0n ? "+" : "") + formatIntegerString(diff)
+                      : "—"}
+                  </td>
+                  <td className="py-1 text-right font-mono text-slate-400">
+                    {f.confidenceScore != null
+                      ? `${(f.confidenceScore * 100).toFixed(0)}%`
+                      : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section-type grouping helpers for "As Reported" view
+// ---------------------------------------------------------------------------
+
+const INCOME_SECTIONS = new Set([
+  "STATUTORY_INCOME",
+  "SUPPLEMENTARY_INCOME",
+]);
+const BALANCE_SECTIONS = new Set([
+  "STATUTORY_BALANCE",
+  "STATUTORY_BALANCE_CONTINUATION",
+  "SUPPLEMENTARY_BALANCE",
+]);
+
+/**
+ * Build synthetic RawRows from mappedFacts when the EXTRACTION_JSON artifact
+ * pre-dates the addition of `rows` to the payload. Each unique
+ * (sourceSection + normalizedLabel) combination becomes one row, with year
+ * values assigned by columnIndex (0 = latest year, 1 = prior year).
+ */
+function buildSyntheticRows(mappedFacts: MappedFactRaw[], years: number[]): RawRow[] {
+  const rowMap = new Map<string, RawRow>();
+
+  for (const mf of mappedFacts) {
+    if (mf.isDerived) continue; // derived facts don't come from a specific source row
+    const rowKey = `${mf.sourceSection ?? "UNKNOWN"}__${mf.normalizedLabel ?? mf.metricKey}`;
+    const yearIdx = years.indexOf(mf.fiscalYear);
+    if (yearIdx < 0 || yearIdx > 1) continue; // only support 2 year columns
+
+    if (!rowMap.has(rowKey)) {
+      rowMap.set(rowKey, {
+        pageNumber: mf.sourcePage ?? 0,
+        sectionType: mf.sourceSection ?? "UNKNOWN",
+        label: mf.rawLabel ?? mf.normalizedLabel ?? mf.metricKey,
+        normalizedLabel: mf.normalizedLabel ?? mf.metricKey,
+        rowText: mf.rawLabel ?? mf.normalizedLabel ?? mf.metricKey,
+        unitScale: mf.unitScale ?? 1,
+        confidence: mf.confidenceScore ?? 0,
+        values: [],
+      });
+    }
+
+    const row = rowMap.get(rowKey)!;
+    // Avoid duplicates for the same year column
+    if (!row.values.find((v) => v.columnIndex === yearIdx)) {
+      row.values.push({ value: mf.value, columnIndex: yearIdx });
+    }
+  }
+
+  return Array.from(rowMap.values());
+}
+
+function sectionLabel(sectionType: string): string {
+  const map: Record<string, string> = {
+    STATUTORY_INCOME: "Resultatregnskap (offisiell)",
+    SUPPLEMENTARY_INCOME: "Resultatregnskap (tillegg)",
+    STATUTORY_BALANCE: "Balanse (offisiell)",
+    STATUTORY_BALANCE_CONTINUATION: "Balanse forts.",
+    SUPPLEMENTARY_BALANCE: "Balanse (tillegg)",
+    NOTE: "Noteopplysninger",
+    AUDITOR_REPORT: "Revisorberetning",
+    BOARD_REPORT: "Styrets beretning",
+    COVER: "Forside",
+  };
+  return map[sectionType] ?? sectionType;
+}
+
+/**
+ * Renders all extracted rows from the EXTRACTION_JSON artifact, grouped by
+ * document section, with year-column pivoting and canonical-mapping hints.
+ *
+ * Falls back to synthesizing rows from mappedFacts when the artifact pre-dates
+ * the addition of `rows` to the payload (older filings).
+ */
+function AsReportedPanel({
+  data,
+  fiscalYear,
+}: {
+  data: ExtractionData;
+  fiscalYear: number;
+}) {
+  const { rows, mappedFacts } = data;
+
+  // Build a lookup: normalizedLabel → canonical metricKey (first match wins)
+  const canonicalByLabel = new Map<string, string>();
+  for (const mf of mappedFacts) {
+    const key = (mf.normalizedLabel ?? mf.rawLabel ?? "").toLowerCase().trim();
+    if (key && !canonicalByLabel.has(key)) {
+      canonicalByLabel.set(key, mf.metricKey);
+    }
+  }
+
+  // Determine fiscal years present in mappedFacts to label columns
+  const yearsInData = Array.from(new Set(mappedFacts.map((f) => f.fiscalYear))).sort(
+    (a, b) => b - a,
+  );
+  const mainYear = yearsInData[0] ?? fiscalYear;
+  const priorYear = yearsInData[1] ?? fiscalYear - 1;
+
+  // If the artifact has no rows (older filing), synthesize from mappedFacts
+  const isSynthetic = rows.length === 0 && mappedFacts.length > 0;
+  const effectiveRows = isSynthetic ? buildSyntheticRows(mappedFacts, yearsInData) : rows;
+
+  // Group rows by sectionType, only show income + balance sections
+  const incomeRows = effectiveRows
+    .filter((r) => INCOME_SECTIONS.has(r.sectionType))
+    .sort((a, b) => a.pageNumber - b.pageNumber);
+  const balanceRows = effectiveRows
+    .filter((r) => BALANCE_SECTIONS.has(r.sectionType))
+    .sort((a, b) => a.pageNumber - b.pageNumber);
+  const otherRows = effectiveRows
+    .filter((r) => !INCOME_SECTIONS.has(r.sectionType) && !BALANCE_SECTIONS.has(r.sectionType))
+    .sort((a, b) => a.pageNumber - b.pageNumber);
+
+  if (effectiveRows.length === 0) {
+    return (
+      <div className="py-4 space-y-2">
+        <p className="text-xs text-slate-400">
+          Ingen ekstraherte rader funnet i EXTRACTION_JSON.
+        </p>
+        {mappedFacts.length === 0 && (
+          <p className="text-xs text-slate-300">
+            Artefaktet inneholder heller ingen mappede facts. Filen kan mangle data eller være fra
+            en eldre versjon av ekstraheringspipelinen.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {isSynthetic && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <strong>Fallback-visning:</strong> Denne rapportfilen ble behandlet med en eldre versjon
+          av ekstraheringspipelinen som ikke lagret rådata-rader. Viser kun{" "}
+          <em>kanonisk-mappede</em> linjer ({mappedFacts.filter((f) => !f.isDerived).length} stk) —
+          umappede linjer er ikke tilgjengelig.
+        </div>
+      )}
+
+      {!isSynthetic && (
+        <p className="text-xs text-slate-400">
+          Alle rader hentet direkte fra PDF — inkludert linjer som ikke ble koblet til en kanonisk
+          nøkkel. Uthevede nøkler (
+          <span className="font-medium text-[var(--px-accent)]">blå</span>) betyr vellykket
+          mapping. Oransje betyr ikke koblet.
+        </p>
+      )}
+
+      {incomeRows.length > 0 && (
+        <AsReportedSection
+          title="Resultatregnskap"
+          rows={incomeRows}
+          canonicalByLabel={canonicalByLabel}
+          mainYear={mainYear}
+          priorYear={priorYear}
+        />
+      )}
+      {balanceRows.length > 0 && (
+        <AsReportedSection
+          title="Balanse"
+          rows={balanceRows}
+          canonicalByLabel={canonicalByLabel}
+          mainYear={mainYear}
+          priorYear={priorYear}
+        />
+      )}
+      {otherRows.length > 0 && (
+        <AsReportedSection
+          title={`Andre seksjoner (${[...new Set(otherRows.map((r) => sectionLabel(r.sectionType)))].join(", ")})`}
+          rows={otherRows}
+          canonicalByLabel={canonicalByLabel}
+          mainYear={mainYear}
+          priorYear={priorYear}
+        />
+      )}
+
+      <p className="text-[10px] text-slate-300">
+        {effectiveRows.length} rader totalt · motor: {data.engine ?? "—"} / {data.mode ?? "—"}
+        {isSynthetic && " · (syntetisert fra mappedFacts)"}
+      </p>
+    </div>
+  );
+}
+
+function AsReportedSection({
+  title,
+  rows,
+  canonicalByLabel,
+  mainYear,
+  priorYear,
+}: {
+  title: string;
+  rows: RawRow[];
+  canonicalByLabel: Map<string, string>;
+  mainYear: number;
+  priorYear: number;
+}) {
+  return (
+    <div className="mb-2">
+      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+        {title}
+      </h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-[rgba(15,23,42,0.08)]">
+              <th className="pb-1 pr-2 text-left font-medium text-slate-400">Label (rapportert)</th>
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">{mainYear}</th>
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">{priorYear}</th>
+              <th className="pb-1 pr-1 text-left font-medium text-slate-400">Kanonisk nøkkel</th>
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Side</th>
+              <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const lookupKey = (row.normalizedLabel ?? row.label ?? "").toLowerCase().trim();
+              const canonicalKey = canonicalByLabel.get(lookupKey) ?? null;
+              const isMapped = canonicalKey !== null;
+
+              const val0 = row.values.find((v) => v.columnIndex === 0);
+              const val1 = row.values.find((v) => v.columnIndex === 1);
+
+              const displayVal = (cell: { value: number } | undefined, scale: number) =>
+                cell != null ? formatIntegerString(Math.round(cell.value * scale)) : "—";
+
+              return (
+                <tr
+                  key={`${row.pageNumber}-${i}`}
+                  className={`border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50 ${
+                    !isMapped ? "opacity-60" : ""
+                  }`}
+                >
+                  <td className="py-1 pr-2 text-slate-700">{row.label}</td>
+                  <td className="py-1 pr-1 text-right font-mono tabular-nums text-[var(--px-text)]">
+                    {displayVal(val0, row.unitScale)}
+                  </td>
+                  <td className="py-1 pr-1 text-right font-mono tabular-nums text-slate-400">
+                    {displayVal(val1, row.unitScale)}
+                  </td>
+                  <td className="py-1 pr-1">
+                    {isMapped ? (
+                      <span className="font-mono text-[var(--px-accent)]">{canonicalKey}</span>
+                    ) : (
+                      <span className="text-amber-500">ikke koblet</span>
+                    )}
+                  </td>
+                  <td className="py-1 pr-1 text-right font-mono text-slate-400">
+                    {row.pageNumber}
+                  </td>
+                  <td className="py-1 text-right font-mono text-slate-400">
+                    {row.confidence != null ? `${(row.confidence * 100).toFixed(0)}%` : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -1234,7 +1686,7 @@ function ReviewedFactTable({ facts }: { facts: ReviewedFact[] }) {
         {facts.map((f) => (
           <tr key={f.id} className="border-b border-emerald-100 last:border-0">
             <td className="py-1 font-mono text-emerald-800">{f.metricKey}</td>
-            <td className="py-1 text-right font-mono text-[var(--px-text)]">
+            <td className="py-1 text-right font-mono text-[#162233]">
               {formatIntegerString(f.value)}
             </td>
             <td className="py-1 text-right font-mono text-slate-400">{f.unitScale}</td>
