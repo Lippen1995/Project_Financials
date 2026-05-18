@@ -511,6 +511,7 @@ export default async function CompanyPage({
 
   const {
     company,
+    companyDbId,
     roles,
     rolesAvailability,
     financialStatements,
@@ -518,10 +519,27 @@ export default async function CompanyPage({
     financialsAvailability,
     regulatoryAvailability,
   } = profile;
+  const companyId = companyDbId ?? null;
   const visibleRoles = premium ? roles : roles.slice(0, 5);
-  const companyRecord = await prisma.company.findUnique({ where: { slug }, select: { id: true } });
-  const companyId = companyRecord?.id ?? null;
-  const petroleumVisibility = await getCompanyPetroleumTabVisibility(company);
+
+  const [petroleumVisibility, watchInfo] = await Promise.all([
+    getCompanyPetroleumTabVisibility(company),
+    session?.user?.id
+      ? (async () => {
+          const user = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { lastWorkspaceId: true },
+          });
+          if (!user?.lastWorkspaceId) return null;
+          const watch = await prisma.workspaceWatch.findFirst({
+            where: { workspaceId: user.lastWorkspaceId, company: { slug }, status: "ACTIVE" },
+            select: { id: true },
+          });
+          return { watchId: watch?.id ?? null, workspaceId: user.lastWorkspaceId };
+        })()
+      : Promise.resolve(null),
+  ]);
+
   const availableTabs: Array<{ id: CompanyTabId; label: string }> = [
     { id: "oversikt", label: "Oversikt" },
     { id: "regnskap", label: "Regnskap" },
@@ -536,32 +554,15 @@ export default async function CompanyPage({
   }
   const activeTab =
     parsedTab === "sokkeleksponering" && !petroleumVisibility.available ? "oversikt" : parsedTab;
-  const petroleumProfile =
+
+  const [petroleumProfile, legalStructure, announcementsData, narratives] = await Promise.all([
     activeTab === "sokkeleksponering" && petroleumVisibility.available
-      ? await getCompanyPetroleumProfile(company)
-      : null;
-
-  const legalStructure = activeTab === "organisasjon" ? await getLegalStructure(company.orgNumber) : null;
-  const announcementsData =
-    activeTab === "kunngjoringer" ? await getCompanyAnnouncements(company.orgNumber) : null;
-
-  const watchInfo = session?.user?.id
-    ? await (async () => {
-        const user = await prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: { lastWorkspaceId: true },
-        });
-        if (!user?.lastWorkspaceId) return null;
-        const watch = await prisma.workspaceWatch.findFirst({
-          where: { workspaceId: user.lastWorkspaceId, company: { slug }, status: "ACTIVE" },
-          select: { id: true },
-        });
-        return { watchId: watch?.id ?? null, workspaceId: user.lastWorkspaceId };
-      })()
-    : null;
-  const narratives =
+      ? getCompanyPetroleumProfile(company)
+      : Promise.resolve(null),
+    activeTab === "organisasjon" ? getLegalStructure(company.orgNumber) : Promise.resolve(null),
+    activeTab === "kunngjoringer" ? getCompanyAnnouncements(company.orgNumber) : Promise.resolve(null),
     activeTab === "dokumenter"
-      ? await prisma.annualReportNarrative.findMany({
+      ? prisma.annualReportNarrative.findMany({
           where: { company: { slug } },
           orderBy: [{ fiscalYear: "desc" }, { sectionKind: "asc" }],
           select: {
@@ -576,31 +577,30 @@ export default async function CompanyPage({
             confidence: true,
           },
         })
-      : [];
-  const initialAnnouncementDetail =
+      : Promise.resolve([]),
+  ]);
+
+  const [initialAnnouncementDetail, discussionContext] = await Promise.all([
     activeTab === "kunngjoringer" && announcementsData?.announcements[0]
-      ? await getCompanyAnnouncementDetail(
+      ? getCompanyAnnouncementDetail(
           company.orgNumber,
           announcementsData.announcements[0].id,
           announcementsData.announcements[0].publishedAt ?? null,
         )
-      : null;
-  const discussionContext =
+      : Promise.resolve(null),
     session?.user?.id && (activeTab === "regnskap" || activeTab === "kunngjoringer")
-      ? await getCompanyDdDiscussionContext(
-          session.user.id,
-          company.orgNumber,
-          requestedDdRoomId,
-        )
-      : null;
-  const financialDiscussions =
+      ? getCompanyDdDiscussionContext(session.user.id, company.orgNumber, requestedDdRoomId)
+      : Promise.resolve(null),
+  ]);
+
+  const [financialDiscussions, financialMetricDiscussions] = await Promise.all([
     session?.user?.id && activeTab === "regnskap" && discussionContext?.selectedRoomId
-      ? await listFinancialStatementCommentThreads(session.user.id, discussionContext.selectedRoomId)
-      : [];
-  const financialMetricDiscussions =
+      ? listFinancialStatementCommentThreads(session.user.id, discussionContext.selectedRoomId)
+      : Promise.resolve([]),
     session?.user?.id && activeTab === "regnskap" && discussionContext?.selectedRoomId
-      ? await listFinancialMetricCommentThreads(session.user.id, discussionContext.selectedRoomId)
-      : [];
+      ? listFinancialMetricCommentThreads(session.user.id, discussionContext.selectedRoomId)
+      : Promise.resolve([]),
+  ]);
 
   const healthScore = deriveHealthScore(profile);
 

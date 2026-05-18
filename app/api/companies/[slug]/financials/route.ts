@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const revalidate = 3600;
+
 import { getCompanyByReference, getCompanyFinancials } from "@/server/services/company-service";
 
 export async function GET(
