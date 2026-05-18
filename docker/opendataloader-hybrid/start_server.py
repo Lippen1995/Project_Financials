@@ -13,9 +13,17 @@ Two problems are fixed here:
    Tesseract CLI was tried but is 2× slower due to subprocess-spawn overhead.
 """
 
-# Patch scale before models are imported — the attribute is read at __init__ time
+# Patch __init__ before models are imported — self.scale = 3 is a hard instance
+# assignment in __init__, so a class-attribute patch alone would be shadowed.
 from docling.models.stages.ocr import easyocr_model as _eocr_mod
-_eocr_mod.EasyOcrModel.scale = 1  # type: ignore[attr-defined]
+
+_orig_init = _eocr_mod.EasyOcrModel.__init__
+
+def _patched_init(self, *args, **kwargs):
+    _orig_init(self, *args, **kwargs)
+    self.scale = 1  # Override the hardcoded scale=3 set by __init__
+
+_eocr_mod.EasyOcrModel.__init__ = _patched_init  # type: ignore[method-assign]
 
 import opendataloader_pdf.hybrid_server as _hs  # noqa: E402  (must be after patch)
 
