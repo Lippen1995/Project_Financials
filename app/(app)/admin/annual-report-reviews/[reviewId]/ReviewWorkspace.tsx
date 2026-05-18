@@ -225,7 +225,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   const [publishing, setPublishing] = useState(false);
 
   // "Som rapportert" vs "Standardisert" toggle
-  const [viewMode, setViewMode] = useState<"standardized" | "as-reported">("standardized");
+  const [viewMode, setViewMode] = useState<"standardized" | "as-reported">("as-reported");
   const [extractionData, setExtractionData] = useState<ExtractionData | null>(null);
   const [extractionLoading, setExtractionLoading] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
@@ -586,39 +586,34 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
             </div>
 
             {/* Standardisert view — inline redigering med kanonisk rekkefølge */}
+            {/* Standardisert — read-only kanonisk oversikt */}
             {viewMode === "standardized" && (
               <>
                 <p className="mb-3 text-xs text-slate-400">
-                  Fyll inn manuell verdi for å overstyre maskinforslag. Effektivt tall er det som lagres.
+                  Kanoniske nøkler utledet fra "Som rapportert"-tallene. Redigering skjer i "Som rapportert"-fanen.
                 </p>
                 {income.length > 0 && (
-                  <InlineFactTable
-                    title="Resultatregnskap"
-                    facts={sortByCanonical(income)}
-                    editableFacts={editableFacts}
-                    setEditableFacts={setEditableFacts}
-                  />
+                  <div className="mb-4">
+                    <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Resultatregnskap</h3>
+                    <FactTable facts={sortByCanonical(income)} />
+                  </div>
                 )}
                 {balance.length > 0 && (
-                  <InlineFactTable
-                    title="Balanse"
-                    facts={sortByCanonical(balance)}
-                    editableFacts={editableFacts}
-                    setEditableFacts={setEditableFacts}
-                  />
+                  <div className="mb-4">
+                    <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Balanse</h3>
+                    <FactTable facts={sortByCanonical(balance)} />
+                  </div>
                 )}
                 {other.length > 0 && (
-                  <InlineFactTable
-                    title="Andre"
-                    facts={other}
-                    editableFacts={editableFacts}
-                    setEditableFacts={setEditableFacts}
-                  />
+                  <div>
+                    <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Andre</h3>
+                    <FactTable facts={other} />
+                  </div>
                 )}
               </>
             )}
 
-            {/* Som rapportert view — alle rå linjer fra PDF */}
+            {/* Som rapportert — rå PDF-rader med manuell input for mappede rader */}
             {viewMode === "as-reported" && (
               <>
                 {extractionLoading && (
@@ -631,6 +626,8 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                   <AsReportedPanel
                     data={extractionData}
                     fiscalYear={review.fiscalYear}
+                    editableFacts={editableFacts}
+                    setEditableFacts={setEditableFacts}
                   />
                 )}
               </>
@@ -929,6 +926,33 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   );
 }
 
+function FactTable({ facts }: { facts: Fact[] }) {
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-[rgba(15,23,42,0.06)]">
+          <th className="pb-1 text-left font-medium text-slate-400">Nøkkel</th>
+          <th className="pb-1 text-right font-medium text-slate-400">Verdi (NOK)</th>
+          <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
+        </tr>
+      </thead>
+      <tbody>
+        {facts.map((f) => (
+          <tr key={f.id} className="border-b border-[rgba(15,23,42,0.04)] last:border-0">
+            <td className="py-1 font-mono text-slate-600">{f.metricKey}</td>
+            <td className="py-1 text-right font-mono text-[var(--px-text)]">
+              {formatIntegerString(f.value)}
+            </td>
+            <td className="py-1 text-right font-mono text-slate-400">
+              {f.confidenceScore != null ? `${(f.confidenceScore * 100).toFixed(0)}%` : "—"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function InlineFactTable({
   title,
   facts,
@@ -1122,13 +1146,17 @@ function sectionLabel(sectionType: string): string {
 function AsReportedPanel({
   data,
   fiscalYear,
+  editableFacts,
+  setEditableFacts,
 }: {
   data: ExtractionData;
   fiscalYear: number;
+  editableFacts: EditableFact[];
+  setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
 }) {
   const { rows, mappedFacts } = data;
 
-  // Build a lookup: normalizedLabel → canonical metricKey (first match wins)
+  // normalizedLabel → canonical metricKey (first match wins)
   const canonicalByLabel = new Map<string, string>();
   for (const mf of mappedFacts) {
     const key = (mf.normalizedLabel ?? mf.rawLabel ?? "").toLowerCase().trim();
@@ -1137,18 +1165,25 @@ function AsReportedPanel({
     }
   }
 
-  // Determine fiscal years present in mappedFacts to label columns
+  // Fiscal years from mappedFacts, sorted descending
   const yearsInData = Array.from(new Set(mappedFacts.map((f) => f.fiscalYear))).sort(
     (a, b) => b - a,
   );
   const mainYear = yearsInData[0] ?? fiscalYear;
   const priorYear = yearsInData[1] ?? fiscalYear - 1;
 
-  // If the artifact has no rows (older filing), synthesize from mappedFacts
+  // metricKey → {main, prior} — correct values from the canonical mapper
+  const valuesByMetricKey = new Map<string, { main?: number; prior?: number }>();
+  for (const mf of mappedFacts) {
+    if (!valuesByMetricKey.has(mf.metricKey)) valuesByMetricKey.set(mf.metricKey, {});
+    const entry = valuesByMetricKey.get(mf.metricKey)!;
+    if (mf.fiscalYear === mainYear) entry.main = mf.value;
+    else if (mf.fiscalYear === priorYear) entry.prior = mf.value;
+  }
+
   const isSynthetic = rows.length === 0 && mappedFacts.length > 0;
   const effectiveRows = isSynthetic ? buildSyntheticRows(mappedFacts, yearsInData) : rows;
 
-  // Group rows by sectionType, only show income + balance sections
   const incomeRows = effectiveRows
     .filter((r) => INCOME_SECTIONS.has(r.sectionType))
     .sort((a, b) => a.pageNumber - b.pageNumber);
@@ -1162,9 +1197,7 @@ function AsReportedPanel({
   if (effectiveRows.length === 0) {
     return (
       <div className="py-4 space-y-2">
-        <p className="text-xs text-slate-400">
-          Ingen ekstraherte rader funnet i EXTRACTION_JSON.
-        </p>
+        <p className="text-xs text-slate-400">Ingen ekstraherte rader funnet i EXTRACTION_JSON.</p>
         {mappedFacts.length === 0 && (
           <p className="text-xs text-slate-300">
             Artefaktet inneholder heller ingen mappede facts. Filen kan mangle data eller være fra
@@ -1174,6 +1207,8 @@ function AsReportedPanel({
       </div>
     );
   }
+
+  const sectionProps = { canonicalByLabel, mainYear, priorYear, valuesByMetricKey, editableFacts, setEditableFacts };
 
   return (
     <div className="space-y-4">
@@ -1189,37 +1224,22 @@ function AsReportedPanel({
       {!isSynthetic && (
         <p className="text-xs text-slate-400">
           Alle rader hentet direkte fra PDF — inkludert linjer som ikke ble koblet til en kanonisk
-          nøkkel. Uthevede nøkler (
-          <span className="font-medium text-[var(--px-accent)]">blå</span>) betyr vellykket
-          mapping. Oransje betyr ikke koblet.
+          nøkkel. Uthevede nøkler (<span className="font-medium text-[var(--px-accent)]">blå</span>)
+          betyr vellykket mapping. Oransje betyr ikke koblet. Fyll inn manuell verdi for å overstyre.
         </p>
       )}
 
       {incomeRows.length > 0 && (
-        <AsReportedSection
-          title="Resultatregnskap"
-          rows={incomeRows}
-          canonicalByLabel={canonicalByLabel}
-          mainYear={mainYear}
-          priorYear={priorYear}
-        />
+        <AsReportedSection title="Resultatregnskap" rows={incomeRows} {...sectionProps} />
       )}
       {balanceRows.length > 0 && (
-        <AsReportedSection
-          title="Balanse"
-          rows={balanceRows}
-          canonicalByLabel={canonicalByLabel}
-          mainYear={mainYear}
-          priorYear={priorYear}
-        />
+        <AsReportedSection title="Balanse" rows={balanceRows} {...sectionProps} />
       )}
       {otherRows.length > 0 && (
         <AsReportedSection
           title={`Andre seksjoner (${[...new Set(otherRows.map((r) => sectionLabel(r.sectionType)))].join(", ")})`}
           rows={otherRows}
-          canonicalByLabel={canonicalByLabel}
-          mainYear={mainYear}
-          priorYear={priorYear}
+          {...sectionProps}
         />
       )}
 
@@ -1237,12 +1257,18 @@ function AsReportedSection({
   canonicalByLabel,
   mainYear,
   priorYear,
+  valuesByMetricKey,
+  editableFacts,
+  setEditableFacts,
 }: {
   title: string;
   rows: RawRow[];
   canonicalByLabel: Map<string, string>;
   mainYear: number;
   priorYear: number;
+  valuesByMetricKey: Map<string, { main?: number; prior?: number }>;
+  editableFacts: EditableFact[];
+  setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
 }) {
   return (
     <div className="mb-2">
@@ -1256,7 +1282,8 @@ function AsReportedSection({
               <th className="pb-1 pr-2 text-left font-medium text-slate-400">Label (rapportert)</th>
               <th className="pb-1 pr-1 text-right font-medium text-slate-400">{mainYear}</th>
               <th className="pb-1 pr-1 text-right font-medium text-slate-400">{priorYear}</th>
-              <th className="pb-1 pr-1 text-left font-medium text-slate-400">Kanonisk nøkkel</th>
+              <th className="pb-1 pr-2 text-left font-medium text-slate-400">Kanonisk nøkkel</th>
+              <th className="pb-1 pr-1 text-left font-medium text-slate-400">Manuell</th>
               <th className="pb-1 pr-1 text-right font-medium text-slate-400">Side</th>
               <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
             </tr>
@@ -1267,11 +1294,24 @@ function AsReportedSection({
               const canonicalKey = canonicalByLabel.get(lookupKey) ?? null;
               const isMapped = canonicalKey !== null;
 
-              const val0 = row.values.find((v) => v.columnIndex === 0);
-              const val1 = row.values.find((v) => v.columnIndex === 1);
+              // Use mappedFacts values for mapped rows — raw row values can be split
+              // incorrectly when the PDF uses spaces as thousands separators.
+              const mapped = canonicalKey ? valuesByMetricKey.get(canonicalKey) : undefined;
+              const mainDisplay = mapped?.main !== undefined
+                ? formatIntegerString(mapped.main)
+                : row.values.find((v) => v.columnIndex === 0) != null
+                  ? formatIntegerString(Math.round((row.values.find((v) => v.columnIndex === 0)!.value) * row.unitScale))
+                  : "—";
+              const priorDisplay = mapped?.prior !== undefined
+                ? formatIntegerString(mapped.prior)
+                : row.values.find((v) => v.columnIndex === 1) != null
+                  ? formatIntegerString(Math.round((row.values.find((v) => v.columnIndex === 1)!.value) * row.unitScale))
+                  : "—";
 
-              const displayVal = (cell: { value: number } | undefined, scale: number) =>
-                cell != null ? formatIntegerString(Math.round(cell.value * scale)) : "—";
+              const editIdx = canonicalKey
+                ? editableFacts.findIndex((e) => e.metricKey === canonicalKey)
+                : -1;
+              const editableVal = editIdx >= 0 ? editableFacts[editIdx].value : "";
 
               return (
                 <tr
@@ -1282,16 +1322,32 @@ function AsReportedSection({
                 >
                   <td className="py-1 pr-2 text-slate-700">{row.label}</td>
                   <td className="py-1 pr-1 text-right font-mono tabular-nums text-[var(--px-text)]">
-                    {displayVal(val0, row.unitScale)}
+                    {mainDisplay}
                   </td>
                   <td className="py-1 pr-1 text-right font-mono tabular-nums text-slate-400">
-                    {displayVal(val1, row.unitScale)}
+                    {priorDisplay}
                   </td>
-                  <td className="py-1 pr-1">
+                  <td className="py-1 pr-2">
                     {isMapped ? (
                       <span className="font-mono text-[var(--px-accent)]">{canonicalKey}</span>
                     ) : (
                       <span className="text-amber-500">ikke koblet</span>
+                    )}
+                  </td>
+                  <td className="py-1 pr-1">
+                    {editIdx >= 0 ? (
+                      <input
+                        value={editableVal}
+                        onChange={(e) => {
+                          const next = [...editableFacts];
+                          next[editIdx] = { ...next[editIdx], value: e.target.value };
+                          setEditableFacts(next);
+                        }}
+                        placeholder={mapped?.main !== undefined ? String(mapped.main) : ""}
+                        className="w-28 rounded border border-[rgba(15,23,42,0.12)] px-2 py-0.5 font-mono text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-[var(--px-accent)]"
+                      />
+                    ) : (
+                      <span className="text-slate-300">—</span>
                     )}
                   </td>
                   <td className="py-1 pr-1 text-right font-mono text-slate-400">
