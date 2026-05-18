@@ -433,6 +433,106 @@ function extractElements(payload: unknown) {
   return extractElementsWithContainerPaths(payload).elements;
 }
 
+// Detect and extract from Docling DoclingDocument format (export_to_dict output)
+// Format: {schema_name: "DoclingDocument", texts: [...], tables: [...], pages: {...}}
+// Also handles the hybrid server HTTP response: {document: {json_content: <DoclingDocument>}}
+function unwrapDoclingHttpResponse(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return payload;
+  }
+  const record = payload as Record<string, unknown>;
+  const doc = record.document;
+  if (doc && typeof doc === "object" && !Array.isArray(doc)) {
+    const jsonContent = (doc as Record<string, unknown>).json_content;
+    if (jsonContent && typeof jsonContent === "object" && !Array.isArray(jsonContent)) {
+      return jsonContent;
+    }
+  }
+  return payload;
+}
+
+function isDoclingDocumentFormat(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return false;
+  }
+  const record = payload as Record<string, unknown>;
+  return (
+    (typeof record.schema_name === "string" && record.schema_name.includes("DoclingDocument")) ||
+    (Array.isArray(record.texts) && record.texts.length > 0)
+  );
+}
+
+function extractElementsFromDoclingFormat(payload: unknown): OpenDataLoaderRawElement[] {
+  const doc = payload as {
+    texts?: Array<{
+      self_ref?: string;
+      label?: string;
+      prov?: Array<{ page_no?: number; bbox?: { l: number; t: number; r: number; b: number } }>;
+      text?: string;
+      orig?: string;
+    }>;
+    tables?: Array<{
+      self_ref?: string;
+      label?: string;
+      prov?: Array<{ page_no?: number; bbox?: { l: number; t: number; r: number; b: number } }>;
+      data?: {
+        table_cells?: Array<{
+          start_row_offset_idx: number;
+          start_col_offset_idx: number;
+          text?: string;
+        }>;
+        num_rows?: number;
+        num_cols?: number;
+      };
+    }>;
+  };
+
+  const elements: OpenDataLoaderRawElement[] = [];
+  let idCounter = 1;
+
+  for (const textItem of doc.texts ?? []) {
+    const prov = textItem.prov?.[0];
+    if (!prov?.page_no) continue;
+    const bbox = prov.bbox;
+    elements.push({
+      type: textItem.label ?? "paragraph",
+      id: idCounter++,
+      "page number": prov.page_no,
+      content: textItem.text ?? textItem.orig ?? "",
+      "bounding box": bbox ? [bbox.l, bbox.b, bbox.r, bbox.t] : undefined,
+    });
+  }
+
+  for (const tableItem of doc.tables ?? []) {
+    const prov = tableItem.prov?.[0];
+    if (!prov?.page_no) continue;
+    const bbox = prov.bbox;
+    const data = tableItem.data;
+    if (!data) continue;
+
+    const numRows = data.num_rows ?? 0;
+    const numCols = data.num_cols ?? 0;
+    const grid: string[][] = Array.from({ length: numRows }, () => Array<string>(numCols).fill(""));
+    for (const cell of data.table_cells ?? []) {
+      const r = cell.start_row_offset_idx;
+      const c = cell.start_col_offset_idx;
+      if (r < numRows && c < numCols) {
+        grid[r][c] = cell.text ?? "";
+      }
+    }
+
+    elements.push({
+      type: "table",
+      id: idCounter++,
+      "page number": prov.page_no,
+      rows: grid,
+      "bounding box": bbox ? [bbox.l, bbox.b, bbox.r, bbox.t] : undefined,
+    });
+  }
+
+  return elements;
+}
+
 export function summarizeOpenDataLoaderRawPayload(
   payload: unknown,
 ): OpenDataLoaderRawOutputSummary {
@@ -811,7 +911,12 @@ export function normalizeOpenDataLoaderPayload(input: {
   hasEmbeddedText?: boolean;
 }) {
   const engineMode = input.engineMode ?? "local";
-  const elements = extractElements(input.payload);
+
+  // Pre-process: unwrap Docling HTTP response wrapper and handle DoclingDocument format
+  const unwrapped = unwrapDoclingHttpResponse(input.payload);
+  const elements = isDoclingDocumentFormat(unwrapped)
+    ? extractElementsFromDoclingFormat(unwrapped)
+    : extractElements(input.payload);
   const pages = new Map<number, NormalizedDocument["pages"][number]>();
 
   elements.forEach((element, index) => {
