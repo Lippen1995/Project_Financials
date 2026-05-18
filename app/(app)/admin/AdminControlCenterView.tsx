@@ -20,23 +20,41 @@ type AdminControlCenterViewProps = {
   currentUserRole: string;
 };
 
-function toneClasses(tone: AdminVisualTone) {
+type PipelineMode = "Legacy" | "Unified" | "Shadow";
+
+// ─── Tone helpers ────────────────────────────────────────────────────────────
+
+function toneBadge(tone: AdminVisualTone) {
   switch (tone) {
     case "GREEN":
-      return "border-green-200 bg-green-50 text-green-700";
+      return "bg-[#e8f5e9] border-[#a5d6a7] text-[#2e7d32]";
     case "YELLOW":
-      return "border-amber-200 bg-amber-50 text-amber-700";
+      return "bg-[#fff9c4] border-[#fbc02d] text-[#f57f17]";
     case "RED":
-      return "border-red-200 bg-red-50 text-red-700";
+      return "bg-red-50 border-red-200 text-red-700";
     case "PURPLE":
-      return "border-violet-200 bg-violet-50 text-violet-700";
-    case "BLUE":
+      return "bg-[#f3e5f5] border-[#ce93d8] text-[#7b1fa2]";
     default:
-      return "border-slate-200 bg-slate-50 text-slate-600";
+      return "bg-slate-100 border-slate-200 text-slate-500";
   }
 }
 
-function statusLabel(status: AdminControlCenterStatus) {
+function toneDot(tone: AdminVisualTone) {
+  switch (tone) {
+    case "GREEN":
+      return "bg-[#4caf50]";
+    case "YELLOW":
+      return "bg-[#fbc02d]";
+    case "RED":
+      return "bg-red-600";
+    case "PURPLE":
+      return "bg-violet-500";
+    default:
+      return "bg-slate-400";
+  }
+}
+
+function statusLabel(status: AdminControlCenterStatus): string {
   switch (status) {
     case "HEALTHY":
       return "Alt ser bra ut";
@@ -48,7 +66,6 @@ function statusLabel(status: AdminControlCenterStatus) {
       return "Blokkert";
     case "NOT_STARTED":
       return "Ikke startet";
-    case "UNKNOWN":
     default:
       return "Ukjent";
   }
@@ -62,9 +79,21 @@ function attentionTone(severity: AdminAttentionItem["severity"]): AdminVisualTon
       return "YELLOW";
     case "LOW":
       return "PURPLE";
-    case "INFO":
     default:
       return "BLUE";
+  }
+}
+
+function severityLabel(severity: AdminAttentionItem["severity"]): string {
+  switch (severity) {
+    case "HIGH":
+      return "KRITISK FEIL";
+    case "MEDIUM":
+      return "REVIEW KREVES";
+    case "LOW":
+      return "MANUELL SJEKK";
+    default:
+      return "INFO";
   }
 }
 
@@ -72,10 +101,10 @@ function findHelpSection(
   node: AdminFlowNode,
   title: string,
 ): AdminFlowHelpSection | undefined {
-  return node.helpSections?.find((section) => section.title === title);
+  return node.helpSections?.find((s) => s.title === title);
 }
 
-function buildStepExample(node: AdminFlowNode) {
+function buildStepExample(node: AdminFlowNode): string {
   const examples: Record<string, string> = {
     "report-received":
       "Eksempel: En årsrapport kommer inn med riktig organisasjonsnummer og riktig regnskapsår, og kan derfor spores videre i flyten.",
@@ -92,40 +121,33 @@ function buildStepExample(node: AdminFlowNode) {
     "quality-gate":
       "Eksempel: En rapport med gode hovedtall og uten store avvik får pass i kvalitetssjekken og trenger ikke ekstra kontroll.",
     "manual-review-decision":
-      "Eksempel: Hvis systemet er usikkert på enhetsskala eller mangler sentrale linjer, sendes rapporten til manuell kontroll før videre bruk.",
+      "Eksempel: Hvis systemet er usikkert på enhetsskala eller mangler sentrale linjer, sendes rapporten til manuell kontroll.",
     "manual-review":
-      "Eksempel: Reviewer åpner PDF-en, sammenligner de viktigste linjene mot systemets forslag og registrerer en tydelig beslutning.",
+      "Eksempel: Reviewer åpner PDF-en, sammenligner de viktigste linjene mot systemets forslag og registrerer en beslutning.",
     "store-approved":
       "Eksempel: Godkjente tall lagres med sporbarhet tilbake til rapport, dokument og review-beslutning.",
     "available-in-product":
-      "Eksempel: Etter godkjenning kan tallene vises på selskapssiden og brukes i søk og analyser uten at brukeren ser rå PDF-data.",
+      "Eksempel: Etter godkjenning kan tallene vises på selskapssiden og brukes i søk og analyser.",
   };
-
   return (
     examples[node.key] ??
-    "Eksempel: En sak med tydelig grunnlag i dette steget kan gå trygt videre til neste kontroll uten å bruke oppdiktede data."
+    "Eksempel: En sak med tydelig grunnlag i dette steget kan gå trygt videre til neste kontroll."
   );
 }
 
 function getFlowStats(nodes: AdminFlowNode[]) {
   return nodes.reduce(
     (acc, node) => {
-      if (node.status === "HEALTHY") {
-        acc.healthy += 1;
-      } else if (
-        node.status === "WARNING" ||
-        node.status === "FAILING" ||
-        node.status === "BLOCKED"
-      ) {
-        acc.attention += 1;
-      } else {
-        acc.unknown += 1;
-      }
+      if (node.status === "HEALTHY") acc.healthy += 1;
+      else if (["WARNING", "FAILING", "BLOCKED"].includes(node.status)) acc.attention += 1;
+      else acc.unknown += 1;
       return acc;
     },
     { healthy: 0, attention: 0, unknown: 0 },
   );
 }
+
+// ─── Small components ─────────────────────────────────────────────────────────
 
 function StatusBadge({
   status,
@@ -136,86 +158,15 @@ function StatusBadge({
 }) {
   return (
     <span
-      className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${toneClasses(tone)}`}
+      className={`inline-flex items-center gap-1.5 rounded border px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${toneBadge(tone)}`}
     >
+      <span className={`h-1.5 w-1.5 rounded-full ${toneDot(tone)}`} />
       {statusLabel(status)}
     </span>
   );
 }
 
-function MetaChip({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: AdminVisualTone;
-}) {
-  return (
-    <div
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium ${toneClasses(tone)}`}
-    >
-      <span className="uppercase tracking-widest text-[10px] opacity-70">{label}</span>
-      <span>{value}</span>
-    </div>
-  );
-}
-
-function SummaryCard({ card }: { card: AdminSummaryCard }) {
-  const content = (
-    <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-            {card.title}
-          </div>
-          <div className="mt-3 text-2xl font-semibold tracking-tight text-[#162233]">
-            {card.value}
-          </div>
-        </div>
-        <StatusBadge status={card.status} tone={card.tone} />
-      </div>
-      <p className="mt-3 text-sm leading-6 text-slate-500">{card.detail}</p>
-    </div>
-  );
-
-  if (!card.href) {
-    return content;
-  }
-
-  return <Link href={card.href as never}>{content}</Link>;
-}
-
-function AttentionRow({ item }: { item: AdminAttentionItem }) {
-  const tone = attentionTone(item.severity);
-
-  return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)] lg:flex-row lg:items-start lg:justify-between">
-      <div>
-        <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${toneClasses(tone)}`}
-          >
-            {item.severity}
-          </span>
-          <div className="text-sm font-semibold text-[#162233]">{item.title}</div>
-        </div>
-        <p className="mt-2 text-sm leading-6 text-slate-500">{item.description}</p>
-      </div>
-      {item.href ? (
-        <Link
-          href={item.href as never}
-          className="rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Åpne
-        </Link>
-      ) : null}
-    </div>
-  );
-}
-
-function InfoCard({
+function InfoBlock({
   title,
   body,
   tone = "BLUE",
@@ -225,238 +176,140 @@ function InfoCard({
   tone?: AdminVisualTone;
 }) {
   return (
-    <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.03)]">
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-flex h-2.5 w-2.5 rounded-full ${tone === "GREEN" ? "bg-green-500" : tone === "YELLOW" ? "bg-amber-500" : tone === "RED" ? "bg-red-500" : tone === "PURPLE" ? "bg-violet-500" : "bg-slate-400"}`}
-        />
-        <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
+    <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white/60 p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full ${toneDot(tone)}`} />
+        <span className="data-label text-[11px] font-semibold uppercase tracking-wider text-slate-500">
           {title}
-        </div>
+        </span>
       </div>
-      <p className="mt-3 text-sm leading-6 text-slate-600">{body}</p>
+      <p className="text-sm leading-6 text-slate-600">{body}</p>
     </div>
   );
 }
 
-function StepPill({ stepNumber }: { stepNumber: number }) {
-  return (
-    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#162233] text-sm font-semibold text-white shadow-[0_10px_20px_rgba(22,34,51,0.16)]">
-      {stepNumber}
-    </span>
-  );
-}
-
-function SidebarStepButton({
+function StepCircle({
   node,
-  active,
-  onSelect,
+  isActive,
+  onClick,
 }: {
   node: AdminFlowNode;
-  active: boolean;
-  onSelect: () => void;
+  isActive: boolean;
+  onClick: () => void;
 }) {
+  const isCompleted = node.status === "HEALTHY";
+  const isError = node.status === "FAILING" || node.status === "BLOCKED";
+
+  let circleClass =
+    "bg-slate-200 border-2 border-slate-300 text-slate-500"; // pending
+  if (isActive)
+    circleClass =
+      "bg-white border-2 border-[var(--px-accent)] text-[var(--px-accent)] font-bold shadow-[0_0_0_4px_rgba(0,102,138,0.15)]";
+  else if (isCompleted)
+    circleClass = "bg-[var(--px-accent)] border-2 border-[var(--px-accent)] text-white";
+  else if (isError)
+    circleClass = "bg-red-50 border-2 border-red-300 text-red-600";
+
   return (
     <button
       type="button"
-      onClick={onSelect}
-      className={`w-full rounded-2xl border p-4 text-left transition ${
-        active
-          ? "border-[#162233] bg-[#eef3f8] shadow-[0_10px_20px_rgba(22,34,51,0.08)]"
-          : "border-[rgba(15,23,42,0.08)] bg-white hover:border-[rgba(22,34,51,0.18)] hover:bg-slate-50"
-      }`}
+      onClick={onClick}
+      className="group flex flex-col items-center text-center"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex gap-3">
-          <StepPill stepNumber={node.stepNumber} />
-          <div>
-            <div className="text-sm font-semibold text-[#162233]">{node.title}</div>
-            <div className="mt-1 text-xs leading-5 text-slate-500">{node.metric}</div>
-          </div>
-        </div>
-        <StatusBadge status={node.status} tone={node.tone} />
-      </div>
-    </button>
-  );
-}
-
-function CompactFlowStep({
-  node,
-  active,
-  onSelect,
-}: {
-  node: AdminFlowNode;
-  active: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`rounded-2xl border px-3 py-3 text-left transition ${
-        active
-          ? "border-[#162233] bg-[#162233] text-white"
-          : "border-[rgba(15,23,42,0.08)] bg-white text-slate-700 hover:bg-slate-50"
-      }`}
-    >
-      <div className="text-[11px] font-medium uppercase tracking-widest opacity-75">
-        Steg {String(node.stepNumber).padStart(2, "0")}
-      </div>
-      <div className="mt-2 text-sm font-semibold">{node.title}</div>
-    </button>
-  );
-}
-
-function GlossaryCard({ item }: { item: AdminGlossaryItem }) {
-  return (
-    <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.03)]">
-      <div className="text-sm font-semibold text-[#162233]">{item.term}</div>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{item.definition}</p>
-    </div>
-  );
-}
-
-function LegendCard({ item }: { item: AdminLegendItem }) {
-  return (
-    <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.03)]">
-      <span
-        className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${toneClasses(item.tone)}`}
+      <div
+        className={`flex h-8 w-8 items-center justify-center rounded-full font-mono text-xs transition-all ${circleClass}`}
       >
-        {item.colorLabel}
+        {String(node.stepNumber).padStart(2, "0")}
+      </div>
+      <h4
+        className={`data-label mt-3 text-[11px] font-semibold ${isActive ? "text-[var(--px-accent)]" : "text-slate-700"}`}
+      >
+        {node.title}
+      </h4>
+      <span
+        className={`mt-0.5 font-mono text-[10px] ${
+          isCompleted
+            ? "text-[var(--px-accent)]"
+            : isActive
+              ? "animate-pulse text-[var(--px-accent)]"
+              : isError
+                ? "text-red-500"
+                : "text-slate-400"
+        }`}
+      >
+        {isCompleted ? "UTFØRT" : isActive ? "AKTIV" : isError ? "FEIL" : "VENTER"}
       </span>
-      <p className="mt-3 text-sm leading-6 text-slate-500">{item.description}</p>
-    </div>
+      {isActive ? (
+        <div className="mt-1.5 rounded bg-slate-100 px-2 py-0.5 text-[10px] text-slate-400">
+          Valgt
+        </div>
+      ) : null}
+    </button>
   );
 }
 
-function SectionHeading({
-  title,
-  subtitle,
-}: {
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <div className="mb-5">
-      <h2 className="text-2xl font-semibold tracking-tight text-[#162233]">{title}</h2>
-      {subtitle ? (
-        <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-500">{subtitle}</p>
-      ) : null}
-    </div>
-  );
-}
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function AdminControlCenterView({
   model,
   currentUserRole,
 }: AdminControlCenterViewProps) {
+  const [mode, setMode] = useState<PipelineMode>("Unified");
+  const [selectedStepKey, setSelectedStepKey] = useState(
+    model.mainFlow.nodes[0]?.key ?? "",
+  );
   const [query, setQuery] = useState("");
-  const [selectedStepKey, setSelectedStepKey] = useState(model.mainFlow.nodes[0]?.key ?? "");
 
-  const filteredMainFlowNodes = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) {
-      return model.mainFlow.nodes;
-    }
-
-    return model.mainFlow.nodes.filter((node) => {
-      const searchableText = [
-        node.title,
-        node.subtitle,
-        node.metric,
-        node.typicalStatus,
-        ...(node.helpSections?.map((section) => `${section.title} ${section.body}`) ?? []),
-      ]
+  const filteredNodes = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return model.mainFlow.nodes;
+    return model.mainFlow.nodes.filter((n) =>
+      [n.title, n.subtitle, n.metric, ...(n.helpSections?.map((s) => s.body) ?? [])]
         .join(" ")
-        .toLowerCase();
-
-      return searchableText.includes(normalizedQuery);
-    });
+        .toLowerCase()
+        .includes(q),
+    );
   }, [model.mainFlow.nodes, query]);
 
   useEffect(() => {
-    if (!filteredMainFlowNodes.some((node) => node.key === selectedStepKey)) {
-      setSelectedStepKey(filteredMainFlowNodes[0]?.key ?? model.mainFlow.nodes[0]?.key ?? "");
+    if (!filteredNodes.some((n) => n.key === selectedStepKey)) {
+      setSelectedStepKey(filteredNodes[0]?.key ?? model.mainFlow.nodes[0]?.key ?? "");
     }
-  }, [filteredMainFlowNodes, model.mainFlow.nodes, selectedStepKey]);
+  }, [filteredNodes, model.mainFlow.nodes, selectedStepKey]);
 
   const selectedNode =
-    filteredMainFlowNodes.find((node) => node.key === selectedStepKey) ??
-    model.mainFlow.nodes.find((node) => node.key === selectedStepKey) ??
+    filteredNodes.find((n) => n.key === selectedStepKey) ??
+    model.mainFlow.nodes.find((n) => n.key === selectedStepKey) ??
     model.mainFlow.nodes[0];
 
   const selectedNodeIndex = model.mainFlow.nodes.findIndex(
-    (node) => node.key === selectedNode?.key,
+    (n) => n.key === selectedNode?.key,
   );
   const nextNode =
     selectedNodeIndex >= 0 && selectedNodeIndex < model.mainFlow.nodes.length - 1
       ? model.mainFlow.nodes[selectedNodeIndex + 1]
       : null;
 
-  const mainFlowStats = getFlowStats(model.mainFlow.nodes);
-  const publishSafetyCard = model.summaryCards.find((card) => card.key === "publish-safety");
+  // Summary card lookups
+  const reviewQueueCard = model.summaryCards.find((c) => c.key === "review-queue");
+  const failedCard = model.summaryCards.find((c) => c.key === "failed");
   const latestShadowBatchCard = model.summaryCards.find(
-    (card) => card.key === "latest-shadow-batch",
+    (c) => c.key === "latest-shadow-batch",
   );
-  const calibrationStatusCard = model.summaryCards.find(
-    (card) => card.key === "calibration-status",
-  );
-  const goLiveStatusCard = model.summaryCards.find((card) => card.key === "go-live-status");
-  const readinessReportCard = model.summaryCards.find((card) => card.key === "readiness-report");
-  const reviewQueueCard = model.summaryCards.find((card) => card.key === "review-queue");
-  const failedCard = model.summaryCards.find((card) => card.key === "failed");
-  const latestShadowBatchHeaderValue = latestShadowBatchCard?.detail?.startsWith("Sist lagret ")
-    ? latestShadowBatchCard.detail.replace("Sist lagret ", "").replace(/\.$/, "")
-    : latestShadowBatchCard?.value ?? "Ukjent";
+  const highSeverityCount = model.attentionItems.filter(
+    (i) => i.severity === "HIGH",
+  ).length;
+  const mainFlowStats = getFlowStats(model.mainFlow.nodes);
 
-  const visibleSummaryCards: AdminSummaryCard[] = [
-    reviewQueueCard,
-    failedCard,
-    latestShadowBatchCard,
-    calibrationStatusCard,
-    goLiveStatusCard,
-    readinessReportCard,
-    publishSafetyCard,
-    {
-      key: "unified-mode",
-      title: "Unified mode",
-      value: "Unified shadow-only",
-      detail:
-        "Unified-resultater brukes kun til shadow, evaluering og sammenligning i denne første admin-versjonen.",
-      status: "HEALTHY",
-      tone: "GREEN",
-    },
-  ].filter(Boolean) as AdminSummaryCard[];
+  // Pipeline split: first 4 primary, rest secondary
+  const primaryNodes = model.mainFlow.nodes.slice(0, 4);
+  const secondaryNodes = model.mainFlow.nodes.slice(4);
 
-  const roadmapStatusItems = [
-    {
-      label: "PR71–PR75",
-      status: "Done",
-      tone: "GREEN" as const,
-      detail: "Go-live shadow batch foundation finnes i repoet.",
-    },
-    {
-      label: "PR76",
-      status: "Current",
-      tone: "PURPLE" as const,
-      detail: "Admin review visibility og operatørflyt bygges ut nå.",
-    },
-    {
-      label: "PR77–PR79",
-      status: "Pending",
-      tone: "BLUE" as const,
-      detail: "Kalibrering, feiltyper og største extraction-feil følger etter review-runden.",
-    },
-    {
-      label: "PR80–PR87",
-      status: "Pending",
-      tone: "BLUE" as const,
-      detail: "Readiness, canary, feature flag, publish gate og gradvis utrulling gjenstår.",
-    },
-  ];
-
-  const exampleText = selectedNode ? buildStepExample(selectedNode) : "Ukjent";
-  const whatHappens = selectedNode ? findHelpSection(selectedNode, "Hva skjer her?")?.body : "";
+  // Selected step context
+  const exampleText = selectedNode ? buildStepExample(selectedNode) : "";
+  const whatHappens = selectedNode
+    ? findHelpSection(selectedNode, "Hva skjer her?")?.body
+    : "";
   const whyImportant = selectedNode
     ? findHelpSection(selectedNode, "Hvorfor er dette viktig?")?.body
     : "";
@@ -468,442 +321,470 @@ export default function AdminControlCenterView({
     : "";
 
   return (
-    <div className="space-y-8">
-      <section className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-[0_22px_60px_rgba(15,23,42,0.06)] md:p-8">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#162233]">
-              {model.title}
-            </h1>
-            <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-500">
-              {model.subtitle}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <MetaChip
-                label="Publish mode"
-                value={publishSafetyCard?.value ?? "Legacy-only publish"}
-                tone={publishSafetyCard?.tone ?? "GREEN"}
-              />
-              <MetaChip label="Unified mode" value="Shadow-only" tone="GREEN" />
-              <MetaChip label="Rolle" value={currentUserRole} tone="BLUE" />
-              <MetaChip
-                label="Latest shadow batch"
-                value={latestShadowBatchHeaderValue}
-                tone={latestShadowBatchCard?.tone ?? "BLUE"}
-              />
-            </div>
-          </div>
-
-          <div className="w-full max-w-md rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[#f8fafc] p-4">
-            <label
-              htmlFor="admin-control-center-search"
-              className="text-xs font-medium uppercase tracking-widest text-slate-400"
-            >
-              Prosessøk
-            </label>
-            <input
-              id="admin-control-center-search"
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Søk i prosess, selskap eller rapport..."
-              className="mt-3 w-full rounded-2xl border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-[rgba(22,34,51,0.34)]"
-            />
-            <p className="mt-3 text-xs leading-5 text-slate-500">
-              Søket filtrerer prosessstegene på denne siden. Det kjører ingen batchjobber og
-              endrer ingen data.
-            </p>
-          </div>
+    <div className="space-y-16 pb-16">
+      {/* ── Section 1: Header ───────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-6 border-b border-[rgba(15,23,42,0.1)] pb-8 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="data-label text-[11px] font-semibold uppercase tracking-widest text-[var(--px-accent)]">
+            Admin
+          </p>
+          <h1 className="editorial-display mt-2 text-[2.5rem] leading-tight text-slate-950">
+            Control Center
+          </h1>
+          <p className="mt-2 max-w-2xl text-base leading-7 text-slate-500">{model.subtitle}</p>
         </div>
-      </section>
 
-      <section>
-        <SectionHeading
-          title="Oversikt"
-          subtitle="Kun reelle eller eksplisitt ukjente statusverdier vises her."
-        />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {visibleSummaryCards.map((card) => (
-            <SummaryCard key={card.key} card={card} />
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-        <SectionHeading
-          title="Prosessstatus"
-          subtitle="Prosesskartet under bruker tilgjengelige statusdata for å vise hvor flyten virker stabil og hvor oppfølging trengs."
-        />
-        <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-          <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[#f8fafc] p-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <InfoCard
-                title="Stabile steg"
-                body={`${mainFlowStats.healthy} steg har kjent grønn status akkurat nå.`}
-                tone="GREEN"
-              />
-              <InfoCard
-                title="Steg som krever oppfølging"
-                body={`${mainFlowStats.attention} steg har warning, fail eller blokkering.`}
-                tone="YELLOW"
-              />
-              <InfoCard
-                title="Ukjente steg"
-                body={`${mainFlowStats.unknown} steg mangler nok data til en trygg vurdering.`}
-                tone="BLUE"
-              />
-            </div>
-            <p className="mt-4 text-sm leading-6 text-slate-500">
-              {mainFlowStats.healthy === 0 &&
-              mainFlowStats.attention === 0 &&
-              mainFlowStats.unknown === model.mainFlow.nodes.length
-                ? "Prosesskart aktivt — status beregnes når datakilder er tilgjengelige."
-                : "Bruk prosessnavigatoren under for å se hva hvert steg betyr, hva som kan gå galt og hvor du bør klikke videre."}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[#f8fafc] p-4">
-            <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-              Roadmap-status
-            </div>
-            <div className="mt-3 grid gap-3">
-              {roadmapStatusItems.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-[#162233]">{item.label}</div>
-                    <span
-                      className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${toneClasses(item.tone)}`}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">{item.detail}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <SectionHeading
-          title={model.attentionTitle}
-          subtitle="Start her når du vil vite hva som bør prioriteres først."
-        />
-        {model.attentionItems.length === 0 ? (
-          <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-6 text-sm text-slate-500 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
-            {model.attentionEmptyState}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {model.attentionItems.map((item) => (
-              <AttentionRow key={item.key} item={item} />
+        <div className="flex shrink-0 flex-col items-end gap-4">
+          {/* Mode toggle */}
+          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+            {(["Legacy", "Unified", "Shadow"] as PipelineMode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`rounded-lg px-4 py-2 data-label text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                  mode === m
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {m}
+              </button>
             ))}
           </div>
-        )}
+          {/* Role chip */}
+          <span className="data-label rounded border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[10px] text-slate-500">
+            {currentUserRole}
+          </span>
+        </div>
       </section>
 
-      <section>
-        <SectionHeading
-          title={model.mainFlow.title}
-          subtitle={model.mainFlow.subtitle}
-        />
+      {/* ── Section 2: Data-strip status cards ──────────────────────────────── */}
+      <section className="grid grid-cols-1 divide-y divide-[rgba(15,23,42,0.1)] border-y border-[rgba(15,23,42,0.1)] md:grid-cols-3 md:divide-x md:divide-y-0">
+        {/* Review queue */}
+        <div className="py-8 pl-0 pr-0 md:pr-8">
+          <span className="data-label text-[11px] font-semibold uppercase tracking-widest text-[var(--px-accent)]">
+            Review-kø
+          </span>
+          <div className="mt-4 flex items-baseline gap-3">
+            <span className="editorial-display text-[3rem] leading-none text-slate-950">
+              {reviewQueueCard?.value ?? "—"}
+            </span>
+            <span className="font-mono text-sm text-slate-400">
+              {reviewQueueCard?.detail ?? ""}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Rapporter som venter på manuell validering.
+          </p>
+        </div>
 
-        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
-          <aside className="space-y-3 xl:sticky xl:top-24 xl:self-start">
-            <div className="rounded-[24px] border border-[rgba(15,23,42,0.08)] bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
-              <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                Prosessnavigator
-              </div>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Velg et steg for å få en enkel forklaring på hva som skjer, hva som kan gå galt
-                og hvor du bør klikke videre.
-              </p>
-            </div>
+        {/* Critical errors */}
+        <div className="py-8 md:px-8">
+          <span className="data-label text-[11px] font-semibold uppercase tracking-widest text-red-600">
+            Kritiske feil
+          </span>
+          <div className="mt-4 flex items-baseline gap-3">
+            <span className="editorial-display text-[3rem] leading-none text-red-600">
+              {String(highSeverityCount).padStart(2, "0")}
+            </span>
+            <span className="font-mono text-sm text-red-400">High Severity</span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {failedCard?.detail ?? "Saker som krever umiddelbar intervensjon."}
+          </p>
+        </div>
 
-            <div className="space-y-3">
-              {filteredMainFlowNodes.map((node) => (
-                <SidebarStepButton
+        {/* Shadow batch */}
+        <div className="py-8 pl-0 md:pl-8 md:pr-0">
+          <span className="data-label text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+            Shadow Batch
+          </span>
+          <div className="mt-4 flex items-baseline gap-3">
+            <span className="editorial-display text-[3rem] leading-none text-slate-950">
+              {latestShadowBatchCard?.value ?? "—"}
+            </span>
+            <span className="font-mono text-sm text-slate-400">Siste batch</span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {latestShadowBatchCard?.detail ?? ""}
+          </p>
+        </div>
+      </section>
+
+      {/* ── Section 3: Pipeline ─────────────────────────────────────────────── */}
+      <section className="space-y-10">
+        <div className="flex items-center gap-4">
+          <h2 className="text-[1.5rem] font-semibold text-slate-950">
+            {model.mainFlow.title}
+          </h2>
+          <div className="h-px flex-1 bg-[rgba(15,23,42,0.1)]" />
+          <span className="data-label text-[11px] text-slate-400">Live Pipeline Visualizer</span>
+        </div>
+
+        {/* Pipeline stats row */}
+        <div className="flex flex-wrap gap-6 text-sm text-slate-500">
+          <span>
+            <strong className="text-slate-950">{mainFlowStats.healthy}</strong> stabile steg
+          </span>
+          <span>
+            <strong className="text-amber-600">{mainFlowStats.attention}</strong> krever oppfølging
+          </span>
+          <span>
+            <strong className="text-slate-400">{mainFlowStats.unknown}</strong> ukjente
+          </span>
+        </div>
+
+        {/* Primary circles with connector */}
+        <div className="relative py-6">
+          <div className="absolute left-0 right-0 top-[2.5rem] hidden h-[2px] bg-[rgba(15,23,42,0.1)] lg:block" />
+          <div className="relative z-10 grid grid-cols-2 gap-y-10 lg:grid-cols-4">
+            {primaryNodes.map((node) => (
+              <StepCircle
+                key={node.key}
+                node={node}
+                isActive={node.key === selectedStepKey}
+                onClick={() => setSelectedStepKey(node.key)}
+              />
+            ))}
+          </div>
+
+          {/* Secondary steps */}
+          {secondaryNodes.length > 0 ? (
+            <div className="mt-12 grid grid-cols-3 gap-2 opacity-50 md:grid-cols-6 lg:grid-cols-7">
+              {secondaryNodes.map((node) => (
+                <button
                   key={node.key}
-                  node={node}
-                  active={node.key === selectedNode?.key}
-                  onSelect={() => setSelectedStepKey(node.key)}
-                />
+                  type="button"
+                  onClick={() => setSelectedStepKey(node.key)}
+                  className={`border-t-2 pt-3 text-left transition-opacity hover:opacity-100 ${
+                    node.status === "FAILING" || node.status === "BLOCKED"
+                      ? "border-red-300"
+                      : node.key === selectedStepKey
+                        ? "border-[var(--px-accent)]"
+                        : "border-[rgba(15,23,42,0.1)]"
+                  }`}
+                >
+                  <p
+                    className={`data-label text-[9px] ${node.status === "FAILING" ? "text-red-600" : "text-slate-400"}`}
+                  >
+                    STEG {String(node.stepNumber).padStart(2, "0")}
+                  </p>
+                  <p
+                    className={`mt-0.5 text-[11px] font-semibold ${node.status === "FAILING" ? "text-red-600" : "text-slate-700"}`}
+                  >
+                    {node.title}
+                  </p>
+                </button>
               ))}
             </div>
+          ) : null}
+        </div>
 
-            {filteredMainFlowNodes.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[rgba(15,23,42,0.12)] bg-white p-4 text-sm text-slate-500">
-                Ingen prosesssteg matcher søket ditt ennå.
-              </div>
-            ) : null}
-          </aside>
-
-          <div className="space-y-6">
-            <div className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.05)] md:p-8">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="flex gap-4">
-                  <StepPill stepNumber={selectedNode?.stepNumber ?? 0} />
-                  <div>
-                    <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
-                      Steg {String(selectedNode?.stepNumber ?? 0).padStart(2, "0")}
+        {/* Step detail panel */}
+        {selectedNode ? (
+          <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white shadow-lg">
+            <div className="flex flex-col lg:flex-row">
+              {/* Left: main detail */}
+              <div className="flex-1 space-y-8 bg-white p-8 lg:p-10">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--px-panel)] font-mono text-lg text-white shadow-sm">
+                        {selectedNode.stepNumber}
+                      </div>
+                      <span className="data-label text-[11px] uppercase tracking-widest text-slate-400">
+                        STEG {String(selectedNode.stepNumber).padStart(2, "0")}
+                      </span>
                     </div>
-                    <h3 className="mt-2 text-3xl font-semibold tracking-tight text-[#162233]">
-                      {selectedNode?.title}
+                    <h3 className="editorial-display text-[2.25rem] leading-tight text-slate-950">
+                      {selectedNode.title}
                     </h3>
-                    <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
-                      {selectedNode?.subtitle}
+                    <p className="max-w-2xl text-base leading-7 text-slate-500">
+                      {selectedNode.subtitle}
                     </p>
                   </div>
-                </div>
-                {selectedNode ? (
                   <StatusBadge status={selectedNode.status} tone={selectedNode.tone} />
-                ) : null}
-              </div>
+                </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <InfoCard title="Mål" body={selectedNode?.subtitle ?? "Ukjent"} tone="BLUE" />
-                <InfoCard title="Eksempel" body={exampleText} tone="PURPLE" />
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <InfoCard title="Hva skjer her?" body={whatHappens ?? "Ukjent"} tone="BLUE" />
-                <InfoCard
-                  title="Hvorfor er dette viktig?"
-                  body={whyImportant ?? "Ukjent"}
-                  tone="GREEN"
-                />
-                <InfoCard
-                  title="Hva kan gå galt?"
-                  body={whatCanGoWrong ?? "Ukjent"}
-                  tone="RED"
-                />
-                <InfoCard
-                  title="Hva gjør admin?"
-                  body={whatAdminDoes ?? "Ukjent"}
-                  tone="YELLOW"
-                />
-              </div>
-
-              <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[#f8fafc] p-5">
-                  <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                    Typisk status
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {selectedNode?.typicalStatus ?? "Ukjent"}
-                  </p>
-                  {selectedNode?.legacyNote || selectedNode?.unifiedNote ? (
-                    <div className="mt-5 grid gap-3 md:grid-cols-2">
-                      {selectedNode.legacyNote ? (
-                        <InfoCard title="Legacy" body={selectedNode.legacyNote} tone="GREEN" />
-                      ) : null}
-                      {selectedNode.unifiedNote ? (
-                        <InfoCard title="Unified" body={selectedNode.unifiedNote} tone="PURPLE" />
-                      ) : null}
-                    </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <InfoBlock title="Mål" body={selectedNode.subtitle ?? ""} tone="BLUE" />
+                  <InfoBlock title="Eksempel" body={exampleText} tone="BLUE" />
+                  {whatHappens ? (
+                    <InfoBlock title="Hva skjer her?" body={whatHappens} tone="BLUE" />
+                  ) : null}
+                  {whyImportant ? (
+                    <InfoBlock
+                      title="Hvorfor er dette viktig?"
+                      body={whyImportant}
+                      tone="GREEN"
+                    />
+                  ) : null}
+                  {whatCanGoWrong ? (
+                    <InfoBlock title="Hva kan gå galt?" body={whatCanGoWrong} tone="RED" />
+                  ) : null}
+                  {whatAdminDoes ? (
+                    <InfoBlock title="Hva gjør admin?" body={whatAdminDoes} tone="YELLOW" />
                   ) : null}
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5">
-                  <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                    Neste klikk
+                {selectedNode.typicalStatus ? (
+                  <div className="border-l-4 border-[var(--px-accent)] bg-[rgba(0,102,138,0.05)] p-5">
+                    <h4 className="data-label mb-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--px-accent)]">
+                      Typisk Status
+                    </h4>
+                    <p className="text-sm leading-6 text-slate-600">
+                      {selectedNode.typicalStatus}
+                    </p>
                   </div>
-                  <div className="mt-3 text-sm font-semibold text-[#162233]">
-                    {selectedNode?.href ? "Relevant admin-side finnes" : "Ingen egen side ennå"}
+                ) : null}
+
+                {selectedNode.decisionPaths?.length ? (
+                  <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-slate-50 p-5">
+                    <p className="data-label mb-4 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                      Beslutningspunkt
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {selectedNode.decisionPaths.map((path) => (
+                        <div
+                          key={`${selectedNode.key}-${path.label}`}
+                          className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4"
+                        >
+                          <div className="text-sm font-semibold text-slate-900">{path.label}</div>
+                          <p className="mt-1.5 text-sm leading-6 text-slate-500">
+                            {path.description}
+                          </p>
+                          <div className="mt-3 data-label text-[10px] uppercase tracking-widest text-slate-400">
+                            → Steg {path.targetStep}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {selectedNode?.href
-                      ? "Åpne den relevante admin-siden hvis du trenger å gå dypere inn i en konkret sak eller status."
-                      : selectedNode?.unavailableLabel ?? "Planlagt"}
+                ) : null}
+              </div>
+
+              {/* Right sidebar */}
+              <div className="w-full space-y-7 border-t border-[rgba(15,23,42,0.08)] bg-slate-50 p-8 lg:w-72 lg:border-l lg:border-t-0">
+                <div>
+                  <h4 className="data-label mb-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                    Gjeldende Steg
+                  </h4>
+                  <p className="mb-2 text-[1.05rem] font-semibold text-slate-950">
+                    {selectedNode.title}
                   </p>
-                  <div className="mt-4">
-                    {selectedNode?.href ? (
+                  <StatusBadge status={selectedNode.status} tone={selectedNode.tone} />
+                </div>
+
+                <div className="border-t border-[rgba(15,23,42,0.08)] pt-6">
+                  <h4 className="data-label mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                    <span className={`h-1.5 w-1.5 rounded-full ${toneDot(selectedNode.tone)}`} />
+                    Statussignal
+                  </h4>
+                  <p className="font-mono text-[11px] leading-relaxed text-slate-500">
+                    {selectedNode.metric}
+                  </p>
+                </div>
+
+                <div className="border-t border-[rgba(15,23,42,0.08)] pt-6">
+                  <h4 className="data-label mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                    Sist Oppdatert
+                  </h4>
+                  <p className="font-mono text-[12px] text-slate-500">
+                    {model.generatedAt.replace("T", " ").slice(0, 16)}
+                  </p>
+                </div>
+
+                <div className="border-t border-[rgba(15,23,42,0.08)] pt-6 space-y-3">
+                  <h4 className="data-label text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                    Relevant Admin-lenke
+                  </h4>
+                  {selectedNode.href ? (
+                    <>
+                      <p className="break-all font-mono text-[11px] text-slate-700">
+                        {selectedNode.href}
+                      </p>
+                      <p className="text-[12px] leading-5 text-slate-500">
+                        Åpne denne siden hvis du trenger saksdetaljer eller dypere diagnostikk for
+                        dette steget.
+                      </p>
                       <Link
                         href={selectedNode.href as never}
-                        className="inline-flex rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        className="block w-full rounded-lg border border-[rgba(15,23,42,0.12)] py-2 text-center data-label text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-100"
                       >
                         {selectedNode.linkLabel ?? "Åpne"}
                       </Link>
-                    ) : (
-                      <span className="inline-flex rounded-full border border-[rgba(15,23,42,0.08)] bg-slate-50 px-4 py-2 text-sm font-medium text-slate-400">
-                        {selectedNode?.unavailableLabel ?? "Planlagt"}
-                      </span>
-                    )}
-                  </div>
+                    </>
+                  ) : (
+                    <p className="text-[12px] text-slate-400">
+                      {selectedNode.unavailableLabel ?? "Ingen egen side ennå"}
+                    </p>
+                  )}
                 </div>
-              </div>
 
-              {selectedNode?.decisionPaths?.length ? (
-                <div className="mt-6 rounded-2xl border border-dashed border-[rgba(15,23,42,0.16)] bg-[#f9f9f7] p-5">
-                  <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                    Beslutningspunkt
+                {nextNode ? (
+                  <div className="border-t border-[rgba(15,23,42,0.08)] pt-6 space-y-3">
+                    <h4 className="data-label text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                      Neste Steg
+                    </h4>
+                    <p className="text-sm font-semibold text-slate-950">{nextNode.title}</p>
+                    <p className="text-[12px] leading-5 text-slate-500">{nextNode.subtitle}</p>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStepKey(nextNode.key)}
+                      className="w-full rounded-lg bg-slate-950 py-2.5 data-label text-[11px] font-semibold text-white transition-colors hover:bg-slate-800"
+                    >
+                      Gå til neste steg
+                    </button>
                   </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    {selectedNode.decisionPaths.map((path) => (
-                      <div
-                        key={`${selectedNode.key}-${path.label}`}
-                        className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4"
-                      >
-                        <div className="text-sm font-semibold text-[#162233]">{path.label}</div>
-                        <p className="mt-2 text-sm leading-6 text-slate-500">
-                          {path.description}
-                        </p>
-                        <div className="mt-3 text-xs font-medium uppercase tracking-widest text-slate-400">
-                          Går til steg {path.targetStep}
-                        </div>
-                      </div>
-                    ))}
+                ) : (
+                  <div className="border-t border-[rgba(15,23,42,0.08)] pt-6">
+                    <p className="text-[12px] text-slate-400">
+                      Dette er siste steg i hovedflyten.
+                    </p>
                   </div>
-                  <p className="mt-4 text-sm leading-6 text-slate-500">
-                    Manuell kontroll er et sikkerhetsnett. Den brukes når systemet trenger
-                    menneskelig bekreftelse, ikke fordi rapporten nødvendigvis er mislykket.
-                  </p>
-                </div>
-              ) : null}
+                )}
+              </div>
             </div>
 
-            <div className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-              <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                Hele hovedflyten
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {/* Full flow strip */}
+            <div className="border-t border-[rgba(15,23,42,0.08)] bg-slate-50 px-8 py-5">
+              <p className="data-label mb-4 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                Hele flyten
+              </p>
+              <div className="flex flex-wrap gap-2">
                 {model.mainFlow.nodes.map((node) => (
-                  <CompactFlowStep
+                  <button
                     key={node.key}
-                    node={node}
-                    active={node.key === selectedNode?.key}
-                    onSelect={() => setSelectedStepKey(node.key)}
-                  />
+                    type="button"
+                    onClick={() => setSelectedStepKey(node.key)}
+                    className={`rounded border px-3 py-2 data-label text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                      node.key === selectedStepKey
+                        ? "border-[var(--px-accent)] bg-[var(--px-accent)] text-white"
+                        : "border-[rgba(15,23,42,0.1)] bg-white text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {String(node.stepNumber).padStart(2, "0")} {node.title}
+                  </button>
                 ))}
               </div>
             </div>
           </div>
-
-          <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-            <div className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-              <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                Gjeldende steg
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <div className="text-lg font-semibold text-[#162233]">
-                  {selectedNode?.title ?? "Ukjent"}
-                </div>
-                {selectedNode ? (
-                  <StatusBadge status={selectedNode.status} tone={selectedNode.tone} />
-                ) : null}
-              </div>
-              <div className="mt-4 space-y-3">
-                <InfoCard
-                  title="Statussignal"
-                  body={selectedNode?.metric ?? "Ukjent"}
-                  tone={selectedNode?.tone ?? "BLUE"}
-                />
-                <InfoCard
-                  title="Sist oppdatert"
-                  body={model.generatedAt.replace("T", " ").slice(0, 16)}
-                  tone="BLUE"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-              <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                Relevant admin-lenke
-              </div>
-              {selectedNode?.href ? (
-                <div className="mt-4 space-y-3">
-                  <div className="text-sm font-semibold text-[#162233]">{selectedNode.href}</div>
-                  <p className="text-sm leading-6 text-slate-500">
-                    Åpne denne siden hvis du trenger saksdetaljer eller dypere diagnostikk for
-                    dette steget.
-                  </p>
-                  <Link
-                    href={selectedNode.href as never}
-                    className="inline-flex rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    {selectedNode.linkLabel ?? "Åpne"}
-                  </Link>
-                </div>
-              ) : (
-                <p className="mt-4 text-sm leading-6 text-slate-500">
-                  {selectedNode?.unavailableLabel ?? "Ingen egen side ennå"}
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-              <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                Neste steg
-              </div>
-              {nextNode ? (
-                <div className="mt-4 space-y-3">
-                  <div className="text-sm font-semibold text-[#162233]">{nextNode.title}</div>
-                  <p className="text-sm leading-6 text-slate-500">{nextNode.subtitle}</p>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedStepKey(nextNode.key)}
-                    className="inline-flex rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    Gå til neste steg
-                  </button>
-                </div>
-              ) : (
-                <p className="mt-4 text-sm leading-6 text-slate-500">
-                  Dette er siste steg i hovedflyten.
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-              <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                Kilde- og dokumentkontekst
-              </div>
-              <p className="mt-4 text-sm leading-6 text-slate-500">
-                Ingen konkret rapport valgt. Åpne en sak fra review-køen for dokumentdetaljer.
-              </p>
-            </div>
-          </aside>
-        </div>
+        ) : null}
       </section>
 
-      <section className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-        <SectionHeading
-          title={model.goLiveFlow.title}
-          subtitle={model.goLiveFlow.subtitle}
-        />
+      {/* ── Section 4: Attention table ──────────────────────────────────────── */}
+      <section className="space-y-6">
+        <div className="flex items-end justify-between border-b border-slate-950 pb-4">
+          <h2 className="text-[1.5rem] font-semibold text-slate-950">{model.attentionTitle}</h2>
+          <span className="data-label text-[11px] text-[var(--px-accent)]">
+            {model.attentionItems.length} åpne saker
+          </span>
+        </div>
+
+        {model.attentionItems.length === 0 ? (
+          <p className="py-6 text-sm text-slate-500">{model.attentionEmptyState}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse">
+              <thead>
+                <tr className="bg-slate-50">
+                  {["Entitet / Referanse", "Problemstilling", "Status", "Handling"].map(
+                    (h, i) => (
+                      <th
+                        key={h}
+                        className={`px-4 py-4 data-label text-[11px] font-semibold uppercase tracking-wider text-slate-950 ${i === 3 ? "text-right" : "text-left"}`}
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[rgba(15,23,42,0.08)]">
+                {model.attentionItems.map((item) => {
+                  const tone = attentionTone(item.severity);
+                  return (
+                    <tr
+                      key={item.key}
+                      className="transition-colors hover:bg-slate-50"
+                    >
+                      <td className="px-4 py-5">
+                        <div className="text-sm font-semibold text-slate-950">{item.title}</div>
+                        <div className="mt-0.5 font-mono text-xs text-slate-400">{item.key}</div>
+                      </td>
+                      <td className="max-w-xs px-4 py-5 text-sm leading-6 text-slate-500">
+                        {item.description}
+                      </td>
+                      <td className="px-4 py-5">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded border px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${toneBadge(tone)}`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${toneDot(tone)}`} />
+                          {severityLabel(item.severity)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-5 text-right">
+                        {item.href ? (
+                          <Link
+                            href={item.href as never}
+                            className={`rounded-lg px-4 py-2 data-label text-[11px] font-semibold transition-colors ${
+                              item.severity === "HIGH"
+                                ? "bg-slate-950 text-white hover:bg-slate-800"
+                                : "border border-[rgba(15,23,42,0.12)] text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {item.severity === "HIGH" ? "Løs nå" : "Inspiser"}
+                          </Link>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* ── Go-live flow ────────────────────────────────────────────────────── */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-4">
+          <h2 className="text-[1.5rem] font-semibold text-slate-950">
+            {model.goLiveFlow.title}
+          </h2>
+          <div className="h-px flex-1 bg-[rgba(15,23,42,0.1)]" />
+        </div>
+        <p className="text-sm leading-6 text-slate-500">{model.goLiveFlow.subtitle}</p>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {model.goLiveFlow.nodes.map((node) => (
             <div
               key={node.key}
-              className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[#f8fafc] p-5"
+              className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
+                  <p className="data-label text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                     Steg {String(node.stepNumber).padStart(2, "0")}
-                  </div>
-                  <div className="mt-2 text-lg font-semibold text-[#162233]">{node.title}</div>
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-slate-950">{node.title}</p>
                 </div>
                 <StatusBadge status={node.status} tone={node.tone} />
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-500">{node.subtitle}</p>
-              <div className="mt-4 text-xs font-medium uppercase tracking-widest text-slate-400">
+              <p className="mt-3 data-label text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                 {node.metric}
-              </div>
+              </p>
               <div className="mt-4">
                 {node.href ? (
                   <Link
                     href={node.href as never}
-                    className="inline-flex rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex rounded-lg border border-[rgba(15,23,42,0.12)] px-4 py-2 data-label text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                   >
                     {node.linkLabel ?? "Åpne"}
                   </Link>
                 ) : (
-                  <span className="inline-flex rounded-full border border-[rgba(15,23,42,0.08)] bg-slate-50 px-4 py-2 text-sm font-medium text-slate-400">
+                  <span className="inline-flex rounded-lg border border-[rgba(15,23,42,0.08)] bg-slate-50 px-4 py-2 data-label text-[11px] font-semibold text-slate-400">
                     {node.unavailableLabel ?? "Planlagt"}
                   </span>
                 )}
@@ -913,58 +794,83 @@ export default function AdminControlCenterView({
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-          <SectionHeading
-            title={model.onboardingTitle}
-            subtitle="Kort innføring for nye ansatte eller reviewere som skal forstå flyten raskt."
-          />
-          <ol className="space-y-3">
+      {/* ── Documentation modules ───────────────────────────────────────────── */}
+      <section className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {/* Onboarding */}
+        <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-8 shadow-sm">
+          <h3 className="text-[1.5rem] font-semibold text-slate-950 mb-2">
+            {model.onboardingTitle}
+          </h3>
+          <p className="mb-8 text-sm leading-6 text-slate-500">
+            Kort innføring for nye ansatte eller reviewere som skal forstå flyten raskt.
+          </p>
+          <div className="space-y-5">
             {model.onboardingItems.map((item) => (
-              <li key={item.stepNumber} className="flex gap-3">
-                <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#162233] text-xs font-semibold text-white">
+              <div key={item.stepNumber} className="flex gap-4">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--px-panel)] font-mono text-[12px] text-white">
                   {item.stepNumber}
                 </span>
-                <span className="text-sm leading-6 text-slate-600">{item.text}</span>
-              </li>
+                <p className="text-sm leading-6 text-slate-700">{item.text}</p>
+              </div>
             ))}
-          </ol>
+          </div>
         </div>
 
-        <div className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-          <SectionHeading
-            title="Statusforklaring"
-            subtitle="Bruk denne fargeforklaringen når du leser hovedflyten og go-live-roadmapet."
-          />
-          <div className="grid gap-4 sm:grid-cols-2">
+        {/* Legend */}
+        <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-8 shadow-sm">
+          <h3 className="text-[1.5rem] font-semibold text-slate-950 mb-2">Statusforklaring</h3>
+          <p className="mb-8 text-sm leading-6 text-slate-500">
+            Bruk denne fargeforklaringen når du leser hovedflyten og go-live-roadmapet.
+          </p>
+          <div className="space-y-3">
             {model.legendItems.map((item) => (
-              <LegendCard key={item.colorLabel} item={item} />
+              <div
+                key={item.colorLabel}
+                className="flex items-start gap-4 border-b border-[rgba(15,23,42,0.06)] py-2 last:border-0"
+              >
+                <span
+                  className={`inline-block w-14 shrink-0 rounded border px-2 py-0.5 text-center data-label text-[9px] ${toneBadge(item.tone)}`}
+                >
+                  {item.colorLabel}
+                </span>
+                <p className="text-[13px] leading-5 text-slate-500">{item.description}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-        <SectionHeading
-          title={model.glossaryTitle}
-          subtitle="En enkel ordliste for begreper som går igjen i årsrapportbehandlingen."
-        />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {/* ── Glossary ────────────────────────────────────────────────────────── */}
+      <section className="space-y-8 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-8 shadow-sm lg:p-12">
+        <div>
+          <h3 className="text-[1.5rem] font-semibold text-slate-950 mb-2">
+            {model.glossaryTitle}
+          </h3>
+          <p className="text-sm text-slate-500">
+            En enkel ordliste for begreper som går igjen i årsrapportbehandlingen.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-x-12 gap-y-8 md:grid-cols-2 lg:grid-cols-3">
           {model.glossaryItems.map((item) => (
-            <GlossaryCard key={item.term} item={item} />
+            <div key={item.term} className="space-y-2">
+              <h4 className="border-b border-[rgba(0,102,138,0.2)] pb-2 font-semibold text-slate-950">
+                {item.term}
+              </h4>
+              <p className="text-[13px] leading-relaxed text-slate-500">{item.definition}</p>
+            </div>
           ))}
         </div>
       </section>
 
+      {/* ── Diagnostics ─────────────────────────────────────────────────────── */}
       {model.diagnostics.length > 0 ? (
-        <section className="rounded-[28px] border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.05)]">
-          <SectionHeading
-            title="Datamerknader"
-            subtitle="Disse meldingene forklarer hvorfor enkelte tall eller statuser kan være ukjente."
-          />
-          <ul className="space-y-2 text-sm leading-6 text-slate-500">
-            {model.diagnostics.map((item) => (
-              <li key={item}>{item}</li>
+        <section className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-6">
+          <h3 className="data-label mb-4 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+            Datamerknader
+          </h3>
+          <ul className="space-y-2 text-sm leading-6 text-slate-400">
+            {model.diagnostics.map((d) => (
+              <li key={d}>{d}</li>
             ))}
           </ul>
         </section>
