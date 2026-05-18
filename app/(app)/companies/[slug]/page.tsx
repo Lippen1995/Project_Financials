@@ -857,9 +857,9 @@ export default async function CompanyPage({
             </div>
           ) : null}
 
-          {activeTab === "nyheter" && companyId ? (
+          {activeTab === "nyheter" ? (
             <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white">
-              <CompanyNewsTab companyId={companyId} />
+              <CompanyNewsTab slug={slug} />
             </div>
           ) : null}
           {activeTab === "sokkeleksponering" && petroleumProfile ? (

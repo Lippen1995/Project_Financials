@@ -4,6 +4,7 @@ import {
   fetchAndParseRssFeed,
   type ParsedRssItem,
 } from "@/integrations/news/rss-feed-provider";
+import { scoreArticlesForCompany } from "@/server/services/news-relevance-service";
 
 type CompanyCandidate = { id: string; name: string; orgNumber: string };
 
@@ -52,7 +53,9 @@ export type NewsSyncResult = {
   articlesNew: number;
   articlesDuplicate: number;
   companyLinks: number;
+  relevanceScored: number;
   errors: string[];
+  newArticleIds: string[];
 };
 
 export async function syncNewsFeeds(): Promise<NewsSyncResult> {
@@ -61,65 +64,120 @@ export async function syncNewsFeeds(): Promise<NewsSyncResult> {
     articlesNew: 0,
     articlesDuplicate: 0,
     companyLinks: 0,
+    relevanceScored: 0,
     errors: [],
+    newArticleIds: [],
   };
 
-  // Load company candidates once
   const companies = await prisma.company.findMany({
     where: { status: "ACTIVE" },
     select: { id: true, name: true, orgNumber: true },
     take: 5000,
   });
 
-  for (const feed of RSS_FEEDS) {
-    try {
-      const items = await fetchAndParseRssFeed(feed);
-      result.feedsProcessed++;
+  // Fetch all feeds in parallel
+  const feedResults = await Promise.allSettled(
+    RSS_FEEDS.map((feed) => fetchAndParseRssFeed(feed).then((items) => ({ feed, items }))),
+  );
 
-      for (const item of items) {
-        // Dedup by guid
-        const exists = await prisma.newsArticle.findUnique({
-          where: { guid: item.guid },
-          select: { id: true },
-        });
-
-        if (exists) {
-          result.articlesDuplicate++;
-          continue;
-        }
-
-        const article = await prisma.newsArticle.create({
-          data: {
-            guid: item.guid,
-            title: item.title,
-            summary: item.summary,
-            url: item.url,
-            publishedAt: item.publishedAt,
-            source: item.source,
-          },
-          select: { id: true },
-        });
-        result.articlesNew++;
-
-        const matches = await findMatchingCompanies(item, companies);
-        if (matches.length > 0) {
-          await prisma.newsArticleCompany.createMany({
-            data: matches.map((m) => ({
-              newsArticleId: article.id,
-              companyId: m.companyId,
-              matchScore: m.matchScore,
-            })),
-            skipDuplicates: true,
-          });
-          result.companyLinks += matches.length;
-        }
-      }
-    } catch (err) {
-      result.errors.push(`${feed.id}: ${err instanceof Error ? err.message : String(err)}`);
+  for (const settled of feedResults) {
+    if (settled.status === "rejected") {
+      result.errors.push(String(settled.reason));
+      continue;
     }
+    const { feed, items } = settled.value;
+    result.feedsProcessed++;
+
+    for (const item of items) {
+      const exists = await prisma.newsArticle.findUnique({
+        where: { guid: item.guid },
+        select: { id: true },
+      });
+
+      if (exists) {
+        result.articlesDuplicate++;
+        continue;
+      }
+
+      const article = await prisma.newsArticle.create({
+        data: {
+          guid: item.guid,
+          title: item.title,
+          summary: item.summary,
+          url: item.url,
+          publishedAt: item.publishedAt,
+          source: item.source,
+        },
+        select: { id: true },
+      });
+      result.articlesNew++;
+      result.newArticleIds.push(article.id);
+
+      const matches = await findMatchingCompanies(item, companies);
+      if (matches.length > 0) {
+        await prisma.newsArticleCompany.createMany({
+          data: matches.map((m) => ({
+            newsArticleId: article.id,
+            companyId: m.companyId,
+            matchScore: m.matchScore,
+          })),
+          skipDuplicates: true,
+        });
+        result.companyLinks += matches.length;
+      }
+    }
+
+    void feed; // suppress unused warning
   }
 
   return result;
+}
+
+export async function scoreNewArticlesForTopCompanies(
+  newArticleIds: string[],
+  topN = 200,
+): Promise<number> {
+  if (newArticleIds.length === 0) return 0;
+
+  const articles = await prisma.newsArticle.findMany({
+    where: { id: { in: newArticleIds } },
+  });
+
+  const topCompanies = await prisma.company.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { workspaceWatches: { _count: "desc" } },
+    take: topN,
+    include: { industryCode: true },
+  });
+
+  let scored = 0;
+  for (const company of topCompanies) {
+    try {
+      const scores = await scoreArticlesForCompany(articles, company);
+      if (scores.length === 0) continue;
+
+      await prisma.newsArticleRelevance.createMany({
+        data: scores.map((s) => ({
+          newsArticleId: s.newsArticleId,
+          companyId: company.id,
+          totalScore: s.totalScore,
+          directScore: s.directScore,
+          sectorScore: s.sectorScore,
+          macroScore: s.macroScore,
+          competitorScore: s.competitorScore,
+          reasoning: s.reasoning,
+          tags: s.tags,
+          scoredBy: s.scoredBy,
+        })),
+        skipDuplicates: true,
+      });
+      scored += scores.length;
+    } catch {
+      // Non-fatal: skip this company
+    }
+  }
+
+  return scored;
 }
 
 export async function getCompanyNews(companyId: string, limit = 20) {
@@ -143,4 +201,63 @@ export async function getCompanyNews(companyId: string, limit = 20) {
   });
 
   return links.map((l) => ({ ...l.newsArticle, matchScore: l.matchScore }));
+}
+
+export async function getCompanyNewsWithRelevance(
+  companyId: string,
+  limit = 30,
+  after?: Date,
+) {
+  const relevantArticles = await prisma.newsArticleRelevance.findMany({
+    where: {
+      companyId,
+      totalScore: { gte: 0.35 },
+      ...(after && { newsArticle: { publishedAt: { gt: after } } }),
+    },
+    orderBy: { newsArticle: { publishedAt: "desc" } },
+    take: limit,
+    include: {
+      newsArticle: {
+        select: {
+          id: true,
+          title: true,
+          summary: true,
+          url: true,
+          publishedAt: true,
+          source: true,
+          category: true,
+        },
+      },
+    },
+  });
+
+  if (relevantArticles.length > 0) {
+    return relevantArticles.map((r) => ({
+      ...r.newsArticle,
+      relevance: {
+        totalScore: r.totalScore,
+        type: deriveRelevanceType(r),
+        tags: r.tags,
+        reasoning: r.reasoning,
+        scoredBy: r.scoredBy,
+      },
+    }));
+  }
+
+  // Fallback to direct name-match for companies without relevance scores
+  const fallback = await getCompanyNews(companyId, limit);
+  return fallback.map((a) => ({ ...a, relevance: null }));
+}
+
+function deriveRelevanceType(r: {
+  directScore: number;
+  sectorScore: number;
+  macroScore: number;
+  competitorScore: number;
+}): "direct" | "sector" | "macro" | "competitor" {
+  const max = Math.max(r.directScore, r.sectorScore, r.macroScore, r.competitorScore);
+  if (max === r.directScore) return "direct";
+  if (max === r.sectorScore) return "sector";
+  if (max === r.macroScore) return "macro";
+  return "competitor";
 }

@@ -1,0 +1,19 @@
+name: News Sync
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger news sync
+        run: |
+          curl -X POST "${{ secrets.APP_URL }}/api/internal/news-sync/scheduled" \
+            -H "x-news-sync-secret: ${{ secrets.NEWS_SYNC_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail --silent --show-error \
+            --max-time 120
