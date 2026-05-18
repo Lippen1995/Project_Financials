@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 export function SearchForm({
   compact = false,
-  placeholder = "Søk etter selskap, person eller organisasjonsnummer",
+  placeholder = "S\u00f8k etter selskap, person eller organisasjonsnummer",
 }: {
   compact?: boolean;
   placeholder?: string;
@@ -47,7 +47,7 @@ export function SearchForm({
             : "bg-[var(--px-action)] text-white hover:bg-[var(--px-action-hover)]"
         }`}
       >
-        Søk selskaper
+        {"S\u00f8k selskaper"}
       </button>
     </form>
   );

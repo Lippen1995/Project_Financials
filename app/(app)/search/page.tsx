@@ -42,7 +42,7 @@ export default async function SearchPage({
     });
   } catch {
     searchError =
-      "Søket mot virksomhetsregisteret kunne ikke fullføres akkurat nå. Prøv igjen med selskapsnavn eller organisasjonsnummer.";
+      "S\u00f8ket mot virksomhetsregisteret kunne ikke fullf\u00f8res akkurat n\u00e5. Pr\u00f8v igjen med selskapsnavn eller organisasjonsnummer.";
   }
 
   const query =
@@ -53,14 +53,13 @@ export default async function SearchPage({
       <section className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.78)] xl:grid-cols-[minmax(0,1.45fr),340px]">
         <div className="p-8">
           <div className="data-label inline-flex rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-            Søk
+            {"S\u00f8k"}
           </div>
           <h1 className="editorial-display mt-5 max-w-4xl text-[3rem] leading-[0.98] text-slate-950 sm:text-[4rem]">
             Finn norske selskaper med mer presise treff.
           </h1>
           <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
-            Søk på selskapsnavn, person eller organisasjonsnummer. Resultatene er lagt opp for
-            rask vurdering, med tydelig filtrering og strukturert treffliste.
+            {"S\u00f8k p\u00e5 selskapsnavn, person eller organisasjonsnummer. Resultatene er lagt opp for rask vurdering, med tydelig filtrering og strukturert treffliste."}
           </p>
           <div className="mt-6">
             <SearchForm compact />
@@ -75,8 +74,7 @@ export default async function SearchPage({
             Trefflisten er laget for vurdering, ikke bare oppslag.
           </div>
           <p className="mt-4 text-sm leading-7 text-white/80">
-            Bruk fritekstsøk først, og snevr inn med filtrene når du vil vurdere geografi,
-            selskapsform, status eller bransje nærmere.
+            {"Bruk friteksts\u00f8k f\u00f8rst, og snevr inn med filtrene n\u00e5r du vil vurdere geografi, selskapsform, status eller bransje n\u00e6rmere."}
           </p>
         </aside>
       </section>
@@ -105,7 +103,7 @@ export default async function SearchPage({
               </h2>
             </div>
             <div className="text-sm text-slate-500">
-              Søk: {query ?? "Ingen søketekst angitt"}
+              {"S\u00f8k: "} {query ?? "Ingen s\u00f8ketekst angitt"}
             </div>
           </div>
 
@@ -119,7 +117,7 @@ export default async function SearchPage({
             <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.72)] p-5 text-sm text-slate-600">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-slate-900">
-                  {searchResult.interpretation.aiAssisted ? "Tolket søk" : "Direkte søk"}
+                  {searchResult.interpretation.aiAssisted ? "Tolket s\u00f8k" : "Direkte s\u00f8k"}
                 </span>
                 {searchResult.interpretation.intentSummary ? (
                   <span>{searchResult.interpretation.intentSummary}</span>
@@ -134,7 +132,7 @@ export default async function SearchPage({
                     key={item.code}
                     className="rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1"
                   >
-                    Næringskode {item.code}
+                    {"N\u00e6ringskode"} {item.code}
                     {item.title ? ` ${item.title}` : ""}
                   </span>
                 ))}
