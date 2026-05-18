@@ -82,8 +82,8 @@ export function resolveOpenDataLoaderConfig(source: NodeJS.ProcessEnv | typeof e
   const timeoutRaw =
     "opendataloaderTimeoutMs" in source
       ? (source as typeof env).opendataloaderTimeoutMs
-      : Number(source.OPENDATALOADER_TIMEOUT_MS ?? "120000");
-  const timeoutMs = Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : 120_000;
+      : Number(source.OPENDATALOADER_TIMEOUT_MS ?? "1800000");
+  const timeoutMs = Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : 1_800_000;
 
   return {
     enabled,
