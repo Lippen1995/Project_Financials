@@ -1093,6 +1093,72 @@ const BALANCE_SECTIONS = new Set([
 ]);
 
 /**
+ * Reconstructs two year-column values from a raw PDF row's `values` array.
+ *
+ * The LEGACY extractor splits numbers by x-position column zones. Norwegian
+ * thousands separators (space) cause a single number like "46 611 000" to
+ * appear as multiple fragments: [{value:46,x:124}, {value:611000,x:208}].
+ * The prior-year column starts at a distinctly higher x-position.
+ *
+ * Algorithm:
+ * 1. Sort values by x-position.
+ * 2. Find the largest x-gap — this is the column boundary between years.
+ * 3. Combine fragments within each cluster into a single number using scale
+ *    inference: leading fragment × 10^(ceil(digits(tail)/3)*3) + tail.
+ *
+ * Returns [mainYear, priorYear] (either may be null if data is absent).
+ */
+function reconstructYearValues(
+  values: Array<{ value: number; columnIndex: number; x?: number }>,
+): [number | null, number | null] {
+  if (values.length === 0) return [null, null];
+
+  const sorted = [...values].sort((a, b) => (a.x ?? a.columnIndex) - (b.x ?? b.columnIndex));
+
+  if (sorted.length === 1) return [sorted[0].value || null, null];
+
+  // Find largest gap between consecutive x-positions
+  let maxGap = 0;
+  let splitIdx = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = (sorted[i].x ?? sorted[i].columnIndex * 100) -
+                (sorted[i - 1].x ?? sorted[i - 1].columnIndex * 100);
+    if (gap > maxGap) {
+      maxGap = gap;
+      splitIdx = i;
+    }
+  }
+
+  const mainGroup = sorted.slice(0, splitIdx);
+  const priorGroup = sorted.slice(splitIdx);
+
+  function combineGroup(group: typeof sorted): number | null {
+    if (group.length === 0) return null;
+    if (group.length === 1) return group[0].value || null;
+    // Two fragments: leading × scale + tail
+    const head = group[0].value;
+    const tail = group[group.length - 1].value;
+    if (tail === 0) {
+      // "15 000" where 000→0; use head directly or scale up if head looks un-scaled
+      // If there's a middle fragment, use that to build the number
+      if (group.length === 3) {
+        const mid = group[1].value;
+        const midDigits = mid === 0 ? 3 : Math.ceil(Math.log10(mid + 1));
+        const midScale = Math.pow(10, Math.ceil(midDigits / 3) * 3);
+        const tailScale = Math.pow(10, 3); // "000" = ×1000
+        return head * midScale * tailScale + mid * tailScale + tail;
+      }
+      return head * 1000 + tail; // e.g. "15 000" → 15000
+    }
+    const tailDigits = Math.ceil(Math.log10(tail + 1));
+    const scale = Math.pow(10, Math.ceil(tailDigits / 3) * 3);
+    return head * scale + tail;
+  }
+
+  return [combineGroup(mainGroup), combineGroup(priorGroup)];
+}
+
+/**
  * Build synthetic RawRows from mappedFacts when the EXTRACTION_JSON artifact
  * pre-dates the addition of `rows` to the payload. Each unique
  * (sourceSection + normalizedLabel) combination becomes one row, with year
@@ -1400,36 +1466,31 @@ function AsReportedSection({
               const canonicalKey = canonicalByLabel.get(lookupKey) ?? null;
               const isMapped = canonicalKey !== null;
 
-              // Proposed main year: DB fact (correctly assembled) or raw fallback
+              // Proposed main year: DB fact (correctly assembled) or parsed from rowText
               const mainProposed = isMapped && canonicalKey
                 ? (dbValueByKey.get(canonicalKey) ?? null)
                 : null;
 
-              // Proposed prior year: max-colIdx mappedFact or raw fallback
+              // Proposed prior year: max-colIdx mappedFact or parsed from rowText
               const priorProposed = isMapped && canonicalKey
                 ? (priorValueByKey.get(canonicalKey) ?? null)
                 : null;
 
-              // For unmapped rows, fall back to raw values from the row
-              const rawMainVal = row.values.reduce<{ value: number; columnIndex: number } | undefined>(
-                (best, v) => (!best || v.columnIndex < best.columnIndex ? v : best),
-                undefined,
-              );
-              const rawPriorVal = row.values.reduce<{ value: number; columnIndex: number } | undefined>(
-                (best, v) => (!best || v.columnIndex > best.columnIndex ? v : best),
-                undefined,
-              );
+              // For unmapped rows, reconstruct full year values from x-clustered fragments
+              const [reconstructedMain, reconstructedPrior] = isMapped
+                ? [null, null]
+                : reconstructYearValues(row.values);
 
               const displayMain = mainProposed
                 ? formatIntegerString(mainProposed)
-                : rawMainVal
-                  ? formatIntegerString(Math.round(rawMainVal.value * row.unitScale))
+                : reconstructedMain !== null
+                  ? formatIntegerString(Math.round(reconstructedMain * row.unitScale))
                   : "—";
 
               const displayPrior = priorProposed
                 ? formatIntegerString(priorProposed)
-                : rawPriorVal && rawPriorVal !== rawMainVal
-                  ? formatIntegerString(Math.round(rawPriorVal.value * row.unitScale))
+                : reconstructedPrior !== null
+                  ? formatIntegerString(Math.round(reconstructedPrior * row.unitScale))
                   : "—";
 
               // Manual overrides for main year (via editableFacts)
