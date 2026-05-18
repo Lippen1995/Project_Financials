@@ -5,25 +5,30 @@ Two problems are fixed here:
 
 1. Scale: Docling hardcodes scale=3 for OCR (216 DPI equivalent for normal A4).
    Norwegian annual reports are often scanned and stored as PDFs with page dimensions
-   equal to the scan pixel dimensions (e.g. 1728×2312 pt). At scale=3 this creates a
-   5184×6936 px image per page (~36 Mpx), causing EasyOCR to take 45+ s/page.
-   Patching scale=1 keeps the image at 1728×2312 px (~4 Mpx), cutting OCR to ~5 s/page.
+   equal to the scan pixel dimensions (e.g. 1728x2312 pt). At scale=3 this creates a
+   5184x6936 px image per page (~36 Mpx), causing EasyOCR to take 45+ s/page.
+   Patching scale=1 keeps the image at 1728x2312 px (~4 Mpx), cutting OCR to ~26 s/page.
 
 2. OCR engine: EasyOCR (default) works well for Norwegian at scale=1.
-   Tesseract CLI was tried but is 2× slower due to subprocess-spawn overhead.
+   Tesseract CLI was tried but is 2x slower due to subprocess-spawn overhead.
+
+Implementation note: EasyOcrModel.__init__ does `self.scale = 3` as a hard instance
+assignment. A class-attribute patch alone would be shadowed, so we wrap __init__ instead.
+EasyOcrModel instances are created lazily on the first OCR request (not at server startup),
+so the patch must remain active for the duration of the server process.
 """
 
-# Patch __init__ before models are imported — self.scale = 3 is a hard instance
-# assignment in __init__, so a class-attribute patch alone would be shadowed.
 from docling.models.stages.ocr import easyocr_model as _eocr_mod
 
-_orig_init = _eocr_mod.EasyOcrModel.__init__
+_orig_easyocr_init = _eocr_mod.EasyOcrModel.__init__
 
-def _patched_init(self, *args, **kwargs):
-    _orig_init(self, *args, **kwargs)
-    self.scale = 1  # Override the hardcoded scale=3 set by __init__
 
-_eocr_mod.EasyOcrModel.__init__ = _patched_init  # type: ignore[method-assign]
+def _patched_easyocr_init(self, *args, **kwargs):
+    _orig_easyocr_init(self, *args, **kwargs)
+    self.scale = 1  # Override the hardcoded scale=3
+
+
+_eocr_mod.EasyOcrModel.__init__ = _patched_easyocr_init  # type: ignore[method-assign]
 
 import opendataloader_pdf.hybrid_server as _hs  # noqa: E402  (must be after patch)
 
