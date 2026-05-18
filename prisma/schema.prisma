@@ -576,6 +576,7 @@ model Company {
   rawLineItems              RawFinancialLineItem[]
   narratives                AnnualReportNarrative[]
   newsArticles              NewsArticleCompany[]
+  newsRelevanceScores       NewsArticleRelevance[]
   industryCodeId            String?
   industryCode              IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
 
@@ -2486,18 +2487,44 @@ model AnnualReportNarrative {
 }
 
 model NewsArticle {
-  id          String   @id @default(cuid())
-  guid        String   @unique
-  title       String
-  summary     String?
-  url         String
-  publishedAt DateTime
-  source      String
-  companies   NewsArticleCompany[]
-  createdAt   DateTime @default(now())
+  id              String   @id @default(cuid())
+  guid            String   @unique
+  title           String
+  summary         String?
+  url             String
+  publishedAt     DateTime
+  source          String
+  category        String?
+  companies       NewsArticleCompany[]
+  relevanceScores NewsArticleRelevance[]
+  createdAt       DateTime @default(now())
 
   @@index([publishedAt(sort: Desc)])
   @@index([source])
+}
+
+model NewsArticleRelevance {
+  id              String   @id @default(cuid())
+  newsArticleId   String
+  companyId       String
+
+  totalScore      Float
+  directScore     Float
+  sectorScore     Float
+  macroScore      Float
+  competitorScore Float
+
+  reasoning       String?
+  tags            String[]
+  scoredBy        String
+  scoredAt        DateTime @default(now())
+
+  newsArticle NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([newsArticleId, companyId])
+  @@index([companyId, totalScore(sort: Desc)])
+  @@index([companyId, scoredAt(sort: Desc)])
 }
 
 model NewsArticleCompany {

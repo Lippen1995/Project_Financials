@@ -58,6 +58,8 @@ const env = {
   financialsSyncSecret:
     process.env.FINANCIALS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
   workspaceSyncSecret: process.env.WORKSPACE_SYNC_SECRET ?? "",
+  googleGeminiApiKey: process.env.GOOGLE_GEMINI_API_KEY ?? "",
+  newsSyncSecret: process.env.NEWS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
 };
 
 export default env;

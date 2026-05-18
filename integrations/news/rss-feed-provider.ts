@@ -21,13 +21,25 @@ export const RSS_FEEDS: RssFeedDef[] = [
   { id: "dn", name: "Dagens Næringsliv", url: "https://www.dn.no/rss" },
   { id: "nrk-okonomi", name: "NRK Nyheter", url: "https://www.nrk.no/nyheter/siste.rss" },
   { id: "tu", name: "Teknisk Ukeblad", url: "https://www.tu.no/feeds/general.xml" },
+  { id: "finansavisen", name: "Finansavisen", url: "https://finansavisen.no/rss" },
+  { id: "hegnar", name: "Hegnar Online", url: "https://www.hegnar.no/nyheter/rss" },
+  { id: "shifter", name: "Shifter", url: "https://shifter.no/feed/" },
+  { id: "kampanje", name: "Kampanje", url: "https://kampanje.com/feed/" },
+  { id: "na24", name: "NA24", url: "https://na24.no/rss" },
 
   // Myndigheter og offisielle kilder
   { id: "regjeringen", name: "Regjeringen.no", url: "https://www.regjeringen.no/no/rss/Rss/2581966/" },
   { id: "oslobors", name: "Oslo Børs", url: "https://newsweb.oslobors.no/rss" },
+  { id: "norgesbank", name: "Norges Bank", url: "https://www.norges-bank.no/rss/nyheter/" },
+  { id: "finanstilsynet", name: "Finanstilsynet", url: "https://www.finanstilsynet.no/rss/" },
+  { id: "konkurransetilsynet", name: "Konkurransetilsynet", url: "https://www.konkurransetilsynet.no/rss" },
 
-  // Bransjefeeder
+  // Industri og bransje
   { id: "norsk-olje-gass", name: "Norsk olje og gass", url: "https://www.norskoljeoggass.no/feed/" },
+  { id: "bygg", name: "Bygg.no", url: "https://www.bygg.no/rss" },
+  { id: "intrafish-no", name: "Intrafish", url: "https://www.intrafish.no/rss" },
+  { id: "sysla", name: "Sysla", url: "https://www.sysla.no/feed/" },
+  { id: "upstream", name: "Upstream Online", url: "https://www.upstreamonline.com/rss" },
 
   // Internasjonale
   { id: "reuters-business", name: "Reuters Business", url: "https://news.google.com/rss/search?q=reuters+business&hl=en-US&gl=US&ceid=US:en" },
