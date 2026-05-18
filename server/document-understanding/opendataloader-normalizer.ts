@@ -732,6 +732,34 @@ function buildFallbackTableRowsFromText(input: {
   });
 }
 
+// Extracts text from a single table cell. Handles three formats:
+// 1. Plain string cell (DoclingDocument grid output)
+// 2. Java CLI cell with nested kids: {type:"table cell", kids:[{content:"..."}]}
+// 3. Generic fallback via flattenUnknownText
+function extractCellText(rawCell: unknown): string {
+  if (typeof rawCell === "string") return rawCell;
+  if (!rawCell || typeof rawCell !== "object" || Array.isArray(rawCell)) {
+    return flattenUnknownText(rawCell).join(" ");
+  }
+  const cell = rawCell as Record<string, unknown>;
+  // Prefer direct text fields
+  for (const key of ["content", "text", "markdown"]) {
+    if (typeof cell[key] === "string" && cell[key]) return cell[key] as string;
+  }
+  // Java CLI format: kids array with nested text elements
+  if (Array.isArray(cell.kids) && cell.kids.length > 0) {
+    const parts: string[] = [];
+    for (const kid of cell.kids as unknown[]) {
+      parts.push(extractCellText(kid));
+    }
+    return parts.filter(Boolean).join(" ");
+  }
+  // Last resort: flattenUnknownText on known text-only keys
+  const textKeys = ["content", "text", "markdown", "description", "caption"];
+  const parts = textKeys.flatMap((k) => (cell[k] !== undefined ? flattenUnknownText(cell[k]) : []));
+  return parts.join(" ");
+}
+
 function normalizeTableStructure(input: {
   element: OpenDataLoaderRawElement;
   blockId: string;
@@ -750,7 +778,7 @@ function normalizeTableStructure(input: {
           : [];
       const rowText = stripDuplicateWhitespace(flattenUnknownText(rawRow).join(" "));
       const cells = rawCells.map((rawCell, columnIndex) => {
-        const text = stripDuplicateWhitespace(flattenUnknownText(rawCell).join(" "));
+        const text = stripDuplicateWhitespace(extractCellText(rawCell));
         const numericValue = parseFinancialInteger(text);
         return {
           id: `${input.blockId}-row-${rowIndex}-cell-${columnIndex}`,
