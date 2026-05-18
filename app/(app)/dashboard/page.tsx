@@ -356,18 +356,10 @@ export default async function DashboardPage() {
             </span>
           </div>
           <div className="flex items-center gap-6">
-            {[
-              { label: "PRIVACY POLICY", href: "#" },
-              { label: "API DOCUMENTATION", href: "#" },
-              { label: "SUPPORT NODE 04", href: "#" },
-            ].map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className="font-label-caps text-xs text-outline-variant tracking-widest hover:text-primary transition-colors"
-              >
-                {link.label}
-              </Link>
+            {["PRIVACY POLICY", "API DOCUMENTATION", "SUPPORT NODE 04"].map((label) => (
+              <span key={label} className="font-label-caps text-xs text-outline-variant tracking-widest">
+                {label}
+              </span>
             ))}
           </div>
         </div>

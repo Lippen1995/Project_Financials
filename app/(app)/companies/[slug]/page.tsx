@@ -559,7 +559,6 @@ export default async function CompanyPage({
         return { watchId: watch?.id ?? null, workspaceId: user.lastWorkspaceId };
       })()
     : null;
-
   const narratives =
     activeTab === "dokumenter"
       ? await prisma.annualReportNarrative.findMany({
@@ -863,7 +862,6 @@ export default async function CompanyPage({
               <CompanyNewsTab companyId={companyId} />
             </div>
           ) : null}
-
           {activeTab === "sokkeleksponering" && petroleumProfile ? (
             <CompanyPetroleumTab petroleum={petroleumProfile} />
           ) : null}
