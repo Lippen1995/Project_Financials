@@ -7,7 +7,7 @@ export const PETROLEUM_CONCEPTS: PetroleumConceptEntry[] = [
     label: "Felt",
     shortDefinition: "Et felt er en petroleumsforekomst som myndighetene har besluttet skal eller kan bygges ut samlet.",
     explanation:
-      "I ProjectX brukes felt som hovedenhet for produksjon, reserver og investeringer. Felt knyttes til operatør, rettighetshavere, innretninger og produksjonsserier fra SODIR.",
+      "I Fjord Insight brukes felt som hovedenhet for produksjon, reserver og investeringer. Felt knyttes til operatør, rettighetshavere, innretninger og produksjonsserier fra SODIR.",
     relatedConceptIds: ["discovery", "facility", "licence", "development"],
     relatedProducts: ["oil", "gas", "oe"],
     sourceLabel: "SODIR Faktasider",
@@ -89,10 +89,10 @@ export const PETROLEUM_CONCEPTS: PetroleumConceptEntry[] = [
     label: "boepd",
     shortDefinition: "boepd betyr barrels of oil equivalent per day og brukes som ratevisning for å sammenligne produksjonstakt.",
     explanation:
-      "I ProjectX brukes boepd som analyseenhet for løpende sammenligning av produksjon mot fjoråret og mot forecast. Råvolumene fra SODIR beholdes samtidig som sannhetsgrunnlag.",
+      "I Fjord Insight brukes boepd som analyseenhet for løpende sammenligning av produksjon mot fjoråret og mot forecast. Råvolumene fra SODIR beholdes samtidig som sannhetsgrunnlag.",
     relatedConceptIds: ["oe", "forecast"],
     relatedProducts: ["oil", "liquids", "oe"],
-    sourceLabel: "SODIR produksjonstal / ProjectX metode",
+    sourceLabel: "SODIR produksjonstal / Fjord Insight metode",
     sourceUrl: "https://www.sodir.no/aktuelt/nyheter/produksjonstal/",
   },
   {

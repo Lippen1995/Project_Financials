@@ -170,7 +170,7 @@ async function downloadPdf(documentUrl: string) {
     headers: {
       Accept: "application/octet-stream",
     },
-    // Large annual report PDFs are cached in ProjectX's own flows, not Next's fetch cache.
+    // Large annual report PDFs are cached in Fjord Insight's own flows, not Next's fetch cache.
     cache: "no-store",
   });
 

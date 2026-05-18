@@ -19,7 +19,10 @@ import {
   type AnnualReportUnifiedShadowInput,
 } from "@/server/services/annual-report-unified-shadow-extraction-service";
 import type { AnnualReportUnifiedShadowConfig } from "@/server/services/annual-report-unified-shadow-config";
-import type { PreflightResult } from "@/integrations/brreg/annual-report-financials/types";
+import type {
+  AnnualReportParsedPage,
+  PreflightResult,
+} from "@/integrations/brreg/annual-report-financials/types";
 import type { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -86,6 +89,139 @@ function makeBaseInput(config: AnnualReportUnifiedShadowConfig): AnnualReportUni
     preflight: makePreflight(),
     legacyCandidates: [] as CanonicalFactCandidate[],
     config,
+  };
+}
+
+function makeStructuredParsedPage(): AnnualReportParsedPage {
+  return {
+    pageNumber: 1,
+    text: "Resultatregnskap 2024 Driftsinntekter 1 000",
+    normalizedText: "resultatregnskap 2024 driftsinntekter 1 000",
+    lines: [],
+    hasEmbeddedText: false,
+    blocks: [
+      {
+        id: "block-1",
+        kind: "table",
+        rawType: "table",
+        text: "Driftsinntekter 1 000",
+        normalizedText: "driftsinntekter 1 000",
+        bbox: null,
+        table: null,
+        source: {
+          engine: "OPENDATALOADER",
+          engineMode: "local",
+          sourceElementId: "element-1",
+          sourceRawType: "table",
+          order: 0,
+        },
+      },
+    ],
+    tables: [
+      {
+        id: "table-1",
+        pageNumber: 1,
+        bbox: null,
+        rowCount: 2,
+        columnCount: 2,
+        rows: [
+          {
+            id: "row-header",
+            rowIndex: 0,
+            text: "2024",
+            normalizedText: "2024",
+            bbox: null,
+            cells: [
+              {
+                id: "cell-h0",
+                rowIndex: 0,
+                columnIndex: 0,
+                text: "Linje",
+                normalizedText: "linje",
+                bbox: null,
+                isNumeric: false,
+                numericValue: null,
+                role: "label",
+                source: {
+                  engine: "OPENDATALOADER",
+                  engineMode: "local",
+                },
+              },
+              {
+                id: "cell-h1",
+                rowIndex: 0,
+                columnIndex: 1,
+                text: "2024",
+                normalizedText: "2024",
+                bbox: null,
+                isNumeric: false,
+                numericValue: null,
+                role: "year_header",
+                source: {
+                  engine: "OPENDATALOADER",
+                  engineMode: "local",
+                },
+              },
+            ],
+            source: {
+              engine: "OPENDATALOADER",
+              engineMode: "local",
+            },
+          },
+          {
+            id: "row-1",
+            rowIndex: 1,
+            text: "Driftsinntekter 1000",
+            normalizedText: "driftsinntekter 1000",
+            bbox: null,
+            cells: [
+              {
+                id: "cell-1-0",
+                rowIndex: 1,
+                columnIndex: 0,
+                text: "Driftsinntekter",
+                normalizedText: "driftsinntekter",
+                bbox: null,
+                isNumeric: false,
+                numericValue: null,
+                role: "label",
+                source: {
+                  engine: "OPENDATALOADER",
+                  engineMode: "local",
+                },
+              },
+              {
+                id: "cell-1-1",
+                rowIndex: 1,
+                columnIndex: 1,
+                text: "1000",
+                normalizedText: "1000",
+                bbox: null,
+                isNumeric: true,
+                numericValue: 1000,
+                role: "value",
+                source: {
+                  engine: "OPENDATALOADER",
+                  engineMode: "local",
+                },
+              },
+            ],
+            source: {
+              engine: "OPENDATALOADER",
+              engineMode: "local",
+            },
+          },
+        ],
+        source: {
+          engine: "OPENDATALOADER",
+          engineMode: "local",
+        },
+      },
+    ],
+    source: {
+      engine: "OPENDATALOADER",
+      engineMode: "local",
+    },
   };
 }
 
@@ -175,6 +311,34 @@ describe("runAnnualReportUnifiedShadowExtraction", () => {
       );
       expect(result.document).not.toBeNull();
       expect(result.document?.safety.canUseForProductionRouting).toBe(false);
+    });
+
+    it("prefers structured parsed pages when they are provided", async () => {
+      const result = await runAnnualReportUnifiedShadowExtraction({
+        ...makeBaseInput(makeDryRunConfig()),
+        preflight: makePreflight({
+          hasTextLayer: false,
+          hasReliableTextLayer: false,
+          parsedPages: [
+            {
+              pageNumber: 1,
+              text: "",
+              normalizedText: "",
+              lines: [],
+              hasEmbeddedText: false,
+            },
+          ],
+        }),
+        parsedPages: [makeStructuredParsedPage()],
+        route: "OPENDATALOADER_LOCAL",
+      });
+
+      expect(result.document?.source.route).toBe("OPENDATALOADER_LOCAL");
+      expect(result.document?.tables.length).toBeGreaterThan(0);
+      expect(result.document?.metrics.processedPageCount).toBe(1);
+      expect(result.warnings).not.toContain(
+        "Dokumentet mangler pålitelig tekstlag, og structured parser-sider ble ikke sendt inn. Unified-resultatet kan derfor bli tomt.",
+      );
     });
 
     it("produces a non-null financial extraction result", async () => {

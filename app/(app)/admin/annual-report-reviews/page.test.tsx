@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -69,10 +69,10 @@ describe("app/admin/annual-report-reviews/page", () => {
     });
     const html = renderToStaticMarkup(element);
 
-    expect(html).toContain("Review-kø for årsrapporter");
-    expect(html).toContain("Gold-set manual review round");
+    expect(html).toContain("Manuell kontroll av årsrapporter");
+    expect(html).toContain("Kontrollkø fra testgrunnlag");
     expect(html).toContain("Confidence gate vurderte rapporten som FAIL.");
-    expect(html).toContain("Eksisterende produksjons-review-kø");
+    expect(html).toContain("Øvrige reviewsaker");
     expect(html).toContain("Eksempelselskap AS");
     expect(html).toContain("Venter");
   });
@@ -103,6 +103,6 @@ describe("app/admin/annual-report-reviews/page", () => {
     });
     const html = renderToStaticMarkup(element);
 
-    expect(html).toContain("No manual review candidates found for the selected run.");
+    expect(html).toContain("Ingen kandidater funnet for de valgte filtrene.");
   });
 });

@@ -1628,6 +1628,48 @@ describe("annual-report-financials-service", () => {
       expect(shadowInput.preflight).toHaveProperty("parsedPages");
     });
 
+    it("passes structured OpenDataLoader pages and route to the shadow runner when available", async () => {
+      unifiedShadowState.mode = "DRY_RUN";
+      openDataLoaderState.config.enabled = true;
+      openDataLoaderState.config.dualRun = false;
+      openDataLoaderState.route = openDataLoaderState.parseResult.routing;
+      openDataLoaderState.parseResult = {
+        ...openDataLoaderState.parseResult,
+        routing: {
+          ...openDataLoaderState.parseResult.routing,
+          executionMode: "local",
+        },
+        annualReportPages: [
+          {
+            pageNumber: 1,
+            text: "Resultatregnskap 2024",
+            normalizedText: "resultatregnskap 2024",
+            lines: [],
+            hasEmbeddedText: false,
+            blocks: [],
+            tables: [],
+            source: {
+              engine: "OPENDATALOADER",
+              engineMode: "local",
+            },
+          },
+        ],
+      };
+
+      const { processAnnualReportFiling } = await import(
+        "@/server/services/annual-report-financials-service"
+      );
+      await processAnnualReportFiling("filing-1");
+
+      const [shadowInput] =
+        unifiedShadowState.runAnnualReportUnifiedShadowExtraction.mock.calls.at(-1) ?? [];
+      if (!shadowInput) {
+        throw new Error("Expected shadow input to be present.");
+      }
+      expect(shadowInput.parsedPages).toHaveLength(1);
+      expect(shadowInput.route).toBe("OPENDATALOADER_LOCAL");
+    });
+
     it("canUseForProductionRouting is always false on the shadow result", async () => {
       unifiedShadowState.mode = "DRY_RUN";
 

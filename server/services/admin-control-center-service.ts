@@ -78,6 +78,7 @@ export type AdminFlowDecisionPath = {
 export type AdminFlowNode = {
   key: string;
   stepNumber: number;
+  actor?: "system" | "human" | "decision";
   title: string;
   subtitle: string;
   status: AdminControlCenterStatus;
@@ -347,8 +348,8 @@ function buildAttentionItems(input: {
     items.push({
       key: "review-queue",
       severity: "HIGH",
-      title: "Rapporter venter pÃ¥ manuell kontroll",
-      description: `${input.reviewQueueCount} rapporter ligger i review-kÃ¸en. Manuell review er et sikkerhetsnett og bÃ¸r prioriteres fÃ¸r nye saker hoper seg opp.`,
+      title: "Rapporter venter på manuell kontroll",
+      description: `${input.reviewQueueCount} rapporter ligger i review-køen. Manuell review er et sikkerhetsnett og bør prioriteres før nye saker hoper seg opp.`,
       href: "/admin/annual-report-reviews",
     });
   }
@@ -357,8 +358,8 @@ function buildAttentionItems(input: {
     items.push({
       key: "gold-set-manual-review-pending",
       severity: "HIGH",
-      title: "Gold-set manual review har Ã¥pne kandidater",
-      description: `${input.latestManualReviewRound.summary.pendingCount} kandidater venter fortsatt pÃ¥ manuell vurdering fra siste review-runde.`,
+      title: "Gold-set manual review har åpne kandidater",
+      description: `${input.latestManualReviewRound.summary.pendingCount} kandidater venter fortsatt på manuell vurdering fra siste review-runde.`,
       href: "/admin/annual-report-reviews",
     });
   }
@@ -367,7 +368,7 @@ function buildAttentionItems(input: {
     items.push({
       key: "gold-set-high-severity",
       severity: "HIGH",
-      title: "HÃ¸y-alvorlige gold-set-saker trenger avklaring",
+      title: "Høy-alvorlige gold-set-saker trenger avklaring",
       description: `${input.latestManualReviewRound?.summary.severityCounts.HIGH ?? 0} kandidater er klassifisert som HIGH severity i review-runden.`,
       href: "/admin/annual-report-reviews",
     });
@@ -377,8 +378,8 @@ function buildAttentionItems(input: {
     items.push({
       key: "calibration-high-severity-miss",
       severity: "HIGH",
-      title: "Kalibreringen fant hÃ¸y-alvorlige PASS-saker",
-      description: `${input.latestCalibrationReport?.metrics.highSeverityMissCount ?? 0} reviewed saker gikk gjennom som PASS selv om de burde vÃ¦rt stoppet eller sendt til review.`,
+      title: "Kalibreringen fant høy-alvorlige PASS-saker",
+      description: `${input.latestCalibrationReport?.metrics.highSeverityMissCount ?? 0} reviewed saker gikk gjennom som PASS selv om de burde vært stoppet eller sendt til review.`,
     });
   }
 
@@ -438,8 +439,8 @@ function buildAttentionItems(input: {
     items.push({
       key: "high-severity-review",
       severity: "HIGH",
-      title: "Minst Ã©n reviewsak ser alvorlig ut",
-      description: "En eller flere saker i review-kÃ¸en ser ut til Ã¥ ha lav kvalitet, mange blokkeringer eller tidligere feil. Start med disse sakene fÃ¸rst.",
+      title: "Minst én reviewsak ser alvorlig ut",
+      description: "En eller flere saker i review-køen ser ut til å ha lav kvalitet, mange blokkeringer eller tidligere feil. Start med disse sakene først.",
       href: "/admin/annual-report-reviews",
     });
   }
@@ -449,7 +450,7 @@ function buildAttentionItems(input: {
       key: "missing-artifacts",
       severity: "MEDIUM",
       title: "Noen rapporter mangler komplett grunnlag",
-      description: `${input.incompleteCoverageCount} selskaper har fortsatt delvis dekning, feil eller manuell oppfÃ¸lging i coverage-data. Dette kan bety manglende PDF eller mellomresultater.`,
+      description: `${input.incompleteCoverageCount} selskaper har fortsatt delvis dekning, feil eller manuell oppfølging i coverage-data. Dette kan bety manglende PDF eller mellomresultater.`,
       href: "/admin/annual-report-reviews",
     });
   }
@@ -458,7 +459,7 @@ function buildAttentionItems(input: {
     items.push({
       key: "runtime",
       severity: "HIGH",
-      title: "Parser-runtime trenger oppfÃ¸lging",
+      title: "Parser-runtime trenger oppfølging",
       description: `Systemet melder at lesemotoren ikke er helt klar: ${input.runtime.localModeReason}`,
       href: "/admin/pdf-parser-route-quality",
     });
@@ -470,8 +471,8 @@ function buildAttentionItems(input: {
       severity: "HIGH",
       title: "Siste quality-vurdering blokkerer ny motor",
       description: input.latestConfidence.blockingCheckCodes.length > 0
-        ? `Siste confidence gate feilet pÃ¥: ${input.latestConfidence.blockingCheckCodes.join(", ")}.`
-        : "Siste confidence gate er markert som FAIL og bÃ¸r undersÃ¸kes nÃ¦rmere.",
+        ? `Siste confidence gate feilet på: ${input.latestConfidence.blockingCheckCodes.join(", ")}.`
+        : "Siste confidence gate er markert som FAIL og bør undersøkes nærmere.",
       href: `/admin/annual-report-unified-confidence/${input.latestConfidence.filingId}`,
     });
   }
@@ -485,7 +486,7 @@ function buildAttentionItems(input: {
       key: "unit-scale",
       severity: "MEDIUM",
       title: "Ukjent eller usikker enhetsskala er oppdaget",
-      description: "Minst Ã©n nylig vurdert rapport ser ut til Ã¥ ha usikker skala, for eksempel kroner versus tusen kroner. Dette bÃ¸r kontrolleres fÃ¸r man stoler pÃ¥ tallene.",
+      description: "Minst én nylig vurdert rapport ser ut til å ha usikker skala, for eksempel kroner versus tusen kroner. Dette bør kontrolleres før man stoler på tallene.",
       href: `/admin/annual-report-unified-confidence/${input.latestConfidence.filingId}`,
     });
   }
@@ -498,7 +499,7 @@ function buildAttentionItems(input: {
       key: "mismatch",
       severity: "MEDIUM",
       title: "Stor forskjell mellom gammel og ny ekstraksjon",
-      description: "Siste sammenligning viser et viktig avvik mellom dagens lÃ¸sning og den nye lÃ¸sningen. Sjekk de viktigste regnskapslinjene manuelt.",
+      description: "Siste sammenligning viser et viktig avvik mellom dagens løsning og den nye løsningen. Sjekk de viktigste regnskapslinjene manuelt.",
       href: `/admin/annual-report-unified-confidence/${input.latestConfidence.filingId}`,
     });
   }
@@ -620,37 +621,37 @@ function buildMainFlow(input: {
   const confidenceStatus = deriveConfidenceStatus(input.latestConfidence);
 
   return {
-    title: "Fra Ã¥rsrapport til tall i databasen",
+    title: "Fra årsrapport til tall i databasen",
     subtitle:
-      "Denne flyten viser hvordan systemet mottar en Ã¥rsrapport, leser innholdet, kontrollerer kvaliteten og lagrer godkjente tall i databasen.",
+      "Denne flyten viser hvordan systemet mottar en årsrapport, leser innholdet, kontrollerer kvaliteten og lagrer godkjente tall i databasen.",
     nodes: [
       {
         key: "report-received",
         stepNumber: 1,
         title: "Rapport mottas",
-        subtitle: "Systemet finner eller mottar en ny Ã¥rsrapport som skal behandles.",
+        subtitle: "Systemet finner eller mottar en ny årsrapport som skal behandles.",
         status: input.newReportsCount > 0 ? "HEALTHY" : "UNKNOWN",
         tone: input.newReportsCount > 0 ? "GREEN" : "BLUE",
         metric: `${formatCount(input.newReportsCount)} nye rapporter mottatt`,
         typicalStatus:
-          "GrÃ¸nn hvis rapporten er registrert. Gul hvis rapporten mangler nÃ¸kkeldata. RÃ¸d hvis rapporten ikke kan behandles.",
-        unavailableLabel: "Ingen egen side ennÃ¥",
+          "Grønn hvis rapporten er registrert. Gul hvis rapporten mangler nøkkeldata. Rød hvis rapporten ikke kan behandles.",
+        unavailableLabel: "Ingen egen side ennå",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "En Ã¥rsrapport registreres i systemet. Det kan vÃ¦re en ny rapport fra Regnskapsregisteret eller en rapport som allerede finnes i systemet og skal behandles pÃ¥ nytt.",
+            "En årsrapport registreres i systemet. Det kan være en ny rapport fra Regnskapsregisteret eller en rapport som allerede finnes i systemet og skal behandles på nytt.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Dette er startpunktet for hele prosessen. Uten en registrert rapport har systemet ingen dokumenter Ã¥ lese og ingen tall Ã¥ hente ut.",
+            "Dette er startpunktet for hele prosessen. Uten en registrert rapport har systemet ingen dokumenter å lese og ingen tall å hente ut.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
-            "Rapporten kan mangle, vÃ¦re registrert med feil Ã¥r, vÃ¦re koblet til feil selskap, eller systemet kan ha flere mulige rapporter for samme selskap og Ã¥r.",
+            "Hva kan gå galt?",
+            "Rapporten kan mangle, være registrert med feil år, være koblet til feil selskap, eller systemet kan ha flere mulige rapporter for samme selskap og år.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Sjekk at rapporten gjelder riktig selskap, riktig organisasjonsnummer og riktig regnskapsÃ¥r. Hvis rapporten mangler eller er feil, mÃ¥ saken markeres for ny innhenting eller manuell oppfÃ¸lging.",
+            "Hva gjør admin?",
+            "Sjekk at rapporten gjelder riktig selskap, riktig organisasjonsnummer og riktig regnskapsår. Hvis rapporten mangler eller er feil, må saken markeres for ny innhenting eller manuell oppfølging.",
           ],
         ]),
       },
@@ -658,7 +659,7 @@ function buildMainFlow(input: {
         key: "artifact-linking",
         stepNumber: 2,
         title: "Riktig dokument kobles til",
-        subtitle: "Systemet finner riktig PDF og tilhÃ¸rende mellomresultater for akkurat denne rapporten.",
+        subtitle: "Systemet finner riktig PDF og tilhørende mellomresultater for akkurat denne rapporten.",
         status:
           input.incompleteCoverageCount > 0
             ? "WARNING"
@@ -676,7 +677,7 @@ function buildMainFlow(input: {
             ? `${formatCount(input.incompleteCoverageCount)} saker mangler fortsatt komplett grunnlag`
             : "Ingen kjente koblingsproblemer i tilgjengelige data",
         typicalStatus:
-          "GrÃ¸nn hvis riktig dokument er funnet. Gul hvis systemet mÃ¥tte bruke fallback. RÃ¸d hvis dokumentet mangler eller er uklart.",
+          "Grønn hvis riktig dokument er funnet. Gul hvis systemet måtte bruke fallback. Rød hvis dokumentet mangler eller er uklart.",
         unavailableLabel: "Planlagt",
         helpSections: buildHelpSections([
           [
@@ -685,15 +686,15 @@ function buildMainFlow(input: {
           ],
           [
             "Hvorfor er dette viktig?",
-            "Systemet mÃ¥ vÃ¦re helt sikker pÃ¥ at det leser riktig dokument. En rapport for feil Ã¥r eller feil selskap kan gi feil regnskapstall i databasen.",
+            "Systemet må være helt sikker på at det leser riktig dokument. En rapport for feil år eller feil selskap kan gi feil regnskapstall i databasen.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
-            "Feil PDF kan bli koblet til rapporten, flere dokumenter kan ligne pÃ¥ hverandre, eller et nÃ¸dvendig mellomresultat kan mangle.",
+            "Hva kan gå galt?",
+            "Feil PDF kan bli koblet til rapporten, flere dokumenter kan ligne på hverandre, eller et nødvendig mellomresultat kan mangle.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Ã…pne rapportdetaljene og kontroller at dokumentet gjelder riktig selskap og Ã¥r. Hvis dokumentet er feil eller mangler, send saken til ny behandling eller marker den som blokkert.",
+            "Hva gjør admin?",
+            "Åpne rapportdetaljene og kontroller at dokumentet gjelder riktig selskap og år. Hvis dokumentet er feil eller mangler, send saken til ny behandling eller marker den som blokkert.",
           ],
         ]),
       },
@@ -713,9 +714,9 @@ function buildMainFlow(input: {
                 : "BLUE",
         metric: input.runtime?.localModeReason ?? "Ukjent PDF-kvalitetsstatus",
         typicalStatus:
-          "GrÃ¸nn hvis PDF-en er godt lesbar. Gul hvis kvaliteten er usikker. RÃ¸d hvis PDF-en ikke kan leses trygt.",
+          "Grønn hvis PDF-en er godt lesbar. Gul hvis kvaliteten er usikker. Rød hvis PDF-en ikke kan leses trygt.",
         href: "/admin/pdf-parser-route-quality",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
@@ -723,15 +724,15 @@ function buildMainFlow(input: {
           ],
           [
             "Hvorfor er dette viktig?",
-            "Gode PDF-er kan ofte leses automatisk. DÃ¥rlige skannede dokumenter, Ã¸delagte tabeller eller manglende tekstlag krever mer forsiktighet og oftere manuell kontroll.",
+            "Gode PDF-er kan ofte leses automatisk. Dårlige skannede dokumenter, ødelagte tabeller eller manglende tekstlag krever mer forsiktighet og oftere manuell kontroll.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
-            "PDF-en kan vÃ¦re skannet dÃ¥rlig, ha utydelige tall, mangle tekst, ha roterte sider, ha tabeller som gÃ¥r over flere sider, eller ha layout som gjÃ¸r tall vanskelige Ã¥ tolke.",
+            "Hva kan gå galt?",
+            "PDF-en kan være skannet dårlig, ha utydelige tall, mangle tekst, ha roterte sider, ha tabeller som går over flere sider, eller ha layout som gjør tall vanskelige å tolke.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Se pÃ¥ kvalitetsscoren og eventuelle blokkeringer. Hvis PDF-en er dÃ¥rlig, Ã¥pne dokumentet manuelt og vurder om saken skal sendes til OCR, reprosessering eller manuell review.",
+            "Hva gjør admin?",
+            "Se på kvalitetsscoren og eventuelle blokkeringer. Hvis PDF-en er dårlig, åpne dokumentet manuelt og vurder om saken skal sendes til OCR, reprosessering eller manuell review.",
           ],
         ]),
       },
@@ -754,24 +755,24 @@ function buildMainFlow(input: {
             ? `Lesemotor tilgjengelig, pakkeversjon ${input.runtime.packageVersion ?? "ukjent"}`
             : "Ingen egnet lesemotor er bekreftet tilgjengelig",
         typicalStatus:
-          "GrÃ¸nn hvis metode er valgt trygt. Gul hvis valget er usikkert. RÃ¸d hvis ingen egnet metode er tilgjengelig.",
+          "Grønn hvis metode er valgt trygt. Gul hvis valget er usikkert. Rød hvis ingen egnet metode er tilgjengelig.",
         href: "/admin/pdf-parser-route-recommendation-v2",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Basert pÃ¥ kvalitetssjekken velger systemet hvilken parser eller metode som passer best. En enkel digital rapport kan leses direkte, mens en vanskelig rapport kan kreve OCR eller mer forsiktig behandling.",
+            "Basert på kvalitetssjekken velger systemet hvilken parser eller metode som passer best. En enkel digital rapport kan leses direkte, mens en vanskelig rapport kan kreve OCR eller mer forsiktig behandling.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Forskjellige rapporter mÃ¥ behandles forskjellig. Riktig lesemetode Ã¸ker sjansen for at tallene blir hentet ut riktig.",
+            "Forskjellige rapporter må behandles forskjellig. Riktig lesemetode øker sjansen for at tallene blir hentet ut riktig.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
-            "Systemet kan velge en metode som ikke passer dokumentet, eller nÃ¸dvendig parser/OCR-runtime kan vÃ¦re utilgjengelig.",
+            "Hva kan gå galt?",
+            "Systemet kan velge en metode som ikke passer dokumentet, eller nødvendig parser/OCR-runtime kan være utilgjengelig.",
           ],
           [
-            "Hva gjÃ¸r admin?",
+            "Hva gjør admin?",
             "Sjekk hvilken lesemetode systemet valgte og om det finnes varsler. Hvis metoden virker feil, send rapporten til reprosessering eller manuell vurdering.",
           ],
         ]),
@@ -780,7 +781,7 @@ function buildMainFlow(input: {
         key: "extract-values",
         stepNumber: 5,
         title: "Tall og tekst hentes ut",
-        subtitle: "Systemet leser rapporten og forsÃ¸ker Ã¥ hente ut regnskapstall, styreberetning og revisorberetning.",
+        subtitle: "Systemet leser rapporten og forsøker å hente ut regnskapstall, styreberetning og revisorberetning.",
         status:
           input.completedRunsCount > 0
             ? confidenceStatus
@@ -788,32 +789,32 @@ function buildMainFlow(input: {
         tone: "PURPLE",
         metric:
           input.completedRunsCount > 0
-            ? `${formatCount(input.completedRunsCount)} ekstraksjonskjÃ¸ringer er registrert`
-            : "Ingen kjente ekstraksjonskjÃ¸ringer ennÃ¥",
+            ? `${formatCount(input.completedRunsCount)} ekstraksjonskjøringer er registrert`
+            : "Ingen kjente ekstraksjonskjøringer ennå",
         typicalStatus:
-          "GrÃ¸nn hvis uttrekket er komplett. Gul hvis enkelte linjer er usikre. RÃ¸d hvis sentrale regnskapslinjer mangler.",
+          "Grønn hvis uttrekket er komplett. Gul hvis enkelte linjer er usikre. Rød hvis sentrale regnskapslinjer mangler.",
         href: "/admin/annual-report-unified-confidence",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Systemet henter ut resultatregnskap, balanse, kontantstrÃ¸m hvis tilgjengelig, noter der det er relevant, styreberetning og revisorberetning.",
+            "Systemet henter ut resultatregnskap, balanse, kontantstrøm hvis tilgjengelig, noter der det er relevant, styreberetning og revisorberetning.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Dette er steget der PDF-en begynner Ã¥ bli til strukturerte data. Kvaliteten pÃ¥ dette uttrekket avgjÃ¸r hvor godt resten av prosessen fungerer.",
+            "Dette er steget der PDF-en begynner å bli til strukturerte data. Kvaliteten på dette uttrekket avgjør hvor godt resten av prosessen fungerer.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
+            "Hva kan gå galt?",
             "Tall kan havne i feil kolonne, negative tall kan tolkes feil, tusenskilletegn kan skape feil, eller systemet kan blande sammen noter og hovedregnskap.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Ved varsel eller lav kvalitet: Ã¥pne sammenligningen og kontroller de viktigste linjene som driftsinntekter, Ã¥rsresultat, sum eiendeler, sum egenkapital og sum gjeld.",
+            "Hva gjør admin?",
+            "Ved varsel eller lav kvalitet: åpne sammenligningen og kontroller de viktigste linjene som driftsinntekter, årsresultat, sum eiendeler, sum egenkapital og sum gjeld.",
           ],
         ]),
         legacyNote:
-          "Dagens produksjonsmotor leser rapporten med den etablerte lÃ¸sningen som fortsatt er trygg kilde for publisering.",
+          "Dagens produksjonsmotor leser rapporten med den etablerte løsningen som fortsatt er trygg kilde for publisering.",
         unifiedNote:
           "Ny ekstraksjonsmotor leser rapporten i bakgrunnen. Den brukes til testing og sammenligning, ikke direkte publisering.",
       },
@@ -821,7 +822,7 @@ function buildMainFlow(input: {
         key: "compare-results",
         stepNumber: 6,
         title: "Resultatene sammenlignes",
-        subtitle: "Systemet sammenligner tallene fra dagens lÃ¸sning og den nye lÃ¸sningen.",
+        subtitle: "Systemet sammenligner tallene fra dagens løsning og den nye løsningen.",
         status: comparisonStatus,
         tone: "PURPLE",
         metric:
@@ -829,25 +830,25 @@ function buildMainFlow(input: {
             ? "Ingen sammenligningsdata funnet"
             : `${Math.round(comparisonMatchRate * 100)} % samsvar i siste tilgjengelige sammenligning`,
         typicalStatus:
-          "GrÃ¸nn hvis tallene matcher. Gul hvis det finnes mindre eller forklarbare avvik. RÃ¸d hvis viktige tall er ulike eller mangler.",
+          "Grønn hvis tallene matcher. Gul hvis det finnes mindre eller forklarbare avvik. Rød hvis viktige tall er ulike eller mangler.",
         href: "/admin/annual-report-unified-confidence",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Systemet sammenligner linje for linje og Ã¥r for Ã¥r. Det ser etter like tall, smÃ¥ avvik, store avvik, manglende linjer og forskjeller i enhetsskala.",
+            "Systemet sammenligner linje for linje og år for år. Det ser etter like tall, små avvik, store avvik, manglende linjer og forskjeller i enhetsskala.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Sammenligningen viser om den nye lÃ¸sningen gir samme resultat som dagens lÃ¸sning, eller om det finnes avvik som mÃ¥ undersÃ¸kes.",
+            "Sammenligningen viser om den nye løsningen gir samme resultat som dagens løsning, eller om det finnes avvik som må undersøkes.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
-            "Samme regnskapslinje kan ha ulike navn, tall kan vÃ¦re oppgitt i kroner, tusen kroner eller millioner kroner, eller Ã©n lÃ¸sning kan finne en linje som den andre ikke finner.",
+            "Hva kan gå galt?",
+            "Samme regnskapslinje kan ha ulike navn, tall kan være oppgitt i kroner, tusen kroner eller millioner kroner, eller én løsning kan finne en linje som den andre ikke finner.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Se etter store avvik og linjer markert som mismatch. Prioriter viktige linjer som inntekter, Ã¥rsresultat, eiendeler, egenkapital og gjeld.",
+            "Hva gjør admin?",
+            "Se etter store avvik og linjer markert som mismatch. Prioriter viktige linjer som inntekter, årsresultat, eiendeler, egenkapital og gjeld.",
           ],
         ]),
       },
@@ -855,7 +856,7 @@ function buildMainFlow(input: {
         key: "quality-gate",
         stepNumber: 7,
         title: "Systemet vurderer kvaliteten",
-        subtitle: "Systemet avgjÃ¸r om resultatet virker trygt nok, eller om det mÃ¥ undersÃ¸kes nÃ¦rmere.",
+        subtitle: "Systemet avgjør om resultatet virker trygt nok, eller om det må undersøkes nærmere.",
         status: confidenceStatus,
         tone:
           confidenceStatus === "HEALTHY"
@@ -870,33 +871,34 @@ function buildMainFlow(input: {
             ? `Siste quality gate: ${input.latestConfidence.gateVerdict ?? "UNKNOWN"}`
             : "Ingen quality gate funnet",
         typicalStatus:
-          "GrÃ¸nn hvis kvaliteten er god. Gul hvis menneskelig kontroll anbefales. RÃ¸d hvis resultatet ikke er trygt.",
+          "Grønn hvis kvaliteten er god. Gul hvis menneskelig kontroll anbefales. Rød hvis resultatet ikke er trygt.",
         href: "/admin/annual-report-unified-confidence",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Systemet bruker regler og kvalitetssjekker for Ã¥ vurdere om uttrekket er pÃ¥litelig. Det ser blant annet pÃ¥ manglende tall, store avvik, ukjent enhetsskala og usikre dokumentseksjoner.",
+            "Systemet bruker regler og kvalitetssjekker for å vurdere om uttrekket er pålitelig. Det ser blant annet på manglende tall, store avvik, ukjent enhetsskala og usikre dokumentseksjoner.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Dette er sikkerhetskontrollen som hindrer usikre eller feilaktige data fra Ã¥ gÃ¥ videre uten menneskelig vurdering.",
+            "Dette er sikkerhetskontrollen som hindrer usikre eller feilaktige data fra å gå videre uten menneskelig vurdering.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
-            "Systemet kan vÃ¦re for strengt og sende for mye til review, eller for svakt og slippe gjennom noe som burde vÃ¦rt kontrollert.",
+            "Hva kan gå galt?",
+            "Systemet kan være for strengt og sende for mye til review, eller for svakt og slippe gjennom noe som burde vært kontrollert.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Se pÃ¥ hvorfor saken fikk pass, warning eller fail. Hvis begrunnelsen virker alvorlig, Ã¥pne saken i review-kÃ¸en.",
+            "Hva gjør admin?",
+            "Se på hvorfor saken fikk pass, warning eller fail. Hvis begrunnelsen virker alvorlig, åpne saken i review-køen.",
           ],
         ]),
       },
       {
         key: "manual-review-decision",
         stepNumber: 8,
-        title: "MÃ¥ rapporten kontrolleres manuelt?",
-        subtitle: "Systemet avgjÃ¸r om et menneske mÃ¥ kontrollere rapporten fÃ¸r tallene kan brukes.",
+        actor: "decision",
+        title: "Må rapporten kontrolleres manuelt?",
+        subtitle: "Systemet avgjør om et menneske må kontrollere rapporten før tallene kan brukes.",
         status:
           input.reviewQueueCount > 0
             ? "WARNING"
@@ -907,33 +909,33 @@ function buildMainFlow(input: {
         metric:
           input.reviewQueueCount > 0
             ? `${formatCount(input.reviewQueueCount)} saker er sendt til manuell kontroll`
-            : "Ingen Ã¥pne saker i review-kÃ¸en akkurat nÃ¥",
+            : "Ingen åpne saker i review-køen akkurat nå",
         typicalStatus:
-          "GrÃ¸nn hvis de fleste saker gÃ¥r trygt videre. Gul hvis mange saker krever review. RÃ¸d hvis beslutningsgrunnlaget mangler.",
+          "Grønn hvis de fleste saker går trygt videre. Gul hvis mange saker krever review. Rød hvis beslutningsgrunnlaget mangler.",
         href: "/admin/annual-report-reviews",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Dette er et beslutningspunkt. Hvis systemet er trygt pÃ¥ resultatet, kan rapporten gÃ¥ videre. Hvis systemet er usikkert, sendes rapporten til manuell kontroll.",
+            "Dette er et beslutningspunkt. Hvis systemet er trygt på resultatet, kan rapporten gå videre. Hvis systemet er usikkert, sendes rapporten til manuell kontroll.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Manuell kontroll er sikkerhetsnettet som gjÃ¸r at vi kan behandle mange rapporter automatisk uten Ã¥ slippe gjennom usikre data.",
+            "Manuell kontroll er sikkerhetsnettet som gjør at vi kan behandle mange rapporter automatisk uten å slippe gjennom usikre data.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
+            "Hva kan gå galt?",
             "For mange rapporter kan havne i manuell kontroll, eller en usikker rapport kan bli feilklassifisert som trygg.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "FÃ¸lg statusen. Hvis saken er sendt til manuell kontroll, Ã¥pne review-kÃ¸en og behandle den der. Hvis mange saker havner her, bÃ¸r mÃ¸nsteret brukes til kalibrering og feilretting.",
+            "Hva gjør admin?",
+            "Følg statusen. Hvis saken er sendt til manuell kontroll, åpne review-køen og behandle den der. Hvis mange saker havner her, bør mønsteret brukes til kalibrering og feilretting.",
           ],
         ]),
         decisionPaths: [
           {
             label: "Nei, kvaliteten er god nok",
-            description: "Rapporten kan gÃ¥ videre til lagring.",
+            description: "Rapporten kan gå videre til lagring.",
             targetStep: 10,
           },
           {
@@ -946,6 +948,7 @@ function buildMainFlow(input: {
       {
         key: "manual-review",
         stepNumber: 9,
+        actor: "human",
         title: "Manuell kontroll",
         subtitle: "En admin eller reviewer kontrollerer rapporter der systemet er usikkert.",
         status:
@@ -955,27 +958,27 @@ function buildMainFlow(input: {
               ? "FAILING"
               : "WARNING",
         tone: "PURPLE",
-        metric: `${formatCount(input.reviewQueueCount)} saker i review-kÃ¸en`,
+        metric: `${formatCount(input.reviewQueueCount)} saker i review-køen`,
         typicalStatus:
-          "GrÃ¸nn hvis kÃ¸en er under kontroll. Gul hvis mange saker venter. RÃ¸d hvis hÃ¸y-alvorlige saker blokkerer videre behandling.",
+          "Grønn hvis køen er under kontroll. Gul hvis mange saker venter. Rød hvis høy-alvorlige saker blokkerer videre behandling.",
         href: "/admin/annual-report-reviews",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Reviewer ser pÃ¥ originalrapporten, maskinens forslag, sammenligninger og varsler. Reviewer kan godkjenne, avvise, korrigere eller sende saken til ny behandling.",
+            "Reviewer ser på originalrapporten, maskinens forslag, sammenligninger og varsler. Reviewer kan godkjenne, avvise, korrigere eller sende saken til ny behandling.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Dette er stedet der menneskelig dÃ¸mmekraft brukes for Ã¥ hindre feil i databasen og samtidig lÃ¦re hva systemet bÃ¸r bli bedre pÃ¥.",
+            "Dette er stedet der menneskelig dømmekraft brukes for å hindre feil i databasen og samtidig lære hva systemet bør bli bedre på.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
-            "Reviewer kan mangle nÃ¸dvendig dokumentasjon, saken kan vÃ¦re vanskelig Ã¥ tolke, eller flere feilÃ¥rsaker kan vÃ¦re blandet sammen.",
+            "Hva kan gå galt?",
+            "Reviewer kan mangle nødvendig dokumentasjon, saken kan være vanskelig å tolke, eller flere feilårsaker kan være blandet sammen.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Ã…pne saken, kontroller de viktigste tallene mot PDF-en, legg inn beslutning og noter hva som var feil eller usikkert.",
+            "Hva gjør admin?",
+            "Åpne saken, kontroller de viktigste tallene mot PDF-en, legg inn beslutning og noter hva som var feil eller usikkert.",
           ],
         ]),
       },
@@ -983,7 +986,7 @@ function buildMainFlow(input: {
         key: "store-approved",
         stepNumber: 10,
         title: "Godkjente tall lagres",
-        subtitle: "NÃ¥r tallene er godkjent, lagres de som strukturerte data i databasen.",
+        subtitle: "Når tallene er godkjent, lagres de som strukturerte data i databasen.",
         status:
           input.approvedCount > 0
             ? "HEALTHY"
@@ -998,8 +1001,8 @@ function buildMainFlow(input: {
               : "BLUE",
         metric: `${formatCount(input.approvedCount)} rapporter er publisert eller lagret ferdig`,
         typicalStatus:
-          "GrÃ¸nn hvis tallene er lagret med sporbarhet. Gul hvis noe metadata mangler. RÃ¸d hvis lagring feiler.",
-        unavailableLabel: "Ingen egen side ennÃ¥",
+          "Grønn hvis tallene er lagret med sporbarhet. Gul hvis noe metadata mangler. Rød hvis lagring feiler.",
+        unavailableLabel: "Ingen egen side ennå",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
@@ -1007,15 +1010,15 @@ function buildMainFlow(input: {
           ],
           [
             "Hvorfor er dette viktig?",
-            "Dette gjÃ¸r at tallene kan brukes trygt i produktet, samtidig som vi kan spore hvor de kom fra og hvordan de ble godkjent.",
+            "Dette gjør at tallene kan brukes trygt i produktet, samtidig som vi kan spore hvor de kom fra og hvordan de ble godkjent.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
-            "Lagring kan feile, duplikater kan oppstÃ¥, eller tall kan mangle nÃ¸dvendig sporbarhet.",
+            "Hva kan gå galt?",
+            "Lagring kan feile, duplikater kan oppstå, eller tall kan mangle nødvendig sporbarhet.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Sjekk om saken er markert som lagret og godkjent. Hvis lagring feiler, send saken til teknisk oppfÃ¸lging eller reprosessering.",
+            "Hva gjør admin?",
+            "Sjekk om saken er markert som lagret og godkjent. Hvis lagring feiler, send saken til teknisk oppfølging eller reprosessering.",
           ],
         ]),
       },
@@ -1023,7 +1026,7 @@ function buildMainFlow(input: {
         key: "available-in-product",
         stepNumber: 11,
         title: "Tallene blir tilgjengelige i produktet",
-        subtitle: "Godkjente regnskapstall kan brukes i sÃ¸k, selskapsvisninger, analyser og andre produktflater.",
+        subtitle: "Godkjente regnskapstall kan brukes i søk, selskapsvisninger, analyser og andre produktflater.",
         status:
           input.approvedCount > 0
             ? "HEALTHY"
@@ -1037,24 +1040,24 @@ function buildMainFlow(input: {
             ? `${formatCount(input.approvedCount)} rapporter har tall som kan brukes videre`
             : "Ingen bekreftet publiserte tall funnet",
         typicalStatus:
-          "GrÃ¸nn hvis tallene er synlige og brukbare. Gul hvis publisering eller indeksering mangler. RÃ¸d hvis dataene ikke vises der de skal.",
-        unavailableLabel: "Ingen egen side ennÃ¥",
+          "Grønn hvis tallene er synlige og brukbare. Gul hvis publisering eller indeksering mangler. Rød hvis dataene ikke vises der de skal.",
+        unavailableLabel: "Ingen egen side ennå",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "NÃ¥r dataene er lagret, kan de vises pÃ¥ selskapssider, brukes i sÃ¸k, filtrering, analyser, rapporter og investeringsrelaterte arbeidsflyter.",
+            "Når dataene er lagret, kan de vises på selskapssider, brukes i søk, filtrering, analyser, rapporter og investeringsrelaterte arbeidsflyter.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Dette er sluttverdien av hele prosessen: en ustrukturert Ã¥rsrapport blir til sÃ¸kbare og analyserbare regnskapstall.",
+            "Dette er sluttverdien av hele prosessen: en ustrukturert årsrapport blir til søkbare og analyserbare regnskapstall.",
           ],
           [
-            "Hva kan gÃ¥ galt?",
-            "Data kan vÃ¦re lagret, men ikke indeksert, ikke synlig i UI, eller koblet feil til selskapssiden.",
+            "Hva kan gå galt?",
+            "Data kan være lagret, men ikke indeksert, ikke synlig i UI, eller koblet feil til selskapssiden.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Kontroller at tallene vises riktig pÃ¥ selskapssiden eller i relevant analyseflate. Hvis tallene ikke vises, sjekk indeksering, kobling og publiseringsstatus.",
+            "Hva gjør admin?",
+            "Kontroller at tallene vises riktig på selskapssiden eller i relevant analyseflate. Hvis tallene ikke vises, sjekk indeksering, kobling og publiseringsstatus.",
           ],
         ]),
       },
@@ -1152,13 +1155,13 @@ function buildGoLiveFlow(input: {
   return {
     title: "Veien mot go-live for ny ekstraksjonsmotor",
     subtitle:
-      "Denne flyten viser hvordan vi tester, kontrollerer og gradvis ruller ut den nye ekstraksjonslÃ¸sningen pÃ¥ en trygg mÃ¥te.",
+      "Denne flyten viser hvordan vi tester, kontrollerer og gradvis ruller ut den nye ekstraksjonsløsningen på en trygg måte.",
     nodes: [
       {
         key: "gold-set",
         stepNumber: 1,
         title: "Bygg representativt testsett",
-        subtitle: "Velg rapporter som dekker de viktigste typene Ã¥rsrapporter systemet mÃ¥ hÃ¥ndtere.",
+        subtitle: "Velg rapporter som dekker de viktigste typene årsrapporter systemet må håndtere.",
         status: input.latestGoldSetRun ? "HEALTHY" : "NOT_STARTED",
         tone: "PURPLE",
         metric: input.latestGoldSetRun ? "Gold-set finnes lokalt" : "Ingen persisted gold-set funnet",
@@ -1166,14 +1169,14 @@ function buildGoLiveFlow(input: {
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Vi lager et gold-set med representative rapporter: enkle digitale rapporter, note-tunge rapporter, skannede rapporter, rapporter med ulike enhetsskalaer og rapporter som forventes Ã¥ kreve review.",
+            "Vi lager et gold-set med representative rapporter: enkle digitale rapporter, note-tunge rapporter, skannede rapporter, rapporter med ulike enhetsskalaer og rapporter som forventes å kreve review.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Vi kan ikke vurdere go-live pÃ¥ tilfeldige eller for enkle rapporter. Testsettet mÃ¥ ligne virkeligheten.",
+            "Vi kan ikke vurdere go-live på tilfeldige eller for enkle rapporter. Testsettet må ligne virkeligheten.",
           ],
           [
-            "Hva gjÃ¸r admin?",
+            "Hva gjør admin?",
             "Sjekk at testsettet dekker nok ulike rapporttyper og at ingen viktige kategorier mangler.",
           ],
         ]),
@@ -1181,51 +1184,51 @@ function buildGoLiveFlow(input: {
       {
         key: "shadow-batch",
         stepNumber: 2,
-        title: "KjÃ¸r shadow batch",
-        subtitle: "Den nye lÃ¸sningen kjÃ¸res i bakgrunnen uten Ã¥ pÃ¥virke produksjonsdata.",
+        title: "Kjør shadow batch",
+        subtitle: "Den nye løsningen kjøres i bakgrunnen uten å påvirke produksjonsdata.",
         status: goldSetStatus,
         tone: "PURPLE",
         metric: input.latestGoldSetRun
-          ? `Siste kjÃ¸ring: ${formatGoldSetRunStatus(input.latestGoldSetRun)}`
+          ? `Siste kjøring: ${formatGoldSetRunStatus(input.latestGoldSetRun)}`
           : "Ingen persisted shadow batch funnet",
         unavailableLabel: "Planlagt",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Systemet kjÃ¸rer gammel og ny ekstraksjonsmotor pÃ¥ de samme rapportene og lagrer resultatene for sammenligning.",
+            "Systemet kjører gammel og ny ekstraksjonsmotor på de samme rapportene og lagrer resultatene for sammenligning.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Dette lar oss teste den nye lÃ¸sningen trygt uten at brukere eller produksjonsdata pÃ¥virkes.",
+            "Dette lar oss teste den nye løsningen trygt uten at brukere eller produksjonsdata påvirkes.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Sjekk om kjÃ¸ringen er fullfÃ¸rt, hvor mange rapporter som passerte, og hvilke som feilet eller krever review.",
+            "Hva gjør admin?",
+            "Sjekk om kjøringen er fullført, hvor mange rapporter som passerte, og hvilke som feilet eller krever review.",
           ],
         ]),
       },
       {
         key: "manual-review-golive",
         stepNumber: 3,
-        title: "GjennomfÃ¸r manuell kontroll",
+        title: "Gjennomfør manuell kontroll",
         subtitle: "Mennesker kontrollerer usikre eller avvikende resultater.",
         status: input.reviewQueueCount > 0 ? "WARNING" : "HEALTHY",
         tone: "PURPLE",
-        metric: `${formatCount(input.reviewQueueCount)} saker i review-kÃ¸en`,
+        metric: `${formatCount(input.reviewQueueCount)} saker i review-køen`,
         href: "/admin/annual-report-reviews",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Reviewere gÃ¥r gjennom rapporter der systemet er usikkert, sammenligner mot PDF-en og registrerer beslutninger.",
+            "Reviewere går gjennom rapporter der systemet er usikkert, sammenligner mot PDF-en og registrerer beslutninger.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Manuell kontroll gir fasiten vi trenger for Ã¥ vite om systemet er trygt nok.",
+            "Manuell kontroll gir fasiten vi trenger for å vite om systemet er trygt nok.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Prioriter hÃ¸yalvorlige saker fÃ¸rst og sÃ¸rg for at review-beslutninger blir registrert tydelig.",
+            "Hva gjør admin?",
+            "Prioriter høyalvorlige saker først og sørg for at review-beslutninger blir registrert tydelig.",
           ],
         ]),
       },
@@ -1233,11 +1236,11 @@ function buildGoLiveFlow(input: {
         key: "calibration",
         stepNumber: 4,
         title: "Juster terskler og regler",
-        subtitle: "Bruk review-resultatene til Ã¥ gjÃ¸re kvalitetsvurderingene mer presise.",
+        subtitle: "Bruk review-resultatene til å gjøre kvalitetsvurderingene mer presise.",
         status: calibrationStatus,
         tone: calibrationTone,
         metric: calibrationMetric,
-        unavailableLabel: "Ingen egen side ennÃ¥",
+        unavailableLabel: "Ingen egen side ennå",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
@@ -1248,8 +1251,8 @@ function buildGoLiveFlow(input: {
             "For strenge regler gir for mye manuelt arbeid. For svake regler kan slippe gjennom feil.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Se om endringene reduserer unÃ¸dvendig review uten Ã¥ Ã¸ke risikoen for feil.",
+            "Hva gjør admin?",
+            "Se om endringene reduserer unødvendig review uten å øke risikoen for feil.",
           ],
         ]),
       },
@@ -1257,24 +1260,24 @@ function buildGoLiveFlow(input: {
         key: "failure-taxonomy",
         stepNumber: 5,
         title: "Klassifiser feiltyper",
-        subtitle: "Sorter feilene i tydelige kategorier slik at vi vet hva som mÃ¥ forbedres.",
+        subtitle: "Sorter feilene i tydelige kategorier slik at vi vet hva som må forbedres.",
         status: taxonomyStatus,
         tone: taxonomyTone,
         metric: taxonomyMetric,
         href: "/admin/pdf-parser-remediation",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Feil grupperes etter Ã¥rsak, for eksempel enhetsskala, tabellstruktur, OCR-stÃ¸y, manglende linjer eller feil seksjonsdeling.",
+            "Feil grupperes etter årsak, for eksempel enhetsskala, tabellstruktur, OCR-støy, manglende linjer eller feil seksjonsdeling.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Vi kan ikke fikse alt samtidig. Feilklassifisering viser hvilke problemer som er stÃ¸rst og viktigst.",
+            "Vi kan ikke fikse alt samtidig. Feilklassifisering viser hvilke problemer som er størst og viktigst.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Se hvilke feilklasser som gÃ¥r igjen, og prioriter de som pÃ¥virker flest rapporter eller har hÃ¸yest risiko.",
+            "Hva gjør admin?",
+            "Se hvilke feilklasser som går igjen, og prioriter de som påvirker flest rapporter eller har høyest risiko.",
           ],
         ]),
       },
@@ -1282,24 +1285,24 @@ function buildGoLiveFlow(input: {
         key: "fix-errors",
         stepNumber: 6,
         title: "Rett de viktigste feilene",
-        subtitle: "Utviklingsteamet fikser de feilene som gir stÃ¸rst utslag i kvaliteten.",
+        subtitle: "Utviklingsteamet fikser de feilene som gir størst utslag i kvaliteten.",
         status: extractionFixStatus,
         tone: extractionFixTone,
         metric: extractionFixMetric,
         href: "/admin/pdf-parser-remediation",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "De stÃ¸rste og mest alvorlige extraction-feilene rettes, for eksempel feil talltolkning, feil linjemapping eller problemer med fler-sidige balanser.",
+            "De største og mest alvorlige extraction-feilene rettes, for eksempel feil talltolkning, feil linjemapping eller problemer med fler-sidige balanser.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Systemet mÃ¥ forbedres pÃ¥ de feilene som faktisk hindrer trygg produksjonssetting.",
+            "Systemet må forbedres på de feilene som faktisk hindrer trygg produksjonssetting.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Kontroller om de samme feiltypene fortsatt dukker opp etter ny kjÃ¸ring.",
+            "Hva gjør admin?",
+            "Kontroller om de samme feiltypene fortsatt dukker opp etter ny kjøring.",
           ],
         ]),
       },
@@ -1311,7 +1314,7 @@ function buildGoLiveFlow(input: {
         status: readinessStatus,
         tone: readinessTone,
         metric: readinessMetric,
-        unavailableLabel: "Ingen egen side ennÃ¥",
+        unavailableLabel: "Ingen egen side ennå",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
@@ -1319,36 +1322,36 @@ function buildGoLiveFlow(input: {
           ],
           [
             "Hvorfor er dette viktig?",
-            "Go-live skal ikke baseres pÃ¥ magefÃ¸lelse. Beslutningen mÃ¥ baseres pÃ¥ mÃ¥lbar kvalitet og tydelige blokkeringer.",
+            "Go-live skal ikke baseres på magefølelse. Beslutningen må baseres på målbar kvalitet og tydelige blokkeringer.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Les readiness-rapporten og sjekk om det finnes Ã¥pne go-live-blokkeringer.",
+            "Hva gjør admin?",
+            "Les readiness-rapporten og sjekk om det finnes åpne go-live-blokkeringer.",
           ],
         ]),
       },
       {
         key: "canary-no-effect",
         stepNumber: 8,
-        title: "KjÃ¸r canary uten produksjonseffekt",
-        subtitle: "Test den nye lÃ¸sningen i produksjonsmiljÃ¸ uten at den pÃ¥virker publiserte data.",
+        title: "Kjør canary uten produksjonseffekt",
+        subtitle: "Test den nye løsningen i produksjonsmiljø uten at den påvirker publiserte data.",
         status: runtimeStatus === "BLOCKED" ? "WARNING" : "HEALTHY",
         tone: "PURPLE",
         metric: "Read-only canary preview er tilgjengelig",
         href: "/admin/pdf-parser-route-canary-preview",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Den nye lÃ¸sningen kjÃ¸res pÃ¥ en liten andel reelle produksjonstilfeller, men resultatene brukes bare til observasjon og sammenligning.",
+            "Den nye løsningen kjøres på en liten andel reelle produksjonstilfeller, men resultatene brukes bare til observasjon og sammenligning.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Dette viser hvordan systemet oppfÃ¸rer seg i ekte drift fÃ¸r det fÃ¥r pÃ¥virke brukerne.",
+            "Dette viser hvordan systemet oppfører seg i ekte drift før det får påvirke brukerne.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Sjekk om canary-kjÃ¸ringen skaper nye feil, treghet, manglende artifacts eller uventede avvik.",
+            "Hva gjør admin?",
+            "Sjekk om canary-kjøringen skaper nye feil, treghet, manglende artifacts eller uventede avvik.",
           ],
         ]),
       },
@@ -1356,27 +1359,27 @@ function buildGoLiveFlow(input: {
         key: "feature-flag",
         stepNumber: 9,
         title: "Aktiver routing bak feature flag",
-        subtitle: "Ny produksjonsrouting forberedes, men styres av en sikker av/pÃ¥-bryter.",
+        subtitle: "Ny produksjonsrouting forberedes, men styres av en sikker av/på-bryter.",
         status: canaryMode === "DISABLED" ? "NOT_STARTED" : "WARNING",
         tone: canaryMode === "DISABLED" ? "BLUE" : "PURPLE",
         metric:
           canaryMode === "DISABLED"
             ? "Feature flag er av som trygg standard"
-            : `Feature flag stÃ¥r i modus ${canaryMode}`,
+            : `Feature flag står i modus ${canaryMode}`,
         href: "/admin/pdf-parser-route-assignment-preview",
-        linkLabel: "Ã…pne",
+        linkLabel: "Åpne",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Systemet fÃ¥r teknisk stÃ¸tte for Ã¥ route enkelte tilfeller til ny lÃ¸sning, men bare nÃ¥r feature flag tillater det.",
+            "Systemet får teknisk støtte for å route enkelte tilfeller til ny løsning, men bare når feature flag tillater det.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Feature flag gjÃ¸r det mulig Ã¥ aktivere gradvis og slÃ¥ raskt av hvis noe gÃ¥r galt.",
+            "Feature flag gjør det mulig å aktivere gradvis og slå raskt av hvis noe går galt.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Kontroller at flagget stÃ¥r i riktig modus og at legacy fortsatt er trygg fallback.",
+            "Hva gjør admin?",
+            "Kontroller at flagget står i riktig modus og at legacy fortsatt er trygg fallback.",
           ],
         ]),
       },
@@ -1384,11 +1387,11 @@ function buildGoLiveFlow(input: {
         key: "publish-gate",
         stepNumber: 10,
         title: "Sikre publish gate",
-        subtitle: "Kun data som er trygge nok fÃ¥r pÃ¥virke produksjonsvisninger.",
+        subtitle: "Kun data som er trygge nok får påvirke produksjonsvisninger.",
         status: "HEALTHY",
         tone: "GREEN",
         metric: "Legacy brukes fortsatt som publish-safe kilde",
-        unavailableLabel: "Ingen egen side ennÃ¥",
+        unavailableLabel: "Ingen egen side ennå",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
@@ -1399,16 +1402,16 @@ function buildGoLiveFlow(input: {
             "Dette hindrer at usikre unified-resultater slipper ut til brukerne.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Sjekk at usikre resultater blokkeres, og at legacy fortsatt brukes nÃ¥r unified ikke er godkjent.",
+            "Hva gjør admin?",
+            "Sjekk at usikre resultater blokkeres, og at legacy fortsatt brukes når unified ikke er godkjent.",
           ],
         ]),
       },
       {
         key: "observability",
         stepNumber: 11,
-        title: "OvervÃ¥kning, varsler og kill switch",
-        subtitle: "Systemet overvÃ¥kes, og ny routing kan stoppes raskt hvis noe gÃ¥r galt.",
+        title: "Overvåkning, varsler og kill switch",
+        subtitle: "Systemet overvåkes, og ny routing kan stoppes raskt hvis noe går galt.",
         status: "UNKNOWN",
         tone: "BLUE",
         metric: "Ingen egen side for varsler eller kill switch funnet",
@@ -1416,15 +1419,15 @@ function buildGoLiveFlow(input: {
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Vi fÃ¸lger med pÃ¥ feilrate, review-rate, runtime-problemer, datakvalitet og eventuelle produksjonsavvik.",
+            "Vi følger med på feilrate, review-rate, runtime-problemer, datakvalitet og eventuelle produksjonsavvik.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Go-live er ikke trygt uten observability og en rask mÃ¥te Ã¥ stoppe feil pÃ¥.",
+            "Go-live er ikke trygt uten observability og en rask måte å stoppe feil på.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "FÃ¸lg varsler og stopp utrulling hvis feilrate eller datakvalitet blir dÃ¥rligere enn akseptabelt.",
+            "Hva gjør admin?",
+            "Følg varsler og stopp utrulling hvis feilrate eller datakvalitet blir dårligere enn akseptabelt.",
           ],
         ]),
       },
@@ -1432,23 +1435,23 @@ function buildGoLiveFlow(input: {
         key: "limited-go-live",
         stepNumber: 12,
         title: "Begrenset go-live",
-        subtitle: "Den nye lÃ¸sningen aktiveres for et lite og kontrollert omrÃ¥de.",
+        subtitle: "Den nye løsningen aktiveres for et lite og kontrollert område.",
         status: "NOT_STARTED",
         tone: "BLUE",
-        metric: "Ikke aktivert ennÃ¥",
+        metric: "Ikke aktivert ennå",
         unavailableLabel: "Planlagt",
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Unified extraction kan brukes for en avgrenset gruppe rapporter, selskaper eller dokumenttyper, med tett oppfÃ¸lging.",
+            "Unified extraction kan brukes for en avgrenset gruppe rapporter, selskaper eller dokumenttyper, med tett oppfølging.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Begrenset utrulling reduserer risiko og gir oss mulighet til Ã¥ oppdage problemer tidlig.",
+            "Begrenset utrulling reduserer risiko og gir oss mulighet til å oppdage problemer tidlig.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "FÃ¸lg nÃ¸kkeltall tett og kontroller at review-rate, feilrate og publish gate oppfÃ¸rer seg som forventet.",
+            "Hva gjør admin?",
+            "Følg nøkkeltall tett og kontroller at review-rate, feilrate og publish gate oppfører seg som forventet.",
           ],
         ]),
       },
@@ -1456,7 +1459,7 @@ function buildGoLiveFlow(input: {
         key: "gradual-expansion",
         stepNumber: 13,
         title: "Gradvis utvidelse",
-        subtitle: "Dekningen Ã¸kes nÃ¥r systemet har vist stabil kvalitet over tid.",
+        subtitle: "Dekningen økes når systemet har vist stabil kvalitet over tid.",
         status: "NOT_STARTED",
         tone: "BLUE",
         metric: "Ikke startet",
@@ -1464,15 +1467,15 @@ function buildGoLiveFlow(input: {
         helpSections: buildHelpSections([
           [
             "Hva skjer her?",
-            "Flere rapporttyper og stÃ¸rre volum flyttes gradvis over til den nye lÃ¸sningen etter hvert som kvalitet og drift er dokumentert stabil.",
+            "Flere rapporttyper og større volum flyttes gradvis over til den nye løsningen etter hvert som kvalitet og drift er dokumentert stabil.",
           ],
           [
             "Hvorfor er dette viktig?",
-            "Dette lar oss skalere trygt uten Ã¥ ta unÃ¸dvendig produksjonsrisiko.",
+            "Dette lar oss skalere trygt uten å ta unødvendig produksjonsrisiko.",
           ],
           [
-            "Hva gjÃ¸r admin?",
-            "Kontroller at hver utvidelse har god nok kvalitet fÃ¸r neste steg Ã¥pnes.",
+            "Hva gjør admin?",
+            "Kontroller at hver utvidelse har god nok kvalitet før neste steg åpnes.",
           ],
         ]),
       },
@@ -1600,7 +1603,7 @@ export async function buildAdminControlCenterModel(
       : !latestGoldSetRun
       ? "Ukjent"
       : goldSetStatus === "FAILING"
-        ? "Krever oppfÃ¸lging"
+        ? "Krever oppfølging"
         : goldSetStatus === "WARNING"
           ? "Under testing"
           : "Ser stabil ut";
@@ -1631,12 +1634,12 @@ export async function buildAdminControlCenterModel(
   return {
     title: "Admin Control Center",
     subtitle:
-      "Kontrollrom for Ã¥rsrapportflyt, manuell review og trygg utrulling av ny ekstraksjonsmotor.",
+      "Kontrollrom for årsrapportflyt, manuell review og trygg utrulling av ny ekstraksjonsmotor.",
     generatedAt: now.toISOString(),
     summaryCards: [
       {
         key: "review-queue",
-        title: "Rapporter i review-kÃ¸",
+        title: "Rapporter i review-kø",
         value: latestManualReviewRound
           ? formatCount(latestManualReviewRound.summary.pendingCount)
           : formatCount(reviewQueueCount),
@@ -1645,7 +1648,7 @@ export async function buildAdminControlCenterModel(
             ? "Pending kandidater i siste gold-set manual review round."
             : reviewQueueCount > 0
               ? "Rapporter som trenger manuell vurdering eller ny behandling."
-              : "Ingen Ã¥pne reviewsaker akkurat nÃ¥.",
+              : "Ingen åpne reviewsaker akkurat nå.",
         status:
           latestManualReviewRound
             ? latestManualReviewRound.summary.pendingCount > 0
@@ -1692,9 +1695,9 @@ export async function buildAdminControlCenterModel(
           : formatCount(approvedCount),
         detail:
           latestManualReviewRound
-            ? "Kandidater som allerede har fÃ¥tt filing-nivÃ¥ beslutning i review-runden."
+            ? "Kandidater som allerede har fått filing-nivå beslutning i review-runden."
             : overview === null
-              ? "Ingen pÃ¥litelig publiseringsstatistikk tilgjengelig."
+              ? "Ingen pålitelig publiseringsstatistikk tilgjengelig."
               : "Rapporter som er publisert eller lagret som godkjente tall.",
         status:
           latestManualReviewRound
@@ -1726,11 +1729,11 @@ export async function buildAdminControlCenterModel(
           : formatCount(failedCount),
         detail:
           latestManualReviewRound
-            ? "Kandidater med hÃ¸y alvorlighet som bÃ¸r prioriteres fÃ¸rst i manuell review."
+            ? "Kandidater med høy alvorlighet som bør prioriteres først i manuell review."
             : overview === null
               ? "Ukjent hvor mange rapporter som har stoppet med feil."
               : failedCount > 0
-                ? "Rapporter som stoppet fÃ¸r trygg lagring eller publisering."
+                ? "Rapporter som stoppet før trygg lagring eller publisering."
                 : "Ingen kjente feilede rapporter i tilgjengelige data.",
         status:
           latestManualReviewRound
@@ -1772,7 +1775,7 @@ export async function buildAdminControlCenterModel(
         detail:
           latestCalibrationReport
             ? `Review rate: ${latestCalibrationReport.metrics.manualReviewRate === null ? "Ukjent" : `${Math.round(latestCalibrationReport.metrics.manualReviewRate * 100)}%`}. High severity miss: ${latestCalibrationReport.metrics.highSeverityMissCount}. Report: ${latestCalibrationReport.output.markdownPath}`
-            : "Ingen persisted calibration report er funnet ennÃƒÂ¥.",
+            : "Ingen persisted calibration report er funnet enn?.",
         status:
           latestCalibrationReport === null
             ? "UNKNOWN"
@@ -1842,8 +1845,8 @@ export async function buildAdminControlCenterModel(
           latestReadinessReport
             ? `Blokkere: ${latestReadinessReport.blockers.length}. Rapport: ${latestReadinessReport.output.markdownPath}`
             : latestGoldSetRun
-              ? "Bygger pÃ¥ siste shadow batch, review-kÃ¸ og tilgjengelig quality-data."
-              : "For lite samlet evidens til Ã¥ vurdere go-live.",
+              ? "Bygger på siste shadow batch, review-kø og tilgjengelig quality-data."
+              : "For lite samlet evidens til å vurdere go-live.",
         status:
           latestReadinessReport
             ? latestReadinessReport.decision === "GO"
@@ -1883,17 +1886,17 @@ export async function buildAdminControlCenterModel(
       },
       {
         key: "highest-priority",
-        title: latestManualReviewRound ? "Top issue class" : "HÃ¸yeste prioritet nÃ¥",
+        title: latestManualReviewRound ? "Top issue class" : "Høyeste prioritet nå",
         value: latestManualReviewRound
           ? topIssueClassEntry?.[0] ?? "Ingen data"
-          : attentionItems[0]?.title ?? "Ingen Ã¥pne problemer",
+          : attentionItems[0]?.title ?? "Ingen åpne problemer",
         detail:
           latestManualReviewRound
             ? topIssueClassEntry
-              ? `${topIssueClassEntry[1]} kandidater i siste review-runde deler denne hovedÃ¥rsaken.`
-              : "Ingen issue classes er registrert i siste review-runde ennÃ¥."
+              ? `${topIssueClassEntry[1]} kandidater i siste review-runde deler denne hovedårsaken.`
+              : "Ingen issue classes er registrert i siste review-runde ennå."
             : attentionItems[0]?.description ??
-              "Ingen Ã¥pne problemer funnet basert pÃ¥ tilgjengelige data.",
+              "Ingen åpne problemer funnet basert på tilgjengelige data.",
         status:
           latestManualReviewRound
             ? topIssueClassEntry
@@ -1938,15 +1941,15 @@ export async function buildAdminControlCenterModel(
         value: "Legacy-only publish",
         detail:
           shadowConfig.mode === "DISABLED"
-            ? "Unified shadow-only er av eller ikke aktivert i dette miljÃ¸et. Legacy er fortsatt trygg publiseringskilde."
+            ? "Unified shadow-only er av eller ikke aktivert i dette miljøet. Legacy er fortsatt trygg publiseringskilde."
             : "Unified shadow-only er aktiv som evaluering. Legacy er fortsatt trygg publiseringskilde.",
         status: "HEALTHY",
         tone: "GREEN",
       },
     ],
-    attentionTitle: "Hva trenger oppmerksomhet nÃ¥?",
+    attentionTitle: "Hva trenger oppmerksomhet nå?",
     attentionItems,
-    attentionEmptyState: "Ingen Ã¥pne problemer funnet basert pÃ¥ tilgjengelige data.",
+    attentionEmptyState: "Ingen åpne problemer funnet basert på tilgjengelige data.",
     mainFlow: buildMainFlow({
       newReportsCount,
       approvedCount,
@@ -1970,61 +1973,61 @@ export async function buildAdminControlCenterModel(
     onboardingItems: [
       {
         stepNumber: 1,
-        text: 'Start med flyten "Fra Ã¥rsrapport til tall i databasen".',
+        text: 'Start med flyten "Fra årsrapport til tall i databasen".',
       },
       {
         stepNumber: 2,
-        text: "Se etter gule og rÃ¸de steg.",
+        text: "Se etter gule og røde steg.",
       },
       {
         stepNumber: 3,
-        text: "Ã…pne steget som trenger oppmerksomhet.",
+        text: "Åpne steget som trenger oppmerksomhet.",
       },
       {
         stepNumber: 4,
-        text: 'FÃ¸lg forklaringen under "Hva gjÃ¸r admin?".',
+        text: 'Følg forklaringen under "Hva gjør admin?".',
       },
       {
         stepNumber: 5,
-        text: "Bruk go-live-flyten for Ã¥ se om den nye ekstraksjonsmotoren er klar for produksjon.",
+        text: "Bruk go-live-flyten for å se om den nye ekstraksjonsmotoren er klar for produksjon.",
       },
     ],
     glossaryTitle: "Begreper",
     glossaryItems: [
       {
-        term: "Ã…rsrapport",
+        term: "Årsrapport",
         definition:
-          "Et offisielt regnskapsdokument som inneholder selskapets Ã¥rsregnskap, noter, styreberetning og ofte revisorberetning.",
+          "Et offisielt regnskapsdokument som inneholder selskapets årsregnskap, noter, styreberetning og ofte revisorberetning.",
       },
       {
         term: "PDF",
         definition:
-          "Selve dokumentfilen systemet skal lese. Noen PDF-er er enkle digitale dokumenter, andre er skannede eller vanskelige Ã¥ tolke.",
+          "Selve dokumentfilen systemet skal lese. Noen PDF-er er enkle digitale dokumenter, andre er skannede eller vanskelige å tolke.",
       },
       {
         term: "Artifact",
         definition:
-          "En lagret fil eller et mellomresultat i prosessen. Det kan vÃ¦re original PDF, kvalitetssjekk, strukturert dokument, uttrekk eller sammenligningsresultat.",
+          "En lagret fil eller et mellomresultat i prosessen. Det kan være original PDF, kvalitetssjekk, strukturert dokument, uttrekk eller sammenligningsresultat.",
       },
       {
         term: "Legacy",
         definition:
-          "Dagens etablerte ekstraksjonslÃ¸sning. Den er fortsatt trygg kilde for publisering.",
+          "Dagens etablerte ekstraksjonsløsning. Den er fortsatt trygg kilde for publisering.",
       },
       {
         term: "Unified",
         definition:
-          "Den nye ekstraksjonslÃ¸sningen som testes og gradvis skal bli bedre. Den kjÃ¸res forelÃ¸pig som kontroll/shadow der det er aktuelt.",
+          "Den nye ekstraksjonsløsningen som testes og gradvis skal bli bedre. Den kjøres foreløpig som kontroll/shadow der det er aktuelt.",
       },
       {
         term: "Shadow run",
         definition:
-          "En testkjÃ¸ring der systemet behandler rapporter i bakgrunnen uten Ã¥ pÃ¥virke produksjonsdata.",
+          "En testkjøring der systemet behandler rapporter i bakgrunnen uten å påvirke produksjonsdata.",
       },
       {
         term: "Confidence gate",
         definition:
-          "En sikkerhetskontroll som vurderer om resultatet er trygt nok, bÃ¸r sendes til manuell review eller mÃ¥ blokkeres.",
+          "En sikkerhetskontroll som vurderer om resultatet er trygt nok, bør sendes til manuell review eller må blokkeres.",
       },
       {
         term: "Manuell review",
@@ -2034,40 +2037,40 @@ export async function buildAdminControlCenterModel(
       {
         term: "Publish gate",
         definition:
-          "Siste kontroll fÃ¸r data kan pÃ¥virke det brukerne ser i produktet.",
+          "Siste kontroll før data kan påvirke det brukerne ser i produktet.",
       },
       {
         term: "Feature flag",
         definition:
-          "En kontrollert av/pÃ¥-bryter som lar oss aktivere eller deaktivere ny funksjonalitet trygt.",
+          "En kontrollert av/på-bryter som lar oss aktivere eller deaktivere ny funksjonalitet trygt.",
       },
       {
         term: "Kill switch",
         definition:
-          "En nÃ¸dmekanisme som raskt kan stoppe ny routing eller ny funksjonalitet hvis noe gÃ¥r galt.",
+          "En nødmekanisme som raskt kan stoppe ny routing eller ny funksjonalitet hvis noe går galt.",
       },
     ],
     legendTitle: "Statuslegend",
     legendItems: [
       {
-        colorLabel: "GrÃ¸nn",
+        colorLabel: "Grønn",
         tone: "GREEN",
         description: "Alt ser normalt ut. Steget fungerer eller har ingen kjente problemer.",
       },
       {
         colorLabel: "Gul",
         tone: "YELLOW",
-        description: "Trenger oppmerksomhet. Steget fungerer, men har saker som bÃ¸r fÃ¸lges opp.",
+        description: "Trenger oppmerksomhet. Steget fungerer, men har saker som bør følges opp.",
       },
       {
-        colorLabel: "RÃ¸d",
+        colorLabel: "Rød",
         tone: "RED",
-        description: "Feil eller blokkert. Steget har problemer som mÃ¥ lÃ¸ses fÃ¸r prosessen kan fortsette trygt.",
+        description: "Feil eller blokkert. Steget har problemer som må løses før prosessen kan fortsette trygt.",
       },
       {
-        colorLabel: "BlÃ¥/grÃ¥",
+        colorLabel: "Blå/grå",
         tone: "BLUE",
-        description: "Ikke startet eller ukjent. Systemet mangler nok data til Ã¥ vurdere status.",
+        description: "Ikke startet eller ukjent. Systemet mangler nok data til å vurdere status.",
       },
       {
         colorLabel: "Lilla",

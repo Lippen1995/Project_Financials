@@ -1,6 +1,8 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PdfModelArtifactKind } from "@prisma/client";
+import { AnnualReportRefreshButton } from "@/app/(app)/admin/AnnualReportRefreshButton";
+import { resolveOpenDataLoaderConfig } from "@/server/document-understanding/opendataloader-config";
 
 import { getUnifiedConfidenceFilingDrilldownForAdmin } from "@/server/services/annual-report-unified-confidence-drilldown-service";
 import {
@@ -30,15 +32,15 @@ import {
 function artifactLabel(kind: PdfModelArtifactKind) {
   switch (kind) {
     case PdfModelArtifactKind.UNIFIED_PARSER_DOCUMENT:
-      return "Parser document";
+      return "Dokumenttolkning";
     case PdfModelArtifactKind.UNIFIED_FINANCIAL_EXTRACTION:
-      return "Financial extraction";
+      return "Uthentede regnskapstall";
     case PdfModelArtifactKind.UNIFIED_NARRATIVE_EXTRACTION:
-      return "Narrative extraction";
+      return "Uthentet tekstinnhold";
     case PdfModelArtifactKind.LEGACY_VS_UNIFIED_EXTRACTION_COMPARISON:
-      return "Legacy vs unified comparison";
+      return "Sammenligning mot dagens løsning";
     case PdfModelArtifactKind.UNIFIED_EXTRACTION_CONFIDENCE_GATE:
-      return "Confidence gate";
+      return "Kvalitetskontroll";
     default:
       return kind;
   }
@@ -58,7 +60,7 @@ function artifactStatusClass(status: "available" | "missing" | "malformed") {
 function ArtifactStatusBadge({ status }: { status: "available" | "missing" | "malformed" }) {
   return (
     <span className={`rounded border px-2 py-0.5 text-xs font-semibold ${artifactStatusClass(status)}`}>
-      {status}
+      {status === "available" ? "Klar" : status === "missing" ? "Mangler" : "Ugyldig"}
     </span>
   );
 }
@@ -85,6 +87,22 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
   const comparisonArtifact = drilldown.artifacts.comparison;
   const reviewSummary = await summarizeUnifiedConfidenceReviewFeedback(filingId);
   const reviewFeedback = await listUnifiedConfidenceReviewFeedbackForFiling(filingId);
+  const odlConfig = resolveOpenDataLoaderConfig();
+  const parserPageSummaries = parserArtifact.data?.pageSummaries ?? [];
+  const usefulTextPages = parserPageSummaries.filter((page) => page.hasUsefulText).length;
+  const hasZeroUnifiedValues =
+    (detail.shadowSummary.financialLineItemCount ?? 0) === 0 &&
+    (detail.shadowSummary.narrativeSectionCount ?? 0) === 0;
+  const hasStructuredTables = (parserArtifact.data?.tableSummaries.length ?? 0) > 0;
+  const unifiedRefreshMessage = hasZeroUnifiedValues
+    ? !odlConfig.enabled && usefulTextPages === 0
+      ? "Dokumentet mangler lesbart tekstlag, og OpenDataLoader er deaktivert. Derfor kan refresh fortsatt ende med 0 verdier."
+      : odlConfig.enabled && !hasStructuredTables
+        ? "Ny kjøring er mulig, men systemet fant foreløpig ingen tydelige tabeller i ODL-resultatet for dette dokumentet."
+        : usefulTextPages === 0
+          ? "Dokumentet ser ut til å ha svært lite lesbar tekst, så unified-resultatet trenger ekstra kontroll."
+          : null
+    : null;
 
   return (
     <div>
@@ -93,7 +111,7 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
           href={"/admin/annual-report-unified-confidence" as never}
           className="text-sm text-slate-500 hover:text-slate-700"
         >
-          ← Tilbake til Unified Confidence
+          ← Til unified kontroll
         </Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -101,12 +119,20 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
               {detail.companyName ?? "Ukjent selskap"}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Org.nr {detail.orgNumber ?? "—"} · Regnskapsår {detail.fiscalYear ?? "—"} · Filing {detail.filingId}
+              Org.nr {detail.orgNumber ?? "—"} · Regnskapsår {detail.fiscalYear ?? "—"} · Rapport-ID {detail.filingId}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-start gap-2">
             <StatusBadge status={detail.status} />
             <VerdictBadge verdict={detail.gateVerdict} />
+            <AnnualReportRefreshButton
+              scope="filing"
+              filingId={filingId}
+              label="Kjør refresh"
+              pendingLabel="Starter refresh..."
+              helperText="Kjører denne rapporten på nytt med dagens ekstraksjonsløype."
+              className="rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+            />
           </div>
         </div>
       </div>
@@ -121,27 +147,32 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
           {flash.error}
         </div>
       ) : null}
+      {unifiedRefreshMessage ? (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {unifiedRefreshMessage}
+        </div>
+      ) : null}
 
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <section className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-            Safety invariants
+            Trygghet for produksjon
           </h2>
           <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt className="text-slate-500">canUseForProductionRouting</dt>
+              <dt className="text-slate-500">Kan brukes i produksjonsrouting</dt>
               <dd className="mt-1 font-mono text-slate-700">{String(detail.safety.canUseForProductionRouting)}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">productionRoutingChanged</dt>
+              <dt className="text-slate-500">Endret produksjonsrouting</dt>
               <dd className="mt-1 font-mono text-slate-700">{String(detail.safety.productionRoutingChanged)}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">productionFactsMutated</dt>
+              <dt className="text-slate-500">Endret publiserte tall</dt>
               <dd className="mt-1 font-mono text-slate-700">{String(detail.safety.productionFactsMutated)}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">publishAffected</dt>
+              <dt className="text-slate-500">Påvirker publisering</dt>
               <dd className="mt-1 font-mono text-slate-700">{String(detail.safety.publishAffected)}</dd>
             </div>
           </dl>
@@ -149,25 +180,25 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
         <section className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-            Gate summary
+            Oppsummering av kvalitetskontroll
           </h2>
           <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt className="text-slate-500">Pass / Warn / Fail / Insufficient</dt>
+              <dt className="text-slate-500">Bestått / advarsel / feil / for lite grunnlag</dt>
               <dd className="mt-1 font-mono text-slate-700">
                 {detail.passCount}/{detail.warnCount}/{detail.failCount}/{detail.insufficientDataCount}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Generated at</dt>
+              <dt className="text-slate-500">Kjørt</dt>
               <dd className="mt-1 text-slate-700">{formatTimestamp(detail.generatedAt)}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Blocking checks</dt>
+              <dt className="text-slate-500">Blokkerende kontroller</dt>
               <dd className="mt-1 text-slate-700">{summarizeCodes(detail.blockingCheckCodes, 10)}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Warning checks</dt>
+              <dt className="text-slate-500">Kontroller med advarsel</dt>
               <dd className="mt-1 text-slate-700">{summarizeCodes(detail.warningCheckCodes, 10)}</dd>
             </div>
           </dl>
@@ -176,16 +207,16 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
       <section className="mb-6 rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-          Artifact availability
+          Tilgjengelige resultater
         </h2>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[rgba(15,23,42,0.08)] bg-[#f9f9f7]">
-                <th className="px-3 py-2 text-left font-medium text-slate-500">Artifact</th>
+                <th className="px-3 py-2 text-left font-medium text-slate-500">Resultat</th>
                 <th className="px-3 py-2 text-left font-medium text-slate-500">Status</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-500">Created</th>
-                <th className="px-3 py-2 text-left font-medium text-slate-500">Issues</th>
+                <th className="px-3 py-2 text-left font-medium text-slate-500">Opprettet</th>
+                <th className="px-3 py-2 text-left font-medium text-slate-500">Merknader</th>
               </tr>
             </thead>
             <tbody>
@@ -208,39 +239,39 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
       <section className="mb-6 rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-          Shadow extraction summary
+          Oppsummering av systemets uttrekk
         </h2>
         <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <dt className="text-slate-500">Document page count</dt>
+            <dt className="text-slate-500">Antall sider</dt>
             <dd className="mt-1 text-slate-700">{formatCount(detail.shadowSummary.documentPageCount)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Financial statement count</dt>
+            <dt className="text-slate-500">Antall regnskapsoppstillinger</dt>
             <dd className="mt-1 text-slate-700">{formatCount(detail.shadowSummary.financialStatementCount)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Financial line item count</dt>
+            <dt className="text-slate-500">Antall regnskapslinjer</dt>
             <dd className="mt-1 text-slate-700">{formatCount(detail.shadowSummary.financialLineItemCount)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Narrative section count</dt>
+            <dt className="text-slate-500">Antall tekstseksjoner</dt>
             <dd className="mt-1 text-slate-700">{formatCount(detail.shadowSummary.narrativeSectionCount)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Comparison fact count</dt>
+            <dt className="text-slate-500">Antall sammenlignede tall</dt>
             <dd className="mt-1 text-slate-700">{formatCount(detail.shadowSummary.comparisonFactCount)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Exact match count</dt>
+            <dt className="text-slate-500">Nøyaktige treff</dt>
             <dd className="mt-1 text-slate-700">{formatCount(detail.shadowSummary.comparisonExactMatchCount)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Mismatch count</dt>
+            <dt className="text-slate-500">Avvik</dt>
             <dd className="mt-1 text-slate-700">{formatCount(detail.shadowSummary.comparisonMismatchCount)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Comparison match rate</dt>
+            <dt className="text-slate-500">Treffsikkerhet i sammenligning</dt>
             <dd className="mt-1 text-slate-700">{formatPercent(detail.shadowSummary.comparisonMatchRate)}</dd>
           </div>
         </dl>
@@ -249,21 +280,21 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
       <div className="mb-6 grid gap-4 xl:grid-cols-2">
         <section className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-            Provenance and parser sections
+            Hva systemet fant i dokumentet
           </h2>
           {parserArtifact.data ? (
             <div className="mt-3 space-y-4">
               <div className="grid gap-3 text-sm sm:grid-cols-3">
                 <div>
-                  <div className="text-slate-500">Page summaries</div>
+                  <div className="text-slate-500">Sidesammendrag</div>
                   <div className="mt-1 text-slate-700">{parserArtifact.data.pageSummaries.length}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Section summaries</div>
+                  <div className="text-slate-500">Seksjoner</div>
                   <div className="mt-1 text-slate-700">{parserArtifact.data.sectionSummaries.length}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Table summaries</div>
+                  <div className="text-slate-500">Tabeller</div>
                   <div className="mt-1 text-slate-700">{parserArtifact.data.tableSummaries.length}</div>
                 </div>
               </div>
@@ -271,10 +302,10 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[rgba(15,23,42,0.08)] bg-[#f9f9f7]">
-                      <th className="px-3 py-2 text-left font-medium text-slate-500">Section</th>
-                      <th className="px-3 py-2 text-left font-medium text-slate-500">Pages</th>
-                      <th className="px-3 py-2 text-left font-medium text-slate-500">Confidence</th>
-                      <th className="px-3 py-2 text-left font-medium text-slate-500">Preview</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-500">Seksjon</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-500">Sider</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-500">Sikkerhet</th>
+                      <th className="px-3 py-2 text-left font-medium text-slate-500">Utdrag</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -305,10 +336,10 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
         <section className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-            Gate check context
+            Hvorfor saken ble flagget
           </h2>
           {drilldown.gateCheckContext.length === 0 ? (
-            <div className="mt-3 text-sm text-slate-400">Ingen failed eller warned checks med ekstra kontekst.</div>
+            <div className="mt-3 text-sm text-slate-400">Ingen kontroller med ekstra forklaring for denne saken.</div>
           ) : (
             <div className="mt-3 space-y-3">
               {drilldown.gateCheckContext.map((item) => (
@@ -328,7 +359,7 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
                   </ul>
                   {item.relatedArtifacts.length > 0 ? (
                     <div className="mt-2 text-xs text-slate-500">
-                      Artifacts: {item.relatedArtifacts.map((kind) => artifactLabel(kind)).join(", ")}
+                      Relevante resultater: {item.relatedArtifacts.map((kind) => artifactLabel(kind)).join(", ")}
                     </div>
                   ) : null}
                 </div>
@@ -340,22 +371,22 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
       <section className="mb-6 rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-          Financial line items
+          Foreslåtte regnskapstall
         </h2>
         {financialArtifact.data ? (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[rgba(15,23,42,0.08)] bg-[#f9f9f7]">
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Statement</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Original / normalized</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Canonical key</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Year</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Value</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Scale / sign</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Page / row</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Confidence</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Warnings</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Oppstilling</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Original / tolket tekst</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Nøkkel</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">År</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Verdi</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Skala / fortegn</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Side / rad</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Sikkerhet</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Merknader</th>
                 </tr>
               </thead>
               <tbody>
@@ -391,19 +422,19 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
       <section className="mb-6 rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-          Narrative sections
+          Foreslått tekstinnhold
         </h2>
         {narrativeArtifact.data ? (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[rgba(15,23,42,0.08)] bg-[#f9f9f7]">
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Kind</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Title</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Pages</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Confidence</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Provenance</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Preview</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Type</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Tittel</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Sider</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Sikkerhet</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Kilde</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Utdrag</th>
                 </tr>
               </thead>
               <tbody>
@@ -429,37 +460,37 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
       <section className="mb-6 rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-          Legacy-vs-unified comparison
+          Sammenligning mot dagens løsning
         </h2>
         {comparisonArtifact.data ? (
           <div className="mt-3 space-y-4">
             <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
               <div>
-                <dt className="text-slate-500">Total compared</dt>
+                <dt className="text-slate-500">Sammenlignede tall</dt>
                 <dd className="mt-1 text-slate-700">
                   {formatCount(Number(comparisonArtifact.data.summary.financialTotalCompared ?? 0))}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Exact matches</dt>
+                <dt className="text-slate-500">Lik verdi</dt>
                 <dd className="mt-1 text-slate-700">
                   {formatCount(Number(comparisonArtifact.data.summary.financialExactMatchCount ?? 0))}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Mismatches</dt>
+                <dt className="text-slate-500">Avvik</dt>
                 <dd className="mt-1 text-slate-700">
                   {formatCount(Number(comparisonArtifact.data.summary.financialMismatchCount ?? 0))}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Missing in unified</dt>
+                <dt className="text-slate-500">Mangler i unified</dt>
                 <dd className="mt-1 text-slate-700">
                   {formatCount(Number(comparisonArtifact.data.summary.financialMissingInUnifiedCount ?? 0))}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Missing in legacy</dt>
+                <dt className="text-slate-500">Mangler i dagens løsning</dt>
                 <dd className="mt-1 text-slate-700">
                   {formatCount(Number(comparisonArtifact.data.summary.financialMissingInLegacyCount ?? 0))}
                 </dd>
@@ -469,13 +500,13 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[rgba(15,23,42,0.08)] bg-[#f9f9f7]">
-                    <th className="px-3 py-2 text-left font-medium text-slate-500">Metric</th>
-                    <th className="px-3 py-2 text-left font-medium text-slate-500">Year</th>
-                    <th className="px-3 py-2 text-left font-medium text-slate-500">Legacy</th>
-                    <th className="px-3 py-2 text-left font-medium text-slate-500">Unified</th>
-                    <th className="px-3 py-2 text-left font-medium text-slate-500">Delta</th>
-                    <th className="px-3 py-2 text-left font-medium text-slate-500">Rel. dev</th>
-                    <th className="px-3 py-2 text-left font-medium text-slate-500">Severity</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-500">Målepunkt</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-500">År</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-500">Dagens løsning</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-500">Ny løsning</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-500">Avvik</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-500">Relativt avvik</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-500">Alvorlighet</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -504,27 +535,27 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
       <section className="mb-6 rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-          Manual review
+          Manuell kontroll
         </h2>
         <div className="mt-3 grid gap-4 xl:grid-cols-2">
           <div className="space-y-4">
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <div>
-                <div className="text-slate-500">Latest decision</div>
+                <div className="text-slate-500">Siste beslutning</div>
                 <div className="mt-1 text-slate-700">{reviewSummary.latestDecision?.action ?? "—"}</div>
               </div>
               <div>
-                <div className="text-slate-500">Total feedback</div>
+                <div className="text-slate-500">Antall tilbakemeldinger</div>
                 <div className="mt-1 text-slate-700">{reviewSummary.totalFeedback}</div>
               </div>
               <div>
-                <div className="text-slate-500">Accepted / rejected / follow-up</div>
+                <div className="text-slate-500">Godkjent / avvist / følg opp</div>
                 <div className="mt-1 text-slate-700">
                   {reviewSummary.acceptedCount}/{reviewSummary.rejectedCount}/{reviewSummary.needsReviewCount}
                 </div>
               </div>
               <div>
-                <div className="text-slate-500">Corrections</div>
+                <div className="text-slate-500">Korrigeringer</div>
                 <div className="mt-1 text-slate-700">{reviewSummary.correctionCount}</div>
               </div>
             </div>
@@ -533,61 +564,61 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
               <form action={acceptUnifiedConfidenceExtractionAction} className="rounded-md border border-[rgba(15,23,42,0.08)] p-3">
                 <input type="hidden" name="filingId" value={filingId} />
                 <label className="block text-xs font-medium uppercase tracking-widest text-slate-400">
-                  Accept
+                  Godkjenn
                 </label>
                 <textarea
                   name="notes"
                   rows={3}
                   className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Optional notes"
+                  placeholder="Valgfrie notater"
                 />
                 <button className="mt-3 rounded bg-green-600 px-3 py-2 text-sm font-medium text-white">
-                  Accept extraction
+                  Godkjenn uttrekk
                 </button>
               </form>
 
               <form action={rejectUnifiedConfidenceExtractionAction} className="rounded-md border border-[rgba(15,23,42,0.08)] p-3">
                 <input type="hidden" name="filingId" value={filingId} />
                 <label className="block text-xs font-medium uppercase tracking-widest text-slate-400">
-                  Reject
+                  Avvis
                 </label>
                 <textarea
                   name="reason"
                   required
                   rows={3}
                   className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Reason for rejection"
+                  placeholder="Hvorfor blir uttrekket avvist?"
                 />
                 <textarea
                   name="notes"
                   rows={2}
                   className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Optional notes"
+                  placeholder="Valgfrie notater"
                 />
                 <button className="mt-3 rounded bg-red-600 px-3 py-2 text-sm font-medium text-white">
-                  Reject extraction
+                  Avvis uttrekk
                 </button>
               </form>
 
               <form action={markUnifiedConfidenceNeedsReviewAction} className="rounded-md border border-[rgba(15,23,42,0.08)] p-3">
                 <input type="hidden" name="filingId" value={filingId} />
                 <label className="block text-xs font-medium uppercase tracking-widest text-slate-400">
-                  Needs follow-up
+                  Trenger oppfølging
                 </label>
                 <textarea
                   name="reason"
                   rows={3}
                   className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Why this needs follow-up"
+                  placeholder="Hvorfor trenger saken oppfølging?"
                 />
                 <textarea
                   name="notes"
                   rows={2}
                   className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Optional notes"
+                  placeholder="Valgfrie notater"
                 />
                 <button className="mt-3 rounded bg-slate-700 px-3 py-2 text-sm font-medium text-white">
-                  Mark needs review
+                  Marker for oppfølging
                 </button>
               </form>
             </div>
@@ -598,37 +629,37 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
               <input type="hidden" name="filingId" value={filingId} />
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="text-sm text-slate-600">
-                  Correction action
+                  Type korrigering
                   <select
                     name="action"
                     defaultValue={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_LINE_ITEM}
                     className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm"
                   >
-                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_LINE_ITEM}>CORRECT_LINE_ITEM</option>
-                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_SECTION_CLASSIFICATION}>CORRECT_SECTION_CLASSIFICATION</option>
-                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_UNIT_SCALE}>CORRECT_UNIT_SCALE</option>
-                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_CANONICAL_KEY}>CORRECT_CANONICAL_KEY</option>
-                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_PROVENANCE}>CORRECT_PROVENANCE</option>
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_LINE_ITEM}>Korriger regnskapslinje</option>
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_SECTION_CLASSIFICATION}>Korriger seksjonstype</option>
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_UNIT_SCALE}>Korriger skala</option>
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_CANONICAL_KEY}>Korriger nøkkel</option>
+                    <option value={UnifiedConfidenceReviewFeedbackActionValues.CORRECT_PROVENANCE}>Korriger kildehenvisning</option>
                   </select>
                 </label>
                 <label className="text-sm text-slate-600">
-                  Target type
+                  Hva gjelder korrigeringen?
                   <select
                     name="targetType"
                     defaultValue={UnifiedConfidenceReviewTargetTypeValues.FINANCIAL_LINE_ITEM}
                     className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm"
                   >
-                    <option value={UnifiedConfidenceReviewTargetTypeValues.FINANCIAL_LINE_ITEM}>FINANCIAL_LINE_ITEM</option>
-                    <option value={UnifiedConfidenceReviewTargetTypeValues.NARRATIVE_SECTION}>NARRATIVE_SECTION</option>
-                    <option value={UnifiedConfidenceReviewTargetTypeValues.UNIT_SCALE}>UNIT_SCALE</option>
-                    <option value={UnifiedConfidenceReviewTargetTypeValues.CANONICAL_KEY}>CANONICAL_KEY</option>
-                    <option value={UnifiedConfidenceReviewTargetTypeValues.PROVENANCE}>PROVENANCE</option>
-                    <option value={UnifiedConfidenceReviewTargetTypeValues.CHECK}>CHECK</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.FINANCIAL_LINE_ITEM}>Regnskapslinje</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.NARRATIVE_SECTION}>Tekstseksjon</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.UNIT_SCALE}>Skala</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.CANONICAL_KEY}>Nøkkel</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.PROVENANCE}>Kildehenvisning</option>
+                    <option value={UnifiedConfidenceReviewTargetTypeValues.CHECK}>Kontroll</option>
                   </select>
                 </label>
               </div>
               <label className="mt-3 block text-sm text-slate-600">
-                Target ref JSON
+                Referanse til det som skal korrigeres
                 <textarea
                   name="targetRefJson"
                   required
@@ -638,7 +669,7 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
                 />
               </label>
               <label className="mt-3 block text-sm text-slate-600">
-                Accepted value JSON
+                Korrekt verdi
                 <textarea
                   name="acceptedValueJson"
                   required
@@ -648,33 +679,33 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
                 />
               </label>
               <label className="mt-3 block text-sm text-slate-600">
-                Reason
+                Begrunnelse
                 <input
                   name="reason"
                   className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Optional reason"
+                  placeholder="Valgfri begrunnelse"
                 />
               </label>
               <label className="mt-3 block text-sm text-slate-600">
-                Notes
+                Notater
                 <textarea
                   name="notes"
                   rows={3}
                   className="mt-1 w-full rounded border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Optional notes"
+                  placeholder="Valgfrie notater"
                 />
               </label>
               <button className="mt-3 rounded bg-[#162233] px-3 py-2 text-sm font-medium text-white">
-                Save correction
+                Lagre korrigering
               </button>
             </form>
 
             <div className="rounded-md border border-[rgba(15,23,42,0.08)] p-3">
               <div className="text-xs font-medium uppercase tracking-widest text-slate-400">
-                Feedback history
+                Historikk
               </div>
               {reviewFeedback.length === 0 ? (
-                <div className="mt-2 text-sm text-slate-400">Ingen manual review feedback ennå.</div>
+                <div className="mt-2 text-sm text-slate-400">Ingen tilbakemeldinger registrert ennå.</div>
               ) : (
                 <div className="mt-3 space-y-2">
                   {reviewFeedback.slice(0, 8).map((entry) => (
@@ -684,8 +715,8 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
                         <span className="text-xs text-slate-500">{formatTimestamp(entry.createdAt)}</span>
                       </div>
                       <div className="mt-1 text-slate-700">{entry.targetType}</div>
-                      {entry.reason ? <div className="mt-1 text-slate-600">Reason: {entry.reason}</div> : null}
-                      {entry.notes ? <div className="mt-1 text-slate-600">Notes: {entry.notes}</div> : null}
+                      {entry.reason ? <div className="mt-1 text-slate-600">Begrunnelse: {entry.reason}</div> : null}
+                      {entry.notes ? <div className="mt-1 text-slate-600">Notater: {entry.notes}</div> : null}
                     </div>
                   ))}
                 </div>
@@ -697,20 +728,20 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
       <section className="mb-6 rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-          Full check table
+          Full oversikt over kontroller
         </h2>
         {detail.fullChecks.length === 0 ? (
-          <div className="mt-3 text-sm text-slate-400">Ingen validerte checks tilgjengelig for dette artifactet.</div>
+          <div className="mt-3 text-sm text-slate-400">Ingen validerte kontroller tilgjengelig for dette resultatet.</div>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[rgba(15,23,42,0.08)] bg-[#f9f9f7]">
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Check code</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Verdict</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Message</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Value</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Threshold</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Kontrollkode</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Vurdering</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Forklaring</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Verdi</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-500">Grense</th>
                 </tr>
               </thead>
               <tbody>
@@ -734,13 +765,13 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <section className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-            Errors and warnings
+            Feil og advarsler
           </h2>
           <div className="mt-3 grid gap-3 text-sm">
             <div>
-              <div className="font-medium text-slate-600">Errors</div>
+              <div className="font-medium text-slate-600">Feil</div>
               {detail.errors.length === 0 ? (
-                <div className="mt-1 text-slate-400">Ingen errors.</div>
+                <div className="mt-1 text-slate-400">Ingen feil.</div>
               ) : (
                 <ul className="mt-1 space-y-1 text-red-700">
                   {detail.errors.map((error) => (
@@ -750,9 +781,9 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
               )}
             </div>
             <div>
-              <div className="font-medium text-slate-600">Warnings</div>
+              <div className="font-medium text-slate-600">Advarsler</div>
               {detail.warnings.length === 0 ? (
-                <div className="mt-1 text-slate-400">Ingen warnings.</div>
+                <div className="mt-1 text-slate-400">Ingen advarsler.</div>
               ) : (
                 <ul className="mt-1 space-y-1 text-amber-700">
                   {detail.warnings.map((warning) => (
@@ -763,7 +794,7 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
             </div>
             {parserArtifact.data?.warnings.length ? (
               <div>
-                <div className="font-medium text-slate-600">Parser warnings</div>
+                <div className="font-medium text-slate-600">Advarsler fra dokumenttolkingen</div>
                 <ul className="mt-1 space-y-1 text-amber-700">
                   {parserArtifact.data.warnings.map((warning) => (
                     <li key={warning}>{warning}</li>
@@ -776,35 +807,35 @@ export default async function AnnualReportUnifiedConfidenceDetailPage({
 
         <section className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-            Artifact metadata
+            Tekniske detaljer
           </h2>
           <dl className="mt-3 grid gap-3 text-sm">
             <div>
-              <dt className="text-slate-500">Artifact ID</dt>
+              <dt className="text-slate-500">Resultat-ID</dt>
               <dd className="mt-1 font-mono text-xs text-slate-700">{detail.artifactId}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Artifact kind</dt>
+              <dt className="text-slate-500">Resultattype</dt>
               <dd className="mt-1 text-slate-700">{detail.artifactKind}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Artifact status</dt>
+              <dt className="text-slate-500">Resultatstatus</dt>
               <dd className="mt-1 text-slate-700">{detail.artifactStatus}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Artifact created</dt>
+              <dt className="text-slate-500">Opprettet</dt>
               <dd className="mt-1 text-slate-700">{formatTimestamp(detail.artifactCreatedAt)}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Source command</dt>
+              <dt className="text-slate-500">Kildekommando</dt>
               <dd className="mt-1 font-mono text-xs text-slate-700">{detail.artifactSourceCommand ?? "—"}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Source commit</dt>
+              <dt className="text-slate-500">Kildecommit</dt>
               <dd className="mt-1 font-mono text-xs text-slate-700">{detail.artifactSourceCommitSha ?? "—"}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Duration</dt>
+              <dt className="text-slate-500">Varighet</dt>
               <dd className="mt-1 text-slate-700">{formatDuration(detail.durationMs)}</dd>
             </div>
           </dl>

@@ -23,6 +23,11 @@ import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
 import type { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
+import {
+  chooseOpenDataLoaderRoute,
+  resolveOpenDataLoaderConfig,
+} from "@/server/document-understanding/opendataloader-config";
+import { parseAnnualReportPdfWithOpenDataLoader } from "@/server/document-understanding/opendataloader-client";
 import { LocalAnnualReportArtifactStorage } from "@/server/financials/artifact-storage";
 import { runAnnualReportUnifiedShadowExtraction } from "@/server/services/annual-report-unified-shadow-extraction-service";
 import {
@@ -85,6 +90,12 @@ if (configErrors.length > 0) {
   process.exit(1);
 }
 
+function mapOpenDataLoaderExecutionModeToUnifiedRoute(
+  executionMode: "local" | "hybrid",
+) {
+  return executionMode === "hybrid" ? "HYBRID" : "OPENDATALOADER_LOCAL";
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -125,6 +136,56 @@ async function main() {
     `  Preflight done: hasTextLayer=${preflight.hasTextLayer}, hasReliableTextLayer=${preflight.hasReliableTextLayer}, pages=${preflight.pageCount}`,
   );
 
+  let structuredPages: Awaited<
+    ReturnType<typeof parseAnnualReportPdfWithOpenDataLoader>
+  >["annualReportPages"] | undefined;
+  let structuredRoute: "HYBRID" | "OPENDATALOADER_LOCAL" | undefined;
+  const supplementalWarnings: string[] = [];
+
+  if (!preflight.hasReliableTextLayer) {
+    const openDataLoaderConfig = resolveOpenDataLoaderConfig();
+    const routeDecision = chooseOpenDataLoaderRoute({
+      config: openDataLoaderConfig,
+      preflight,
+    });
+
+    if (!openDataLoaderConfig.enabled) {
+      supplementalWarnings.push(
+        "Dokumentet mangler pålitelig tekstlag, men OpenDataLoader er deaktivert. Unified-refresh vil sannsynligvis fortsatt gi 0 verdier.",
+      );
+    } else {
+      try {
+        console.log(
+          `  Running OpenDataLoader fallback (mode=${routeDecision.executionMode}, reason=${routeDecision.reasonCode})...`,
+        );
+        const openDataLoaderResult = await parseAnnualReportPdfWithOpenDataLoader({
+          pdfBuffer,
+          sourceFilename: `${filing.company.orgNumber}-${filing.fiscalYear}.pdf`,
+          preflight,
+          config: openDataLoaderConfig,
+        });
+        structuredPages = openDataLoaderResult.annualReportPages;
+        structuredRoute = mapOpenDataLoaderExecutionModeToUnifiedRoute(
+          openDataLoaderResult.routing.executionMode,
+        );
+        console.log(
+          `  OpenDataLoader fallback done: pages=${structuredPages.length}, route=${structuredRoute}`,
+        );
+        if (structuredPages.length === 0) {
+          supplementalWarnings.push(
+            "OpenDataLoader kjørte, men ga ingen structured pages. Unified-refresh kan fortsatt bli tom.",
+          );
+        }
+      } catch (error) {
+        supplementalWarnings.push(
+          error instanceof Error
+            ? `OpenDataLoader fallback feilet: ${error.message}`
+            : "OpenDataLoader fallback feilet med ukjent feil.",
+        );
+      }
+    }
+  }
+
   // Build legacy candidates (empty — we don't re-run the primary extraction)
   // For a richer comparison, run extract:unified-financial-statements + compare:legacy-vs-unified CLI instead.
   const legacyCandidates: CanonicalFactCandidate[] = [];
@@ -137,10 +198,16 @@ async function main() {
     orgNumber: filing.company.orgNumber,
     fiscalYear: filing.fiscalYear,
     preflight,
+    parsedPages: structuredPages,
+    route: structuredRoute,
     legacyCandidates,
     config,
     sourceCommand: "scripts/run-annual-report-unified-shadow.ts",
   });
+
+  if (supplementalWarnings.length > 0) {
+    result.warnings.push(...supplementalWarnings);
+  }
 
   // ── Output ────────────────────────────────────────────────────────────────
 

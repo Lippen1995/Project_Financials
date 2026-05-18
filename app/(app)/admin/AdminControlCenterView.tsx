@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { AnnualReportRefreshButton } from "@/app/(app)/admin/AnnualReportRefreshButton";
 
 import type {
   AdminAttentionItem,
@@ -18,6 +19,7 @@ import type {
 type AdminControlCenterViewProps = {
   model: AdminControlCenterModel;
   currentUserRole: string;
+  refreshAffectedCount: number;
 };
 
 type PipelineMode = "Legacy" | "Unified" | "Shadow";
@@ -68,6 +70,28 @@ function statusLabel(status: AdminControlCenterStatus): string {
       return "Ikke startet";
     default:
       return "Ukjent";
+  }
+}
+
+function actorLabel(actor: AdminFlowNode["actor"]) {
+  switch (actor) {
+    case "human":
+      return "Krever menneske";
+    case "decision":
+      return "Beslutning";
+    default:
+      return "Automatisk";
+  }
+}
+
+function actorBadgeClass(actor: AdminFlowNode["actor"]) {
+  switch (actor) {
+    case "human":
+      return "bg-amber-50 border-amber-200 text-amber-700";
+    case "decision":
+      return "bg-blue-50 border-blue-200 text-blue-700";
+    default:
+      return "bg-slate-50 border-slate-200 text-slate-500";
   }
 }
 
@@ -253,6 +277,7 @@ function StepCircle({
 export default function AdminControlCenterView({
   model,
   currentUserRole,
+  refreshAffectedCount,
 }: AdminControlCenterViewProps) {
   const [mode, setMode] = useState<PipelineMode>("Unified");
   const [selectedStepKey, setSelectedStepKey] = useState(
@@ -281,14 +306,6 @@ export default function AdminControlCenterView({
     filteredNodes.find((n) => n.key === selectedStepKey) ??
     model.mainFlow.nodes.find((n) => n.key === selectedStepKey) ??
     model.mainFlow.nodes[0];
-
-  const selectedNodeIndex = model.mainFlow.nodes.findIndex(
-    (n) => n.key === selectedNode?.key,
-  );
-  const nextNode =
-    selectedNodeIndex >= 0 && selectedNodeIndex < model.mainFlow.nodes.length - 1
-      ? model.mainFlow.nodes[selectedNodeIndex + 1]
-      : null;
 
   // Summary card lookups
   const reviewQueueCard = model.summaryCards.find((c) => c.key === "review-queue");
@@ -329,7 +346,7 @@ export default function AdminControlCenterView({
             Admin
           </p>
           <h1 className="editorial-display mt-2 text-[2.5rem] leading-tight text-slate-950">
-            Control Center
+            Adminoversikt
           </h1>
           <p className="mt-2 max-w-2xl text-base leading-7 text-slate-500">{model.subtitle}</p>
         </div>
@@ -359,12 +376,45 @@ export default function AdminControlCenterView({
         </div>
       </section>
 
+      <section className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="data-label text-[11px] font-semibold uppercase tracking-widest text-[var(--px-accent)]">
+              Viktigste arbeidsflate
+            </p>
+            <h2 className="mt-2 text-[1.5rem] font-semibold text-slate-950">
+              Manuell kontroll av årsrapporter
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Her sammenligner du original årsrapport med forslagene fra systemet,
+              gjør eventuelle korrigeringer og kan starte en ny behandling hvis
+              grunnlaget virker feil.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <Link
+              href={"/admin/annual-report-reviews" as never}
+              className="rounded-full bg-[var(--px-action)] px-5 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[var(--px-action-hover)]"
+            >
+              Åpne manuell kontroll
+            </Link>
+            <AnnualReportRefreshButton
+              scope="affected"
+              label={`Refresh berørte saker${refreshAffectedCount > 0 ? ` (${refreshAffectedCount})` : ""}`}
+              pendingLabel="Starter refresh..."
+              helperText="Brukes når saker står fast, eller når unified fortsatt mangler verdier på eksisterende dokumenter."
+              className="rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-5 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* ── Section 2: Data-strip status cards ──────────────────────────────── */}
       <section className="grid grid-cols-1 divide-y divide-[rgba(15,23,42,0.1)] border-y border-[rgba(15,23,42,0.1)] md:grid-cols-3 md:divide-x md:divide-y-0">
         {/* Review queue */}
         <div className="py-8 pl-0 pr-0 md:pr-8">
           <span className="data-label text-[11px] font-semibold uppercase tracking-widest text-[var(--px-accent)]">
-            Review-kø
+            Manuell kontroll
           </span>
           <div className="mt-4 flex items-baseline gap-3">
             <span className="editorial-display text-[3rem] leading-none text-slate-950">
@@ -375,7 +425,7 @@ export default function AdminControlCenterView({
             </span>
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Rapporter som venter på manuell validering.
+            Rapporter som venter på manuell kontroll.
           </p>
         </div>
 
@@ -398,7 +448,7 @@ export default function AdminControlCenterView({
         {/* Shadow batch */}
         <div className="py-8 pl-0 md:pl-8 md:pr-0">
           <span className="data-label text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-            Shadow Batch
+            Siste shadow-kjøring
           </span>
           <div className="mt-4 flex items-baseline gap-3">
             <span className="editorial-display text-[3rem] leading-none text-slate-950">
@@ -419,7 +469,7 @@ export default function AdminControlCenterView({
             {model.mainFlow.title}
           </h2>
           <div className="h-px flex-1 bg-[rgba(15,23,42,0.1)]" />
-          <span className="data-label text-[11px] text-slate-400">Live Pipeline Visualizer</span>
+          <span className="data-label text-[11px] text-slate-400">Hovedflyt</span>
         </div>
 
         {/* Pipeline stats row */}
@@ -475,6 +525,13 @@ export default function AdminControlCenterView({
                   >
                     {node.title}
                   </p>
+                  {node.actor && node.actor !== "system" ? (
+                    <span
+                      className={`mt-1 inline-flex rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${actorBadgeClass(node.actor)}`}
+                    >
+                      {actorLabel(node.actor)}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -504,7 +561,14 @@ export default function AdminControlCenterView({
                       {selectedNode.subtitle}
                     </p>
                   </div>
-                  <StatusBadge status={selectedNode.status} tone={selectedNode.tone} />
+                  <div className="flex flex-col items-start gap-3 sm:items-end">
+                    <StatusBadge status={selectedNode.status} tone={selectedNode.tone} />
+                    <div
+                      className={`inline-flex items-center rounded border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${actorBadgeClass(selectedNode.actor)}`}
+                    >
+                      {actorLabel(selectedNode.actor)}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -574,6 +638,11 @@ export default function AdminControlCenterView({
                     {selectedNode.title}
                   </p>
                   <StatusBadge status={selectedNode.status} tone={selectedNode.tone} />
+                  <div
+                    className={`mt-3 inline-flex items-center rounded border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${actorBadgeClass(selectedNode.actor)}`}
+                  >
+                    {actorLabel(selectedNode.actor)}
+                  </div>
                 </div>
 
                 <div className="border-t border-[rgba(15,23,42,0.08)] pt-6">
@@ -597,22 +666,18 @@ export default function AdminControlCenterView({
 
                 <div className="border-t border-[rgba(15,23,42,0.08)] pt-6 space-y-3">
                   <h4 className="data-label text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                    Relevant Admin-lenke
+                    Åpne steg
                   </h4>
                   {selectedNode.href ? (
                     <>
-                      <p className="break-all font-mono text-[11px] text-slate-700">
-                        {selectedNode.href}
-                      </p>
                       <p className="text-[12px] leading-5 text-slate-500">
-                        Åpne denne siden hvis du trenger saksdetaljer eller dypere diagnostikk for
-                        dette steget.
+                        Åpne arbeidsflaten for dette steget hvis du vil kontrollere dokumentet, se detaljer eller starte ny behandling.
                       </p>
                       <Link
                         href={selectedNode.href as never}
                         className="block w-full rounded-lg border border-[rgba(15,23,42,0.12)] py-2 text-center data-label text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-100"
                       >
-                        {selectedNode.linkLabel ?? "Åpne"}
+                        {selectedNode.linkLabel ?? "Åpne steg"}
                       </Link>
                     </>
                   ) : (
@@ -622,28 +687,11 @@ export default function AdminControlCenterView({
                   )}
                 </div>
 
-                {nextNode ? (
-                  <div className="border-t border-[rgba(15,23,42,0.08)] pt-6 space-y-3">
-                    <h4 className="data-label text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                      Neste Steg
-                    </h4>
-                    <p className="text-sm font-semibold text-slate-950">{nextNode.title}</p>
-                    <p className="text-[12px] leading-5 text-slate-500">{nextNode.subtitle}</p>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedStepKey(nextNode.key)}
-                      className="w-full rounded-lg bg-slate-950 py-2.5 data-label text-[11px] font-semibold text-white transition-colors hover:bg-slate-800"
-                    >
-                      Gå til neste steg
-                    </button>
-                  </div>
-                ) : (
-                  <div className="border-t border-[rgba(15,23,42,0.08)] pt-6">
-                    <p className="text-[12px] text-slate-400">
-                      Dette er siste steg i hovedflyten.
-                    </p>
-                  </div>
-                )}
+                <div className="border-t border-[rgba(15,23,42,0.08)] pt-6">
+                  <p className="text-[12px] text-slate-400">
+                    Dette er ett steg i hovedflyten. Velg et annet steg over for å se mer.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -747,53 +795,6 @@ export default function AdminControlCenterView({
         )}
       </section>
 
-      {/* ── Go-live flow ────────────────────────────────────────────────────── */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-4">
-          <h2 className="text-[1.5rem] font-semibold text-slate-950">
-            {model.goLiveFlow.title}
-          </h2>
-          <div className="h-px flex-1 bg-[rgba(15,23,42,0.1)]" />
-        </div>
-        <p className="text-sm leading-6 text-slate-500">{model.goLiveFlow.subtitle}</p>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {model.goLiveFlow.nodes.map((node) => (
-            <div
-              key={node.key}
-              className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="data-label text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                    Steg {String(node.stepNumber).padStart(2, "0")}
-                  </p>
-                  <p className="mt-2 text-base font-semibold text-slate-950">{node.title}</p>
-                </div>
-                <StatusBadge status={node.status} tone={node.tone} />
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-500">{node.subtitle}</p>
-              <p className="mt-3 data-label text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                {node.metric}
-              </p>
-              <div className="mt-4">
-                {node.href ? (
-                  <Link
-                    href={node.href as never}
-                    className="inline-flex rounded-lg border border-[rgba(15,23,42,0.12)] px-4 py-2 data-label text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-                  >
-                    {node.linkLabel ?? "Åpne"}
-                  </Link>
-                ) : (
-                  <span className="inline-flex rounded-lg border border-[rgba(15,23,42,0.08)] bg-slate-50 px-4 py-2 data-label text-[11px] font-semibold text-slate-400">
-                    {node.unavailableLabel ?? "Planlagt"}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ── Documentation modules ───────────────────────────────────────────── */}
       <section className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Onboarding */}
@@ -820,7 +821,7 @@ export default function AdminControlCenterView({
         <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-8 shadow-sm">
           <h3 className="text-[1.5rem] font-semibold text-slate-950 mb-2">Statusforklaring</h3>
           <p className="mb-8 text-sm leading-6 text-slate-500">
-            Bruk denne fargeforklaringen når du leser hovedflyten og go-live-roadmapet.
+            Bruk denne fargeforklaringen når du leser hovedflyten.
           </p>
           <div className="space-y-3">
             {model.legendItems.map((item) => (

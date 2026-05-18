@@ -23,7 +23,7 @@ export default async function AdminReviewDetailPage({
           href="/admin/annual-report-reviews"
           className="hover:text-slate-800"
         >
-          ← Review-kø
+          ← Til manuell kontroll
         </Link>
       </div>
 
@@ -32,7 +32,7 @@ export default async function AdminReviewDetailPage({
           {review.company.name} — {review.fiscalYear}
         </h1>
         <p className="mt-1 font-mono text-sm text-slate-400">
-          {review.company.orgNumber} · Review {review.id}
+          {review.company.orgNumber} · Kontrollsak {review.id}
         </p>
       </div>
 

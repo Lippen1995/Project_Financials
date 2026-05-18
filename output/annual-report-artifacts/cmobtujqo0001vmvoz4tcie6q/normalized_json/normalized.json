@@ -6,34 +6,54 @@
   },
   "resultatregnskapResultat": {
     "driftsresultat": {
-      "driftsinntekter": {},
-      "driftskostnad": {},
-      "driftsresultat": null
+      "driftsinntekter": {
+        "salgsinntekter": 103
+      },
+      "driftskostnad": {
+        "varekostnad": 11,
+        "loennskostnad": 2024000,
+        "annenDriftskostnad": 21
+      },
+      "driftsresultat": 21
     },
     "finansresultat": {
       "finansinntekt": {},
       "finanskostnad": {},
-      "nettoFinans": null
+      "nettoFinans": 2
     },
-    "ordinaertResultatFoerSkattekostnad": null,
-    "skattekostnadResultat": null,
-    "aarsresultat": null,
-    "totalresultat": null
+    "ordinaertResultatFoerSkattekostnad": 23,
+    "skattekostnadResultat": 5,
+    "aarsresultat": 18,
+    "totalresultat": 18
   },
   "eiendeler": {
-    "anleggsmidler": {},
-    "omloepsmidler": {}
+    "anleggsmidler": {
+      "sumImmaterielleEiendeler": 17,
+      "sumVarigeDriftsmidler": 97,
+      "sumAnleggsmidler": 114
+    },
+    "omloepsmidler": {},
+    "utsattSkattefordel": 1,
+    "kundefordringer": 11,
+    "andreKortsiktigeFordringer": 8,
+    "sumEiendeler": 92155
   },
   "egenkapitalGjeld": {
     "egenkapital": {
-      "innskuttEgenkapital": {},
-      "opptjentEgenkapital": {},
-      "sumEgenkapital": null
+      "innskuttEgenkapital": {
+        "overkurs": 2
+      },
+      "opptjentEgenkapital": {
+        "annenEgenkapital": 32
+      },
+      "sumEgenkapital": 1584
     },
     "gjeldOversikt": {
       "langsiktigGjeld": {},
-      "kortsiktigGjeld": {},
-      "sumGjeld": null
+      "kortsiktigGjeld": {
+        "annenKortsiktigGjeld": 3
+      },
+      "sumGjeld": 832
     },
     "sumEgenkapitalGjeld": null
   }

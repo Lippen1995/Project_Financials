@@ -707,7 +707,7 @@ async function syncWatchFinancials(watch: {
       type: "FINANCIAL_STATEMENT_NEW",
       dedupeKey: `watch:${watch.id}:financial:${fiscalYear}`,
       title: `${watch.company.name}: nytt regnskap tilgjengelig`,
-      body: `Regnskap for ${fiscalYear} er nå tilgjengelig i ProjectX.`,
+      body: `Regnskap for ${fiscalYear} er nå tilgjengelig i Fjord Insight.`,
       watchId: watch.id,
       companyId: watch.companyId,
       metadata: {

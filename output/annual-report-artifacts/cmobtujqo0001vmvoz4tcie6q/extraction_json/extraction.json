@@ -1,13 +1,3514 @@
 {
   "engine": "LEGACY",
   "mode": "legacy",
-  "rows": [],
-  "mappedFacts": [],
+  "rows": [
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Salgsinntekt",
+      "normalizedLabel": "salgsinntekt",
+      "noteReference": null,
+      "rowText": "Salgsinntekt 103 097 000 95 916 000",
+      "y": 148,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 103,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 97000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 95916000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Sun inntekter",
+      "normalizedLabel": "sun inntekter",
+      "noteReference": null,
+      "rowText": "Sun inntekter 103 097 000 95 916 000",
+      "y": 164,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 103,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 97000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 95916000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Varekostnad",
+      "normalizedLabel": "varekostnad",
+      "noteReference": null,
+      "rowText": "Varekostnad 11 129 000 8 605 000",
+      "y": 196,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 11,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 129000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 8605000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Lennskostnad",
+      "normalizedLabel": "lennskostnad",
+      "noteReference": null,
+      "rowText": "Lennskostnad 46 611 000 43 172 000",
+      "y": 212,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 46,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 611000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 43172000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "immaterielle elendeler",
+      "normalizedLabel": "immaterielle elendeler",
+      "noteReference": null,
+      "rowText": "immaterielle elendeler 2 688 000 2 449 000",
+      "y": 260,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 688000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 2449000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Annen driftskostnad",
+      "normalizedLabel": "annen driftskostnad",
+      "noteReference": null,
+      "rowText": "Annen driftskostnad 21 459 000 22 042 000",
+      "y": 276,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 21,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 459000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 22042000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Sun kostnader",
+      "normalizedLabel": "sun kostnader",
+      "noteReference": null,
+      "rowText": "Sun kostnader 81 887 000 76 268 000",
+      "y": 292,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 81,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 887000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 76268000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Driftsresultat",
+      "normalizedLabel": "driftsresultat",
+      "noteReference": null,
+      "rowText": "Driftsresultat 21 210 000 19 648 000",
+      "y": 308,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 21,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 210000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 19648000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Annen finansinntekt",
+      "normalizedLabel": "annen finansinntekt",
+      "noteReference": null,
+      "rowText": "Annen finansinntekt 2 270 000 2 954 000",
+      "y": 356,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 270000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 2954000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Sun finansinntekter",
+      "normalizedLabel": "sun finansinntekter",
+      "noteReference": null,
+      "rowText": "Sun finansinntekter 2 270 000 2 954 000",
+      "y": 372,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 270000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 2954000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Annen finanskostnad",
+      "normalizedLabel": "annen finanskostnad",
+      "noteReference": null,
+      "rowText": "Annen finanskostnad 15 000 454 000",
+      "y": 388,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 15000,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 454,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 0,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Sun finanskostnader",
+      "normalizedLabel": "sun finanskostnader",
+      "noteReference": null,
+      "rowText": "Sun finanskostnader 15 000 454 000",
+      "y": 404,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 15000,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 454,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 0,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Netto finans",
+      "normalizedLabel": "netto finans",
+      "noteReference": null,
+      "rowText": "Netto finans 2 255 000 2 500 000",
+      "y": 420,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 255000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 2500000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Resultat før skattekostnad",
+      "normalizedLabel": "resultat for skattekostnad",
+      "noteReference": null,
+      "rowText": "Resultat før skattekostnad 23 465 000 22 148 000",
+      "y": 436,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 23,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 465000,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 22148000,
+          "columnIndex": 2,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Skattekostnad",
+      "normalizedLabel": "skattekostnad",
+      "noteReference": null,
+      "rowText": "Skattekostnad 5 244 000 4 919 000",
+      "y": 452,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 5,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 244000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 4919000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "sectionType": "STATUTORY_INCOME",
+      "unitScale": 1,
+      "label": "Årsresultat",
+      "normalizedLabel": "arsresultat",
+      "noteReference": null,
+      "rowText": "Årsresultat 18 221 000 17 229 000",
+      "y": 468,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 18,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 221000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 17229000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Utvikling",
+      "normalizedLabel": "utvikling",
+      "noteReference": null,
+      "rowText": "Utvikling 15 921 000 16 180 000",
+      "y": 164,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 15,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 921000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 16180000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Utsatt skattefordel",
+      "normalizedLabel": "utsatt skattefordel",
+      "noteReference": null,
+      "rowText": "Utsatt skattefordel 1 185 000 755 000",
+      "y": 180,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 1,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 185000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 755000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Sum immaterielle eiendeler",
+      "normalizedLabel": "sum immaterielle eiendeler",
+      "noteReference": null,
+      "rowText": "Sum immaterielle eiendeler 17 106 000 16 935 000",
+      "y": 196,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 17,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 106000,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 16935000,
+          "columnIndex": 2,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "og lignende",
+      "normalizedLabel": "og lignende",
+      "noteReference": null,
+      "rowText": "og lignende 97 000 0",
+      "y": 260,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 97,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 0,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 0,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Sum varige driftsmidler",
+      "normalizedLabel": "sum varige driftsmidler",
+      "noteReference": null,
+      "rowText": "Sum varige driftsmidler 97 000 0",
+      "y": 276,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 97,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 0,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 0,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Sum anleggsmidler",
+      "normalizedLabel": "sum anleggsmidler",
+      "noteReference": null,
+      "rowText": "Sum anleggsmidler 17 203 000 16 935 000",
+      "y": 292,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 17,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 203000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 16935000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Kundefordringer",
+      "normalizedLabel": "kundefordringer",
+      "noteReference": null,
+      "rowText": "Kundefordringer 11 809 000 14 469 000",
+      "y": 356,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 11,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 809000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 14469000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Andre fordringer",
+      "normalizedLabel": "andre fordringer",
+      "noteReference": null,
+      "rowText": "Andre fordringer 8 707 000 8 300 000",
+      "y": 372,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 8,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 707000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 8300000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Konsernfordringexr",
+      "normalizedLabel": "konsernfordringexr",
+      "noteReference": null,
+      "rowText": "Konsernfordringexr 38 878 000 53 828 000",
+      "y": 388,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 38,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 878000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 53828000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Sum fordringer",
+      "normalizedLabel": "sum fordringer",
+      "noteReference": null,
+      "rowText": "Sum fordringer 59 394 000 76 597 000",
+      "y": 404,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 59,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 394000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 76597000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "og lignende",
+      "normalizedLabel": "og lignende",
+      "noteReference": null,
+      "rowText": "og lignende 15 558 000 28 121 000",
+      "y": 468,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 15,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 558000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 28121000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "kontanter og lignende",
+      "normalizedLabel": "kontanter og lignende",
+      "noteReference": null,
+      "rowText": "kontanter og lignende 15 558 000 28 121 000",
+      "y": 500,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 15,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 558000,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 28121000,
+          "columnIndex": 2,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Sun omløpsmidler",
+      "normalizedLabel": "sun omlopsmidler",
+      "noteReference": null,
+      "rowText": "Sun omløpsmidler 74 952 000 104 718 000",
+      "y": 516,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 74952,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 104,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 718000,
+          "columnIndex": 2,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "SUM EIENDELER",
+      "normalizedLabel": "sum eiendeler",
+      "noteReference": null,
+      "rowText": "SUM EIENDELER 92 155 000 121 653 000",
+      "y": 532,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 92155,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 121,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 653000,
+          "columnIndex": 2,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Selskapskapital",
+      "normalizedLabel": "selskapskapital",
+      "noteReference": null,
+      "rowText": "Selskapskapital 1 584 000 1 584 000",
+      "y": 612,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 1,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 584000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 1584000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Overkurs",
+      "normalizedLabel": "overkurs",
+      "noteReference": null,
+      "rowText": "Overkurs 2 156 000 2 156 000",
+      "y": 628,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 156000,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 2156000,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Sum innskutt egenkapital",
+      "normalizedLabel": "sum innskutt egenkapital",
+      "noteReference": null,
+      "rowText": "Sum innskutt egenkapital 3 740 000 3 740 000",
+      "y": 644,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 3,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 740000,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 3740000,
+          "columnIndex": 2,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Annen egenkapital",
+      "normalizedLabel": "annen egenkapital",
+      "noteReference": null,
+      "rowText": "Annen egenkapital 32 632 000 64 409 000",
+      "y": 676,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 32,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 632000,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 64409000,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1,
+      "label": "Sun opptjent egenkapital",
+      "normalizedLabel": "sun opptjent egenkapital",
+      "noteReference": null,
+      "rowText": "Sun opptjent egenkapital 32 632 000 64 409 000",
+      "y": 692,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 32,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 632000,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 64409000,
+          "columnIndex": 2,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 4,
+      "sectionType": "STATUTORY_BALANCE_CONTINUATION",
+      "unitScale": 1,
+      "label": "Organisasjonsnr",
+      "normalizedLabel": "organisasjonsnr",
+      "noteReference": null,
+      "rowText": "Organisasjonsnr 918 298 037",
+      "y": 904,
+      "confidence": 0.65,
+      "values": [
+        {
+          "value": 298,
+          "columnIndex": 0,
+          "x": 184
+        },
+        {
+          "value": 37,
+          "columnIndex": 1,
+          "x": 256
+        }
+      ]
+    },
+    {
+      "pageNumber": 5,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "alle poster oppgitt",
+      "normalizedLabel": "alle poster oppgitt",
+      "noteReference": null,
+      "rowText": "- alle poster oppgitt 1 hele tall",
+      "y": 136,
+      "confidence": 0.65,
+      "values": [
+        {
+          "value": 1,
+          "columnIndex": 0,
+          "x": 256
+        }
+      ]
+    },
+    {
+      "pageNumber": 6,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Samlet beløp foretak",
+      "normalizedLabel": "samlet belop foretak",
+      "noteReference": null,
+      "rowText": "Samlet beløp - foretak 1 samme konsern Årets Fjorårets",
+      "y": 168,
+      "confidence": 0.65,
+      "values": [
+        {
+          "value": 1,
+          "columnIndex": 0,
+          "x": 256
+        }
+      ]
+    },
+    {
+      "pageNumber": 6,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Samlet beløp foretak",
+      "normalizedLabel": "samlet belop foretak",
+      "noteReference": null,
+      "rowText": "Samlet beløp - foretak 1 samme konsern Årets Fjorårets",
+      "y": 184,
+      "confidence": 0.65,
+      "values": [
+        {
+          "value": 1,
+          "columnIndex": 0,
+          "x": 256
+        }
+      ]
+    },
+    {
+      "pageNumber": 16,
+      "sectionType": "STATUTORY_BALANCE_CONTINUATION",
+      "unitScale": 1000,
+      "label": "BALANSE PR.",
+      "normalizedLabel": "balanse pr",
+      "noteReference": null,
+      "rowText": "BALANSE PR. 31.12",
+      "y": 56,
+      "confidence": 0.65,
+      "values": [
+        {
+          "value": 31,
+          "columnIndex": 0,
+          "x": 184
+        }
+      ]
+    },
+    {
+      "pageNumber": 16,
+      "sectionType": "STATUTORY_BALANCE_CONTINUATION",
+      "unitScale": 1000,
+      "label": "Oslo",
+      "normalizedLabel": "oslo",
+      "noteReference": null,
+      "rowText": "Oslo 19 mars 2025",
+      "y": 888,
+      "confidence": 0.65,
+      "values": [
+        {
+          "value": 19,
+          "columnIndex": 0,
+          "x": 112
+        },
+        {
+          "value": 2025,
+          "columnIndex": 1,
+          "x": 256
+        }
+      ]
+    },
+    {
+      "pageNumber": 17,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1000,
+      "label": "Avskrivningsperioden er antatt å være",
+      "normalizedLabel": "avskrivningsperioden er antatt a vaere",
+      "noteReference": null,
+      "rowText": "Avskrivningsperioden er antatt å være 12 måneder, som er vår gjennomsnittlige kontraktsperiode.",
+      "y": 264,
+      "confidence": 0.65,
+      "values": [
+        {
+          "value": 12,
+          "columnIndex": 0,
+          "x": 400
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "1",
+      "rowText": "Note 1 Salgsinntekter",
+      "y": 68,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 1,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Online",
+      "normalizedLabel": "online",
+      "noteReference": null,
+      "rowText": "Online 103 097",
+      "y": 100,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 103,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 97,
+          "columnIndex": 1,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Annen",
+      "normalizedLabel": "annen",
+      "noteReference": null,
+      "rowText": "Annen 0",
+      "y": 116,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 0,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Sum",
+      "normalizedLabel": "sum",
+      "noteReference": null,
+      "rowText": "Sum 103 097",
+      "y": 132,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 103,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 97,
+          "columnIndex": 1,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "2",
+      "rowText": "Note 2 Lennskostnader, antall ansatte, godtgjørelser, lan til ansatte mm.",
+      "y": 148,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Lonnskostnader",
+      "normalizedLabel": "lonnskostnader",
+      "noteReference": null,
+      "rowText": "Lonnskostnader 2024",
+      "y": 164,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2024,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Lenninger",
+      "normalizedLabel": "lenninger",
+      "noteReference": null,
+      "rowText": "Lenninger 39 911",
+      "y": 180,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 39,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 911,
+          "columnIndex": 1,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Arbeidsgiveravgift",
+      "normalizedLabel": "arbeidsgiveravgift",
+      "noteReference": null,
+      "rowText": "Arbeidsgiveravgift 2 820",
+      "y": 196,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 820,
+          "columnIndex": 1,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Pensjonskostnader",
+      "normalizedLabel": "pensjonskostnader",
+      "noteReference": null,
+      "rowText": "Pensjonskostnader 2332",
+      "y": 212,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2332,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Andre ytelser",
+      "normalizedLabel": "andre ytelser",
+      "noteReference": null,
+      "rowText": "Andre ytelser -1 452",
+      "y": 228,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": -1,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 452,
+          "columnIndex": 1,
+          "x": 292
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Sum",
+      "normalizedLabel": "sum",
+      "noteReference": null,
+      "rowText": "Sum 46 611",
+      "y": 244,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 46,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 611,
+          "columnIndex": 1,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Gjennomsnittlig antall årsverk i løpet av regnskapsåret har vært",
+      "normalizedLabel": "gjennomsnittlig antall arsverk i lopet av regnskapsaret har vaert",
+      "noteReference": null,
+      "rowText": "Gjennomsnittlig antall årsverk i løpet av regnskapsåret har vært 39,4 årsverk.",
+      "y": 260,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 39,
+          "columnIndex": 0,
+          "x": 796
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Daglig leder hari",
+      "normalizedLabel": "daglig leder hari",
+      "noteReference": null,
+      "rowText": "Daglig leder hari 2024 mottatt 1,437 TNOK (1,267 TNOK) I arbeidsgodtgjerelse, 87 TNOK (66 TNOK) I pensjon og 66 TNOK (68",
+      "y": 372,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2024,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 1,
+          "columnIndex": 1,
+          "x": 460
+        },
+        {
+          "value": 1,
+          "columnIndex": 2,
+          "x": 628
+        },
+        {
+          "value": 87,
+          "columnIndex": 3,
+          "x": 964
+        },
+        {
+          "value": 66,
+          "columnIndex": 4,
+          "x": 1132
+        },
+        {
+          "value": 66,
+          "columnIndex": 5,
+          "x": 1552
+        },
+        {
+          "value": 68,
+          "columnIndex": 6,
+          "x": 1720
+        }
+      ]
+    },
+    {
+      "pageNumber": 19,
+      "sectionType": "NOTE",
+      "unitScale": 1000,
+      "label": "Selskapet har en avtale om innskuddsbasert pensjon som omfatter",
+      "normalizedLabel": "selskapet har en avtale om innskuddsbasert pensjon som omfatter",
+      "noteReference": null,
+      "rowText": "Selskapet har en avtale om innskuddsbasert pensjon som omfatter 39,4 årsverk. Årets kostnadsførte pensjon er 2,143 TNOK.",
+      "y": 452,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 39,
+          "columnIndex": 0,
+          "x": 796
+        },
+        {
+          "value": 2,
+          "columnIndex": 1,
+          "x": 1300
+        }
+      ]
+    },
+    {
+      "pageNumber": 20,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1000,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "3",
+      "rowText": "Note 3 Immaterielle eiendeler",
+      "y": 52,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 3,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 20,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1000,
+      "label": "Akkumulerte avskrivninger",
+      "normalizedLabel": "akkumulerte avskrivninger",
+      "noteReference": null,
+      "rowText": "Akkumulerte avskrivninger 31.12",
+      "y": 404,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 31,
+          "columnIndex": 0,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 20,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1000,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "4",
+      "rowText": "Note 4 Varige driftsmidler",
+      "y": 564,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 4,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 20,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1000,
+      "label": "Akkumulerte avskrivninger",
+      "normalizedLabel": "akkumulerte avskrivninger",
+      "noteReference": null,
+      "rowText": "Akkumulerte avskrivninger 31.12",
+      "y": 852,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 31,
+          "columnIndex": 0,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 20,
+      "sectionType": "STATUTORY_BALANCE",
+      "unitScale": 1000,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "5",
+      "rowText": "Note 5 Andre driftskostnader",
+      "y": 1060,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 5,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Forskuddsbetalt provisjon",
+      "normalizedLabel": "forskuddsbetalt provisjon",
+      "noteReference": null,
+      "rowText": "Forskuddsbetalt provisjon 3647 4 080",
+      "y": 84,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 3647,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 4,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 80,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Fordringer pa selskap i samme konserr",
+      "normalizedLabel": "fordringer pa selskap i samme konserr",
+      "noteReference": null,
+      "rowText": "Fordringer pa selskap i samme konserr 38 512 53 828",
+      "y": 100,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 38,
+          "columnIndex": 0,
+          "x": 544
+        },
+        {
+          "value": 512,
+          "columnIndex": 1,
+          "x": 628
+        },
+        {
+          "value": 53828,
+          "columnIndex": 2,
+          "x": 712
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Andre fordringer",
+      "normalizedLabel": "andre fordringer",
+      "noteReference": null,
+      "rowText": "Andre fordringer 2426 4 220",
+      "y": 116,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 2426,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 4,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 220,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Sum",
+      "normalizedLabel": "sum",
+      "noteReference": null,
+      "rowText": "Sum 47 585 62 128",
+      "y": 132,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 47,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 585,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 62128,
+          "columnIndex": 2,
+          "x": 292
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Utsatt inntekt",
+      "normalizedLabel": "utsatt inntekt",
+      "noteReference": null,
+      "rowText": "Utsatt inntekt 34 172 31 929",
+      "y": 164,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 34,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 172,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 31929,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Skyldige feriepenger",
+      "normalizedLabel": "skyldige feriepenger",
+      "noteReference": null,
+      "rowText": "Skyldige feriepenger 4723 4 427",
+      "y": 180,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 4723,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 4,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 427,
+          "columnIndex": 2,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Annen kortsiktig gjeld",
+      "normalizedLabel": "annen kortsiktig gjeld",
+      "noteReference": null,
+      "rowText": "Annen kortsiktig gjeld 3 332 2 892",
+      "y": 196,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 3,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 332,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 2892,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Sum",
+      "normalizedLabel": "sum",
+      "noteReference": null,
+      "rowText": "Sum 42 227 39 248",
+      "y": 212,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 42,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 227,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 39248,
+          "columnIndex": 2,
+          "x": 292
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Fordringer som forfaller senere enn",
+      "normalizedLabel": "fordringer som forfaller senere enn",
+      "noteReference": null,
+      "rowText": "Fordringer som forfaller senere enn 1 år 2024 2023",
+      "y": 228,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 1,
+          "columnIndex": 0,
+          "x": 460
+        },
+        {
+          "value": 2024,
+          "columnIndex": 1,
+          "x": 628
+        },
+        {
+          "value": 2023,
+          "columnIndex": 2,
+          "x": 712
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Lån til selskap i samme konsern",
+      "normalizedLabel": "lan til selskap i samme konsern",
+      "noteReference": null,
+      "rowText": "Lån til selskap i samme konsern 0 0",
+      "y": 244,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 0,
+          "columnIndex": 0,
+          "x": 544
+        },
+        {
+          "value": 0,
+          "columnIndex": 1,
+          "x": 628
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Sum",
+      "normalizedLabel": "sum",
+      "noteReference": null,
+      "rowText": "Sum 0 0",
+      "y": 260,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 0,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 0,
+          "columnIndex": 1,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "8",
+      "rowText": "Note 8 MellomvaErende med selskap i samme konsern m.v.",
+      "y": 292,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 8,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Langsiktig fordring",
+      "normalizedLabel": "langsiktig fordring",
+      "noteReference": null,
+      "rowText": "Langsiktig fordring 0 0",
+      "y": 324,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 0,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 0,
+          "columnIndex": 1,
+          "x": 292
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Kundefordringer",
+      "normalizedLabel": "kundefordringer",
+      "noteReference": null,
+      "rowText": "Kundefordringer 0 0",
+      "y": 340,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 0,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 0,
+          "columnIndex": 1,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Andre kortsiktige fordnnger",
+      "normalizedLabel": "andre kortsiktige fordnnger",
+      "noteReference": null,
+      "rowText": "Andre kortsiktige fordnnger 38 878 23 828",
+      "y": 356,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 38,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 878,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 23828,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Sum fordringer mellomvarende",
+      "normalizedLabel": "sum fordringer mellomvarende",
+      "noteReference": null,
+      "rowText": "Sum fordringer mellomvarende 38 878 53 828",
+      "y": 372,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 38,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 878,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 53828,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Annen kortsiktig gjeld",
+      "normalizedLabel": "annen kortsiktig gjeld",
+      "noteReference": null,
+      "rowText": "Annen kortsiktig gjeld 832 812",
+      "y": 420,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 832,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 812,
+          "columnIndex": 1,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 22,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Sum gjeld mellomvarende",
+      "normalizedLabel": "sum gjeld mellomvarende",
+      "noteReference": null,
+      "rowText": "Sum gjeld mellomvarende 832 912",
+      "y": 436,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 832,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 912,
+          "columnIndex": 1,
+          "x": 376
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Innestående midler på skattetrekkskonto, bundne midler A",
+      "normalizedLabel": "innestaende midler pa skattetrekkskonto bundne midler a",
+      "noteReference": null,
+      "rowText": "Innestående midler på skattetrekkskonto, bundne midler A 317",
+      "y": 84,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 317,
+          "columnIndex": 0,
+          "x": 628
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Innestående midler på driftskonto",
+      "normalizedLabel": "innestaende midler pa driftskonto",
+      "noteReference": null,
+      "rowText": "Innestående midler på driftskonto 11 241",
+      "y": 100,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 11,
+          "columnIndex": 0,
+          "x": 376
+        },
+        {
+          "value": 241,
+          "columnIndex": 1,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Sum",
+      "normalizedLabel": "sum",
+      "noteReference": null,
+      "rowText": "Sum 15 558",
+      "y": 116,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 15,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 558,
+          "columnIndex": 1,
+          "x": 208
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "10",
+      "rowText": "Note 10 Aksjekapital og aksjonarinformasjon",
+      "y": 132,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 10,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Aksjekapitalen pa kr.",
+      "normalizedLabel": "aksjekapitalen pa kr",
+      "noteReference": null,
+      "rowText": "Aksjekapitalen pa kr. 1.583.752 består av 1.583.752 aksjer a kr. 1,-. Alle aksjer har like rettigheter.",
+      "y": 148,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 1583752,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 1583752,
+          "columnIndex": 1,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Enento Group Oyj",
+      "normalizedLabel": "enento group oyj",
+      "noteReference": null,
+      "rowText": "Enento Group Oyj 1 583 752",
+      "y": 180,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 1,
+          "columnIndex": 0,
+          "x": 292
+        },
+        {
+          "value": 583,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 752,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Sum",
+      "normalizedLabel": "sum",
+      "noteReference": null,
+      "rowText": "Sum 1 583 752",
+      "y": 196,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 1,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": 583,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 752,
+          "columnIndex": 2,
+          "x": 292
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "11",
+      "rowText": "Note 11 Egenkapital",
+      "y": 228,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 11,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Egenkapital 01.01.2024",
+      "normalizedLabel": "egenkapital 01 01 2024",
+      "noteReference": null,
+      "rowText": "Egenkapital 01.01.2024 1 584 2 156 64 409",
+      "y": 260,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 1584,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 2156,
+          "columnIndex": 1,
+          "x": 376
+        },
+        {
+          "value": 64409,
+          "columnIndex": 2,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Tilleggsutbytte",
+      "normalizedLabel": "tilleggsutbytte",
+      "noteReference": null,
+      "rowText": "Tilleggsutbytte 0 -49 999",
+      "y": 276,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 0,
+          "columnIndex": 0,
+          "x": 124
+        },
+        {
+          "value": -49,
+          "columnIndex": 1,
+          "x": 208
+        },
+        {
+          "value": 999,
+          "columnIndex": 2,
+          "x": 292
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Overført fra årets resultat",
+      "normalizedLabel": "overfort fra arets resultat",
+      "noteReference": null,
+      "rowText": "Overført fra årets resultat 0 0 18 221",
+      "y": 292,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 0,
+          "columnIndex": 0,
+          "x": 376
+        },
+        {
+          "value": 0,
+          "columnIndex": 1,
+          "x": 460
+        },
+        {
+          "value": 18221,
+          "columnIndex": 2,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Egenkapital 31.12.2024",
+      "normalizedLabel": "egenkapital 31 12 2024",
+      "noteReference": null,
+      "rowText": "Egenkapital 31.12.2024 1584 2 156 32 631",
+      "y": 308,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 1584,
+          "columnIndex": 0,
+          "x": 208
+        },
+        {
+          "value": 2156,
+          "columnIndex": 1,
+          "x": 292
+        },
+        {
+          "value": 32631,
+          "columnIndex": 2,
+          "x": 460
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "12",
+      "rowText": "Note 12 Andre ikke balanseforte forpliktelser",
+      "y": 324,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 12,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Totalt årlig leiebelgp utgjør NOK",
+      "normalizedLabel": "totalt arlig leiebelgp utgjor nok",
+      "noteReference": null,
+      "rowText": "Totalt årlig leiebelgp utgjør NOK 3 108 000.",
+      "y": 356,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 3,
+          "columnIndex": 0,
+          "x": 460
+        },
+        {
+          "value": 108,
+          "columnIndex": 1,
+          "x": 544
+        }
+      ]
+    },
+    {
+      "pageNumber": 23,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "Note",
+      "normalizedLabel": "note",
+      "noteReference": "13",
+      "rowText": "Note 13 Avsetninger og usikre forpliktelser",
+      "y": 372,
+      "confidence": 0.96,
+      "values": [
+        {
+          "value": 13,
+          "columnIndex": 0,
+          "x": 124
+        }
+      ]
+    },
+    {
+      "pageNumber": 24,
+      "sectionType": "NOTE",
+      "unitScale": 1,
+      "label": "| løpet av regnskapsåret",
+      "normalizedLabel": "lopet av regnskapsaret",
+      "noteReference": null,
+      "rowText": "| løpet av regnskapsåret 2024 har vi fortsatt å se positiv utvikling for våre produkter og tjenester. Ordeinngangen på Proff.no oversteg",
+      "y": 56,
+      "confidence": 0.65,
+      "values": [
+        {
+          "value": 2024,
+          "columnIndex": 0,
+          "x": 328
+        }
+      ]
+    }
+  ],
+  "mappedFacts": [
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "revenue",
+      "rawLabel": "Salgsinntekt",
+      "normalizedLabel": "salgsinntekt",
+      "value": 103,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Salgsinntekt 103 097 000 95 916 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 103,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "revenue",
+      "rawLabel": "Salgsinntekt",
+      "normalizedLabel": "salgsinntekt",
+      "value": 95916000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Salgsinntekt 103 097 000 95 916 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 95916000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "cost_of_goods_sold",
+      "rawLabel": "Varekostnad",
+      "normalizedLabel": "varekostnad",
+      "value": 11,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Varekostnad 11 129 000 8 605 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 11,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "cost_of_goods_sold",
+      "rawLabel": "Varekostnad",
+      "normalizedLabel": "varekostnad",
+      "value": 8605000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Varekostnad 11 129 000 8 605 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 8605000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "other_operating_expense",
+      "rawLabel": "Annen driftskostnad",
+      "normalizedLabel": "annen driftskostnad",
+      "value": 21,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Annen driftskostnad 21 459 000 22 042 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 21,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "other_operating_expense",
+      "rawLabel": "Annen driftskostnad",
+      "normalizedLabel": "annen driftskostnad",
+      "value": 22042000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Annen driftskostnad 21 459 000 22 042 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 22042000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "operating_profit",
+      "rawLabel": "Driftsresultat",
+      "normalizedLabel": "driftsresultat",
+      "value": 21,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Driftsresultat 21 210 000 19 648 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 21,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "operating_profit",
+      "rawLabel": "Driftsresultat",
+      "normalizedLabel": "driftsresultat",
+      "value": 19648000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Driftsresultat 21 210 000 19 648 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 19648000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "net_financial_items",
+      "rawLabel": "Netto finans",
+      "normalizedLabel": "netto finans",
+      "value": 2,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Netto finans 2 255 000 2 500 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 2,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "net_financial_items",
+      "rawLabel": "Netto finans",
+      "normalizedLabel": "netto finans",
+      "value": 2500000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Netto finans 2 255 000 2 500 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 2500000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "profit_before_tax",
+      "rawLabel": "Resultat før skattekostnad",
+      "normalizedLabel": "resultat for skattekostnad",
+      "value": 23,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Resultat før skattekostnad 23 465 000 22 148 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 23,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "profit_before_tax",
+      "rawLabel": "Resultat før skattekostnad",
+      "normalizedLabel": "resultat for skattekostnad",
+      "value": 22148000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Resultat før skattekostnad 23 465 000 22 148 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 22148000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "tax_expense",
+      "rawLabel": "Skattekostnad",
+      "normalizedLabel": "skattekostnad",
+      "value": 5,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Skattekostnad 5 244 000 4 919 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 5,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "tax_expense",
+      "rawLabel": "Skattekostnad",
+      "normalizedLabel": "skattekostnad",
+      "value": 4919000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Skattekostnad 5 244 000 4 919 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 4919000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "net_income",
+      "rawLabel": "Årsresultat",
+      "normalizedLabel": "arsresultat",
+      "value": 18,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Årsresultat 18 221 000 17 229 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 18,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "net_income",
+      "rawLabel": "Årsresultat",
+      "normalizedLabel": "arsresultat",
+      "value": 17229000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 2,
+      "sourceSection": "STATUTORY_INCOME",
+      "sourceRowText": "Årsresultat 18 221 000 17 229 000",
+      "noteReference": null,
+      "confidenceScore": 0.833,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 17229000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_INCOME"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "deferred_tax_asset",
+      "rawLabel": "Utsatt skattefordel",
+      "normalizedLabel": "utsatt skattefordel",
+      "value": 1,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Utsatt skattefordel 1 185 000 755 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 1,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "deferred_tax_asset",
+      "rawLabel": "Utsatt skattefordel",
+      "normalizedLabel": "utsatt skattefordel",
+      "value": 755000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Utsatt skattefordel 1 185 000 755 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 755000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "intangible_assets",
+      "rawLabel": "Sum immaterielle eiendeler",
+      "normalizedLabel": "sum immaterielle eiendeler",
+      "value": 17,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Sum immaterielle eiendeler 17 106 000 16 935 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 17,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "intangible_assets",
+      "rawLabel": "Sum immaterielle eiendeler",
+      "normalizedLabel": "sum immaterielle eiendeler",
+      "value": 16935000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Sum immaterielle eiendeler 17 106 000 16 935 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 16935000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "tangible_assets",
+      "rawLabel": "Sum varige driftsmidler",
+      "normalizedLabel": "sum varige driftsmidler",
+      "value": 97,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Sum varige driftsmidler 97 000 0",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 97,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "tangible_assets",
+      "rawLabel": "Sum varige driftsmidler",
+      "normalizedLabel": "sum varige driftsmidler",
+      "value": 0,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Sum varige driftsmidler 97 000 0",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 0,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "trade_receivables",
+      "rawLabel": "Kundefordringer",
+      "normalizedLabel": "kundefordringer",
+      "value": 11,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Kundefordringer 11 809 000 14 469 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 11,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "trade_receivables",
+      "rawLabel": "Kundefordringer",
+      "normalizedLabel": "kundefordringer",
+      "value": 14469000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Kundefordringer 11 809 000 14 469 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 14469000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "other_receivables",
+      "rawLabel": "Andre fordringer",
+      "normalizedLabel": "andre fordringer",
+      "value": 8,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Andre fordringer 8 707 000 8 300 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 8,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "other_receivables",
+      "rawLabel": "Andre fordringer",
+      "normalizedLabel": "andre fordringer",
+      "value": 8300000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Andre fordringer 8 707 000 8 300 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 8300000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "total_assets",
+      "rawLabel": "SUM EIENDELER",
+      "normalizedLabel": "sum eiendeler",
+      "value": 92155,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "SUM EIENDELER 92 155 000 121 653 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 92155,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "total_assets",
+      "rawLabel": "SUM EIENDELER",
+      "normalizedLabel": "sum eiendeler",
+      "value": 653000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "SUM EIENDELER 92 155 000 121 653 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 653000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "share_premium",
+      "rawLabel": "Overkurs",
+      "normalizedLabel": "overkurs",
+      "value": 2,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Overkurs 2 156 000 2 156 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 2,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "share_premium",
+      "rawLabel": "Overkurs",
+      "normalizedLabel": "overkurs",
+      "value": 2156000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Overkurs 2 156 000 2 156 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 2156000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "retained_earnings",
+      "rawLabel": "Annen egenkapital",
+      "normalizedLabel": "annen egenkapital",
+      "value": 32,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Annen egenkapital 32 632 000 64 409 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 32,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "retained_earnings",
+      "rawLabel": "Annen egenkapital",
+      "normalizedLabel": "annen egenkapital",
+      "value": 64409000,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 3,
+      "sourceSection": "STATUTORY_BALANCE",
+      "sourceRowText": "Annen egenkapital 32 632 000 64 409 000",
+      "noteReference": null,
+      "confidenceScore": 0.978,
+      "precedence": "STATUTORY_NOK",
+      "isDerived": false,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 64409000,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "STATUTORY_BALANCE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "payroll_expense",
+      "rawLabel": "Lonnskostnader",
+      "normalizedLabel": "lonnskostnader",
+      "value": 2024000,
+      "currency": "NOK",
+      "unitScale": 1000,
+      "sourcePage": 19,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Lonnskostnader 2024",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 2024,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "other_receivables",
+      "rawLabel": "Andre fordringer",
+      "normalizedLabel": "andre fordringer",
+      "value": 2426,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 22,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Andre fordringer 2426 4 220",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 2426,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "other_receivables",
+      "rawLabel": "Andre fordringer",
+      "normalizedLabel": "andre fordringer",
+      "value": 220,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 22,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Andre fordringer 2426 4 220",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 220,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "other_current_liabilities",
+      "rawLabel": "Annen kortsiktig gjeld",
+      "normalizedLabel": "annen kortsiktig gjeld",
+      "value": 3,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 22,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Annen kortsiktig gjeld 3 332 2 892",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 3,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "other_current_liabilities",
+      "rawLabel": "Annen kortsiktig gjeld",
+      "normalizedLabel": "annen kortsiktig gjeld",
+      "value": 2892,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 22,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Annen kortsiktig gjeld 3 332 2 892",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 2892,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "trade_receivables",
+      "rawLabel": "Kundefordringer",
+      "normalizedLabel": "kundefordringer",
+      "value": 0,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 22,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Kundefordringer 0 0",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 0,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "other_current_liabilities",
+      "rawLabel": "Annen kortsiktig gjeld",
+      "normalizedLabel": "annen kortsiktig gjeld",
+      "value": 832,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 22,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Annen kortsiktig gjeld 832 812",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 832,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "total_liabilities",
+      "rawLabel": "Sum gjeld mellomvarende",
+      "normalizedLabel": "sum gjeld mellomvarende",
+      "value": 832,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 22,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Sum gjeld mellomvarende 832 912",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 832,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "total_equity",
+      "rawLabel": "Egenkapital 01.01.2024",
+      "normalizedLabel": "egenkapital 01 01 2024",
+      "value": 1584,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 23,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Egenkapital 01.01.2024 1 584 2 156 64 409",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 1584,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "total_equity",
+      "rawLabel": "Egenkapital 01.01.2024",
+      "normalizedLabel": "egenkapital 01 01 2024",
+      "value": 64409,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 23,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Egenkapital 01.01.2024 1 584 2 156 64 409",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 64409,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "total_equity",
+      "rawLabel": "Egenkapital 31.12.2024",
+      "normalizedLabel": "egenkapital 31 12 2024",
+      "value": 1584,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 23,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Egenkapital 31.12.2024 1584 2 156 32 631",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 0,
+        "rawValue": 1584,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    },
+    {
+      "fiscalYear": 2024,
+      "statementType": "NOTE",
+      "metricKey": "total_equity",
+      "rawLabel": "Egenkapital 31.12.2024",
+      "normalizedLabel": "egenkapital 31 12 2024",
+      "value": 32631,
+      "currency": "NOK",
+      "unitScale": 1,
+      "sourcePage": 23,
+      "sourceSection": "NOTE",
+      "sourceRowText": "Egenkapital 31.12.2024 1584 2 156 32 631",
+      "noteReference": null,
+      "confidenceScore": 0.678,
+      "precedence": "NOTE_DERIVED",
+      "isDerived": true,
+      "rawPayload": {
+        "columnIndex": 2,
+        "rawValue": 32631,
+        "yearOrder": [
+          2024,
+          2023
+        ],
+        "classificationType": "NOTE"
+      }
+    }
+  ],
   "validationStats": {
     "duplicateComparisons": 0,
     "duplicateMatches": 0,
-    "noteComparisons": 0,
-    "noteMatches": 0
+    "noteComparisons": 3,
+    "noteMatches": 2
   },
   "comparisonSummary": null
 }

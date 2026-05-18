@@ -1,9 +1,15 @@
-import React from "react";
+﻿import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import AdminControlCenterView from "@/app/(app)/admin/AdminControlCenterView";
 import type { AdminControlCenterModel } from "@/server/services/admin-control-center-service";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    refresh: vi.fn(),
+  }),
+}));
 
 const model: AdminControlCenterModel = {
   title: "Admin Control Center",
@@ -88,6 +94,7 @@ const model: AdminControlCenterModel = {
       {
         key: "step-8",
         stepNumber: 8,
+        actor: "decision",
         title: "Må rapporten kontrolleres manuelt?",
         subtitle:
           "Systemet avgjør om et menneske må kontrollere rapporten før tallene kan brukes.",
@@ -117,6 +124,7 @@ const model: AdminControlCenterModel = {
       {
         key: "step-9",
         stepNumber: 9,
+        actor: "human",
         title: "Manuell kontroll",
         subtitle: "En admin eller reviewer kontrollerer rapporter der systemet er usikkert.",
         status: "WARNING",
@@ -188,14 +196,15 @@ const model: AdminControlCenterModel = {
 describe("AdminControlCenterView", () => {
   it("renders the cockpit structure and operator-facing sections", () => {
     const html = renderToStaticMarkup(
-      <AdminControlCenterView model={model} currentUserRole="ADMIN" />,
+      <AdminControlCenterView model={model} currentUserRole="ADMIN" refreshAffectedCount={2} />,
     );
 
-    expect(html).toContain("Control Center");
+    expect(html).toContain("Adminoversikt");
     expect(html).toContain("Hva trenger oppmerksomhet nå?");
     expect(html).toContain("Fra årsrapport til tall i databasen");
-    expect(html).toContain("Veien mot go-live for ny ekstraksjonsmotor");
-    expect(html).toContain("Review-kø");
+    expect(html).not.toContain("Veien mot go-live for ny ekstraksjonsmotor");
+    expect(html).toContain("Manuell kontroll av årsrapporter");
+    expect(html).toContain("Refresh berørte saker");
     expect(html).toContain("Slik bruker du admin-siden");
     expect(html).toContain("Begreper");
     expect(html).toContain("Statusforklaring");
@@ -211,7 +220,7 @@ describe("AdminControlCenterView", () => {
       },
     };
     const html = renderToStaticMarkup(
-      <AdminControlCenterView model={decisionFirstModel} currentUserRole="ADMIN" />,
+      <AdminControlCenterView model={decisionFirstModel} currentUserRole="ADMIN" refreshAffectedCount={1} />,
     );
 
     expect(html).toContain("Må rapporten kontrolleres manuelt?");
@@ -219,5 +228,8 @@ describe("AdminControlCenterView", () => {
     expect(html).toContain("Nei, kvaliteten er god nok");
     expect(html).toContain("Ja, systemet er usikkert");
     expect(html).toContain("Rapporten kan gå videre til lagring.");
+    expect(html).toContain("Åpne steg");
+    expect(html).not.toContain("Gå til neste steg");
+    expect(html).toContain("Beslutning");
   });
 });

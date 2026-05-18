@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import Link from "next/link";
 import { AnnualReportReviewStatus } from "@prisma/client";
 
@@ -126,10 +126,10 @@ export default async function AdminReviewQueuePage({
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-[#162233]">
-              Review-kø for årsrapporter
+              Manuell kontroll av årsrapporter
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Gold-set shadow batch review for PR76, pluss den eksisterende køen for ordinær filing-review.
+              Her sammenligner du PDF mot systemets forslag, prioriterer avvik og åpner den viktigste kontrollflaten i admin.
             </p>
           </div>
         </div>
@@ -138,10 +138,10 @@ export default async function AdminReviewQueuePage({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-[#162233]">
-                Gold-set manual review round
+                Kontrollkø fra testgrunnlag
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Kandidater fra persisted gold-set shadow batch. Bruk denne køen til å gi strukturert fasit for PR77–PR79.
+                Kandidater fra testkjøringer. Bruk denne køen når dere vil sammenligne systemets forslag mot fasit på tvers av dokumenter.
               </p>
             </div>
             {manualRound ? (
@@ -155,11 +155,11 @@ export default async function AdminReviewQueuePage({
                   {formatTimestamp(manualRound.generatedAt)}
                 </div>
                 <div>
-                  <span className="font-medium text-slate-500">Pending:</span>{" "}
+                  <span className="font-medium text-slate-500">Åpne saker:</span>{" "}
                   {manualRound.summary.pendingCount}
                 </div>
                 <div>
-                  <span className="font-medium text-slate-500">High severity:</span>{" "}
+                  <span className="font-medium text-slate-500">Høy prioritet:</span>{" "}
                   {manualRound.summary.severityCounts.HIGH}
                 </div>
               </div>
@@ -174,16 +174,16 @@ export default async function AdminReviewQueuePage({
               className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-700"
             >
               <option value="">Alle statuser</option>
-              <option value="PENDING">Pending</option>
-              <option value="REVIEWED">Reviewed</option>
-              <option value="BLOCKED">Blocked</option>
+              <option value="PENDING">Åpen</option>
+              <option value="REVIEWED">Ferdig vurdert</option>
+              <option value="BLOCKED">Blokkert</option>
             </select>
             <select
               name="manualSeverity"
               defaultValue={manualReviewSeverity?.[0]}
               className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-700"
             >
-              <option value="">Alle severity</option>
+              <option value="">Alle prioriteringer</option>
               <option value="HIGH">HIGH</option>
               <option value="MEDIUM">MEDIUM</option>
               <option value="LOW">LOW</option>
@@ -198,7 +198,7 @@ export default async function AdminReviewQueuePage({
             <input
               name="manualIssueClass"
               type="text"
-              placeholder="Issue class"
+              placeholder="Avvikstype"
               defaultValue={manualIssueClass?.[0]}
               className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400"
             />
@@ -223,7 +223,7 @@ export default async function AdminReviewQueuePage({
                 value="1"
                 defaultChecked={highSeverityOnly}
               />
-              High severity only
+              Kun høy prioritet
             </label>
             <button
               type="submit"
@@ -236,25 +236,25 @@ export default async function AdminReviewQueuePage({
           {manualRound ? (
             <div className="mt-6 grid gap-3 md:grid-cols-4">
               <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#f9f9f7] p-4">
-                <div className="text-xs uppercase tracking-widest text-slate-400">Review candidates</div>
+                <div className="text-xs uppercase tracking-widest text-slate-400">Kandidater</div>
                 <div className="mt-2 text-2xl font-semibold text-[#162233]">
                   {manualRound.summary.reviewCandidateCount}
                 </div>
               </div>
               <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#f9f9f7] p-4">
-                <div className="text-xs uppercase tracking-widest text-slate-400">Pending</div>
+                <div className="text-xs uppercase tracking-widest text-slate-400">Åpne</div>
                 <div className="mt-2 text-2xl font-semibold text-amber-700">
                   {manualRound.summary.pendingCount}
                 </div>
               </div>
               <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#f9f9f7] p-4">
-                <div className="text-xs uppercase tracking-widest text-slate-400">Reviewed</div>
+                <div className="text-xs uppercase tracking-widest text-slate-400">Vurdert</div>
                 <div className="mt-2 text-2xl font-semibold text-green-700">
                   {manualRound.summary.reviewedCount}
                 </div>
               </div>
               <div className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-[#f9f9f7] p-4">
-                <div className="text-xs uppercase tracking-widest text-slate-400">Top issue class</div>
+                <div className="text-xs uppercase tracking-widest text-slate-400">Vanligste avvik</div>
                 <div className="mt-2 text-sm font-semibold text-[#162233]">
                   {Object.entries(manualRound.summary.issueClassCounts).sort(
                     (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
@@ -264,28 +264,28 @@ export default async function AdminReviewQueuePage({
             </div>
           ) : (
             <div className="mt-6 rounded-xl border border-dashed border-[rgba(15,23,42,0.18)] bg-[#f9f9f7] p-6 text-sm text-slate-500">
-              Ingen persisted manual review round funnet ennå. Kjør en gold-set shadow batch og bygg review-runden først.
+              Ingen testbasert kontrollkø er klar ennå. Kjør en gold-set shadow batch og bygg kontrollkøen først.
             </div>
           )}
 
           {manualCandidates.length === 0 ? (
             <div className="mt-6 rounded-xl border border-dashed border-[rgba(15,23,42,0.18)] bg-[#f9f9f7] p-10 text-center text-slate-500">
-              No manual review candidates found for the selected run.
+              Ingen kandidater funnet for de valgte filtrene.
             </div>
           ) : (
             <div className="mt-6 overflow-x-auto rounded-xl border border-[rgba(15,23,42,0.08)]">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[rgba(15,23,42,0.08)] bg-[#f9f9f7]">
-                    <th className="px-4 py-3 text-left font-medium text-slate-500">Company</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Selskap</th>
                     <th className="px-4 py-3 text-left font-medium text-slate-500">Org.nr</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-500">Accounting year</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Regnskapsår</th>
                     <th className="px-4 py-3 text-left font-medium text-slate-500">Status</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-500">Severity</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-500">Main review reason</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-500">Tags</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-500">First divergence stage</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-500">Evidence/parser</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Prioritet</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Hovedårsak</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Merknader</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Første avvik</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-500">Grunnlag / parser</th>
                     <th className="px-4 py-3 text-left font-medium text-slate-500">Updated</th>
                     <th className="px-4 py-3 text-left font-medium text-slate-500"></th>
                   </tr>
@@ -339,7 +339,7 @@ export default async function AdminReviewQueuePage({
                           href={`/admin/annual-report-reviews/gold-set/${candidate.candidateId}?runId=${encodeURIComponent(candidate.runId)}`}
                           className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                         >
-                          Open
+                          Åpne kontroll
                         </Link>
                       </td>
                     </tr>
@@ -354,10 +354,10 @@ export default async function AdminReviewQueuePage({
       <section className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-sm">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-[#162233]">
-            Eksisterende produksjons-review-kø
+            Øvrige reviewsaker
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Dette er den opprinnelige køen for filing-review i produksjonsløypen. PR76 endrer ikke publish-safety eller routing.
+            Dette er den opprinnelige køen for saker som allerede er sendt til manuell kontroll i produksjonsløypen.
           </p>
         </div>
 
@@ -367,8 +367,8 @@ export default async function AdminReviewQueuePage({
             defaultValue={statuses[0]}
             className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-700"
           >
-            <option value="PENDING_REVIEW">Venter på review</option>
-            <option value="REPROCESS_REQUESTED">Reprocess forespurt</option>
+            <option value="PENDING_REVIEW">Venter på kontroll</option>
+            <option value="REPROCESS_REQUESTED">Refresh forespurt</option>
             <option value="ACCEPTED">Godkjent</option>
             <option value="REJECTED">Avvist</option>
             <option value="RESOLVED_BY_NEW_RUN">Løst av ny kjøring</option>

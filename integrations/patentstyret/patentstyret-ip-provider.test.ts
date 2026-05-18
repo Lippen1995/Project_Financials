@@ -10,7 +10,7 @@ describe("patentstyret-ip-provider normalization", () => {
       markName: "PROJECTX",
       status: "Registered",
       caseUrl: "https://services.patentstyret.no/search-details/Trademark/201903742",
-      owners: [{ name: "ProjectX AS", orgNumber: "123456789" }],
+      owners: [{ name: "Fjord Insight AS", orgNumber: "123456789" }],
       applicationDate: "2019-03-10",
       registrationDate: "2020-01-12",
       events: [{ date: "2024-06-01", label: "Renewed" }],
@@ -19,7 +19,7 @@ describe("patentstyret-ip-provider normalization", () => {
     const normalized = __testables.mapSummaryFromRecord(row, "123456789");
     expect(normalized?.type).toBe("trademark");
     expect(normalized?.title).toBe("PROJECTX");
-    expect(normalized?.owners[0]?.name).toBe("ProjectX AS");
+    expect(normalized?.owners[0]?.name).toBe("Fjord Insight AS");
     expect(normalized?.isActive).toBe(true);
   });
 

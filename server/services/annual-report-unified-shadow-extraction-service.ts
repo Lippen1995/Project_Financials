@@ -27,9 +27,15 @@ import type {
   UnifiedUnitScale,
   UnifiedFinancialStatement,
 } from "@/integrations/brreg/annual-report-financials/unified-financial-statement-extractor";
-import type { CanonicalFactCandidate, PreflightResult } from "@/integrations/brreg/annual-report-financials/types";
+import type {
+  AnnualReportParsedPage,
+  CanonicalFactCandidate,
+  PreflightResult,
+} from "@/integrations/brreg/annual-report-financials/types";
 import {
+  buildUnifiedParserDocumentFromStructuredDocument,
   buildUnifiedParserDocumentFromPreflightResult,
+  type UnifiedParserRoute,
 } from "@/integrations/brreg/annual-report-financials/unified-parser-document-model";
 import type { UnifiedParserDocument } from "@/integrations/brreg/annual-report-financials/unified-parser-document-model";
 import {
@@ -79,6 +85,15 @@ export type AnnualReportUnifiedShadowInput = {
    * Passed through directly to buildUnifiedParserDocumentFromPreflightResult.
    */
   preflight: PreflightResult;
+  /**
+   * Optional structured pages from OpenDataLoader/hybrid parsing.
+   * When present, these are preferred over the text-layer-only preflight pages.
+   */
+  parsedPages?: AnnualReportParsedPage[];
+  /**
+   * Optional route label for structured parsed pages.
+   */
+  route?: UnifiedParserRoute;
   /**
    * Legacy canonical facts produced by the primary pipeline.
    * Used for the legacy-vs-unified comparison step.
@@ -165,6 +180,22 @@ function stepError(error: unknown, durationMs: number): AnnualReportUnifiedShado
   return { ok: false, error: msg, durationMs };
 }
 
+function hasStructuredParsedPages(
+  parsedPages: AnnualReportParsedPage[] | undefined,
+): parsedPages is AnnualReportParsedPage[] {
+  return Array.isArray(parsedPages) && parsedPages.length > 0;
+}
+
+function resolveStructuredRoute(
+  input: AnnualReportUnifiedShadowInput,
+): UnifiedParserRoute {
+  if (input.route) {
+    return input.route;
+  }
+
+  return input.preflight.hasReliableTextLayer ? "OPENDATALOADER_LOCAL" : "HYBRID";
+}
+
 // ── Main function ──────────────────────────────────────────────────────────────
 
 /**
@@ -218,8 +249,23 @@ export async function runAnnualReportUnifiedShadowExtraction(
     };
   }
 
-  const { filingId, companyId, orgNumber, fiscalYear, preflight, legacyCandidates, config, sourceCommand } = input;
+  const {
+    filingId,
+    companyId,
+    orgNumber,
+    fiscalYear,
+    preflight,
+    legacyCandidates,
+    config,
+    sourceCommand,
+  } = input;
   const warnings: string[] = [];
+
+  if (!preflight.hasReliableTextLayer && !hasStructuredParsedPages(input.parsedPages)) {
+    warnings.push(
+      "Dokumentet mangler pålitelig tekstlag, og structured parser-sider ble ikke sendt inn. Unified-resultatet kan derfor bli tomt.",
+    );
+  }
 
   // ── Step 1: Build unified parser document ─────────────────────────────────
 
@@ -228,16 +274,30 @@ export async function runAnnualReportUnifiedShadowExtraction(
   {
     const stepStart = Date.now();
     try {
-      document = buildUnifiedParserDocumentFromPreflightResult({
-        preflight,
-        route: "TEXT_LAYER",
-        source: {
-          filingId,
-          orgNumber,
-          fiscalYear,
-        },
-        shadowOnly: true,
-      });
+      if (hasStructuredParsedPages(input.parsedPages)) {
+        document = buildUnifiedParserDocumentFromStructuredDocument({
+          parsedPages: input.parsedPages,
+          sections: preflight.structuredDocument?.sections ?? [],
+          route: resolveStructuredRoute(input),
+          source: {
+            filingId,
+            orgNumber,
+            fiscalYear,
+          },
+          shadowOnly: true,
+        });
+      } else {
+        document = buildUnifiedParserDocumentFromPreflightResult({
+          preflight,
+          route: "TEXT_LAYER",
+          source: {
+            filingId,
+            orgNumber,
+            fiscalYear,
+          },
+          shadowOnly: true,
+        });
+      }
       documentStep = { ok: true, value: true, durationMs: elapsed(stepStart) };
     } catch (err) {
       logRecoverableError(

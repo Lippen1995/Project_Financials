@@ -178,5 +178,270 @@
       "lines": [],
       "hasEmbeddedText": false
     }
-  ]
+  ],
+  "diagnostics": {
+    "pageCount": 25,
+    "sectionsFound": 0,
+    "sectionKinds": [],
+    "missingExpectedSections": [
+      "BOARD_REPORT",
+      "AUDITOR_REPORT",
+      "INCOME_STATEMENT",
+      "BALANCE_SHEET"
+    ],
+    "recommendedRouteHint": "FORCE_OCR",
+    "textLayerDensityScore": 0,
+    "likelyImageOnlyPages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25
+    ],
+    "financialStatementPageCount": 0,
+    "financialStatementCandidatePages": [],
+    "narrativeCandidatePages": [],
+    "boardReportCandidatePages": [],
+    "auditorReportCandidatePages": [],
+    "notesCandidatePages": [],
+    "qualityRisk": "HIGH",
+    "parserRiskReasons": [
+      "Low text layer density (0%) — PDF may be image-based",
+      "25 of 25 pages appear image-only"
+    ],
+    "extractionWarnings": [
+      "Expected sections not detected: BOARD_REPORT, AUDITOR_REPORT, INCOME_STATEMENT, BALANCE_SHEET"
+    ]
+  },
+  "recommendedRouteHint": "FORCE_OCR",
+  "structuredDocument": {
+    "pages": [
+      {
+        "pageNumber": 1,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 2,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 3,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 4,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 5,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 6,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 7,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 8,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 9,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 10,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 11,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 12,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 13,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 14,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 15,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 16,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 17,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 18,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 19,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 20,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 21,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 22,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 23,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 24,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      },
+      {
+        "pageNumber": 25,
+        "rawText": "",
+        "normalizedText": "",
+        "charCount": 0
+      }
+    ],
+    "sections": [],
+    "narratives": [],
+    "diagnostics": {
+      "pageCount": 25,
+      "sectionsFound": 0,
+      "sectionKinds": [],
+      "missingExpectedSections": [
+        "BOARD_REPORT",
+        "AUDITOR_REPORT",
+        "INCOME_STATEMENT",
+        "BALANCE_SHEET"
+      ],
+      "recommendedRouteHint": "FORCE_OCR",
+      "textLayerDensityScore": 0,
+      "likelyImageOnlyPages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "financialStatementPageCount": 0,
+      "financialStatementCandidatePages": [],
+      "narrativeCandidatePages": [],
+      "boardReportCandidatePages": [],
+      "auditorReportCandidatePages": [],
+      "notesCandidatePages": [],
+      "qualityRisk": "HIGH",
+      "parserRiskReasons": [
+        "Low text layer density (0%) — PDF may be image-based",
+        "25 of 25 pages appear image-only"
+      ],
+      "extractionWarnings": [
+        "Expected sections not detected: BOARD_REPORT, AUDITOR_REPORT, INCOME_STATEMENT, BALANCE_SHEET"
+      ]
+    }
+  }
 }

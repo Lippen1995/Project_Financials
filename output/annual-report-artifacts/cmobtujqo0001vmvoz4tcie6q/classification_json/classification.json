@@ -5,126 +5,190 @@
     {
       "pageNumber": 1,
       "type": "COVER",
-      "confidence": 0.15,
+      "confidence": 0.353,
       "unitScale": null,
       "unitScaleConfidence": 0,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2025,
+        2022
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "IE EEN EN",
+      "numericRowCount": 5,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "arsregnskap",
+        "organisasjonsnummer",
+        "Detected statement-like table layout"
       ]
     },
     {
       "pageNumber": 2,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "STATUTORY_INCOME",
+      "confidence": 0.706,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.95,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
-      "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "declaredYears": [
+        2024,
+        2023,
+        2025
+      ],
+      "yearHeaderYears": [
+        2024,
+        2023
+      ],
+      "heading": "RESULTATREGNSKAP",
+      "numericRowCount": 16,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "resultatregnskap",
+        "driftsresultat",
+        "arsresultat",
+        "resultat for",
+        "note ",
+        "Declared whole NOK on page",
+        "Detected year header",
+        "Detected statement-like table layout"
       ]
     },
     {
       "pageNumber": 3,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "STATUTORY_BALANCE",
+      "confidence": 0.995,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.95,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
-      "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "declaredYears": [
+        2024,
+        2023,
+        2025
+      ],
+      "yearHeaderYears": [
+        2024,
+        2023
+      ],
+      "heading": "BALANSE - EGENKAPITAL OG",
+      "numericRowCount": 19,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "balanse",
+        "eiendeler",
+        "egenkapital og gjeld",
+        "sum eiendeler",
+        "anleggsmidler",
+        "omlopsmidler",
+        "note ",
+        "Declared whole NOK on page",
+        "Detected year header",
+        "Detected statement-like table layout"
       ]
     },
     {
       "pageNumber": 4,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "STATUTORY_BALANCE_CONTINUATION",
+      "confidence": 0.676,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.86,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
-      "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "declaredYears": [
+        2025
+      ],
+      "yearHeaderYears": [
+        2024,
+        2023
+      ],
+      "heading": "Sum egenkapital",
+      "numericRowCount": 3,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "egenkapital og gjeld",
+        "sum egenkapital og gjeld",
+        "sum kortsiktig gjeld",
+        "sum gjeld",
+        "Detected statement-like table layout",
+        "Inherited unit scale 1 from previous statement page",
+        "Inherited year header 2024, 2023 from previous statement page"
       ]
     },
     {
       "pageNumber": 5,
-      "type": "COVER",
-      "confidence": 0.15,
+      "type": "NOTE",
+      "confidence": 0.397,
       "unitScale": null,
       "unitScaleConfidence": 0,
       "hasConflictingUnitSignals": false,
       "declaredYears": [],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
+      "heading": "Balanseført verdi 31.12. Variqe driftsmidler Immaterielle eiend.",
+      "numericRowCount": 2,
       "tableLike": false,
       "reasons": [
-        "No strong page classification signals"
+        "balanse",
+        "note "
       ]
     },
     {
       "pageNumber": 6,
-      "type": "COVER",
-      "confidence": 0.15,
+      "type": "NOTE",
+      "confidence": 0.397,
       "unitScale": null,
       "unitScaleConfidence": 0,
       "hasConflictingUnitSignals": false,
       "declaredYears": [],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
+      "heading": "Morselskapet sitt navn",
+      "numericRowCount": 2,
       "tableLike": false,
       "reasons": [
-        "No strong page classification signals"
+        "note "
       ]
     },
     {
       "pageNumber": 7,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "AUDITOR_REPORT",
+      "confidence": 0.809,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.72,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "Uavhengig revisors beretning",
+      "numericRowCount": 3,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "resultatregnskap",
+        "balanse",
+        "noter til arsregnskapet",
+        "regnskapsprinsipper",
+        "note ",
+        "uavhengig revisors beretning",
+        "revisjonsberetning",
+        "grunnlag for konklusjon",
+        "fortsatt drift",
+        "arsregnskap",
+        "arsrapport",
+        "Detected statement-like table layout",
+        "Inherited unit scale 1 from previous statement page"
       ]
     },
     {
       "pageNumber": 8,
       "type": "COVER",
       "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.72,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2025
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
+      "heading": "Oslo, 19. mars 2025",
+      "numericRowCount": 1,
       "tableLike": false,
       "reasons": [
         "No strong page classification signals"
@@ -132,30 +196,35 @@
     },
     {
       "pageNumber": 9,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "AUDITOR_REPORT",
+      "confidence": 0.544,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.72,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2025
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
+      "heading": "4 Securely signed with Brevio",
+      "numericRowCount": 1,
       "tableLike": false,
       "reasons": [
-        "No strong page classification signals"
+        "revisjonsberetning",
+        "Inherited unit scale 1 from previous statement page"
       ]
     },
     {
       "pageNumber": 10,
       "type": "COVER",
       "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.72,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024
+      ],
       "yearHeaderYears": [],
-      "heading": null,
+      "heading": "Tilleggsinformasjon",
       "numericRowCount": 0,
       "tableLike": false,
       "reasons": [
@@ -164,47 +233,62 @@
     },
     {
       "pageNumber": 11,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "BOARD_REPORT",
+      "confidence": 0.471,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.72,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "STYRETS BERETNING 2024",
+      "numericRowCount": 6,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "virksomhetens art",
+        "Detected statement-like table layout",
+        "Inherited unit scale 1 from previous statement page"
       ]
     },
     {
       "pageNumber": 12,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "BOARD_REPORT",
+      "confidence": 0.471,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.72,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2025,
+        2023,
+        2022
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "Styrets ansvarsforsikring",
+      "numericRowCount": 13,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "resultat for",
+        "fortsatt drift",
+        "arsregnskap",
+        "Detected statement-like table layout",
+        "Inherited unit scale 1 from previous statement page"
       ]
     },
     {
       "pageNumber": 13,
       "type": "COVER",
       "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "unitScale": 1,
+      "unitScaleConfidence": 0.72,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2025
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
+      "heading": "Oslo, 19 Mars 2025",
+      "numericRowCount": 1,
       "tableLike": false,
       "reasons": [
         "No strong page classification signals"
@@ -212,194 +296,276 @@
     },
     {
       "pageNumber": 14,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "SUPPLEMENTARY_INCOME",
+      "confidence": 0.412,
+      "unitScale": 1000,
+      "unitScaleConfidence": 0.985,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2023
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
+      "heading": "RESULTATREGNSKAP",
+      "numericRowCount": 1,
       "tableLike": false,
       "reasons": [
-        "No strong page classification signals"
+        "resultatregnskap",
+        "driftsresultat",
+        "arsresultat",
+        "resultat for",
+        "note ",
+        "Declared NOK 1000 on page"
       ]
     },
     {
       "pageNumber": 15,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "SUPPLEMENTARY_BALANCE",
+      "confidence": 0.676,
+      "unitScale": 1000,
+      "unitScaleConfidence": 0.985,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2023
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
+      "heading": "BALANSE PR. 31.12",
+      "numericRowCount": 2,
       "tableLike": false,
       "reasons": [
-        "No strong page classification signals"
+        "balanse",
+        "eiendeler",
+        "sum eiendeler",
+        "anleggsmidler",
+        "omlopsmidler",
+        "note ",
+        "Declared NOK 1000 on page"
       ]
     },
     {
       "pageNumber": 16,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "STATUTORY_BALANCE_CONTINUATION",
+      "confidence": 0.559,
+      "unitScale": 1000,
+      "unitScaleConfidence": 0.82,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2023,
+        2025
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
+      "heading": "EGENKAPITAL OG GJELD",
+      "numericRowCount": 2,
       "tableLike": false,
       "reasons": [
-        "No strong page classification signals"
+        "balanse",
+        "egenkapital og gjeld",
+        "sum egenkapital og gjeld",
+        "sum kortsiktig gjeld",
+        "sum gjeld",
+        "note ",
+        "Inherited unit scale 1000 from previous statement page"
       ]
     },
     {
       "pageNumber": 17,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "STATUTORY_BALANCE",
+      "confidence": 0.559,
+      "unitScale": 1000,
+      "unitScaleConfidence": 0.82,
       "hasConflictingUnitSignals": false,
       "declaredYears": [],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "balanseføres er oppført netto I balansen.",
+      "numericRowCount": 3,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "resultatregnskap",
+        "balanse",
+        "anleggsmidler",
+        "omlopsmidler",
+        "regnskapsprinsipper",
+        "arsregnskap",
+        "Detected statement-like table layout",
+        "Inherited unit scale 1000 from previous statement page"
       ]
     },
     {
       "pageNumber": 18,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "STATUTORY_BALANCE",
+      "confidence": 0.588,
+      "unitScale": 1000,
+      "unitScaleConfidence": 0.82,
       "hasConflictingUnitSignals": false,
       "declaredYears": [],
       "yearHeaderYears": [],
-      "heading": null,
+      "heading": "Varige driftsmidler, immaterielle eiendeler og avskrivninger",
       "numericRowCount": 0,
       "tableLike": false,
       "reasons": [
-        "No strong page classification signals"
+        "balanse",
+        "eiendeler",
+        "Inherited unit scale 1000 from previous statement page"
       ]
     },
     {
       "pageNumber": 19,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "NOTE",
+      "confidence": 0.397,
+      "unitScale": 1000,
+      "unitScaleConfidence": 0.973,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2023
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "Alle tall i notene er NOK 1.000 hvis annet ikke særskilt er oppgitt.",
+      "numericRowCount": 14,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "note ",
+        "Declared NOK 1000 on page",
+        "Detected statement-like table layout"
       ]
     },
     {
       "pageNumber": 20,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "STATUTORY_BALANCE",
+      "confidence": 0.588,
+      "unitScale": 1000,
+      "unitScaleConfidence": 0.72,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2023
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "Balansefort verdi 31.12.",
+      "numericRowCount": 5,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "balanse",
+        "eiendeler",
+        "note ",
+        "arsregnskap",
+        "Detected statement-like table layout",
+        "Inherited unit scale 1000 from previous statement page"
       ]
     },
     {
       "pageNumber": 21,
-      "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "type": "STATUTORY_INCOME",
+      "confidence": 0.412,
+      "unitScale": 1000,
+      "unitScaleConfidence": 0.82,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2023
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "Note 6 Skatt",
+      "numericRowCount": 5,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "resultatregnskap",
+        "resultat for",
+        "balanse",
+        "note ",
+        "Detected statement-like table layout",
+        "Inherited unit scale 1000 from previous statement page"
       ]
     },
     {
       "pageNumber": 22,
-      "type": "COVER",
-      "confidence": 0.15,
+      "type": "NOTE",
+      "confidence": 0.397,
       "unitScale": null,
       "unitScaleConfidence": 0,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
-      "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "declaredYears": [
+        2024,
+        2023
+      ],
+      "yearHeaderYears": [
+        2024,
+        2023
+      ],
+      "heading": "Note 7 Fordringer og gjeld",
+      "numericRowCount": 20,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "sum gjeld",
+        "note ",
+        "Detected year header",
+        "Detected statement-like table layout"
       ]
     },
     {
       "pageNumber": 23,
-      "type": "COVER",
-      "confidence": 0.15,
+      "type": "NOTE",
+      "confidence": 0.397,
       "unitScale": null,
       "unitScaleConfidence": 0,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2021,
+        2025,
+        2023
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "Note 9 Bankinkskudd",
+      "numericRowCount": 16,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "balanse",
+        "note ",
+        "Detected statement-like table layout"
       ]
     },
     {
       "pageNumber": 24,
-      "type": "COVER",
-      "confidence": 0.15,
+      "type": "NOTE",
+      "confidence": 0.397,
       "unitScale": null,
       "unitScaleConfidence": 0,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2024,
+        2023,
+        2025
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
-      "tableLike": false,
+      "heading": "Note 14 Hendelser etter balansedagen",
+      "numericRowCount": 5,
+      "tableLike": true,
       "reasons": [
-        "No strong page classification signals"
+        "balanse",
+        "note ",
+        "Detected statement-like table layout"
       ]
     },
     {
       "pageNumber": 25,
       "type": "COVER",
-      "confidence": 0.15,
-      "unitScale": null,
-      "unitScaleConfidence": 0,
+      "confidence": 0.294,
+      "unitScale": 1000,
+      "unitScaleConfidence": 0.72,
       "hasConflictingUnitSignals": false,
-      "declaredYears": [],
+      "declaredYears": [
+        2025
+      ],
       "yearHeaderYears": [],
-      "heading": null,
-      "numericRowCount": 0,
+      "heading": "4 Securely signed with Brevio",
+      "numericRowCount": 1,
       "tableLike": false,
       "reasons": [
-        "No strong page classification signals"
+        "arsregnskap",
+        "Inherited unit scale 1000 from previous statement page"
       ]
     }
   ],

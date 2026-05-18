@@ -6,7 +6,7 @@ Bygg olje- og gassmodulen som en strukturert markedsanalyseflate med:
 
 - et innsiktsfullt kart som felles arbeidsflate
 - flere faner med tydelig analyseformål
-- normaliserte ProjectX-API-er som eneste frontend-kilde
+- normaliserte Fjord Insight-API-er som eneste frontend-kilde
 - reelle offisielle data fra SODIR, Havtil og Gassco
 
 Kartet skal ikke erstattes av faner. Kartet skal være en gjennomgående analyseflate som følger brukeren på tvers av faner, mens hver fane svarer på et tydelig sett med spørsmål.
@@ -169,7 +169,7 @@ Analyseflater:
 - operatørkonsentrasjon
 - lisenshaverandeler
 - lisensoverføringer
-- deep-links til ProjectX-selskapsprofiler
+- deep-links til Fjord Insight-selskapsprofiler
 
 ### 8. Hendelser & Regulering
 
@@ -220,7 +220,7 @@ Anbefalt oppførsel:
 | Infrastruktur | Knytning, knutepunkter, transportsystem | SODIR `facility`, `pipeline/TUF`, `field`, `discovery` | Delvis bygget | Egen fane med tilknytningslogikk og nettverksanalyse |
 | Seismikk & Undersøkelser | Survey-aktivitet og geofysikk | SODIR `survey`, eventuelle åpne seismikkmetadata | Delvis bygget | Egen fane, tidslinje og typefiltre |
 | Havbunn & Nye Næringer | CO2, mineraler, havbunnsaktivitet | SODIR CO2/deep sea/havbunnslag, Sokkelåret-bakgrunnstall | Ikke bygget | Ny ingest og ny fane |
-| Selskaper & Rettigheter | Operatører, rettighetshavere, overføringer | SODIR `company`, `field_operator_hst`, `field_licensee_hst`, `licence_licensee`, `licence_transfer_hst` | Delvis bygget | Egen fane med selskapsanalyse og ProjectX-kobling |
+| Selskaper & Rettigheter | Operatører, rettighetshavere, overføringer | SODIR `company`, `field_operator_hst`, `field_licensee_hst`, `licence_licensee`, `licence_transfer_hst` | Delvis bygget | Egen fane med selskapsanalyse og Fjord Insight-kobling |
 | Hendelser & Regulering | Tilsyn, samtykker, Petreg, sanntid | Havtil, Gassco `realTimeAtom.xml`, SODIR Petreg | Delvis bygget | Bedre geokobling og felles hendelsesmodell per objekt |
 
 ## Report-Derived Analytics
@@ -340,4 +340,4 @@ Modulen er vesentlig bedre når:
 - en bruker intuitivt forstår hvor de skal gå for marked, boring, seismikk og havbunn
 - kartet fortsatt er en sentral arbeidsflate i alle faner
 - rapportnær innsikt kan spores tilbake til konkrete åpne tabeller og publiseringer
-- ProjectX tydelig skiller mellom løpende objektdata, årlige analysetabeller og analytiske vurderingslag
+- Fjord Insight tydelig skiller mellom løpende objektdata, årlige analysetabeller og analytiske vurderingslag

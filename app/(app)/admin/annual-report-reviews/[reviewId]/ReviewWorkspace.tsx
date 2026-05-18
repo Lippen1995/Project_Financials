@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -286,6 +286,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     review.reviewPayload && typeof review.reviewPayload === "object"
       ? (review.reviewPayload as Record<string, unknown>)
       : null;
+  const pdfDecision = payload?.pdfDecision as PdfDecision | null | undefined;
 
   // Correction form state — all canonical keys + any non-canonical extracted facts
   const [editableFacts, setEditableFacts] = useState<EditableFact[]>(() => {
@@ -316,7 +317,6 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     }
     return entries;
   });
-  const pdfDecision = payload?.pdfDecision as PdfDecision | null | undefined;
   const boardProposal = payload?.boardReportProposal as Record<string, unknown> | null | undefined;
   const auditorProposal = payload?.auditorReportProposal as Record<string, unknown> | null | undefined;
   const [boardReportText, setBoardReportText] = useState(
@@ -1745,3 +1745,4 @@ function ReviewedFactTable({ facts }: { facts: ReviewedFact[] }) {
     </table>
   );
 }
+

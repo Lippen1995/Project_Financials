@@ -62,8 +62,8 @@ describe("admin-control-center-service", () => {
     });
 
     expect(model.title).toBe("Admin Control Center");
-    expect(model.attentionTitle).toBe("Hva trenger oppmerksomhet nÃ¥?");
-    expect(model.mainFlow.title).toBe("Fra Ã¥rsrapport til tall i databasen");
+    expect(model.attentionTitle).toBe("Hva trenger oppmerksomhet nå?");
+    expect(model.mainFlow.title).toBe("Fra årsrapport til tall i databasen");
     expect(model.mainFlow.nodes).toHaveLength(11);
     expect(model.goLiveFlow.title).toBe("Veien mot go-live for ny ekstraksjonsmotor");
     expect(model.goLiveFlow.nodes).toHaveLength(13);
@@ -76,7 +76,7 @@ describe("admin-control-center-service", () => {
         "Tall og tekst hentes ut",
         "Resultatene sammenlignes",
         "Systemet vurderer kvaliteten",
-        "MÃ¥ rapporten kontrolleres manuelt?",
+        "Må rapporten kontrolleres manuelt?",
         "Manuell kontroll",
         "Godkjente tall lagres",
         "Tallene blir tilgjengelige i produktet",
@@ -85,16 +85,16 @@ describe("admin-control-center-service", () => {
     expect(model.goLiveFlow.nodes.map((item) => item.title)).toEqual(
       expect.arrayContaining([
         "Bygg representativt testsett",
-        "KjÃ¸r shadow batch",
-        "GjennomfÃ¸r manuell kontroll",
+        "Kjør shadow batch",
+        "Gjennomfør manuell kontroll",
         "Juster terskler og regler",
         "Klassifiser feiltyper",
         "Rett de viktigste feilene",
         "Lag go/no-go-vurdering",
-        "KjÃ¸r canary uten produksjonseffekt",
+        "Kjør canary uten produksjonseffekt",
         "Aktiver routing bak feature flag",
         "Sikre publish gate",
-        "OvervÃ¥kning, varsler og kill switch",
+        "Overvåkning, varsler og kill switch",
         "Begrenset go-live",
         "Gradvis utvidelse",
       ]),
@@ -159,7 +159,7 @@ describe("admin-control-center-service", () => {
       "Ingen data funnet",
     );
     expect(model.attentionEmptyState).toBe(
-      "Ingen Ã¥pne problemer funnet basert pÃ¥ tilgjengelige data.",
+      "Ingen åpne problemer funnet basert på tilgjengelige data.",
     );
     expect(model.attentionItems.some((item) => item.key === "shadow-missing")).toBe(true);
     expect(model.summaryCards.find((item) => item.key === "calibration-status")?.value).toBe(

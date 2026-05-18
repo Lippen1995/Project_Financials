@@ -1,4 +1,4 @@
-# Oil & Gas-modul for ProjectX
+# Oil & Gas-modul for Fjord Insight
 
 Dato: 2026-04-02
 
@@ -45,7 +45,7 @@ Relevante flater:
 - `Nokkeltall`: sektornivaa for produksjon, lisenser, felt, funnkostnad og CO2-utslipp.
 - Nyhetsflater for boreloyve, produksjonstal og resultat av leiteboring.
 
-Det mest interessante for ProjectX er at Sokkeldirektoratet allerede har offentlige selskaps-, felt- og lisensvisninger som kan kobles til en egen domenemodell for sokkelaktivitet.
+Det mest interessante for Fjord Insight er at Sokkeldirektoratet allerede har offentlige selskaps-, felt- og lisensvisninger som kan kobles til en egen domenemodell for sokkelaktivitet.
 
 ### 3. Havindustritilsynet
 
@@ -134,7 +134,7 @@ Klikk pa felt, lisens eller innretning i kartet bor apne et detaljpanel med:
 - status
 - produksjons- eller ressursnokkeltall nar de finnes
 - relevante regulatoriske hendelser
-- lenke eller kobling til relevante selskapsprofiler i ProjectX
+- lenke eller kobling til relevante selskapsprofiler i Fjord Insight
 
 ### E. Selskapskobling som sekundarflate
 
@@ -239,7 +239,7 @@ Dette er i trad med AGENTS-regelen om a vaere aerlige i UI nar data ikke kan kny
 ### Fase 2
 
 - legg til selskapsperspektiv: operatør- og rettighetshaveranalyse
-- koble kartobjekter til relevante ProjectX-selskaper
+- koble kartobjekter til relevante Fjord Insight-selskaper
 - legg til aggregater for produksjon per operatør og per område
 - legg til Havtil-overlay med tilsynsrapporter, samtykker og palegg
 
@@ -325,7 +325,7 @@ Naturlige steder:
 4. Lag hovedsiden for markedsanalyse med kart og flervalg-filtre.
 5. Legg til detaljpanel og tabell/grafvisninger.
 6. Koble inn Havtil- og Gassco-overlays.
-7. Legg til selskapskobling tilbake til ProjectX-profiler.
+7. Legg til selskapskobling tilbake til Fjord Insight-profiler.
 
 ## Kilder vurdert
 
@@ -337,7 +337,7 @@ Naturlige steder:
 
 ## Konklusjon
 
-Det finnes gode muligheter for en ekte olje- og gassmodul i ProjectX, og den bor bygges som en markedsanalysemodul med kart som primarflate.
+Det finnes gode muligheter for en ekte olje- og gassmodul i Fjord Insight, og den bor bygges som en markedsanalysemodul med kart som primarflate.
 
 Den riktige strategien er:
 

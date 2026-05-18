@@ -1,6 +1,6 @@
-﻿# ProjectX
+﻿# Fjord Insight
 
-ProjectX er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeScript, Tailwind, Prisma, PostgreSQL og NextAuth. Repoet følger en streng regel: ingen mock data, ingen seed-data og ingen syntetisk utfylling av virksomhetsinformasjon.
+Fjord Insight er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeScript, Tailwind, Prisma, PostgreSQL og NextAuth. Repoet følger en streng regel: ingen mock data, ingen seed-data og ingen syntetisk utfylling av virksomhetsinformasjon.
 
 ## Stack
 
@@ -47,9 +47,9 @@ Brukes som source of truth for:
 - registrert næringskode
 - roller i virksomheten
 
-ProjectX bruker åpne Brreg-endepunkter under `data.brreg.no/enhetsregisteret/api`.
+Fjord Insight bruker åpne Brreg-endepunkter under `data.brreg.no/enhetsregisteret/api`.
 Registrert næringskode beholdes med Brreg som kildesporing i domenemodellen; SSB brukes bare til beskrivelse og kodeverksberiking.
-For regnskap bruker ProjectX Brregs offisielle PDF-kopier av årsregnskap under `data.brreg.no/regnskapsregisteret/regnskap/aarsregnskap/kopi/...`.
+For regnskap bruker Fjord Insight Brregs offisielle PDF-kopier av årsregnskap under `data.brreg.no/regnskapsregisteret/regnskap/aarsregnskap/kopi/...`.
 Historikk bygges nå gjennom en kontrollert ingest-pipeline med filing discovery, rå artifact-lagring, preflight, sideklassifisering, ekstraksjonskjøringer, validering og publiserte snapshots med provenance.
 
 ### SSB Klass
@@ -59,11 +59,11 @@ Brukes som source of truth for:
 - beskrivelse av næringskoder
 - kodeverksberiking
 
-ProjectX bruker SSB Klass API under `data.ssb.no/api/klass/v1`.
+Fjord Insight bruker SSB Klass API under `data.ssb.no/api/klass/v1`.
 
 ### Finanstilsynet
 
-Ikke aktivert i denne iterasjonen. ProjectX viser derfor ingen regulatorisk overlay i stedet for å anta eller simulere tilsynsstatus.
+Ikke aktivert i denne iterasjonen. Fjord Insight viser derfor ingen regulatorisk overlay i stedet for å anta eller simulere tilsynsstatus.
 
 ### Skatteetatens aksjonærregister
 
@@ -73,9 +73,9 @@ Brukes som source of truth for:
 - antall aksjer per aksjonær
 - beregning av direkte eierandel når totalt antall aksjer finnes i leveransen
 
-ProjectX støtter import av reelle aksjonærregisteruttrekk fra Skatteetatens leveranseformat som CSV per selskap/år. Data er årsbundet og vises aldri som live-data.
+Fjord Insight støtter import av reelle aksjonærregisteruttrekk fra Skatteetatens leveranseformat som CSV per selskap/år. Data er årsbundet og vises aldri som live-data.
 
-ProjectX kan også hente aksjonærdata direkte fra Skatteetatens `Aksjonær i virksomhet API` når Maskinporten-tilgang, rettighetspakke og bearer-token er konfigurert lokalt. Live API prioriteres foran importerte snapshots.
+Fjord Insight kan også hente aksjonærdata direkte fra Skatteetatens `Aksjonær i virksomhet API` når Maskinporten-tilgang, rettighetspakke og bearer-token er konfigurert lokalt. Live API prioriteres foran importerte snapshots.
 
 ### Sokkeldirektoratet, Havtil og Gassco
 
@@ -85,7 +85,7 @@ Brukes i olje- og gassmodulen slik:
 - Havtil brukes som regulatorisk event-overlay for tilsynsrapporter, samtykker, samsvarsuttalelser og granskingsrapporter
 - Gassco brukes nå til sanntidsnomineringer via den offentlige `realTimeAtom.xml`-feed-en, mens generell UMM-feed fortsatt behandles konservativt fordi eventinnholdet kan være tomt eller variere over tid
 
-Frontend i `/market/oil-gas` bruker kun normaliserte ProjectX-API-er under `app/api/market/oil-gas/*`, aldri rå SODIR-, Havtil- eller Gassco-responser.
+Frontend i `/market/oil-gas` bruker kun normaliserte Fjord Insight-API-er under `app/api/market/oil-gas/*`, aldri rå SODIR-, Havtil- eller Gassco-responser.
 
 ### Patentstyret
 
@@ -94,27 +94,27 @@ Brukes som kilde for:
 - patent-, varemerke- og designportefølje på selskapsprofil
 - detaljoppslag per IP-sak
 
-ProjectX bruker Patentstyrets Open Data-endepunkter med organisasjonsnummer som primær identifikator for portefølje.
+Fjord Insight bruker Patentstyrets Open Data-endepunkter med organisasjonsnummer som primær identifikator for portefølje.
 
 ## Viktige begrensninger
 
-- ProjectX viser bare publiserte regnskapssnapshots når pipeline-en klarer å identifisere relevante sider, enhetsskala, primærmetrikker og nødvendige balansesjekker.
+- Fjord Insight viser bare publiserte regnskapssnapshots når pipeline-en klarer å identifisere relevante sider, enhetsskala, primærmetrikker og nødvendige balansesjekker.
 - Rå PDF-er, preflight-data, klassifiseringer, ekstraksjonskjøringer, facts og valideringsfeil lagres separat før noe kan publiseres til `FinancialStatement`.
 - Filing-er som feiler på enhetsskala, sideklassifisering, required metrics eller regnskapslikninger blir stående i `MANUAL_REVIEW` eller `FAILED` i stedet for å skrive usikre tall til publisert snapshot.
 - Hvis samme regnskapsår senere dukker opp med endret dokumenthash, bevares filing-historikken som en ny filing-versjon i stedet for å overskrive den gamle raden blindt.
 - Artifact-lagring bruker nå `output/annual-report-artifacts/` som lokal artifact-store i utvikling; database-rader peker til hvert lagret artifact slik at lagringen kan flyttes bak et annet storage-interface senere.
 - Regulatorisk overlay fra Finanstilsynet er ikke aktivert ennå.
-- Aksjonærdata krever et reelt Skatteetaten-uttrekk for aktuelt selskap og år. Hvis snapshot mangler, viser ProjectX en tydelig tomtilstand i stedet for en plassholdergraf.
+- Aksjonærdata krever et reelt Skatteetaten-uttrekk for aktuelt selskap og år. Hvis snapshot mangler, viser Fjord Insight en tydelig tomtilstand i stedet for en plassholdergraf.
 - Eierandeler beregnes bare når totalt antall aksjer finnes og er konsistent i den importerte leveransen.
-- Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i ProjectX, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
+- Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i Fjord Insight, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
 - AI-søk bruker OpenAI kun til å tolke søketeksten til strukturert intensjon. Kandidater hentes fortsatt fra Brreg, næringskoder berikes fra SSB, og sortering på størrelse bruker bare reelle inntektstall som finnes i lokal lagring/importerte regnskap.
 - Hvis `OPENAI_API_KEY` mangler, faller søket tilbake til en enklere regelbasert tolkning og UI-et markerer dette tydelig.
-- Distress-monitorer matcher bare selskaper som allerede finnes i ProjectX-lageret lokalt. ProjectX hevder ikke full nasjonal dekning dersom selskapet ikke er hentet eller lagret ennå.
+- Distress-monitorer matcher bare selskaper som allerede finnes i Fjord Insight-lageret lokalt. Fjord Insight hevder ikke full nasjonal dekning dersom selskapet ikke er hentet eller lagret ennå.
 - Distress-tidslinjen på oversiktssiden bruker `lastAnnouncementPublishedAt` (siste registrerte kunngjøringsdato per profil), ikke full historikk av alle kunngjøringer.
 - Distress-KPI for regnskapsdekning teller profiler med dataCoverage `FINANCIALS_AVAILABLE` eller `FINANCIALS_PARTIAL`.
 - Første sync for regnskapsvarsler etablerer en baseline for lagret watch for å unngå falske historiske "nye regnskap"-varsler.
 - DD-kommentarer på selskapsprofilen vises bare når profilen er åpnet fra et gyldig DD-rom med `ddRoom` i URL-en.
-- Gassco-integrasjonen i olje- og gassmodulen bruker ekte sanntidsnomineringer fra offentlig Atom-feed. ProjectX lover fortsatt ikke full Gassco-eventdekning dersom den generelle UMM-feed-en er tom eller ikke kan verifiseres i siste sync.
+- Gassco-integrasjonen i olje- og gassmodulen bruker ekte sanntidsnomineringer fra offentlig Atom-feed. Fjord Insight lover fortsatt ikke full Gassco-eventdekning dersom den generelle UMM-feed-en er tom eller ikke kan verifiseres i siste sync.
 - Havtil-hendelser normaliseres fra åpne listesider og brukes som event-overlay, ikke som master for sokkelobjekter.
 
 ## Arkitektur
@@ -180,7 +180,7 @@ Subscription-modellen finnes i databasen og brukes til enkel feature gating i pr
 
 ## Import av årsrapporter og financial ingest
 
-ProjectX bruker nå en staged ingest for årsregnskap. I stedet for å OCR-e en PDF direkte inn i `FinancialStatement`, skjer flyten slik:
+Fjord Insight bruker nå en staged ingest for årsregnskap. I stedet for å OCR-e en PDF direkte inn i `FinancialStatement`, skjer flyten slik:
 
 - filing discovery per selskap og regnskapsår
 - nedlasting og lagring av rå PDF som artifact
@@ -222,7 +222,7 @@ npm run financials:inspect-published-provenance -- <orgNumber> --fiscal-year=202
 npm run test:financial-regression
 ```
 
-Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes selskaper som allerede finnes i ProjectX-databasen.
+Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes selskaper som allerede finnes i Fjord Insight-databasen.
 
 ### Historic backfill
 
@@ -252,7 +252,7 @@ Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes s
 
 ### OpenDataLoader document-understanding
 
-Annual-report-pipelinen kan nå kjøre med OpenDataLoader som upstream document-understanding-engine. OpenDataLoader brukes bare til PDF-forståelse, OCR, leseorden og tabell-/layout-artifacts. ProjectX sin egen klassifisering, canonical mapping, validering, quality scoring og publish gate er fortsatt source of truth for hva som publiseres til `FinancialStatement`.
+Annual-report-pipelinen kan nå kjøre med OpenDataLoader som upstream document-understanding-engine. OpenDataLoader brukes bare til PDF-forståelse, OCR, leseorden og tabell-/layout-artifacts. Fjord Insight sin egen klassifisering, canonical mapping, validering, quality scoring og publish gate er fortsatt source of truth for hva som publiseres til `FinancialStatement`.
 
 Flyten er:
 
@@ -744,7 +744,7 @@ I slike tilfeller lagres fortsatt rå PDF, artifacts, extraction run, facts og v
 
 ## Import av aksjonærdata
 
-ProjectX har en egen importjobb for aksjonærregisterdata fra Skatteetaten:
+Fjord Insight har en egen importjobb for aksjonærregisterdata fra Skatteetaten:
 
 ```bash
 npm run import:shareholding -- 928846466 2024 ./data/aksjonaerer-928846466-2024.csv
@@ -787,7 +787,7 @@ Dette vil:
 
 ## Workspace-sync
 
-ProjectX kan synkronisere watches og distress-monitorer til workspace-inboxen via:
+Fjord Insight kan synkronisere watches og distress-monitorer til workspace-inboxen via:
 
 ```bash
 npm run sync:workspace-notifications
@@ -826,4 +826,4 @@ Den planlagte petroleum-ruten i [vercel.json](./vercel.json) er ment som første
 
 ## Kjørbart resultat
 
-ProjectX kan kjøres lokalt, registrere brukere, søke i reelle virksomheter og vise profiler/roller med sporbarhet til offisielle kilder, uten syntetisk innhold.
+Fjord Insight kan kjøres lokalt, registrere brukere, søke i reelle virksomheter og vise profiler/roller med sporbarhet til offisielle kilder, uten syntetisk innhold.

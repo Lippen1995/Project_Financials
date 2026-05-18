@@ -1,10 +1,10 @@
-# ProjectX Plan
+# Fjord Insight Plan
 
 ## 1. Product thesis
 
-ProjectX should become the daily operating workspace for analysts and decision-makers who move from **finding companies** to **forming a view** to **tracking change**.
+Fjord Insight should become the daily operating workspace for analysts and decision-makers who move from **finding companies** to **forming a view** to **tracking change**.
 
-### What ProjectX should be
+### What Fjord Insight should be
 - A company-centric workflow product for:
   - discovery (finding relevant companies/signals)
   - understanding (building a grounded view from real sources)
@@ -12,7 +12,7 @@ ProjectX should become the daily operating workspace for analysts and decision-m
   - monitoring (tracking what changed and why it matters)
 - A system where company profile, vertical modules, DD rooms, and watches are connected, not isolated pages.
 
-### What ProjectX should not be
+### What Fjord Insight should not be
 - Not a generic company directory.
 - Not a static BI dashboard layer with disconnected charts.
 - Not a “score generator” built on weak or synthetic assumptions.
@@ -30,13 +30,13 @@ ProjectX should become the daily operating workspace for analysts and decision-m
 - DD turns observations into structured decisions.
 - Monitoring closes the loop by surfacing new events against existing theses.
 
-Without this chain, ProjectX becomes fragmented and loses workflow value.
+Without this chain, Fjord Insight becomes fragmented and loses workflow value.
 
 ---
 
 ## 2. Product model
 
-ProjectX should be operated as a four-layer product model.
+Fjord Insight should be operated as a four-layer product model.
 
 ### A. Discovery
 
@@ -438,4 +438,4 @@ Measure progress against workflow outcomes, not only traffic.
 
 ## 11. Short conclusion
 
-ProjectX should be built as one connected workflow product where company context, vertical depth, decision artifacts, and monitoring reinforce each other. The immediate priority is consolidation and integration quality, then focused depth in a small number of verticals, before controlled expansion to the next high-value module.
+Fjord Insight should be built as one connected workflow product where company context, vertical depth, decision artifacts, and monitoring reinforce each other. The immediate priority is consolidation and integration quality, then focused depth in a small number of verticals, before controlled expansion to the next high-value module.

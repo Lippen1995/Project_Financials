@@ -1,4 +1,5 @@
-import Link from "next/link";
+﻿import Link from "next/link";
+import { AnnualReportRefreshButton } from "@/app/(app)/admin/AnnualReportRefreshButton";
 
 import {
   listUnifiedConfidenceGateResultsForAdmin,
@@ -98,12 +99,19 @@ export default async function AnnualReportUnifiedConfidencePage({
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-[#162233]">
-            Unified extraction confidence
+            Unified kontroll
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Read-only admin view of persisted unified confidence gate artifacts for review prioritization.
+            Oversikt over saker der unified-resultatet trenger kontroll, ny kjøring eller oppfølging.
           </p>
         </div>
+        <AnnualReportRefreshButton
+          scope="affected"
+          label="Refresh berørte saker"
+          pendingLabel="Starter refresh..."
+          helperText="Kjører berørte dokumenter på nytt når unified mangler verdier eller saken står fast."
+          className="rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+        />
       </div>
 
       <div className="mb-6 grid gap-3 md:grid-cols-5">
@@ -136,7 +144,7 @@ export default async function AnnualReportUnifiedConfidencePage({
           defaultValue={verdict}
           className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none"
         >
-          <option value="">Alle verdicts</option>
+          <option value="">Alle vurderinger</option>
           <option value="PASS">PASS</option>
           <option value="WARN">WARN</option>
           <option value="FAIL">FAIL</option>
@@ -148,9 +156,9 @@ export default async function AnnualReportUnifiedConfidencePage({
           className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none"
         >
           <option value="">Alle statuser</option>
-          <option value="completed">completed</option>
-          <option value="skipped">skipped</option>
-          <option value="error">error</option>
+          <option value="completed">Ferdig</option>
+          <option value="skipped">Hoppet over</option>
+          <option value="error">Feil</option>
         </select>
         <input
           name="orgNumber"
@@ -169,7 +177,7 @@ export default async function AnnualReportUnifiedConfidencePage({
         <input
           name="checkCode"
           type="text"
-          placeholder="Check code"
+          placeholder="Kontrollkode"
           defaultValue={checkCode}
           className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none"
         />
@@ -204,7 +212,7 @@ export default async function AnnualReportUnifiedConfidencePage({
 
       {result.items.length === 0 ? (
         <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-10 text-center text-slate-400">
-          Ingen persisted confidence results matcher filteret.
+          Ingen unified-saker matcher filteret.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-[rgba(15,23,42,0.08)] bg-white">

@@ -1150,7 +1150,7 @@ export async function getDistressCompanyDetailForWorkspace(
       sourceNotes: [
         "Distress-status og datoer er hentet fra Brønnøysundregistrene.",
         profile.financialStatements.length > 0
-          ? "Regnskapstallene bygger på ProjectX sin normalisering av offisielle Brreg-kopier av årsregnskap."
+          ? "Regnskapstallene bygger på Fjord Insight sin normalisering av offisielle Brreg-kopier av årsregnskap."
           : "Ingen regnskapstall er lagret for denne distress-kandidaten ennå.",
         profile.financialDocuments.length > 0
           ? "Offisielle regnskapsdokumenter er tilgjengelige og kan brukes som dokumentgrunnlag for videre vurdering."

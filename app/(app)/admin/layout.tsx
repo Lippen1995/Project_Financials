@@ -5,7 +5,19 @@ import { redirect } from "next/navigation";
 import { safeAuth } from "@/lib/auth";
 import { getFinancialReviewerOrNull } from "@/lib/admin-auth";
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+const ADMIN_LINKS = [
+  { href: "/admin", label: "Admin" },
+  { href: "/admin/annual-report-reviews", label: "Manuell kontroll" },
+  { href: "/admin/annual-report-unified-confidence", label: "Unified kontroll" },
+  { href: "/admin/pdf-decision-analytics", label: "PDF-vurdering" },
+  { href: "/admin/pdf-parser-remediation", label: "Feil og forbedringer" },
+];
+
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await safeAuth();
 
   if (!session?.user?.id) {
@@ -19,67 +31,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center gap-3 text-xs font-medium uppercase tracking-widest text-slate-400">
-        <Link href={"/admin" as never} className="hover:text-slate-600">
-          Control Center
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/annual-report-reviews" as never} className="hover:text-slate-600">
-          Annual report reviews
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/annual-report-unified-confidence" as never} className="hover:text-slate-600">
-          Unified Confidence
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-decision-analytics" as never} className="hover:text-slate-600">
-          PDF Decision Analytics
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-decision-rule-tuning" as never} className="hover:text-slate-600">
-          Rule Tuning
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-parser-remediation" as never} className="hover:text-slate-600">
-          Parser Remediation
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-parser-route-quality" as never} className="hover:text-slate-600">
-          Parser Route Quality
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-route-experiment" as never} className="hover:text-slate-600">
-          Route Experiment
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-shadow-model" as never} className="hover:text-slate-600">
-          Shadow Model
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-shadow-model-analysis" as never} className="hover:text-slate-600">
-          Shadow Analysis
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-shadow-vs-rule-gate" as never} className="hover:text-slate-600">
-          Shadow vs Rule Gate
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-model-candidates" as never} className="hover:text-slate-600">
-          Model Candidates
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-parser-route-recommendation-v2" as never} className="hover:text-slate-600">
-          Route Recommendation
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-parser-route-canary-preview" as never} className="hover:text-slate-600">
-          Canary Preview
-        </Link>
-        <span>/</span>
-        <Link href={"/admin/pdf-parser-route-assignment-preview" as never} className="hover:text-slate-600">
-          Assignment Preview
-        </Link>
-      </div>
+      <nav className="mb-6 flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-widest text-slate-400">
+        {ADMIN_LINKS.map((link, index) => (
+          <React.Fragment key={link.href}>
+            {index > 0 ? <span>/</span> : null}
+            <Link href={link.href as never} className="hover:text-slate-600">
+              {link.label}
+            </Link>
+          </React.Fragment>
+        ))}
+      </nav>
       {children}
     </div>
   );
