@@ -44,6 +44,8 @@ type MappedFactRaw = {
   sourceSection: string;
   confidenceScore: number;
   isDerived: boolean;
+  precedence?: string;
+  rawPayload?: { columnIndex?: number; yearOrder?: number[] };
 };
 
 type ExtractionData = {
@@ -225,7 +227,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   const [publishing, setPublishing] = useState(false);
 
   // "Som rapportert" vs "Standardisert" toggle
-  const [viewMode, setViewMode] = useState<"standardized" | "as-reported">("standardized");
+  const [viewMode, setViewMode] = useState<"standardized" | "as-reported">("as-reported");
   const [extractionData, setExtractionData] = useState<ExtractionData | null>(null);
   const [extractionLoading, setExtractionLoading] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
@@ -316,6 +318,8 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     }
     return entries;
   });
+  const [priorYearEdits, setPriorYearEdits] = useState<Record<string, string>>({});
+
   const pdfDecision = payload?.pdfDecision as PdfDecision | null | undefined;
   const boardProposal = payload?.boardReportProposal as Record<string, unknown> | null | undefined;
   const auditorProposal = payload?.auditorReportProposal as Record<string, unknown> | null | undefined;
@@ -445,6 +449,20 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         unitScale: f.unitScale.trim() !== "" ? parseInt(f.unitScale, 10) : null,
       }))
       .filter((f) => !isNaN(f.fiscalYear));
+
+    const priorFiscalYear = review.fiscalYear - 1;
+    for (const [metricKey, value] of Object.entries(priorYearEdits)) {
+      if (value.trim()) {
+        correctedFacts.push({
+          metricKey,
+          fiscalYear: priorFiscalYear,
+          value: value.trim(),
+          rawLabel: null,
+          sourcePage: null,
+          unitScale: null,
+        });
+      }
+    }
 
     const sections: { sectionType: string; text: string }[] = [];
     if (boardReportText.trim()) {
@@ -631,6 +649,11 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                   <AsReportedPanel
                     data={extractionData}
                     fiscalYear={review.fiscalYear}
+                    facts={facts}
+                    editableFacts={editableFacts}
+                    setEditableFacts={setEditableFacts}
+                    priorYearEdits={priorYearEdits}
+                    setPriorYearEdits={setPriorYearEdits}
                   />
                 )}
               </>
@@ -646,7 +669,12 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                   value={boardReportText}
                   onChange={(e) => setBoardReportText(e.target.value)}
                   rows={2}
-                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
+                  placeholder={
+                    review.extractionRun?.documentEngine === "LEGACY"
+                      ? "Ikke ekstrahert for dette dokumentet (LEGACY-motor)"
+                      : "Styreberetning ikke funnet i dokumentet"
+                  }
+                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 placeholder-slate-300 focus:outline-none"
                 />
               </div>
               <div>
@@ -657,7 +685,12 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                   value={auditorReportText}
                   onChange={(e) => setAuditorReportText(e.target.value)}
                   rows={2}
-                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 focus:outline-none"
+                  placeholder={
+                    review.extractionRun?.documentEngine === "LEGACY"
+                      ? "Ikke ekstrahert for dette dokumentet (LEGACY-motor)"
+                      : "Revisorberetning ikke funnet i dokumentet"
+                  }
+                  className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-xs text-slate-700 placeholder-slate-300 focus:outline-none"
                 />
               </div>
               <div>
@@ -1122,13 +1155,23 @@ function sectionLabel(sectionType: string): string {
 function AsReportedPanel({
   data,
   fiscalYear,
+  facts,
+  editableFacts,
+  setEditableFacts,
+  priorYearEdits,
+  setPriorYearEdits,
 }: {
   data: ExtractionData;
   fiscalYear: number;
+  facts: Fact[];
+  editableFacts: EditableFact[];
+  setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
+  priorYearEdits: Record<string, string>;
+  setPriorYearEdits: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }) {
   const { rows, mappedFacts } = data;
 
-  // Build a lookup: normalizedLabel → canonical metricKey (first match wins)
+  // Label → canonical metricKey (first match wins)
   const canonicalByLabel = new Map<string, string>();
   for (const mf of mappedFacts) {
     const key = (mf.normalizedLabel ?? mf.rawLabel ?? "").toLowerCase().trim();
@@ -1137,18 +1180,52 @@ function AsReportedPanel({
     }
   }
 
-  // Determine fiscal years present in mappedFacts to label columns
+  // DB facts: correct main-year values (assembled by the pipeline)
+  const dbValueByKey = new Map<string, string>();
+  for (const f of facts) {
+    if (f.value !== null) dbValueByKey.set(f.metricKey, String(f.value));
+  }
+
+  // Prior year: for each metricKey, pick the mappedFact with the HIGHEST columnIndex.
+  // The LEGACY engine splits numbers by space (thousands separator), producing multiple
+  // entries per metricKey. The rightmost column (max colIdx) holds the prior-year value.
+  const priorCandidateByKey = new Map<string, { value: number; colIdx: number }>();
+  for (const mf of mappedFacts) {
+    if (mf.isDerived) continue;
+    const colIdx = mf.rawPayload?.columnIndex ?? -1;
+    const existing = priorCandidateByKey.get(mf.metricKey);
+    if (!existing || colIdx > existing.colIdx) {
+      priorCandidateByKey.set(mf.metricKey, { value: mf.value, colIdx });
+    }
+  }
+  const priorValueByKey = new Map<string, string>();
+  for (const [key, candidate] of priorCandidateByKey) {
+    priorValueByKey.set(key, String(candidate.value));
+  }
+
+  // Confidence by metricKey (from DB facts)
+  const confidenceByKey = new Map<string, number>();
+  for (const f of facts) {
+    if (f.confidenceScore !== null) confidenceByKey.set(f.metricKey, f.confidenceScore);
+  }
+
+  // Precedence source per metricKey (first seen wins: STATUTORY_NOK, NOTE_DERIVED, etc.)
+  const precedenceByKey = new Map<string, string>();
+  for (const mf of mappedFacts) {
+    if (mf.precedence && !precedenceByKey.has(mf.metricKey)) {
+      precedenceByKey.set(mf.metricKey, mf.precedence);
+    }
+  }
+
+  const mainYear = fiscalYear;
+  const priorYear = fiscalYear - 1;
+
+  const isSynthetic = rows.length === 0 && mappedFacts.length > 0;
   const yearsInData = Array.from(new Set(mappedFacts.map((f) => f.fiscalYear))).sort(
     (a, b) => b - a,
   );
-  const mainYear = yearsInData[0] ?? fiscalYear;
-  const priorYear = yearsInData[1] ?? fiscalYear - 1;
-
-  // If the artifact has no rows (older filing), synthesize from mappedFacts
-  const isSynthetic = rows.length === 0 && mappedFacts.length > 0;
   const effectiveRows = isSynthetic ? buildSyntheticRows(mappedFacts, yearsInData) : rows;
 
-  // Group rows by sectionType, only show income + balance sections
   const incomeRows = effectiveRows
     .filter((r) => INCOME_SECTIONS.has(r.sectionType))
     .sort((a, b) => a.pageNumber - b.pageNumber);
@@ -1188,10 +1265,8 @@ function AsReportedPanel({
 
       {!isSynthetic && (
         <p className="text-xs text-slate-400">
-          Alle rader hentet direkte fra PDF — inkludert linjer som ikke ble koblet til en kanonisk
-          nøkkel. Uthevede nøkler (
-          <span className="font-medium text-[var(--px-accent)]">blå</span>) betyr vellykket
-          mapping. Oransje betyr ikke koblet.
+          Foreslåtte tall hentes fra ekstraheringen. Fyll inn manuell verdi for å overstyre —
+          endelig tall er det som lagres. Umappede linjer (oransje) teller ikke med.
         </p>
       )}
 
@@ -1200,8 +1275,16 @@ function AsReportedPanel({
           title="Resultatregnskap"
           rows={incomeRows}
           canonicalByLabel={canonicalByLabel}
+          dbValueByKey={dbValueByKey}
+          priorValueByKey={priorValueByKey}
+          confidenceByKey={confidenceByKey}
+          precedenceByKey={precedenceByKey}
           mainYear={mainYear}
           priorYear={priorYear}
+          editableFacts={editableFacts}
+          setEditableFacts={setEditableFacts}
+          priorYearEdits={priorYearEdits}
+          setPriorYearEdits={setPriorYearEdits}
         />
       )}
       {balanceRows.length > 0 && (
@@ -1209,8 +1292,16 @@ function AsReportedPanel({
           title="Balanse"
           rows={balanceRows}
           canonicalByLabel={canonicalByLabel}
+          dbValueByKey={dbValueByKey}
+          priorValueByKey={priorValueByKey}
+          confidenceByKey={confidenceByKey}
+          precedenceByKey={precedenceByKey}
           mainYear={mainYear}
           priorYear={priorYear}
+          editableFacts={editableFacts}
+          setEditableFacts={setEditableFacts}
+          priorYearEdits={priorYearEdits}
+          setPriorYearEdits={setPriorYearEdits}
         />
       )}
       {otherRows.length > 0 && (
@@ -1218,8 +1309,16 @@ function AsReportedPanel({
           title={`Andre seksjoner (${[...new Set(otherRows.map((r) => sectionLabel(r.sectionType)))].join(", ")})`}
           rows={otherRows}
           canonicalByLabel={canonicalByLabel}
+          dbValueByKey={dbValueByKey}
+          priorValueByKey={priorValueByKey}
+          confidenceByKey={confidenceByKey}
+          precedenceByKey={precedenceByKey}
           mainYear={mainYear}
           priorYear={priorYear}
+          editableFacts={editableFacts}
+          setEditableFacts={setEditableFacts}
+          priorYearEdits={priorYearEdits}
+          setPriorYearEdits={setPriorYearEdits}
         />
       )}
 
@@ -1235,14 +1334,30 @@ function AsReportedSection({
   title,
   rows,
   canonicalByLabel,
+  dbValueByKey,
+  priorValueByKey,
+  confidenceByKey,
+  precedenceByKey,
   mainYear,
   priorYear,
+  editableFacts,
+  setEditableFacts,
+  priorYearEdits,
+  setPriorYearEdits,
 }: {
   title: string;
   rows: RawRow[];
   canonicalByLabel: Map<string, string>;
+  dbValueByKey: Map<string, string>;
+  priorValueByKey: Map<string, string>;
+  confidenceByKey: Map<string, number>;
+  precedenceByKey: Map<string, string>;
   mainYear: number;
   priorYear: number;
+  editableFacts: EditableFact[];
+  setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
+  priorYearEdits: Record<string, string>;
+  setPriorYearEdits: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }) {
   return (
     <div className="mb-2">
@@ -1254,9 +1369,27 @@ function AsReportedSection({
           <thead>
             <tr className="border-b border-[rgba(15,23,42,0.08)]">
               <th className="pb-1 pr-2 text-left font-medium text-slate-400">Label (rapportert)</th>
-              <th className="pb-1 pr-1 text-right font-medium text-slate-400">{mainYear}</th>
-              <th className="pb-1 pr-1 text-right font-medium text-slate-400">{priorYear}</th>
-              <th className="pb-1 pr-1 text-left font-medium text-slate-400">Kanonisk nøkkel</th>
+              <th className="pb-1 pr-1 text-left font-medium text-slate-400">Nøkkel</th>
+              {/* Main year columns */}
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">
+                Foreslått {mainYear}
+              </th>
+              <th className="pb-1 pr-1 text-left font-medium text-slate-400">
+                Manuell {mainYear}
+              </th>
+              <th className="pb-1 pr-1 text-right font-medium text-emerald-600">
+                Endelig {mainYear}
+              </th>
+              {/* Prior year columns */}
+              <th className="pb-1 pr-1 text-right font-medium text-slate-400">
+                Foreslått {priorYear}
+              </th>
+              <th className="pb-1 pr-1 text-left font-medium text-slate-400">
+                Manuell {priorYear}
+              </th>
+              <th className="pb-1 pr-1 text-right font-medium text-emerald-600">
+                Endelig {priorYear}
+              </th>
               <th className="pb-1 pr-1 text-right font-medium text-slate-400">Side</th>
               <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
             </tr>
@@ -1267,38 +1400,172 @@ function AsReportedSection({
               const canonicalKey = canonicalByLabel.get(lookupKey) ?? null;
               const isMapped = canonicalKey !== null;
 
-              const val0 = row.values.find((v) => v.columnIndex === 0);
-              const val1 = row.values.find((v) => v.columnIndex === 1);
+              // Proposed main year: DB fact (correctly assembled) or raw fallback
+              const mainProposed = isMapped && canonicalKey
+                ? (dbValueByKey.get(canonicalKey) ?? null)
+                : null;
 
-              const displayVal = (cell: { value: number } | undefined, scale: number) =>
-                cell != null ? formatIntegerString(Math.round(cell.value * scale)) : "—";
+              // Proposed prior year: max-colIdx mappedFact or raw fallback
+              const priorProposed = isMapped && canonicalKey
+                ? (priorValueByKey.get(canonicalKey) ?? null)
+                : null;
+
+              // For unmapped rows, fall back to raw values from the row
+              const rawMainVal = row.values.reduce<{ value: number; columnIndex: number } | undefined>(
+                (best, v) => (!best || v.columnIndex < best.columnIndex ? v : best),
+                undefined,
+              );
+              const rawPriorVal = row.values.reduce<{ value: number; columnIndex: number } | undefined>(
+                (best, v) => (!best || v.columnIndex > best.columnIndex ? v : best),
+                undefined,
+              );
+
+              const displayMain = mainProposed
+                ? formatIntegerString(mainProposed)
+                : rawMainVal
+                  ? formatIntegerString(Math.round(rawMainVal.value * row.unitScale))
+                  : "—";
+
+              const displayPrior = priorProposed
+                ? formatIntegerString(priorProposed)
+                : rawPriorVal && rawPriorVal !== rawMainVal
+                  ? formatIntegerString(Math.round(rawPriorVal.value * row.unitScale))
+                  : "—";
+
+              // Manual overrides for main year (via editableFacts)
+              const editIdx = isMapped && canonicalKey
+                ? editableFacts.findIndex((e) => e.metricKey === canonicalKey)
+                : -1;
+              const mainManual = editIdx >= 0 ? editableFacts[editIdx].value : "";
+              const hasMainManual =
+                mainManual.trim() !== "" && mainManual.trim() !== (mainProposed ?? "");
+              const mainEndelig = hasMainManual ? mainManual.trim() : (mainProposed ?? "—");
+
+              // Manual overrides for prior year (via priorYearEdits)
+              const priorManual =
+                isMapped && canonicalKey ? (priorYearEdits[canonicalKey] ?? "") : "";
+              const hasPriorManual =
+                priorManual.trim() !== "" && priorManual.trim() !== (priorProposed ?? "");
+              const priorEndelig = hasPriorManual
+                ? priorManual.trim()
+                : (priorProposed ?? "—");
+
+              const confidence = isMapped && canonicalKey
+                ? confidenceByKey.get(canonicalKey)
+                : row.confidence;
+              const precedence = isMapped && canonicalKey
+                ? precedenceByKey.get(canonicalKey)
+                : null;
 
               return (
                 <tr
                   key={`${row.pageNumber}-${i}`}
                   className={`border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50 ${
-                    !isMapped ? "opacity-60" : ""
+                    !isMapped ? "opacity-50" : ""
                   }`}
                 >
                   <td className="py-1 pr-2 text-slate-700">{row.label}</td>
-                  <td className="py-1 pr-1 text-right font-mono tabular-nums text-[var(--px-text)]">
-                    {displayVal(val0, row.unitScale)}
-                  </td>
-                  <td className="py-1 pr-1 text-right font-mono tabular-nums text-slate-400">
-                    {displayVal(val1, row.unitScale)}
-                  </td>
                   <td className="py-1 pr-1">
                     {isMapped ? (
-                      <span className="font-mono text-[var(--px-accent)]">{canonicalKey}</span>
+                      <span className="font-mono text-[var(--px-accent)]">
+                        {canonicalKey}
+                        {precedence && precedence !== "STATUTORY_NOK" && (
+                          <span className="ml-1 text-[10px] text-slate-400">
+                            ({precedence === "NOTE_DERIVED" ? "note" : "ODL"})
+                          </span>
+                        )}
+                      </span>
                     ) : (
                       <span className="text-amber-500">ikke koblet</span>
                     )}
                   </td>
+
+                  {/* Main year: proposed */}
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
+                      hasMainManual ? "text-slate-300 line-through" : "text-slate-700"
+                    }`}
+                  >
+                    {displayMain}
+                  </td>
+
+                  {/* Main year: manual input */}
+                  <td className="py-1 pr-1">
+                    {isMapped && editIdx >= 0 ? (
+                      <input
+                        value={mainManual}
+                        onChange={(e) => {
+                          setEditableFacts((prev) => {
+                            const next = [...prev];
+                            next[editIdx] = { ...next[editIdx], value: e.target.value };
+                            return next;
+                          });
+                        }}
+                        placeholder="—"
+                        className={`w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none ${
+                          hasMainManual
+                            ? "border-amber-300 bg-amber-50 text-amber-800"
+                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-600 focus:border-[var(--px-accent)]"
+                        }`}
+                      />
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
+
+                  {/* Main year: endelig */}
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums font-medium ${
+                      hasMainManual ? "text-amber-700" : "text-slate-700"
+                    }`}
+                  >
+                    {isMapped ? formatIntegerString(mainEndelig) : "—"}
+                  </td>
+
+                  {/* Prior year: proposed */}
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
+                      hasPriorManual ? "text-slate-300 line-through" : "text-slate-400"
+                    }`}
+                  >
+                    {displayPrior}
+                  </td>
+
+                  {/* Prior year: manual input */}
+                  <td className="py-1 pr-1">
+                    {isMapped && canonicalKey ? (
+                      <input
+                        value={priorManual}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setPriorYearEdits((prev) => ({ ...prev, [canonicalKey]: v }));
+                        }}
+                        placeholder="—"
+                        className={`w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none ${
+                          hasPriorManual
+                            ? "border-amber-300 bg-amber-50 text-amber-800"
+                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]"
+                        }`}
+                      />
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
+
+                  {/* Prior year: endelig */}
+                  <td
+                    className={`py-1 pr-1 text-right font-mono tabular-nums font-medium ${
+                      hasPriorManual ? "text-amber-700" : "text-slate-400"
+                    }`}
+                  >
+                    {isMapped ? formatIntegerString(priorEndelig) : "—"}
+                  </td>
+
                   <td className="py-1 pr-1 text-right font-mono text-slate-400">
                     {row.pageNumber}
                   </td>
                   <td className="py-1 text-right font-mono text-slate-400">
-                    {row.confidence != null ? `${(row.confidence * 100).toFixed(0)}%` : "—"}
+                    {confidence != null ? `${(confidence * 100).toFixed(0)}%` : "—"}
                   </td>
                 </tr>
               );
