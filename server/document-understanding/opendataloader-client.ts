@@ -169,32 +169,6 @@ function summarizeNormalizedDocument(
   };
 }
 
-async function callDoclingServerDirectly(input: {
-  pdfBuffer: Buffer;
-  sourceFilename: string;
-  hybridUrl: string;
-  timeoutMs: number;
-}): Promise<unknown> {
-  const form = new FormData();
-  form.append("files", new Blob([new Uint8Array(input.pdfBuffer)], { type: "application/pdf" }), input.sourceFilename);
-
-  const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => controller.abort(), input.timeoutMs);
-  try {
-    const response = await fetch(`${input.hybridUrl}/v1/convert/file`, {
-      method: "POST",
-      body: form,
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      const body = await response.text().catch(() => "(unreadable)");
-      throw new Error(`Docling server responded with ${response.status}: ${body}`);
-    }
-    return await response.json();
-  } finally {
-    clearTimeout(timeoutHandle);
-  }
-}
 
 function formatDiagnosticsForError(diagnostics: OpenDataLoaderParseDiagnostics) {
   return JSON.stringify(
@@ -263,57 +237,27 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
       route,
     });
 
-    let artifacts: OpenDataLoaderLoadedArtifacts;
-
-    // For scanned PDFs that require OCR, call the docling server directly.
-    // The Java CLI hybrid mode calls docling but writes only local image-bbox JSON
-    // (no OCR text). Calling docling directly gives us the full DoclingDocument
-    // with extracted text and tables that the normalizer can then use.
-    if (route.requiresOcr && route.executionMode === "hybrid" && config.hybridUrl) {
-      const doclingPayload = await callDoclingServerDirectly({
-        pdfBuffer: input.pdfBuffer,
-        sourceFilename: input.sourceFilename,
-        hybridUrl: config.hybridUrl,
-        timeoutMs: config.timeoutMs,
-      });
-      const jsonFilename = `${path.parse(input.sourceFilename).name}.json`;
-      const jsonContent = Buffer.from(JSON.stringify(doclingPayload), "utf8");
-      await fs.writeFile(path.join(outputDir, jsonFilename), jsonContent);
-      artifacts = {
-        outputFilenames: [jsonFilename],
-        rawJson: {
-          filename: jsonFilename,
-          mimeType: "application/json",
-          content: jsonContent,
-          payload: doclingPayload,
-          storageMetadata: { generatedBy: "docling-direct", sourcePath: path.join(outputDir, jsonFilename) },
-        },
-        markdown: null,
-        annotatedPdf: null,
-      };
-    } else {
-      const { convert } = await import("@opendataloader/pdf");
-      const format = ["json", "markdown", ...(config.storeAnnotatedPdf ? ["pdf"] : [])].join(",");
-      await convert(inputPath, {
-        outputDir,
-        format,
-        quiet: true,
-        keepLineBreaks: true,
-        useStructTree: route.useStructTree,
-        hybrid: route.executionMode === "hybrid" ? config.hybridBackend : undefined,
-        hybridMode: route.executionMode === "hybrid" ? route.hybridMode ?? "auto" : undefined,
-        hybridUrl: route.executionMode === "hybrid" ? config.hybridUrl ?? undefined : undefined,
-        hybridTimeout: route.executionMode === "hybrid" ? String(config.timeoutMs) : undefined,
-        hybridFallback: route.executionMode === "hybrid" ? config.fallbackToLegacy : undefined,
-        imageOutput: "off",
-        includeHeaderFooter: false,
-      });
-      artifacts = await loadGeneratedArtifacts({
-        outputDir,
-        inputStem: path.parse(input.sourceFilename).name,
-        includeAnnotatedPdf: config.storeAnnotatedPdf,
-      });
-    }
+    const { convert } = await import("@opendataloader/pdf");
+    const format = ["json", "markdown", ...(config.storeAnnotatedPdf ? ["pdf"] : [])].join(",");
+    await convert(inputPath, {
+      outputDir,
+      format,
+      quiet: true,
+      keepLineBreaks: true,
+      useStructTree: route.useStructTree,
+      hybrid: route.executionMode === "hybrid" ? config.hybridBackend : undefined,
+      hybridMode: route.executionMode === "hybrid" ? route.hybridMode ?? "auto" : undefined,
+      hybridUrl: route.executionMode === "hybrid" ? config.hybridUrl ?? undefined : undefined,
+      hybridTimeout: route.executionMode === "hybrid" ? String(config.timeoutMs) : undefined,
+      hybridFallback: route.executionMode === "hybrid" ? config.fallbackToLegacy : undefined,
+      imageOutput: "off",
+      includeHeaderFooter: false,
+    });
+    const artifacts = await loadGeneratedArtifacts({
+      outputDir,
+      inputStem: path.parse(input.sourceFilename).name,
+      includeAnnotatedPdf: config.storeAnnotatedPdf,
+    });
     diagnostics.artifacts = {
       outputFilenames: artifacts.outputFilenames,
       rawJsonFilename: artifacts.rawJson.filename,
