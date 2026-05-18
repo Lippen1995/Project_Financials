@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { AnnualReportRefreshButton } from "@/app/(app)/admin/AnnualReportRefreshButton";
 
 type Fact = {
   id: string;
@@ -315,6 +316,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     }
     return entries;
   });
+  const pdfDecision = payload?.pdfDecision as PdfDecision | null | undefined;
   const boardProposal = payload?.boardReportProposal as Record<string, unknown> | null | undefined;
   const auditorProposal = payload?.auditorReportProposal as Record<string, unknown> | null | undefined;
   const [boardReportText, setBoardReportText] = useState(
@@ -478,7 +480,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       <div className="flex flex-col gap-4">
         <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-            PDF-dokument
+            Original årsrapport
           </h2>
           {pdfError ? (
             <p className="text-sm text-red-500">Kunne ikke laste PDF: {pdfError}</p>
@@ -526,7 +528,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         {review.decisions.length > 0 && (
           <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Audit trail
+              Tidligere vurderinger
             </h2>
             <ul className="space-y-3">
               {review.decisions.map((d) => (
@@ -680,9 +682,19 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
 
         {/* Summary */}
         <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-            Sammendrag
-          </h2>
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+              Sammendrag
+            </h2>
+            <AnnualReportRefreshButton
+              scope="filing"
+              filingId={review.filing.id}
+              label="Kjør refresh"
+              pendingLabel="Starter refresh..."
+              helperText="Bruk når du vil kjøre dokumentet på nytt med dagens ekstraksjonsløype."
+              className="rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+            />
+          </div>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <dt className="text-slate-500">Org.nr</dt>
             <dd className="font-mono font-medium text-[#162233]">{review.company.orgNumber}</dd>
@@ -710,6 +722,12 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
               <span className="font-medium">Siste notat:</span> {review.latestActionNote}
             </p>
           )}
+          {!pdfDecision?.preflightSignals?.hasReliableTextLayer && pdfDecision?.odlEnabled === false ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Dokumentet ser ut til å mangle pålitelig tekstlag, og OpenDataLoader er deaktivert.
+              En refresh kan derfor fortsatt gi 0 verdier til unified-løypa.
+            </div>
+          ) : null}
         </div>
 
         {/* Validation issues */}
@@ -744,7 +762,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         {hasReviewedFacts && (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-emerald-700">
-              Kuraterte facts ({reviewedFacts.length})
+              Godkjente tall ({reviewedFacts.length})
             </h2>
             {rfIncome.length > 0 && (
               <div className="mb-4">
@@ -826,7 +844,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="Påkrevd for avvis/reprocess/uleselig. Valgfritt for korrigeringer."
+            placeholder="Påkrevd for avvis, refresh eller uleselig"
             className="w-full rounded border border-[rgba(15,23,42,0.12)] px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none"
           />
         </div>
@@ -857,7 +875,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
               disabled={loading}
               className="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
             >
-              Send til reprocess
+              Kjør refresh
             </button>
             <button
               onClick={handleReject}
@@ -884,7 +902,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
               disabled={validating || publishing}
               className="rounded border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
             >
-              {validating ? "Validerer…" : "Valider reviewed facts"}
+              {validating ? "Validerer…" : "Valider godkjente tall"}
             </button>
             {canPublish && (
               <button
@@ -901,6 +919,9 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         {isResolved && (
           <div className="rounded bg-slate-50 px-4 py-3 text-sm text-slate-600">
             Denne saken er avsluttet med status <strong>{review.status}</strong>.
+            {isAccepted && hasReviewedFacts
+              ? " Godkjente tall er lagret og publisert til aktivt regnskapssnapshot."
+              : ""}
           </div>
         )}
       </div>
@@ -1321,7 +1342,7 @@ function DocumentSummaryPanel({ payload }: { payload: Record<string, unknown> | 
   return (
     <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-        Dokumentstruktur
+        Hva systemet fant i dokumentet
       </h2>
 
       {diagnostics && (
@@ -1456,7 +1477,7 @@ function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null
   const confidence =
     typeof decision.confidenceScore === "number"
       ? `${(decision.confidenceScore * 100).toFixed(0)}%`
-      : "â€”";
+      : "—";
   const financialFactsEnabled =
     decision.enabledExtractors?.financialFacts ?? decision.financialFacts ?? null;
   const sectionKinds =
@@ -1502,11 +1523,13 @@ function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null
         : "text-emerald-600 font-semibold";
 
   const signals = decision.preflightSignals;
+  const missingReliableTextLayer = signals?.hasReliableTextLayer === false;
+  const noStructuredSections = sectionKinds.length === 0;
 
   return (
     <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-        PDF Decision Engine
+        Systemets vurdering
       </h2>
 
       <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -1564,6 +1587,20 @@ function PdfDecisionPanel({ payload }: { payload: Record<string, unknown> | null
           </>
         )}
       </div>
+
+      {missingReliableTextLayer && decision.odlEnabled === false ? (
+        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
+          Dokumentet mangler pålitelig tekstlag, og OpenDataLoader er deaktivert. Derfor kan
+          refresh fortsatt ende med 0 verdier i unified-løypa.
+        </div>
+      ) : null}
+
+      {decision.odlEnabled === true && noStructuredSections && financialFactsEnabled === false ? (
+        <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-800">
+          Refresh er mulig, men systemet har foreløpig ikke funnet tydelige tabeller eller seksjoner
+          i ODL-resultatet for dette dokumentet.
+        </div>
+      ) : null}
 
       {decision.enabledExtractors && (
         <div className="mb-2">
