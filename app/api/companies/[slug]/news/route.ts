@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const revalidate = 0;
+
 import { prisma } from "@/lib/prisma";
 import { getCompanyNewsWithRelevance } from "@/server/services/news-aggregator-service";
-
-export const revalidate = 0; // News is fetched live from DB; no caching at route level
 
 export async function GET(
   request: NextRequest,
