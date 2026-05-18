@@ -127,7 +127,7 @@ function NegativeValue({ children, negative }: { children: ReactNode; negative: 
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-end gap-2 rounded-md px-2 py-1",
+        "inline-flex items-center justify-end gap-2 rounded-xl px-2 py-1",
         negative && "font-medium text-rose-800",
       )}
     >
@@ -382,7 +382,7 @@ function FinancialCellDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.42)] px-4 py-8">
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-[1.25rem] border border-[rgba(15,23,42,0.12)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.24)]">
+      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[rgba(15,23,42,0.12)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.24)]">
         <div className="flex items-start justify-between gap-4">
           <div>
                 <div className="text-[11px] font-semibold uppercase text-slate-500">Finansiell kommentartråd</div>

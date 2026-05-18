@@ -9,6 +9,7 @@ export type CompanyTabId =
   | "organisasjon"
   | "kunngjoringer"
   | "dokumenter"
+  | "nyheter"
   | "sokkeleksponering";
 
 export const defaultCompanyTabs: { id: CompanyTabId; label: string }[] = [
@@ -18,6 +19,7 @@ export const defaultCompanyTabs: { id: CompanyTabId; label: string }[] = [
   { id: "organisasjon", label: "Organisasjon" },
   { id: "kunngjoringer", label: "Kunngjøringer" },
   { id: "dokumenter", label: "Dokumenter" },
+  { id: "nyheter", label: "Nyheter" },
   { id: "sokkeleksponering", label: "Sokkeleksponering" },
 ];
 

@@ -98,6 +98,7 @@
     "test:annual-report-gold-set": "vitest run server/benchmarking/annual-report-gold-set.test.ts server/benchmarking/annual-report-gold-set-shadow-run.test.ts",
     "test:annual-report-ocr": "vitest run integrations/brreg/annual-report-financials/ocr.test.ts",
     "import:shareholding": "tsx scripts/import-shareholding-snapshot.ts",
+    "news:sync": "tsx scripts/sync-news.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

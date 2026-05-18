@@ -119,3 +119,29 @@ Hvis en kilde ikke gir nok data til en funksjon:
 
 ## Definisjon av ferdig
 Løsningen skal kunne kjøres lokalt, bruke reelle offentlige data, og demonstrere en fungerende kjerne for ProjectX uten syntetisk innhold.
+
+---
+
+## Designsystem-sjekkliste
+
+Alle nye komponenter MÅ følge disse reglene (se `DESIGN.md` for full spec):
+
+### Farger
+- Bruk alltid CSS-tokens: `var(--px-bg)`, `var(--px-surface)`, `var(--px-border)`, `var(--px-text)`, `var(--px-muted)`, `var(--px-accent)`, `var(--px-panel)`, `var(--px-action)`, `var(--px-action-hover)`, `var(--px-subtle)`, `var(--px-accent-soft)`
+- Tillatte hardkodede verdier: Tailwind slate/emerald/rose/amber-skalaen, og følgende rgba/hex fra DESIGN.md: `rgba(15,23,42,0.08/0.10/0.06/0.14)`, `rgba(248,249,250,0.62/0.8)`, `rgba(255,255,255,0.86/0.9)`, `#192536` (panel), `#111827` (tekst)
+- **Forbudt:** Alle andre hardkodede hex- eller rgb-verdier
+
+### Radius
+- **Tillatt:** `rounded-2xl` (ytre kort), `rounded-xl` (indre bokser/inputs), `rounded-full` (badges/pills/knapper)
+- **Forbudt:** `rounded-lg`, `rounded-md`, `rounded-3xl`, alle `rounded-[...]` custom verdier
+- **Unntak:** Finansielle tabeller bruker ingen radius (analytisk preg)
+
+### Typografi
+- `editorial-display` kun for H1-overskrifter og store redaksjonelle titler (Source Serif 4)
+- `data-label` for metadata-labels, tabelloverskrifter, badges, statuser (IBM Plex Mono)
+- Standard UI: IBM Plex Sans (Tailwind default i dette prosjektet)
+
+### Spacing / radius
+- Ytre kort: `p-5` eller `p-6`, `rounded-2xl`, `border border-[var(--px-border)]`
+- Indre bokser: `rounded-xl`
+- Gap: `gap-4`, `gap-6`, `gap-8` — ikke custom verdier

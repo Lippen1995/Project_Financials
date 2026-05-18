@@ -145,6 +145,33 @@ export async function archiveWorkspaceWatchAction(formData: FormData) {
   }
 }
 
+export async function watchCompanyAction(_prevState: unknown, formData: FormData): Promise<void> {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const orgNumber = String(formData.get("orgNumber") ?? "");
+    const workspaceId = String(formData.get("workspaceId") ?? "");
+    const slug = String(formData.get("slug") ?? "");
+    if (!orgNumber || !workspaceId || !slug) return;
+    await createWorkspaceWatch(userId, workspaceId, { companyReference: orgNumber });
+    revalidatePath(`/companies/${slug}`);
+  } catch {
+    // swallow — page stays unchanged
+  }
+}
+
+export async function unwatchCompanyAction(_prevState: unknown, formData: FormData): Promise<void> {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const watchId = String(formData.get("watchId") ?? "");
+    const slug = String(formData.get("slug") ?? "");
+    if (!watchId || !slug) return;
+    await updateWorkspaceWatchStatus(userId, watchId, WorkspaceWatchStatus.ARCHIVED);
+    revalidatePath(`/companies/${slug}`);
+  } catch {
+    // swallow
+  }
+}
+
 export async function reopenWorkspaceWatchAction(formData: FormData) {
   const userId = await requireAuthenticatedUserId();
 

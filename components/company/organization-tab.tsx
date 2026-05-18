@@ -141,7 +141,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                 Org.nr. {model.company.orgNumber} · {model.company.legalForm ?? "Foretak"}
               </p>
             </div>
-            <div className="rounded-[1.3rem] border border-[#E7ECF1] bg-[#F8FAFC] px-4 py-3 text-xs text-[#667085]">
+            <div className="rounded-2xl border border-[#E7ECF1] bg-[#F8FAFC] px-4 py-3 text-xs text-[#667085]">
               <div>Formell selskapsinformasjon</div>
               <div className="mt-1">Sist oppdatert {formatDate(model.company.fetchedAt)}</div>
             </div>
@@ -247,14 +247,14 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               ))}
             </div>
 
-            <div className="relative overflow-hidden rounded-[1.6rem] border border-[#E7ECF1] bg-[radial-gradient(circle_at_top_left,#F8FBFF_0%,#FFFFFF_46%,#F9FBFC_100%)]">
+            <div className="relative overflow-hidden rounded-2xl border border-[#E7ECF1] bg-[radial-gradient(circle_at_top_left,#F8FBFF_0%,#FFFFFF_46%,#F9FBFC_100%)]">
               <div className="border-b border-[#EEF2F6] bg-white/85 px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#667085] backdrop-blur">
                 Hold over selskapsnoden for komplett rolleoversikt
               </div>
               <div className="flex min-h-[520px] items-center justify-center p-8">
                 <div className="group relative w-full max-w-[420px]">
                   <Link href={`/companies/${model.company.orgNumber}?tab=organisasjon`} className="block">
-                    <div className="rounded-[1.7rem] border border-[#0F172A] bg-[#0F172A] p-6 text-white shadow-[0_28px_70px_rgba(15,23,42,0.22)] transition group-hover:-translate-y-1">
+                    <div className="rounded-2xl border border-[#0F172A] bg-[#0F172A] p-6 text-white shadow-[0_28px_70px_rgba(15,23,42,0.22)] transition group-hover:-translate-y-1">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="text-xl font-semibold tracking-tight">{model.company.name}</div>
@@ -279,7 +279,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                   </Link>
 
                   <div className="pointer-events-none absolute left-1/2 top-full z-20 hidden w-[520px] -translate-x-1/2 pt-4 group-hover:block">
-                    <div className="rounded-[1.25rem] border border-[#D8E3F0] bg-white/97 p-5 shadow-[0_22px_50px_rgba(15,23,42,0.16)] backdrop-blur">
+                    <div className="rounded-2xl border border-[#D8E3F0] bg-white/97 p-5 shadow-[0_22px_50px_rgba(15,23,42,0.16)] backdrop-blur">
                       <div className="flex items-start justify-between gap-4 border-b border-[#E8EDF2] pb-4">
                         <div>
                           <div className="text-sm font-semibold uppercase tracking-[0.12em] text-[#667085]">
@@ -338,7 +338,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
           ) : null}
 
           <div className="mt-5 space-y-5">
-            <div className={cn("rounded-[1.4rem] border p-5", bucketClasses.owners)}>
+            <div className={cn("rounded-2xl border p-5", bucketClasses.owners)}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-semibold">A. Eiere</h3>
@@ -376,7 +376,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               </div>
             </div>
 
-            <div className={cn("rounded-[1.4rem] border p-5", bucketClasses.board)}>
+            <div className={cn("rounded-2xl border p-5", bucketClasses.board)}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-semibold">B. Styre og ledelse</h3>
@@ -419,7 +419,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               </div>
             </div>
 
-            <div className={cn("rounded-[1.4rem] border p-5", bucketClasses.authority)}>
+            <div className={cn("rounded-2xl border p-5", bucketClasses.authority)}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-semibold">C. Signatur og prokura</h3>
@@ -466,7 +466,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               </div>
             </div>
 
-            <div className={cn("rounded-[1.4rem] border p-5", bucketClasses.advisors)}>
+            <div className={cn("rounded-2xl border p-5", bucketClasses.advisors)}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-semibold">D. Revisor og regnskapsfører</h3>
@@ -512,7 +512,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               </div>
             </div>
 
-            <div className={cn("rounded-[1.4rem] border p-5", bucketClasses.other)}>
+            <div className={cn("rounded-2xl border p-5", bucketClasses.other)}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-semibold">E. Andre registrerte roller</h3>
@@ -587,7 +587,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
           />
           {selected ? (
             <div className="mt-5 space-y-4">
-              <div className="rounded-[1.25rem] border border-[#E7ECF1] bg-[#F8FAFC] p-4">
+              <div className="rounded-2xl border border-[#E7ECF1] bg-[#F8FAFC] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-lg font-semibold text-[#0F172A]">{selected.name}</div>
