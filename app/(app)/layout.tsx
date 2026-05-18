@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import { safeAuth } from "@/lib/auth";
 import { buildGlobalNavItems } from "@/lib/navigation";
@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-8">
             <Link href="/" className="flex flex-col -space-y-0.5">
               <span className="text-[1.1rem] font-semibold tracking-[-0.03em] text-[var(--px-text)]">
-                Arctic Intel
+                Fjord Insight
               </span>
               <span className="data-label text-[9px] text-[var(--px-muted)] opacity-70">
                 Enterprise
@@ -79,3 +79,4 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     </>
   );
 }
+

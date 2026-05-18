@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useActionState } from "react";
@@ -56,7 +56,7 @@ export default function LoginPage() {
             href="/"
             className="font-headline-sm text-headline-sm font-bold tracking-tight text-primary"
           >
-            Arctic Intel
+            Fjord Insight
           </Link>
           <div className="md:hidden">
             <a
@@ -112,14 +112,14 @@ export default function LoginPage() {
 
         <footer className="flex justify-between items-center pt-margin-md border-t border-outline-variant/20">
           <span className="font-label-caps text-label-caps text-on-tertiary-container uppercase">
-            © 2024 Arctic Intel AS
+            © 2024 Fjord Insight AS
           </span>
           <div className="flex gap-margin-sm">
             <a
               href="#"
               className="font-label-caps text-label-caps text-on-surface-variant hover:text-primary uppercase"
             >
-              Vilkår
+              VilkÅr
             </a>
             <a
               href="#"
@@ -151,7 +151,7 @@ function LoginForm() {
           name="email"
           type="email"
           required
-          placeholder="navn@selskap.no"
+          placeholder="••••••••"
           className="w-full bg-transparent border-b border-outline-variant focus:border-primary px-0 py-2 outline-none transition-colors duration-300 font-body-md text-on-surface placeholder:text-outline"
         />
       </div>
@@ -194,8 +194,9 @@ function LoginForm() {
         disabled={pending}
         className="w-full bg-primary-container text-white py-4 font-label-caps text-label-caps uppercase tracking-widest hover:opacity-90 transition-opacity duration-300 disabled:opacity-50"
       >
-        {pending ? "Logger inn…" : "Logg inn"}
+        {pending ? "Logger inn..." : "Logg inn"}
       </button>
     </form>
   );
 }
+

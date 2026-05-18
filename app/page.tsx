@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { safeAuth } from "@/lib/auth";
@@ -19,7 +19,7 @@ function LandingPage() {
         <div className="flex justify-between items-center max-w-container-max mx-auto px-margin-lg h-20">
           <div className="flex items-center gap-8">
             <span className="font-headline-sm text-headline-sm font-bold tracking-tight text-primary">
-              Arctic Intel
+              Fjord Insight
             </span>
             <div className="hidden md:flex gap-6">
               <a className="text-primary border-b-2 border-primary pb-1 font-body-md text-body-md" href="#">
@@ -55,9 +55,9 @@ function LandingPage() {
 
       {/* Hero */}
       <header className="relative h-screen w-full flex items-center justify-center overflow-hidden pt-20">
-        <div className="absolute inset-0 bg-primary-container z-0">
+        <div className="absolute inset-0 z-0">
           <video
-            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+            className="w-full h-full object-cover"
             src="/hero.mp4"
             autoPlay
             muted
@@ -71,8 +71,8 @@ function LandingPage() {
             Norsk forretningsinnsikt, redefinert.
           </h1>
           <p className="font-body-lg text-body-lg text-on-primary/80 mb-10 max-w-2xl mx-auto">
-            Kombinerer AI-drevet analyse med 100% pålitelige data fra Brønnøysundregistrene for å gi
-            deg et konkurransefortrinn i det nordiske markedet.
+            Kombinerer AI-drevet analyse med 100% pålitelige data fra Brønnøysundregistrene for å
+            gi deg et konkurransefortrinn i det nordiske markedet.
           </p>
           <div className="flex gap-4 justify-center">
             <Link
@@ -136,8 +136,8 @@ function LandingPage() {
               </div>
               <h3 className="font-headline-sm text-headline-sm mb-4">Sanntidsoppdaterte data</h3>
               <p className="font-body-md text-body-md text-on-surface-variant">
-                Få direkte tilgang til ferske regnskapstall, styreendringer og kredittvurderinger
-                øyeblikket de blir registrert i offentlige registre.
+                FÅ direkte tilgang til ferske regnskapstall, styreendringer og kredittvurderinger
+                Øyeblikket de blir registrert i offentlige registre.
               </p>
             </div>
             <div className="group border-t border-outline-variant/30 py-8 hover:bg-white transition-colors px-4 -mx-4 rounded-lg">
@@ -146,8 +146,8 @@ function LandingPage() {
               </div>
               <h3 className="font-headline-sm text-headline-sm mb-4">Nettverksvisualisering</h3>
               <p className="font-body-md text-body-md text-on-surface-variant">
-                Se komplekse eierstrukturer og forbindelser mellom selskaper og nøkkelpersoner med
-                våre interaktive relasjonskart.
+                Se komplekse eierstrukturer og forbindelser mellom selskaper og nØkkelpersoner med
+                vÅre interaktive relasjonskart.
               </p>
             </div>
             <div className="group border-t border-outline-variant/30 py-8 hover:bg-white transition-colors px-4 -mx-4 rounded-lg">
@@ -156,7 +156,7 @@ function LandingPage() {
               </div>
               <h3 className="font-headline-sm text-headline-sm mb-4">AI Business Insight</h3>
               <p className="font-body-md text-body-md text-on-surface-variant">
-                Vår AI-motor analyserer trender og markedsbevegelser for å gi deg de mest relevante
+                VÅr AI-motor analyserer trender og markedsbevegelser for Å gi deg de mest relevante
                 beslutningsgrunnlagene og prognosene.
               </p>
             </div>
@@ -171,7 +171,7 @@ function LandingPage() {
             <div>
               <h2 className="font-headline-md text-headline-md mb-2">Markedstrender</h2>
               <p className="font-body-md text-body-md text-on-surface-variant">
-                Selskaper med høy aktivitet og vekst akkurat nå.
+                Selskaper med hØy aktivitet og vekst akkurat nÅ.
               </p>
             </div>
             <Link
@@ -235,7 +235,7 @@ function LandingPage() {
               Oppgrader til Proff Insight Pro
             </h2>
             <p className="font-body-lg text-body-lg text-on-primary/70 mb-8 max-w-xl">
-              Få full tilgang til avanserte verktøy for dypere analyse og markedsforståelse. Perfekt
+              FÅ full tilgang til avanserte verktØy for dypere analyse og markedsforstÅelse. Perfekt
               for finansanalytikere og beslutningstakere.
             </p>
             <ul className="space-y-4 mb-10">
@@ -278,10 +278,10 @@ function LandingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter max-w-container-max mx-auto px-margin-lg">
           <div>
             <span className="font-headline-sm text-headline-sm text-primary mb-6 block">
-              Arctic Intel
+              Fjord Insight
             </span>
             <p className="font-label-caps text-label-caps text-on-surface-variant mb-4">
-              © 2024 Arctic Intel AS. All rights reserved.
+              © 2024 Fjord Insight AS. All rights reserved.
             </p>
           </div>
           <div>
@@ -375,3 +375,4 @@ function TrendCard({
     </div>
   );
 }
+

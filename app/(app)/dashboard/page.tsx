@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { safeAuth } from "@/lib/auth";
@@ -23,7 +23,7 @@ export default async function DashboardPage() {
           Hi {firstName}, what should we analyse today?
         </p>
         <h2 className="font-display-lg text-display-lg text-primary mb-8">
-          Arctic Intel Explorer
+          Fjord Insight Explorer
         </h2>
 
         {/* Search Input */}
@@ -33,7 +33,7 @@ export default async function DashboardPage() {
           </span>
           <input
             type="text"
-            placeholder="Søk på selskap, org.nr, bransje…"
+            placeholder="Søk på selskap, org.nr, bransje..."
             className="flex-1 bg-transparent py-3 text-primary placeholder:text-on-surface-variant outline-none font-body-lg text-body-lg"
           />
           <div className="flex items-center gap-2 ml-3">
@@ -93,7 +93,7 @@ export default async function DashboardPage() {
             href="#"
             className="font-label-caps text-xs text-secondary tracking-widest hover:underline"
           >
-            VIEW ALL →
+            VIEW ALL →†’
           </Link>
         </div>
 
@@ -204,11 +204,11 @@ export default async function DashboardPage() {
               {
                 name: "Lofoten Fisheries Holding",
                 org: "913 884 002",
-                location: "Svolvær",
+                location: "SvolvÆr",
                 capital: "12.500.000 NOK",
               },
               {
-                name: "Arctic Frontier Venture I",
+                name: "Nordic Frontier Venture I",
                 org: "921 556 718",
                 location: "Oslo",
                 capital: "50.000.000 NOK",
@@ -227,7 +227,7 @@ export default async function DashboardPage() {
                 </td>
                 <td className="py-4">
                   <button className="font-label-caps text-xs text-secondary tracking-widest hover:underline">
-                    ANALYSER →
+                    ANALYSER →†’
                   </button>
                 </td>
               </tr>
@@ -264,7 +264,7 @@ export default async function DashboardPage() {
                 isAvvikling: false,
               },
               {
-                name: "Arctic Marine Services NV",
+                name: "Nordic Marine Services NV",
                 org: "911 552 331",
                 status: "KONKURSÅPNING",
                 date: "11.10.2023",
@@ -367,3 +367,4 @@ export default async function DashboardPage() {
     </div>
   );
 }
+
