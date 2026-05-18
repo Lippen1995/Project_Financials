@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const revalidate = 300;
+
 import { prisma } from "@/lib/prisma";
 import { getCompanyNews } from "@/server/services/news-aggregator-service";
 

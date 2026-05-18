@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const revalidate = 3600;
+
 import { getCompanyByReference } from "@/server/services/company-service";
 import { getCompanyShareholdingOverview } from "@/server/shareholdings/shareholding-service";
 
