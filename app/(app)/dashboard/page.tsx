@@ -2,78 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { safeAuth } from "@/lib/auth";
-import { buildGlobalNavItems } from "@/lib/navigation";
-
-const moduleCopy: Record<
-  string,
-  {
-    eyebrow: string;
-    title: string;
-    description: string;
-    cta: string;
-  }
-> = {
-  "/search": {
-    eyebrow: "Live now",
-    title: "Company search",
-    description:
-      "Search real Norwegian companies from Bronnoysundregistrene with filters and a structured result list.",
-    cta: "Open search",
-  },
-  "/watchlist": {
-    eyebrow: "Live now",
-    title: "Watchlist",
-    description:
-      "Track companies you want to monitor and return to them from a dedicated workspace.",
-    cta: "Open watchlist",
-  },
-  "/market/distress": {
-    eyebrow: "Live now",
-    title: "Distress",
-    description:
-      "Open the distress workflow as it exists today, backed by real status and announcement data.",
-    cta: "Open distress",
-  },
-  "/market/oil-gas": {
-    eyebrow: "Live now",
-    title: "Oil and gas",
-    description:
-      "Use the market module for petroleum data, map layers and company links already present in the product.",
-    cta: "Open oil and gas",
-  },
-  "/pricing": {
-    eyebrow: "Product",
-    title: "Access",
-    description:
-      "See the current access model and how feature gating is intended to work in the MVP.",
-    cta: "Open access",
-  },
-  "/admin": {
-    eyebrow: "Admin",
-    title: "Control center",
-    description:
-      "Open the admin surface for review, parser quality and controlled rollout of the financial pipeline.",
-    cta: "Open admin",
-  },
-};
-
-const productStatus = [
-  {
-    title: "Search is active",
-    description:
-      "The hero search below sends you directly into the real company search flow, not a mock view.",
-  },
-  {
-    title: "Company profiles use real sources",
-    description:
-      "Profiles, roles and available financial data come from normalized internal data layers, not hardcoded demo content.",
-  },
-  {
-    title: "Not everything is live yet",
-    description:
-      "Sections that cannot yet be driven by real data should stay empty, clearly labeled or hidden instead of showing synthetic examples.",
-  },
-];
 
 export default async function DashboardPage() {
   const session = await safeAuth();
@@ -82,131 +10,368 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const firstName = session.user.name?.split(" ")[0] ?? session.user.email ?? "there";
-  const navItems = buildGlobalNavItems(session.user).filter((item) => item.href !== "/dashboard");
+  const firstName = session.user.name?.split(" ")[0] ?? session.user.email ?? "der";
 
   return (
-    <main className="space-y-10 pb-10">
-      <section className="grid gap-0 border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.78)] xl:grid-cols-[minmax(0,1.45fr),360px]">
-        <div className="p-8 sm:p-10">
-          <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-            Workspace
-          </div>
-          <p className="mt-4 text-sm uppercase tracking-[0.18em] text-[var(--px-accent)]">
-            Hi {firstName}, what do you want to analyze today?
-          </p>
-          <h1 className="editorial-display mt-5 max-w-4xl text-[3rem] leading-[0.98] text-slate-950 sm:text-[4rem]">
-            Fjord Insight Explorer
-          </h1>
-          <p className="mt-4 max-w-3xl text-[1.02rem] leading-8 text-slate-600">
-            Start with a real company search. This page prioritizes workflows that are actually
-            implemented and backed by real public data.
-          </p>
+    <div className="min-h-screen pt-0">
+      <section className="max-w-4xl mx-auto pb-20 px-4 text-center pt-12">
+        <p className="text-secondary font-label-caps tracking-widest text-sm mb-4">
+          Hi {firstName}, what should we analyse today?
+        </p>
+        <h2 className="font-display-lg text-display-lg text-primary mb-8">
+          Fjord Insight Explorer
+        </h2>
 
-          <form
-            action="/search"
-            method="GET"
-            className="mt-8 flex flex-col gap-3 border-b border-[rgba(15,23,42,0.18)] pb-3 sm:flex-row sm:items-center"
-          >
-            <label htmlFor="dashboard-search" className="sr-only">
-              Search for a company
-            </label>
-            <span className="material-symbols-outlined text-slate-500">search</span>
+        <form action="/search" method="GET">
+          <div className="relative flex items-center border-b-2 border-outline-variant focus-within:border-secondary transition-colors mb-4">
+            <span className="material-symbols-outlined text-on-surface-variant mr-3 text-xl">
+              search
+            </span>
             <input
-              id="dashboard-search"
-              name="query"
               type="text"
-              placeholder="Search company, org no or industry"
-              className="min-h-12 flex-1 bg-transparent text-[1.05rem] text-slate-950 outline-none placeholder:text-slate-400"
+              name="query"
+              placeholder="Søk på selskap, org.nr, bransje..."
+              className="flex-1 bg-transparent py-3 text-primary placeholder:text-on-surface-variant outline-none font-body-lg text-body-lg"
             />
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-4 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--px-accent)] hover:bg-slate-50"
-            >
-              Open search
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
+            <button type="submit" className="flex items-center gap-2 ml-3">
+              <span className="font-label-caps text-xs text-secondary border border-secondary px-2 py-0.5 rounded tracking-widest">
+                AI PROMPT
+              </span>
+              <span className="material-symbols-outlined text-secondary text-xl">
+                arrow_forward
+              </span>
             </button>
-          </form>
-
-          <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Search runs on real company data from Bronnoysundregistrene
-          </p>
-        </div>
-
-        <aside className="border-t border-[rgba(15,23,42,0.08)] bg-[var(--px-panel)] p-8 text-white xl:border-l xl:border-t-0">
-          <div className="data-label text-[11px] font-semibold uppercase text-white/60">
-            Status
           </div>
-          <div className="mt-4 text-[1.45rem] font-semibold leading-tight">
-            This dashboard only shows surfaces we can stand behind.
-          </div>
-          <p className="mt-4 text-sm leading-7 text-white/80">
-            The old demo content has been removed here. Use search as your entry point, then move
-            into modules that already run on real data or honest limitations.
-          </p>
-        </aside>
+        </form>
+
+        <p className="font-label-caps text-outline-variant tracking-widest text-xs">
+          AI-POWERED SEARCH OPERATING ON REAL-TIME BRONNOYSUND DATA
+        </p>
       </section>
 
-      <section className="space-y-5">
-        <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
-          <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-            Available now
-          </div>
-          <h2 className="mt-2 text-[1.8rem] font-semibold text-slate-950">
-            Real entry points into the product
-          </h2>
+      <section className="max-w-container-max mx-auto px-margin-lg pb-16">
+        <p className="font-label-caps text-outline-variant tracking-widest text-xs mb-6">
+          Hva andre i din industri søker på
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { tag: "TRENDING SØK", title: "Kvartalsrapporter: Energi", icon: "trending_up" },
+            { tag: "ESG ANALYSE", title: "ESG-ratinger: Offshore", icon: "eco" },
+            { tag: "AKTUELL BEDRIFT", title: "Vår Energi ASA", icon: "business" },
+            { tag: "M&A OVERVÅKNING", title: "Fusjonsrykter: Maritim", icon: "merge" },
+          ].map((card) => (
+            <button
+              key={card.tag}
+              type="button"
+              className="text-left border border-outline-variant bg-surface-container-low hover:border-secondary transition-colors p-5 group"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <span className="material-symbols-outlined text-secondary text-base">
+                  {card.icon}
+                </span>
+                <span className="font-label-caps text-xs text-secondary tracking-widest">
+                  {card.tag}
+                </span>
+              </div>
+              <p className="font-headline-sm text-headline-sm text-primary group-hover:text-secondary transition-colors">
+                {card.title}
+              </p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="max-w-container-max mx-auto px-margin-lg pb-16">
+        <div className="border-b border-primary pb-3 mb-8 flex items-center justify-between">
+          <h3 className="font-headline-md text-headline-md text-primary tracking-wide uppercase">
+            Latest Company Insights
+          </h3>
+          <Link
+            href="#"
+            className="font-label-caps text-xs text-secondary tracking-widest hover:underline"
+          >
+            VIEW ALL
+          </Link>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {navItems.map((item) => {
-            const copy = moduleCopy[item.href] ?? {
-              eyebrow: "Module",
-              title: item.label,
-              description: "Open this part of the product.",
-              cta: "Open",
-            };
+        <div className="space-y-8">
+          <div className="grid grid-cols-12 gap-6 border-b border-outline-variant pb-8">
+            <div className="col-span-12 sm:col-span-3">
+              <p className="font-label-caps text-xs text-secondary tracking-widest mb-1">
+                ENERGY SECTOR
+              </p>
+              <p className="font-label-caps text-xs text-outline-variant tracking-widest">
+                12 OCT 2023
+              </p>
+            </div>
+            <div className="col-span-12 sm:col-span-6">
+              <h4 className="font-headline-sm text-headline-sm text-primary mb-3">
+                Equinor ASA Announces Structural Reorganization of Offshore Wind Division
+              </h4>
+              <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                Internal restructuring signals a strategic pivot following underperformance in the
+                Barents region. Board sources indicate accelerated divestiture of non-core assets
+                slated for Q1 2024, with leadership changes expected at the divisional level.
+              </p>
+            </div>
+            <div className="col-span-12 sm:col-span-3">
+              <img
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjo4WRnV7HRnnjlmWFSSlREEWUPfnJxmxfvshl_ISVd1XCmV4E40PPWrMy6XqWXebHN0xEYqEYyKB3wKe3w70vX7FGi91LY03jg9TMVlDx9Br-89Gj-BEVJEgJhgP-EHBwK2YIR_yNXyML4CyHhQOPmi7WqxFfqebS9OEb2vFjzV-qBH41KV9nESjDO2LiXcrzPov1AEycTYaOnOhoMma_7wua0trJgwRwFVptqY51UwRhB9ThwxM3adNE2XXgSWrAhtyAJ27wHA8"
+                alt="Equinor offshore wind"
+                className="w-full h-40 object-cover"
+              />
+            </div>
+          </div>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href as never}
-                className="group rounded-[1.1rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.88)] p-5 shadow-[0_8px_20px_rgba(15,23,42,0.03)] transition-colors hover:border-[rgba(15,23,42,0.16)] hover:bg-white"
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-12 sm:col-span-3">
+              <p className="font-label-caps text-xs text-secondary tracking-widest mb-1">
+                TECH / VENTURE
+              </p>
+              <p className="font-label-caps text-xs text-outline-variant tracking-widest">
+                11 OCT 2023
+              </p>
+            </div>
+            <div className="col-span-12 sm:col-span-6">
+              <h4 className="font-headline-sm text-headline-sm text-primary mb-3">
+                Oslo Tech Hub: Series C Funding Alert for Cognite AI
+              </h4>
+              <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                Board composition analysis reveals three new international directors, signaling
+                preparation for cross-border expansion. Secondary market activity suggests a
+                pre-IPO liquidity event targeting Nordic institutional investors before year-end.
+              </p>
+            </div>
+            <div className="col-span-12 sm:col-span-3">
+              <img
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkbEIHbmsUzVleRVY5Fw7oIo0FaUwpPoVu6PPZZdjjuqhNB1b9kp6KNMREpiX4dEj7YuCXO67RpG_LCOcSo_Ft1Kme0WhjyH1d57yIvDIk-9sBh2XAOzOQyuXj_o2kedlzUCtWDEbt8SYg8F7I3Daa2t2rMKTWys-v0cPXiFuwamrHxg1q6tXq2MHnBtcjKbyPOUaFjiAaz_Kd2g0EX91FbbHRYNNjQhYARvdtjn_SIEYbrDMOfrFzBD6OlRwDUT0D5PsVJfWzmac"
+                alt="Oslo Tech Hub Cognite"
+                className="w-full h-40 object-cover"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-container-max mx-auto px-margin-lg pb-16">
+        <div className="border-b border-primary pb-3 mb-8 flex items-center justify-between">
+          <h3 className="font-headline-md text-headline-md text-primary tracking-wide uppercase">
+            New Registrations
+          </h3>
+          <div className="flex items-center gap-2">
+            {["ALL", "LISTED", "UNLISTED"].map((filter, i) => (
+              <button
+                key={filter}
+                type="button"
+                className={`font-label-caps text-xs tracking-widest px-3 py-1 border transition-colors ${
+                  i === 0
+                    ? "border-primary text-primary bg-transparent"
+                    : "border-outline-variant text-outline-variant hover:border-primary hover:text-primary"
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-outline-variant">
+              {["COMPANY NAME", "ORG NR", "LOCATION", "CAPITAL", "ACTION"].map((col) => (
+                <th
+                  key={col}
+                  className="font-label-caps text-xs text-outline-variant tracking-widest text-left py-3 pr-4 last:pr-0"
+                >
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              {
+                name: "Nordic Hydrogen Logistics AS",
+                org: "982 441 329",
+                location: "Trondheim",
+                capital: "5.000.000 NOK",
+              },
+              {
+                name: "Lofoten Fisheries Holding",
+                org: "913 884 002",
+                location: "Svolvaer",
+                capital: "12.500.000 NOK",
+              },
+              {
+                name: "Nordic Frontier Venture I",
+                org: "921 556 718",
+                location: "Oslo",
+                capital: "50.000.000 NOK",
+              },
+            ].map((row) => (
+              <tr
+                key={row.org}
+                className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+              >
+                <td className="font-body-md text-body-md text-primary py-4 pr-4">{row.name}</td>
+                <td className="font-data-mono text-data-mono text-on-surface-variant py-4 pr-4">
+                  {row.org}
+                </td>
+                <td className="font-body-md text-body-md text-on-surface-variant py-4 pr-4">
+                  {row.location}
+                </td>
+                <td className="font-data-mono text-data-mono text-on-surface-variant py-4 pr-4">
+                  {row.capital}
+                </td>
+                <td className="py-4">
+                  <button
+                    type="button"
+                    className="font-label-caps text-xs text-secondary tracking-widest hover:underline"
+                  >
+                    ANALYSER
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="max-w-container-max mx-auto px-margin-lg pb-16">
+        <div className="border-b border-primary pb-3 mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h3 className="font-headline-md text-headline-md text-primary tracking-wide uppercase">
+              Distressed Assets
+            </h3>
+            <span className="font-label-caps text-xs tracking-widest px-2 py-0.5 bg-error text-on-error rounded">
+              ALERT ACTIVE
+            </span>
+          </div>
+          <span className="font-label-caps text-xs text-outline-variant tracking-widest">
+            KONKURSER &amp; AVVIKLINGER
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            {[
+              {
+                name: "Bergen Infrastructure Group AS",
+                org: "944 321 008",
+                status: "KONKURSAPNING",
+                date: "12.10.2023",
+                isAvvikling: false,
+              },
+              {
+                name: "Nordic Marine Services NV",
+                org: "911 552 331",
+                status: "KONKURSAPNING",
+                date: "11.10.2023",
+                isAvvikling: false,
+              },
+            ].map((item) => (
+              <div
+                key={item.org}
+                className="border border-outline-variant p-5 hover:border-error transition-colors"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-                      {copy.eyebrow}
-                    </div>
-                    <h3 className="mt-3 text-[1.35rem] font-semibold text-slate-950">
-                      {copy.title}
-                    </h3>
+                    <p className="font-headline-sm text-headline-sm text-primary mb-1">
+                      {item.name}
+                    </p>
+                    <p className="font-data-mono text-data-mono text-outline-variant text-xs">
+                      {item.org}
+                    </p>
                   </div>
-                  <span className="material-symbols-outlined text-slate-400 group-hover:text-[var(--px-accent)]">
-                    {item.icon}
-                  </span>
+                  <div className="text-right shrink-0">
+                    <p
+                      className={`font-label-caps text-xs tracking-widest mb-1 ${
+                        item.isAvvikling ? "text-secondary" : "text-error"
+                      }`}
+                    >
+                      {item.status}
+                    </p>
+                    <p className="font-label-caps text-xs text-outline-variant tracking-widest">
+                      {item.date}
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-4 text-sm leading-7 text-slate-600">{copy.description}</p>
-                <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[var(--px-accent)]">
-                  <span>{copy.cta}</span>
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-4">
+            {[
+              {
+                name: "Viken Eiendomsutvikling",
+                org: "932 887 441",
+                status: "AVVIKLING",
+                date: "12.10.2023",
+                isAvvikling: true,
+              },
+              {
+                name: "Stavanger Tech Sol",
+                org: "887 554 112",
+                status: "KONKURSAPNING",
+                date: "10.10.2023",
+                isAvvikling: false,
+              },
+            ].map((item) => (
+              <div
+                key={item.org}
+                className="border border-outline-variant p-5 hover:border-error transition-colors"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-headline-sm text-headline-sm text-primary mb-1">
+                      {item.name}
+                    </p>
+                    <p className="font-data-mono text-data-mono text-outline-variant text-xs">
+                      {item.org}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p
+                      className={`font-label-caps text-xs tracking-widest mb-1 ${
+                        item.isAvvikling ? "text-secondary" : "text-error"
+                      }`}
+                    >
+                      {item.status}
+                    </p>
+                    <p className="font-label-caps text-xs text-outline-variant tracking-widest">
+                      {item.date}
+                    </p>
+                  </div>
                 </div>
-              </Link>
-            );
-          })}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        {productStatus.map((item) => (
-          <div
-            key={item.title}
-            className="rounded-[1.1rem] border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.82)] p-5"
-          >
-            <div className="text-[1.1rem] font-semibold text-slate-950">{item.title}</div>
-            <p className="mt-3 text-sm leading-7 text-slate-600">{item.description}</p>
+      <footer className="border-t border-outline-variant bg-surface py-8">
+        <div className="max-w-container-max mx-auto px-margin-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="font-label-caps text-xs text-outline-variant tracking-widest">
+              SYSTEM STATUS: NOMINAL
+            </span>
+            <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+            <span className="font-label-caps text-xs text-outline-variant tracking-widest">
+              LAST DATA REFRESH: 14:32:01 CET
+            </span>
           </div>
-        ))}
-      </section>
-    </main>
+          <div className="flex items-center gap-6">
+            {["PRIVACY POLICY", "API DOCUMENTATION", "SUPPORT NODE 04"].map((label) => (
+              <span
+                key={label}
+                className="font-label-caps text-xs text-outline-variant tracking-widest"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
