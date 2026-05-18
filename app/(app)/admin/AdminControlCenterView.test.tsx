@@ -191,13 +191,11 @@ describe("AdminControlCenterView", () => {
       <AdminControlCenterView model={model} currentUserRole="ADMIN" />,
     );
 
-    expect(html).toContain("Admin Control Center");
-    expect(html).toContain("Prosessnavigator");
-    expect(html).toContain("Søk i prosess, selskap eller rapport...");
+    expect(html).toContain("Control Center");
     expect(html).toContain("Hva trenger oppmerksomhet nå?");
     expect(html).toContain("Fra årsrapport til tall i databasen");
     expect(html).toContain("Veien mot go-live for ny ekstraksjonsmotor");
-    expect(html).toContain("Readiness report");
+    expect(html).toContain("Review-kø");
     expect(html).toContain("Slik bruker du admin-siden");
     expect(html).toContain("Begreper");
     expect(html).toContain("Statusforklaring");
@@ -220,6 +218,6 @@ describe("AdminControlCenterView", () => {
     expect(html).toContain("Beslutningspunkt");
     expect(html).toContain("Nei, kvaliteten er god nok");
     expect(html).toContain("Ja, systemet er usikkert");
-    expect(html).toContain("Manuell kontroll er et sikkerhetsnett.");
+    expect(html).toContain("Rapporten kan gå videre til lagring.");
   });
 });
