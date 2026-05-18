@@ -1,4 +1,3 @@
-import env from "@/lib/env";
 import { mergeIndustryCodeClassification } from "@/lib/industry-code";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import {
@@ -14,8 +13,6 @@ import {
 } from "@/lib/types";
 import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
-import { OpenAiSearchIntentProvider } from "@/integrations/openai/openai-search-intent-provider";
-import { BrregRolesProvider } from "@/integrations/brreg/brreg-roles-provider";
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
 import { mapDbCompany, mapDbFinancialStatements, mapDbRoles } from "@/server/mappers/db-mappers";
 import {
@@ -25,18 +22,12 @@ import {
   getLatestFinancialsForCompanies,
   upsertCompanySnapshot,
   upsertIndustryCodeSnapshot,
-  upsertRolesSnapshot,
 } from "@/server/persistence/company-repository";
-import {
-  getPublishedAnnualReportFinancials,
-  syncCompanyAnnualReportFinancials,
-} from "@/server/services/annual-report-financials-service";
+import { getPublishedAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
 
 const companyProvider = new BrregCompanyProvider();
 const announcementsProvider = new BrregAnnouncementsProvider();
-const rolesProvider = new BrregRolesProvider();
 const industryCodeProvider = new SsbIndustryCodeProvider();
-const searchIntentProvider = new OpenAiSearchIntentProvider();
 
 type SearchIndustryMatch = Awaited<ReturnType<typeof buildIndustryMatches>>[number];
 type ResolvedSearchGeography = Awaited<ReturnType<typeof industryCodeProvider.resolveGeography>>;
@@ -347,20 +338,18 @@ export async function searchCompanies(filters: SearchFilters): Promise<CompanySe
     return buildFallbackResponse();
   }
 
-  const interpretation = filters.query?.trim()
-    ? await searchIntentProvider.interpretQuery(filters.query)
-    : {
-        originalQuery: "",
-        rewrittenQuery: "",
-        aiAssisted: false,
-        fallbackReason: null,
-        companyTerms: [],
-        industryTerms: [],
-        geographicTerm: null,
-        geographicType: null,
-        intentSummary: null,
-        matchedIndustryCodes: [],
-      };
+  const interpretation: SearchInterpretation = {
+    originalQuery: filters.query ?? "",
+    rewrittenQuery: filters.query ?? "",
+    aiAssisted: false,
+    fallbackReason: null,
+    companyTerms: filters.query?.trim() ? [filters.query.trim()] : [],
+    industryTerms: [],
+    geographicTerm: null,
+    geographicType: null,
+    intentSummary: null,
+    matchedIndustryCodes: [],
+  };
 
   const matchedIndustryCodes = await buildIndustryMatches(filters, interpretation);
   interpretation.matchedIndustryCodes = matchedIndustryCodes.map((item) => ({
@@ -444,83 +433,38 @@ export async function searchCompanies(filters: SearchFilters): Promise<CompanySe
   };
 }
 
-async function loadFinancialsFromProvider(orgNumber: string) {
-  try {
-    const published = await getPublishedAnnualReportFinancials(orgNumber);
-    if (published.statements.length > 0 || published.documents.length > 0) {
-      return published;
-    }
-
-    return await syncCompanyAnnualReportFinancials(orgNumber);
-  } catch (error) {
-    logRecoverableError("company-service.getCompanyProfile.financials", error, {
-      orgNumber,
-    });
-    return {
-      statements: [],
-      documents: [],
-      availability: {
-        available: false,
-        sourceSystem: "BRREG",
-        message: "Regnskap kunne ikke hentes akkurat nÃ¥.",
-      },
-    };
-  }
-}
 
 export async function getCompanyByReference(idOrSlug: string) {
   let cachedCompany = null;
   try {
-    cachedCompany = await getCachedCompanyCore(idOrSlug, env.cacheHours);
+    cachedCompany = await getCachedCompanyCore(idOrSlug, Infinity);
   } catch (error) {
     logRecoverableError("company-service.getCachedCompanyCore", error, {
       idOrSlug,
     });
-    cachedCompany = null;
-  }
-
-  const company = cachedCompany ? mapDbCompany(cachedCompany) : await companyProvider.getCompany(idOrSlug);
-
-  if (!company) {
     return null;
   }
 
-  if (company.industryCode?.code) {
-    const industryCode = company.industryCode;
-    try {
-      const classification = await industryCodeProvider.getIndustryCode(industryCode.code);
-      if (classification) {
-        company.industryCode = mergeIndustryCodeClassification(industryCode, classification);
-        await upsertIndustryCodeSnapshot(classification);
-      }
-    } catch (error) {
-      logRecoverableError("company-service.getCompanyByReference.industryCode", error, {
-        orgNumber: company.orgNumber,
-        code: industryCode.code,
-      });
-    }
-  }
-
-  return company;
+  return cachedCompany ? mapDbCompany(cachedCompany) : null;
 }
 
 export async function getCompanyProfile(idOrSlug: string, options: CompanyProfileOptions = {}) {
-  const company = await getCompanyByReference(idOrSlug);
-
-  if (!company) {
+  let cachedCompany = null;
+  try {
+    cachedCompany = await getCachedCompanyCore(idOrSlug, Infinity);
+  } catch (error) {
+    logRecoverableError("company-service.getCachedCompanyCore", error, { idOrSlug });
     return null;
   }
 
+  if (!cachedCompany) {
+    return null;
+  }
+
+  const company = mapDbCompany(cachedCompany);
+  const companyDbId = cachedCompany.id;
   const rolesMode = options.rolesMode ?? "full";
   const financialsMode = options.financialsMode ?? "full";
-
-  try {
-    await upsertCompanySnapshot(company);
-  } catch (error) {
-    logRecoverableError("company-service.getCompanyProfile.persistCompany", error, {
-      orgNumber: company.orgNumber,
-    });
-  }
 
   let roles = [] as ReturnType<typeof mapDbRoles>;
   let rolesAvailability: DataAvailability;
@@ -532,66 +476,30 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
       message: "Rolledetaljer lastes ved behov i organisasjonsfanen.",
     };
   } else {
-  let cachedRoles = null;
-  try {
-    cachedRoles = await getCachedRoles(company.orgNumber, env.cacheHours);
-  } catch (error) {
-    logRecoverableError("company-service.getCachedRoles", error, {
-      orgNumber: company.orgNumber,
-    });
-    cachedRoles = null;
-  }
-
-  roles = cachedRoles ? mapDbRoles(cachedRoles) : [];
-  rolesAvailability = cachedRoles
-    ? {
-        available: true,
-        sourceSystem: "BRREG",
-        message:
-          roles.length > 0
-            ? "Roller er hentet fra Brreg og lokal cache."
-            : "Ingen roller er lagret i lokal cache for denne virksomheten.",
-      }
-    : {
-        available: false,
-        sourceSystem: "BRREG",
-        message: "Roller er ikke hentet ennÃ¥.",
-      };
-
-  if (!cachedRoles) {
+    let cachedRoles = null;
     try {
-      roles = await rolesProvider.getRoles(company.orgNumber);
-      rolesAvailability = {
-        available: true,
-        sourceSystem: "BRREG",
-        message:
-          roles.length > 0
-            ? "Roller er hentet fra BrÃ¸nnÃ¸ysundregistrene."
-            : "Brreg har ingen registrerte roller tilgjengelig for denne virksomheten.",
-      };
+      cachedRoles = await getCachedRoles(company.orgNumber, Infinity);
     } catch (error) {
-      logRecoverableError("company-service.getCompanyProfile.roles", error, {
+      logRecoverableError("company-service.getCachedRoles", error, {
         orgNumber: company.orgNumber,
       });
-      roles = [];
-      rolesAvailability = {
-        available: false,
-        sourceSystem: "BRREG",
-        message: "Roller kunne ikke hentes akkurat nÃ¥ fra BrÃ¸nnÃ¸ysundregistrene.",
-      };
     }
-  }
 
-  if (!cachedRoles && rolesAvailability.available) {
-    try {
-      await upsertRolesSnapshot(company.orgNumber, roles);
-    } catch (error) {
-      logRecoverableError("company-service.getCompanyProfile.persistRoles", error, {
-        orgNumber: company.orgNumber,
-        roleCount: roles.length,
-      });
-    }
-  }
+    roles = cachedRoles ? mapDbRoles(cachedRoles) : [];
+    rolesAvailability = cachedRoles
+      ? {
+          available: true,
+          sourceSystem: "BRREG",
+          message:
+            roles.length > 0
+              ? "Roller er hentet fra lokal database."
+              : "Ingen roller er registrert for denne virksomheten.",
+        }
+      : {
+          available: false,
+          sourceSystem: "BRREG",
+          message: "Roller er ikke synkronisert ennå.",
+        };
   }
 
   let financials: {
@@ -606,14 +514,14 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
       sourceSystem: "BRREG",
       message:
         financialsMode === "none"
-          ? "Regnskap lastes ved behov i regnskaps- og nÃ¸kkeltallsfanene."
-          : "Regnskap kunne ikke hentes akkurat nÃ¥.",
+          ? "Regnskap lastes ved behov i regnskaps- og nøkkeltallsfanene."
+          : "Regnskap er ikke synkronisert ennå.",
     },
   };
 
   if (financialsMode === "summary") {
     try {
-      const cachedStatements = await getCachedFinancialStatements(company.orgNumber, env.cacheHours);
+      const cachedStatements = await getCachedFinancialStatements(company.orgNumber, Infinity);
       if (cachedStatements) {
         financials = {
           statements: mapDbFinancialStatements(cachedStatements),
@@ -621,8 +529,7 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
           availability: {
             available: true,
             sourceSystem: "BRREG",
-            message:
-              "Regnskapstall vises fra lokal cache i denne visningen. Dokumentlisten lastes i regnskapsfanen.",
+            message: "Regnskapstall vises fra lokal database.",
           },
         };
       }
@@ -633,15 +540,13 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
     }
   }
 
-  if (
-    financialsMode !== "none" &&
-    (financialsMode === "full" || financials.statements.length === 0)
-  ) {
-    financials = await loadFinancialsFromProvider(company.orgNumber);
+  if (financialsMode === "full") {
+    financials = await getPublishedAnnualReportFinancials(company.orgNumber);
   }
 
   return {
     company,
+    companyDbId,
     roles,
     rolesAvailability,
     financialStatements: financials.statements,
@@ -651,29 +556,18 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
       available: false,
       sourceSystem: "FINANSTILSYNET",
       message:
-        "Regulatorisk overlay er ikke aktivert i MVP-et fordi Ã¥pen og stabil kildetilgang ikke er koblet inn ennÃ¥.",
+        "Regulatorisk overlay er ikke aktivert i MVP-et fordi åpen og stabil kildetilgang ikke er koblet inn ennå.",
     },
   };
 }
 
 export async function getCompanyRoles(orgNumber: string) {
-  const cachedRoles = await getCachedRoles(orgNumber, env.cacheHours);
-  if (cachedRoles) {
-    return mapDbRoles(cachedRoles);
-  }
-
-  const roles = await rolesProvider.getRoles(orgNumber);
-  await upsertRolesSnapshot(orgNumber, roles);
-  return roles;
+  const cachedRoles = await getCachedRoles(orgNumber, Infinity);
+  return cachedRoles ? mapDbRoles(cachedRoles) : [];
 }
 
 export async function getCompanyFinancials(orgNumber: string) {
-  const published = await getPublishedAnnualReportFinancials(orgNumber);
-  if (published.statements.length > 0 || published.documents.length > 0) {
-    return published;
-  }
-
-  return syncCompanyAnnualReportFinancials(orgNumber);
+  return getPublishedAnnualReportFinancials(orgNumber);
 }
 
 export async function getCompanyAnnouncements(orgNumber: string) {
