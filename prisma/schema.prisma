@@ -297,6 +297,19 @@ enum AdminNotificationStatus {
   DISMISSED
 }
 
+// Lifecycle of a calibration threshold version.
+//   PROPOSED: written by the calibration service, awaiting human approval.
+//   ACTIVE:   currently used by the extraction pipeline. At most one row may
+//             have this status at a time.
+//   RETIRED:  superseded by a newer ACTIVE version that has taken its place.
+//   REJECTED: a proposal the reviewer explicitly turned down.
+enum ConfidenceThresholdStatus {
+  PROPOSED
+  ACTIVE
+  RETIRED
+  REJECTED
+}
+
 enum WorkspaceMonitorStatus {
   ACTIVE
   ARCHIVED
@@ -470,6 +483,8 @@ model User {
   pdfModelCandidatesCreated       PdfModelCandidate[]               @relation("PdfModelCandidateCreatedBy")
   pdfModelCandidateDecisions      PdfModelCandidateDecision[]       @relation("PdfModelCandidateDecisionUser")
   adminNotifications              AdminNotification[]               @relation("AdminNotificationRecipient")
+  confidenceThresholdApplied      ConfidenceThresholdVersion[]      @relation("ConfidenceThresholdAppliedBy")
+  confidenceThresholdRejected     ConfidenceThresholdVersion[]      @relation("ConfidenceThresholdRejectedBy")
 }
 
 model Subscription {
@@ -2583,4 +2598,44 @@ model AdminNotification {
   @@index([recipientRole, status, createdAt])
   @@index([recipientUserId, status])
   @@index([type, createdAt])
+}
+
+// ConfidenceThresholdVersion stores a versioned snapshot of the confidence-gate
+// configuration that decides which extraction results are auto-published vs sent
+// to manual review. Each row is a complete snapshot of all thresholds and
+// decisions — we don't store individual field changes — so rolling back is just
+// "make the previous row ACTIVE again".
+//
+// At most one row should have status=ACTIVE at any time. The version number is
+// auto-incremented and shown to reviewers as a human-friendly identifier (v1, v2…).
+//
+// `configBlob` carries the full UnifiedExtractionConfidenceGateConfig (numeric
+// thresholds + categorical decisions). `derivedFromReport` carries a snapshot of
+// the calibration report that produced this proposal, so an admin can later see
+// "this proposal was based on 234 reviews from the last 14 days".
+//
+// `impactEstimate` is a small summary (e.g. estimated auto-publish rate) shown
+// in the UI so reviewers can judge a proposal without opening the full report.
+model ConfidenceThresholdVersion {
+  id                  String                    @id @default(cuid())
+  version             Int                       @unique @default(autoincrement())
+  status              ConfidenceThresholdStatus @default(PROPOSED)
+  configBlob          Json
+  derivedFromReport   Json?
+  impactEstimate      Json?
+  summary             String?
+  notes               String?
+  proposedAt          DateTime                  @default(now())
+  appliedAt           DateTime?
+  appliedByUserId     String?
+  retiredAt           DateTime?
+  rejectedAt          DateTime?
+  rejectedByUserId    String?
+  rejectionReason     String?
+
+  appliedBy           User?                     @relation("ConfidenceThresholdAppliedBy", fields: [appliedByUserId], references: [id], onDelete: SetNull)
+  rejectedBy          User?                     @relation("ConfidenceThresholdRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, version])
+  @@index([proposedAt])
 }

@@ -9,6 +9,7 @@ const ADMIN_LINKS = [
   { href: "/admin", label: "Admin" },
   { href: "/admin/annual-report-reviews", label: "Manuell kontroll" },
   { href: "/admin/annual-report-unified-confidence", label: "Unified kontroll" },
+  { href: "/admin/extraction-learning", label: "Læring" },
   { href: "/admin/pdf-decision-analytics", label: "PDF-vurdering" },
   { href: "/admin/pdf-parser-remediation", label: "Feil og forbedringer" },
 ];
