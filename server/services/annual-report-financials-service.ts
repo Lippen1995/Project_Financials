@@ -82,6 +82,7 @@ import {
 import {
   runAnnualReportUnifiedShadowExtraction,
 } from "@/server/services/annual-report-unified-shadow-extraction-service";
+import { createAdminNotificationIfMissing } from "@/server/services/admin-notification-service";
 
 const provider = new BrregFinancialsProvider();
 const artifactStorage = new LocalAnnualReportArtifactStorage();
@@ -1042,16 +1043,16 @@ export async function processAnnualReportFiling(
     }
 
     const useLegacyPrimary = openDataLoaderConfig.dualRun || !openDataLoaderResult;
-    const primaryEngine = useLegacyPrimary ? "LEGACY" : "OPENDATALOADER";
+    let primaryEngine: "LEGACY" | "OPENDATALOADER" = useLegacyPrimary ? "LEGACY" : "OPENDATALOADER";
     const primaryOpenDataLoaderResult = useLegacyPrimary ? null : openDataLoaderResult;
-    const primaryMode = useLegacyPrimary
+    let primaryMode: string = useLegacyPrimary
       ? "legacy"
       : primaryOpenDataLoaderResult!.routing.executionMode;
     const primaryPages = useLegacyPrimary
       ? legacyPages
       : primaryOpenDataLoaderResult!.annualReportPages;
 
-    const primaryComputation = runFinancialPipeline({
+    let primaryComputation = runFinancialPipeline({
       filingId: filing.id,
       extractionRunId: extractionRun.id,
       fiscalYear: filing.fiscalYear,
@@ -1072,11 +1073,15 @@ export async function processAnnualReportFiling(
         excludePageNumbers: pageHints?.hasReliableHints ? pageHints.excludePages : undefined,
       });
 
+      // Always compare against the Legacy result that started as primary, regardless
+      // of whether we later swap. Keeps the audit artifact consistent.
+      const legacyComputationForComparison = primaryComputation;
+
       comparisonSummary = buildOpenDataLoaderComparisonSummary({
         primary: buildPipelineSnapshot({
           engine: "LEGACY",
           mode: "legacy",
-          computation: primaryComputation,
+          computation: legacyComputationForComparison,
         }),
         shadow: buildPipelineSnapshot({
           engine: "OPENDATALOADER",
@@ -1095,7 +1100,7 @@ export async function processAnnualReportFiling(
             primary: buildPipelineSnapshot({
               engine: "LEGACY",
               mode: "legacy",
-              computation: primaryComputation,
+              computation: legacyComputationForComparison,
             }),
             shadow: buildPipelineSnapshot({
               engine: "OPENDATALOADER",
@@ -1117,6 +1122,57 @@ export async function processAnnualReportFiling(
         materialDisagreement: comparisonSummary.materialDisagreement,
         publishDecisionMismatch: comparisonSummary.publishDecisionMismatch,
       });
+
+      // Auto-promote ODL to primary when it clearly outperforms Legacy.
+      // Conservative rule: only swap when ODL can publish AND Legacy cannot. This protects
+      // against false positives — if both engines could publish, we trust Legacy's stability.
+      // Disabled by default; enable via OPENDATALOADER_AUTO_PROMOTE=true.
+      if (
+        openDataLoaderConfig.autoPromote &&
+        shadowComputation.canPublishSnapshot &&
+        !legacyComputationForComparison.canPublishSnapshot
+      ) {
+        logPipelineEvent("document_understanding.opendataloader_auto_promoted", {
+          filingId: filing.id,
+          extractionRunId: extractionRun.id,
+          reason: "ODL_CAN_PUBLISH_LEGACY_CANNOT",
+          legacyConfidenceScore: legacyComputationForComparison.confidenceScore,
+          shadowConfidenceScore: shadowComputation.confidenceScore,
+          legacyBlockingRules: legacyComputationForComparison.reviewRuleCodes,
+          shadowBlockingRules: shadowComputation.reviewRuleCodes,
+        });
+        primaryComputation = shadowComputation;
+        primaryEngine = "OPENDATALOADER";
+        primaryMode = openDataLoaderResult.routing.executionMode;
+
+        // Surface this swap to admins so they can verify ODL really did the right thing.
+        // Dedupe per extraction run — re-running the same filing won't spam the inbox.
+        await createAdminNotificationIfMissing({
+          type: "ENGINE_PROMOTION_OBSERVED",
+          recipientRole: "ADMIN",
+          title: `OpenDataLoader overtok for ${filing.company.orgNumber} (${filing.fiscalYear})`,
+          body:
+            `ODL produserte et publiserbart resultat der Legacy ikke kunne. ` +
+            `Anbefales å verifisere tallene før de regnes som endelige.`,
+          linkPath: `/admin/annual-report-reviews?orgNumber=${filing.company.orgNumber}&fiscalYear=${filing.fiscalYear}`,
+          dedupeKey: `engine-promotion:${extractionRun.id}`,
+          metadata: {
+            filingId: filing.id,
+            extractionRunId: extractionRun.id,
+            orgNumber: filing.company.orgNumber,
+            fiscalYear: filing.fiscalYear,
+            legacyConfidenceScore: legacyComputationForComparison.confidenceScore,
+            shadowConfidenceScore: shadowComputation.confidenceScore,
+          },
+        }).catch((notificationError) => {
+          // Notification failure must never block the extraction pipeline.
+          logRecoverableError("admin-notification", notificationError, {
+            operation: "engine_promotion",
+            filingId: filing.id,
+            extractionRunId: extractionRun.id,
+          });
+        });
+      }
     }
 
     // ── Unified extractor shadow run (never affects production output) ────────

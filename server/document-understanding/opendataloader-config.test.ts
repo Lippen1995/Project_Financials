@@ -16,6 +16,18 @@ describe("opendataloader-config", () => {
     expect(config.mode).toBe("local");
     expect(config.storeAnnotatedPdf).toBe(true);
     expect(config.fallbackToLegacy).toBe(true);
+    expect(config.autoPromote).toBe(false);
+  });
+
+  it("opts in to auto-promote when OPENDATALOADER_AUTO_PROMOTE is true", () => {
+    const config = resolveOpenDataLoaderConfig({
+      OPENDATALOADER_ENABLED: "true",
+      OPENDATALOADER_DUAL_RUN: "true",
+      OPENDATALOADER_AUTO_PROMOTE: "true",
+    } as unknown as NodeJS.ProcessEnv);
+
+    expect(config.dualRun).toBe(true);
+    expect(config.autoPromote).toBe(true);
   });
 
   it("routes reliable digital PDFs to local mode", () => {

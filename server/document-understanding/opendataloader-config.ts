@@ -79,6 +79,11 @@ export function resolveOpenDataLoaderConfig(source: NodeJS.ProcessEnv | typeof e
       ? Boolean((source as typeof env).opendataloaderFallbackToLegacy)
       : readBoolean(source.OPENDATALOADER_FALLBACK_TO_LEGACY, true);
 
+  const autoPromote =
+    "opendataloaderAutoPromote" in source
+      ? Boolean((source as typeof env).opendataloaderAutoPromote)
+      : readBoolean(source.OPENDATALOADER_AUTO_PROMOTE, false);
+
   const timeoutRaw =
     "opendataloaderTimeoutMs" in source
       ? (source as typeof env).opendataloaderTimeoutMs
@@ -96,6 +101,7 @@ export function resolveOpenDataLoaderConfig(source: NodeJS.ProcessEnv | typeof e
     dualRun,
     storeAnnotatedPdf,
     fallbackToLegacy,
+    autoPromote,
   } satisfies OpenDataLoaderResolvedConfig;
 }
 

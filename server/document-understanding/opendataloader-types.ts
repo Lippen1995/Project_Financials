@@ -19,6 +19,9 @@ export type OpenDataLoaderResolvedConfig = {
   dualRun: boolean;
   storeAnnotatedPdf: boolean;
   fallbackToLegacy: boolean;
+  // When dualRun is on and ODL produces a publishable result where Legacy does not,
+  // promote ODL's output to primary instead of forcing the filing into manual review.
+  autoPromote: boolean;
 };
 
 export type OpenDataLoaderRouteDecision = {

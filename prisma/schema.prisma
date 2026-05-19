@@ -281,6 +281,22 @@ enum WorkspaceNotificationType {
   DISTRESS_MATCH
 }
 
+// Categories of admin-targeted notifications surfaced in the global bell. Each value
+// represents a distinct kind of event the system asks an administrator to look at —
+// typically a proposal that needs human approval, or a pattern that's worth reviewing.
+enum AdminNotificationType {
+  CALIBRATION_PROPOSED
+  PATTERN_DETECTED
+  TRAINING_MILESTONE
+  ENGINE_PROMOTION_OBSERVED
+}
+
+enum AdminNotificationStatus {
+  UNREAD
+  READ
+  DISMISSED
+}
+
 enum WorkspaceMonitorStatus {
   ACTIVE
   ARCHIVED
@@ -413,46 +429,47 @@ enum FinancialStatementSourcePrecedence {
 }
 
 model User {
-  id                           String                         @id @default(cuid())
-  name                         String?
-  email                        String                         @unique
-  emailVerified                DateTime?
-  passwordHash                 String?
-  image                        String?
-  lastWorkspaceId              String?
-  appRole                      AppRole                        @default(USER)
-  createdAt                    DateTime                       @default(now())
-  updatedAt                    DateTime                       @updatedAt
-  accounts                     Account[]
-  sessions                     Session[]
-  subscription                 Subscription?
-  lastWorkspace                Workspace?                     @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
-  personalWorkspace            Workspace?                     @relation("PersonalWorkspaceOwner")
-  workspaceMemberships         WorkspaceMember[]
-  sentWorkspaceInvitations     WorkspaceInvitation[]          @relation("WorkspaceInvitationInvitedBy")
-  acceptedWorkspaceInvitations WorkspaceInvitation[]          @relation("WorkspaceInvitationAcceptedBy")
-  ddPosts                      DdPost[]
-  assignedDdTasks              DdTask[]                       @relation("DdTaskAssignee")
-  createdDdTasks               DdTask[]                       @relation("DdTaskCreatedBy")
-  createdDdMandates            DdMandate[]                    @relation("DdMandateCreatedBy")
-  updatedDdMandates            DdMandate[]                    @relation("DdMandateUpdatedBy")
-  assignedDdFindings           DdFinding[]                    @relation("DdFindingAssignee")
-  createdDdFindings            DdFinding[]                    @relation("DdFindingCreatedBy")
-  createdDdFindingEvidence     DdFindingEvidence[]            @relation("DdFindingEvidenceCreatedBy")
-  createdDdConclusions         DdConclusion[]                 @relation("DdConclusionCreatedBy")
-  updatedDdConclusions         DdConclusion[]                 @relation("DdConclusionUpdatedBy")
-  ddDecisionLogEntries         DdDecisionLogEntry[]           @relation("DdDecisionLogEntryCreatedBy")
-  ddCommentThreads             DdCommentThread[]              @relation("DdCommentThreadCreatedBy")
-  ddComments                   DdComment[]                    @relation("DdCommentAuthor")
-  annualReportReviewDecisions  AnnualReportReviewDecision[]   @relation("ReviewDecisionReviewer")
-  pdfTrainingLabels            PdfTrainingLabel[]             @relation("TrainingLabelReviewer")
-  annualReportReviewedFacts    AnnualReportReviewedFact[]     @relation("ReviewedFactReviewer")
+  id                              String                            @id @default(cuid())
+  name                            String?
+  email                           String                            @unique
+  emailVerified                   DateTime?
+  passwordHash                    String?
+  image                           String?
+  lastWorkspaceId                 String?
+  appRole                         AppRole                           @default(USER)
+  createdAt                       DateTime                          @default(now())
+  updatedAt                       DateTime                          @updatedAt
+  accounts                        Account[]
+  sessions                        Session[]
+  subscription                    Subscription?
+  lastWorkspace                   Workspace?                        @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
+  personalWorkspace               Workspace?                        @relation("PersonalWorkspaceOwner")
+  workspaceMemberships            WorkspaceMember[]
+  sentWorkspaceInvitations        WorkspaceInvitation[]             @relation("WorkspaceInvitationInvitedBy")
+  acceptedWorkspaceInvitations    WorkspaceInvitation[]             @relation("WorkspaceInvitationAcceptedBy")
+  ddPosts                         DdPost[]
+  assignedDdTasks                 DdTask[]                          @relation("DdTaskAssignee")
+  createdDdTasks                  DdTask[]                          @relation("DdTaskCreatedBy")
+  createdDdMandates               DdMandate[]                       @relation("DdMandateCreatedBy")
+  updatedDdMandates               DdMandate[]                       @relation("DdMandateUpdatedBy")
+  assignedDdFindings              DdFinding[]                       @relation("DdFindingAssignee")
+  createdDdFindings               DdFinding[]                       @relation("DdFindingCreatedBy")
+  createdDdFindingEvidence        DdFindingEvidence[]               @relation("DdFindingEvidenceCreatedBy")
+  createdDdConclusions            DdConclusion[]                    @relation("DdConclusionCreatedBy")
+  updatedDdConclusions            DdConclusion[]                    @relation("DdConclusionUpdatedBy")
+  ddDecisionLogEntries            DdDecisionLogEntry[]              @relation("DdDecisionLogEntryCreatedBy")
+  ddCommentThreads                DdCommentThread[]                 @relation("DdCommentThreadCreatedBy")
+  ddComments                      DdComment[]                       @relation("DdCommentAuthor")
+  annualReportReviewDecisions     AnnualReportReviewDecision[]      @relation("ReviewDecisionReviewer")
+  pdfTrainingLabels               PdfTrainingLabel[]                @relation("TrainingLabelReviewer")
+  annualReportReviewedFacts       AnnualReportReviewedFact[]        @relation("ReviewedFactReviewer")
   unifiedExtractionReviewFeedback UnifiedExtractionReviewFeedback[] @relation("UnifiedExtractionReviewFeedbackReviewer")
-  pdfDecisionGoldSetCreated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetCreatedBy")
-  pdfDecisionGoldSetUpdated     PdfDecisionGoldSetItem[]       @relation("PdfDecisionGoldSetUpdatedBy")
-  pdfModelArtifactSnapshots     PdfModelArtifactSnapshot[]
-  pdfModelCandidatesCreated     PdfModelCandidate[]            @relation("PdfModelCandidateCreatedBy")
-  pdfModelCandidateDecisions    PdfModelCandidateDecision[]     @relation("PdfModelCandidateDecisionUser")
+  pdfDecisionGoldSetCreated       PdfDecisionGoldSetItem[]          @relation("PdfDecisionGoldSetCreatedBy")
+  pdfDecisionGoldSetUpdated       PdfDecisionGoldSetItem[]          @relation("PdfDecisionGoldSetUpdatedBy")
+  pdfModelArtifactSnapshots       PdfModelArtifactSnapshot[]
+  pdfModelCandidatesCreated       PdfModelCandidate[]               @relation("PdfModelCandidateCreatedBy")
+  pdfModelCandidateDecisions      PdfModelCandidateDecision[]       @relation("PdfModelCandidateDecisionUser")
+  adminNotifications              AdminNotification[]               @relation("AdminNotificationRecipient")
 }
 
 model Subscription {
@@ -656,15 +673,15 @@ model DistressSyncState {
 }
 
 model PipelineJobLease {
-  id             String   @id @default(cuid())
-  jobKey         String   @unique
-  leaseOwner     String
+  id              String    @id @default(cuid())
+  jobKey          String    @unique
+  leaseOwner      String
   leaseAcquiredAt DateTime
-  leaseExpiresAt DateTime
+  leaseExpiresAt  DateTime
   lastHeartbeatAt DateTime?
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([jobKey, leaseExpiresAt])
 }
@@ -707,9 +724,9 @@ model Role {
 }
 
 model FinancialStatement {
-  id                    String                          @id @default(cuid())
+  id                    String                              @id @default(cuid())
   fiscalYear            Int
-  currency              String                          @default("NOK")
+  currency              String                              @default("NOK")
   revenue               BigInt?
   operatingProfit       BigInt?
   netIncome             BigInt?
@@ -723,17 +740,17 @@ model FinancialStatement {
   rawPayload            Json?
   sourceFilingId        String?
   sourceExtractionRunId String?
-  qualityStatus         FinancialStatementQualityStatus @default(MANUAL_REVIEW)
+  qualityStatus         FinancialStatementQualityStatus     @default(MANUAL_REVIEW)
   qualityScore          Float?
   unitScale             Int?
   sourcePrecedence      FinancialStatementSourcePrecedence?
   publishedAt           DateTime?
-  createdAt             DateTime                        @default(now())
-  updatedAt             DateTime                        @updatedAt
+  createdAt             DateTime                            @default(now())
+  updatedAt             DateTime                            @updatedAt
   companyId             String
-  company               Company                         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  sourceFiling          AnnualReportFiling?             @relation("PublishedStatementFiling", fields: [sourceFilingId], references: [id], onDelete: SetNull)
-  sourceExtractionRun   FinancialExtractionRun?         @relation("PublishedStatementExtractionRun", fields: [sourceExtractionRunId], references: [id], onDelete: SetNull)
+  company               Company                             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceFiling          AnnualReportFiling?                 @relation("PublishedStatementFiling", fields: [sourceFilingId], references: [id], onDelete: SetNull)
+  sourceExtractionRun   FinancialExtractionRun?             @relation("PublishedStatementExtractionRun", fields: [sourceExtractionRunId], references: [id], onDelete: SetNull)
   ddCommentThreads      DdCommentThread[]
   ddFindingEvidence     DdFindingEvidence[]
 
@@ -744,44 +761,44 @@ model FinancialStatement {
 }
 
 model AnnualReportFiling {
-  id                       String                   @id @default(cuid())
-  companyId                String
-  fiscalYear               Int
-  sourceSystem             String
-  sourceUrl                String
-  sourceDiscoveryKey       String
-  sourceIdempotencyKey     String                   @unique
-  sourceDocumentHash       String?
-  sourceDocumentType       String
-  discoveredAt             DateTime
-  downloadedAt             DateTime?
-  processingStartedAt      DateTime?
-  preflightedAt            DateTime?
-  extractedAt              DateTime?
-  validatedAt              DateTime?
-  publishedSnapshotAt      DateTime?
-  manualReviewAt           DateTime?
-  failedAt                 DateTime?
-  status                   AnnualReportFilingStatus @default(DISCOVERED)
-  unitHints                Json?
-  metadata                 Json?
-  parserVersionLastTried   String?
-  lastError                String?
-  isLatestForFiscalYear    Boolean                  @default(true)
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
-  company                  Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  artifacts                AnnualReportArtifact[]
-  extractionRuns           FinancialExtractionRun[]
-  facts                    FinancialFact[]
-  validationIssues         FinancialValidationIssue[]
-  reviews                  AnnualReportReview[]
-  publishedStatements      FinancialStatement[]     @relation("PublishedStatementFiling")
-  coverageAsLatestSuccess  CompanyFinancialCoverage[] @relation("CoverageLatestSuccessfulFiling")
-  reviewedFacts            AnnualReportReviewedFact[]
-  pdfDecisionGoldSetItem    PdfDecisionGoldSetItem?
-  rawLineItems             RawFinancialLineItem[]
-  narratives               AnnualReportNarrative[]
+  id                      String                     @id @default(cuid())
+  companyId               String
+  fiscalYear              Int
+  sourceSystem            String
+  sourceUrl               String
+  sourceDiscoveryKey      String
+  sourceIdempotencyKey    String                     @unique
+  sourceDocumentHash      String?
+  sourceDocumentType      String
+  discoveredAt            DateTime
+  downloadedAt            DateTime?
+  processingStartedAt     DateTime?
+  preflightedAt           DateTime?
+  extractedAt             DateTime?
+  validatedAt             DateTime?
+  publishedSnapshotAt     DateTime?
+  manualReviewAt          DateTime?
+  failedAt                DateTime?
+  status                  AnnualReportFilingStatus   @default(DISCOVERED)
+  unitHints               Json?
+  metadata                Json?
+  parserVersionLastTried  String?
+  lastError               String?
+  isLatestForFiscalYear   Boolean                    @default(true)
+  createdAt               DateTime                   @default(now())
+  updatedAt               DateTime                   @updatedAt
+  company                 Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  artifacts               AnnualReportArtifact[]
+  extractionRuns          FinancialExtractionRun[]
+  facts                   FinancialFact[]
+  validationIssues        FinancialValidationIssue[]
+  reviews                 AnnualReportReview[]
+  publishedStatements     FinancialStatement[]       @relation("PublishedStatementFiling")
+  coverageAsLatestSuccess CompanyFinancialCoverage[] @relation("CoverageLatestSuccessfulFiling")
+  reviewedFacts           AnnualReportReviewedFact[]
+  pdfDecisionGoldSetItem  PdfDecisionGoldSetItem?
+  rawLineItems            RawFinancialLineItem[]
+  narratives              AnnualReportNarrative[]
 
   @@index([companyId, fiscalYear])
   @@index([companyId, status, discoveredAt])
@@ -790,47 +807,47 @@ model AnnualReportFiling {
 }
 
 model AnnualReportArtifact {
-  id           String                  @id @default(cuid())
+  id           String                   @id @default(cuid())
   filingId     String
   artifactType AnnualReportArtifactType
   storageKey   String
   checksum     String
   mimeType     String
   metadata     Json?
-  createdAt    DateTime                @default(now())
-  filing       AnnualReportFiling      @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                 @default(now())
+  filing       AnnualReportFiling       @relation(fields: [filingId], references: [id], onDelete: Cascade)
 
+  @@unique([filingId, artifactType, checksum])
   @@index([filingId, artifactType])
   @@index([storageKey])
-  @@unique([filingId, artifactType, checksum])
 }
 
 model FinancialExtractionRun {
-  id               String                       @id @default(cuid())
-  filingId         String
-  companyId        String
-  parserVersion    String
-  documentEngine   String?
+  id                    String                       @id @default(cuid())
+  filingId              String
+  companyId             String
+  parserVersion         String
+  documentEngine        String?
   documentEngineVersion String?
-  documentEngineMode String?
-  ocrEngine        String?
-  ocrLanguage      String?
-  status           FinancialExtractionRunStatus @default(PENDING)
-  startedAt        DateTime
-  finishedAt       DateTime?
-  confidenceScore  Float?
-  validationScore  Float?
-  metricsCoverage  Json?
-  errorMessage     String?
-  rawSummary       Json?
-  createdAt        DateTime                     @default(now())
-  updatedAt        DateTime                     @updatedAt
-  filing           AnnualReportFiling           @relation(fields: [filingId], references: [id], onDelete: Cascade)
-  company          Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  facts            FinancialFact[]
-  validationIssues FinancialValidationIssue[]
-  reviews          AnnualReportReview[]
-  publishedStatements FinancialStatement[]      @relation("PublishedStatementExtractionRun")
+  documentEngineMode    String?
+  ocrEngine             String?
+  ocrLanguage           String?
+  status                FinancialExtractionRunStatus @default(PENDING)
+  startedAt             DateTime
+  finishedAt            DateTime?
+  confidenceScore       Float?
+  validationScore       Float?
+  metricsCoverage       Json?
+  errorMessage          String?
+  rawSummary            Json?
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+  filing                AnnualReportFiling           @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company               Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  facts                 FinancialFact[]
+  validationIssues      FinancialValidationIssue[]
+  reviews               AnnualReportReview[]
+  publishedStatements   FinancialStatement[]         @relation("PublishedStatementExtractionRun")
 
   @@index([filingId, status, startedAt])
   @@index([companyId, startedAt])
@@ -914,45 +931,45 @@ model RawFinancialLineItem {
 }
 
 model CompanyFinancialCoverage {
-  id                        String                        @id @default(cuid())
-  companyId                 String                        @unique
+  id                         String                         @id @default(cuid())
+  companyId                  String                         @unique
   latestDiscoveredFiscalYear Int?
   latestDownloadedFiscalYear Int?
   latestPublishedFiscalYear  Int?
-  lastCheckedAt             DateTime?
-  nextCheckAt               DateTime?
-  failureCount              Int                           @default(0)
-  coverageStatus            CompanyFinancialCoverageStatus @default(UNCHECKED)
-  latestSuccessfulFilingId  String?
-  createdAt                 DateTime                      @default(now())
-  updatedAt                 DateTime                      @updatedAt
-  company                   Company                       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  latestSuccessfulFiling    AnnualReportFiling?           @relation("CoverageLatestSuccessfulFiling", fields: [latestSuccessfulFilingId], references: [id], onDelete: SetNull)
+  lastCheckedAt              DateTime?
+  nextCheckAt                DateTime?
+  failureCount               Int                            @default(0)
+  coverageStatus             CompanyFinancialCoverageStatus @default(UNCHECKED)
+  latestSuccessfulFilingId   String?
+  createdAt                  DateTime                       @default(now())
+  updatedAt                  DateTime                       @updatedAt
+  company                    Company                        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  latestSuccessfulFiling     AnnualReportFiling?            @relation("CoverageLatestSuccessfulFiling", fields: [latestSuccessfulFilingId], references: [id], onDelete: SetNull)
 
   @@index([coverageStatus, nextCheckAt])
   @@index([latestPublishedFiscalYear])
 }
 
 model AnnualReportReview {
-  id                        String                   @id @default(cuid())
+  id                        String                       @id @default(cuid())
   filingId                  String
   extractionRunId           String?
   companyId                 String
   fiscalYear                Int
-  status                    AnnualReportReviewStatus @default(PENDING_REVIEW)
+  status                    AnnualReportReviewStatus     @default(PENDING_REVIEW)
   qualityScore              Float?
   sourcePrecedenceAttempted String?
-  blockingIssueCount        Int                      @default(0)
+  blockingIssueCount        Int                          @default(0)
   blockingRuleCodes         String[]
   pageReferences            Int[]
   latestActionNote          String?
   reviewPayload             Json?
-  createdAt                 DateTime                 @default(now())
-  updatedAt                 DateTime                 @updatedAt
+  createdAt                 DateTime                     @default(now())
+  updatedAt                 DateTime                     @updatedAt
   resolvedAt                DateTime?
-  filing                    AnnualReportFiling         @relation(fields: [filingId], references: [id], onDelete: Cascade)
-  extractionRun             FinancialExtractionRun?    @relation(fields: [extractionRunId], references: [id], onDelete: SetNull)
-  company                   Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  filing                    AnnualReportFiling           @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  extractionRun             FinancialExtractionRun?      @relation(fields: [extractionRunId], references: [id], onDelete: SetNull)
+  company                   Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   decisions                 AnnualReportReviewDecision[]
   reviewedFacts             AnnualReportReviewedFact[]
 
@@ -963,7 +980,7 @@ model AnnualReportReview {
 }
 
 model AnnualReportReviewDecision {
-  id              String                          @id @default(cuid())
+  id              String  @id @default(cuid())
   reviewId        String
   filingId        String
   extractionRunId String?
@@ -971,17 +988,17 @@ model AnnualReportReviewDecision {
   fiscalYear      Int
   reviewerUserId  String
 
-  decisionType    AnnualReportReviewDecisionType
-  beforePayload   Json?
-  afterPayload    Json?
-  correctionNotes String?
+  decisionType     AnnualReportReviewDecisionType
+  beforePayload    Json?
+  afterPayload     Json?
+  correctionNotes  String?
   validationPassed Boolean?
-  overrideReason  String?
+  overrideReason   String?
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  review          AnnualReportReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  reviewer        User               @relation("ReviewDecisionReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  review   AnnualReportReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reviewer User               @relation("ReviewDecisionReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
 
   @@index([reviewId, createdAt])
   @@index([filingId, createdAt])
@@ -989,21 +1006,21 @@ model AnnualReportReviewDecision {
 }
 
 model PdfTrainingLabel {
-  id              String               @id @default(cuid())
+  id              String  @id @default(cuid())
   filingId        String
   extractionRunId String?
   reviewId        String?
   reviewerUserId  String
 
-  labelType       PdfTrainingLabelType
-  targetRef       Json?
-  proposedValue   Json?
-  acceptedValue   Json?
-  sourcePayload   Json?
+  labelType     PdfTrainingLabelType
+  targetRef     Json?
+  proposedValue Json?
+  acceptedValue Json?
+  sourcePayload Json?
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  reviewer        User @relation("TrainingLabelReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  reviewer User @relation("TrainingLabelReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
 
   @@index([filingId, labelType])
   @@index([extractionRunId, labelType])
@@ -1011,24 +1028,24 @@ model PdfTrainingLabel {
 }
 
 model UnifiedExtractionReviewFeedback {
-  id                     String                               @id @default(cuid())
-  filingId               String
-  orgNumber              String?
-  fiscalYear             Int?
-  reviewerUserId         String
+  id                       String                                @id @default(cuid())
+  filingId                 String
+  orgNumber                String?
+  fiscalYear               Int?
+  reviewerUserId           String
   confidenceGateArtifactId String?
-  sourceArtifactIds      Json?
-  action                 UnifiedExtractionReviewFeedbackAction
-  targetType             UnifiedExtractionReviewTargetType
-  targetRef              Json?
-  proposedValue          Json?
-  acceptedValue          Json?
-  reason                 String?
-  notes                  String?
-  createdAt              DateTime                             @default(now())
-  updatedAt              DateTime                             @updatedAt
+  sourceArtifactIds        Json?
+  action                   UnifiedExtractionReviewFeedbackAction
+  targetType               UnifiedExtractionReviewTargetType
+  targetRef                Json?
+  proposedValue            Json?
+  acceptedValue            Json?
+  reason                   String?
+  notes                    String?
+  createdAt                DateTime                              @default(now())
+  updatedAt                DateTime                              @updatedAt
 
-  reviewer               User @relation("UnifiedExtractionReviewFeedbackReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  reviewer User @relation("UnifiedExtractionReviewFeedbackReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
 
   @@index([filingId, createdAt])
   @@index([orgNumber, fiscalYear, createdAt])
@@ -1038,31 +1055,31 @@ model UnifiedExtractionReviewFeedback {
 }
 
 model PdfDecisionGoldSetItem {
-  id              String                     @id @default(cuid())
-  filingId        String                     @unique
+  id              String  @id @default(cuid())
+  filingId        String  @unique
   extractionRunId String?
   orgNumber       String?
   fiscalYear      Int?
 
-  status          PdfDecisionGoldSetStatus   @default(CANDIDATE)
-  reason          PdfDecisionGoldSetReason   @default(OTHER)
-  note            String?
+  status PdfDecisionGoldSetStatus @default(CANDIDATE)
+  reason PdfDecisionGoldSetReason @default(OTHER)
+  note   String?
 
   decisionRoute   String?
   riskLevel       String?
   confidenceScore Float?
   outcome         String?
 
-  source          String                     @default("ADMIN")
+  source          String  @default("ADMIN")
   createdByUserId String?
   updatedByUserId String?
 
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  filing          AnnualReportFiling         @relation(fields: [filingId], references: [id], onDelete: Cascade)
-  createdBy       User?                      @relation("PdfDecisionGoldSetCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  updatedBy       User?                      @relation("PdfDecisionGoldSetUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  filing    AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  createdBy User?              @relation("PdfDecisionGoldSetCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy User?              @relation("PdfDecisionGoldSetUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([reason])
@@ -1071,32 +1088,32 @@ model PdfDecisionGoldSetItem {
 }
 
 model PdfModelArtifactSnapshot {
-  id                   String                 @id @default(cuid())
-  kind                 PdfModelArtifactKind
-  status               PdfModelArtifactStatus @default(CREATED)
+  id     String                 @id @default(cuid())
+  kind   PdfModelArtifactKind
+  status PdfModelArtifactStatus @default(CREATED)
 
   modelId              String?
   modelVersion         String?
   modelTarget          String?
   featureSchemaVersion String?
 
-  fiscalYear           Int?
-  orgNumber            String?
-  split                String?
+  fiscalYear Int?
+  orgNumber  String?
+  split      String?
 
-  summary              Json
-  payload              Json
+  summary Json
+  payload Json
 
-  sourceCommand        String?
-  sourceCommitSha      String?
-  createdByUserId      String?
-  createdByUser        User?                  @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  manifestCandidates   PdfModelCandidate[]    @relation("PdfModelCandidateManifestArtifact")
-  gateCandidates       PdfModelCandidate[]    @relation("PdfModelCandidateGateArtifact")
-  analysisCandidates   PdfModelCandidate[]    @relation("PdfModelCandidateAnalysisArtifact")
+  sourceCommand      String?
+  sourceCommitSha    String?
+  createdByUserId    String?
+  createdByUser      User?               @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  manifestCandidates PdfModelCandidate[] @relation("PdfModelCandidateManifestArtifact")
+  gateCandidates     PdfModelCandidate[] @relation("PdfModelCandidateGateArtifact")
+  analysisCandidates PdfModelCandidate[] @relation("PdfModelCandidateAnalysisArtifact")
 
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([kind, createdAt])
   @@index([modelId, modelVersion])
@@ -1106,7 +1123,7 @@ model PdfModelArtifactSnapshot {
 }
 
 model PdfModelCandidate {
-  id                   String                   @id @default(cuid())
+  id String @id @default(cuid())
 
   modelId              String
   modelVersion         String
@@ -1114,24 +1131,24 @@ model PdfModelCandidate {
   algorithm            String?
   featureSchemaVersion String?
 
-  status               PdfModelCandidateStatus  @default(DRAFT)
+  status PdfModelCandidateStatus @default(DRAFT)
 
-  manifestArtifactId   String?
-  manifestArtifact     PdfModelArtifactSnapshot? @relation("PdfModelCandidateManifestArtifact", fields: [manifestArtifactId], references: [id], onDelete: SetNull)
+  manifestArtifactId String?
+  manifestArtifact   PdfModelArtifactSnapshot? @relation("PdfModelCandidateManifestArtifact", fields: [manifestArtifactId], references: [id], onDelete: SetNull)
 
-  gateArtifactId       String?
-  gateArtifact         PdfModelArtifactSnapshot? @relation("PdfModelCandidateGateArtifact", fields: [gateArtifactId], references: [id], onDelete: SetNull)
+  gateArtifactId String?
+  gateArtifact   PdfModelArtifactSnapshot? @relation("PdfModelCandidateGateArtifact", fields: [gateArtifactId], references: [id], onDelete: SetNull)
 
-  analysisArtifactId   String?
-  analysisArtifact     PdfModelArtifactSnapshot? @relation("PdfModelCandidateAnalysisArtifact", fields: [analysisArtifactId], references: [id], onDelete: SetNull)
+  analysisArtifactId String?
+  analysisArtifact   PdfModelArtifactSnapshot? @relation("PdfModelCandidateAnalysisArtifact", fields: [analysisArtifactId], references: [id], onDelete: SetNull)
 
-  createdByUserId      String?
-  createdByUser        User?                    @relation("PdfModelCandidateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByUserId String?
+  createdByUser   User?   @relation("PdfModelCandidateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
-  decisions            PdfModelCandidateDecision[]
+  decisions PdfModelCandidateDecision[]
 
-  createdAt            DateTime                 @default(now())
-  updatedAt            DateTime                 @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([modelId, modelVersion])
   @@index([status])
@@ -1139,19 +1156,19 @@ model PdfModelCandidate {
 }
 
 model PdfModelCandidateDecision {
-  id              String                        @id @default(cuid())
+  id String @id @default(cuid())
 
-  candidateId     String
-  candidate       PdfModelCandidate             @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   PdfModelCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
-  decisionType    PdfModelCandidateDecisionType
-  note            String?
-  payload         Json?
+  decisionType PdfModelCandidateDecisionType
+  note         String?
+  payload      Json?
 
   decidedByUserId String?
-  decidedByUser   User?                         @relation("PdfModelCandidateDecisionUser", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  decidedByUser   User?   @relation("PdfModelCandidateDecisionUser", fields: [decidedByUserId], references: [id], onDelete: SetNull)
 
-  createdAt       DateTime                      @default(now())
+  createdAt DateTime @default(now())
 
   @@index([candidateId, createdAt])
   @@index([decisionType])
@@ -1175,10 +1192,10 @@ model AnnualReportReviewedFact {
   reviewerUserId   String
   createdAt        DateTime                     @default(now())
 
-  review           AnnualReportReview  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  filing           AnnualReportFiling  @relation(fields: [filingId], references: [id], onDelete: Cascade)
-  company          Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  reviewer         User                @relation("ReviewedFactReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  review   AnnualReportReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  filing   AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reviewer User               @relation("ReviewedFactReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
 
   @@unique([reviewId, metricKey])
   @@index([reviewId, metricKey])
@@ -1632,29 +1649,29 @@ model PetroleumFieldSnapshot {
 }
 
 model PetroleumLicenceSnapshot {
-  id                  String   @id @default(cuid())
-  licenceNpdId        Int      @unique
-  licenceSlug         String   @unique
-  name                String
-  area                String?
-  status              String?
-  active              Boolean?
-  currentPhase        String?
+  id                   String   @id @default(cuid())
+  licenceNpdId         Int      @unique
+  licenceSlug          String   @unique
+  name                 String
+  area                 String?
+  status               String?
+  active               Boolean?
+  currentPhase         String?
   operatorNpdCompanyId Int?
-  operatorName        String?
-  operatorOrgNumber   String?
-  operatorSlug        String?
-  licenseeCompanyIds  Int[]    @default([])
-  currentAreaSqKm     Float?
-  originalAreaSqKm    Float?
-  transferCount       Int      @default(0)
-  licenseeCount       Int      @default(0)
-  sourceSystem        String
-  sourceEntityType    String
-  sourceId            String
-  computedAt          DateTime
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  operatorName         String?
+  operatorOrgNumber    String?
+  operatorSlug         String?
+  licenseeCompanyIds   Int[]    @default([])
+  currentAreaSqKm      Float?
+  originalAreaSqKm     Float?
+  transferCount        Int      @default(0)
+  licenseeCount        Int      @default(0)
+  sourceSystem         String
+  sourceEntityType     String
+  sourceId             String
+  computedAt           DateTime
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@index([area])
   @@index([status])
@@ -1664,26 +1681,26 @@ model PetroleumLicenceSnapshot {
 }
 
 model PetroleumOperatorSnapshot {
-  id                         String   @id @default(cuid())
-  npdCompanyId               Int      @unique
-  operatorName               String
-  orgNumber                  String?
-  slug                       String?
-  fieldCount                 Int      @default(0)
-  licenceCount               Int      @default(0)
-  discoveryCount             Int      @default(0)
-  facilityCount              Int      @default(0)
-  latestProductionOe         Float?
-  remainingOe                Float?
+  id                          String   @id @default(cuid())
+  npdCompanyId                Int      @unique
+  operatorName                String
+  orgNumber                   String?
+  slug                        String?
+  fieldCount                  Int      @default(0)
+  licenceCount                Int      @default(0)
+  discoveryCount              Int      @default(0)
+  facilityCount               Int      @default(0)
+  latestProductionOe          Float?
+  remainingOe                 Float?
   expectedFutureInvestmentNok BigInt?
-  mainAreas                  String[] @default([])
-  mainHydrocarbonTypes       String[] @default([])
-  sourceSystem               String
-  sourceEntityType           String
-  sourceId                   String
-  computedAt                 DateTime
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  mainAreas                   String[] @default([])
+  mainHydrocarbonTypes        String[] @default([])
+  sourceSystem                String
+  sourceEntityType            String
+  sourceId                    String
+  computedAt                  DateTime
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   @@index([orgNumber])
   @@index([slug])
@@ -1691,71 +1708,71 @@ model PetroleumOperatorSnapshot {
 }
 
 model PetroleumAreaSnapshot {
-  id                         String   @id @default(cuid())
-  area                       String   @unique
-  fieldCount                 Int      @default(0)
-  licenceCount               Int      @default(0)
-  operatorCount              Int      @default(0)
-  latestProductionOe         Float?
-  remainingOe                Float?
+  id                          String   @id @default(cuid())
+  area                        String   @unique
+  fieldCount                  Int      @default(0)
+  licenceCount                Int      @default(0)
+  operatorCount               Int      @default(0)
+  latestProductionOe          Float?
+  remainingOe                 Float?
   expectedFutureInvestmentNok BigInt?
-  sourceSystem               String
-  sourceEntityType           String
-  sourceId                   String
-  computedAt                 DateTime
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  sourceSystem                String
+  sourceEntityType            String
+  sourceId                    String
+  computedAt                  DateTime
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 }
 
 model PetroleumMapFeatureSnapshot {
-  id                         String   @id @default(cuid())
-  layerId                    String
-  entityType                 String
-  entityNpdId                Int
-  entitySlug                 String
-  name                       String
-  status                     String?
-  area                       String?
-  hcType                     String?
-  operatorNpdCompanyId       Int?
-  operatorName               String?
-  operatorOrgNumber          String?
-  operatorSlug               String?
-  relatedFieldName           String?
-  latestProductionOe         Float?
-  latestProductionOil        Float?
-  latestProductionGas        Float?
-  latestProductionLiquids    Float?
-  remainingOe                Float?
+  id                          String    @id @default(cuid())
+  layerId                     String
+  entityType                  String
+  entityNpdId                 Int
+  entitySlug                  String
+  name                        String
+  status                      String?
+  area                        String?
+  hcType                      String?
+  operatorNpdCompanyId        Int?
+  operatorName                String?
+  operatorOrgNumber           String?
+  operatorSlug                String?
+  relatedFieldName            String?
+  latestProductionOe          Float?
+  latestProductionOil         Float?
+  latestProductionGas         Float?
+  latestProductionLiquids     Float?
+  remainingOe                 Float?
   expectedFutureInvestmentNok BigInt?
-  productionYoYPercent       Float?
-  currentAreaSqKm            Float?
-  transferCount              Int?
-  facilityKind               String?
-  category                   String?
-  subType                    String?
-  companyName                String?
-  surveyYear                 Int?
-  startedAt                  DateTime?
-  finalizedAt                DateTime?
-  plannedFromDate            DateTime?
-  plannedToDate              DateTime?
-  wellType                   String?
-  purpose                    String?
-  waterDepth                 Float?
-  totalDepth                 Float?
-  detailUrl                  String?
-  factPageUrl                String?
-  factMapUrl                 String?
-  geometry                   Json
-  bbox                       Json?
-  centroid                   Json?
-  sourceSystem               String
-  sourceEntityType           String
-  sourceId                   String
-  computedAt                 DateTime
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
+  productionYoYPercent        Float?
+  currentAreaSqKm             Float?
+  transferCount               Int?
+  facilityKind                String?
+  category                    String?
+  subType                     String?
+  companyName                 String?
+  surveyYear                  Int?
+  startedAt                   DateTime?
+  finalizedAt                 DateTime?
+  plannedFromDate             DateTime?
+  plannedToDate               DateTime?
+  wellType                    String?
+  purpose                     String?
+  waterDepth                  Float?
+  totalDepth                  Float?
+  detailUrl                   String?
+  factPageUrl                 String?
+  factMapUrl                  String?
+  geometry                    Json
+  bbox                        Json?
+  centroid                    Json?
+  sourceSystem                String
+  sourceEntityType            String
+  sourceId                    String
+  computedAt                  DateTime
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   @@unique([entityType, entityNpdId])
   @@index([layerId])
@@ -2487,8 +2504,8 @@ model AnnualReportNarrative {
 }
 
 model NewsArticle {
-  id              String   @id @default(cuid())
-  guid            String   @unique
+  id              String                 @id @default(cuid())
+  guid            String                 @unique
   title           String
   summary         String?
   url             String
@@ -2497,16 +2514,16 @@ model NewsArticle {
   category        String?
   companies       NewsArticleCompany[]
   relevanceScores NewsArticleRelevance[]
-  createdAt       DateTime @default(now())
+  createdAt       DateTime               @default(now())
 
   @@index([publishedAt(sort: Desc)])
   @@index([source])
 }
 
 model NewsArticleRelevance {
-  id              String   @id @default(cuid())
-  newsArticleId   String
-  companyId       String
+  id            String @id @default(cuid())
+  newsArticleId String
+  companyId     String
 
   totalScore      Float
   directScore     Float
@@ -2514,10 +2531,10 @@ model NewsArticleRelevance {
   macroScore      Float
   competitorScore Float
 
-  reasoning       String?
-  tags            String[]
-  scoredBy        String
-  scoredAt        DateTime @default(now())
+  reasoning String?
+  tags      String[]
+  scoredBy  String
+  scoredAt  DateTime @default(now())
 
   newsArticle NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
   company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -2537,4 +2554,33 @@ model NewsArticleCompany {
 
   @@id([newsArticleId, companyId])
   @@index([companyId])
+}
+
+// AdminNotification represents an item that needs attention from a platform administrator
+// or financial reviewer — for example, "a new calibration proposal is waiting for your approval".
+// Notifications are scoped by role (so e.g. all admins see calibration proposals) and can
+// optionally be targeted at a specific user. They surface in the global header bell.
+//
+// dedupeKey prevents the same logical event being recorded twice (e.g. the same calibration
+// proposal can only generate one notification regardless of how many times the job runs).
+model AdminNotification {
+  id              String                  @id @default(cuid())
+  type            AdminNotificationType
+  recipientRole   AppRole
+  recipientUserId String?
+  title           String
+  body            String
+  linkPath        String
+  dedupeKey       String                  @unique
+  status          AdminNotificationStatus @default(UNREAD)
+  metadata        Json?
+  createdAt       DateTime                @default(now())
+  readAt          DateTime?
+  dismissedAt     DateTime?
+
+  recipient User? @relation("AdminNotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([recipientRole, status, createdAt])
+  @@index([recipientUserId, status])
+  @@index([type, createdAt])
 }

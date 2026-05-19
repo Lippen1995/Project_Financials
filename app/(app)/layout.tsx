@@ -1,12 +1,35 @@
 ﻿import Link from "next/link";
 
+import { AdminNotificationBell } from "@/components/admin-notification-bell";
 import { safeAuth } from "@/lib/auth";
 import { buildGlobalNavItems } from "@/lib/navigation";
 import { logoutAction } from "@/server/actions/auth-actions";
+import { getFinancialReviewerOrNull } from "@/lib/admin-auth";
+import {
+  countUnreadAdminNotificationsForActor,
+  listAdminNotificationsForActor,
+} from "@/server/services/admin-notification-service";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await safeAuth();
   const primaryNavItems = buildGlobalNavItems(session?.user);
+
+  // Only fetch admin-scope notifications for users with admin/reviewer privileges.
+  // Regular users never see this bell.
+  const reviewer = session?.user ? await getFinancialReviewerOrNull() : null;
+  const [adminNotifications, unreadAdminCount] = reviewer
+    ? await Promise.all([
+        listAdminNotificationsForActor({
+          actorRole: reviewer.appRole,
+          actorUserId: reviewer.id,
+          limit: 25,
+        }),
+        countUnreadAdminNotificationsForActor({
+          actorRole: reviewer.appRole,
+          actorUserId: reviewer.id,
+        }),
+      ])
+    : [[], 0];
 
   return (
     <>
@@ -39,6 +62,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-1">
             {session?.user ? (
               <>
+                {reviewer ? (
+                  <AdminNotificationBell
+                    notifications={adminNotifications}
+                    unreadCount={unreadAdminCount}
+                  />
+                ) : null}
                 <Link
                   href="/dashboard"
                   className="flex items-center gap-2 rounded px-3 py-2 text-sm font-medium text-[var(--px-muted)] transition-colors hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]"
