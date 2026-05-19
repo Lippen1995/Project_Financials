@@ -73,6 +73,31 @@ function splitMergedTokens(token: string) {
     .filter(Boolean);
 }
 
+function mergeThousandGroupTokens(items: Array<{ token: string; x: number }>) {
+  const result: Array<{ token: string; x: number }> = [];
+  let i = 0;
+  while (i < items.length) {
+    const item = items[i]!;
+    // Merge up to 3 consecutive groups (covers up to 999,999,999 — well above typical SME amounts)
+    if (/^\d{1,3}$/.test(item.token)) {
+      let j = i + 1;
+      let merged = item.token;
+      while (j < items.length && j - i < 3 && /^\d{3}$/.test(items[j]!.token)) {
+        merged += items[j]!.token;
+        j++;
+      }
+      if (j > i + 1) {
+        result.push({ token: merged, x: item.x });
+        i = j;
+        continue;
+      }
+    }
+    result.push(item);
+    i++;
+  }
+  return result;
+}
+
 function tokenizeLine(page: AnnualReportParsedPage, lineIndex: number) {
   const line = page.lines[lineIndex];
   if (!line) {
@@ -177,11 +202,11 @@ function buildRowsFromLegacyLines(
       continue;
     }
 
-    const tokens = tokenizeLine(page, lineIndex)
-      .map((item) => item.token)
-      .filter((token) => token !== "-" && token !== "_");
-    const numericIndexes = tokens
-      .map((token, index) => ({ token, index }))
+    const tokenItems = mergeThousandGroupTokens(tokenizeLine(page, lineIndex))
+      .filter((item) => item.token !== "-" && item.token !== "_");
+    const tokens = tokenItems.map((item) => item.token);
+    const numericIndexes = tokenItems
+      .map((item, index) => ({ token: item.token, index, x: item.x }))
       .filter((candidate) => isNumericToken(candidate.token));
 
     if (numericIndexes.length === 0) {
@@ -232,10 +257,10 @@ function buildRowsFromLegacyLines(
     const values = numericIndexes
       .filter((candidate) => candidate.index >= firstValueNumericIndex)
       .slice(-valueSlots)
-      .map(({ token, index }, valueIndex) => ({
+      .map(({ token, x }, valueIndex) => ({
         value: parseFinancialInteger(token),
         columnIndex: valueIndex,
-        x: line.words[index]?.x ?? line.x + valueIndex * 100,
+        x,
       }))
       .filter((cell): cell is { value: number; columnIndex: number; x: number } => cell.value !== null);
 

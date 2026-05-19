@@ -293,6 +293,11 @@ export function chooseCanonicalFacts(facts: CanonicalFactCandidate[]) {
       nextRank > currentRank ||
       (nextRank === currentRank && fact.confidenceScore > current.confidenceScore)
     ) {
+      // Don't replace a non-zero value with a zero-valued fact of equal or lower rank —
+      // OCR extraction from scanned statutory pages frequently yields spurious zeros.
+      if (fact.value === 0 && current.value !== 0 && nextRank <= currentRank) {
+        continue;
+      }
       selected.set(fact.metricKey, fact);
     }
   }

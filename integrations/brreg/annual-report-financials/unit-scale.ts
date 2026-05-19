@@ -85,7 +85,7 @@ const THOUSAND_PATTERNS: ScalePattern[] = [
 const WHOLE_NOK_PATTERNS: ScalePattern[] = [
   {
     unitScale: 1,
-    regex: /bel[o0]p [i1l](?:\s*[:.\-])?\s*nok\b(?!\s*(?:1[\s.]?000|1000))/,
+    regex: /bel[o0]p [i1l]\d*\s*(?:\s*[:.\-])?\s*nok\b(?!\s*(?:1[\s.]?000|1000))/,
     confidence: 0.95,
     source: "PAGE_HEADER",
   },

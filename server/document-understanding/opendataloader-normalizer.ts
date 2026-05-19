@@ -1068,7 +1068,9 @@ export function convertNormalizedDocumentToAnnualReportPages(
         .map((line, lineIndex) => buildLineFromBlock(block, line, lineIndex));
     });
 
-    const lines = [...blockLines, ...tableLines].sort((left, right) => left.y - right.y);
+    // Sort descending by y: ODL blocks use PDF coordinates where y increases upward,
+    // so higher y = higher on page. Descending gives reading order (top-to-bottom).
+    const lines = [...blockLines, ...tableLines].sort((left, right) => right.y - left.y);
     const text = lines.map((line) => line.text).join("\n");
 
     return {

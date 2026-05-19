@@ -121,7 +121,7 @@ describe("opendataloader-client", () => {
         enabled: true,
         mode: "auto",
         hybridBackend: "docling-fast",
-        hybridUrl: "http://localhost:5002",
+        hybridUrl: null,
         forceOcr: false,
         useStructTree: false,
         timeoutMs: 45_000,
@@ -134,7 +134,6 @@ describe("opendataloader-client", () => {
     expect(convertMock.mock.calls[0]?.[1]).toMatchObject({
       hybrid: "docling-fast",
       hybridMode: "full",
-      hybridUrl: "http://localhost:5002",
       hybridTimeout: "45000",
     });
     expect(result.routing.executionMode).toBe("hybrid");
@@ -222,7 +221,7 @@ describe("opendataloader-client", () => {
           enabled: true,
           mode: "auto",
           hybridBackend: "docling-fast",
-          hybridUrl: "http://localhost:5002",
+          hybridUrl: null,
           forceOcr: false,
           useStructTree: false,
           timeoutMs: 10_000,
