@@ -170,6 +170,78 @@ function summarizeNormalizedDocument(
 }
 
 
+async function callDoclingServerDirectly(input: {
+  pdfBuffer: Buffer;
+  sourceFilename: string;
+  hybridUrl: string;
+  timeoutMs: number;
+}): Promise<unknown> {
+  // Use node:http directly to avoid Next.js's patched global fetch (which breaks FormData uploads)
+  const { request: httpRequest } = await import("node:http");
+  const parsedUrl = new URL(`${input.hybridUrl}/v1/convert/file`);
+  const boundary = `----DoclingBoundary${Date.now().toString(16)}`;
+  const preamble = Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${input.sourceFilename}"\r\nContent-Type: application/pdf\r\n\r\n`,
+    "utf8",
+  );
+  const epilogue = Buffer.from(`\r\n--${boundary}--\r\n`, "utf8");
+  const body = Buffer.concat([preamble, input.pdfBuffer, epilogue]);
+
+  const maxAttempts = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await new Promise<unknown>((resolve, reject) => {
+        const req = httpRequest(
+          {
+            hostname: parsedUrl.hostname,
+            port: parsedUrl.port || 80,
+            path: parsedUrl.pathname,
+            method: "POST",
+            headers: {
+              "Content-Type": `multipart/form-data; boundary=${boundary}`,
+              "Content-Length": body.length,
+            },
+            timeout: input.timeoutMs,
+          },
+          (res) => {
+            const chunks: Buffer[] = [];
+            res.on("data", (chunk: Buffer) => chunks.push(chunk));
+            res.on("end", () => {
+              const raw = Buffer.concat(chunks).toString("utf8");
+              if (res.statusCode && res.statusCode >= 400) {
+                reject(new Error(`Docling server responded with ${res.statusCode}: ${raw.slice(0, 200)}`));
+              } else {
+                try {
+                  resolve(JSON.parse(raw));
+                } catch {
+                  reject(new Error(`Docling server returned non-JSON: ${raw.slice(0, 200)}`));
+                }
+              }
+            });
+            res.on("error", reject);
+          },
+        );
+        req.on("timeout", () => {
+          req.destroy(new Error(`Docling request timed out after ${input.timeoutMs}ms`));
+        });
+        req.on("error", reject);
+        req.write(body);
+        req.end();
+      });
+      return result;
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts) {
+        const backoffMs = 30_000 * attempt;
+        console.warn(`[ODL] callDoclingServerDirectly attempt ${attempt} failed (${(error as Error)?.message ?? String(error)}), retrying in ${backoffMs / 1000}s…`);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+    }
+  }
+  throw lastError;
+}
+
 function formatDiagnosticsForError(diagnostics: OpenDataLoaderParseDiagnostics) {
   return JSON.stringify(
     {
@@ -237,22 +309,33 @@ export async function parseAnnualReportPdfWithOpenDataLoader(input: {
       route,
     });
 
-    const { convert } = await import("@opendataloader/pdf");
-    const format = ["json", "markdown", ...(config.storeAnnotatedPdf ? ["pdf"] : [])].join(",");
-    await convert(inputPath, {
-      outputDir,
-      format,
-      quiet: true,
-      keepLineBreaks: true,
-      useStructTree: route.useStructTree,
-      hybrid: route.executionMode === "hybrid" ? config.hybridBackend : undefined,
-      hybridMode: route.executionMode === "hybrid" ? route.hybridMode ?? "auto" : undefined,
-      hybridUrl: route.executionMode === "hybrid" ? config.hybridUrl ?? undefined : undefined,
-      hybridTimeout: route.executionMode === "hybrid" ? String(config.timeoutMs) : undefined,
-      hybridFallback: route.executionMode === "hybrid" ? config.fallbackToLegacy : undefined,
-      imageOutput: "off",
-      includeHeaderFooter: false,
-    });
+    if (route.requiresOcr && route.executionMode === "hybrid" && config.hybridUrl) {
+      const rawPayload = await callDoclingServerDirectly({
+        pdfBuffer: input.pdfBuffer,
+        sourceFilename: input.sourceFilename,
+        hybridUrl: config.hybridUrl,
+        timeoutMs: config.timeoutMs,
+      });
+      const overridePath = path.join(outputDir, `${path.parse(input.sourceFilename).name}.json`);
+      await fs.writeFile(overridePath, JSON.stringify(rawPayload), "utf8");
+    } else {
+      const { convert } = await import("@opendataloader/pdf");
+      const format = ["json", "markdown", ...(config.storeAnnotatedPdf ? ["pdf"] : [])].join(",");
+      await convert(inputPath, {
+        outputDir,
+        format,
+        quiet: true,
+        keepLineBreaks: true,
+        useStructTree: route.useStructTree,
+        hybrid: route.executionMode === "hybrid" ? config.hybridBackend : undefined,
+        hybridMode: route.executionMode === "hybrid" ? route.hybridMode ?? "auto" : undefined,
+        hybridUrl: route.executionMode === "hybrid" ? config.hybridUrl ?? undefined : undefined,
+        hybridTimeout: route.executionMode === "hybrid" ? String(config.timeoutMs) : undefined,
+        hybridFallback: route.executionMode === "hybrid" ? config.fallbackToLegacy : undefined,
+        imageOutput: "off",
+        includeHeaderFooter: false,
+      });
+    }
     const artifacts = await loadGeneratedArtifacts({
       outputDir,
       inputStem: path.parse(input.sourceFilename).name,
