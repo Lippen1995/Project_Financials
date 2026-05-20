@@ -1,0 +1,11 @@
+services:
+  ml-inference:
+    build: .
+    container_name: fjord-ml-inference
+    ports:
+      - "8800:8800"
+    volumes:
+      - ./models:/models
+    environment:
+      MODEL_DIR: /models
+    restart: unless-stopped

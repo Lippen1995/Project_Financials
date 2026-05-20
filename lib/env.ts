@@ -57,6 +57,7 @@ const env = {
       : (process.env.OPENDATALOADER_FALLBACK_TO_LEGACY ?? "").trim().toLowerCase() === "true",
   opendataloaderAutoPromote:
     (process.env.OPENDATALOADER_AUTO_PROMOTE ?? "").trim().toLowerCase() === "true",
+  mlInferenceUrl: process.env.ML_INFERENCE_URL ?? "",
   financialsSyncSecret:
     process.env.FINANCIALS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
   workspaceSyncSecret: process.env.WORKSPACE_SYNC_SECRET ?? "",

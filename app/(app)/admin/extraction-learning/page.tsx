@@ -17,13 +17,29 @@ import {
   getFewShotLibraryInventory,
   type IndustryLibraryEntry,
 } from "@/server/services/extraction-fewshot-retrieval-service";
+import {
+  listAllActiveModels,
+  listPendingModelProposals,
+  type MlModelVersionSummary,
+} from "@/server/services/ml-model-version-service";
+import { pingInferenceService } from "@/server/ml/ml-inference-client";
 
 import {
+  applyModelProposalAction,
   applyThresholdProposalAction,
+  exportUnitScaleTrainingDataAction,
+  rejectModelProposalAction,
   rejectThresholdProposalAction,
   triggerCalibrationRunAction,
   triggerPatternAnalysisAction,
 } from "./actions";
+
+const TASK_TYPE_LABELS: Record<MlModelVersionSummary["taskType"], string> = {
+  UNIT_SCALE_CLASSIFIER: "Enhetsskala-klassifikator",
+  PAGE_TYPE_CLASSIFIER: "Sidetype-klassifikator",
+  YEAR_COLUMN_DETECTOR: "År-kolonne-detektor",
+  OTHER: "Annet",
+};
 
 const ERROR_CLASS_LABELS: Record<ExtractionPatternSummary["errorClass"], string> = {
   UNIT_SCALE_MISS: "Enhetsskala-feil",
@@ -376,6 +392,192 @@ function FewShotLibrarySection({ inventory }: { inventory: IndustryLibraryEntry[
   );
 }
 
+function MlModelsSection({
+  activeModels,
+  pendingModels,
+  inferenceHealth,
+}: {
+  activeModels: MlModelVersionSummary[];
+  pendingModels: MlModelVersionSummary[];
+  inferenceHealth: { reachable: boolean; modelsLoaded: string[] };
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <header className="mb-3">
+        <h2 className="text-lg font-semibold text-slate-900">Egne modeller</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          In-house klassifikatorer som erstatter regler bit for bit. Ingen
+          tredjeparts-LLM. Hver oppgavetype har sin egen versjonshistorikk;
+          aktivering krever godkjenning her.
+        </p>
+      </header>
+
+      <div className="mb-4 flex flex-wrap gap-3">
+        <div className="flex-1 min-w-[200px] rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <dt className="text-xs uppercase tracking-wider text-slate-400">Inferens-tjeneste</dt>
+          <dd className="font-semibold text-slate-900">
+            {inferenceHealth.reachable ? (
+              <span className="text-emerald-700">Tilgjengelig</span>
+            ) : (
+              <span className="text-rose-700">Nede / ikke startet</span>
+            )}
+          </dd>
+          <dd className="mt-1 text-xs text-slate-500">
+            Lastede modeller: {inferenceHealth.modelsLoaded.length === 0
+              ? "ingen"
+              : inferenceHealth.modelsLoaded.join(", ")}
+          </dd>
+        </div>
+        <div className="flex-1 min-w-[200px] rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <dt className="text-xs uppercase tracking-wider text-slate-400">Aktive modeller</dt>
+          <dd className="font-semibold text-slate-900">{activeModels.length}</dd>
+        </div>
+        <div className="flex-1 min-w-[200px] rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <dt className="text-xs uppercase tracking-wider text-slate-400">Forslag som venter</dt>
+          <dd className="font-semibold text-slate-900">{pendingModels.length}</dd>
+        </div>
+      </div>
+
+      <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+        <p className="font-semibold text-amber-900">Trene en ny modell</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-amber-900">
+          <li>Trykk &quot;Eksporter treningsdata&quot; under for å lage JSONL-filer.</li>
+          <li>
+            Kjør Python-skriptet fra <code>docker/ml-inference/</code>:
+            <pre className="mt-1 overflow-x-auto rounded bg-white p-2 text-xs">
+{`python train_unit_scale.py \\
+  --train  output/ml-datasets/unit-scale/train.jsonl \\
+  --val    output/ml-datasets/unit-scale/validation.jsonl \\
+  --test   output/ml-datasets/unit-scale/test.jsonl \\
+  --out    docker/ml-inference/models/unit_scale_classifier.joblib`}
+            </pre>
+          </li>
+          <li>
+            Restart inferens-containeren slik at den laster den nye modellen,
+            registrer den her med en CLI-kommando, og godkjenn forslaget under.
+          </li>
+        </ol>
+        <form action={exportUnitScaleTrainingDataAction} className="mt-3">
+          <button
+            type="submit"
+            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Eksporter treningsdata (enhetsskala)
+          </button>
+        </form>
+      </div>
+
+      {pendingModels.length > 0 ? (
+        <div className="mb-4 space-y-3">
+          <h3 className="text-sm font-semibold text-slate-900">
+            Forslag som venter ({pendingModels.length})
+          </h3>
+          {pendingModels.map((model) => (
+            <article key={model.id} className="rounded border border-amber-300 bg-amber-50 p-4">
+              <header className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {TASK_TYPE_LABELS[model.taskType]} v{model.taskVersion}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {model.algorithm} · foreslått{" "}
+                    {formatNorwegianDate(model.proposedAt)}
+                  </p>
+                </div>
+              </header>
+              {model.summary ? (
+                <p className="mb-2 text-sm text-slate-700">{model.summary}</p>
+              ) : null}
+              {model.evaluationMetrics ? (
+                <details className="mb-3 text-xs">
+                  <summary className="cursor-pointer font-semibold text-slate-700">
+                    Vis evalueringsmetrikker
+                  </summary>
+                  <pre className="mt-2 overflow-x-auto rounded bg-slate-900 p-2 text-slate-100">
+                    {JSON.stringify(model.evaluationMetrics, null, 2)}
+                  </pre>
+                </details>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <form action={applyModelProposalAction}>
+                  <input type="hidden" name="versionId" value={model.id} />
+                  <button
+                    type="submit"
+                    className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                  >
+                    Godkjenn og aktiver
+                  </button>
+                </form>
+                <form action={rejectModelProposalAction} className="flex items-center gap-2">
+                  <input type="hidden" name="versionId" value={model.id} />
+                  <input
+                    type="text"
+                    name="reason"
+                    placeholder="Begrunnelse (valgfritt)"
+                    className="rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded border border-rose-300 bg-white px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                  >
+                    Avvis
+                  </button>
+                </form>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {activeModels.length > 0 ? (
+        <div className="overflow-hidden rounded border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Oppgave
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Versjon
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Algoritme
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Aktivert
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {activeModels.map((model) => (
+                <tr key={model.id}>
+                  <td className="px-3 py-2 text-slate-800">
+                    {TASK_TYPE_LABELS[model.taskType]}
+                  </td>
+                  <td className="px-3 py-2 font-semibold text-slate-900">
+                    v{model.taskVersion}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs text-slate-500">
+                    {model.algorithm}
+                  </td>
+                  <td className="px-3 py-2 text-slate-600">
+                    {model.appliedAt ? formatNorwegianDate(model.appliedAt) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="rounded border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          Ingen aktive modeller ennå. Inntil en modell er aktivert bruker
+          pipelinen de eksisterende regelbaserte detektorene.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default async function ExtractionLearningPage({
   searchParams,
 }: {
@@ -387,12 +589,24 @@ export default async function ExtractionLearningPage({
   }
 
   const params = await searchParams;
-  const [active, pending, history, patternReport, libraryInventory] = await Promise.all([
+  const [
+    active,
+    pending,
+    history,
+    patternReport,
+    libraryInventory,
+    activeModels,
+    pendingModels,
+    inferenceHealth,
+  ] = await Promise.all([
     getActiveThresholdVersion(),
     listPendingThresholdProposals(),
     listRecentThresholdVersions(15),
     getActivePatternReport(),
     getFewShotLibraryInventory(),
+    listAllActiveModels(),
+    listPendingModelProposals(),
+    pingInferenceService(),
   ]);
 
   return (
@@ -493,6 +707,13 @@ export default async function ExtractionLearningPage({
 
       {/* Few-shot library */}
       <FewShotLibrarySection inventory={libraryInventory} />
+
+      {/* In-house ML models */}
+      <MlModelsSection
+        activeModels={activeModels}
+        pendingModels={pendingModels}
+        inferenceHealth={inferenceHealth}
+      />
 
       {/* History */}
       <section>

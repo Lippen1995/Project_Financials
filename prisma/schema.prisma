@@ -485,6 +485,8 @@ model User {
   adminNotifications              AdminNotification[]               @relation("AdminNotificationRecipient")
   confidenceThresholdApplied      ConfidenceThresholdVersion[]      @relation("ConfidenceThresholdAppliedBy")
   confidenceThresholdRejected     ConfidenceThresholdVersion[]      @relation("ConfidenceThresholdRejectedBy")
+  mlModelApplied                  MlModelVersion[]                  @relation("MlModelAppliedBy")
+  mlModelRejected                 MlModelVersion[]                  @relation("MlModelRejectedBy")
 }
 
 model Subscription {
@@ -2701,4 +2703,67 @@ model ExtractionPattern {
 
   @@index([reportId])
   @@index([errorClass, occurrenceCount])
+}
+
+// MlTaskType identifies *which* extraction problem a model solves. Each task
+// type is independently versioned so we can replace the unit-scale classifier
+// without touching the page-type classifier.
+enum MlTaskType {
+  UNIT_SCALE_CLASSIFIER
+  PAGE_TYPE_CLASSIFIER
+  YEAR_COLUMN_DETECTOR
+  OTHER
+}
+
+// Identical lifecycle to ConfidenceThresholdVersion — PROPOSED awaits human
+// approval, ACTIVE is in production (at most one per task type), RETIRED was
+// superseded, REJECTED was turned down.
+enum MlModelStatus {
+  PROPOSED
+  ACTIVE
+  RETIRED
+  REJECTED
+}
+
+// MlModelVersion stores one trained model per row. The model binary itself is
+// kept in the inference container's volume; this row carries the metadata,
+// evaluation metrics, and pointers needed to find the binary.
+//
+// Versioning is per-task: each task type has its own incrementing version
+// number, so you can have unit-scale v3 and page-type v1 active at the same
+// time.
+//
+// `evaluationMetrics` is a free-form JSON blob with the training script's
+// output — typically { precision, recall, f1, accuracy, confusionMatrix }.
+// `trainingDataSnapshot` records what data the model saw, so future audits
+// can answer "what was this model trained on?".
+//
+// `binaryPath` is the path inside the inference container's volume — it's
+// the contract between the trainer (writes the file) and the inference
+// service (reads it). The DB never stores the binary itself.
+model MlModelVersion {
+  id                   String         @id @default(cuid())
+  taskType             MlTaskType
+  taskVersion          Int            // per-task incrementing version, set by the service
+  status               MlModelStatus  @default(PROPOSED)
+  algorithm            String         // e.g. "tfidf+logreg", "nb-bert-finetuned"
+  binaryPath           String         // path to the model file in the inference volume
+  evaluationMetrics    Json?
+  trainingDataSnapshot Json?
+  summary              String?
+  notes                String?
+  proposedAt           DateTime       @default(now())
+  appliedAt            DateTime?
+  appliedByUserId      String?
+  retiredAt            DateTime?
+  rejectedAt           DateTime?
+  rejectedByUserId     String?
+  rejectionReason      String?
+
+  appliedBy            User?          @relation("MlModelAppliedBy", fields: [appliedByUserId], references: [id], onDelete: SetNull)
+  rejectedBy           User?          @relation("MlModelRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([taskType, taskVersion])
+  @@index([taskType, status])
+  @@index([proposedAt])
 }
