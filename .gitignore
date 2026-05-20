@@ -9,3 +9,4 @@ prisma/dev.db-journal
 *.traineddata
 .projectx-cache/
 tsconfig.tsbuildinfo
+/prisma/migrations_archive/

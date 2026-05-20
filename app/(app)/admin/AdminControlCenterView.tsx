@@ -409,6 +409,33 @@ export default function AdminControlCenterView({
         </div>
       </section>
 
+      {/* ── Learning & calibration entry ────────────────────────────────────── */}
+      <section className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="data-label text-[11px] font-semibold uppercase tracking-widest text-[var(--px-accent)]">
+              Læring og forbedring
+            </p>
+            <h2 className="mt-2 text-[1.5rem] font-semibold text-slate-950">
+              Læring og kalibrering
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Se hvordan systemet justerer terskler basert på hva reviewere
+              godkjenner, hvilke feilmønstre som dukker opp, og hvor stort
+              treningsbiblioteket har blitt per bransje.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <Link
+              href={"/admin/extraction-learning" as never}
+              className="rounded-full bg-[var(--px-action)] px-5 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-[var(--px-action-hover)]"
+            >
+              Åpne læring og kalibrering
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Section 2: Data-strip status cards ──────────────────────────────── */}
       <section className="grid grid-cols-1 divide-y divide-[rgba(15,23,42,0.1)] border-y border-[rgba(15,23,42,0.1)] md:grid-cols-3 md:divide-x md:divide-y-0">
         {/* Review queue */}
