@@ -10,6 +10,7 @@ import {
   applyThresholdVersion,
   rejectThresholdVersion,
 } from "@/server/services/confidence-threshold-version-service";
+import { runPatternAnalysis } from "@/server/services/extraction-pattern-analysis-service";
 
 function buildPath(message?: string, type: "ok" | "error" = "ok") {
   const params = new URLSearchParams();
@@ -72,6 +73,36 @@ export async function applyThresholdProposalAction(formData: FormData): Promise<
       error instanceof ThresholdVersionStateError
         ? error.message
         : "Kunne ikke aktivere forslaget.";
+    redirect(buildPath(message, "error") as never);
+  }
+}
+
+/**
+ * Re-runs the pattern analysis over the last N days and writes a new
+ * ExtractionPatternReport. Safe to invoke repeatedly — it archives the
+ * previous active report and creates a new one each time.
+ */
+export async function triggerPatternAnalysisAction(formData: FormData): Promise<void> {
+  await requireReviewerOrRedirect();
+  const rawLookback = formData.get("lookbackDays");
+  const lookbackDays =
+    typeof rawLookback === "string" && rawLookback.trim().length > 0
+      ? Math.min(180, Math.max(7, Number(rawLookback)))
+      : 30;
+
+  try {
+    const report = await runPatternAnalysis({ lookbackDays });
+    revalidatePath("/admin/extraction-learning");
+    const message = report
+      ? `Mønsteranalyse fullført — ${report.patterns.length} signifikante mønstre i ${report.totalCorrections} korreksjoner.`
+      : "Mønsteranalyse fullført — ingen korreksjoner i perioden.";
+    redirect(buildPath(message) as never);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
+    const message =
+      error instanceof Error ? error.message : "Ukjent feil under mønsteranalyse.";
     redirect(buildPath(message, "error") as never);
   }
 }

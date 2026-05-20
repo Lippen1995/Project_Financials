@@ -7,12 +7,31 @@ import {
   listRecentThresholdVersions,
   type ConfidenceThresholdVersionSummary,
 } from "@/server/services/confidence-threshold-version-service";
+import {
+  getActivePatternReport,
+  type ExtractionPatternReportSummary,
+  type ExtractionPatternSummary,
+} from "@/server/services/extraction-pattern-analysis-service";
+import {
+  FEW_SHOT_MILESTONE_THRESHOLD,
+  getFewShotLibraryInventory,
+  type IndustryLibraryEntry,
+} from "@/server/services/extraction-fewshot-retrieval-service";
 
 import {
   applyThresholdProposalAction,
   rejectThresholdProposalAction,
   triggerCalibrationRunAction,
+  triggerPatternAnalysisAction,
 } from "./actions";
+
+const ERROR_CLASS_LABELS: Record<ExtractionPatternSummary["errorClass"], string> = {
+  UNIT_SCALE_MISS: "Enhetsskala-feil",
+  OCR_NOISE: "OCR-støy",
+  MISSING_VALUE: "Manglende verdi",
+  WRONG_PAGE: "Feil side",
+  OTHER: "Annet",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -167,6 +186,196 @@ function StatusBadge({ status }: { status: ConfidenceThresholdVersionSummary["st
   );
 }
 
+function PatternRow({ pattern }: { pattern: ExtractionPatternSummary }) {
+  return (
+    <li className="rounded border border-slate-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
+              {pattern.metricKey ?? "—"}
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-rose-700">
+              {ERROR_CLASS_LABELS[pattern.errorClass]}
+            </span>
+            <span className="text-xs text-slate-500">
+              {pattern.occurrenceCount} forekomster
+            </span>
+            <span className="text-xs text-slate-400">
+              severity {pattern.severityScore.toFixed(1)}
+            </span>
+          </div>
+          {pattern.suggestedFix ? (
+            <p className="mt-2 text-sm text-slate-700">{pattern.suggestedFix}</p>
+          ) : null}
+          <details className="mt-2 text-xs">
+            <summary className="cursor-pointer text-slate-500 hover:text-slate-700">
+              Vis {pattern.affectedFilings.length} berørte filings
+            </summary>
+            <ul className="mt-2 max-h-32 overflow-y-auto rounded bg-slate-50 p-2">
+              {pattern.affectedFilings.map((id) => (
+                <li key={id} className="font-mono text-[11px] text-slate-600">
+                  {id}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function PatternSection({ report }: { report: ExtractionPatternReportSummary | null }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <header className="mb-3 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Feilmønstre</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Systematiske feil i ekstraksjonen, basert på hva reviewere har
+            korrigert. Bruk denne listen til å prioritere forbedringer i parseren.
+          </p>
+        </div>
+        <form action={triggerPatternAnalysisAction} className="flex items-center gap-2">
+          <select
+            name="lookbackDays"
+            defaultValue="30"
+            className="rounded border border-slate-300 px-2 py-1 text-sm"
+          >
+            <option value="7">Siste 7 dager</option>
+            <option value="30">Siste 30 dager</option>
+            <option value="90">Siste 90 dager</option>
+            <option value="180">Siste 180 dager</option>
+          </select>
+          <button
+            type="submit"
+            className="rounded bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Kjør analyse
+          </button>
+        </form>
+      </header>
+
+      {!report ? (
+        <p className="rounded border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          Ingen mønsteranalyse er kjørt ennå. Trykk &quot;Kjør analyse&quot; for å lage en.
+        </p>
+      ) : (
+        <>
+          <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
+            <span>
+              Periode: {formatNorwegianDate(report.periodStart)} –{" "}
+              {formatNorwegianDate(report.periodEnd)}
+            </span>
+            <span>·</span>
+            <span>Korreksjoner totalt: {report.totalCorrections}</span>
+            <span>·</span>
+            <span>Signifikante mønstre: {report.patterns.length}</span>
+          </div>
+
+          {report.patterns.length === 0 ? (
+            <p className="rounded border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              {report.notes ?? "Ingen mønstre over signifikans-terskelen."}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {report.patterns.map((pattern) => (
+                <PatternRow key={pattern.id} pattern={pattern} />
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function FewShotLibrarySection({ inventory }: { inventory: IndustryLibraryEntry[] }) {
+  const totalExamples = inventory.reduce((sum, entry) => sum + entry.exampleCount, 0);
+  const withMilestone = inventory.filter((e) => e.hasMilestone).length;
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <header className="mb-3">
+        <h2 className="text-lg font-semibold text-slate-900">Few-shot bibliotek</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Antall reviewer-godkjente eksempler per bransje. Disse brukes når
+          ekstraksjonen trenger sammenlignbare referansecase. Bransjer over{" "}
+          {FEW_SHOT_MILESTONE_THRESHOLD} eksempler regnes som godt dekket.
+        </p>
+      </header>
+
+      <div className="mb-4 flex flex-wrap gap-6 rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+        <div>
+          <dt className="text-xs uppercase tracking-wider text-slate-400">Totalt</dt>
+          <dd className="text-base font-semibold text-slate-900">
+            {totalExamples} eksempler
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs uppercase tracking-wider text-slate-400">Bransjer dekket</dt>
+          <dd className="text-base font-semibold text-slate-900">
+            {inventory.length} ({withMilestone} over terskel)
+          </dd>
+        </div>
+      </div>
+
+      {inventory.length === 0 ? (
+        <p className="rounded border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          Ingen eksempler i biblioteket ennå. Eksempler legges til automatisk
+          når reviewere godkjenner eller korrigerer ekstraksjonen.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Bransje
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Kode
+                </th>
+                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Eksempler
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 bg-white">
+              {inventory.slice(0, 25).map((entry) => (
+                <tr key={entry.industryCode}>
+                  <td className="px-3 py-2 text-slate-800">{entry.industryTitle}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-slate-500">
+                    {entry.industryCode}
+                  </td>
+                  <td className="px-3 py-2 text-right font-semibold text-slate-900">
+                    {entry.exampleCount}
+                  </td>
+                  <td className="px-3 py-2">
+                    {entry.hasMilestone ? (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-900">
+                        Dekket
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-900">
+                        Under terskel
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default async function ExtractionLearningPage({
   searchParams,
 }: {
@@ -178,10 +387,12 @@ export default async function ExtractionLearningPage({
   }
 
   const params = await searchParams;
-  const [active, pending, history] = await Promise.all([
+  const [active, pending, history, patternReport, libraryInventory] = await Promise.all([
     getActiveThresholdVersion(),
     listPendingThresholdProposals(),
     listRecentThresholdVersions(15),
+    getActivePatternReport(),
+    getFewShotLibraryInventory(),
   ]);
 
   return (
@@ -276,6 +487,12 @@ export default async function ExtractionLearningPage({
           </div>
         )}
       </section>
+
+      {/* Pattern analysis */}
+      <PatternSection report={patternReport} />
+
+      {/* Few-shot library */}
+      <FewShotLibrarySection inventory={libraryInventory} />
 
       {/* History */}
       <section>

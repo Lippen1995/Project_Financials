@@ -2639,3 +2639,66 @@ model ConfidenceThresholdVersion {
   @@index([status, version])
   @@index([proposedAt])
 }
+
+// Categorises the kind of correction a reviewer made. Used to group similar
+// extraction mistakes so we can see *what kind* of error happens most often
+// (e.g. "units are wrong by a factor of 1000" vs "OCR misread a digit").
+enum ExtractionPatternErrorClass {
+  // The machine value is off by a factor of ~1000 — usually a units-of-NOK
+  // detection failure.
+  UNIT_SCALE_MISS
+  // Similar magnitudes but different digits — typical of OCR character errors.
+  OCR_NOISE
+  // Machine extracted nothing where the reviewer entered a value.
+  MISSING_VALUE
+  // Same value but a different source page — likely page-classification error.
+  WRONG_PAGE
+  // Anything else — kept so nothing is lost to mis-classification.
+  OTHER
+}
+
+enum ExtractionPatternReportStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+// One ExtractionPatternReport is the result of an aggregation run over a
+// specific time window of reviewer corrections. Reports accumulate over time
+// so the admin UI can show "the most recent picture" and the change over time.
+// `totalCorrections` is the denominator the UI uses for "X out of Y were unit
+// scale errors" stats.
+model ExtractionPatternReport {
+  id                String                         @id @default(cuid())
+  periodStart       DateTime
+  periodEnd         DateTime
+  generatedAt       DateTime                       @default(now())
+  status            ExtractionPatternReportStatus  @default(ACTIVE)
+  totalCorrections  Int                            @default(0)
+  notes             String?
+
+  patterns          ExtractionPattern[]
+
+  @@index([status, generatedAt])
+  @@index([generatedAt])
+}
+
+// One row per "kind of error × metric × rule" combination. Sorted by
+// occurrence count and severity so the UI surfaces the biggest issues first.
+// `affectedFilings` carries a capped sample (up to 50) for drill-down without
+// blowing up row size on large reports.
+model ExtractionPattern {
+  id                String                       @id @default(cuid())
+  reportId          String
+  metricKey         String?
+  ruleCode          String?
+  errorClass        ExtractionPatternErrorClass
+  occurrenceCount   Int
+  severityScore     Float
+  affectedFilings   String[]
+  suggestedFix      String?
+
+  report            ExtractionPatternReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([errorClass, occurrenceCount])
+}
