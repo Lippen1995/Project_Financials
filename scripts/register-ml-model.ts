@@ -16,6 +16,8 @@
  * This script does NOT activate the model — registration only. Activation is
  * a deliberate human step in the admin UI.
  */
+import "./_load-env";
+
 import fs from "node:fs";
 
 import type { MlTaskType } from "@prisma/client";

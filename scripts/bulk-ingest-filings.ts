@@ -21,6 +21,8 @@
  *   npx tsx scripts/bulk-ingest-filings.ts --per-industry 2      (max 2 per industry)
  *   npx tsx scripts/bulk-ingest-filings.ts 918298037 923609016   (explicit org numbers)
  */
+import "./_load-env";
+
 import { prisma } from "@/lib/prisma";
 import {
   discoverAnnualReportFilingsForCompany,

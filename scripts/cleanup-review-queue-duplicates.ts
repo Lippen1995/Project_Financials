@@ -21,6 +21,8 @@
  *   npx tsx scripts/cleanup-review-queue-duplicates.ts            (dry-run)
  *   npx tsx scripts/cleanup-review-queue-duplicates.ts --apply    (delete)
  */
+import "./_load-env";
+
 import { prisma } from "@/lib/prisma";
 
 type ReviewRow = {

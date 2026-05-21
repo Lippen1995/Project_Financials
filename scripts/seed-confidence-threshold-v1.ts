@@ -5,6 +5,8 @@
  * Run with:
  *   npx tsx scripts/seed-confidence-threshold-v1.ts
  */
+import "./_load-env";
+
 import { ensureInitialThresholdVersionSeeded } from "@/server/services/confidence-threshold-version-service";
 
 async function main() {
