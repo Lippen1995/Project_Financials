@@ -515,6 +515,7 @@ export default async function CompanyPage({
     roles,
     rolesAvailability,
     financialStatements,
+    financialStatementsAllScopes,
     financialDocuments,
     financialsAvailability,
     regulatoryAvailability,
@@ -695,7 +696,11 @@ export default async function CompanyPage({
             </div>
             <div className="mt-6">
               <FinancialTimeSeriesTable
-                statements={financialStatements}
+                statements={
+                  financialStatementsAllScopes.length > 0
+                    ? financialStatementsAllScopes
+                    : financialStatements
+                }
                 documents={financialDocuments}
                 companySlug={slug}
                 discussionRoomId={discussionContext?.selectedRoomId ?? null}

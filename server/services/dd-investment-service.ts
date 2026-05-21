@@ -647,7 +647,10 @@ export async function getEvidenceContext(roomId: string): Promise<DdEvidenceCont
 
   const financialStatements = await prisma.financialStatement.findMany({
     where: { companyId: room.primaryCompanyId },
-    orderBy: [{ fiscalYear: "desc" }],
+    // One row per fiscal year. statementScope desc puts CONSOLIDATED before
+    // COMPANY, so distinct keeps the consolidated (headline) statement.
+    orderBy: [{ fiscalYear: "desc" }, { statementScope: "desc" }],
+    distinct: ["fiscalYear"],
     select: {
       id: true,
       fiscalYear: true,

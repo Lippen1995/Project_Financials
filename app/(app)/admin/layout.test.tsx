@@ -67,6 +67,7 @@ describe("app/admin/layout", () => {
     );
 
     expect(html).toContain("admin child");
-    expect(html).toContain("Control Center");
+    // The admin layout renders the breadcrumb nav around the page content.
+    expect(html).toContain("Manuell kontroll");
   });
 });

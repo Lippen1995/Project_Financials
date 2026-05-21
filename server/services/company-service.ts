@@ -504,10 +504,12 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
 
   let financials: {
     statements: NormalizedFinancialStatement[];
+    allScopeStatements: NormalizedFinancialStatement[];
     documents: NormalizedFinancialDocument[];
     availability: DataAvailability;
   } = {
     statements: [],
+    allScopeStatements: [],
     documents: [],
     availability: {
       available: false,
@@ -523,8 +525,10 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
     try {
       const cachedStatements = await getCachedFinancialStatements(company.orgNumber, Infinity);
       if (cachedStatements) {
+        const cached = mapDbFinancialStatements(cachedStatements);
         financials = {
-          statements: mapDbFinancialStatements(cachedStatements),
+          statements: cached,
+          allScopeStatements: cached,
           documents: [],
           availability: {
             available: true,
@@ -550,6 +554,7 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
     roles,
     rolesAvailability,
     financialStatements: financials.statements,
+    financialStatementsAllScopes: financials.allScopeStatements,
     financialDocuments: financials.documents,
     financialsAvailability: financials.availability,
     regulatoryAvailability: {

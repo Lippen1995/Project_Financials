@@ -203,7 +203,10 @@ export type CompanyProfile = {
   company: NormalizedCompany;
   roles: NormalizedRole[];
   rolesAvailability: DataAvailability;
+  /** One headline statement per fiscal year (konsern preferred). Use for KPIs and trends. */
   financialStatements: NormalizedFinancialStatement[];
+  /** Every statement including both konsern and selskap — for the scope toggle. */
+  financialStatementsAllScopes: NormalizedFinancialStatement[];
   financialDocuments: NormalizedFinancialDocument[];
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;

@@ -181,6 +181,35 @@ function mapPublishedStatements(statements: Array<{ fiscalYear: number; currency
   }));
 }
 
+/**
+ * Reduces a list that may contain both konsern and selskap statements for the
+ * same year down to one "headline" statement per fiscal year. Consolidated
+ * (konsernregnskap) wins when both exist — it is the figure a group is judged
+ * by. Used everywhere that expects one statement per year (KPIs, distress
+ * analysis, year-over-year trends); the konsern/selskap toggle uses the full
+ * list instead.
+ */
+function dedupeToHeadlineStatements(
+  statements: NormalizedFinancialStatement[],
+): NormalizedFinancialStatement[] {
+  const byYear = new Map<number, NormalizedFinancialStatement>();
+  for (const statement of statements) {
+    const existing = byYear.get(statement.fiscalYear);
+    if (!existing) {
+      byYear.set(statement.fiscalYear, statement);
+      continue;
+    }
+    // Prefer the consolidated statement when the same year has both.
+    if (
+      statement.statementScope === "CONSOLIDATED" &&
+      existing.statementScope !== "CONSOLIDATED"
+    ) {
+      byYear.set(statement.fiscalYear, statement);
+    }
+  }
+  return [...byYear.values()].sort((left, right) => right.fiscalYear - left.fiscalYear);
+}
+
 function buildPublicAvailability(statements: NormalizedFinancialStatement[]): DataAvailability {
   return statements.length === 0
     ? {
@@ -1948,10 +1977,18 @@ export async function getLatestPublishedStatementProvenance(
     throw new Error(`Fant ikke virksomhet ${orgNumber}.`);
   }
 
+  // A company-year may have both konsern and selskap statements. Prefer the
+  // consolidated one as the headline provenance.
+  const consolidatedFirst = [...record.financialStatements].sort(
+    (left, right) =>
+      right.fiscalYear - left.fiscalYear ||
+      (right.statementScope === "CONSOLIDATED" ? 1 : 0) -
+        (left.statementScope === "CONSOLIDATED" ? 1 : 0),
+  );
   const statement =
     fiscalYear === undefined
-      ? record.financialStatements[0] ?? null
-      : record.financialStatements.find((item) => item.fiscalYear === fiscalYear) ?? null;
+      ? consolidatedFirst[0] ?? null
+      : consolidatedFirst.find((item) => item.fiscalYear === fiscalYear) ?? null;
 
   if (!statement) {
     return null;
@@ -1976,12 +2013,16 @@ export async function getLatestPublishedStatementProvenance(
   };
 }
 
-export async function getPublishedAnnualReportFinancials(orgNumber: string): Promise<{ statements: NormalizedFinancialStatement[]; documents: NormalizedFinancialDocument[]; availability: DataAvailability }> {
+export async function getPublishedAnnualReportFinancials(orgNumber: string): Promise<{ statements: NormalizedFinancialStatement[]; allScopeStatements: NormalizedFinancialStatement[]; documents: NormalizedFinancialDocument[]; availability: DataAvailability }> {
   const record = await getPublishedFinancialsForCompany(orgNumber);
-  if (!record) return { statements: [], documents: [], availability: { available: false, sourceSystem: "BRREG", message: "Virksomheten finnes ikke i lokal Fjord Insight-lagring ennå." } };
-  const statements = mapPublishedStatements(record.financialStatements);
+  if (!record) return { statements: [], allScopeStatements: [], documents: [], availability: { available: false, sourceSystem: "BRREG", message: "Virksomheten finnes ikke i lokal Fjord Insight-lagring ennå." } };
+  // allScopeStatements keeps both konsern and selskap rows (for the toggle);
+  // statements is deduped to one headline statement per year so callers that
+  // expect one-per-year (KPIs, distress, trends) are not double-counted.
+  const allScopeStatements = mapPublishedStatements(record.financialStatements);
+  const statements = dedupeToHeadlineStatements(allScopeStatements);
   const documents = mapPublishedDocuments(record.annualReportFilings);
-  return { statements, documents, availability: buildPublicAvailability(statements) };
+  return { statements, allScopeStatements, documents, availability: buildPublicAvailability(statements) };
 }
 
 export async function syncCompanyAnnualReportFinancials(orgNumber: string) {
