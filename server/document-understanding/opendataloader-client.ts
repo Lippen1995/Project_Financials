@@ -232,9 +232,24 @@ async function callDoclingServerDirectly(input: {
       return result;
     } catch (error) {
       lastError = error;
+      const code = (error as NodeJS.ErrnoException)?.code;
+      const message = (error as Error)?.message || String(error);
+      // A refused/unreachable connection means the Docling server is simply
+      // not running. Retrying with 30–60 s backoff just burns ~90 s per
+      // filing for nothing — fail fast straight to the Legacy fallback so a
+      // down server doesn't cripple a bulk ingest. Transient errors
+      // (timeouts, 5xx) still get the retry.
+      if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ECONNRESET") {
+        console.warn(
+          `[ODL] Docling server unreachable (${code}) — skipping retries, falling back to Legacy.`,
+        );
+        break;
+      }
       if (attempt < maxAttempts) {
         const backoffMs = 30_000 * attempt;
-        console.warn(`[ODL] callDoclingServerDirectly attempt ${attempt} failed (${(error as Error)?.message ?? String(error)}), retrying in ${backoffMs / 1000}s…`);
+        console.warn(
+          `[ODL] callDoclingServerDirectly attempt ${attempt} failed (${code ?? "?"}: ${message}), retrying in ${backoffMs / 1000}s…`,
+        );
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
     }
