@@ -286,6 +286,20 @@ PC (CPU-only). Det går saktere, men det går.
 - [ ] Skal Python-tjenesten kjøre lokalt under utvikling (på din PC) eller
       bare i prod?
 
+## I · Bakgrunns-opplastingsindikator (levert)
+
+- `IngestionRun`-tabell sporer hver bulk-opplastingsjobb (status, fremdrift,
+  tellere) i databasen — overlever at terminalen lukkes
+- `ingestion-run-service.ts` — oppretter kjøring, oppdaterer fremdrift,
+  fullfører; sender et `INGESTION_COMPLETED`-varsel til bjella ved slutt
+- Bulk-ingest-skriptet prosesserer nå selskap for selskap og oppdaterer
+  fremdriften underveis
+- Live-widget på `/admin` (`AdminIngestionIndicator`) poller hvert 4. sekund
+  og viser fremdriftslinje mens en opplasting pågår; viser resultatet i
+  noen minutter etter at den er ferdig
+- Skript-feilrettinger: `_load-env.ts` (laster `.env` for frittstående
+  skript), og bulk-ingest oppretter selskapet fra Brreg hvis det mangler
+
 ---
 
-_Sist oppdatert: 2026-05-21 etter K5 (review viser regnskapssett), navigasjonsfiks for testgrunnlag-køen, K4 og valutadeteksjon._
+_Sist oppdatert: 2026-05-21 etter bakgrunns-opplastingsindikator (IngestionRun + live widget), K5, K4 og valutadeteksjon._

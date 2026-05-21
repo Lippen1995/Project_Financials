@@ -30,6 +30,11 @@ import {
 } from "@/server/services/annual-report-financials-service";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import { upsertCompanySnapshot } from "@/server/persistence/company-repository";
+import {
+  completeIngestionRun,
+  createIngestionRun,
+  updateIngestionRunProgress,
+} from "@/server/services/ingestion-run-service";
 
 const companyProvider = new BrregCompanyProvider();
 
@@ -125,6 +130,15 @@ async function main() {
   );
   console.log("");
 
+  // Record the run so the admin UI can show live progress even after this
+  // terminal is closed.
+  const run = await createIngestionRun({
+    totalCompanies: orgNumbers.length,
+    triggeredBy: "bulk-ingest-script",
+  });
+  console.log(`Ingestion run id: ${run.id}`);
+  console.log("");
+
   let discoveredTotal = 0;
   let failedCompanies = 0;
 
@@ -153,22 +167,60 @@ async function main() {
     }
   }
 
+  // Discovery is done — record the total so the UI progress bar has a target.
+  await updateIngestionRunProgress(run.id, { totalFilings: discoveredTotal });
+
   console.log("");
   console.log(`Discovered ${discoveredTotal} filing(s) across ${orgNumbers.length} companies.`);
   console.log("Processing pending filings through the extraction pipeline…");
   console.log("");
 
-  const processed = await processPendingAnnualReportFilings({ orgNumbers });
+  // Process company by company so progress can be reported incrementally.
+  let processedTotal = 0;
+  let publishedTotal = 0;
+  let reviewTotal = 0;
+  let failedFilingsTotal = 0;
 
-  const published = processed.filter((p) => "published" in p && p.published).length;
-  const review = processed.length - published;
+  for (const [index, orgNumber] of orgNumbers.entries()) {
+    const processed = await processPendingAnnualReportFilings({
+      orgNumbers: [orgNumber],
+    });
+    if (processed.length === 0) continue;
+
+    const published = processed.filter((p) => "published" in p && p.published).length;
+    const failed = processed.filter((p) => "error" in p && p.error).length;
+    const review = processed.length - published - failed;
+
+    processedTotal += processed.length;
+    publishedTotal += published;
+    reviewTotal += review;
+    failedFilingsTotal += failed;
+
+    await updateIngestionRunProgress(run.id, {
+      processedFilingsDelta: processed.length,
+      publishedCountDelta: published,
+      reviewCountDelta: review,
+      failedCountDelta: failed,
+    });
+    console.log(
+      `[${index + 1}/${orgNumbers.length}] ${orgNumber}: ${processed.length} processed ` +
+        `(${published} published, ${review} review, ${failed} failed)`,
+    );
+  }
+
+  await completeIngestionRun({
+    runId: run.id,
+    status: "COMPLETED",
+    notes: `${processedTotal} filings — ${publishedTotal} published, ${reviewTotal} review, ${failedFilingsTotal} failed.`,
+  });
 
   console.log("");
   console.log("=== Ingest complete ===");
   console.log(`Companies failed discovery: ${failedCompanies}`);
-  console.log(`Filings processed:          ${processed.length}`);
-  console.log(`  auto-published:           ${published}`);
-  console.log(`  sent to manual review:    ${review}`);
+  console.log(`Filings processed:          ${processedTotal}`);
+  console.log(`  auto-published:           ${publishedTotal}`);
+  console.log(`  sent to manual review:    ${reviewTotal}`);
+  console.log(`  failed:                   ${failedFilingsTotal}`);
   console.log("");
   console.log("Next: review the queue at /admin/annual-report-reviews — each");
   console.log("review you complete becomes training data for the in-house models.");

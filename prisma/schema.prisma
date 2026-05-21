@@ -289,6 +289,14 @@ enum AdminNotificationType {
   PATTERN_DETECTED
   TRAINING_MILESTONE
   ENGINE_PROMOTION_OBSERVED
+  INGESTION_COMPLETED
+}
+
+// Lifecycle of a bulk ingestion run (the bulk-ingest-filings script).
+enum IngestionRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
 }
 
 enum AdminNotificationStatus {
@@ -2784,4 +2792,29 @@ model MlModelVersion {
   @@unique([taskType, taskVersion])
   @@index([taskType, status])
   @@index([proposedAt])
+}
+
+// IngestionRun tracks one bulk filing-ingestion job (the bulk-ingest-filings
+// script). It exists so the admin UI can show "an ingestion is running, N of
+// M filings done" even after the script's terminal is closed — the progress
+// lives in the database, not the process.
+//
+// The script creates a row at start (status RUNNING), updates the counters
+// as it works, and sets COMPLETED/FAILED at the end. On completion an
+// AdminNotification is raised so the bell shows the result.
+model IngestionRun {
+  id               String             @id @default(cuid())
+  status           IngestionRunStatus @default(RUNNING)
+  startedAt        DateTime           @default(now())
+  finishedAt       DateTime?
+  triggeredBy      String?
+  totalCompanies   Int
+  totalFilings     Int                @default(0)
+  processedFilings Int                @default(0)
+  publishedCount   Int                @default(0)
+  reviewCount      Int                @default(0)
+  failedCount      Int                @default(0)
+  notes            String?
+
+  @@index([status, startedAt])
 }
