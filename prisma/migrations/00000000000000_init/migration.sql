@@ -1,4 +1,4 @@
-﻿-- CreateSchema
+-- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
@@ -165,6 +165,12 @@ CREATE TYPE "ExtractionPatternErrorClass" AS ENUM ('UNIT_SCALE_MISS', 'OCR_NOISE
 
 -- CreateEnum
 CREATE TYPE "ExtractionPatternReportStatus" AS ENUM ('ACTIVE', 'ARCHIVED');
+
+-- CreateEnum
+CREATE TYPE "MlTaskType" AS ENUM ('UNIT_SCALE_CLASSIFIER', 'PAGE_TYPE_CLASSIFIER', 'YEAR_COLUMN_DETECTOR', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "MlModelStatus" AS ENUM ('PROPOSED', 'ACTIVE', 'RETIRED', 'REJECTED');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -2081,6 +2087,29 @@ CREATE TABLE "ExtractionPattern" (
     CONSTRAINT "ExtractionPattern_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "MlModelVersion" (
+    "id" TEXT NOT NULL,
+    "taskType" "MlTaskType" NOT NULL,
+    "taskVersion" INTEGER NOT NULL,
+    "status" "MlModelStatus" NOT NULL DEFAULT 'PROPOSED',
+    "algorithm" TEXT NOT NULL,
+    "binaryPath" TEXT NOT NULL,
+    "evaluationMetrics" JSONB,
+    "trainingDataSnapshot" JSONB,
+    "summary" TEXT,
+    "notes" TEXT,
+    "proposedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "appliedAt" TIMESTAMP(3),
+    "appliedByUserId" TEXT,
+    "retiredAt" TIMESTAMP(3),
+    "rejectedAt" TIMESTAMP(3),
+    "rejectedByUserId" TEXT,
+    "rejectionReason" TEXT,
+
+    CONSTRAINT "MlModelVersion_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -2813,6 +2842,15 @@ CREATE INDEX "ExtractionPattern_reportId_idx" ON "ExtractionPattern"("reportId")
 -- CreateIndex
 CREATE INDEX "ExtractionPattern_errorClass_occurrenceCount_idx" ON "ExtractionPattern"("errorClass", "occurrenceCount");
 
+-- CreateIndex
+CREATE INDEX "MlModelVersion_taskType_status_idx" ON "MlModelVersion"("taskType", "status");
+
+-- CreateIndex
+CREATE INDEX "MlModelVersion_proposedAt_idx" ON "MlModelVersion"("proposedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "MlModelVersion_taskType_taskVersion_key" ON "MlModelVersion"("taskType", "taskVersion");
+
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_lastWorkspaceId_fkey" FOREIGN KEY ("lastWorkspaceId") REFERENCES "Workspace"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -3172,4 +3210,10 @@ ALTER TABLE "ConfidenceThresholdVersion" ADD CONSTRAINT "ConfidenceThresholdVers
 
 -- AddForeignKey
 ALTER TABLE "ExtractionPattern" ADD CONSTRAINT "ExtractionPattern_reportId_fkey" FOREIGN KEY ("reportId") REFERENCES "ExtractionPatternReport"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "MlModelVersion" ADD CONSTRAINT "MlModelVersion_appliedByUserId_fkey" FOREIGN KEY ("appliedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "MlModelVersion" ADD CONSTRAINT "MlModelVersion_rejectedByUserId_fkey" FOREIGN KEY ("rejectedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
