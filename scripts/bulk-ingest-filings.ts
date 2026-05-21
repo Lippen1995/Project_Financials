@@ -26,7 +26,7 @@ import "./_load-env";
 import { prisma } from "@/lib/prisma";
 import {
   discoverAnnualReportFilingsForCompany,
-  processPendingAnnualReportFilings,
+  processAnnualReportFiling,
 } from "@/server/services/annual-report-financials-service";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import { upsertCompanySnapshot } from "@/server/persistence/company-repository";
@@ -167,44 +167,64 @@ async function main() {
     }
   }
 
-  // Discovery is done — record the total so the UI progress bar has a target.
-  await updateIngestionRunProgress(run.id, { totalFilings: discoveredTotal });
-
   console.log("");
   console.log(`Discovered ${discoveredTotal} filing(s) across ${orgNumbers.length} companies.`);
   console.log("Processing pending filings through the extraction pipeline…");
   console.log("");
 
-  // Process company by company so progress can be reported incrementally.
+  // Process filing by filing so the run's progress counter advances one
+  // step at a time — a company with 14 filings must not look stuck at 0.
+  const pendingFilings = await prisma.annualReportFiling.findMany({
+    where: {
+      company: { orgNumber: { in: orgNumbers } },
+      status: { in: ["DISCOVERED", "DOWNLOADED", "PREFLIGHTED"] },
+    },
+    select: { id: true, fiscalYear: true, company: { select: { orgNumber: true } } },
+    orderBy: [{ companyId: "asc" }, { fiscalYear: "desc" }],
+  });
+
+  // The progress bar targets the actual number of filings we will process.
+  await updateIngestionRunProgress(run.id, { totalFilings: pendingFilings.length });
+
   let processedTotal = 0;
   let publishedTotal = 0;
   let reviewTotal = 0;
   let failedFilingsTotal = 0;
 
-  for (const [index, orgNumber] of orgNumbers.entries()) {
-    const processed = await processPendingAnnualReportFilings({
-      orgNumbers: [orgNumber],
-    });
-    if (processed.length === 0) continue;
+  for (const [index, filing] of pendingFilings.entries()) {
+    let published = 0;
+    let review = 0;
+    let failed = 0;
+    try {
+      const result = await processAnnualReportFiling(filing.id);
+      if ("published" in result && result.published) {
+        published = 1;
+      } else {
+        review = 1;
+      }
+    } catch (error) {
+      failed = 1;
+      console.warn(
+        `  filing ${filing.id} (${filing.fiscalYear}) failed — ` +
+          `${error instanceof Error ? error.message : "unknown error"}`,
+      );
+    }
 
-    const published = processed.filter((p) => "published" in p && p.published).length;
-    const failed = processed.filter((p) => "error" in p && p.error).length;
-    const review = processed.length - published - failed;
-
-    processedTotal += processed.length;
+    processedTotal += 1;
     publishedTotal += published;
     reviewTotal += review;
     failedFilingsTotal += failed;
 
+    // Advance the run counter after every filing so the admin widget moves.
     await updateIngestionRunProgress(run.id, {
-      processedFilingsDelta: processed.length,
+      processedFilingsDelta: 1,
       publishedCountDelta: published,
       reviewCountDelta: review,
       failedCountDelta: failed,
     });
     console.log(
-      `[${index + 1}/${orgNumbers.length}] ${orgNumber}: ${processed.length} processed ` +
-        `(${published} published, ${review} review, ${failed} failed)`,
+      `[${index + 1}/${pendingFilings.length}] ${filing.company.orgNumber} ${filing.fiscalYear}: ` +
+        `${published ? "published" : review ? "review" : "failed"}`,
     );
   }
 

@@ -292,8 +292,9 @@ PC (CPU-only). Det går saktere, men det går.
   tellere) i databasen — overlever at terminalen lukkes
 - `ingestion-run-service.ts` — oppretter kjøring, oppdaterer fremdrift,
   fullfører; sender et `INGESTION_COMPLETED`-varsel til bjella ved slutt
-- Bulk-ingest-skriptet prosesserer nå selskap for selskap og oppdaterer
-  fremdriften underveis
+- Bulk-ingest-skriptet prosesserer filing for filing og oppdaterer
+  fremdriften etter hver enkelt — så fremdriftslinjen beveger seg jevnt
+  selv når ett selskap har mange årsrapporter
 - Live-widget på `/admin` (`AdminIngestionIndicator`) poller hvert 4. sekund
   og viser fremdriftslinje mens en opplasting pågår; viser resultatet i
   noen minutter etter at den er ferdig
