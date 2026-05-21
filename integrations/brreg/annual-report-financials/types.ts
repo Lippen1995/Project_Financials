@@ -1,5 +1,6 @@
 import {
   CanonicalMetricKey,
+  ReportingCurrency,
   StatementScope,
   StatementSectionType,
 } from "@/integrations/brreg/annual-report-financials/taxonomy";
@@ -141,6 +142,8 @@ export type PageClassification = {
   statementScope: StatementScope;
   /** True when this page itself carried an explicit scope heading. */
   hasExplicitScopeSignal: boolean;
+  /** Reporting currency detected for this page (defaults to NOK). */
+  reportingCurrency: ReportingCurrency;
   declaredYears: number[];
   yearHeaderYears: number[];
   heading: string | null;

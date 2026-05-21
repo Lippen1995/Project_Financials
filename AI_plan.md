@@ -194,15 +194,31 @@ Besluttet: **konsern som standardvisning**, **seksjonsbasert layout** i v1.
 - **Alle** fakta lagres med korrekt scope — den dyre-å-gjenskape dataen er
   riktig fanget. Publisert snapshot stemples med primær-scope.
 
-### K4 — Gjenstår: publiser begge + UI-veksler
-- I dag publiseres kun primær-scope som `FinancialStatement`. K4 publiserer
-  også det andre settet (billig — utledes fra lagrede `FinancialFact`, ingen
-  re-OCR nødvendig).
-- Selskapsside i appen får en Konsern/Selskap-veksler (kun når begge finnes).
-- Noter (`AnnualReportNarrative`) merkes med scope.
+### K4 — Publiser begge + UI-veksler (levert)
+- Pipelinen publiserer nå én `FinancialStatement` per scope — primær-settet
+  (validert, scoret) og sekundær-settet (ved MANUAL_REVIEW-kvalitet)
+- `NormalizedFinancialStatement` bærer `statementScope`
+- Selskapssiden har en **Konsern/Selskap-veksler** (vises kun når begge
+  finnes); konsern er standard
+- Gjenstår (lavt-risiko follow-up): noter (`AnnualReportNarrative`) merkes
+  ennå ikke med scope (DB-default COMPANY håndterer det); konsumenter av
+  `getPublishedAnnualReportFinancials` utenom finanstabellen bør gjennomgås
+  for dobbelttelling når begge scopes finnes
 
-### K5 — Gjenstår: review-UI per scope
-- Manuell kontroll viser scope og lar reviewer korrigere per regnskapssett.
+### K5 — Review per scope (datalag levert, UI gjenstår)
+- Reviewede fakta (`AnnualReportReviewedFact`) bærer nå `statementScope`,
+  kopiert fra maskinfaktaene — datalaget er korrekt
+- Gjenstår: synlige scope-merker i review-køen og et korreksjonsskjema
+  som lar reviewer rette konsern og selskap hver for seg
+
+## C · Valuta (levert)
+
+- `currency.ts` — oppdager rapporteringsvaluta (NOK/USD/EUR/GBP/SEK/DKK)
+  fra "Beløp i USD"-aktige overskrifter; konservativ (kun eksplisitt
+  erklæring nær "beløp i"/"amounts in" teller)
+- `PageClassification` bærer `reportingCurrency`; arves nedover sidene
+- Fakta merkes med detektert valuta i stedet for hardkodet "NOK"
+- Finanstabellen viser valutaen dynamisk ("Beløp i USD" osv.)
 
 ---
 
@@ -266,4 +282,4 @@ PC (CPU-only). Det går saktere, men det går.
 
 ---
 
-_Sist oppdatert: 2026-05-21 etter Fase K1–K3 (konsern/selskap-skille: datamodell, deteksjon, pipeline-ruting)._
+_Sist oppdatert: 2026-05-21 etter K4 (publiser begge scopes + UI-veksler), K5-datalag og valutadeteksjon._

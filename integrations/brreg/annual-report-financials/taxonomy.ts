@@ -57,6 +57,10 @@ export type StatementSectionType =
 //   CONSOLIDATED: the group accounts (konsernregnskap)
 export type StatementScope = "COMPANY" | "CONSOLIDATED";
 
+// Reporting currency of a statement. NOK is the default; a minority of
+// filings report in a foreign currency and declare it in the header.
+export type ReportingCurrency = "NOK" | "USD" | "EUR" | "GBP" | "SEK" | "DKK";
+
 type MetricDefinition = {
   key: CanonicalMetricKey;
   statementFamily: "INCOME_STATEMENT" | "BALANCE_SHEET" | "NOTE";

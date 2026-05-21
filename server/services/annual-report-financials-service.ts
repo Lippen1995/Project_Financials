@@ -162,7 +162,7 @@ function mapPublishedDocuments(filings: Array<{ id: string; fiscalYear: number; 
   }));
 }
 
-function mapPublishedStatements(statements: Array<{ fiscalYear: number; currency: string; revenue: bigint | null; operatingProfit: bigint | null; netIncome: bigint | null; equity: bigint | null; assets: bigint | null; sourceSystem: string; sourceEntityType: string; sourceId: string; fetchedAt: Date; normalizedAt: Date; rawPayload: unknown; sourceFilingId: string | null; sourceExtractionRunId: string | null; qualityStatus: string; qualityScore: number | null; unitScale: number | null; sourcePrecedence: string | null; publishedAt: Date | null }>) {
+function mapPublishedStatements(statements: Array<{ fiscalYear: number; currency: string; statementScope?: "COMPANY" | "CONSOLIDATED"; revenue: bigint | null; operatingProfit: bigint | null; netIncome: bigint | null; equity: bigint | null; assets: bigint | null; sourceSystem: string; sourceEntityType: string; sourceId: string; fetchedAt: Date; normalizedAt: Date; rawPayload: unknown; sourceFilingId: string | null; sourceExtractionRunId: string | null; qualityStatus: string; qualityScore: number | null; unitScale: number | null; sourcePrecedence: string | null; publishedAt: Date | null }>) {
   return statements.map((statement) => ({
     sourceSystem: statement.sourceSystem,
     sourceEntityType: statement.sourceEntityType,
@@ -172,6 +172,7 @@ function mapPublishedStatements(statements: Array<{ fiscalYear: number; currency
     rawPayload: statement.rawPayload,
     fiscalYear: statement.fiscalYear,
     currency: statement.currency,
+    statementScope: statement.statementScope ?? "COMPANY",
     revenue: toSafeNumber(statement.revenue),
     operatingProfit: toSafeNumber(statement.operatingProfit),
     netIncome: toSafeNumber(statement.netIncome),
@@ -533,6 +534,53 @@ function runFinancialPipeline(input: {
     primaryScope,
     durationMs: Date.now() - startedAt,
   } satisfies FinancialPipelineComputation;
+}
+
+/**
+ * Publishes one FinancialStatement snapshot for a given statement scope.
+ * Used to publish the primary scope (full quality) and, separately, the
+ * secondary scope so app users can toggle between konsern and selskap.
+ */
+async function publishScopedSnapshot(input: {
+  companyId: string;
+  orgNumber: string;
+  fiscalYear: number;
+  filingId: string;
+  extractionRunId: string;
+  scope: "COMPANY" | "CONSOLIDATED";
+  selectedFacts: Map<string, CanonicalFactCandidate>;
+  normalizedPayload: ReturnType<typeof buildNormalizedFinancialPayload>;
+  qualityStatus: "HIGH_CONFIDENCE" | "LOW_CONFIDENCE" | "MANUAL_REVIEW";
+  qualityScore: number;
+  publishedAt: Date;
+}) {
+  const facts = input.selectedFacts;
+  const currency =
+    facts.get("revenue")?.currency ?? facts.get("total_assets")?.currency ?? "NOK";
+  await publishFinancialStatementSnapshot({
+    companyId: input.companyId,
+    fiscalYear: input.fiscalYear,
+    statementScope: input.scope,
+    currency,
+    revenue: facts.get("revenue")?.value ?? facts.get("total_operating_income")?.value ?? null,
+    operatingProfit: facts.get("operating_profit")?.value ?? null,
+    netIncome: facts.get("net_income")?.value ?? null,
+    equity: facts.get("total_equity")?.value ?? null,
+    assets: facts.get("total_assets")?.value ?? null,
+    sourceSystem: "BRREG",
+    sourceEntityType: "financialStatement",
+    sourceId: `${input.orgNumber}-${input.fiscalYear}-${input.filingId}-${input.scope}`,
+    fetchedAt: input.publishedAt,
+    normalizedAt: input.publishedAt,
+    rawPayload: input.normalizedPayload as unknown as Prisma.InputJsonValue,
+    sourceFilingId: input.filingId,
+    sourceExtractionRunId: input.extractionRunId,
+    qualityStatus: input.qualityStatus,
+    qualityScore: input.qualityScore,
+    unitScale: facts.get("revenue")?.unitScale ?? facts.get("total_assets")?.unitScale ?? 1,
+    sourcePrecedence: facts.get("revenue")?.precedence ?? facts.get("total_assets")?.precedence ?? "NOTE_DERIVED",
+    publishedAt: input.publishedAt,
+  });
 }
 
 function logPipelineEvent(event: string, payload: Record<string, unknown>) {
@@ -1448,7 +1496,52 @@ export async function processAnnualReportFiling(
       const publishedQualityStatus = primaryComputation.canSkipManualReview
         ? "HIGH_CONFIDENCE"
         : "LOW_CONFIDENCE";
-      await publishFinancialStatementSnapshot({ companyId: filing.company.id, fiscalYear: filing.fiscalYear, statementScope: primaryComputation.primaryScope, currency: "NOK", revenue: primaryComputation.selectedFacts.get("revenue")?.value ?? primaryComputation.selectedFacts.get("total_operating_income")?.value ?? null, operatingProfit: primaryComputation.selectedFacts.get("operating_profit")?.value ?? null, netIncome: primaryComputation.selectedFacts.get("net_income")?.value ?? null, equity: primaryComputation.selectedFacts.get("total_equity")?.value ?? null, assets: primaryComputation.selectedFacts.get("total_assets")?.value ?? null, sourceSystem: "BRREG", sourceEntityType: "financialStatement", sourceId: `${filing.company.orgNumber}-${filing.fiscalYear}-${filing.id}`, fetchedAt: publishedAt, normalizedAt: publishedAt, rawPayload: primaryComputation.normalizedPayload as unknown as Prisma.InputJsonValue, sourceFilingId: filing.id, sourceExtractionRunId: extractionRun.id, qualityStatus: publishedQualityStatus, qualityScore: primaryComputation.confidenceScore, unitScale: primaryComputation.selectedFacts.get("revenue")?.unitScale ?? primaryComputation.selectedFacts.get("total_assets")?.unitScale ?? 1, sourcePrecedence: primaryComputation.sourcePrecedence, publishedAt });
+
+      // Publish the primary scope (the validated, scored headline statement).
+      await publishScopedSnapshot({
+        companyId: filing.company.id,
+        orgNumber: filing.company.orgNumber,
+        fiscalYear: filing.fiscalYear,
+        filingId: filing.id,
+        extractionRunId: extractionRun.id,
+        scope: primaryComputation.primaryScope,
+        selectedFacts: primaryComputation.selectedFacts,
+        normalizedPayload: primaryComputation.normalizedPayload,
+        qualityStatus: publishedQualityStatus,
+        qualityScore: primaryComputation.confidenceScore,
+        publishedAt,
+      });
+
+      // K4: also publish the secondary scope when the filing carried both
+      // konsern and selskap accounts, so app users can toggle. The secondary
+      // set was extracted but not separately gated — publish it at
+      // MANUAL_REVIEW quality.
+      const secondaryScope =
+        primaryComputation.primaryScope === "CONSOLIDATED" ? "COMPANY" : "CONSOLIDATED";
+      const hasSecondaryScopeFacts = primaryComputation.mapped.facts.some(
+        (fact) => fact.statementScope === secondaryScope,
+      );
+      const secondaryFacts = hasSecondaryScopeFacts
+        ? chooseCanonicalFacts(primaryComputation.mapped.facts, secondaryScope)
+        : new Map<string, CanonicalFactCandidate>();
+      if (hasSecondaryScopeFacts && secondaryFacts.size > 0) {
+        await publishScopedSnapshot({
+          companyId: filing.company.id,
+          orgNumber: filing.company.orgNumber,
+          fiscalYear: filing.fiscalYear,
+          filingId: filing.id,
+          extractionRunId: extractionRun.id,
+          scope: secondaryScope,
+          selectedFacts: secondaryFacts,
+          normalizedPayload: buildNormalizedFinancialPayload(
+            filing.fiscalYear,
+            secondaryFacts,
+          ),
+          qualityStatus: "MANUAL_REVIEW",
+          qualityScore: primaryComputation.confidenceScore,
+          publishedAt,
+        });
+      }
       await updateAnnualReportFiling(filing.id, { status: "PUBLISHED", publishedSnapshotAt: publishedAt, manualReviewAt: primaryComputation.canSkipManualReview ? null : new Date(), unitHints: { classifications: primaryComputation.classifications, hasKnownUnitScale: hasKnownUnitScale(primaryComputation.classifications), primaryEngine, primaryMode } });
       if (primaryComputation.canSkipManualReview) {
         await resolveAnnualReportReviewsForFiling(filing.id);

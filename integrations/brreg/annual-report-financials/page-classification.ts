@@ -1,6 +1,7 @@
 import { toAnnualReportParsedPages } from "@/integrations/brreg/annual-report-financials/page-model";
 import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
 import { detectUnitScale } from "@/integrations/brreg/annual-report-financials/unit-scale";
+import { detectCurrency } from "@/integrations/brreg/annual-report-financials/currency";
 import {
   AnnualReportParsedInputPage,
   AnnualReportParsedPage,
@@ -522,6 +523,10 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
   // COMPANY throughout — which is correct for the vast majority of filings.
   let currentScope: "COMPANY" | "CONSOLIDATED" = "COMPANY";
 
+  // Reporting currency also inherits: once a page declares a non-NOK
+  // currency it applies to the following pages. NOK is the default.
+  let currentCurrency: ReturnType<typeof detectCurrency>["currency"] = "NOK";
+
   for (const features of featuresByPage) {
     const previous = classifications[classifications.length - 1] ?? null;
     const scored = scoreFeatures(features);
@@ -535,6 +540,13 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
       scopeSignal !== null && type !== "BOARD_REPORT" && type !== "AUDITOR_REPORT";
     if (hasExplicitScopeSignal) {
       currentScope = scopeSignal;
+    }
+
+    // A page that explicitly declares a non-NOK currency sets it for itself
+    // and every following page until another declaration appears.
+    const currencyResult = detectCurrency(features.page);
+    if (currencyResult.currency !== "NOK") {
+      currentCurrency = currencyResult.currency;
     }
     const inheritedUnitScale =
       type !== "NOTE" &&
@@ -599,6 +611,7 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
         hasConflictingUnitSignals: features.unitScale.conflictingSignals,
         statementScope: currentScope,
         hasExplicitScopeSignal,
+        reportingCurrency: currentCurrency,
         declaredYears: effectiveDeclaredYears,
         yearHeaderYears: effectiveYearHeaderYears,
         heading: features.heading,
@@ -630,6 +643,7 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
       hasConflictingUnitSignals: features.unitScale.conflictingSignals,
       statementScope: currentScope,
       hasExplicitScopeSignal,
+      reportingCurrency: currentCurrency,
       declaredYears: effectiveDeclaredYears,
       yearHeaderYears: effectiveYearHeaderYears,
       heading: features.heading,

@@ -172,6 +172,7 @@ function TableControls({
   mode,
   densityMode,
   standardizationMode,
+  currency,
   onModeChange,
   onDensityChange,
   onStandardizationChange,
@@ -179,6 +180,7 @@ function TableControls({
   mode: FinancialValueMode;
   densityMode: FinancialDensityMode;
   standardizationMode: "standardized" | "reported";
+  currency: string;
   onModeChange: (value: FinancialValueMode) => void;
   onDensityChange: (value: FinancialDensityMode) => void;
   onStandardizationChange: (value: "standardized" | "reported") => void;
@@ -219,7 +221,9 @@ function TableControls({
         )}
       </div>
 
-      <p className="data-label text-[11px] font-semibold uppercase text-slate-500">Tall i NOK</p>
+      <p className="data-label text-[11px] font-semibold uppercase text-slate-500">
+        Tall i {currency}
+      </p>
     </div>
   );
 }
@@ -468,7 +472,31 @@ export function FinancialTimeSeriesTable({
   discussionStatements?: CompanyFinancialStatementDiscussionSummary[];
   discussionThreads?: CompanyFinancialMetricDiscussionSummary[];
 }) {
-  const dataset = useMemo(() => buildFinancialReportDataset(statements, documents), [documents, statements]);
+  // A group company publishes two statement sets — konsern and selskap.
+  // Determine which are available and let the user toggle; default to konsern.
+  const availableScopes = useMemo(() => {
+    const scopes = new Set<"COMPANY" | "CONSOLIDATED">();
+    for (const statement of statements) {
+      scopes.add(statement.statementScope ?? "COMPANY");
+    }
+    return scopes;
+  }, [statements]);
+  const [activeScope, setActiveScope] = useState<"COMPANY" | "CONSOLIDATED">(
+    availableScopes.has("CONSOLIDATED") ? "CONSOLIDATED" : "COMPANY",
+  );
+  const scopedStatements = useMemo(
+    () =>
+      availableScopes.size > 1
+        ? statements.filter((statement) => (statement.statementScope ?? "COMPANY") === activeScope)
+        : statements,
+    [statements, availableScopes, activeScope],
+  );
+  const reportingCurrency =
+    scopedStatements[0]?.currency ?? statements[0]?.currency ?? "NOK";
+  const dataset = useMemo(
+    () => buildFinancialReportDataset(scopedStatements, documents),
+    [documents, scopedStatements],
+  );
   const [activeStatement, setActiveStatement] = useState<FinancialStatementType>("income");
   const [mode, setMode] = useState<FinancialValueMode>("amount");
   const [densityMode, setDensityMode] = useState<FinancialDensityMode>("main");
@@ -601,7 +629,19 @@ export function FinancialTimeSeriesTable({
             Finansiell visning
           </div>
           <h3 className="mt-3 text-[1.9rem] font-semibold text-slate-950">{meta.title}</h3>
-          <p className="mt-2 text-sm leading-7 text-slate-600">{meta.subtitle}</p>
+          <p className="mt-2 text-sm leading-7 text-slate-600">Beløp i {reportingCurrency}</p>
+          {availableScopes.size > 1 ? (
+            <div className="mt-3">
+              <SegmentedControl
+                value={activeScope}
+                onChange={setActiveScope}
+                options={[
+                  { value: "CONSOLIDATED", label: "Konsern" },
+                  { value: "COMPANY", label: "Selskap" },
+                ]}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-5">
@@ -666,6 +706,7 @@ export function FinancialTimeSeriesTable({
         mode={mode}
         densityMode={densityMode}
         standardizationMode={standardizationMode}
+        currency={reportingCurrency}
         onModeChange={setMode}
         onDensityChange={setDensityMode}
         onStandardizationChange={(v) => {
@@ -697,7 +738,7 @@ export function FinancialTimeSeriesTable({
       {standardizationMode === "standardized" && <div className="overflow-x-auto">
         <table className="min-w-[980px] border-separate border-spacing-0 text-sm">
           <caption className="sr-only">
-            {meta.title} vist som tidsserie med år fra venstre til høyre og verdier i NOK.
+            {meta.title} vist som tidsserie med år fra venstre til høyre og verdier i {reportingCurrency}.
           </caption>
           <thead className="sticky top-0 z-20">
             <tr className="bg-[var(--px-action)]">

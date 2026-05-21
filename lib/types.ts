@@ -80,6 +80,8 @@ export type NormalizedRole = SourceMetadata & {
 export type NormalizedFinancialStatement = SourceMetadata & {
   fiscalYear: number;
   currency: string;
+  /** Which set of accounts: "COMPANY" (selskap/mor) or "CONSOLIDATED" (konsern). */
+  statementScope?: "COMPANY" | "CONSOLIDATED";
   revenue?: number | null;
   operatingProfit?: number | null;
   netIncome?: number | null;

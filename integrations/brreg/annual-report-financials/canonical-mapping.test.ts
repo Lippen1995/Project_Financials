@@ -13,6 +13,7 @@ function buildClassification(overrides: Partial<PageClassification>): PageClassi
     hasConflictingUnitSignals: false,
     statementScope: "COMPANY",
     hasExplicitScopeSignal: false,
+    reportingCurrency: "NOK",
     declaredYears: [2024, 2023],
     yearHeaderYears: [2024, 2023],
     heading: "Resultatregnskap",

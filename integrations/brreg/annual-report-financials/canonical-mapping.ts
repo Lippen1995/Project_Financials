@@ -223,7 +223,7 @@ export function mapRowsToCanonicalFacts(input: {
         rawLabel: row.label,
         normalizedLabel: row.normalizedLabel,
         value: row.unitScale * valueCell.value,
-        currency: "NOK",
+        currency: classification?.reportingCurrency ?? "NOK",
         unitScale: row.unitScale,
         sourcePage: row.pageNumber,
         sourceSection: row.sectionType,
