@@ -141,12 +141,28 @@ Bygge et virkende ende-til-ende ML-stack hvor:
    - Godkjenn/avvis modellforslag
 7. **Tester** — service-CRUD, klassifiseringslogikk, klient-fallback.
 
-### Etter denne sesjonen (Fase 7B)
+### Fase 7B — levert (commit `0ab16c3`)
 
-- Faktisk treningsskript som leser JSONL og produserer modellfil
-- Evalueringsrapport (precision/recall/F1) lagret som artefakt
-- Integrasjon i ekstraksjonspipeline (shadow-modus først)
-- A/B-sammenligning mot regex-baseline
+- `train_unit_scale.py` skriver nå en metadata-sidecar (`.metadata.json`)
+- `scripts/register-ml-model.ts` — CLI som registrerer en trent modell som
+  `MlModelVersion` (status PROPOSED, venter på godkjenning i UI)
+- `server/ml/unit-scale-shadow-service.ts` — kjører ML-modellen ved siden av
+  regex-detektoren og rapporterer hvor ofte de er enige, uten å endre output
+- Shadow-sammenligning wiret inn i pipelinen, opt-in via `ML_INFERENCE_SHADOW=true`,
+  alle feil svelges
+- `scripts/cleanup-review-queue-duplicates.ts` — fjerner duplikate test-rader
+  fra review-køen (dry-run som standard, `--apply` for å slette; rører aldri
+  reviews et menneske har jobbet med)
+- `scripts/bulk-ingest-filings.ts` — henter et mangfoldig utvalg filings fra
+  Brreg (round-robin på tvers av bransjer)
+
+### Gjenstår for å lukke Fase 7 (Fase 7C)
+
+- Faktisk trene den første unit-scale modellen på reell data (krever
+  reviewer-korreksjoner — kjør bulk-ingest + review først)
+- Når modellen er god nok i shadow-modus: la prediksjonen faktisk overstyre
+  regex (eget, bevisst steg med admin-godkjenning)
+- A/B-sammenligning mot regex-baseline lagret som artefakt
 
 ---
 
@@ -210,4 +226,4 @@ PC (CPU-only). Det går saktere, men det går.
 
 ---
 
-_Sist oppdatert: 2026-05-20 etter Fase 7-design._
+_Sist oppdatert: 2026-05-21 etter Fase 7B (modellregistrering, shadow-wiring, ingest- og opprydningsskript)._
