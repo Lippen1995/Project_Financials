@@ -114,8 +114,11 @@ function compareFactFamilies(
   }
 }
 
-export function validateCanonicalFacts(candidates: CanonicalFactCandidate[]) {
-  const facts = chooseCanonicalFacts(candidates);
+export function validateCanonicalFacts(
+  candidates: CanonicalFactCandidate[],
+  scope?: CanonicalFactCandidate["statementScope"],
+) {
+  const facts = chooseCanonicalFacts(candidates, scope);
   const issues: ValidationIssueDraft[] = [];
   const stats = {
     duplicateComparisons: 0,

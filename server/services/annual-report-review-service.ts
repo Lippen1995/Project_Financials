@@ -149,6 +149,7 @@ function reviewedFactToCandidate(
     metricKey: string;
     fiscalYear: number;
     statementType: string;
+    statementScope?: "COMPANY" | "CONSOLIDATED";
     value: bigint | null;
     currency: string;
     unitScale: number;
@@ -168,6 +169,7 @@ function reviewedFactToCandidate(
         : fact.statementType === "NOTE"
             ? "NOTE"
             : "INCOME_STATEMENT",
+    statementScope: fact.statementScope ?? "COMPANY",
     metricKey: fact.metricKey as CanonicalFactCandidate["metricKey"],
     rawLabel: fact.rawLabel ?? fact.metricKey,
     normalizedLabel: fact.metricKey,
@@ -826,9 +828,17 @@ export async function publishReviewedAnnualReportFacts(
   const sourceId = `review:${review.id}`;
   const normalizedPayload = buildNormalizedFinancialPayload(review.fiscalYear, selectedFacts);
 
+  // Reviewed facts carry their own scope; publish under the dominant one.
+  const publishScope: "COMPANY" | "CONSOLIDATED" = facts.some(
+    (f) => (f as { statementScope?: string }).statementScope === "CONSOLIDATED",
+  )
+    ? "CONSOLIDATED"
+    : "COMPANY";
+
   await publishFinancialStatementSnapshot({
     companyId: review.companyId,
     fiscalYear: review.fiscalYear,
+    statementScope: publishScope,
     currency: "NOK",
     revenue: revenue === null ? null : Number(revenue),
     operatingProfit: operatingProfit === null ? null : Number(operatingProfit),

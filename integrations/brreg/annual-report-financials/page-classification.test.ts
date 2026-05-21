@@ -106,4 +106,44 @@ describe("classifyPages", () => {
       "Inherited year header 2024, 2023 from previous statement page",
     );
   });
+
+  it("defaults every page to COMPANY scope when no group section exists", () => {
+    const result = classifyPages([
+      buildPage(2, ["Resultatregnskap", "Belop i: NOK", "2024 2023", "Salgsinntekter 103097000 99210000"]),
+      buildPage(3, ["Balanse", "Belop i: NOK", "2024 2023", "Sum eiendeler 92155000 84500000"]),
+    ]);
+    expect(result.every((c) => c.statementScope === "COMPANY")).toBe(true);
+    expect(result.every((c) => c.hasExplicitScopeSignal === false)).toBe(true);
+  });
+
+  it("flips to CONSOLIDATED scope after a Konsernregnskap heading and back at Selskapsregnskap", () => {
+    const result = classifyPages([
+      buildPage(1, ["Arsberetning 2024", "Selskapet inngar i et konsern"]),
+      buildPage(2, ["Konsernregnskap", "Resultatregnskap", "Belop i NOK 1000", "2024 2023", "Sum driftsinntekter 500000 480000"]),
+      buildPage(3, ["Balanse", "Belop i NOK 1000", "2024 2023", "Sum eiendeler 900000 850000"]),
+      buildPage(4, ["Selskapsregnskap", "Resultatregnskap", "Belop i NOK 1000", "2024 2023", "Sum driftsinntekter 200000 190000"]),
+      buildPage(5, ["Balanse", "Belop i NOK 1000", "2024 2023", "Sum eiendeler 400000 380000"]),
+    ]);
+
+    const byPage = new Map(result.map((c) => [c.pageNumber, c]));
+    expect(byPage.get(2)?.statementScope).toBe("CONSOLIDATED");
+    expect(byPage.get(2)?.hasExplicitScopeSignal).toBe(true);
+    // Page 3 has no scope heading — it inherits CONSOLIDATED from page 2.
+    expect(byPage.get(3)?.statementScope).toBe("CONSOLIDATED");
+    expect(byPage.get(3)?.hasExplicitScopeSignal).toBe(false);
+    // Page 4 carries the Selskapsregnskap heading — flips back to COMPANY.
+    expect(byPage.get(4)?.statementScope).toBe("COMPANY");
+    expect(byPage.get(4)?.hasExplicitScopeSignal).toBe(true);
+    expect(byPage.get(5)?.statementScope).toBe("COMPANY");
+  });
+
+  it("does not let a board report mentioning the group flip the scope", () => {
+    const result = classifyPages([
+      buildPage(1, ["Styrets beretning", "Konsernet hadde et godt ar", "Konsernregnskapet viser vekst"]),
+      buildPage(2, ["Resultatregnskap", "Belop i: NOK", "2024 2023", "Salgsinntekter 103097000 99210000"]),
+    ]);
+    // The board report prose mentions konsern, but BOARD_REPORT pages never
+    // flip scope — the statement page stays COMPANY.
+    expect(result[1]?.statementScope).toBe("COMPANY");
+  });
 });

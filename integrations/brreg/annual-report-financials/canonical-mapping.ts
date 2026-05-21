@@ -216,6 +216,9 @@ export function mapRowsToCanonicalFacts(input: {
           row.sectionType === "NOTE"
             ? "NOTE"
             : getStatementFamilyFromSection(row.sectionType) ?? "NOTE",
+        // Inherit the scope of the page this row came from. Pages with no
+        // classification default to COMPANY (the safe single-statement case).
+        statementScope: classification?.statementScope ?? "COMPANY",
         metricKey,
         rawLabel: row.label,
         normalizedLabel: row.normalizedLabel,
@@ -276,10 +279,20 @@ function precedenceRank(precedence: CanonicalFactCandidate["precedence"]) {
   }
 }
 
-export function chooseCanonicalFacts(facts: CanonicalFactCandidate[]) {
+/**
+ * Selects the best fact per metric key. When `scope` is given, only facts of
+ * that scope are considered — this keeps consolidated and company numbers
+ * from being mixed into one statement. When omitted, all facts are considered
+ * (legacy behaviour, used where scope does not matter).
+ */
+export function chooseCanonicalFacts(
+  facts: CanonicalFactCandidate[],
+  scope?: CanonicalFactCandidate["statementScope"],
+) {
   const selected = new Map<CanonicalMetricKey, CanonicalFactCandidate>();
+  const scopedFacts = scope ? facts.filter((fact) => fact.statementScope === scope) : facts;
 
-  for (const fact of facts) {
+  for (const fact of scopedFacts) {
     const current = selected.get(fact.metricKey);
     if (!current) {
       selected.set(fact.metricKey, fact);

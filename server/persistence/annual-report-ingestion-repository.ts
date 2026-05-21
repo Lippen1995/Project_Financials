@@ -510,6 +510,7 @@ export async function createFinancialFacts(input: {
       companyId: input.companyId,
       fiscalYear: fact.fiscalYear,
       statementType: fact.statementType,
+      statementScope: fact.statementScope,
       metricKey: fact.metricKey,
       rawLabel: fact.rawLabel,
       normalizedLabel: fact.normalizedLabel,
@@ -645,20 +646,31 @@ export async function createFinancialValidationIssues(input: {
 export async function getPublishedFinancialStatementSnapshot(input: {
   companyId: string;
   fiscalYear: number;
+  /** When omitted, returns the consolidated statement if one exists, else company. */
+  statementScope?: "COMPANY" | "CONSOLIDATED";
 }) {
-  return prisma.financialStatement.findUnique({
-    where: {
-      companyId_fiscalYear: {
-        companyId: input.companyId,
-        fiscalYear: input.fiscalYear,
+  if (input.statementScope) {
+    return prisma.financialStatement.findUnique({
+      where: {
+        companyId_fiscalYear_statementScope: {
+          companyId: input.companyId,
+          fiscalYear: input.fiscalYear,
+          statementScope: input.statementScope,
+        },
       },
-    },
+    });
+  }
+  // No scope requested — prefer consolidated (the headline for a group).
+  return prisma.financialStatement.findFirst({
+    where: { companyId: input.companyId, fiscalYear: input.fiscalYear },
+    orderBy: { statementScope: "desc" }, // CONSOLIDATED sorts before COMPANY
   });
 }
 
 export async function publishFinancialStatementSnapshot(input: {
   companyId: string;
   fiscalYear: number;
+  statementScope: "COMPANY" | "CONSOLIDATED";
   currency: string;
   revenue?: number | null;
   operatingProfit?: number | null;
@@ -683,9 +695,10 @@ export async function publishFinancialStatementSnapshot(input: {
     async (tx) => {
       const existing = await tx.financialStatement.findUnique({
         where: {
-          companyId_fiscalYear: {
+          companyId_fiscalYear_statementScope: {
             companyId: input.companyId,
             fiscalYear: input.fiscalYear,
+            statementScope: input.statementScope,
           },
         },
       });
@@ -725,9 +738,10 @@ export async function publishFinancialStatementSnapshot(input: {
 
       return tx.financialStatement.upsert({
         where: {
-          companyId_fiscalYear: {
+          companyId_fiscalYear_statementScope: {
             companyId: input.companyId,
             fiscalYear: input.fiscalYear,
+            statementScope: input.statementScope,
           },
         },
         update: {
@@ -754,6 +768,7 @@ export async function publishFinancialStatementSnapshot(input: {
         create: {
           companyId: input.companyId,
           fiscalYear: input.fiscalYear,
+          statementScope: input.statementScope,
           currency: input.currency,
           revenue: toBigInt(input.revenue),
           operatingProfit: toBigInt(input.operatingProfit),

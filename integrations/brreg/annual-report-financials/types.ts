@@ -1,5 +1,6 @@
 import {
   CanonicalMetricKey,
+  StatementScope,
   StatementSectionType,
 } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import { AnnualReportDocument, AnnualReportDocumentDiagnostics } from "@/integrations/brreg/annual-report-financials/document-model";
@@ -136,6 +137,10 @@ export type PageClassification = {
   unitScale: AnnualReportUnitScale | null;
   unitScaleConfidence: number;
   hasConflictingUnitSignals: boolean;
+  /** Which set of accounts this page belongs to (konsern vs selskap). */
+  statementScope: StatementScope;
+  /** True when this page itself carried an explicit scope heading. */
+  hasExplicitScopeSignal: boolean;
   declaredYears: number[];
   yearHeaderYears: number[];
   heading: string | null;
@@ -166,6 +171,8 @@ export type ReconstructedRow = {
 export type CanonicalFactCandidate = {
   fiscalYear: number;
   statementType: "INCOME_STATEMENT" | "BALANCE_SHEET" | "NOTE";
+  /** Which set of accounts this fact belongs to (konsern vs selskap). */
+  statementScope: StatementScope;
   metricKey: CanonicalMetricKey;
   rawLabel: string;
   normalizedLabel: string;

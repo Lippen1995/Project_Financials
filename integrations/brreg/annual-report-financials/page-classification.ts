@@ -109,6 +109,81 @@ function countKeywordMatches(text: string, keywords: string[]) {
   };
 }
 
+// ── Statement-scope detection (konsern vs selskap) ────────────────────────────
+// A Norwegian group annual report contains two sets of accounts, separated by
+// section headings. This detector recognises those headings.
+//
+// CRITICAL: all matching is WORD-BOUNDED. Prose freely uses the definite and
+// genitive forms — "konsernet", "konsernregnskapet", "morselskapet" — which
+// must NOT be mistaken for a section marker. A section heading uses the bare
+// indefinite form ("Konsernregnskap", "Selskapsregnskap"). Word boundaries
+// (\b) match the heading form but reject the inflected prose form, because in
+// "konsernregnskapet" there is no word boundary after "konsernregnskap".
+
+// Consolidated-section heading words (indefinite form).
+const CONSOLIDATED_SECTION_KEYWORDS = [
+  "konsernregnskap",
+  "konsernresultat",
+  "konsernbalanse",
+  "konsernoppstilling",
+];
+
+// Company-/parent-scope heading word. "selskapsregnskap" is unambiguous — it
+// does not occur in ordinary prose. "morselskap" DOES occur in prose, so it
+// is handled separately below (only counts next to a statement noun).
+const COMPANY_SCOPE_SECTION_KEYWORDS = ["selskapsregnskap", "morregnskap"];
+
+// Statement nouns used to qualify the bare "konsern" / "morselskap" tokens.
+const SCOPE_STATEMENT_NOUN = /\b(resultatregnskap|balanse|kontantstrom|noter)\b/;
+
+function containsWord(text: string, word: string): boolean {
+  return new RegExp(`\\b${word}\\b`).test(text);
+}
+
+/**
+ * Detects whether a page carries an explicit statement-scope heading.
+ * Returns "CONSOLIDATED" or "COMPANY" when a marker is found, or null when
+ * the page has no scope signal (the caller then inherits the running scope).
+ */
+function detectScopeSignal(
+  headingText: string,
+  topText: string,
+): "CONSOLIDATED" | "COMPANY" | null {
+  const text = `${headingText} ${topText}`;
+
+  const hasConsolidatedKeyword = CONSOLIDATED_SECTION_KEYWORDS.some((k) =>
+    containsWord(text, k),
+  );
+  const hasCompanyKeyword = COMPANY_SCOPE_SECTION_KEYWORDS.some((k) =>
+    containsWord(text, k),
+  );
+
+  const hasStatementNoun = SCOPE_STATEMENT_NOUN.test(text);
+
+  // A bare "konsern" word next to a statement noun is also a consolidated
+  // marker (e.g. heading "Resultatregnskap konsern").
+  const konsernNextToStatement = containsWord(text, "konsern") && hasStatementNoun;
+  // "morselskap" only counts as a company marker next to a statement noun —
+  // on its own it appears in note prose ("transaksjoner med morselskap").
+  const morselskapNextToStatement =
+    containsWord(text, "morselskap") && hasStatementNoun;
+
+  const consolidated = hasConsolidatedKeyword || konsernNextToStatement;
+  const company = hasCompanyKeyword || morselskapNextToStatement;
+
+  // Conflicting markers on one page — refuse to switch, let scope inherit.
+  if (consolidated && company) {
+    return null;
+  }
+  if (consolidated) {
+    return "CONSOLIDATED";
+  }
+  if (company) {
+    return "COMPANY";
+  }
+  return null;
+}
+
 function extractDeclaredYears(page: AnnualReportParsedPage) {
   return Array.from(
     new Set((page.text.match(/\b20\d{2}\b/g) ?? []).map((year) => Number(year))),
@@ -441,10 +516,26 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
   const featuresByPage = toAnnualReportParsedPages(pages).map(buildPageFeatures);
   const classifications: PageClassification[] = [];
 
+  // Statement scope inherits down the document: once a "Konsernregnskap"
+  // heading is seen, following pages are CONSOLIDATED until a "Selskaps-
+  // regnskap" heading flips it back. Reports with no group default to
+  // COMPANY throughout — which is correct for the vast majority of filings.
+  let currentScope: "COMPANY" | "CONSOLIDATED" = "COMPANY";
+
   for (const features of featuresByPage) {
     const previous = classifications[classifications.length - 1] ?? null;
     const scored = scoreFeatures(features);
     const { type, top } = selectType(features, scored, previous);
+
+    // A scope heading takes effect from this page onward. Board/auditor
+    // pages are excluded — their prose mentions "konsernet" freely and must
+    // never be allowed to flip the scope.
+    const scopeSignal = detectScopeSignal(features.headingText, features.topText);
+    const hasExplicitScopeSignal =
+      scopeSignal !== null && type !== "BOARD_REPORT" && type !== "AUDITOR_REPORT";
+    if (hasExplicitScopeSignal) {
+      currentScope = scopeSignal;
+    }
     const inheritedUnitScale =
       type !== "NOTE" &&
       features.unitScale.unitScale === null &&
@@ -506,6 +597,8 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
                 })
               : 0,
         hasConflictingUnitSignals: features.unitScale.conflictingSignals,
+        statementScope: currentScope,
+        hasExplicitScopeSignal,
         declaredYears: effectiveDeclaredYears,
         yearHeaderYears: effectiveYearHeaderYears,
         heading: features.heading,
@@ -535,6 +628,8 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
               })
             : 0,
       hasConflictingUnitSignals: features.unitScale.conflictingSignals,
+      statementScope: currentScope,
+      hasExplicitScopeSignal,
       declaredYears: effectiveDeclaredYears,
       yearHeaderYears: effectiveYearHeaderYears,
       heading: features.heading,

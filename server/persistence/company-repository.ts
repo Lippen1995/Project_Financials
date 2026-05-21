@@ -353,9 +353,11 @@ export async function upsertFinancialStatementsSnapshot(
   for (const statement of statements) {
     await prisma.financialStatement.upsert({
       where: {
-        companyId_fiscalYear: {
+        // Brreg's financial API reports company-level (selskaps) figures.
+        companyId_fiscalYear_statementScope: {
           companyId: company.id,
           fiscalYear: statement.fiscalYear,
+          statementScope: "COMPANY",
         },
       },
       update: {
@@ -382,6 +384,7 @@ export async function upsertFinancialStatementsSnapshot(
       create: {
         companyId: company.id,
         fiscalYear: statement.fiscalYear,
+        statementScope: "COMPANY",
         currency: statement.currency,
         revenue: toBigInt(statement.revenue),
         operatingProfit: toBigInt(statement.operatingProfit),

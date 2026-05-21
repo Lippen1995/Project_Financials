@@ -11,6 +11,8 @@ function buildClassification(overrides: Partial<PageClassification>): PageClassi
     unitScale: 1,
     unitScaleConfidence: 0.95,
     hasConflictingUnitSignals: false,
+    statementScope: "COMPANY",
+    hasExplicitScopeSignal: false,
     declaredYears: [2024, 2023],
     yearHeaderYears: [2024, 2023],
     heading: "Resultatregnskap",

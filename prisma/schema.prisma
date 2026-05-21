@@ -413,6 +413,18 @@ enum FinancialFactStatementType {
   NOTE
 }
 
+// Distinguishes which set of accounts a financial figure belongs to.
+//   COMPANY:      the legal entity's own accounts (selskapsregnskap). For a
+//                 standalone company this is its only set; for a group parent
+//                 this is the "morregnskap".
+//   CONSOLIDATED: the group accounts (konsernregnskap) — the parent plus all
+//                 subsidiaries combined. Only present for group parents.
+// Most Norwegian companies have only COMPANY. Existing rows default to COMPANY.
+enum StatementScope {
+  COMPANY
+  CONSOLIDATED
+}
+
 enum FinancialValidationSeverity {
   INFO
   WARNING
@@ -743,6 +755,7 @@ model Role {
 model FinancialStatement {
   id                    String                              @id @default(cuid())
   fiscalYear            Int
+  statementScope        StatementScope                      @default(COMPANY)
   currency              String                              @default("NOK")
   revenue               BigInt?
   operatingProfit       BigInt?
@@ -771,7 +784,7 @@ model FinancialStatement {
   ddCommentThreads      DdCommentThread[]
   ddFindingEvidence     DdFindingEvidence[]
 
-  @@unique([companyId, fiscalYear])
+  @@unique([companyId, fiscalYear, statementScope])
   @@index([companyId, fiscalYear])
   @@index([sourceFilingId])
   @@index([sourceExtractionRunId])
@@ -877,6 +890,7 @@ model FinancialFact {
   companyId       String
   fiscalYear      Int
   statementType   FinancialFactStatementType
+  statementScope  StatementScope             @default(COMPANY)
   metricKey       String
   rawLabel        String?
   normalizedLabel String?
@@ -898,6 +912,7 @@ model FinancialFact {
   @@index([extractionRunId, metricKey])
   @@index([companyId, fiscalYear, metricKey])
   @@index([filingId, statementType])
+  @@index([companyId, fiscalYear, statementScope])
 }
 
 model FinancialValidationIssue {
@@ -929,6 +944,7 @@ model RawFinancialLineItem {
   companyId       String
   fiscalYear      Int
   statementType   FinancialFactStatementType
+  statementScope  StatementScope             @default(COMPANY)
   originalLabel   String
   originalValue   String
   parsedValue     BigInt?
@@ -1200,6 +1216,7 @@ model AnnualReportReviewedFact {
   fiscalYear       Int
   metricKey        String
   statementType    FinancialFactStatementType
+  statementScope   StatementScope               @default(COMPANY)
   value            BigInt?
   currency         String                       @default("NOK")
   unitScale        Int                          @default(1)
@@ -1214,7 +1231,7 @@ model AnnualReportReviewedFact {
   company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reviewer User               @relation("ReviewedFactReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
 
-  @@unique([reviewId, metricKey])
+  @@unique([reviewId, metricKey, statementScope])
   @@index([reviewId, metricKey])
   @@index([companyId, fiscalYear, metricKey])
 }
@@ -2499,24 +2516,25 @@ model VerificationToken {
 }
 
 model AnnualReportNarrative {
-  id          String   @id @default(cuid())
-  filingId    String
-  companyId   String
-  fiscalYear  Int
-  sectionKind String
-  title       String?
-  textPreview String
-  fullText    String
-  pageStart   Int?
-  pageEnd     Int?
-  confidence  Float
-  provenance  String
-  createdAt   DateTime @default(now())
+  id             String         @id @default(cuid())
+  filingId       String
+  companyId      String
+  fiscalYear     Int
+  sectionKind    String
+  statementScope StatementScope @default(COMPANY)
+  title          String?
+  textPreview    String
+  fullText       String
+  pageStart      Int?
+  pageEnd        Int?
+  confidence     Float
+  provenance     String
+  createdAt      DateTime       @default(now())
 
   filing  AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
   company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  @@unique([filingId, sectionKind])
+  @@unique([filingId, sectionKind, statementScope])
   @@index([companyId, fiscalYear])
 }
 

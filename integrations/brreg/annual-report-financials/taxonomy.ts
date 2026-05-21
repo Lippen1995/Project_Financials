@@ -50,6 +50,13 @@ export type StatementSectionType =
   | "BOARD_REPORT"
   | "COVER";
 
+// Which set of accounts a page or fact belongs to. Mirrors the Prisma
+// StatementScope enum but kept as a standalone string union so the
+// extraction layer has no Prisma dependency.
+//   COMPANY:      the legal entity's own accounts (selskaps-/morregnskap)
+//   CONSOLIDATED: the group accounts (konsernregnskap)
+export type StatementScope = "COMPANY" | "CONSOLIDATED";
+
 type MetricDefinition = {
   key: CanonicalMetricKey;
   statementFamily: "INCOME_STATEMENT" | "BALANCE_SHEET" | "NOTE";

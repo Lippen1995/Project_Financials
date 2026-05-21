@@ -119,6 +119,8 @@ type FinancialPipelineComputation = {
   normalizedPayload: ReturnType<typeof buildNormalizedFinancialPayload>;
   blockingRuleCodes: string[];
   reviewRuleCodes: string[];
+  /** Scope used for validation, scoring and the published snapshot. */
+  primaryScope: "COMPANY" | "CONSOLIDATED";
   durationMs: number;
 };
 
@@ -219,7 +221,7 @@ function buildPublishedCanonicalFacts(payload: Record<string, any>, fiscalYear: 
   ];
   return metricPaths.flatMap((definition) => {
     const value = getNumberAtPath(payload, definition.path);
-    return value === null ? [] : [{ fiscalYear, statementType: definition.statementType, metricKey: definition.metricKey, rawLabel: definition.metricKey, normalizedLabel: definition.metricKey, value, currency: "NOK", unitScale: 1, sourcePage: 0, sourceSection: definition.statementType === "BALANCE_SHEET" ? "STATUTORY_BALANCE" : "STATUTORY_INCOME", sourceRowText: definition.path.join("."), noteReference: null, confidenceScore: 1, precedence: "STATUTORY_NOK", isDerived: false, rawPayload: { path: definition.path } } satisfies CanonicalFactCandidate];
+    return value === null ? [] : [{ fiscalYear, statementType: definition.statementType, statementScope: "COMPANY", metricKey: definition.metricKey, rawLabel: definition.metricKey, normalizedLabel: definition.metricKey, value, currency: "NOK", unitScale: 1, sourcePage: 0, sourceSection: definition.statementType === "BALANCE_SHEET" ? "STATUTORY_BALANCE" : "STATUTORY_INCOME", sourceRowText: definition.path.join("."), noteReference: null, confidenceScore: 1, precedence: "STATUTORY_NOK", isDerived: false, rawPayload: { path: definition.path } } satisfies CanonicalFactCandidate];
   });
 }
 
@@ -452,7 +454,16 @@ function runFinancialPipeline(input: {
     classifications,
     rows,
   });
-  const validation = validateCanonicalFacts(mapped.facts);
+  // Pick the primary scope to validate, score and publish. Consolidated
+  // (konsernregnskap) is the headline for a group; a standalone company has
+  // only COMPANY facts so it falls through to COMPANY. Facts of BOTH scopes
+  // are still persisted — only the published snapshot uses the primary scope.
+  const primaryScope: "COMPANY" | "CONSOLIDATED" = mapped.facts.some(
+    (fact) => fact.statementScope === "CONSOLIDATED",
+  )
+    ? "CONSOLIDATED"
+    : "COMPANY";
+  const validation = validateCanonicalFacts(mapped.facts, primaryScope);
   const classificationIssues = buildClassificationIssues(input.fiscalYear, classifications);
   const issues = [...classificationIssues, ...mapped.issues, ...validation.issues];
   const selectedFacts = validation.selectedFacts;
@@ -519,6 +530,7 @@ function runFinancialPipeline(input: {
     normalizedPayload,
     blockingRuleCodes,
     reviewRuleCodes,
+    primaryScope,
     durationMs: Date.now() - startedAt,
   } satisfies FinancialPipelineComputation;
 }
@@ -1436,7 +1448,7 @@ export async function processAnnualReportFiling(
       const publishedQualityStatus = primaryComputation.canSkipManualReview
         ? "HIGH_CONFIDENCE"
         : "LOW_CONFIDENCE";
-      await publishFinancialStatementSnapshot({ companyId: filing.company.id, fiscalYear: filing.fiscalYear, currency: "NOK", revenue: primaryComputation.selectedFacts.get("revenue")?.value ?? primaryComputation.selectedFacts.get("total_operating_income")?.value ?? null, operatingProfit: primaryComputation.selectedFacts.get("operating_profit")?.value ?? null, netIncome: primaryComputation.selectedFacts.get("net_income")?.value ?? null, equity: primaryComputation.selectedFacts.get("total_equity")?.value ?? null, assets: primaryComputation.selectedFacts.get("total_assets")?.value ?? null, sourceSystem: "BRREG", sourceEntityType: "financialStatement", sourceId: `${filing.company.orgNumber}-${filing.fiscalYear}-${filing.id}`, fetchedAt: publishedAt, normalizedAt: publishedAt, rawPayload: primaryComputation.normalizedPayload as unknown as Prisma.InputJsonValue, sourceFilingId: filing.id, sourceExtractionRunId: extractionRun.id, qualityStatus: publishedQualityStatus, qualityScore: primaryComputation.confidenceScore, unitScale: primaryComputation.selectedFacts.get("revenue")?.unitScale ?? primaryComputation.selectedFacts.get("total_assets")?.unitScale ?? 1, sourcePrecedence: primaryComputation.sourcePrecedence, publishedAt });
+      await publishFinancialStatementSnapshot({ companyId: filing.company.id, fiscalYear: filing.fiscalYear, statementScope: primaryComputation.primaryScope, currency: "NOK", revenue: primaryComputation.selectedFacts.get("revenue")?.value ?? primaryComputation.selectedFacts.get("total_operating_income")?.value ?? null, operatingProfit: primaryComputation.selectedFacts.get("operating_profit")?.value ?? null, netIncome: primaryComputation.selectedFacts.get("net_income")?.value ?? null, equity: primaryComputation.selectedFacts.get("total_equity")?.value ?? null, assets: primaryComputation.selectedFacts.get("total_assets")?.value ?? null, sourceSystem: "BRREG", sourceEntityType: "financialStatement", sourceId: `${filing.company.orgNumber}-${filing.fiscalYear}-${filing.id}`, fetchedAt: publishedAt, normalizedAt: publishedAt, rawPayload: primaryComputation.normalizedPayload as unknown as Prisma.InputJsonValue, sourceFilingId: filing.id, sourceExtractionRunId: extractionRun.id, qualityStatus: publishedQualityStatus, qualityScore: primaryComputation.confidenceScore, unitScale: primaryComputation.selectedFacts.get("revenue")?.unitScale ?? primaryComputation.selectedFacts.get("total_assets")?.unitScale ?? 1, sourcePrecedence: primaryComputation.sourcePrecedence, publishedAt });
       await updateAnnualReportFiling(filing.id, { status: "PUBLISHED", publishedSnapshotAt: publishedAt, manualReviewAt: primaryComputation.canSkipManualReview ? null : new Date(), unitHints: { classifications: primaryComputation.classifications, hasKnownUnitScale: hasKnownUnitScale(primaryComputation.classifications), primaryEngine, primaryMode } });
       if (primaryComputation.canSkipManualReview) {
         await resolveAnnualReportReviewsForFiling(filing.id);

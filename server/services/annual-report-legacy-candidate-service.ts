@@ -139,6 +139,7 @@ function mapFinancialFactToCandidate(fact: FinancialFact): CanonicalFactCandidat
         : fact.statementType === "BALANCE_SHEET"
           ? "BALANCE_SHEET"
           : "INCOME_STATEMENT",
+    statementScope: fact.statementScope,
     metricKey: fact.metricKey as CanonicalFactCandidate["metricKey"],
     rawLabel: fact.rawLabel ?? fact.metricKey,
     normalizedLabel: fact.normalizedLabel ?? fact.metricKey,
@@ -181,6 +182,7 @@ function buildPublishedStatementFallbackCandidates(statement: FinancialStatement
       {
         fiscalYear,
         statementType: entry.statementType,
+        statementScope: statement.statementScope,
         metricKey: entry.metricKey,
         rawLabel: entry.metricKey,
         normalizedLabel: entry.metricKey,

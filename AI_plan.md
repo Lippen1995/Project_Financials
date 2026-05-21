@@ -166,6 +166,46 @@ Bygge et virkende ende-til-ende ML-stack hvor:
 
 ---
 
+## 4b · Konsern/selskap-skille (Fase K)
+
+Bakgrunn: norske konsern leverer to regnskapssett — konsernregnskap og
+selskapsregnskap (mor). Brukere skal kunne veksle mellom dem i appen.
+Besluttet: **konsern som standardvisning**, **seksjonsbasert layout** i v1.
+
+### K1 — Datamodell (levert)
+- Ny enum `StatementScope` (`COMPANY`, `CONSOLIDATED`)
+- `statementScope`-felt på `FinancialStatement`, `FinancialFact`,
+  `RawFinancialLineItem`, `AnnualReportReviewedFact`, `AnnualReportNarrative`
+- Unik-begrensninger utvidet med scope; alle eksisterende rader → `COMPANY`
+- Migrasjon `20260521120000_add_statement_scope`
+
+### K2 — Deteksjon (levert)
+- `page-classification.ts` kjenner igjen "Konsernregnskap"/"Selskapsregnskap"-
+  overskrifter; scope arves nedover sidene (samme mønster som enhetsskala)
+- Ordgrense-matching hindrer at bøyde prosaformer ("konsernregnskapet")
+  feilutløser; styre-/revisorsider kan aldri flippe scope
+- `PageClassification` har nå `statementScope` + `hasExplicitScopeSignal`
+
+### K3 — Pipeline-ruting (levert)
+- Hver `CanonicalFactCandidate` merkes med scope fra siden den kom fra
+- `chooseCanonicalFacts` / `validateCanonicalFacts` tar et scope-filter
+- Pipelinen velger "primær-scope" (konsern hvis konsern-fakta finnes, ellers
+  selskap) for validering, scoring og publisering
+- **Alle** fakta lagres med korrekt scope — den dyre-å-gjenskape dataen er
+  riktig fanget. Publisert snapshot stemples med primær-scope.
+
+### K4 — Gjenstår: publiser begge + UI-veksler
+- I dag publiseres kun primær-scope som `FinancialStatement`. K4 publiserer
+  også det andre settet (billig — utledes fra lagrede `FinancialFact`, ingen
+  re-OCR nødvendig).
+- Selskapsside i appen får en Konsern/Selskap-veksler (kun når begge finnes).
+- Noter (`AnnualReportNarrative`) merkes med scope.
+
+### K5 — Gjenstår: review-UI per scope
+- Manuell kontroll viser scope og lar reviewer korrigere per regnskapssett.
+
+---
+
 ## 5 · Framtidige faser (ikke startet)
 
 ### Fase 8 — Sidetype-klassifikator
@@ -226,4 +266,4 @@ PC (CPU-only). Det går saktere, men det går.
 
 ---
 
-_Sist oppdatert: 2026-05-21 etter Fase 7B (modellregistrering, shadow-wiring, ingest- og opprydningsskript)._
+_Sist oppdatert: 2026-05-21 etter Fase K1–K3 (konsern/selskap-skille: datamodell, deteksjon, pipeline-ruting)._
