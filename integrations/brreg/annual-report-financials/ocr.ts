@@ -28,8 +28,14 @@ import {
 const OCR_MIN_WIDTH_PX = 64;
 const OCR_MIN_HEIGHT_PX = 64;
 const OCR_MIN_AREA_PX = 8_192;
-const OCR_RENDER_SCALE = 4;
-const OCR_PREPROCESSING_MODE = "page_png_scale4";
+// Render scale for OCR page images. Tesseract's accuracy sweet spot is around
+// 300 DPI; beyond ~400 DPI there is no accuracy gain, only slower processing.
+// Scale 4 produced images Tesseract estimated at ~850 DPI — roughly double
+// what is useful — so OCR was ~3-4x slower than necessary. Scale 2 lands
+// around ~425 DPI: comfortably above the ideal, with no expected accuracy
+// loss, and a large speed-up on big scanned filings.
+const OCR_RENDER_SCALE = 2;
+const OCR_PREPROCESSING_MODE = "page_png_scale2";
 const OCR_RECOGNITION_MODES = [
   {
     name: "auto",
