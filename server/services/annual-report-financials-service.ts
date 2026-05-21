@@ -83,6 +83,8 @@ import {
   runAnnualReportUnifiedShadowExtraction,
 } from "@/server/services/annual-report-unified-shadow-extraction-service";
 import { createAdminNotificationIfMissing } from "@/server/services/admin-notification-service";
+import { runUnitScaleShadowComparison } from "@/server/ml/unit-scale-shadow-service";
+import env from "@/lib/env";
 
 const provider = new BrregFinancialsProvider();
 const artifactStorage = new LocalAnnualReportArtifactStorage();
@@ -1061,6 +1063,33 @@ export async function processAnnualReportFiling(
       mode: primaryMode,
       excludePageNumbers: pageHints?.hasReliableHints ? pageHints.excludePages : undefined,
     });
+
+    // ── ML unit-scale shadow comparison (measurement only, never affects output) ──
+    // Compares the in-house ML model's unit-scale predictions against the
+    // rule-based classifications. Opt-in via ML_INFERENCE_SHADOW=true. Any
+    // failure here is swallowed — it must never disturb the extraction.
+    if (env.mlInferenceShadowEnabled) {
+      try {
+        const shadowComparison = await runUnitScaleShadowComparison({
+          pages: primaryPages,
+          classifications: primaryComputation.classifications,
+        });
+        logPipelineEvent("ml_shadow.unit_scale_comparison", {
+          filingId: filing.id,
+          extractionRunId: extractionRun.id,
+          serviceAvailable: shadowComparison.serviceAvailable,
+          comparedPages: shadowComparison.comparedPages,
+          agreements: shadowComparison.agreements,
+          disagreements: shadowComparison.disagreements,
+          agreementRate: shadowComparison.agreementRate,
+        });
+      } catch (shadowError) {
+        logRecoverableError("ml-shadow", shadowError, {
+          operation: "unit_scale_comparison",
+          filingId: filing.id,
+        });
+      }
+    }
 
     if (openDataLoaderResult && openDataLoaderConfig.dualRun) {
       const shadowComputation = runFinancialPipeline({

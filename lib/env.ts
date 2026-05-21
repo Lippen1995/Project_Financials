@@ -58,6 +58,8 @@ const env = {
   opendataloaderAutoPromote:
     (process.env.OPENDATALOADER_AUTO_PROMOTE ?? "").trim().toLowerCase() === "true",
   mlInferenceUrl: process.env.ML_INFERENCE_URL ?? "",
+  mlInferenceShadowEnabled:
+    (process.env.ML_INFERENCE_SHADOW ?? "").trim().toLowerCase() === "true",
   financialsSyncSecret:
     process.env.FINANCIALS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
   workspaceSyncSecret: process.env.WORKSPACE_SYNC_SECRET ?? "",

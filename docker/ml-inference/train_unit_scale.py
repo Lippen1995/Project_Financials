@@ -219,6 +219,34 @@ def main() -> None:
     print(f"Saved model bundle to {args.out}")
     print(json.dumps(metrics, indent=2))
 
+    # Write a metadata sidecar next to the .joblib. The Node.js registration
+    # script (scripts/register-ml-model.ts) reads this — it cannot open a
+    # joblib pickle, so all the facts it needs are mirrored here as plain JSON.
+    reviewer_examples = len(train_rows)
+    metadata = {
+        "taskType": "UNIT_SCALE_CLASSIFIER",
+        "algorithm": "tfidf+logreg",
+        # Path as seen *inside the inference container*, where /models is the volume.
+        "binaryPath": f"/models/{args.out.name}",
+        "trainedAt": bundle["trained_at"],
+        "evaluationMetrics": metrics,
+        "trainingDataSnapshot": {
+            "bootstrapExamples": len(BOOTSTRAP_EXAMPLES),
+            "reviewerExamples": reviewer_examples,
+            "totalTrainExamples": len(texts),
+            "validationExamples": len(val_texts),
+            "testExamples": len(test_texts),
+        },
+        "summary": (
+            f"TF-IDF + logistic regression, trent på {len(texts)} eksempler "
+            f"({reviewer_examples} fra reviewere, {len(BOOTSTRAP_EXAMPLES)} bootstrap)."
+        ),
+    }
+    metadata_path = args.out.with_suffix(".metadata.json")
+    with metadata_path.open("w", encoding="utf-8") as fh:
+        json.dump(metadata, fh, indent=2, ensure_ascii=False)
+    print(f"Saved metadata sidecar to {metadata_path}")
+
 
 if __name__ == "__main__":
     main()
