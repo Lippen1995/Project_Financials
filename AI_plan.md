@@ -205,11 +205,17 @@ Besluttet: **konsern som standardvisning**, **seksjonsbasert layout** i v1.
   `getPublishedAnnualReportFinancials` utenom finanstabellen bør gjennomgås
   for dobbelttelling når begge scopes finnes
 
-### K5 — Review per scope (datalag levert, UI gjenstår)
-- Reviewede fakta (`AnnualReportReviewedFact`) bærer nå `statementScope`,
-  kopiert fra maskinfaktaene — datalaget er korrekt
-- Gjenstår: synlige scope-merker i review-køen og et korreksjonsskjema
-  som lar reviewer rette konsern og selskap hver for seg
+### K5 — Review per scope (levert, med én avgrensning)
+- Reviewede fakta (`AnnualReportReviewedFact`) bærer `statementScope`,
+  kopiert fra maskinfaktaene
+- Review-payloaden bærer `statementScope`; review-arbeidsflaten viser
+  "Regnskapssett: Konsern/Selskap" så reviewer vet hvilket sett hen retter
+- Navigasjonsfeil fikset: "Åpne kontroll" i testgrunnlag-køen går nå til
+  den ekte review-arbeidsflaten (`/admin/annual-report-reviews/{reviewId}`)
+  i stedet for gold-set-kandidatsiden
+- Avgrensning (follow-up): hver review dekker ett scope (primær-scopet for
+  kjøringen). Å rette konsern OG selskap i samme arbeidsflate krever at
+  review-payloaden bærer begge sett — egen oppgave senere
 
 ## C · Valuta (levert)
 
@@ -282,4 +288,4 @@ PC (CPU-only). Det går saktere, men det går.
 
 ---
 
-_Sist oppdatert: 2026-05-21 etter K4 (publiser begge scopes + UI-veksler), K5-datalag og valutadeteksjon._
+_Sist oppdatert: 2026-05-21 etter K5 (review viser regnskapssett), navigasjonsfiks for testgrunnlag-køen, K4 og valutadeteksjon._

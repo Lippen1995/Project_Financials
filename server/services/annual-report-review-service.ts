@@ -208,6 +208,33 @@ export async function listReviewQueue(options?: {
 
 export { getAdminReviewDetail as getReviewDetail };
 
+/**
+ * Maps filing IDs to their most recent AnnualReportReview id. Used so that
+ * the gold-set test queue can link "Åpne kontroll" straight to the real
+ * review workspace instead of the gold-set candidate detail page.
+ *
+ * A filing without any review is simply absent from the returned map.
+ */
+export async function getLatestReviewIdsByFilingIds(
+  filingIds: string[],
+): Promise<Map<string, string>> {
+  if (filingIds.length === 0) {
+    return new Map();
+  }
+  const reviews = await prisma.annualReportReview.findMany({
+    where: { filingId: { in: filingIds } },
+    select: { id: true, filingId: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
+  });
+  const map = new Map<string, string>();
+  for (const review of reviews) {
+    if (!map.has(review.filingId)) {
+      map.set(review.filingId, review.id);
+    }
+  }
+  return map;
+}
+
 // ---------------------------------------------------------------------------
 // Accept
 // ---------------------------------------------------------------------------

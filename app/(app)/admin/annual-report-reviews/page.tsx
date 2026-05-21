@@ -2,7 +2,10 @@
 import Link from "next/link";
 import { AnnualReportReviewStatus } from "@prisma/client";
 
-import { listReviewQueue } from "@/server/services/annual-report-review-service";
+import {
+  getLatestReviewIdsByFilingIds,
+  listReviewQueue,
+} from "@/server/services/annual-report-review-service";
 import {
   listAnnualReportManualReviewCandidates,
   type AnnualReportManualReviewCandidateStatus,
@@ -119,6 +122,12 @@ export default async function AdminReviewQueuePage({
 
   const manualRound = manualReview?.round ?? null;
   const manualCandidates = manualReview?.items ?? [];
+
+  // Resolve each gold-set candidate to its real review so "Åpne kontroll"
+  // opens the actual review workspace, not the gold-set candidate detail.
+  const reviewIdByFilingId = await getLatestReviewIdsByFilingIds(
+    manualCandidates.map((candidate) => candidate.filingId),
+  );
 
   return (
     <div className="space-y-10">
@@ -335,12 +344,22 @@ export default async function AdminReviewQueuePage({
                         {formatTimestamp(candidate.updatedAt)}
                       </td>
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/admin/annual-report-reviews/gold-set/${candidate.candidateId}?runId=${encodeURIComponent(candidate.runId)}`}
-                          className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                        >
-                          Åpne kontroll
-                        </Link>
+                        {(() => {
+                          const reviewId = reviewIdByFilingId.get(candidate.filingId);
+                          // Link to the real review workspace when one exists;
+                          // otherwise fall back to the gold-set candidate page.
+                          const href = reviewId
+                            ? `/admin/annual-report-reviews/${reviewId}`
+                            : `/admin/annual-report-reviews/gold-set/${candidate.candidateId}?runId=${encodeURIComponent(candidate.runId)}`;
+                          return (
+                            <Link
+                              href={href as never}
+                              className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                              Åpne kontroll
+                            </Link>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}

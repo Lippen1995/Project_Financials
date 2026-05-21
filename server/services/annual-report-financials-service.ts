@@ -630,14 +630,22 @@ function buildReviewPayload(input: {
         sourcePage: fact.sourcePage,
         sourceSection: fact.sourceSection,
         sourcePrecedence: fact.precedence,
+        statementScope: fact.statementScope,
       }))
     : [];
+
+  // The reviewed facts all belong to one scope (the primary scope chosen
+  // for this run). Surface it so the review workspace can label which set
+  // of accounts the reviewer is looking at.
+  const reviewStatementScope =
+    factSummary.find((fact) => fact.statementScope)?.statementScope ?? "COMPANY";
 
   return {
     pageReferences,
     reviewPayload: {
       filingId: input.filingId,
       extractionRunId: input.extractionRunId ?? null,
+      statementScope: reviewStatementScope,
       blockingIssues: input.issues.map((issue) => ({
         severity: issue.severity,
         ruleCode: issue.ruleCode,

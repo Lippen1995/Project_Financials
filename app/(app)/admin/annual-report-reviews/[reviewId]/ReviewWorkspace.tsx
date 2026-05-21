@@ -295,6 +295,10 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       ? (review.reviewPayload as Record<string, unknown>)
       : null;
 
+  // Which set of accounts these figures belong to (konsern vs selskap).
+  const reviewScope = payload?.statementScope === "CONSOLIDATED" ? "CONSOLIDATED" : "COMPANY";
+  const reviewScopeLabel = reviewScope === "CONSOLIDATED" ? "Konsern" : "Selskap";
+
   // Correction form state — all canonical keys + any non-canonical extracted facts
   const [editableFacts, setEditableFacts] = useState<EditableFact[]>(() => {
     const factsByKey = new Map(facts.map((f) => [f.metricKey, f]));
@@ -778,6 +782,8 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
             <dd className="font-medium text-[#162233]">{review.status}</dd>
             <dt className="text-slate-500">Regnskapsår</dt>
             <dd className="font-medium text-[#162233]">{review.fiscalYear}</dd>
+            <dt className="text-slate-500">Regnskapssett</dt>
+            <dd className="font-medium text-[#162233]">{reviewScopeLabel}</dd>
             <dt className="text-slate-500">Kvalitetsscore</dt>
             <dd className="font-medium text-[#162233]">
               {review.qualityScore != null ? `${(review.qualityScore * 100).toFixed(1)}%` : "—"}

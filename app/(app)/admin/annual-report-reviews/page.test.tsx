@@ -26,6 +26,7 @@ vi.mock("@/server/services/annual-report-review-service", () => ({
       blockingRuleCodes: ["BS_TOTAL_BALANCES"],
     },
   ]),
+  getLatestReviewIdsByFilingIds: vi.fn(async () => new Map<string, string>()),
 }));
 
 vi.mock("@/server/services/annual-report-manual-review-round-service", () => ({
