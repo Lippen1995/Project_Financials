@@ -28,6 +28,29 @@ import {
   discoverAnnualReportFilingsForCompany,
   processPendingAnnualReportFilings,
 } from "@/server/services/annual-report-financials-service";
+import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
+import { upsertCompanySnapshot } from "@/server/persistence/company-repository";
+
+const companyProvider = new BrregCompanyProvider();
+
+/**
+ * Ensures a company row exists for the given org number. When an explicit
+ * org number is passed that the database has never seen, we fetch it from
+ * Brreg's company registry and create it — otherwise filing discovery has
+ * nothing to attach to. Returns false if Brreg has no such company.
+ */
+async function ensureCompanyExists(orgNumber: string): Promise<boolean> {
+  const existing = await prisma.company.findUnique({
+    where: { orgNumber },
+    select: { id: true },
+  });
+  if (existing) return true;
+
+  const company = await companyProvider.getCompany(orgNumber);
+  if (!company) return false;
+  await upsertCompanySnapshot(company);
+  return true;
+}
 
 function parseIntArg(flag: string, fallback: number): number {
   const idx = process.argv.indexOf(flag);
@@ -107,6 +130,14 @@ async function main() {
 
   for (const [index, orgNumber] of orgNumbers.entries()) {
     try {
+      const companyReady = await ensureCompanyExists(orgNumber);
+      if (!companyReady) {
+        failedCompanies++;
+        console.warn(
+          `[${index + 1}/${orgNumbers.length}] ${orgNumber}: not found in Brreg company registry — skipped`,
+        );
+        continue;
+      }
       const result = await discoverAnnualReportFilingsForCompany(orgNumber);
       discoveredTotal += result.discoveredFilings;
       console.log(
