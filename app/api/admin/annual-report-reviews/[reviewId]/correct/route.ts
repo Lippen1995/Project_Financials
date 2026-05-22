@@ -6,6 +6,7 @@ import { correctAnnualReportReview, ReviewConflictError } from "@/server/service
 
 const factSchema = z.object({
   metricKey: z.string(),
+  sourceMetricKey: z.string().nullable().optional(),
   fiscalYear: z.number().int(),
   value: z.string().regex(/^-?[0-9]+$/).nullable(),
   rawLabel: z.string().nullable().optional(),

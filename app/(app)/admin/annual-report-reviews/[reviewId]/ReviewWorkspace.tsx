@@ -18,6 +18,7 @@ type Fact = {
   sourceRowText: string | null;
   isDerived: boolean;
   statementType: string;
+  statementScope?: "COMPANY" | "CONSOLIDATED";
 };
 
 /** One extracted table row from the EXTRACTION_JSON artifact (before canonical mapping). */
@@ -134,10 +135,11 @@ type EditableFact = {
   unitScale: string;
 };
 
-type UnmappedEdit = {
+type RowEdit = {
   metricKey: string;
   mainValue: string;
   priorValue: string;
+  sourceMetricKey?: string | null;
 };
 
 type ValidationResult = {
@@ -215,6 +217,49 @@ function sortByCanonical(facts: Fact[]): Fact[] {
   });
 }
 
+function getRowId(row: RawRow): string {
+  const lookupKey = (row.normalizedLabel ?? row.label ?? "").toLowerCase().trim();
+  return `${row.pageNumber}_${lookupKey}`;
+}
+
+function getMetricOptionsForSection(sectionType: string): string[] {
+  if (INCOME_SECTIONS.has(sectionType)) return INCOME_METRIC_ORDER;
+  if (BALANCE_SECTIONS.has(sectionType)) return BALANCE_METRIC_ORDER;
+  return [...INCOME_METRIC_ORDER, ...BALANCE_METRIC_ORDER];
+}
+
+function removeRowEdit(
+  edits: Record<string, RowEdit>,
+  rowId: string,
+): Record<string, RowEdit> {
+  const next = { ...edits };
+  delete next[rowId];
+  return next;
+}
+
+function upsertFactCorrection(
+  factMap: Map<string, {
+    metricKey: string;
+    fiscalYear: number;
+    value: string | null;
+    rawLabel: string | null;
+    sourcePage: number | null;
+    unitScale: number | null;
+    sourceMetricKey?: string | null;
+  }>,
+  fact: {
+    metricKey: string;
+    fiscalYear: number;
+    value: string | null;
+    rawLabel: string | null;
+    sourcePage: number | null;
+    unitScale: number | null;
+    sourceMetricKey?: string | null;
+  },
+) {
+  factMap.set(`${fact.metricKey}:${fact.fiscalYear}`, fact);
+}
+
 function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"], reviewId: string): string | null {
   const hasPdfArtifact = artifacts?.some((a) => a.artifactType === "PDF");
   if (hasPdfArtifact) {
@@ -257,7 +302,24 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       .finally(() => setExtractionLoading(false));
   }, [viewMode, extractionData, extractionLoading, review.id]);
 
-  const facts = review.extractionRun?.facts ?? [];
+  // Which set of accounts this review is for (konsern vs selskap). A group
+  // filing persists facts for BOTH scopes; the review workspace must show
+  // only the one this review covers, otherwise konsern and selskap rows
+  // (e.g. two "revenue" rows) appear mixed together.
+  const reviewPayloadRaw =
+    review.reviewPayload && typeof review.reviewPayload === "object"
+      ? (review.reviewPayload as Record<string, unknown>)
+      : null;
+  const reviewScope: "COMPANY" | "CONSOLIDATED" =
+    reviewPayloadRaw?.statementScope === "CONSOLIDATED" ? "CONSOLIDATED" : "COMPANY";
+
+  const allFacts = review.extractionRun?.facts ?? [];
+  const scopedFacts = allFacts.filter(
+    (fact) => (fact.statementScope ?? "COMPANY") === reviewScope,
+  );
+  // Fall back to the unfiltered list if scope tagging is absent (older runs)
+  // so the workspace is never accidentally empty.
+  const facts = scopedFacts.length > 0 ? scopedFacts : allFacts;
   const { income, balance, other } = groupFacts(facts);
   const issues = [
     ...(review.extractionRun?.validationIssues ?? []),
@@ -290,13 +352,9 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   const reviewedFacts = review.reviewedFacts ?? [];
   const { income: rfIncome, balance: rfBalance } = groupReviewedFacts(reviewedFacts);
 
-  const payload =
-    review.reviewPayload && typeof review.reviewPayload === "object"
-      ? (review.reviewPayload as Record<string, unknown>)
-      : null;
+  const payload = reviewPayloadRaw;
 
-  // Which set of accounts these figures belong to (konsern vs selskap).
-  const reviewScope = payload?.statementScope === "CONSOLIDATED" ? "CONSOLIDATED" : "COMPANY";
+  // reviewScope is computed above (used to scope the fact list).
   const reviewScopeLabel = reviewScope === "CONSOLIDATED" ? "Konsern" : "Selskap";
 
   // Correction form state — all canonical keys + any non-canonical extracted facts
@@ -329,7 +387,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     return entries;
   });
   const [priorYearEdits, setPriorYearEdits] = useState<Record<string, string>>({});
-  const [unmappedEdits, setUnmappedEdits] = useState<Record<string, UnmappedEdit>>({});
+  const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
 
   const pdfDecision = payload?.pdfDecision as PdfDecision | null | undefined;
   const boardProposal = payload?.boardReportProposal as Record<string, unknown> | null | undefined;
@@ -450,64 +508,140 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   }
 
   function handleCorrect() {
-    // Only send facts where the value has been manually changed from the DB value.
-    // This ensures re-clicking "Lagre korrigeringer" without changes is a no-op.
+    // Only send facts where the value has been manually changed from the DB value
+    // or where the user has reassigned a row to another canonical key.
     const dbValueByKey = new Map(facts.map((f) => [f.metricKey, bigintToDisplay(f.value)]));
-
-    const correctedFacts = editableFacts
-      .filter((f) => {
-        const trimmed = f.value.trim();
-        if (!trimmed) return false;
-        const original = dbValueByKey.get(f.metricKey) ?? "";
-        return trimmed !== original; // only include if changed
-      })
-      .map((f) => ({
-        metricKey: f.metricKey,
-        fiscalYear: f.fiscalYear,
-        value: f.value.trim(),
-        rawLabel: f.rawLabel || null,
-        sourcePage: f.sourcePage.trim() !== "" ? parseInt(f.sourcePage, 10) : null,
-        unitScale: f.unitScale.trim() !== "" ? parseInt(f.unitScale, 10) : null,
-      }));
-
+    const factCorrections = new Map<string, {
+      metricKey: string;
+      fiscalYear: number;
+      value: string | null;
+      rawLabel: string | null;
+      sourcePage: number | null;
+      unitScale: number | null;
+      sourceMetricKey?: string | null;
+    }>();
     const priorFiscalYear = review.fiscalYear - 1;
-    for (const [metricKey, value] of Object.entries(priorYearEdits)) {
-      if (value.trim()) {
-        correctedFacts.push({
-          metricKey,
+
+    const canonicalByLabel = new Map<string, string>();
+    const mappedFacts = extractionData?.mappedFacts ?? [];
+    const priorCandidateByKey = new Map<string, { value: number; colIdx: number }>();
+    for (const mappedFact of mappedFacts) {
+      const key = (mappedFact.normalizedLabel ?? mappedFact.rawLabel ?? "").toLowerCase().trim();
+      if (key && !canonicalByLabel.has(key)) {
+        canonicalByLabel.set(key, mappedFact.metricKey);
+      }
+      if (mappedFact.isDerived) continue;
+      const colIdx = mappedFact.rawPayload?.columnIndex ?? -1;
+      const existing = priorCandidateByKey.get(mappedFact.metricKey);
+      if (!existing || colIdx > existing.colIdx) {
+        priorCandidateByKey.set(mappedFact.metricKey, { value: mappedFact.value, colIdx });
+      }
+    }
+    const priorValueByKey = new Map<string, string>();
+    for (const [key, candidate] of priorCandidateByKey) {
+      priorValueByKey.set(key, String(candidate.value));
+    }
+
+    const effectiveRows = extractionData
+      ? (
+          extractionData.rows.length > 0
+            ? extractionData.rows
+            : buildSyntheticRows(extractionData.mappedFacts, [review.fiscalYear, priorFiscalYear])
+        )
+      : [];
+    const reassignedSourceMetricKeys = new Set<string>();
+
+    for (const row of effectiveRows) {
+      const rowId = getRowId(row);
+      const rowEdit = rowEdits[rowId];
+      if (!rowEdit) continue;
+
+      const targetMetricKey = rowEdit.metricKey.trim();
+      if (!targetMetricKey) continue;
+
+      const lookupKey = (row.normalizedLabel ?? row.label ?? "").toLowerCase().trim();
+      const sourceMetricKey =
+        rowEdit.sourceMetricKey?.trim() || canonicalByLabel.get(lookupKey) || null;
+      const mainProposed = sourceMetricKey ? (dbValueByKey.get(sourceMetricKey) ?? null) : null;
+      const priorProposed = sourceMetricKey ? (priorValueByKey.get(sourceMetricKey) ?? null) : null;
+      const [reconstructedMain, reconstructedPrior] = sourceMetricKey
+        ? [null, null]
+        : reconstructYearValues(row.values);
+
+      const fallbackMainValue = mainProposed ?? (
+        reconstructedMain !== null
+          ? String(Math.round(reconstructedMain * row.unitScale))
+          : null
+      );
+      const fallbackPriorValue = priorProposed ?? (
+        reconstructedPrior !== null
+          ? String(Math.round(reconstructedPrior * row.unitScale))
+          : null
+      );
+
+      const mainValue =
+        rowEdit.mainValue.trim() !== "" ? rowEdit.mainValue.trim() : fallbackMainValue;
+      const priorValue =
+        rowEdit.priorValue.trim() !== "" ? rowEdit.priorValue.trim() : fallbackPriorValue;
+
+      if (sourceMetricKey && sourceMetricKey !== targetMetricKey) {
+        reassignedSourceMetricKeys.add(sourceMetricKey);
+      }
+
+      if (mainValue !== null) {
+        upsertFactCorrection(factCorrections, {
+          metricKey: targetMetricKey,
+          fiscalYear: review.fiscalYear,
+          value: mainValue,
+          rawLabel: row.label || null,
+          sourcePage: row.pageNumber,
+          unitScale: row.unitScale,
+          sourceMetricKey,
+        });
+      }
+      if (priorValue !== null) {
+        upsertFactCorrection(factCorrections, {
+          metricKey: targetMetricKey,
           fiscalYear: priorFiscalYear,
-          value: value.trim(),
-          rawLabel: null,
-          sourcePage: null,
-          unitScale: null,
+          value: priorValue,
+          rawLabel: row.label || null,
+          sourcePage: row.pageNumber,
+          unitScale: row.unitScale,
+          sourceMetricKey,
         });
       }
     }
 
-    // Include manual assignments for unmapped rows (human assigned a canonical key)
-    for (const override of Object.values(unmappedEdits)) {
-      if (!override.metricKey.trim()) continue;
-      if (override.mainValue.trim()) {
-        correctedFacts.push({
-          metricKey: override.metricKey.trim(),
-          fiscalYear: review.fiscalYear,
-          value: override.mainValue.trim(),
-          rawLabel: null,
-          sourcePage: null,
-          unitScale: null,
-        });
-      }
-      if (override.priorValue.trim()) {
-        correctedFacts.push({
-          metricKey: override.metricKey.trim(),
-          fiscalYear: priorFiscalYear,
-          value: override.priorValue.trim(),
-          rawLabel: null,
-          sourcePage: null,
-          unitScale: null,
-        });
-      }
+    for (const fact of editableFacts) {
+      if (reassignedSourceMetricKeys.has(fact.metricKey)) continue;
+      const trimmed = fact.value.trim();
+      if (!trimmed) continue;
+      const original = dbValueByKey.get(fact.metricKey) ?? "";
+      if (trimmed === original) continue;
+      upsertFactCorrection(factCorrections, {
+        metricKey: fact.metricKey,
+        fiscalYear: fact.fiscalYear,
+        value: trimmed,
+        rawLabel: fact.rawLabel || null,
+        sourcePage: fact.sourcePage.trim() !== "" ? parseInt(fact.sourcePage, 10) : null,
+        unitScale: fact.unitScale.trim() !== "" ? parseInt(fact.unitScale, 10) : null,
+      });
     }
+
+    for (const [metricKey, value] of Object.entries(priorYearEdits)) {
+      if (reassignedSourceMetricKeys.has(metricKey)) continue;
+      if (!value.trim()) continue;
+      upsertFactCorrection(factCorrections, {
+        metricKey,
+        fiscalYear: priorFiscalYear,
+        value: value.trim(),
+        rawLabel: null,
+        sourcePage: null,
+        unitScale: null,
+      });
+    }
+
+    const correctedFacts = Array.from(factCorrections.values());
 
     const sections: { sectionType: string; text: string }[] = [];
     if (boardReportText.trim()) {
@@ -699,8 +833,8 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                     setEditableFacts={setEditableFacts}
                     priorYearEdits={priorYearEdits}
                     setPriorYearEdits={setPriorYearEdits}
-                    unmappedEdits={unmappedEdits}
-                    setUnmappedEdits={setUnmappedEdits}
+                    rowEdits={rowEdits}
+                    setRowEdits={setRowEdits}
                   />
                 )}
               </>
@@ -1275,8 +1409,8 @@ function AsReportedPanel({
   setEditableFacts,
   priorYearEdits,
   setPriorYearEdits,
-  unmappedEdits,
-  setUnmappedEdits,
+  rowEdits,
+  setRowEdits,
 }: {
   data: ExtractionData;
   fiscalYear: number;
@@ -1285,8 +1419,8 @@ function AsReportedPanel({
   setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
   priorYearEdits: Record<string, string>;
   setPriorYearEdits: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  unmappedEdits: Record<string, UnmappedEdit>;
-  setUnmappedEdits: React.Dispatch<React.SetStateAction<Record<string, UnmappedEdit>>>;
+  rowEdits: Record<string, RowEdit>;
+  setRowEdits: React.Dispatch<React.SetStateAction<Record<string, RowEdit>>>;
 }) {
   const { rows, mappedFacts } = data;
 
@@ -1404,8 +1538,8 @@ function AsReportedPanel({
           setEditableFacts={setEditableFacts}
           priorYearEdits={priorYearEdits}
           setPriorYearEdits={setPriorYearEdits}
-          unmappedEdits={unmappedEdits}
-          setUnmappedEdits={setUnmappedEdits}
+          rowEdits={rowEdits}
+          setRowEdits={setRowEdits}
         />
       )}
       {balanceRows.length > 0 && (
@@ -1423,8 +1557,8 @@ function AsReportedPanel({
           setEditableFacts={setEditableFacts}
           priorYearEdits={priorYearEdits}
           setPriorYearEdits={setPriorYearEdits}
-          unmappedEdits={unmappedEdits}
-          setUnmappedEdits={setUnmappedEdits}
+          rowEdits={rowEdits}
+          setRowEdits={setRowEdits}
         />
       )}
       {otherRows.length > 0 && (
@@ -1442,8 +1576,8 @@ function AsReportedPanel({
           setEditableFacts={setEditableFacts}
           priorYearEdits={priorYearEdits}
           setPriorYearEdits={setPriorYearEdits}
-          unmappedEdits={unmappedEdits}
-          setUnmappedEdits={setUnmappedEdits}
+          rowEdits={rowEdits}
+          setRowEdits={setRowEdits}
         />
       )}
 
@@ -1469,8 +1603,8 @@ function AsReportedSection({
   setEditableFacts,
   priorYearEdits,
   setPriorYearEdits,
-  unmappedEdits,
-  setUnmappedEdits,
+  rowEdits,
+  setRowEdits,
 }: {
   title: string;
   rows: RawRow[];
@@ -1485,17 +1619,11 @@ function AsReportedSection({
   setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
   priorYearEdits: Record<string, string>;
   setPriorYearEdits: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  unmappedEdits: Record<string, UnmappedEdit>;
-  setUnmappedEdits: React.Dispatch<React.SetStateAction<Record<string, UnmappedEdit>>>;
+  rowEdits: Record<string, RowEdit>;
+  setRowEdits: React.Dispatch<React.SetStateAction<Record<string, RowEdit>>>;
 }) {
   return (
     <div className="mb-2">
-      {/* Datalist for canonical key suggestions on unmapped rows */}
-      <datalist id="canonical-keys-list">
-        {[...INCOME_METRIC_ORDER, ...BALANCE_METRIC_ORDER].map((k) => (
-          <option key={k} value={k} />
-        ))}
-      </datalist>
       <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
         {title}
       </h3>
@@ -1505,7 +1633,6 @@ function AsReportedSection({
             <tr className="border-b border-[rgba(15,23,42,0.08)]">
               <th className="pb-1 pr-2 text-left font-medium text-slate-400">Label (rapportert)</th>
               <th className="pb-1 pr-1 text-left font-medium text-slate-400">Nøkkel</th>
-              {/* Main year columns */}
               <th className="pb-1 pr-1 text-right font-medium text-slate-400">
                 Foreslått {mainYear}
               </th>
@@ -1515,7 +1642,6 @@ function AsReportedSection({
               <th className="pb-1 pr-1 text-right font-medium text-emerald-600">
                 Endelig {mainYear}
               </th>
-              {/* Prior year columns */}
               <th className="pb-1 pr-1 text-right font-medium text-slate-400">
                 Foreslått {priorYear}
               </th>
@@ -1534,63 +1660,61 @@ function AsReportedSection({
               const lookupKey = (row.normalizedLabel ?? row.label ?? "").toLowerCase().trim();
               const canonicalKey = canonicalByLabel.get(lookupKey) ?? null;
               const isMapped = canonicalKey !== null;
+              const rowId = getRowId(row);
+              const rowEdit = rowEdits[rowId] ?? {
+                metricKey: "",
+                mainValue: "",
+                priorValue: "",
+                sourceMetricKey: canonicalKey,
+              };
+              const selectedMetricKey = rowEdit.metricKey || canonicalKey || "";
+              const hasKeyOverride =
+                isMapped && canonicalKey !== null && selectedMetricKey !== "" && selectedMetricKey !== canonicalKey;
+              const allowedMetricKeys = getMetricOptionsForSection(row.sectionType);
 
-              // Stable row ID for unmapped override keying
-              const rowId = `${row.pageNumber}_${lookupKey}`;
-
-              // Proposed main year: DB fact (correctly assembled) or reconstructed from fragments
               const mainProposed = isMapped && canonicalKey
                 ? (dbValueByKey.get(canonicalKey) ?? null)
                 : null;
-
-              // Proposed prior year: max-colIdx mappedFact or reconstructed from fragments
               const priorProposed = isMapped && canonicalKey
                 ? (priorValueByKey.get(canonicalKey) ?? null)
                 : null;
-
-              // For unmapped rows, reconstruct full year values from x-clustered fragments
               const [reconstructedMain, reconstructedPrior] = isMapped
                 ? [null, null]
                 : reconstructYearValues(row.values);
 
-              const displayMain = mainProposed
-                ? formatIntegerString(mainProposed)
-                : reconstructedMain !== null
-                  ? formatIntegerString(Math.round(reconstructedMain * row.unitScale))
-                  : "—";
+              const fallbackMainValue = mainProposed ?? (
+                reconstructedMain !== null
+                  ? String(Math.round(reconstructedMain * row.unitScale))
+                  : null
+              );
+              const fallbackPriorValue = priorProposed ?? (
+                reconstructedPrior !== null
+                  ? String(Math.round(reconstructedPrior * row.unitScale))
+                  : null
+              );
 
-              const displayPrior = priorProposed
-                ? formatIntegerString(priorProposed)
-                : reconstructedPrior !== null
-                  ? formatIntegerString(Math.round(reconstructedPrior * row.unitScale))
-                  : "—";
-
-              // ---- MAPPED ROW: manual overrides via editableFacts / priorYearEdits ----
               const editIdx = isMapped && canonicalKey
                 ? editableFacts.findIndex((e) => e.metricKey === canonicalKey)
                 : -1;
-              const mainManual = editIdx >= 0 ? editableFacts[editIdx].value : "";
-              const hasMainManual =
-                mainManual.trim() !== "" && mainManual.trim() !== (mainProposed ?? "");
-              const mainEndelig = hasMainManual ? mainManual.trim() : (mainProposed ?? "—");
-
-              const priorManual =
+              const mappedMainManual = editIdx >= 0 ? editableFacts[editIdx].value : "";
+              const mappedPriorManual =
                 isMapped && canonicalKey ? (priorYearEdits[canonicalKey] ?? "") : "";
-              const hasPriorManual =
-                priorManual.trim() !== "" && priorManual.trim() !== (priorProposed ?? "");
-              const priorEndelig = hasPriorManual
-                ? priorManual.trim()
-                : (priorProposed ?? "—");
+              const mainManualValue =
+                hasKeyOverride || !isMapped ? rowEdit.mainValue : mappedMainManual;
+              const priorManualValue =
+                hasKeyOverride || !isMapped ? rowEdit.priorValue : mappedPriorManual;
 
-              // ---- UNMAPPED ROW: manual overrides + optional key assignment ----
-              const unmappedEdit = !isMapped ? (unmappedEdits[rowId] ?? { metricKey: "", mainValue: "", priorValue: "" }) : null;
-              const unmappedMainValue = unmappedEdit?.mainValue ?? "";
-              const unmappedPriorValue = unmappedEdit?.priorValue ?? "";
-              const unmappedKey = unmappedEdit?.metricKey ?? "";
-              const hasUnmappedMainManual = unmappedMainValue.trim() !== "";
-              const hasUnmappedPriorManual = unmappedPriorValue.trim() !== "";
-              const unmappedMainEndelig = hasUnmappedMainManual ? unmappedMainValue.trim() : (reconstructedMain !== null ? String(Math.round(reconstructedMain * row.unitScale)) : null);
-              const unmappedPriorEndelig = hasUnmappedPriorManual ? unmappedPriorValue.trim() : (reconstructedPrior !== null ? String(Math.round(reconstructedPrior * row.unitScale)) : null);
+              const hasMainManual =
+                mainManualValue.trim() !== "" && mainManualValue.trim() !== (fallbackMainValue ?? "");
+              const hasPriorManual =
+                priorManualValue.trim() !== "" && priorManualValue.trim() !== (fallbackPriorValue ?? "");
+
+              const effectiveMainValue = mainManualValue.trim() !== ""
+                ? mainManualValue.trim()
+                : fallbackMainValue;
+              const effectivePriorValue = priorManualValue.trim() !== ""
+                ? priorManualValue.trim()
+                : fallbackPriorValue;
 
               const confidence = isMapped && canonicalKey
                 ? confidenceByKey.get(canonicalKey)
@@ -1601,57 +1725,100 @@ function AsReportedSection({
 
               return (
                 <tr
-                  key={`${row.pageNumber}-${i}`}
+                  key={row.pageNumber + "-" + i}
                   className="border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50"
                 >
-                  <td className={`py-1 pr-2 ${isMapped ? "text-slate-700" : "text-slate-400"}`}>
+                  <td className={"py-1 pr-2 " + (isMapped ? "text-slate-700" : "text-slate-400")}>
                     {row.label}
                   </td>
 
-                  {/* Key column: canonical key for mapped, editable input for unmapped */}
                   <td className="py-1 pr-1">
-                    {isMapped ? (
-                      <span className="font-mono text-[var(--px-accent)]">
-                        {canonicalKey}
-                        {precedence && precedence !== "STATUTORY_NOK" && (
-                          <span className="ml-1 text-[10px] text-slate-400">
-                            ({precedence === "NOTE_DERIVED" ? "note" : "ODL"})
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      <input
-                        list="canonical-keys-list"
-                        value={unmappedKey}
+                    <div className="flex flex-col gap-1">
+                      <select
+                        value={selectedMetricKey}
                         onChange={(e) => {
-                          const v = e.target.value;
-                          setUnmappedEdits((prev) => ({
+                          const value = e.target.value;
+                          setRowEdits((prev) => {
+                            if (!value || (isMapped && value === canonicalKey)) {
+                              return removeRowEdit(prev, rowId);
+                            }
+                            return {
+                              ...prev,
+                              [rowId]: {
+                                ...(prev[rowId] ?? { mainValue: "", priorValue: "" }),
+                                metricKey: value,
+                                sourceMetricKey: canonicalKey,
+                              },
+                            };
+                          });
+                        }}
+                        className={
+                          "w-full min-w-[160px] rounded-xl border px-2 py-1 font-mono text-xs focus:outline-none " +
+                          (!isMapped || hasKeyOverride
+                            ? "border-amber-300 bg-amber-50 text-amber-900 focus:border-amber-400"
+                            : "border-[rgba(15,23,42,0.10)] bg-white text-[var(--px-accent)] focus:border-[var(--px-accent)]")
+                        }
+                      >
+                        {!isMapped && <option value="">tildel nøkkel…</option>}
+                        {allowedMetricKeys.map((metricKey) => (
+                          <option key={metricKey} value={metricKey}>
+                            {metricKey}
+                          </option>
+                        ))}
+                      </select>
+                      {hasKeyOverride && canonicalKey && (
+                        <span className="font-mono text-[10px] text-slate-400">
+                          Oppr.: {canonicalKey}
+                        </span>
+                      )}
+                      {!hasKeyOverride && precedence && precedence !== "STATUTORY_NOK" && (
+                        <span className="text-[10px] text-slate-400">
+                          {precedence === "NOTE_DERIVED" ? "Avledet fra note" : "Avledet fra ODL"}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  <td
+                    className={
+                      "py-1 pr-1 text-right font-mono tabular-nums " +
+                      (hasMainManual
+                        ? "text-slate-300 line-through"
+                        : isMapped
+                          ? "text-slate-700"
+                          : "text-slate-400")
+                    }
+                  >
+                    {fallbackMainValue !== null ? formatIntegerString(fallbackMainValue) : "—"}
+                  </td>
+
+                  <td className="py-1 pr-1">
+                    {hasKeyOverride || !isMapped ? (
+                      <input
+                        value={mainManualValue}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setRowEdits((prev) => ({
                             ...prev,
-                            [rowId]: { ...(prev[rowId] ?? { mainValue: "", priorValue: "" }), metricKey: v },
+                            [rowId]: {
+                              ...(prev[rowId] ?? { metricKey: selectedMetricKey, priorValue: "" }),
+                              metricKey: selectedMetricKey,
+                              mainValue: value,
+                              sourceMetricKey: canonicalKey,
+                            },
                           }));
                         }}
-                        placeholder="tildel nøkkel…"
-                        className="w-full min-w-[120px] rounded border border-dashed border-amber-300 bg-amber-50 px-1.5 py-0.5 font-mono text-xs text-amber-800 placeholder-amber-300 focus:outline-none focus:border-amber-400"
+                        placeholder="—"
+                        className={
+                          "w-full min-w-[80px] rounded-xl border px-1.5 py-0.5 font-mono text-xs focus:outline-none " +
+                          (hasMainManual
+                            ? "border-amber-300 bg-amber-50 text-amber-800"
+                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]")
+                        }
                       />
-                    )}
-                  </td>
-
-                  {/* Main year: proposed */}
-                  <td
-                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
-                      isMapped
-                        ? hasMainManual ? "text-slate-300 line-through" : "text-slate-700"
-                        : hasUnmappedMainManual ? "text-slate-300 line-through" : "text-slate-400"
-                    }`}
-                  >
-                    {displayMain}
-                  </td>
-
-                  {/* Main year: manual input */}
-                  <td className="py-1 pr-1">
-                    {isMapped && editIdx >= 0 ? (
+                    ) : isMapped && editIdx >= 0 ? (
                       <input
-                        value={mainManual}
+                        value={mainManualValue}
                         onChange={(e) => {
                           setEditableFacts((prev) => {
                             const next = [...prev];
@@ -1660,118 +1827,98 @@ function AsReportedSection({
                           });
                         }}
                         placeholder="—"
-                        className={`w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none ${
-                          hasMainManual
+                        className={
+                          "w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none " +
+                          (hasMainManual
                             ? "border-amber-300 bg-amber-50 text-amber-800"
-                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-600 focus:border-[var(--px-accent)]"
-                        }`}
-                      />
-                    ) : !isMapped ? (
-                      <input
-                        value={unmappedMainValue}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setUnmappedEdits((prev) => ({
-                            ...prev,
-                            [rowId]: { ...(prev[rowId] ?? { metricKey: "", priorValue: "" }), mainValue: v },
-                          }));
-                        }}
-                        placeholder="—"
-                        className={`w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none ${
-                          hasUnmappedMainManual
-                            ? "border-amber-300 bg-amber-50 text-amber-800"
-                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]"
-                        }`}
+                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-600 focus:border-[var(--px-accent)]")
+                        }
                       />
                     ) : (
                       <span className="text-slate-300">—</span>
                     )}
                   </td>
 
-                  {/* Main year: endelig */}
                   <td
-                    className={`py-1 pr-1 text-right font-mono tabular-nums font-medium ${
-                      isMapped
-                        ? hasMainManual ? "text-amber-700" : "text-slate-700"
-                        : hasUnmappedMainManual ? "text-amber-700" : "text-slate-400"
-                    }`}
+                    className={
+                      "py-1 pr-1 text-right font-mono tabular-nums font-medium " +
+                      (hasMainManual
+                        ? "text-amber-700"
+                        : isMapped
+                          ? "text-slate-700"
+                          : "text-slate-400")
+                    }
                   >
-                    {isMapped
-                      ? formatIntegerString(mainEndelig)
-                      : unmappedMainEndelig !== null
-                        ? formatIntegerString(unmappedMainEndelig)
-                        : "—"}
+                    {effectiveMainValue !== null ? formatIntegerString(effectiveMainValue) : "—"}
                   </td>
 
-                  {/* Prior year: proposed */}
                   <td
-                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
-                      isMapped
-                        ? hasPriorManual ? "text-slate-300 line-through" : "text-slate-400"
-                        : hasUnmappedPriorManual ? "text-slate-300 line-through" : "text-slate-400"
-                    }`}
+                    className={
+                      "py-1 pr-1 text-right font-mono tabular-nums " +
+                      (hasPriorManual ? "text-slate-300 line-through" : "text-slate-400")
+                    }
                   >
-                    {displayPrior}
+                    {fallbackPriorValue !== null ? formatIntegerString(fallbackPriorValue) : "—"}
                   </td>
 
-                  {/* Prior year: manual input */}
                   <td className="py-1 pr-1">
-                    {isMapped && canonicalKey ? (
+                    {hasKeyOverride || !isMapped ? (
                       <input
-                        value={priorManual}
+                        value={priorManualValue}
                         onChange={(e) => {
-                          const v = e.target.value;
-                          setPriorYearEdits((prev) => ({ ...prev, [canonicalKey]: v }));
-                        }}
-                        placeholder="—"
-                        className={`w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none ${
-                          hasPriorManual
-                            ? "border-amber-300 bg-amber-50 text-amber-800"
-                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]"
-                        }`}
-                      />
-                    ) : !isMapped ? (
-                      <input
-                        value={unmappedPriorValue}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setUnmappedEdits((prev) => ({
+                          const value = e.target.value;
+                          setRowEdits((prev) => ({
                             ...prev,
-                            [rowId]: { ...(prev[rowId] ?? { metricKey: "", mainValue: "" }), priorValue: v },
+                            [rowId]: {
+                              ...(prev[rowId] ?? { metricKey: selectedMetricKey, mainValue: "" }),
+                              metricKey: selectedMetricKey,
+                              priorValue: value,
+                              sourceMetricKey: canonicalKey,
+                            },
                           }));
                         }}
                         placeholder="—"
-                        className={`w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none ${
-                          hasUnmappedPriorManual
+                        className={
+                          "w-full min-w-[80px] rounded-xl border px-1.5 py-0.5 font-mono text-xs focus:outline-none " +
+                          (hasPriorManual
                             ? "border-amber-300 bg-amber-50 text-amber-800"
-                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]"
-                        }`}
+                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]")
+                        }
+                      />
+                    ) : isMapped && canonicalKey ? (
+                      <input
+                        value={priorManualValue}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setPriorYearEdits((prev) => ({ ...prev, [canonicalKey]: value }));
+                        }}
+                        placeholder="—"
+                        className={
+                          "w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none " +
+                          (hasPriorManual
+                            ? "border-amber-300 bg-amber-50 text-amber-800"
+                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]")
+                        }
                       />
                     ) : (
                       <span className="text-slate-300">—</span>
                     )}
                   </td>
 
-                  {/* Prior year: endelig */}
                   <td
-                    className={`py-1 pr-1 text-right font-mono tabular-nums font-medium ${
-                      isMapped
-                        ? hasPriorManual ? "text-amber-700" : "text-slate-400"
-                        : hasUnmappedPriorManual ? "text-amber-700" : "text-slate-400"
-                    }`}
+                    className={
+                      "py-1 pr-1 text-right font-mono tabular-nums font-medium " +
+                      (hasPriorManual ? "text-amber-700" : "text-slate-400")
+                    }
                   >
-                    {isMapped
-                      ? formatIntegerString(priorEndelig)
-                      : unmappedPriorEndelig !== null
-                        ? formatIntegerString(unmappedPriorEndelig)
-                        : "—"}
+                    {effectivePriorValue !== null ? formatIntegerString(effectivePriorValue) : "—"}
                   </td>
 
                   <td className="py-1 pr-1 text-right font-mono text-slate-400">
                     {row.pageNumber}
                   </td>
                   <td className="py-1 text-right font-mono text-slate-400">
-                    {confidence != null ? `${(confidence * 100).toFixed(0)}%` : "—"}
+                    {confidence != null ? (confidence * 100).toFixed(0) + "%" : "—"}
                   </td>
                 </tr>
               );

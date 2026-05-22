@@ -430,6 +430,32 @@ describe("correctAnnualReportReview", () => {
     expect(acceptedData.some((d) => d.metricKey === "revenue")).toBe(false);
   });
 
+  it("excludes the original machine fact when a row is reassigned to a new metric key", async () => {
+    const corrections = {
+      facts: [
+        {
+          metricKey: "other_operating_income",
+          sourceMetricKey: "revenue",
+          fiscalYear: 2023,
+          value: "4500000",
+          unitScale: 1000,
+        },
+      ],
+    };
+
+    await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
+
+    type ReviewedFactArg = [{ data: Array<{ correctionSource: string; metricKey: string }> }];
+    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls as unknown as ReviewedFactArg[];
+    const acceptedMachineCall = calls.find(([arg]) =>
+      arg.data.some((d) => d.correctionSource === "ACCEPTED_MACHINE"),
+    );
+    expect(acceptedMachineCall).toBeDefined();
+    const acceptedData = acceptedMachineCall![0].data;
+    expect(acceptedData.some((d) => d.metricKey === "revenue")).toBe(false);
+    expect(acceptedData.some((d) => d.metricKey === "total_assets")).toBe(true);
+  });
+
   it("converts large integer string to BigInt safely", async () => {
     const largeValue = "9007199254740993"; // beyond Number.MAX_SAFE_INTEGER
     const corrections = {

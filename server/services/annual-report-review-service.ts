@@ -36,6 +36,7 @@ export class ReviewConflictError extends Error {
 
 export type FactCorrection = {
   metricKey: string;
+  sourceMetricKey?: string | null;
   fiscalYear: number;
   value: string | null;
   rawLabel?: string | null;
@@ -389,7 +390,7 @@ export async function correctAnnualReportReview(
     for (const fact of corrections.facts) {
       const before = _findFactBefore(
         beforePayload as Record<string, unknown> | null,
-        fact.metricKey,
+        fact.sourceMetricKey ?? fact.metricKey,
         fact.fiscalYear,
       );
       labelInputs.push({
@@ -398,9 +399,20 @@ export async function correctAnnualReportReview(
         reviewId: review.id,
         reviewerUserId,
         labelType: "FACT_VALUE",
-        targetRef: { metricKey: fact.metricKey, fiscalYear: fact.fiscalYear, sourcePage: fact.sourcePage ?? null } as Prisma.InputJsonValue,
+        targetRef: {
+          metricKey: fact.metricKey,
+          sourceMetricKey: fact.sourceMetricKey ?? null,
+          fiscalYear: fact.fiscalYear,
+          sourcePage: fact.sourcePage ?? null,
+        } as Prisma.InputJsonValue,
         proposedValue: before as Prisma.InputJsonValue ?? Prisma.JsonNull,
-        acceptedValue: { value: fact.value, rawLabel: fact.rawLabel, unitScale: fact.unitScale, sourcePage: fact.sourcePage } as Prisma.InputJsonValue,
+        acceptedValue: {
+          value: fact.value,
+          rawLabel: fact.rawLabel,
+          unitScale: fact.unitScale,
+          sourcePage: fact.sourcePage,
+          sourceMetricKey: fact.sourceMetricKey ?? null,
+        } as Prisma.InputJsonValue,
         sourcePayload: { ...fact, ...runMeta, decisionType: "CORRECTED" } as Prisma.InputJsonValue,
       });
     }
@@ -477,7 +489,13 @@ export async function correctAnnualReportReview(
     });
 
     // Build set of corrected metricKeys
-    const correctedMetricKeys = new Set((corrections.facts ?? []).map((f) => f.metricKey));
+    const correctedMetricKeys = new Set(
+      (corrections.facts ?? []).flatMap((f) =>
+        f.sourceMetricKey && f.sourceMetricKey !== f.metricKey
+          ? [f.metricKey, f.sourceMetricKey]
+          : [f.metricKey],
+      ),
+    );
 
     // Fetch machine facts and copy the non-corrected ones as ACCEPTED_MACHINE
     if (review.extractionRunId) {
