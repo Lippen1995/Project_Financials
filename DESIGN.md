@@ -1,473 +1,359 @@
-# DESIGN.md — Fjord Insight
+# DESIGN.md - Fjord Insight
 
-## Produkt og identitet
+## Source of Truth
 
-Fjord Insight er en norsk B2B-plattform for selskapsanalyse. Produktet skal føles som et presist analyseverktøy for investorer, rådgivere, selgere, regnskapsførere og ledere — ikke en bedriftskatalog, annonseportal eller generisk SaaS-mal.
+This spec is derived from the Stitch project `Norsk Selskapsanalyse` (`projects/1849530631394579527`), last updated on May 19, 2026.
 
-### Designkarakter
-- Nordic enterprise editorial
-- Data-first product UI
-- Premium analytical software
+Stitch evidence that this is the Fjord Insight project:
+- `Fjord Insight - Dashbord med Profil-dropdown`
+- `Fjord Insight - Dashbord med Åpen Profilmeny`
+- `Fjord Insight - Verifisering av årsrapport`
+- `Selskapsprofil med trendgrafer: Nordic Tech Solutions`
 
-### Referanseprodukter
-- `linear.app` — presisjon, spacing, arbeidsflate-logikk
-- `wise.com` — kommersiell troverdighet, institusjonell klarhet
-- `notion.so` — editorial ro, typografisk varme, whitespace
-- `hashicorp.com` — enterprise-korrektiv, disiplin
+This document is the implementation contract for React, Next.js, and Tailwind. Stitch is the visual reference. The app code must use project tokens and reusable components, not pasted Stitch markup.
 
 ---
 
-## Token-system
+## Design Direction
 
-Alle farger i koden skal referere til disse token-navnene. Hardkodede hex-verdier er **forbudt** med mindre tokennavnet er dokumentert her.
+Fjord Insight should feel like a Norwegian editorial research terminal:
+- calm
+- authoritative
+- data-first
+- premium, but restrained
+- optimized for analytical reading rather than marketing theatrics
 
-### CSS-variabler (`app/globals.css`)
+The visual character is "Nordic enterprise editorial":
+- editorial typography for page-level emphasis
+- sober enterprise surfaces
+- compact but readable data density
+- low-shadow, border-led hierarchy
+- strong distinction between narrative text, UI text, and data text
 
-| Token | Verdi | Bruk |
+---
+
+## Colors
+
+### Stitch Reference Palette
+
+These colors come directly from the Stitch project and describe the intended visual system:
+
+| Role | Value | Notes |
 |---|---|---|
-| `--px-bg` | `#f8f9ff` | Sidens bakgrunn (kjølig lysblå) |
-| `--px-surface` | `rgba(255,255,255,0.9)` | Primære kortflater |
-| `--px-surface-strong` | `#ffffff` | Hvite innholdsflater |
-| `--px-border` | `rgba(15,23,42,0.10)` | Standardkant |
-| `--px-border-subtle` | `rgba(15,23,42,0.08)` | Diskrete skiller |
-| `--px-text` | `#111827` | Primærtekst (mørk blåsvart) |
-| `--px-muted` | `#5f6b7a` | Sekundærtekst |
-| `--px-accent` | `#00668a` | Aksent, lenker, aktiv navigasjon (teal) |
-| `--px-accent-soft` | `rgba(0,102,138,0.09)` | Lys aksent-bakgrunn |
-| `--px-panel` | `#192536` | Mørke kontrastpaneler |
-| `--px-action` | `#00668a` | Primærknapper |
-| `--px-action-hover` | `#00526e` | Hover på primærknapper |
-| `--px-subtle` | `rgba(239,244,255,0.9)` | Lys sekundær bakgrunn |
+| Neutral background | `#F8F9FA` | Main workspace background |
+| Elevated surface | `#FFFFFF` | Cards, forms, focus areas |
+| Primary navy | `#1B2B3A` | Primary actions, headers, active states |
+| Deep ink | `#051625` | Strong text and dark emphasis |
+| Teal data accent | `#5F8D8A` | Positive trend and primary chart series |
+| Gold highlight | `#C5A059` | Benchmarks, emphasis, secondary data series |
+| Sand support | `#D6C7A1` | Tertiary chart fill or muted comparison |
+| Outline | `#C4C6CC` | Low-contrast border system |
+| Body text | `#191C1D` | Primary readable text |
+| Muted text | `#43474C` | Secondary text and metadata |
 
-### Farger i mørke paneler (`--px-panel`)
+### Implementation Rule
 
-| Rolle | Klasse |
+UI code must use CSS tokens only:
+- `var(--px-bg)`
+- `var(--px-surface)`
+- `var(--px-border)`
+- `var(--px-text)`
+- `var(--px-muted)`
+- `var(--px-accent)`
+- `var(--px-panel)`
+- `var(--px-action)`
+- `var(--px-action-hover)`
+- `var(--px-subtle)`
+- `var(--px-accent-soft)`
+
+Do not scatter Stitch hex values directly through components. Map the Stitch palette centrally in `app/globals.css`, then consume the tokens everywhere else.
+
+### Recommended Token Mapping
+
+| Token | Intended meaning from Stitch |
 |---|---|
-| Seksjonslabel | `text-white/60` |
-| Brødtekst | `text-white/80` |
-| Innrammede underbokser | `bg-white/10 border-white/10` |
+| `--px-bg` | Neutral background close to `#F8F9FA` |
+| `--px-surface` | Elevated card surface close to white |
+| `--px-border` | Soft outline close to `#C4C6CC` or approved subtle rgba |
+| `--px-text` | Deep readable ink close to `#191C1D` / `#111827` |
+| `--px-muted` | Secondary copy close to `#43474C` |
+| `--px-accent` | Primary navy based on `#1B2B3A` |
+| `--px-action` | Same family as `--px-accent` |
+| `--px-action-hover` | Slightly deeper navy state |
+| `--px-accent-soft` | Soft navy tint for hover and selection |
+| `--px-subtle` | Very light neutral structural background |
+| `--px-panel` | Dark analytical contrast panel |
 
-**Forbudt:** `text-white/72`, `/76`, `/82` og andre custom opacity-verdier.
+### Status
 
-### Statusfarger
+Status colors should stay sober and enterprise-safe:
+- success: muted emerald
+- warning: muted amber
+- error: muted rose
 
-| Status | Border | Bakgrunn | Tekst |
-|---|---|---|---|
-| Suksess | `border-emerald-200` | `bg-emerald-50` | `text-emerald-800` |
-| Advarsel | `border-amber-200` | `bg-amber-50` | `text-amber-700` |
-| Feil | `border-rose-200` | `bg-rose-50` | `text-rose-800` |
+Avoid neon status states or saturated SaaS blues.
 
 ---
 
-## Typografi
+## Typography
 
-Tre tydelige fontroller — aldri blandes på tvers av sin rolle.
+The Stitch project clearly separates editorial hierarchy, UI utility, and data labeling.
 
-### Fontroller
+### Font Roles
 
-| CSS-variabel | Google Font | Klasse/bruk |
+| Role | Font | Usage |
 |---|---|---|
-| `--font-serif` | Source Serif 4 | `.editorial-display` — primær H1, selskapsnavnet, store redaksjonelle overskrifter |
-| `--font-sans` | IBM Plex Sans | Standard — brødtekst, funksjonelle overskrifter, UI-tekst, tabeller |
-| `--font-mono` | IBM Plex Mono | `.data-label` — metadata-labels, seksjonsetiketter, tabelloverskrifter, badges |
+| Editorial display | Source Serif 4 | H1, page titles, major section headers |
+| UI sans | IBM Plex Sans | body text, controls, cards, labels with sentence casing |
+| Data mono | IBM Plex Mono | metadata, badges, table headers, tabular values, compact labels |
 
-### `.editorial-display`
+### Rules
 
-```css
-font-family: var(--font-serif), serif;
-letter-spacing: -0.05em;
-```
+- `.editorial-display` is reserved for H1 and major editorial headings only.
+- Functional card headings stay in IBM Plex Sans.
+- `.data-label` is always IBM Plex Mono and should usually be uppercase or compact metadata styling.
+- Financial and tabular values should use tabular figures.
 
-**Brukes for:**
-1. Sidens primære H1 — én per side
-2. Selskapsnavnet i company header
-3. Store redaksjonelle seksjonsoverskrifter (f.eks. «Siste selskapsanalyser»)
-4. Innlogget startside — produkttittel og command center-tittel
+### Stitch Size Guidance
 
-**Brukes IKKE for:**
-- Funksjonelle kortoverskrifter («Rask vurdering», «Finansielle signaler»)
-- Tabellhoder, paneltitler, UI-elementer
-
-**Tommelfingerregel:** Redaksjonell inngang til innhold → serif. Funksjonelt UI-element → sans.
-
-### `.data-label`
-
-```css
-font-family: var(--font-mono), monospace;
-letter-spacing: 0.14em;
-```
-
-**Brukes for:**
-- Seksjonsetiketter (`REGNSKAP`, `ENERGY SECTOR`, `TRENDING SØK`)
-- Metadata-labels (`Org.nr.`, `Kommune`, `EBIT`, `NACE`)
-- Tabelloverskrifter
-- Badges, kategoripills, status-labels
-- Personlig hilsen på innlogget startside
-
-### Tekststørrelser
-
-| Bruk | Klasse | Font |
-|---|---|---|
-| Display H1 (offentlig forside) | `text-[4.8rem]`–`text-[6.15rem]` | `.editorial-display` |
-| Display H1 (interne sider) | `text-[3rem]`–`text-[4rem]` | `.editorial-display` |
-| Innlogget startside — tittel | `text-[3rem]`–`text-[4rem]` | `.editorial-display` |
-| Redaksjonell seksjonsoverskrift | `text-[2rem] font-semibold` | `.editorial-display` |
-| Funksjonell seksjonsoverskrift | `text-[1.7rem] font-semibold` | sans |
-| Kortoverskrift | `text-lg`–`text-xl font-semibold` | sans |
-| Dataverdi (stor) | `text-[1.45rem] font-semibold tabular-nums` | sans |
-| Brødtekst | `text-sm leading-7` | sans |
-| Ingresstekst | `text-[1.02rem] leading-8` | sans |
-| Data-label | `text-[11px] font-semibold uppercase tracking-[0.14em]` | `.data-label` (mono) |
-
----
-
-## Radius og spacing
-
-### Radius — tre tillatte verdier
-
-| Tailwind | px | Bruk |
-|---|---|---|
-| `rounded-2xl` | 16px | Ytre kort, modulkort, flash-meldinger, tomme tilstander |
-| `rounded-xl` | 12px | Indre bokser, listeelementer, input-felt |
-| `rounded-full` | — | Badges, pills, knapper |
-
-**Forbudt:** Alle `rounded-[...]` custom verdier, `rounded-lg`, `rounded-md`, `rounded-3xl`.
-
-**Unntak:** Finansielle tabeller bruker ingen radius — bevisst valg for analytisk preg.
-
-### Spacing
-
-- Seksjonsgap: `space-y-6`, `space-y-8`, `space-y-10`
-- Grid-gap: `gap-4`, `gap-6`, `gap-8`
-- Padding: `p-5` (kompakt), `p-6` (standard), `p-8` (hero)
-
----
-
-## Layout
-
-### Primær navigasjonsstruktur: horisontal toppbar
-
-**Alle sider bruker horisontal toppbar. Ingen venstrerail.**
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│ Fjord Insight  │  Søk  │  Due Diligence  │  ...  │  Konto  │ JS│
-└──────────────────────────────────────────────────────────────────┘
-```
-
-#### Toppbar-spec
-
-| Egenskap | Verdi |
+| Token | Value |
 |---|---|
-| Høyde | `h-16`, fast og `sticky top-0` |
-| Bakgrunn | `--px-surface` med `backdrop-blur` |
-| Venstre | Produktnavn + tier-label |
-| Midtre | Nav-items med ikon + tekst |
-| Høyre | Konto, logg ut, bruker-avatar |
+| `headline-xl` | `40px / 1.2 / 600` |
+| `headline-lg` | `30px / 1.25 / 600` |
+| `headline-md` | `24px / 1.3 / 500` |
+| `body-lg` | `16px / 1.5 / 400` |
+| `body-md` | `14px / 1.4 / 400` |
+| `ui-label` | `13px / 1 / 500` |
+| `data-table` | `13px / 1 / 450` |
+| `metadata` | `11px / 1 / 400` |
 
-#### Nav-ikoner (Material Symbols Outlined, wght 400, fill 0)
+### Implementation Guidance
 
-| Lenke | Ikon |
+- Use Source Serif 4 sparingly so it keeps its authority.
+- Prefer IBM Plex Sans for all interactive UI.
+- Use IBM Plex Mono for:
+  - metadata labels
+  - section overlines
+  - table headers
+  - badges
+  - financial microdata
+
+---
+
+## Spacing
+
+The Stitch project uses a compact 4px system with disciplined density.
+
+### Base System
+
+| Element | Value |
 |---|---|
-| Søk | `search` |
-| Due Diligence | `fact_check` |
-| Distressed | `warning` |
-| Olje & gass | `oil_barrel` |
-| Tilgang | `key` |
-| Admin | `admin_panel_settings` |
-| Konto | `account_circle` |
-| Logg ut | `logout` |
+| Base unit | `4px` |
+| Grid gutter | `16px` |
+| Outer margin | `24px` |
+| Max container | `1440px` |
+| Dense table horizontal padding | `8px` |
 
-#### Aktiv nav-item
-```
-border-b-2 border-[var(--px-accent)] text-[var(--px-accent)] font-semibold
-```
+### Tailwind Guidance
 
-#### Inaktiv nav-item
-```
-text-[var(--px-muted)] hover:bg-[var(--px-subtle)] transition-colors
-```
+- Use `gap-4`, `gap-6`, `gap-8`
+- Use `p-5` or `p-6` for outer cards
+- Use `rounded-2xl` for outer cards
+- Use `rounded-xl` for internal boxes and inputs
+- Use `rounded-full` for buttons, pills, and badges
+- Financial tables should stay sharp and mostly unradiused
+
+Avoid custom spacing values unless they are necessary to match a specific responsive constraint.
 
 ---
 
-## Sidetype-mønstre
+## Layout Rules
 
-### 1. Offentlig forside (uinnlogget)
+The Stitch project shows a consistent desktop-first analytical shell with top navigation and structured content zones.
 
-Markedsflate for ikke-innloggede brukere. Viser produktets verdi og driver til innlogging.
+### Global Shell
 
-```
-Todelt layout
-├── Venstre (lys): H1 editorial-display + ingresstekst + søkefelt + feature-poeng
-└── Høyre (--px-panel, mørk): live data-panel, nøkkeltall, troverdighets-signaler
-```
+- Sticky top navigation, not a permanent left rail
+- Broad desktop canvas with disciplined max width
+- 12-column fluid grid for page composition
+- Data panels grouped through borders and tonal layers, not heavy shadows
 
-Referanse: `app/page.tsx`
+### Page Patterns
 
-### 2. Innlogget startside (command center)
+#### 1. Logged-in dashboard
 
-**Dette er ikke en markedsside.** Det er applikasjonens arbeidsflate-inngang etter innlogging.
+Reference screens:
+- `projects/1849530631394579527/screens/00e0ead43a8f4b62a25b8011fc8c7e8c` - `Fjord Insight - Dashbord med Profil-dropdown`
+- `projects/1849530631394579527/screens/917b7e8fccd243aea12d3566f8fa73bf` - `Fjord Insight - Dashbord med Åpen Profilmeny`
 
-```
-Sentrert, max-w-4xl, text-center
-├── .data-label — personlig hilsen («Hei Johannsen, hva skal vi analysere i dag?»)
-├── h1 .editorial-display — produktets søketittel
-├── Søkefelt — linje-stil (border-bottom, ingen boks/kortramme)
-│   └── .data-label — datakilde-note under søk
-├── Forslag-tags — trending søk, aktuelle selskaper, bransjefokus
-└── Redaksjonelle innholdsseksjoner
-```
+Rules:
+- top nav with account/profile control on the right
+- search and discovery should feel central to the workflow
+- cards and lists should read like an analyst workspace, not a marketing dashboard
 
-**Søkefelt — linje-stil:**
-```
-border-b-2 border-[var(--px-border)] focus:border-[var(--px-accent)] bg-transparent py-4 pl-12
-```
+#### 2. Company profile
 
-Referanse: `app/(app)/dashboard/page.tsx`
+Reference screens:
+- `projects/1849530631394579527/screens/00ca8d9c47354948acc0cc542616008e`
+- `projects/1849530631394579527/screens/8f8b695ec8c3404993cb017a276b059a`
 
-### 3. Selskapsprofil
+Rules:
+- primary content area plus supporting context
+- trend graphs, metadata, and roles should live in clearly separated blocks
+- chart sections should be calm and legible, never overly colorful
 
-```
-├── CompanyHeader — kompakt, juridisk metadata + selskapsnavn (.editorial-display) + signaler
-├── Sticky sekundærnavigasjon — faner (Oversikt, Regnskap, Nøkkeltall, ...)
-└── Innholdsområde (grid 12 kolonner)
-    ├── col-span-9 — primært analyseinnhold
-    └── col-span-3 — kontekstuell høyrekolonne (persistent gjennom alle faner)
-```
+#### 3. Onboarding flow
 
-Høyrekolonnen (3/12) er en **analytisk støttekolonne** — ikke et widgetpanel. Den inneholder markedskontekst, raske lenker, varsler og DD-notater.
+Reference screens:
+- `projects/1849530631394579527/screens/d576e0f503754455824cfa845e1e1cf9` - `Onboarding: Identitet`
+- `projects/1849530631394579527/screens/3f394913e34749519137f95a1ddbed68` - `Onboarding: Utdanning & Ekspertise (Steg 3)`
+- `projects/1849530631394579527/screens/8df7206a16cb42938c1a8378b576d609` - `Onboarding: Profesjonell tilknytning`
+- `projects/1849530631394579527/screens/edae2e68dd6c48529e5bc8701aba1a1b` - `Onboarding: Kontakt & Sted (Steg 4)`
+- `projects/1849530631394579527/screens/bf358c7d914541cca34996fc45028e94` - `Onboarding: Forhåndsvisning (Steg 5)`
 
-Referanse: `app/(app)/companies/[slug]/page.tsx`
+Rules:
+- single primary task per step
+- clear vertical progress rhythm
+- large editorial heading, then focused form structure
+- avoid over-carded wizard UI
 
-### 4. Søkeside
+#### 4. User profile
 
-Todelt layout: filterpanel til venstre (~320px), resultatliste til høyre.
+Reference screens:
+- `projects/1849530631394579527/screens/b0005886642f4468b46588b8f04e0253` - `Brukerprofil: Johannsen`
+- `projects/1849530631394579527/screens/25580ca5a42e4a8fb627b0934d23e5b8` - `Rediger profil`
+- `projects/1849530631394579527/screens/01acff76c329422cb920c01d13f9d68d` - `Brukerprofil: Klassisk Redaksjonell-variant`
+- `projects/1849530631394579527/screens/dfaee66fbaef4ea88f5f207b77974f77` - `Brukerprofil: Strukturert Nettverk-variant`
+- `projects/1849530631394579527/screens/c04e38bc66714314b022c4fe83cd794f` - `Brukerprofil: Student-variant`
+- `projects/1849530631394579527/screens/f084d0ffb9dd41658eaae5162a827764` - `Brukerprofil: Analytisk Dashbord-variant`
 
-Referanse: `app/(app)/search/page.tsx`
+Rules:
+- profile pages should feel editorial and credible, not social
+- identity, credentials, affiliations, and expertise should be grouped explicitly
+- editable controls should be quieter than the data itself
 
----
+#### 5. Verification / operations
 
-## Redaksjonelle innholdsmønstre
+Reference screen:
+- `projects/1849530631394579527/screens/a4e34aa9180d4fc58ec304f0fb411daa` - `Fjord Insight - Verifisering av årsrapport`
 
-### Seksjonsoverskrift (editorial stil)
-
-```html
-<div class="flex justify-between items-end border-b border-[var(--px-text)] pb-2 mb-8">
-  <h2 class="editorial-display text-[2rem]">Siste selskapsanalyser</h2>
-  <a class="data-label text-[var(--px-accent)]">SE ALLE →</a>
-</div>
-```
-
-Kjennetegn: tung `border-bottom` mot `--px-text`, serif, valgfri høyre-handling.
-
-### Artikkel/innsikt-rad
-
-```
-grid grid-cols-12 gap-8 py-8 border-b border-[var(--px-border)]
-├── col-span-3 — .data-label: kategori + dato
-├── col-span-6 — h4 .editorial-display: overskrift + brødtekst
-└── col-span-3 — bilde (grayscale, hover: farge) — valgfritt
-```
-
-### Forslag-tags (innlogget startside)
-
-```
-border border-[var(--px-border)] px-4 py-3 rounded-xl
-hover:border-[var(--px-accent)] hover:bg-[var(--px-accent-soft)]
-├── .data-label — kategori (f.eks. «TRENDING SØK»)
-└── font-semibold — innhold (f.eks. «Kvartalsrapporter: Energi»)
-```
+Rules:
+- emphasize traceability and review state
+- support dense operational detail
+- use compact data blocks with strong labeling discipline
 
 ---
 
-## Komponentspesifikasjoner
+## Component Hierarchy
 
-### Knapper
+The UI should be built from reusable pieces in this order:
 
-| Type | Klasser |
-|---|---|
-| Primær | `rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--px-action-hover)] transition-colors` |
-| Sekundær | `rounded-full border border-[var(--px-border)] bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-[rgba(15,23,42,0.2)] transition-colors` |
-| Tekst-lenke | `text-[var(--px-accent)] text-sm font-semibold hover:underline` |
+1. `AppShell`
+2. `TopNav`
+3. `CommandSearch`
+4. `PageHeader`
+5. `SectionHeader`
+6. `Card`
+7. `DataPanel`
+8. `MetricRow`
+9. `Badge`
+10. `EntityMetaList`
+11. `DataTable`
+12. `ChartPanel`
+13. `EmptyState`
+14. `ErrorState`
+15. `LoadingSkeleton`
+16. `OnboardingStepper`
+17. `ProfileSection`
+18. `ProfileFieldList`
+19. `VerificationPanel`
 
-### Badges og pills
+### Composition Guidance
 
-```
-rounded-full border border-[var(--px-border)] bg-white px-3 py-1
-text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600
-```
-
-### Kort (Card)
-
-```
-rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6
-```
-
-Indre statistikkboks:
-```
-rounded-xl border border-[var(--px-border-subtle)] bg-white p-4
-```
-
-Indre listeelement:
-```
-rounded-xl border border-[var(--px-border-subtle)] bg-[var(--px-subtle)] p-4
-```
-
-### Input-felt
-
-```
-rounded-xl border border-[var(--px-border)] bg-white px-4 py-3 text-sm
-outline-none focus:border-[var(--px-accent)] transition-colors
-```
-
-### Tabeller
-
-- Ingen radius på tabellen selv
-- Kolonneoverskrifter: `.data-label text-[11px]`
-- Tall: `tabular-nums`
-- Rad-hover: `hover:bg-[var(--px-subtle)]`
-- Negative tall: `text-rose-700`
-- Siste rad (sum/total): `font-semibold border-t border-[var(--px-border)]`
-
-### Tomme tilstander
-
-```
-rounded-2xl border border-dashed border-[rgba(15,23,42,0.14)]
-bg-[var(--px-subtle)] p-6 text-sm leading-7 text-slate-600
-```
-
-### Flash-meldinger / varsler
-
-```
-Feil:     rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-800
-Suksess:  rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800
-Info:     rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800
-```
-
-### Grafer
-
-- Tynn strek, dempet gridlines, minimal fyllflate
-- Primær dataserie: `--px-accent` (`#00668a`)
-- Sekundær dataserie: dempet brun/sand (`#8b7355` e.l.)
-- Ingen dekorative fill-areas uten analytisk formål
-- Tooltip: kompakt, hvit boks med `rounded-xl border shadow-sm`
-
-### Skeleton-loading
-
-```
-rounded-xl bg-[var(--px-border)] animate-pulse
-```
+- `AppShell` owns navigation, page padding, and responsive structure.
+- `PageHeader` owns editorial H1 plus supporting metadata.
+- `DataPanel` and `Card` should be visually close, but `DataPanel` is denser and more analytical.
+- `OnboardingStepper` should orchestrate the sequence, not own field rendering details.
+- `ProfileSection` should support both read and edit modes.
+- `DataTable` and `ChartPanel` must share spacing and labeling conventions.
 
 ---
 
-## Tilstander
+## React / Next / Tailwind Guidance
 
-| Tilstand | Implementasjon |
-|---|---|
-| **Tom** | Dashed border + forklaringstekst (se «Tomme tilstander» over) |
-| **Feil** | Rød flash-melding øverst i seksjonen |
-| **Laster** | Skeleton-elementer som matcher innholdsstrukturen |
-| **Ikke tilgjengelig** | Tydelig melding uten å bryte layout |
-| **Betalingsmur** | `components/paywall/premium-lock.tsx` |
+### Architecture
 
----
+- Keep provider, normalization, persistence, API, and frontend layers separate.
+- Frontend must consume normalized internal models, never raw external API responses.
+- Do not introduce mock companies, mock people, or fake financials.
 
-## Språk og microcopy
+### React
 
-All tekst skal være norsk, presis og profesjonell.
+- Use TypeScript everywhere.
+- Prefer server components for data-backed page shells where it fits the existing app.
+- Keep client components focused on interactivity: filters, dropdowns, tabs, inline editing, and chart controls.
+- Build small composable components rather than large screen-specific JSX files.
 
-| Unngå | Bruk heller |
-|---|---|
-| «Executive snapshot» | «Hovedsignaler» |
-| «Workspace» | «Arbeidsflate» |
-| «Admin» (synlig UI) | «Administrator» |
-| «Dashboard» | «Oversikt» eller «Startside» |
-| «Loading...» | «Laster...» |
-| Engelske forkortelser | Norske ekvivalenter der de finnes |
+### Next.js
 
-Regler:
-- Korrekt norsk alfabet: `Æ Ø Å` — aldri `Ae`, `Oe`, `Aa`
-- Behold juridiske/tekniske termer der de er standard (BRREG, NACE, EBIT)
-- Unngå intern MVP-copy i synlig UI (`mockdata`, `kildeoppslag`, `TODO`)
+- Treat route segments as page shells and move dense UI into reusable components.
+- Put loading, error, and empty states near the route boundary.
+- Keep authenticated app chrome consistent across dashboard, search, company, and profile flows.
 
----
+### Tailwind
 
-## Do og Don't
+- Use design tokens via CSS variables for all product color decisions.
+- Respect the allowed radius system only:
+  - `rounded-2xl`
+  - `rounded-xl`
+  - `rounded-full`
+- Prefer:
+  - `border border-[var(--px-border)]`
+  - `bg-[var(--px-surface)]`
+  - `text-[var(--px-text)]`
+  - `text-[var(--px-muted)]`
+- Favor border and tonal separation over shadows.
 
-### Do
-- Bruk horisontal toppbar — ikke venstrerail
-- Bruk Material Symbols-ikoner i alle nav-items (ikon + tekst)
-- Bruk `.editorial-display` for H1 og store redaksjonelle seksjonsoverskrifter
-- Bruk linje-stil søkefelt på innlogget startside
-- Hold selskapsprofil i 9/3-grid gjennom alle faner
-- Bruk kun de tre tillatte radius-verdiene
-- Referer alltid til CSS-variabler for farger — aldri hardkode hex
+### Forms
 
-### Don't
-- Ikke bygg venstrerail-navigasjon
-- Ikke bruk `.editorial-display` for funksjonelle kortoverskrifter
-- Ikke bruk `rounded-[...]` custom verdier
-- Ikke hardkod farger — bruk CSS-variabler
-- Ikke bygg generiske SaaS-dashboards
-- Ikke fyll høyrekolonnen med widgeter uten analytisk verdi
-- Ikke forveksle innlogget startside med offentlig forside
-- Ikke bruk engelske labels i ellers norske flater
+- Onboarding and profile forms should use clear labels above inputs.
+- Group fields by identity, expertise, affiliation, and contact context.
+- Keep one primary action per step.
 
----
+### Tables and charts
 
-## Agent-sjekkliste
+- Tables should prioritize scanning speed:
+  - mono labels
+  - tabular numbers
+  - restrained row hover
+  - minimal borders
+- Charts should use navy, teal, and gold sparingly.
+- Avoid decorative gradients, glossy cards, or visual noise.
 
-Bruk denne listen når du bygger eller reviewer en ny side/komponent:
+### Empty / loading / unavailable
 
-**Layout:**
-- [ ] Bruker siden horisontal toppbar (ikke venstrerail)?
-- [ ] Har alle nav-items ikon + tekst fra Material Symbols?
-- [ ] Er aktiv nav-item markert med `border-b-2 border-[var(--px-accent)]`?
-
-**Sidetype:**
-- [ ] Er innlogget startside sentrert med linje-søkefelt (ikke todelt hero)?
-- [ ] Er offentlig forside todelt (lys venstre + mørk høyrepanel)?
-- [ ] Har selskapsprofilen 9/3-grid gjennom alle faner?
-
-**Typografi:**
-- [ ] Bruker store redaksjonelle seksjoner `.editorial-display`?
-- [ ] Er funksjonelle kortoverskrifter i sans?
-- [ ] Er alle metadata-labels i `.data-label` (mono)?
-
-**Radius:**
-- [ ] Kun `rounded-2xl`, `rounded-xl` eller `rounded-full`?
-- [ ] Ingen `rounded-lg`, `rounded-md`, `rounded-[...]`?
-
-**Farger:**
-- [ ] Alle farger via CSS-variabler (`var(--px-...)`)?
-- [ ] Mørke paneler: kun `text-white/60` og `text-white/80`?
-- [ ] Ingen hardkodede hex-verdier?
-
-**Innhold:**
-- [ ] All tekst på korrekt norsk?
-- [ ] Korrekt norsk alfabet (`Æ Ø Å`)?
-- [ ] Tomme tilstander definert?
-- [ ] Loading-tilstand definert?
+- Every data-backed area must define loading, error, empty, and unavailable states.
+- If a real external source does not provide data, show that honestly instead of backfilling synthetic content.
 
 ---
 
-## Referansefiler
+## Non-Negotiables
 
-| Formål | Fil |
-|---|---|
-| CSS-tokens og globale stiler | `app/globals.css` |
-| Fonter og metadata | `app/layout.tsx` |
-| Offentlig forside-mønster | `app/page.tsx` |
-| Innlogget startside | `app/(app)/dashboard/page.tsx` |
-| Selskapsprofil (hoved) | `app/(app)/companies/[slug]/page.tsx` |
-| Søkeside | `app/(app)/search/page.tsx` |
-| Standard Card-komponent | `components/ui/card.tsx` |
-| Finansielle tabeller | `components/company/financial-time-series-table.tsx` |
-| Organisasjonsstruktur | `components/company/organization-tab.tsx` |
-| Tailwind-konfig og MD3-tokens | `tailwind.config.ts` |
+- No mock data
+- No hardcoded fake businesses or people
+- No raw Stitch HTML pasted into the product
+- No purple-on-white SaaS aesthetic
+- No heavy shadow system
+- No uncontrolled hex usage throughout component code
+- No mixing serif into functional UI labels
 
 ---
 
-## Hurtigprompt for agenter
+## Working Summary
 
-> Bygg i Fjord Insight-stil: horisontal toppbar med Material Symbols-ikoner + tekst i nav, lys nordisk enterprise editorial, data-first, premium analytisk. Source Serif 4 (`.editorial-display`) for primær H1 og store redaksjonelle seksjonsoverskrifter. IBM Plex Sans for funksjonelle overskrifter og UI-tekst. IBM Plex Mono (`.data-label`) for metadata, labels, tabelloverskrifter og kategoripills. Fargepalett: kjølig bakgrunn (`--px-bg: #f8f9ff`), teal aksent (`--px-accent: #00668a`). Alle farger via CSS-variabler — aldri hardkodede hex. Knapper er `rounded-full`. Kort er `rounded-2xl`. Indre bokser er `rounded-xl`. Ingen andre radius-verdier. Selskapsprofil bruker 9/3-kolonner gjennom alle faner. Innlogget startside: sentrert søkehero med linje-søkefelt. Offentlig forside: todelt (lys venstre + mørk `--px-panel` høyrepanel). Unngå generisk SaaS-dashboard, startup-gradienter og engelske labels i norsk UI.
+If a new screen is added, it should pass this test:
+- Does it look like it belongs beside the Stitch dashboard, onboarding, and profile screens above?
+- Does it use editorial serif only for real emphasis?
+- Does it treat data as the primary content?
+- Does it stay calm, compact, and credible?
+- Does it use project tokens and reusable components rather than screen-specific styling hacks?
