@@ -16,10 +16,11 @@
  * training labels) come from.
  *
  * Usage:
- *   npx tsx scripts/bulk-ingest-filings.ts                       (diverse sample, 50 companies)
- *   npx tsx scripts/bulk-ingest-filings.ts --limit 100           (100 companies)
- *   npx tsx scripts/bulk-ingest-filings.ts --per-industry 2      (max 2 per industry)
- *   npx tsx scripts/bulk-ingest-filings.ts 918298037 923609016   (explicit org numbers)
+ *   npx tsx scripts/bulk-ingest-filings.ts                            (diverse sample, 50 companies)
+ *   npx tsx scripts/bulk-ingest-filings.ts --limit 100              (100 companies)
+ *   npx tsx scripts/bulk-ingest-filings.ts --per-industry 2         (max 2 per industry)
+ *   npx tsx scripts/bulk-ingest-filings.ts 918298037 923609016      (explicit org numbers)
+ *   npx tsx scripts/bulk-ingest-filings.ts 938701237 --max-filings 3 (at most 3 filings total)
  */
 import "./_load-env";
 
@@ -110,6 +111,7 @@ async function main() {
 
   const limit = parseIntArg("--limit", 50);
   const perIndustry = parseIntArg("--per-industry", 3);
+  const maxFilings = parseIntArg("--max-filings", Infinity);
 
   const orgNumbers =
     explicitOrgNumbers.length > 0
@@ -181,6 +183,7 @@ async function main() {
     },
     select: { id: true, fiscalYear: true, company: { select: { orgNumber: true } } },
     orderBy: [{ companyId: "asc" }, { fiscalYear: "desc" }],
+    ...(Number.isFinite(maxFilings) ? { take: maxFilings } : {}),
   });
 
   // The progress bar targets the actual number of filings we will process.
