@@ -32,9 +32,16 @@ vi.mock("@/lib/linkedin-auth", async (importOriginal) => {
 
 describe("auth actions", () => {
   beforeEach(() => {
+    // Reset the module registry so each `await import("auth-actions")` re-runs
+    // fresh and picks up the mocked "@/lib/linkedin-auth" — otherwise a cached
+    // copy from another test file in the suite keeps the real implementation.
+    vi.resetModules();
     vi.resetAllMocks();
   });
 
+  // Generous timeout: each test dynamically imports auth-actions, which pulls in
+  // a heavy dependency tree (next-auth, prisma, bcrypt). The transform can exceed
+  // the 5s default when the whole suite runs in parallel under load.
   it("starts the LinkedIn provider flow when configured", async () => {
     linkedInMocks.isLinkedInConfigured.mockReturnValue(true);
 
@@ -44,7 +51,7 @@ describe("auth actions", () => {
     expect(authMocks.signIn).toHaveBeenCalledWith("linkedin", {
       redirectTo: "/auth/post-login",
     });
-  });
+  }, 20000);
 
   it("does nothing when LinkedIn auth is not configured", async () => {
     linkedInMocks.isLinkedInConfigured.mockReturnValue(false);
@@ -53,5 +60,5 @@ describe("auth actions", () => {
     await signInWithLinkedInAction();
 
     expect(authMocks.signIn).not.toHaveBeenCalled();
-  });
+  }, 20000);
 });
