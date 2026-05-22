@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { signIn, signOut } from "@/lib/auth";
+import { isLinkedInConfigured } from "@/lib/linkedin-auth";
 import { ensureUserWorkspaceState } from "@/server/services/workspace-service";
 
 const authSchema = z.object({
@@ -119,4 +120,14 @@ export async function registerAction(_: unknown, formData: FormData) {
 
 export async function logoutAction() {
   await signOut({ redirectTo: "/" });
+}
+
+export async function signInWithLinkedInAction() {
+  // No-op when LinkedIn OAuth is not configured, so the button stays inert
+  // in environments without LinkedIn credentials rather than throwing.
+  if (!isLinkedInConfigured()) {
+    return;
+  }
+
+  await signIn("linkedin", { redirectTo: "/auth/post-login" });
 }

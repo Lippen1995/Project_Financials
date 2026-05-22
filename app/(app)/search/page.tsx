@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 
 import { CompanyTable } from "@/components/company/company-table";
@@ -54,7 +55,7 @@ function buildQueryString(
   }
 
   const queryString = params.toString();
-  return queryString ? `/search?${queryString}` : "/search";
+  return (queryString ? `/search?${queryString}` : "/search") as Route;
 }
 
 export default async function SearchPage({
