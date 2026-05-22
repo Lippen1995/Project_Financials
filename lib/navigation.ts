@@ -6,6 +6,18 @@ export type GlobalNavItem = {
   icon: string;
 };
 
+export function isGlobalNavItemActive(item: GlobalNavItem, pathname: string) {
+  if (item.href === "/") {
+    return pathname === "/";
+  }
+
+  if (pathname === item.href) {
+    return true;
+  }
+
+  return pathname.startsWith(`${item.href}/`);
+}
+
 export function buildGlobalNavItems(user?: { appRole?: string | null } | null): GlobalNavItem[] {
   const items: GlobalNavItem[] = [
     { href: "/search", label: "Søk", icon: "search" },
