@@ -474,6 +474,7 @@ model User {
   updatedAt                       DateTime                          @updatedAt
   accounts                        Account[]
   sessions                        Session[]
+  profile                         UserProfile?
   subscription                    Subscription?
   lastWorkspace                   Workspace?                        @relation("LastWorkspace", fields: [lastWorkspaceId], references: [id], onDelete: SetNull)
   personalWorkspace               Workspace?                        @relation("PersonalWorkspaceOwner")
@@ -507,6 +508,8 @@ model User {
   confidenceThresholdRejected     ConfidenceThresholdVersion[]      @relation("ConfidenceThresholdRejectedBy")
   mlModelApplied                  MlModelVersion[]                  @relation("MlModelAppliedBy")
   mlModelRejected                 MlModelVersion[]                  @relation("MlModelRejectedBy")
+  userRoleChangesMade             UserRoleChangeAudit[]             @relation("UserRoleChangeAuditActor")
+  userRoleChangesReceived         UserRoleChangeAudit[]             @relation("UserRoleChangeAuditTarget")
 }
 
 model Subscription {
@@ -520,6 +523,51 @@ model Subscription {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserProfile {
+  id                       String    @id @default(cuid())
+  userId                   String    @unique
+  displayName              String?
+  profileImageUrl          String?
+  professionalBio          String?
+  jobTitle                 String?
+  employerName             String?
+  employerOrgNumber        String?
+  employerLogoUrl          String?
+  employerSector           String?
+  employerMatchedCompanyId String?
+  isStudent                Boolean   @default(false)
+  universityName           String?
+  degree                   String?
+  studyFocus               String?
+  graduationYear           Int?
+  internshipInterest       String?
+  workEmail                String?
+  phoneNumber              String?
+  countryOfOrigin          String?
+  countryOfWork            String?
+  currentLocation          String?
+  linkedinProfileUrl       String?
+  linkedinConnected        Boolean   @default(false)
+  linkedinProviderAccountId String?
+  profileCompletenessScore Int       @default(0)
+  onboardingCompleted      Boolean   @default(false)
+  onboardingCompletedAt    DateTime?
+  onboardingStep           Int       @default(1)
+  expertiseAreas           Json?
+  sectorsOfInterest        Json?
+  education                Json?
+  careerHistory            Json?
+  fieldSources             Json?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employerMatchedCompany   Company?  @relation(fields: [employerMatchedCompanyId], references: [id], onDelete: SetNull)
+
+  @@index([employerMatchedCompanyId])
+  @@index([onboardingCompleted, onboardingStep])
+  @@index([linkedinConnected])
 }
 
 model Workspace {
@@ -631,6 +679,7 @@ model Company {
   narratives                AnnualReportNarrative[]
   newsArticles              NewsArticleCompany[]
   newsRelevanceScores       NewsArticleRelevance[]
+  matchedUserProfiles       UserProfile[]
   industryCodeId            String?
   industryCode              IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
 
@@ -2626,6 +2675,23 @@ model AdminNotification {
   @@index([recipientRole, status, createdAt])
   @@index([recipientUserId, status])
   @@index([type, createdAt])
+}
+
+model UserRoleChangeAudit {
+  id           String  @id @default(cuid())
+  actorUserId  String
+  targetUserId String
+  fromRole     AppRole
+  toRole       AppRole
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  actor  User @relation("UserRoleChangeAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  target User @relation("UserRoleChangeAuditTarget", fields: [targetUserId], references: [id], onDelete: Restrict)
+
+  @@index([actorUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([createdAt])
 }
 
 // ConfidenceThresholdVersion stores a versioned snapshot of the confidence-gate
