@@ -77,6 +77,7 @@ describe("opendataloader-client", () => {
         dualRun: false,
         storeAnnotatedPdf: true,
         fallbackToLegacy: true,
+        autoPromote: false,
       },
     });
 
@@ -128,6 +129,7 @@ describe("opendataloader-client", () => {
         dualRun: false,
         storeAnnotatedPdf: false,
         fallbackToLegacy: true,
+        autoPromote: false,
       },
     });
 
@@ -175,6 +177,7 @@ describe("opendataloader-client", () => {
         dualRun: false,
         storeAnnotatedPdf: false,
         fallbackToLegacy: false,
+        autoPromote: false,
       },
       routeOverride: {
         enabled: true,
@@ -228,6 +231,7 @@ describe("opendataloader-client", () => {
           dualRun: false,
           storeAnnotatedPdf: false,
           fallbackToLegacy: true,
+          autoPromote: false,
         },
       }),
     ).rejects.toThrow("Timed out while waiting for hybrid backend");
@@ -267,6 +271,7 @@ describe("opendataloader-client", () => {
           dualRun: false,
           storeAnnotatedPdf: false,
           fallbackToLegacy: true,
+          autoPromote: false,
         },
       }),
     ).rejects.toMatchObject({

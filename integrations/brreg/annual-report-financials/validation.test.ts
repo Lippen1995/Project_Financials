@@ -16,6 +16,7 @@ function buildFact(metricKey: CanonicalFactCandidate["metricKey"], value: number
       metricKey === "cash_and_cash_equivalents"
         ? "BALANCE_SHEET"
         : "INCOME_STATEMENT",
+    statementScope: "COMPANY",
     metricKey,
     rawLabel: metricKey,
     normalizedLabel: metricKey,

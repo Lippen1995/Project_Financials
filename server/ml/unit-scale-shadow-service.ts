@@ -14,7 +14,7 @@
  *  - The output is a small summary that can be logged or surfaced on the
  *    learning dashboard to answer "is the model ready to take over?".
  */
-import type { AnnualReportParsedPage } from "@/integrations/brreg/annual-report-financials/types";
+import type { PageTextLayer } from "@/integrations/brreg/annual-report-financials/types";
 import { predictUnitScale } from "@/server/ml/ml-inference-client";
 
 // Page types where a unit scale is meaningful — statement and supplementary
@@ -53,7 +53,7 @@ export type UnitScaleShadowComparisonSummary = {
   rows: UnitScaleShadowComparisonRow[];
 };
 
-function extractHeaderText(page: AnnualReportParsedPage): string {
+function extractHeaderText(page: PageTextLayer): string {
   // Prefer the first few lines — that's where "Beløp i NOK 1000" lives.
   const fromLines = page.lines
     .slice(0, 8)
@@ -65,7 +65,7 @@ function extractHeaderText(page: AnnualReportParsedPage): string {
 }
 
 export type RunUnitScaleShadowInput = {
-  pages: AnnualReportParsedPage[];
+  pages: PageTextLayer[];
   classifications: Array<{
     pageNumber: number;
     type: string;

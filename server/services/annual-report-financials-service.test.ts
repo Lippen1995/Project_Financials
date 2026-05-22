@@ -85,6 +85,7 @@ const openDataLoaderState: {
     dualRun: false,
     storeAnnotatedPdf: true,
     fallbackToLegacy: true,
+    autoPromote: false,
   },
   route: {
     enabled: false,
@@ -518,6 +519,7 @@ describe("annual-report-financials-service", () => {
       dualRun: false,
       storeAnnotatedPdf: true,
       fallbackToLegacy: true,
+      autoPromote: false,
     };
     openDataLoaderState.route = {
       enabled: false,

@@ -430,6 +430,7 @@ function makeLegacyCandidateSet(
       {
         fiscalYear: 2024,
         statementType: "INCOME_STATEMENT",
+        statementScope: "COMPANY",
         metricKey: "revenue",
         rawLabel: "Sum driftsinntekter",
         normalizedLabel: "sum driftsinntekter",

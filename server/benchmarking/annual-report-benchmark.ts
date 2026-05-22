@@ -1063,6 +1063,7 @@ function withDefaultOpenDataLoaderConfig(
     dualRun: false,
     storeAnnotatedPdf: true,
     fallbackToLegacy: true,
+    autoPromote: false,
     ...override,
   };
 }

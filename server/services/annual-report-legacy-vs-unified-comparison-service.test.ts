@@ -30,6 +30,7 @@ function makeCandidate(
   return {
     fiscalYear,
     statementType: "INCOME_STATEMENT",
+    statementScope: "COMPANY",
     metricKey: metricKey as CanonicalFactCandidate["metricKey"],
     rawLabel: metricKey,
     normalizedLabel: metricKey,

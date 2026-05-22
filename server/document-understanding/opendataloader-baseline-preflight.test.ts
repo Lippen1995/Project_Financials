@@ -89,6 +89,7 @@ describe("opendataloader-baseline-preflight", () => {
         dualRun: true,
         storeAnnotatedPdf: false,
         fallbackToLegacy: true,
+        autoPromote: false,
       },
     });
 

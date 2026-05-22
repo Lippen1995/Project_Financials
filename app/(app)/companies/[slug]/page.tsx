@@ -795,6 +795,7 @@ export default async function CompanyPage({
               roles: visibleRoles,
               rolesAvailability,
               financialStatements,
+              financialStatementsAllScopes,
               financialDocuments,
               financialsAvailability,
               regulatoryAvailability,

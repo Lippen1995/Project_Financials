@@ -52,6 +52,7 @@ describeRuntimeIntegration("opendataloader-runtime", () => {
       dualRun: false,
       storeAnnotatedPdf: true,
       fallbackToLegacy: true,
+      autoPromote: false,
     });
 
     expect(summary.packageInstalled).toBe(true);
@@ -133,6 +134,7 @@ describeRuntimeIntegration("opendataloader-runtime", () => {
       dualRun: false,
       storeAnnotatedPdf: true,
       fallbackToLegacy: true,
+      autoPromote: false,
     });
 
     expect(summary.localModeReady).toBe(false);
@@ -188,6 +190,7 @@ describeRuntimeIntegration("opendataloader-runtime", () => {
           dualRun: false,
           storeAnnotatedPdf: true,
           fallbackToLegacy: true,
+          autoPromote: false,
         },
         route: {
           enabled: true,
@@ -240,6 +243,7 @@ describeRuntimeIntegration("opendataloader-runtime", () => {
           dualRun: false,
           storeAnnotatedPdf: true,
           fallbackToLegacy: true,
+          autoPromote: false,
         },
         route: {
           enabled: true,

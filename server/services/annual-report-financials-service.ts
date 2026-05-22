@@ -1144,7 +1144,7 @@ export async function processAnnualReportFiling(
     const useLegacyPrimary = openDataLoaderConfig.dualRun || !openDataLoaderResult;
     let primaryEngine: "LEGACY" | "OPENDATALOADER" = useLegacyPrimary ? "LEGACY" : "OPENDATALOADER";
     const primaryOpenDataLoaderResult = useLegacyPrimary ? null : openDataLoaderResult;
-    let primaryMode: string = useLegacyPrimary
+    let primaryMode: "legacy" | "local" | "hybrid" = useLegacyPrimary
       ? "legacy"
       : primaryOpenDataLoaderResult!.routing.executionMode;
     const primaryPages = useLegacyPrimary

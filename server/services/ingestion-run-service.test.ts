@@ -22,7 +22,8 @@ const { prismaMock, notifyMock, store } = vi.hoisted(() => {
     for (const [key, value] of Object.entries(data)) {
       if (value && typeof value === "object" && "increment" in value) {
         (run as Record<string, unknown>)[key] =
-          ((run as Record<string, number>)[key] ?? 0) + (value as { increment: number }).increment;
+          ((run as unknown as Record<string, number>)[key] ?? 0) +
+          (value as { increment: number }).increment;
       } else {
         (run as Record<string, unknown>)[key] = value;
       }
@@ -71,7 +72,7 @@ const { prismaMock, notifyMock, store } = vi.hoisted(() => {
     },
   };
 
-  const notifyMock = vi.fn(async () => ({}));
+  const notifyMock = vi.fn(async (_input: { type: string; dedupeKey: string }) => ({}));
 
   return {
     prismaMock,
@@ -148,7 +149,7 @@ describe("ingestion-run-service", () => {
     expect(completed.status).toBe("COMPLETED");
     expect(completed.finishedAt).not.toBeNull();
     expect(notifyMock).toHaveBeenCalledTimes(1);
-    const arg = notifyMock.mock.calls[0]![0] as { type: string; dedupeKey: string };
+    const arg = notifyMock.mock.calls[0]![0];
     expect(arg.type).toBe("INGESTION_COMPLETED");
     expect(arg.dedupeKey).toBe(`ingestion-run:${run.id}`);
   });

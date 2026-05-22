@@ -41,6 +41,7 @@ describe("opendataloader-hybrid-health", () => {
         dualRun: true,
         storeAnnotatedPdf: false,
         fallbackToLegacy: true,
+        autoPromote: false,
       },
     });
 
@@ -104,6 +105,7 @@ describe("opendataloader-hybrid-health", () => {
         dualRun: true,
         storeAnnotatedPdf: false,
         fallbackToLegacy: true,
+        autoPromote: false,
       },
     });
 
@@ -184,6 +186,7 @@ describe("opendataloader-hybrid-health", () => {
         dualRun: true,
         storeAnnotatedPdf: false,
         fallbackToLegacy: true,
+        autoPromote: false,
       },
     });
 
@@ -294,6 +297,7 @@ describe("opendataloader-hybrid-health", () => {
         dualRun: true,
         storeAnnotatedPdf: false,
         fallbackToLegacy: false,
+        autoPromote: false,
       },
     });
 
