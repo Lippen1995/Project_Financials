@@ -4,43 +4,72 @@ export function FilterPanel({
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   return (
-    <form className="grid gap-3 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.88)] p-5 md:grid-cols-2 xl:grid-cols-1">
+    <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
       <input type="hidden" name="query" value={String(searchParams.query ?? "")} />
-      <input
-        name="industryCode"
-        defaultValue={String(searchParams.industryCode ?? "")}
-        placeholder="Næringskode, f.eks. 62.010"
-        className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
-      />
-      <input
-        name="city"
-        defaultValue={String(searchParams.city ?? "")}
-        placeholder="Poststed"
-        className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
-      />
-      <input
-        name="legalForm"
-        defaultValue={String(searchParams.legalForm ?? "")}
-        placeholder="Organisasjonsform, f.eks. AS"
-        className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
-      />
-      <select
-        name="status"
-        defaultValue={String(searchParams.status ?? "")}
-        className="rounded-xl border border-[rgba(15,23,42,0.1)] bg-white px-4 py-3 text-sm"
-      >
-        <option value="">Alle statuser</option>
-        <option value="ACTIVE">Aktiv</option>
-        <option value="DISSOLVED">Avviklet/slettet</option>
-        <option value="BANKRUPT">Konkurs</option>
-      </select>
-      <div className="flex items-center">
-        <button type="submit" className="rounded-full bg-[var(--px-action)] px-5 py-3 text-sm font-semibold text-white">
+
+      <label className="grid gap-2">
+        <span className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
+          {"N\u00e6ringskode"}
+        </span>
+        <input
+          name="industryCode"
+          defaultValue={String(searchParams.industryCode ?? "")}
+          placeholder={"F.eks. 62.010"}
+          className="border border-[var(--px-border)] bg-[rgba(255,255,255,0.9)] px-3 py-3 text-sm text-[var(--px-text)] outline-none transition-colors placeholder:text-[var(--px-muted)] focus:border-[var(--px-accent)]"
+        />
+      </label>
+
+      <label className="grid gap-2">
+        <span className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
+          Poststed
+        </span>
+        <input
+          name="city"
+          defaultValue={String(searchParams.city ?? "")}
+          placeholder="Oslo"
+          className="border border-[var(--px-border)] bg-[rgba(255,255,255,0.9)] px-3 py-3 text-sm text-[var(--px-text)] outline-none transition-colors placeholder:text-[var(--px-muted)] focus:border-[var(--px-accent)]"
+        />
+      </label>
+
+      <label className="grid gap-2">
+        <span className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
+          {"Organisasjonsform"}
+        </span>
+        <input
+          name="legalForm"
+          defaultValue={String(searchParams.legalForm ?? "")}
+          placeholder="AS"
+          className="border border-[var(--px-border)] bg-[rgba(255,255,255,0.9)] px-3 py-3 text-sm text-[var(--px-text)] outline-none transition-colors placeholder:text-[var(--px-muted)] focus:border-[var(--px-accent)]"
+        />
+      </label>
+
+      <label className="grid gap-2">
+        <span className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
+          Status
+        </span>
+        <select
+          name="status"
+          defaultValue={String(searchParams.status ?? "")}
+          className="border border-[var(--px-border)] bg-[rgba(255,255,255,0.9)] px-3 py-3 text-sm text-[var(--px-text)] outline-none transition-colors focus:border-[var(--px-accent)]"
+        >
+          <option value="">Alle statuser</option>
+          <option value="ACTIVE">Aktiv</option>
+          <option value="DISSOLVED">Avviklet/slettet</option>
+          <option value="BANKRUPT">Konkurs</option>
+        </select>
+      </label>
+
+      <div className="flex items-center pt-2">
+        <button
+          type="submit"
+          className="min-h-12 border border-[var(--px-panel)] bg-transparent px-5 text-sm font-semibold text-[var(--px-panel)] transition-colors hover:bg-[rgba(15,23,42,0.06)]"
+        >
           Oppdater filtre
         </button>
       </div>
-      <p className="text-sm leading-6 text-slate-600">
-        Kombiner gjerne filtre med navn eller organisasjonsnummer for å få skarpere treff.
+
+      <p className="pt-1 text-sm leading-7 text-[var(--px-muted)] xl:text-[0.96rem]">
+        {"Kombiner gjerne filtre med navn eller organisasjonsnummer for \u00e5 f\u00e5 skarpere treff."}
       </p>
     </form>
   );
