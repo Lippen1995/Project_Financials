@@ -374,6 +374,14 @@ export async function correctAnnualReportReview(
   const beforePayload = review.reviewPayload ?? null;
   const runMeta = buildRunMeta(review);
 
+  // Derive the financial statement scope (konsern vs. selskap) this review covers.
+  // Manual corrections must be tagged with the same scope as the report under review,
+  // otherwise konsern corrections would be mis-stored as selskap (parent) figures.
+  const reviewScope: "COMPANY" | "CONSOLIDATED" =
+    (beforePayload as Record<string, unknown> | null)?.statementScope === "CONSOLIDATED"
+      ? "CONSOLIDATED"
+      : "COMPANY";
+
   // Build label inputs before entering transaction
   const labelInputs: Prisma.PdfTrainingLabelCreateManyInput[] = [];
 
@@ -517,6 +525,7 @@ export async function correctAnnualReportReview(
               | "BALANCE_SHEET"
               | "CASH_FLOW"
               | "NOTE",
+          statementScope: reviewScope,
           value: safeStringToBigInt(fact.value),
           currency: "NOK",
           unitScale: fact.unitScale ?? 1,
