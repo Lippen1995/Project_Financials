@@ -2,17 +2,8 @@ import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { safeAuth } from "@/lib/auth";
 import { getFinancialReviewerOrNull } from "@/lib/admin-auth";
-
-const ADMIN_LINKS = [
-  { href: "/admin", label: "Admin" },
-  { href: "/admin/annual-report-reviews", label: "Manuell kontroll" },
-  { href: "/admin/annual-report-unified-confidence", label: "Unified kontroll" },
-  { href: "/admin/extraction-learning", label: "Læring" },
-  { href: "/admin/pdf-decision-analytics", label: "PDF-vurdering" },
-  { href: "/admin/pdf-parser-remediation", label: "Feil og forbedringer" },
-];
+import { safeAuth } from "@/lib/auth";
 
 export default async function AdminLayout({
   children,
@@ -30,10 +21,21 @@ export default async function AdminLayout({
     redirect("/dashboard");
   }
 
+  const adminLinks = [
+    { href: "/admin", label: "Oversikt" },
+    { href: "/admin/published-annual-reports", label: "Godkjente årsregnskaper" },
+    { href: "/admin/annual-report-reviews", label: "Manuell kontroll" },
+    ...(reviewer.appRole === "ADMIN"
+      ? [{ href: "/admin/users", label: "Brukere og roller" }]
+      : []),
+    { href: "/admin/annual-report-unified-confidence", label: "Datakvalitet" },
+    { href: "/admin/extraction-learning", label: "AI-modellen" },
+  ];
+
   return (
     <div>
       <nav className="mb-6 flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-widest text-slate-400">
-        {ADMIN_LINKS.map((link, index) => (
+        {adminLinks.map((link, index) => (
           <React.Fragment key={link.href}>
             {index > 0 ? <span>/</span> : null}
             <Link href={link.href as never} className="hover:text-slate-600">

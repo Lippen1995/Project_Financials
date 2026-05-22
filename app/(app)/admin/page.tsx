@@ -1,24 +1,21 @@
-import AdminControlCenterView from "@/app/(app)/admin/AdminControlCenterView";
+import AdminHubView from "@/app/(app)/admin/AdminHubView";
 import { AdminIngestionIndicator } from "@/components/admin-ingestion-indicator";
 import { getFinancialReviewerOrNull } from "@/lib/admin-auth";
-import { listAffectedAnnualReportFilingsForRefresh } from "@/server/services/admin-annual-report-refresh-service";
-import { buildAdminControlCenterModel } from "@/server/services/admin-control-center-service";
+import { buildAdminHubModel } from "@/server/services/admin-hub-service";
 
 export default async function AdminControlCenterPage() {
-  const [model, reviewer, affectedFilings] = await Promise.all([
-    buildAdminControlCenterModel(),
+  const [reviewer] = await Promise.all([
     getFinancialReviewerOrNull(),
-    listAffectedAnnualReportFilingsForRefresh(),
   ]);
+
+  const model = await buildAdminHubModel({
+    currentUserRole: reviewer?.appRole ?? "ADMIN",
+  });
 
   return (
     <div className="space-y-6">
       <AdminIngestionIndicator />
-      <AdminControlCenterView
-        model={model}
-        currentUserRole={reviewer?.appRole ?? "ADMIN"}
-        refreshAffectedCount={affectedFilings.length}
-      />
+      <AdminHubView model={model} />
     </div>
   );
 }

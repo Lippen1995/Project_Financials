@@ -10,6 +10,12 @@ export type AdminUser = {
   appRole: "ADMIN" | "FINANCIAL_REVIEWER";
 };
 
+export type GlobalAdminUser = {
+  id: string;
+  email: string | null | undefined;
+  appRole: "ADMIN";
+};
+
 type AuthResult =
   | { user: AdminUser; error: null }
   | { user: null; error: NextResponse };
@@ -64,6 +70,59 @@ export async function getFinancialReviewerOrNull(): Promise<AdminUser | null> {
     id: session.user.id,
     email: dbUser?.email ?? session.user.email,
     appRole: role,
+  };
+}
+
+export async function requireAdmin(): Promise<
+  | { user: GlobalAdminUser; error: null }
+  | { user: null; error: NextResponse }
+> {
+  const session = await safeAuth();
+
+  if (!session?.user?.id) {
+    return {
+      user: null,
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { appRole: true, email: true },
+  });
+
+  if (dbUser?.appRole !== "ADMIN") {
+    return {
+      user: null,
+      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  return {
+    user: {
+      id: session.user.id,
+      email: dbUser.email ?? session.user.email,
+      appRole: "ADMIN",
+    },
+    error: null,
+  };
+}
+
+export async function getAdminUserOrNull(): Promise<GlobalAdminUser | null> {
+  const session = await safeAuth();
+  if (!session?.user?.id) return null;
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { appRole: true, email: true },
+  });
+
+  if (dbUser?.appRole !== "ADMIN") return null;
+
+  return {
+    id: session.user.id,
+    email: dbUser.email ?? session.user.email,
+    appRole: "ADMIN",
   };
 }
 

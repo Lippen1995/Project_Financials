@@ -67,7 +67,7 @@ describe("app/admin/layout", () => {
     );
 
     expect(html).toContain("admin child");
-    // The admin layout renders the breadcrumb nav around the page content.
-    expect(html).toContain("Manuell kontroll");
+    expect(html).toContain("Oversikt");
+    expect(html).toContain("Godkjente årsregnskaper");
   });
 });
