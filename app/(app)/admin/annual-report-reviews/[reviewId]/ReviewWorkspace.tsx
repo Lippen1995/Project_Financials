@@ -45,6 +45,7 @@ type MappedFactRaw = {
   sourceSection: string;
   confidenceScore: number;
   isDerived: boolean;
+  statementScope?: "COMPANY" | "CONSOLIDATED";
   precedence?: string;
   rawPayload?: { columnIndex?: number; yearOrder?: number[] };
 };
@@ -209,6 +210,54 @@ const BALANCE_METRIC_ORDER: string[] = [
 const CANONICAL_ORDER_MAP = new Map<string, number>(
   [...INCOME_METRIC_ORDER, ...BALANCE_METRIC_ORDER].map((k, i) => [k, i]),
 );
+
+const METRIC_FRIENDLY_LABELS: Record<string, string> = {
+  revenue: "Driftsinntekter",
+  other_operating_income: "Andre driftsinntekter",
+  total_operating_income: "Sum driftsinntekter",
+  cost_of_goods_sold: "Varekostnad",
+  payroll_expense: "Lønnskostnad",
+  depreciation_amortization: "Avskrivninger",
+  other_operating_expense: "Andre driftskostnader",
+  total_operating_expenses: "Sum driftskostnader",
+  operating_profit: "Driftsresultat",
+  financial_income: "Finansinntekter",
+  financial_expense: "Finanskostnader",
+  net_financial_items: "Netto finansposter",
+  profit_before_tax: "Resultat før skatt",
+  tax_expense: "Skattekostnad",
+  net_income: "Årsresultat",
+  intangible_assets: "Immaterielle eiendeler",
+  tangible_assets: "Varige driftsmidler",
+  financial_fixed_assets: "Finansielle anleggsmidler",
+  deferred_tax_asset: "Utsatt skattefordel",
+  inventory: "Varelager",
+  trade_receivables: "Kundefordringer",
+  other_receivables: "Andre fordringer",
+  cash_and_cash_equivalents: "Bankinnskudd og kontanter",
+  current_assets: "Sum omløpsmidler",
+  total_assets: "Sum eiendeler",
+  share_capital: "Aksjekapital",
+  share_premium: "Overkursfond",
+  retained_earnings: "Opptjent egenkapital",
+  total_equity: "Sum egenkapital",
+  long_term_liabilities: "Langsiktig gjeld",
+  trade_payables: "Leverandørgjeld",
+  tax_payable: "Skyldig skatt",
+  public_duties_payable: "Offentlige avgifter",
+  other_current_liabilities: "Annen kortsiktig gjeld",
+  current_liabilities: "Sum kortsiktig gjeld",
+  total_liabilities: "Sum gjeld",
+  total_equity_and_liabilities: "Sum egenkapital og gjeld",
+};
+
+const SUM_KEYS = new Set([
+  "total_operating_income", "total_operating_expenses", "operating_profit",
+  "profit_before_tax", "net_income",
+  "current_assets", "total_assets",
+  "total_equity", "current_liabilities", "total_liabilities", "total_equity_and_liabilities",
+]);
+
 function sortByCanonical(facts: Fact[]): Fact[] {
   return [...facts].sort((a, b) => {
     const ia = CANONICAL_ORDER_MAP.get(a.metricKey) ?? 9999;
@@ -753,9 +802,18 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           <div className="rounded-lg border border-[rgba(15,23,42,0.08)] bg-white p-4">
             {/* Header med toggle-knapper */}
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-                Finansielle tall
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                  Finansielle tall
+                </h2>
+                <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                  reviewScope === "CONSOLIDATED"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-slate-100 text-slate-600"
+                }`}>
+                  {reviewScopeLabel}
+                </span>
+              </div>
               <div className="flex rounded border border-[rgba(15,23,42,0.10)] text-xs overflow-hidden">
                 <button
                   onClick={() => setViewMode("standardized")}
@@ -794,6 +852,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                     facts={sortByCanonical(income)}
                     editableFacts={editableFacts}
                     setEditableFacts={setEditableFacts}
+                    sectionColor="blue"
                   />
                 )}
                 {balance.length > 0 && (
@@ -802,6 +861,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                     facts={sortByCanonical(balance)}
                     editableFacts={editableFacts}
                     setEditableFacts={setEditableFacts}
+                    sectionColor="indigo"
                   />
                 )}
                 {other.length > 0 && (
@@ -810,6 +870,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                     facts={other}
                     editableFacts={editableFacts}
                     setEditableFacts={setEditableFacts}
+                    sectionColor="slate"
                   />
                 )}
               </>
@@ -829,6 +890,8 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                     data={extractionData}
                     fiscalYear={review.fiscalYear}
                     facts={facts}
+                    allFacts={allFacts}
+                    primaryScope={reviewScope}
                     editableFacts={editableFacts}
                     setEditableFacts={setEditableFacts}
                     priorYearEdits={priorYearEdits}
@@ -1150,27 +1213,36 @@ function InlineFactTable({
   facts,
   editableFacts,
   setEditableFacts,
+  sectionColor = "blue",
 }: {
   title: string;
   facts: Fact[];
   editableFacts: EditableFact[];
   setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
+  sectionColor?: "blue" | "indigo" | "slate";
 }) {
   const suggestedByKey = new Map(facts.map((f) => [f.metricKey, f]));
 
+  const borderColor = sectionColor === "blue" ? "border-blue-400" : sectionColor === "indigo" ? "border-indigo-400" : "border-slate-400";
+  const bgColor = sectionColor === "blue" ? "bg-blue-50/60" : sectionColor === "indigo" ? "bg-indigo-50/60" : "bg-slate-50/60";
+  const textColor = sectionColor === "blue" ? "text-blue-800" : sectionColor === "indigo" ? "text-indigo-800" : "text-slate-700";
+
   return (
-    <div className="mb-4">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h3>
+    <div className="mb-6">
+      <div className={`mb-3 flex items-center gap-3 border-l-4 ${borderColor} ${bgColor} rounded-r-md px-3 py-2`}>
+        <h3 className={`text-sm font-bold ${textColor}`}>{title}</h3>
+        <span className="text-xs text-slate-400">{facts.length} nøkler</span>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-[rgba(15,23,42,0.08)]">
-              <th className="pb-1 pr-2 text-left font-medium text-slate-400">Nøkkel</th>
-              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Foreslått</th>
-              <th className="pb-1 pr-1 text-left font-medium text-slate-400">Manuell</th>
-              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Effektivt</th>
-              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Diff</th>
-              <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
+            <tr className="border-b border-[rgba(15,23,42,0.10)]">
+              <th className="pb-1.5 pr-3 text-left font-medium text-slate-500">Label</th>
+              <th className="pb-1.5 pr-2 text-left font-medium text-slate-400">Nøkkel</th>
+              <th className="pb-1.5 pr-1 text-right font-medium text-slate-400">Foreslått</th>
+              <th className="pb-1.5 pr-1 text-left font-medium text-slate-400">Manuell</th>
+              <th className="pb-1.5 pr-1 text-right font-medium text-slate-700">Endelig</th>
+              <th className="pb-1.5 text-right font-medium text-slate-400">Conf</th>
             </tr>
           </thead>
           <tbody>
@@ -1182,29 +1254,23 @@ function InlineFactTable({
               const suggestedStr = original ? bigintToDisplay(original.value) : "";
               const manualStr = editable?.value ?? "";
               const hasManual = manualStr.trim() !== "" && manualStr.trim() !== suggestedStr;
-
-              let diff: bigint | null = null;
-              if (hasManual && manualStr.trim() !== "" && suggestedStr !== "") {
-                try {
-                  diff = BigInt(manualStr.trim()) - BigInt(suggestedStr);
-                } catch {
-                  // non-parseable input
-                }
-              }
-
               const effectiveStr = hasManual ? manualStr.trim() : suggestedStr;
+              const isSum = SUM_KEYS.has(f.metricKey);
+              const friendlyLabel = METRIC_FRIENDLY_LABELS[f.metricKey] ?? f.rawLabel ?? f.normalizedLabel ?? f.metricKey;
 
               return (
-                <tr key={f.id} className="border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50">
-                  <td className="py-1 pr-2 font-mono text-slate-600">{f.metricKey}</td>
-                  <td
-                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
-                      hasManual ? "text-slate-300 line-through" : "text-[var(--px-text)]"
-                    }`}
-                  >
+                <tr
+                  key={f.id}
+                  className={`border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/60 ${isSum ? "bg-slate-50/80" : ""}`}
+                >
+                  <td className={`py-1.5 pr-3 ${isSum ? "font-semibold text-slate-800" : "text-slate-700"}`}>
+                    {friendlyLabel}
+                  </td>
+                  <td className="py-1.5 pr-2 font-mono text-[10px] text-slate-400">{f.metricKey}</td>
+                  <td className={`py-1.5 pr-1 text-right font-mono tabular-nums ${hasManual ? "text-slate-300 line-through" : "text-slate-600"}`}>
                     {suggestedStr ? formatIntegerString(suggestedStr) : "—"}
                   </td>
-                  <td className="py-1 pr-1">
+                  <td className="py-1.5 pr-1">
                     <input
                       value={manualStr}
                       onChange={(e) => {
@@ -1224,32 +1290,11 @@ function InlineFactTable({
                       }`}
                     />
                   </td>
-                  <td
-                    className={`py-1 pr-1 text-right font-mono tabular-nums font-medium ${
-                      hasManual ? "text-amber-700" : "text-[var(--px-text)]"
-                    }`}
-                  >
+                  <td className={`py-1.5 pr-1 text-right font-mono tabular-nums ${isSum ? "font-bold" : "font-medium"} ${hasManual ? "text-amber-700" : "text-[var(--px-text)]"}`}>
                     {effectiveStr ? formatIntegerString(effectiveStr) : "—"}
                   </td>
-                  <td
-                    className={`py-1 pr-1 text-right font-mono tabular-nums ${
-                      diff === null
-                        ? "text-slate-300"
-                        : diff > 0n
-                          ? "text-green-600"
-                          : diff < 0n
-                            ? "text-red-600"
-                            : "text-slate-400"
-                    }`}
-                  >
-                    {diff !== null
-                      ? (diff >= 0n ? "+" : "") + formatIntegerString(diff)
-                      : "—"}
-                  </td>
-                  <td className="py-1 text-right font-mono text-slate-400">
-                    {f.confidenceScore != null
-                      ? `${(f.confidenceScore * 100).toFixed(0)}%`
-                      : "—"}
+                  <td className="py-1.5 text-right font-mono text-slate-400">
+                    {f.confidenceScore != null ? `${(f.confidenceScore * 100).toFixed(0)}%` : "—"}
                   </td>
                 </tr>
               );
@@ -1405,6 +1450,8 @@ function AsReportedPanel({
   data,
   fiscalYear,
   facts,
+  allFacts,
+  primaryScope,
   editableFacts,
   setEditableFacts,
   priorYearEdits,
@@ -1415,6 +1462,8 @@ function AsReportedPanel({
   data: ExtractionData;
   fiscalYear: number;
   facts: Fact[];
+  allFacts: Fact[];
+  primaryScope: "COMPANY" | "CONSOLIDATED";
   editableFacts: EditableFact[];
   setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
   priorYearEdits: Record<string, string>;
@@ -1422,6 +1471,7 @@ function AsReportedPanel({
   rowEdits: Record<string, RowEdit>;
   setRowEdits: React.Dispatch<React.SetStateAction<Record<string, RowEdit>>>;
 }) {
+  const [showPriorYear, setShowPriorYear] = useState(false);
   const { rows, mappedFacts } = data;
 
   // Label → canonical metricKey (first match wins)
@@ -1489,6 +1539,56 @@ function AsReportedPanel({
     .filter((r) => !INCOME_SECTIONS.has(r.sectionType) && !BALANCE_SECTIONS.has(r.sectionType))
     .sort((a, b) => a.pageNumber - b.pageNumber);
 
+  // Build page → scope map. Priority: EXTRACTION_JSON mappedFacts (same extraction run,
+  // most authoritative) > DB facts (may lag or differ if reprocessed separately).
+  // This lets us detect when the PDF contains both a konsern and a morselskap table,
+  // and split them into separate sections so the user can see the difference clearly.
+  const pageToScope = new Map<number, "COMPANY" | "CONSOLIDATED">();
+  // Seed from DB facts first (fallback for pages without mapped facts)
+  for (const fact of allFacts) {
+    if (fact.sourcePage !== null && fact.statementScope && !pageToScope.has(fact.sourcePage)) {
+      pageToScope.set(fact.sourcePage, fact.statementScope);
+    }
+  }
+  // Override with EXTRACTION_JSON mappedFacts — these carry the scope from the
+  // same pipeline run as the rows, so they are the most reliable source.
+  for (const mf of data.mappedFacts) {
+    if (mf.statementScope && typeof mf.sourcePage === "number") {
+      pageToScope.set(mf.sourcePage, mf.statementScope);
+    }
+  }
+
+  function splitByScope(rows: RawRow[]): {
+    konsern: RawRow[];
+    selskap: RawRow[];
+    isMulti: boolean;
+  } {
+    const konsern: RawRow[] = [];
+    const selskap: RawRow[] = [];
+    const unscoped: RawRow[] = [];
+    for (const r of rows) {
+      const scope = pageToScope.get(r.pageNumber);
+      if (scope === "CONSOLIDATED") konsern.push(r);
+      else if (scope === "COMPANY") selskap.push(r);
+      else unscoped.push(r);
+    }
+    const isMulti = konsern.length > 0 && selskap.length > 0;
+    if (isMulti && unscoped.length > 0) {
+      // Attach unscoped rows to the section with the nearest preceding page
+      for (const r of unscoped) {
+        const nearestKonsern = konsern.length > 0 ? Math.abs(r.pageNumber - konsern[konsern.length - 1].pageNumber) : Infinity;
+        const nearestSelskap = selskap.length > 0 ? Math.abs(r.pageNumber - selskap[selskap.length - 1].pageNumber) : Infinity;
+        (nearestKonsern <= nearestSelskap ? konsern : selskap).push(r);
+      }
+      konsern.sort((a, b) => a.pageNumber - b.pageNumber);
+      selskap.sort((a, b) => a.pageNumber - b.pageNumber);
+    }
+    return { konsern, selskap, isMulti };
+  }
+
+  const incomeSplit = splitByScope(incomeRows);
+  const balanceSplit = splitByScope(balanceRows);
+
   if (effectiveRows.length === 0) {
     return (
       <div className="py-4 space-y-2">
@@ -1517,53 +1617,156 @@ function AsReportedPanel({
       )}
 
       {!isSynthetic && (
-        <p className="text-xs text-slate-400">
-          Foreslåtte tall hentes fra ekstraheringen. Fyll inn manuell verdi for å overstyre —
-          endelig tall er det som lagres. Umappede linjer (oransje) teller ikke med.
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-slate-400">
+            Foreslåtte tall hentes fra ekstraheringen. Fyll inn manuell verdi for å overstyre — endelig tall er det som lagres.
+          </p>
+          <button
+            onClick={() => setShowPriorYear((v) => !v)}
+            className="shrink-0 rounded border border-[rgba(15,23,42,0.10)] bg-white px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"
+          >
+            {showPriorYear ? `Skjul ${priorYear}` : `Vis ${priorYear}`}
+          </button>
+        </div>
       )}
 
       {incomeRows.length > 0 && (
-        <AsReportedSection
-          title="Resultatregnskap"
-          rows={incomeRows}
-          canonicalByLabel={canonicalByLabel}
-          dbValueByKey={dbValueByKey}
-          priorValueByKey={priorValueByKey}
-          confidenceByKey={confidenceByKey}
-          precedenceByKey={precedenceByKey}
-          mainYear={mainYear}
-          priorYear={priorYear}
-          editableFacts={editableFacts}
-          setEditableFacts={setEditableFacts}
-          priorYearEdits={priorYearEdits}
-          setPriorYearEdits={setPriorYearEdits}
-          rowEdits={rowEdits}
-          setRowEdits={setRowEdits}
-        />
+        incomeSplit.isMulti ? (
+          <>
+            <AsReportedSection
+              title="Resultatregnskap — Konsern"
+              rows={incomeSplit.konsern}
+              scopeTag="CONSOLIDATED"
+              canonicalByLabel={canonicalByLabel}
+              dbValueByKey={dbValueByKey}
+              priorValueByKey={priorValueByKey}
+              confidenceByKey={confidenceByKey}
+              precedenceByKey={precedenceByKey}
+              mainYear={mainYear}
+              priorYear={priorYear}
+              showPriorYear={showPriorYear}
+              editableFacts={editableFacts}
+              setEditableFacts={setEditableFacts}
+              priorYearEdits={priorYearEdits}
+              setPriorYearEdits={setPriorYearEdits}
+              rowEdits={rowEdits}
+              setRowEdits={setRowEdits}
+            />
+            <AsReportedSection
+              title="Resultatregnskap — Morselskap"
+              rows={incomeSplit.selskap}
+              scopeTag="COMPANY"
+              canonicalByLabel={canonicalByLabel}
+              dbValueByKey={dbValueByKey}
+              priorValueByKey={priorValueByKey}
+              confidenceByKey={confidenceByKey}
+              precedenceByKey={precedenceByKey}
+              mainYear={mainYear}
+              priorYear={priorYear}
+              showPriorYear={showPriorYear}
+              editableFacts={editableFacts}
+              setEditableFacts={setEditableFacts}
+              priorYearEdits={priorYearEdits}
+              setPriorYearEdits={setPriorYearEdits}
+              rowEdits={rowEdits}
+              setRowEdits={setRowEdits}
+            />
+          </>
+        ) : (
+          <>
+            <div className="mb-2 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
+              <span className="font-semibold">OBS:</span>
+              <span>Systemet klarte ikke å skille konsern- og morselskaprader automatisk. Radene under kan inneholde begge oppstillinger blandet — bruk PDF-en til venstre for å identifisere riktig scope.</span>
+            </div>
+            <AsReportedSection
+              title="Resultatregnskap"
+              rows={incomeRows}
+              canonicalByLabel={canonicalByLabel}
+              dbValueByKey={dbValueByKey}
+              priorValueByKey={priorValueByKey}
+              confidenceByKey={confidenceByKey}
+              precedenceByKey={precedenceByKey}
+              mainYear={mainYear}
+              priorYear={priorYear}
+              showPriorYear={showPriorYear}
+              editableFacts={editableFacts}
+              setEditableFacts={setEditableFacts}
+              priorYearEdits={priorYearEdits}
+              setPriorYearEdits={setPriorYearEdits}
+              rowEdits={rowEdits}
+              setRowEdits={setRowEdits}
+            />
+          </>
+        )
       )}
+
       {balanceRows.length > 0 && (
-        <AsReportedSection
-          title="Balanse"
-          rows={balanceRows}
-          canonicalByLabel={canonicalByLabel}
-          dbValueByKey={dbValueByKey}
-          priorValueByKey={priorValueByKey}
-          confidenceByKey={confidenceByKey}
-          precedenceByKey={precedenceByKey}
-          mainYear={mainYear}
-          priorYear={priorYear}
-          editableFacts={editableFacts}
-          setEditableFacts={setEditableFacts}
-          priorYearEdits={priorYearEdits}
-          setPriorYearEdits={setPriorYearEdits}
-          rowEdits={rowEdits}
-          setRowEdits={setRowEdits}
-        />
+        balanceSplit.isMulti ? (
+          <>
+            <AsReportedSection
+              title="Balanse — Konsern"
+              rows={balanceSplit.konsern}
+              scopeTag="CONSOLIDATED"
+              canonicalByLabel={canonicalByLabel}
+              dbValueByKey={dbValueByKey}
+              priorValueByKey={priorValueByKey}
+              confidenceByKey={confidenceByKey}
+              precedenceByKey={precedenceByKey}
+              mainYear={mainYear}
+              priorYear={priorYear}
+              showPriorYear={showPriorYear}
+              editableFacts={editableFacts}
+              setEditableFacts={setEditableFacts}
+              priorYearEdits={priorYearEdits}
+              setPriorYearEdits={setPriorYearEdits}
+              rowEdits={rowEdits}
+              setRowEdits={setRowEdits}
+            />
+            <AsReportedSection
+              title="Balanse — Morselskap"
+              rows={balanceSplit.selskap}
+              scopeTag="COMPANY"
+              canonicalByLabel={canonicalByLabel}
+              dbValueByKey={dbValueByKey}
+              priorValueByKey={priorValueByKey}
+              confidenceByKey={confidenceByKey}
+              precedenceByKey={precedenceByKey}
+              mainYear={mainYear}
+              priorYear={priorYear}
+              showPriorYear={showPriorYear}
+              editableFacts={editableFacts}
+              setEditableFacts={setEditableFacts}
+              priorYearEdits={priorYearEdits}
+              setPriorYearEdits={setPriorYearEdits}
+              rowEdits={rowEdits}
+              setRowEdits={setRowEdits}
+            />
+          </>
+        ) : (
+          <AsReportedSection
+            title="Balanse"
+            rows={balanceRows}
+            canonicalByLabel={canonicalByLabel}
+            dbValueByKey={dbValueByKey}
+            priorValueByKey={priorValueByKey}
+            confidenceByKey={confidenceByKey}
+            precedenceByKey={precedenceByKey}
+            mainYear={mainYear}
+            priorYear={priorYear}
+            showPriorYear={showPriorYear}
+            editableFacts={editableFacts}
+            setEditableFacts={setEditableFacts}
+            priorYearEdits={priorYearEdits}
+            setPriorYearEdits={setPriorYearEdits}
+            rowEdits={rowEdits}
+            setRowEdits={setRowEdits}
+          />
+        )
       )}
+
       {otherRows.length > 0 && (
         <AsReportedSection
-          title={`Andre seksjoner (${[...new Set(otherRows.map((r) => sectionLabel(r.sectionType)))].join(", ")})`}
+          title="Noter og øvrige"
           rows={otherRows}
           canonicalByLabel={canonicalByLabel}
           dbValueByKey={dbValueByKey}
@@ -1572,6 +1775,7 @@ function AsReportedPanel({
           precedenceByKey={precedenceByKey}
           mainYear={mainYear}
           priorYear={priorYear}
+          showPriorYear={showPriorYear}
           editableFacts={editableFacts}
           setEditableFacts={setEditableFacts}
           priorYearEdits={priorYearEdits}
@@ -1592,6 +1796,7 @@ function AsReportedPanel({
 function AsReportedSection({
   title,
   rows,
+  scopeTag,
   canonicalByLabel,
   dbValueByKey,
   priorValueByKey,
@@ -1599,6 +1804,7 @@ function AsReportedSection({
   precedenceByKey,
   mainYear,
   priorYear,
+  showPriorYear,
   editableFacts,
   setEditableFacts,
   priorYearEdits,
@@ -1608,6 +1814,7 @@ function AsReportedSection({
 }: {
   title: string;
   rows: RawRow[];
+  scopeTag?: "COMPANY" | "CONSOLIDATED";
   canonicalByLabel: Map<string, string>;
   dbValueByKey: Map<string, string>;
   priorValueByKey: Map<string, string>;
@@ -1615,6 +1822,7 @@ function AsReportedSection({
   precedenceByKey: Map<string, string>;
   mainYear: number;
   priorYear: number;
+  showPriorYear: boolean;
   editableFacts: EditableFact[];
   setEditableFacts: React.Dispatch<React.SetStateAction<EditableFact[]>>;
   priorYearEdits: Record<string, string>;
@@ -1622,41 +1830,76 @@ function AsReportedSection({
   rowEdits: Record<string, RowEdit>;
   setRowEdits: React.Dispatch<React.SetStateAction<Record<string, RowEdit>>>;
 }) {
+  const [showUnmapped, setShowUnmapped] = useState(false);
+
+  const isMappedRow = (r: RawRow) =>
+    canonicalByLabel.has((r.normalizedLabel ?? r.label ?? "").toLowerCase().trim());
+
+  const mappedCount = rows.filter(isMappedRow).length;
+  const unmappedCount = rows.length - mappedCount;
+  const displayRows = showUnmapped ? rows : rows.filter(isMappedRow);
+
+  const scopeLabel = scopeTag === "CONSOLIDATED" ? "Konsern" : scopeTag === "COMPANY" ? "Morselskap" : null;
+  const scopePillClass = scopeTag === "CONSOLIDATED"
+    ? "bg-blue-100 text-blue-700"
+    : scopeTag === "COMPANY"
+      ? "bg-slate-100 text-slate-600"
+      : "";
+  const borderClass = scopeTag === "CONSOLIDATED"
+    ? "border-l-4 border-blue-400"
+    : scopeTag === "COMPANY"
+      ? "border-l-4 border-slate-300"
+      : "border-l-4 border-slate-200";
+
   return (
-    <div className="mb-2">
-      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-        {title}
-      </h3>
+    <div className="mb-4">
+      <div className={`mb-2 flex items-center justify-between gap-2 rounded-r-lg border border-[rgba(15,23,42,0.06)] bg-slate-50 px-3 py-2.5 ${borderClass}`}>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+          {scopeLabel && (
+            <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${scopePillClass}`}>
+              {scopeLabel}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-slate-500">{mappedCount} mappede</span>
+          {unmappedCount > 0 && (
+            <button
+              onClick={() => setShowUnmapped((v) => !v)}
+              className={`rounded border px-2 py-0.5 transition-colors ${
+                showUnmapped
+                  ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  : "border-[rgba(15,23,42,0.10)] bg-white text-slate-400 hover:bg-slate-50"
+              }`}
+            >
+              {showUnmapped ? `Skjul umappede (${unmappedCount})` : `+ Vis ${unmappedCount} umappede`}
+            </button>
+          )}
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[rgba(15,23,42,0.08)]">
-              <th className="pb-1 pr-2 text-left font-medium text-slate-400">Label (rapportert)</th>
-              <th className="pb-1 pr-1 text-left font-medium text-slate-400">Nøkkel</th>
-              <th className="pb-1 pr-1 text-right font-medium text-slate-400">
-                Foreslått {mainYear}
-              </th>
-              <th className="pb-1 pr-1 text-left font-medium text-slate-400">
-                Manuell {mainYear}
-              </th>
-              <th className="pb-1 pr-1 text-right font-medium text-emerald-600">
-                Endelig {mainYear}
-              </th>
-              <th className="pb-1 pr-1 text-right font-medium text-slate-400">
-                Foreslått {priorYear}
-              </th>
-              <th className="pb-1 pr-1 text-left font-medium text-slate-400">
-                Manuell {priorYear}
-              </th>
-              <th className="pb-1 pr-1 text-right font-medium text-emerald-600">
-                Endelig {priorYear}
-              </th>
-              <th className="pb-1 pr-1 text-right font-medium text-slate-400">Side</th>
-              <th className="pb-1 text-right font-medium text-slate-400">Conf</th>
+              <th className="pb-1.5 pr-2 text-left font-medium text-slate-400">Label (rapportert)</th>
+              <th className="pb-1.5 pr-1 text-left font-medium text-slate-400">Nøkkel</th>
+              <th className="pb-1.5 pr-1 text-right font-medium text-slate-400">Foreslått {mainYear}</th>
+              <th className="pb-1.5 pr-1 text-left font-medium text-slate-400">Manuell {mainYear}</th>
+              <th className="pb-1.5 pr-1 text-right font-medium text-emerald-600">Endelig {mainYear}</th>
+              {showPriorYear && (
+                <>
+                  <th className="pb-1.5 pr-1 text-right font-medium text-slate-400">Foreslått {priorYear}</th>
+                  <th className="pb-1.5 pr-1 text-left font-medium text-slate-400">Manuell {priorYear}</th>
+                  <th className="pb-1.5 pr-1 text-right font-medium text-emerald-600">Endelig {priorYear}</th>
+                </>
+              )}
+              <th className="pb-1.5 pr-1 text-right font-medium text-slate-400">Side</th>
+              <th className="pb-1.5 text-right font-medium text-slate-400">Conf</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => {
+            {displayRows.map((row, i) => {
               const lookupKey = (row.normalizedLabel ?? row.label ?? "").toLowerCase().trim();
               const canonicalKey = canonicalByLabel.get(lookupKey) ?? null;
               const isMapped = canonicalKey !== null;
@@ -1726,7 +1969,7 @@ function AsReportedSection({
               return (
                 <tr
                   key={row.pageNumber + "-" + i}
-                  className="border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50"
+                  className={`border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50 ${!isMapped ? "bg-amber-50/20" : ""}`}
                 >
                   <td className={"py-1 pr-2 " + (isMapped ? "text-slate-700" : "text-slate-400")}>
                     {row.label}
@@ -1852,67 +2095,71 @@ function AsReportedSection({
                     {effectiveMainValue !== null ? formatIntegerString(effectiveMainValue) : "—"}
                   </td>
 
-                  <td
-                    className={
-                      "py-1 pr-1 text-right font-mono tabular-nums " +
-                      (hasPriorManual ? "text-slate-300 line-through" : "text-slate-400")
-                    }
-                  >
-                    {fallbackPriorValue !== null ? formatIntegerString(fallbackPriorValue) : "—"}
-                  </td>
-
-                  <td className="py-1 pr-1">
-                    {hasKeyOverride || !isMapped ? (
-                      <input
-                        value={priorManualValue}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setRowEdits((prev) => ({
-                            ...prev,
-                            [rowId]: {
-                              ...(prev[rowId] ?? { metricKey: selectedMetricKey, mainValue: "" }),
-                              metricKey: selectedMetricKey,
-                              priorValue: value,
-                              sourceMetricKey: canonicalKey,
-                            },
-                          }));
-                        }}
-                        placeholder="—"
+                  {showPriorYear && (
+                    <>
+                      <td
                         className={
-                          "w-full min-w-[80px] rounded-xl border px-1.5 py-0.5 font-mono text-xs focus:outline-none " +
-                          (hasPriorManual
-                            ? "border-amber-300 bg-amber-50 text-amber-800"
-                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]")
+                          "py-1 pr-1 text-right font-mono tabular-nums " +
+                          (hasPriorManual ? "text-slate-300 line-through" : "text-slate-400")
                         }
-                      />
-                    ) : isMapped && canonicalKey ? (
-                      <input
-                        value={priorManualValue}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setPriorYearEdits((prev) => ({ ...prev, [canonicalKey]: value }));
-                        }}
-                        placeholder="—"
-                        className={
-                          "w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none " +
-                          (hasPriorManual
-                            ? "border-amber-300 bg-amber-50 text-amber-800"
-                            : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]")
-                        }
-                      />
-                    ) : (
-                      <span className="text-slate-300">—</span>
-                    )}
-                  </td>
+                      >
+                        {fallbackPriorValue !== null ? formatIntegerString(fallbackPriorValue) : "—"}
+                      </td>
 
-                  <td
-                    className={
-                      "py-1 pr-1 text-right font-mono tabular-nums font-medium " +
-                      (hasPriorManual ? "text-amber-700" : "text-slate-400")
-                    }
-                  >
-                    {effectivePriorValue !== null ? formatIntegerString(effectivePriorValue) : "—"}
-                  </td>
+                      <td className="py-1 pr-1">
+                        {hasKeyOverride || !isMapped ? (
+                          <input
+                            value={priorManualValue}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setRowEdits((prev) => ({
+                                ...prev,
+                                [rowId]: {
+                                  ...(prev[rowId] ?? { metricKey: selectedMetricKey, mainValue: "" }),
+                                  metricKey: selectedMetricKey,
+                                  priorValue: value,
+                                  sourceMetricKey: canonicalKey,
+                                },
+                              }));
+                            }}
+                            placeholder="—"
+                            className={
+                              "w-full min-w-[80px] rounded-xl border px-1.5 py-0.5 font-mono text-xs focus:outline-none " +
+                              (hasPriorManual
+                                ? "border-amber-300 bg-amber-50 text-amber-800"
+                                : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]")
+                            }
+                          />
+                        ) : isMapped && canonicalKey ? (
+                          <input
+                            value={priorManualValue}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setPriorYearEdits((prev) => ({ ...prev, [canonicalKey]: value }));
+                            }}
+                            placeholder="—"
+                            className={
+                              "w-full min-w-[80px] rounded border px-1.5 py-0.5 font-mono text-xs focus:outline-none " +
+                              (hasPriorManual
+                                ? "border-amber-300 bg-amber-50 text-amber-800"
+                                : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]")
+                            }
+                          />
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+
+                      <td
+                        className={
+                          "py-1 pr-1 text-right font-mono tabular-nums font-medium " +
+                          (hasPriorManual ? "text-amber-700" : "text-slate-400")
+                        }
+                      >
+                        {effectivePriorValue !== null ? formatIntegerString(effectivePriorValue) : "—"}
+                      </td>
+                    </>
+                  )}
 
                   <td className="py-1 pr-1 text-right font-mono text-slate-400">
                     {row.pageNumber}

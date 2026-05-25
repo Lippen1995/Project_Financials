@@ -114,14 +114,21 @@ function countKeywordMatches(text: string, keywords: string[]) {
 // A Norwegian group annual report contains two sets of accounts, separated by
 // section headings. This detector recognises those headings.
 //
-// CRITICAL: all matching is WORD-BOUNDED. Prose freely uses the definite and
-// genitive forms — "konsernet", "konsernregnskapet", "morselskapet" — which
-// must NOT be mistaken for a section marker. A section heading uses the bare
-// indefinite form ("Konsernregnskap", "Selskapsregnskap"). Word boundaries
-// (\b) match the heading form but reject the inflected prose form, because in
-// "konsernregnskapet" there is no word boundary after "konsernregnskap".
+// Matching strategy — three tiers, ordered from most to least conservative:
+//
+//  1. Bare indefinite compound words ("konsernregnskap", "selskapsregnskap").
+//     Checked anywhere in heading or top-of-page text. These never appear in
+//     ordinary prose, so they are safe to match broadly.
+//
+//  2. Inflected/definite forms ("konsernregnskapet", "morselskapsregnskap").
+//     Checked ONLY in the page heading text. These DO appear in prose sentences
+//     ("Konsernregnskapet viser vekst") but are safe when they ARE the heading.
+//
+//  3. Genitive forms + statement noun ("Konsernets resultatregnskap",
+//     "Morselskapets resultatregnskap"). Checked ONLY in the page heading.
+//     The presence of a recognised statement noun makes these unambiguous.
 
-// Consolidated-section heading words (indefinite form).
+// Tier 1 — bare indefinite forms, safe to check in heading + body text.
 const CONSOLIDATED_SECTION_KEYWORDS = [
   "konsernregnskap",
   "konsernresultat",
@@ -129,13 +136,30 @@ const CONSOLIDATED_SECTION_KEYWORDS = [
   "konsernoppstilling",
 ];
 
-// Company-/parent-scope heading word. "selskapsregnskap" is unambiguous — it
-// does not occur in ordinary prose. "morselskap" DOES occur in prose, so it
-// is handled separately below (only counts next to a statement noun).
-const COMPANY_SCOPE_SECTION_KEYWORDS = ["selskapsregnskap", "morregnskap"];
+const COMPANY_SCOPE_SECTION_KEYWORDS = [
+  "selskapsregnskap",
+  "morregnskap",
+  "morselskapsregnskap", // common compound: "morselskapets regnskap" abbreviated
+];
 
-// Statement nouns used to qualify the bare "konsern" / "morselskap" tokens.
-const SCOPE_STATEMENT_NOUN = /\b(resultatregnskap|balanse|kontantstrom|noter)\b/;
+// Tier 2 — definite/inflected forms, only safe when they ARE the page heading.
+const CONSOLIDATED_SECTION_KEYWORDS_HEADING = [
+  "konsernregnskapet",
+  "konsernresultatet",
+  "konsernbalansen",
+  "konsernoppstillingen",
+];
+
+const COMPANY_SCOPE_SECTION_KEYWORDS_HEADING = [
+  "selskapsregnskapet",
+  "morregnskapet",
+  "morselskapsregnskapet",
+];
+
+// Statement nouns used to qualify the bare "konsern" / "morselskap" tokens
+// (tier 1) and the genitive forms "konsernets" / "morselskapets" (tier 3).
+const SCOPE_STATEMENT_NOUN =
+  /\b(resultatregnskap|resultatoppstilling|balanse|balanseoversikt|kontantstrom|kontantstrommer|noter)\b/;
 
 function containsWord(text: string, word: string): boolean {
   return new RegExp(`\\b${word}\\b`).test(text);
@@ -145,6 +169,9 @@ function containsWord(text: string, word: string): boolean {
  * Detects whether a page carries an explicit statement-scope heading.
  * Returns "CONSOLIDATED" or "COMPANY" when a marker is found, or null when
  * the page has no scope signal (the caller then inherits the running scope).
+ *
+ * @param headingText  Normalised text of the page heading block.
+ * @param topText      Normalised text of the top ~10 blocks on the page.
  */
 function detectScopeSignal(
   headingText: string,
@@ -152,6 +179,7 @@ function detectScopeSignal(
 ): "CONSOLIDATED" | "COMPANY" | null {
   const text = `${headingText} ${topText}`;
 
+  // ── Tier 1: bare indefinite forms ─────────────────────────────────────────
   const hasConsolidatedKeyword = CONSOLIDATED_SECTION_KEYWORDS.some((k) =>
     containsWord(text, k),
   );
@@ -161,16 +189,43 @@ function detectScopeSignal(
 
   const hasStatementNoun = SCOPE_STATEMENT_NOUN.test(text);
 
-  // A bare "konsern" word next to a statement noun is also a consolidated
-  // marker (e.g. heading "Resultatregnskap konsern").
+  // A bare "konsern" word next to a statement noun is a consolidated marker
+  // (e.g. heading "Resultatregnskap konsern" or "Konsern - Resultatregnskap").
   const konsernNextToStatement = containsWord(text, "konsern") && hasStatementNoun;
-  // "morselskap" only counts as a company marker next to a statement noun —
-  // on its own it appears in note prose ("transaksjoner med morselskap").
-  const morselskapNextToStatement =
-    containsWord(text, "morselskap") && hasStatementNoun;
+  // "morselskap" only counts next to a statement noun — on its own it appears
+  // in note prose ("transaksjoner med morselskap").
+  const morselskapNextToStatement = containsWord(text, "morselskap") && hasStatementNoun;
 
-  const consolidated = hasConsolidatedKeyword || konsernNextToStatement;
-  const company = hasCompanyKeyword || morselskapNextToStatement;
+  // ── Tier 2: inflected forms — heading only ─────────────────────────────────
+  // "Konsernregnskapet" / "Morselskapsregnskapet" can appear in prose sentences,
+  // so we only trust them when they ARE the page heading, not buried in body text.
+  const hasConsolidatedHeadingInflected = CONSOLIDATED_SECTION_KEYWORDS_HEADING.some((k) =>
+    containsWord(headingText, k),
+  );
+  const hasCompanyHeadingInflected = COMPANY_SCOPE_SECTION_KEYWORDS_HEADING.some((k) =>
+    containsWord(headingText, k),
+  );
+
+  // ── Tier 3: genitive forms + statement noun — heading only ────────────────
+  // "Konsernets resultatregnskap" / "Morselskapets resultatregnskap".
+  // These genitive forms can appear in prose ("Konsernets resultatregnskap viser…"),
+  // so restrict the check to the page heading where they are unambiguous markers.
+  const headingStatementNoun = SCOPE_STATEMENT_NOUN.test(headingText);
+  const konsernEtsNextToStatement =
+    containsWord(headingText, "konsernets") && headingStatementNoun;
+  const morselskapetsNextToStatement =
+    containsWord(headingText, "morselskapets") && headingStatementNoun;
+
+  const consolidated =
+    hasConsolidatedKeyword ||
+    konsernNextToStatement ||
+    hasConsolidatedHeadingInflected ||
+    konsernEtsNextToStatement;
+  const company =
+    hasCompanyKeyword ||
+    morselskapNextToStatement ||
+    hasCompanyHeadingInflected ||
+    morselskapetsNextToStatement;
 
   // Conflicting markers on one page — refuse to switch, let scope inherit.
   if (consolidated && company) {

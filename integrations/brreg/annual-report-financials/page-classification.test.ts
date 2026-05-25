@@ -146,4 +146,44 @@ describe("classifyPages", () => {
     // flip scope — the statement page stays COMPANY.
     expect(result[1]?.statementScope).toBe("COMPANY");
   });
+
+  it("detects CONSOLIDATED from inflected heading 'Konsernregnskapet'", () => {
+    // Some annual reports use the definite form as the section heading.
+    const result = classifyPages([
+      buildPage(1, ["Konsernregnskapet", "Resultatregnskap", "Belop i NOK", "2024 2023", "Salgsinntekter 1000000 900000", "Driftsresultat 200000 180000"]),
+      buildPage(2, ["Morselskapsregnskap", "Resultatregnskap", "Belop i NOK", "2024 2023", "Driftsinntekter 500000 450000"]),
+    ]);
+    const byPage = new Map(result.map((c) => [c.pageNumber, c]));
+    expect(byPage.get(1)?.statementScope).toBe("CONSOLIDATED");
+    expect(byPage.get(1)?.hasExplicitScopeSignal).toBe(true);
+    expect(byPage.get(2)?.statementScope).toBe("COMPANY");
+    expect(byPage.get(2)?.hasExplicitScopeSignal).toBe(true);
+  });
+
+  it("detects CONSOLIDATED from genitive heading 'Konsernets resultatregnskap'", () => {
+    // Some annual reports use the genitive possessive form as the section heading.
+    const result = classifyPages([
+      buildPage(1, ["Konsernets resultatregnskap", "Belop i NOK", "2024 2023", "Salgsinntekter 1000000 900000", "Driftsresultat 200000 180000"]),
+      buildPage(2, ["Morselskapets resultatregnskap", "Belop i NOK", "2024 2023", "Driftsinntekter 500000 450000"]),
+    ]);
+    const byPage = new Map(result.map((c) => [c.pageNumber, c]));
+    expect(byPage.get(1)?.statementScope).toBe("CONSOLIDATED");
+    expect(byPage.get(1)?.hasExplicitScopeSignal).toBe(true);
+    expect(byPage.get(2)?.statementScope).toBe("COMPANY");
+    expect(byPage.get(2)?.hasExplicitScopeSignal).toBe(true);
+  });
+
+  it("does not falsely flip scope when 'Konsernregnskapet' appears mid-prose on a non-heading page", () => {
+    // "Konsernregnskapet viser..." in body text must NOT flip scope unless it is the heading.
+    const result = classifyPages([
+      buildPage(1, [
+        "Styrets beretning",
+        "Virksomheten drives godt.",
+        "Konsernregnskapet viser et overskudd pa 50 mill kr.",
+        "Styret er fornøyd med resultatet.",
+      ]),
+      buildPage(2, ["Resultatregnskap", "Belop i: NOK", "2024 2023", "Driftsinntekter 103097000 99210000"]),
+    ]);
+    expect(result[1]?.statementScope).toBe("COMPANY");
+  });
 });

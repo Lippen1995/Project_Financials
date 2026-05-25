@@ -134,19 +134,26 @@ function extractElementText(element: OpenDataLoaderRawElement) {
 function mapBlockKind(rawType: string): AnnualReportPageBlock["kind"] {
   switch (rawType) {
     case "heading":
+    case "section_header":  // Docling v2 label for section headings
+    case "section-header":  // alternative hyphenated form
+    case "title":           // Docling page/section title label
       return "heading";
     case "paragraph":
+    case "text":            // Docling plain-text label
       return "paragraph";
     case "table":
       return "table";
     case "list":
+    case "list_item":       // Docling list item label
       return "list";
     case "picture":
     case "image":
+    case "figure":
       return "picture";
     case "caption":
       return "caption";
     case "formula":
+    case "equation":
       return "formula";
     default:
       return "other";
