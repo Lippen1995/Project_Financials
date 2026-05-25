@@ -11,11 +11,24 @@ import {
 } from "@/integrations/brreg/annual-report-financials/publish-gate";
 import { buildNormalizedFinancialPayload } from "@/integrations/brreg/annual-report-financials/normalized-payload";
 import { extractOcrPagesWithDiagnostics } from "@/integrations/brreg/annual-report-financials/ocr";
-import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
+import { isPageReliable, preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
 import { reconstructStatementRows } from "@/integrations/brreg/annual-report-financials/table-reconstruction";
+import { computePageConfidences, PageConfidence } from "@/integrations/brreg/annual-report-financials/page-confidence";
+import {
+  classifyConstraintCause,
+  computeEngineConsensus,
+  consensusConfidenceDelta,
+  ConstraintCause,
+  EngineConsensus,
+} from "@/integrations/brreg/annual-report-financials/engine-consensus";
+import {
+  buildAlternativeRowsForRecovery,
+  loopCandidateWins,
+  selectRecoveryCandidates,
+} from "@/integrations/brreg/annual-report-financials/extraction-loop";
 import { CanonicalMetricKey, requiredPublishMetricKeys } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import { validateCanonicalFacts } from "@/integrations/brreg/annual-report-financials/validation";
-import { CanonicalFactCandidate, PageClassification, ValidationIssueDraft } from "@/integrations/brreg/annual-report-financials/types";
+import { AnnualReportParsedInputPage, CanonicalFactCandidate, PageClassification, ValidationIssueDraft } from "@/integrations/brreg/annual-report-financials/types";
 import {
   AnnualReportDocument,
   AnnualReportDocumentDiagnostics,
@@ -106,6 +119,8 @@ type FinancialPipelineComputation = {
   mode: "legacy" | "local" | "hybrid";
   classifications: PageClassification[];
   rows: ReturnType<typeof reconstructStatementRows>;
+  /** Per-page extraction confidence, split into recognition vs reconstruction. */
+  pageConfidences: PageConfidence[];
   mapped: ReturnType<typeof mapRowsToCanonicalFacts>;
   validation: ReturnType<typeof validateCanonicalFacts>;
   issues: ValidationIssueDraft[];
@@ -463,6 +478,83 @@ function buildReviewRuleCodes(input: {
   return [...codes].sort();
 }
 
+/**
+ * Folds engine consensus into the chosen computation. Agreement on the
+ * headline figures lifts the confidence score; a disagreement on a metric
+ * that gates publication is recorded as an ERROR so the filing cannot
+ * auto-publish while two engines read that number differently. The publish
+ * gates and review codes are recomputed from the adjusted state.
+ */
+function applyEngineConsensus(
+  computation: FinancialPipelineComputation,
+  consensus: EngineConsensus,
+  filingFiscalYear: number,
+): FinancialPipelineComputation {
+  const requiredKeys = requiredPublishMetricKeys as readonly string[];
+  const disagreementIssues: ValidationIssueDraft[] = consensus.disagreedMetricKeys
+    .filter((metricKey) => requiredKeys.includes(metricKey))
+    .map((metricKey) => {
+      const metric = consensus.metrics.find((entry) => entry.metricKey === metricKey);
+      return {
+        severity: "ERROR" as const,
+        ruleCode: "ENGINE_DISAGREEMENT",
+        message: `Legacy and OpenDataLoader extracted different values for ${metricKey}.`,
+        expectedValue: metric?.legacyValue ?? null,
+        actualValue: metric?.odlValue ?? null,
+        context: {
+          metricKey,
+          legacyValue: metric?.legacyValue ?? null,
+          odlValue: metric?.odlValue ?? null,
+        },
+      };
+    });
+
+  const delta = consensusConfidenceDelta(consensus);
+  if (delta === 0 && disagreementIssues.length === 0) {
+    return computation;
+  }
+
+  const issues = [...computation.issues, ...disagreementIssues];
+  const confidenceScore = Number(
+    Math.max(0, Math.min(0.995, computation.confidenceScore + delta)).toFixed(4),
+  );
+  const canPublishSnapshot = canPublishProvisionally({
+    filingFiscalYear,
+    classifications: computation.classifications,
+    selectedFacts: computation.selectedFacts,
+    validationIssues: issues,
+    confidenceScore,
+  });
+  const canSkipManualReview = canPublishAutomatically({
+    filingFiscalYear,
+    classifications: computation.classifications,
+    selectedFacts: computation.selectedFacts,
+    validationIssues: issues,
+    confidenceScore,
+  });
+  const reviewRuleCodes = buildReviewRuleCodes({
+    selectedFacts: computation.selectedFacts,
+    issues,
+    confidenceScore,
+    canSkipManualReview,
+  });
+  const blockingRuleCodes = Array.from(
+    new Set(
+      issues.filter((issue) => issue.severity === "ERROR").map((issue) => issue.ruleCode),
+    ),
+  );
+
+  return {
+    ...computation,
+    issues,
+    confidenceScore,
+    canPublishSnapshot,
+    canSkipManualReview,
+    reviewRuleCodes,
+    blockingRuleCodes,
+  };
+}
+
 function runFinancialPipeline(input: {
   filingId: string;
   extractionRunId: string;
@@ -479,10 +571,40 @@ function runFinancialPipeline(input: {
       ? allClassifications.filter((c) => !input.excludePageNumbers!.has(c.pageNumber))
       : allClassifications;
   const rows = reconstructStatementRows(input.parsedPages, classifications);
-  const mapped = mapRowsToCanonicalFacts({
-    filingFiscalYear: input.fiscalYear,
+  return assembleComputation({
+    fiscalYear: input.fiscalYear,
+    parsedPages: input.parsedPages,
     classifications,
     rows,
+    engine: input.engine,
+    mode: input.mode,
+    startedAt,
+  });
+}
+
+/**
+ * Assembles the FinancialPipelineComputation from a row set. Split out of
+ * runFinancialPipeline so the self-correcting loop can swap rows for one
+ * page and re-run scoring without redoing classification or parsing.
+ */
+function assembleComputation(input: {
+  fiscalYear: number;
+  parsedPages: Parameters<typeof classifyPages>[0];
+  classifications: PageClassification[];
+  rows: ReturnType<typeof reconstructStatementRows>;
+  engine: "LEGACY" | "OPENDATALOADER";
+  mode: "legacy" | "local" | "hybrid";
+  startedAt: number;
+}): FinancialPipelineComputation {
+  const pageConfidences = computePageConfidences({
+    parsedPages: input.parsedPages,
+    classifications: input.classifications,
+    rows: input.rows,
+  });
+  const mapped = mapRowsToCanonicalFacts({
+    filingFiscalYear: input.fiscalYear,
+    classifications: input.classifications,
+    rows: input.rows,
   });
   // Pick the primary scope to validate, score and publish. Consolidated
   // (konsernregnskap) is the headline for a group; a standalone company has
@@ -494,7 +616,7 @@ function runFinancialPipeline(input: {
     ? "CONSOLIDATED"
     : "COMPANY";
   const validation = validateCanonicalFacts(mapped.facts, primaryScope);
-  const classificationIssues = buildClassificationIssues(input.fiscalYear, classifications);
+  const classificationIssues = buildClassificationIssues(input.fiscalYear, input.classifications);
   const issues = [...classificationIssues, ...mapped.issues, ...validation.issues];
   const selectedFacts = validation.selectedFacts;
   const duplicateSupport =
@@ -506,7 +628,7 @@ function runFinancialPipeline(input: {
       ? validation.stats.noteMatches / validation.stats.noteComparisons
       : 0;
   const confidenceScore = calculateConfidenceScore({
-    classifications,
+    classifications: input.classifications,
     selectedFactCount: selectedFacts.size,
     validationScore: validation.validationScore,
     duplicateSupport,
@@ -515,14 +637,14 @@ function runFinancialPipeline(input: {
   });
   const canPublishSnapshot = canPublishProvisionally({
     filingFiscalYear: input.fiscalYear,
-    classifications,
+    classifications: input.classifications,
     selectedFacts,
     validationIssues: issues,
     confidenceScore,
   });
   const canSkipManualReview = canPublishAutomatically({
     filingFiscalYear: input.fiscalYear,
-    classifications,
+    classifications: input.classifications,
     selectedFacts,
     validationIssues: issues,
     confidenceScore,
@@ -545,8 +667,9 @@ function runFinancialPipeline(input: {
   return {
     engine: input.engine,
     mode: input.mode,
-    classifications,
-    rows,
+    classifications: input.classifications,
+    rows: input.rows,
+    pageConfidences,
     mapped,
     validation,
     issues,
@@ -561,7 +684,7 @@ function runFinancialPipeline(input: {
     blockingRuleCodes,
     reviewRuleCodes,
     primaryScope,
-    durationMs: Date.now() - startedAt,
+    durationMs: Date.now() - input.startedAt,
   } satisfies FinancialPipelineComputation;
 }
 
@@ -635,6 +758,7 @@ function buildReviewPayload(input: {
   documentDiagnostics?: AnnualReportDocumentDiagnostics | null;
   structuredDocument?: AnnualReportDocument | null;
   pdfDecision?: PdfDecisionResult | null;
+  consensus?: EngineConsensus | null;
 }) {
   const pageReferences = Array.from(
     new Set([
@@ -669,6 +793,22 @@ function buildReviewPayload(input: {
   const reviewStatementScope =
     factSummary.find((fact) => fact.statementScope)?.statementScope ?? "COMPANY";
 
+  // For each blocking accounting-identity failure, attribute a likely cause
+  // from engine consensus — an extraction error vs a genuine inconsistency
+  // in the filed statement itself.
+  const constraintCauses = input.consensus
+    ? input.issues
+        .filter((issue) => issue.severity === "ERROR")
+        .map((issue) => ({
+          ruleCode: issue.ruleCode,
+          likelyCause: classifyConstraintCause(issue.ruleCode, input.consensus!),
+        }))
+        .filter(
+          (entry): entry is { ruleCode: string; likelyCause: ConstraintCause } =>
+            entry.likelyCause !== null,
+        )
+    : [];
+
   return {
     pageReferences,
     reviewPayload: {
@@ -695,6 +835,8 @@ function buildReviewPayload(input: {
       artifactReferences: input.artifactReferences ?? [],
       engineSummary: input.engineSummary ?? null,
       comparisonSummary: input.comparisonSummary ?? null,
+      consensus: input.consensus ?? null,
+      constraintCauses,
       documentDiagnostics: input.documentDiagnostics ?? null,
       pdfDecision: input.pdfDecision ?? null,
       ...buildDocumentPayloadFields(input.structuredDocument ?? null),
@@ -1035,18 +1177,46 @@ export async function processAnnualReportFiling(
   await updateAnnualReportFiling(filing.id, { preflightedAt: new Date(), unitHints: { hasTextLayer: preflight.hasTextLayer, hasReliableTextLayer: preflight.hasReliableTextLayer }, parserVersionLastTried: ANNUAL_REPORT_PARSER_VERSION, lastError: null });
   logPipelineEvent("filing.preflighted", { filingId: filing.id, fiscalYear: filing.fiscalYear, hasReliableTextLayer: preflight.hasReliableTextLayer });
 
-  const legacyOcrResult = preflight.hasReliableTextLayer
-    ? null
-    : await extractOcrPagesWithDiagnostics(pdfBuffer);
-  const legacyPages = preflight.hasReliableTextLayer
-    ? preflight.parsedPages
-    : legacyOcrResult!.pages;
-  const legacyOcrEngine = preflight.hasReliableTextLayer ? "EMBEDDED_TEXT" : "TESSERACT";
+  // Per-page legacy mixing. Doc-level reliability still drives the broad
+  // decision — full OCR for clearly scanned filings, none for clearly
+  // digital ones — but a mixed document (mostly prose with a few scanned
+  // statement pages) now OCRs only the pages that need it instead of either
+  // dropping them silently behind the text-layer path or OCR-ing the whole
+  // document unnecessarily.
+  const unreliablePageNumbers = preflight.parsedPages
+    .filter((page) => !isPageReliable(page))
+    .map((page) => page.pageNumber);
+  const isMixedMode =
+    preflight.hasReliableTextLayer && unreliablePageNumbers.length > 0;
+  let legacyOcrResult: Awaited<ReturnType<typeof extractOcrPagesWithDiagnostics>> | null = null;
+  if (!preflight.hasReliableTextLayer) {
+    legacyOcrResult = await extractOcrPagesWithDiagnostics(pdfBuffer);
+  } else if (isMixedMode) {
+    legacyOcrResult = await extractOcrPagesWithDiagnostics(
+      pdfBuffer,
+      unreliablePageNumbers,
+    );
+  }
+  const ocrPagesByNumber = new Map(
+    (legacyOcrResult?.pages ?? []).map((page) => [page.pageNumber, page]),
+  );
+  const legacyPages: AnnualReportParsedInputPage[] =
+    preflight.parsedPages.length > 0
+      ? preflight.parsedPages.map(
+          (page) => ocrPagesByNumber.get(page.pageNumber) ?? page,
+        )
+      : legacyOcrResult?.pages ?? [];
+  const legacyOcrEngine = !legacyOcrResult
+    ? "EMBEDDED_TEXT"
+    : isMixedMode
+      ? "MIXED_TEXT_TESSERACT"
+      : "TESSERACT";
   if (legacyOcrResult) {
     logPipelineEvent("document_understanding.legacy_ocr_summary", {
       filingId: filing.id,
       fiscalYear: filing.fiscalYear,
       diagnostics: legacyOcrResult.diagnostics,
+      ocrPageScope: isMixedMode ? unreliablePageNumbers : "FULL_DOCUMENT",
     });
   }
   const openDataLoaderConfig = resolveOpenDataLoaderConfig();
@@ -1092,6 +1262,7 @@ export async function processAnnualReportFiling(
   let openDataLoaderResult: OpenDataLoaderParseResult | null = null;
   let openDataLoaderError: Error | null = null;
   let comparisonSummary: OpenDataLoaderComparisonSummary | null = null;
+  let engineConsensus: EngineConsensus | null = null;
 
   try {
     if (openDataLoaderConfig.enabled) {
@@ -1216,6 +1387,14 @@ export async function processAnnualReportFiling(
         }),
       });
 
+      // Engine consensus — compare the two engines' selected facts. Computed
+      // here once (Legacy vs ODL); applied below to whichever wins selection.
+      const consensus = computeEngineConsensus(
+        legacyComputationForComparison.selectedFacts,
+        shadowComputation.selectedFacts,
+      );
+      engineConsensus = consensus;
+
       artifactReferences.push(
         await persistArtifactFile({
           filingId: filing.id,
@@ -1223,6 +1402,7 @@ export async function processAnnualReportFiling(
           filename: "opendataloader-dual-run-comparison.json",
           content: serializeJsonBuffer({
             comparisonSummary,
+            consensus,
             primary: buildPipelineSnapshot({
               engine: "LEGACY",
               mode: "legacy",
@@ -1249,54 +1429,163 @@ export async function processAnnualReportFiling(
         publishDecisionMismatch: comparisonSummary.publishDecisionMismatch,
       });
 
-      // Auto-promote ODL to primary when it clearly outperforms Legacy.
-      // Conservative rule: only swap when ODL can publish AND Legacy cannot. This protects
-      // against false positives — if both engines could publish, we trust Legacy's stability.
-      // Disabled by default; enable via OPENDATALOADER_AUTO_PROMOTE=true.
-      if (
-        openDataLoaderConfig.autoPromote &&
-        shadowComputation.canPublishSnapshot &&
-        !legacyComputationForComparison.canPublishSnapshot
-      ) {
-        logPipelineEvent("document_understanding.opendataloader_auto_promoted", {
-          filingId: filing.id,
-          extractionRunId: extractionRun.id,
-          reason: "ODL_CAN_PUBLISH_LEGACY_CANNOT",
-          legacyConfidenceScore: legacyComputationForComparison.confidenceScore,
-          shadowConfidenceScore: shadowComputation.confidenceScore,
-          legacyBlockingRules: legacyComputationForComparison.reviewRuleCodes,
-          shadowBlockingRules: shadowComputation.reviewRuleCodes,
-        });
-        primaryComputation = shadowComputation;
-        primaryEngine = "OPENDATALOADER";
-        primaryMode = openDataLoaderResult.routing.executionMode;
+      // Engine selection: best result wins. In dual-run both engines have
+      // produced a full computation — publish whichever did the better job
+      // rather than always trusting Legacy. A publishable result outranks a
+      // non-publishable one; within the same tier the higher-or-equal confidence
+      // score wins (ties go to ODL — it has better structured-document parsing,
+      // especially for group companies with dual statements).
+      // Gated by OPENDATALOADER_AUTO_PROMOTE — when off, Legacy stays primary.
+      if (openDataLoaderConfig.autoPromote) {
+        const legacy = legacyComputationForComparison;
+        const odl = shadowComputation;
+        const legacyTier = legacy.canPublishSnapshot ? 1 : 0;
+        const odlTier = odl.canPublishSnapshot ? 1 : 0;
+        const odlWins =
+          odlTier > legacyTier ||
+          (odlTier === legacyTier &&
+            odl.confidenceScore >= legacy.confidenceScore);
 
-        // Surface this swap to admins so they can verify ODL really did the right thing.
-        // Dedupe per extraction run — re-running the same filing won't spam the inbox.
-        await createAdminNotificationIfMissing({
-          type: "ENGINE_PROMOTION_OBSERVED",
-          recipientRole: "ADMIN",
-          title: `OpenDataLoader overtok for ${filing.company.orgNumber} (${filing.fiscalYear})`,
-          body:
-            `ODL produserte et publiserbart resultat der Legacy ikke kunne. ` +
-            `Anbefales å verifisere tallene før de regnes som endelige.`,
-          linkPath: `/admin/annual-report-reviews?orgNumber=${filing.company.orgNumber}&fiscalYear=${filing.fiscalYear}`,
-          dedupeKey: `engine-promotion:${extractionRun.id}`,
-          metadata: {
+        if (odlWins) {
+          const promotionReason =
+            odl.canPublishSnapshot && !legacy.canPublishSnapshot
+              ? "ODL_PUBLISHABLE_LEGACY_NOT"
+              : odl.confidenceScore > legacy.confidenceScore
+                ? "ODL_HIGHER_CONFIDENCE"
+                : "ODL_TIED_PROMOTED";
+          logPipelineEvent("document_understanding.opendataloader_auto_promoted", {
             filingId: filing.id,
             extractionRunId: extractionRun.id,
-            orgNumber: filing.company.orgNumber,
-            fiscalYear: filing.fiscalYear,
-            legacyConfidenceScore: legacyComputationForComparison.confidenceScore,
-            shadowConfidenceScore: shadowComputation.confidenceScore,
-          },
-        }).catch((notificationError) => {
-          // Notification failure must never block the extraction pipeline.
-          logRecoverableError("admin-notification", notificationError, {
-            operation: "engine_promotion",
-            filingId: filing.id,
-            extractionRunId: extractionRun.id,
+            reason: promotionReason,
+            legacyConfidenceScore: legacy.confidenceScore,
+            shadowConfidenceScore: odl.confidenceScore,
+            legacyBlockingRules: legacy.reviewRuleCodes,
+            shadowBlockingRules: odl.reviewRuleCodes,
           });
+          primaryComputation = odl;
+          primaryEngine = "OPENDATALOADER";
+          primaryMode = openDataLoaderResult.routing.executionMode;
+
+          // Surface the swap to admins so they can verify ODL really did the
+          // better job. Dedupe per extraction run so a re-run doesn't spam.
+          await createAdminNotificationIfMissing({
+            type: "ENGINE_PROMOTION_OBSERVED",
+            recipientRole: "ADMIN",
+            title: `OpenDataLoader overtok for ${filing.company.orgNumber} (${filing.fiscalYear})`,
+            body:
+              `ODL ga et bedre ekstraksjonsresultat enn Legacy ` +
+              `(konfidens ${odl.confidenceScore.toFixed(2)} mot ${legacy.confidenceScore.toFixed(2)}). ` +
+              `Anbefales å verifisere tallene før de regnes som endelige.`,
+            linkPath: `/admin/annual-report-reviews?orgNumber=${filing.company.orgNumber}&fiscalYear=${filing.fiscalYear}`,
+            dedupeKey: `engine-promotion:${extractionRun.id}`,
+            metadata: {
+              filingId: filing.id,
+              extractionRunId: extractionRun.id,
+              orgNumber: filing.company.orgNumber,
+              fiscalYear: filing.fiscalYear,
+              legacyConfidenceScore: legacy.confidenceScore,
+              shadowConfidenceScore: odl.confidenceScore,
+            },
+          }).catch((notificationError) => {
+            // Notification failure must never block the extraction pipeline.
+            logRecoverableError("admin-notification", notificationError, {
+              operation: "engine_promotion",
+              filingId: filing.id,
+              extractionRunId: extractionRun.id,
+            });
+          });
+        }
+      }
+
+      // Engine consensus: fold the two engines' agreement into the chosen
+      // computation. Agreement on the headline figures lifts confidence;
+      // disagreement on a publish-gating metric forces that fact to review.
+      primaryComputation = applyEngineConsensus(
+        primaryComputation,
+        consensus,
+        filing.fiscalYear,
+      );
+      logPipelineEvent("document_understanding.engine_consensus", {
+        filingId: filing.id,
+        extractionRunId: extractionRun.id,
+        comparedCount: consensus.comparedCount,
+        agreementScore: consensus.agreementScore,
+        disagreedMetricKeys: consensus.disagreedMetricKeys,
+        confidenceDelta: consensusConfidenceDelta(consensus),
+      });
+    }
+
+    // ── Self-correcting loop ─────────────────────────────────────────────
+    // For statement pages diagnosed as reconstruction-weak (high recognition
+    // but low reconstruction confidence — Canica's failure mode), try the
+    // geometry-first branch and keep the alternative only when it strictly
+    // outperforms the current computation. One iteration, one branch.
+    // Recovery is best-effort: any failure inside the loop must never break
+    // the primary extraction. The original computation already exists; the
+    // loop can only improve on it, never replace it with a crash.
+    const recoveryCandidates = selectRecoveryCandidates(
+      primaryComputation.pageConfidences,
+    );
+    if (recoveryCandidates.length > 0) {
+      try {
+        const primaryPages: AnnualReportParsedInputPage[] =
+          primaryEngine === "OPENDATALOADER" && openDataLoaderResult
+            ? openDataLoaderResult.annualReportPages
+            : legacyPages;
+        const recoveryRows = buildAlternativeRowsForRecovery({
+          originalRows: primaryComputation.rows,
+          classifications: primaryComputation.classifications,
+          parsedPages: primaryPages,
+          candidates: recoveryCandidates,
+        });
+        if (recoveryRows.recoveredRowCount === 0) {
+          // The recovery branch produced no rows of its own — the alternative
+          // would be a strict subset of the original, nothing to gain.
+          logPipelineEvent("extraction_loop.recovery_skipped", {
+            filingId: filing.id,
+            extractionRunId: extractionRun.id,
+            candidatePageNumbers: recoveryCandidates.map((c) => c.pageNumber),
+            reason: "no_recovered_rows",
+          });
+        } else {
+          let alternative = assembleComputation({
+            fiscalYear: filing.fiscalYear,
+            parsedPages: primaryPages,
+            classifications: primaryComputation.classifications,
+            rows: recoveryRows.rows,
+            engine: primaryEngine,
+            mode: primaryMode,
+            startedAt: Date.now(),
+          });
+          if (engineConsensus) {
+            // Compare like-for-like: apply the same consensus signal that the
+            // current primaryComputation already carries.
+            alternative = applyEngineConsensus(
+              alternative,
+              engineConsensus,
+              filing.fiscalYear,
+            );
+          }
+          const recovered = loopCandidateWins(alternative, primaryComputation);
+          logPipelineEvent("extraction_loop.recovery_attempt", {
+            filingId: filing.id,
+            extractionRunId: extractionRun.id,
+            candidatePageNumbers: recoveryCandidates.map((c) => c.pageNumber),
+            currentConfidence: primaryComputation.confidenceScore,
+            alternativeConfidence: alternative.confidenceScore,
+            currentCanPublish: primaryComputation.canPublishSnapshot,
+            alternativeCanPublish: alternative.canPublishSnapshot,
+            recovered,
+          });
+          if (recovered) {
+            primaryComputation = alternative;
+          }
+        }
+      } catch (loopError) {
+        logRecoverableError("annual-report-financials.extractionLoop", loopError, {
+          filingId: filing.id,
+          fiscalYear: filing.fiscalYear,
+          candidatePageNumbers: recoveryCandidates.map((c) => c.pageNumber),
         });
       }
     }
@@ -1382,6 +1671,7 @@ export async function processAnnualReportFiling(
         engine: primaryEngine,
         mode: primaryMode,
         classifications: primaryComputation.classifications,
+        pageConfidences: primaryComputation.pageConfidences,
         comparisonSummary,
       },
     }),
@@ -1466,6 +1756,7 @@ export async function processAnnualReportFiling(
       classifications: primaryComputation.classifications,
       issues: primaryComputation.issues,
       selectedFacts: primaryComputation.selectedFacts,
+      consensus: engineConsensus,
       artifactReferences,
       engineSummary: {
         primaryEngine,
