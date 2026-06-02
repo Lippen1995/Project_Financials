@@ -192,9 +192,9 @@ export function AppTopNavigation({
                     id={menuId}
                     role="menu"
                     aria-label="Kontomeny"
-                    className="absolute right-0 top-[calc(100%+8px)] z-[60] w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-[var(--px-border)] bg-white shadow-[0_24px_38px_rgba(15,23,42,0.10)]"
+                    className="absolute right-0 top-[calc(100%+8px)] z-[60] flex max-h-[calc(100vh-5rem)] w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-[var(--px-border)] bg-white shadow-[0_24px_38px_rgba(15,23,42,0.10)]"
                   >
-                    <div className="border-b border-[var(--px-border-subtle)] px-5 py-5 text-center">
+                    <div className="shrink-0 border-b border-[var(--px-border-subtle)] px-5 py-5 text-center">
                       <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[var(--px-accent-soft)] text-lg font-semibold text-[var(--px-text)] shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
                         {viewer.image ? (
                           <span
@@ -234,7 +234,7 @@ export function AppTopNavigation({
                       </Link>
                     </div>
 
-                    <div className="max-h-[480px] overflow-y-auto py-3">
+                    <div className="min-h-0 flex-1 overflow-y-auto py-3">
                       {sections.map((section) => (
                         <section key={section.label} className="px-2 py-1">
                           <div className="data-label px-3 text-[10px] font-semibold uppercase text-[var(--px-muted)] opacity-70">

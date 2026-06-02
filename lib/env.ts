@@ -63,8 +63,15 @@ const env = {
   financialsSyncSecret:
     process.env.FINANCIALS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
   workspaceSyncSecret: process.env.WORKSPACE_SYNC_SECRET ?? "",
-  googleGeminiApiKey: process.env.GOOGLE_GEMINI_API_KEY ?? "",
   newsSyncSecret: process.env.NEWS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
+  newsArticleExtractionMode:
+    (process.env.NEWS_ARTICLE_EXTRACTION_MODE ?? "auto").trim().toLowerCase(),
+  newsArticleExtractionPython:
+    process.env.NEWS_ARTICLE_EXTRACTION_PYTHON ?? process.env.PYTHON ?? "python",
+  newsArticleExtractionTimeoutMs: Number(process.env.NEWS_ARTICLE_EXTRACTION_TIMEOUT_MS ?? "8000"),
+  newsArticleExtractionMaxPerSync: Number(process.env.NEWS_ARTICLE_EXTRACTION_MAX_PER_SYNC ?? "20"),
+  newsIntelligenceAlertsEnabled:
+    (process.env.NEWS_INTELLIGENCE_ALERTS_ENABLED ?? "").trim().toLowerCase() === "true",
 };
 
 export default env;

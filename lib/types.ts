@@ -1508,7 +1508,8 @@ export type WorkspaceNotificationType =
   | "ANNOUNCEMENT_NEW"
   | "FINANCIAL_STATEMENT_NEW"
   | "COMPANY_STATUS_CHANGED"
-  | "DISTRESS_MATCH";
+  | "DISTRESS_MATCH"
+  | "COMPANY_EVENT_NEW";
 export type WorkspaceMonitorStatus = "ACTIVE" | "ARCHIVED";
 
 export type WorkspaceCapabilitySet = {

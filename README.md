@@ -96,6 +96,14 @@ Brukes som kilde for:
 
 Fjord Insight bruker Patentstyrets Open Data-endepunkter med organisasjonsnummer som primær identifikator for portefølje.
 
+### Nyheter og børsmeldinger
+
+Nyhetsfanen bruker en lokal relevansmotor uten Gemini eller ekstern LLM. Motoren kombinerer offisielle kilder, RSS/Atom-feeder, selskapets kontekst, næringskode, makrotemaer, peer-signaler og eksplisitte evidensfelt.
+
+For børsnoterte selskaper brukes NewsWeb som autoritativ kilde for børsmeldinger. Issuer-id løses dynamisk fra NewsWebs issuer-liste basert på selskapets juridiske navn, og meldinger hentes fra NewsWebs JSON-endepunkter.
+
+Åpne nyhetsartikler kan berikes med fulltekst via en valgfri `news-please` sidecar. Sett `NEWS_ARTICLE_EXTRACTION_MODE=auto` og `NEWS_ARTICLE_EXTRACTION_PYTHON` til en Python-runtime der pakken `news-please` er installert. Hvis Python eller pakken mangler, fortsetter nyhetsmotoren uten fulltekstberiking.
+
 ## Viktige begrensninger
 
 - Fjord Insight viser bare publiserte regnskapssnapshots når pipeline-en klarer å identifisere relevante sider, enhetsskala, primærmetrikker og nødvendige balansesjekker.

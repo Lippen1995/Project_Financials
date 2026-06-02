@@ -1,0 +1,1 @@
+ALTER TYPE "WorkspaceNotificationType" ADD VALUE IF NOT EXISTS 'COMPANY_EVENT_NEW';

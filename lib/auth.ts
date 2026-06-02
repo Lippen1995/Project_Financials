@@ -1,11 +1,14 @@
 import NextAuth from "next-auth";
-import type { Session } from "next-auth";
+import type { NextAuthConfig, Session } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import LinkedIn from "next-auth/providers/linkedin";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
+import { getLinkedInConfigurationStatus, LINKEDIN_OIDC_SCOPE } from "@/lib/linkedin-auth";
 import { prisma } from "@/lib/prisma";
+import { ensureUserBaselineState } from "@/server/services/user-profile-service";
 import { getSessionWorkspaceContext } from "@/server/services/workspace-service";
 
 const credentialSchema = z.object({
@@ -14,6 +17,60 @@ const credentialSchema = z.object({
 });
 
 const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+const linkedIn = getLinkedInConfigurationStatus();
+
+const providers: NextAuthConfig["providers"] = [
+  Credentials({
+    name: "Credentials",
+    credentials: {
+      email: {},
+      password: {},
+    },
+    async authorize(credentials) {
+      const parsed = credentialSchema.safeParse(credentials);
+      if (!parsed.success) {
+        return null;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: parsed.data.email },
+        include: { subscription: true },
+      });
+
+      if (!user?.passwordHash) {
+        return null;
+      }
+
+      const isValid = await bcrypt.compare(parsed.data.password, user.passwordHash);
+      if (!isValid) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        subscriptionPlan: user.subscription?.plan ?? "free",
+        subscriptionStatus: user.subscription?.status ?? "FREE",
+      };
+    },
+  }),
+];
+
+if (linkedIn.configured) {
+  providers.push(
+    LinkedIn({
+      clientId: linkedIn.clientId!,
+      clientSecret: linkedIn.clientSecret!,
+      authorization: {
+        params: {
+          scope: LINKEDIN_OIDC_SCOPE,
+        },
+      },
+      allowDangerousEmailAccountLinking: true,
+    }),
+  );
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -24,44 +81,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
   },
-  providers: [
-    Credentials({
-      name: "Credentials",
-      credentials: {
-        email: {},
-        password: {},
-      },
-      async authorize(credentials) {
-        const parsed = credentialSchema.safeParse(credentials);
-        if (!parsed.success) {
-          return null;
-        }
-
-        const user = await prisma.user.findUnique({
-          where: { email: parsed.data.email },
-          include: { subscription: true },
-        });
-
-        if (!user?.passwordHash) {
-          return null;
-        }
-
-        const isValid = await bcrypt.compare(parsed.data.password, user.passwordHash);
-        if (!isValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          subscriptionPlan: user.subscription?.plan ?? "free",
-          subscriptionStatus: user.subscription?.status ?? "FREE",
-        };
-      },
-    }),
-  ],
+  providers,
   callbacks: {
+    async signIn({ account, profile }) {
+      if (account?.provider !== "linkedin") {
+        return true;
+      }
+
+      return Boolean(profile?.email && profile.email_verified);
+    },
     async jwt({ token, user }) {
       if (user) {
         token.subscriptionPlan = (user as { subscriptionPlan?: string }).subscriptionPlan ?? "free";
@@ -116,6 +144,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       return session;
+    },
+  },
+  events: {
+    async signIn({ user, account }) {
+      if (!user.id) {
+        return;
+      }
+
+      await ensureUserBaselineState(user.id, {
+        displayName: user.name,
+        email: user.email,
+        profileImageUrl: user.image,
+        linkedinConnected: account?.provider === "linkedin",
+        linkedinProviderAccountId:
+          account?.provider === "linkedin" ? account.providerAccountId : undefined,
+        requireOnboarding: account?.provider === "linkedin",
+      });
     },
   },
 });

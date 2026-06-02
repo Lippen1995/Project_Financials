@@ -12,12 +12,14 @@ import {
   WorkspaceNotificationSummary,
   WorkspaceWatchSummary,
 } from "@/lib/types";
+import env from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import {
   upsertCompanySnapshot,
 } from "@/server/persistence/company-repository";
+import { syncCompanyEventNotificationsForWatches } from "@/server/news/company-event-alert-service";
 import { syncCompanyAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
 import { getCompanyProfile } from "@/server/services/company-service";
 import { getUserWorkspaceCapabilities } from "@/server/services/workspace-service";
@@ -875,6 +877,11 @@ export async function syncWorkspaceNotifications(actorUserId: string, workspaceI
     if (watch.watchStatusChanges) {
       createdNotifications += await syncWatchStatus(watch);
     }
+  }
+
+  if (env.newsIntelligenceAlertsEnabled) {
+    const eventNotificationResult = await syncCompanyEventNotificationsForWatches(watches);
+    createdNotifications += eventNotificationResult.createdNotifications;
   }
 
   for (const monitor of monitors) {

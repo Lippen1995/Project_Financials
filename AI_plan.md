@@ -86,11 +86,18 @@ består av tre nivåer:
   - Few-shot bibliotek per bransje
 - Lenke fra `/admin` landing-side (commit `aadb4c6`)
 
-### Fase 6 — ODL auto-promote (commit `01ec3e4`)
-- `OPENDATALOADER_AUTO_PROMOTE`-flagg i config
-- Når ODL produserer et publiserbart resultat og Legacy ikke kan,
-  byttes ODL inn som primær for den filingen
-- Admin-varsel når byttet skjer
+### Fase 6 — ODL motorvalg: beste resultat vinner (commit `01ec3e4`, revidert)
+- `OPENDATALOADER_AUTO_PROMOTE`-flagg i config (nå satt `true` i `.env`)
+- Opprinnelig regel var asymmetrisk: ODL ble kun byttet inn når Legacy
+  *ikke* kunne publisere. I praksis betydde det at ODL aldri kunne vinne
+  på kvalitet — Legacy var alltid primær så lenge den klarte terskelen.
+- Revidert til symmetrisk seleksjon: i dual-run kjøres begge motorene, og
+  den som gjorde best jobb publiseres. Publiserbart slår ikke-publiserbart;
+  innenfor samme nivå vinner høyest konfidens; uavgjort → Legacy (stabilitet).
+- Admin-varsel når ODL overtar, med begge konfidens-scorene
+- Merknad: ODL hybrid (Docling) er foreløpig treg og ustabil — én scannet
+  filing tok 89 min, og Docling-containeren OOM-krasjet under last. Se
+  åpne spørsmål (seksjon 8).
 
 ### Prisma-baseline (commit `aadb4c6`)
 - Konsoliderte 13 ødelagte migrasjoner til ett `00000000000000_init`
@@ -228,25 +235,177 @@ Besluttet: **konsern som standardvisning**, **seksjonsbasert layout** i v1.
 
 ---
 
+## D · Selvkorrigerende ekstraksjon (ny strategi)
+
+### Omdefinering av problemet
+
+Bulk-ingest av scannede Canica-rapporter (mai 2026) ga en klar diagnose:
+flaskehalsen er **ikke tegngjenkjenning, men tabellrekonstruksjon**.
+Tesseract leste 41–47 sider per rapport uten en eneste lesefeil — men
+~40 % av tallradene kunne ikke plasseres sikkert. Problemet er å avgjøre
+hvilket tall som hører til hvilket årskolonne, hvor tusenskille har
+splittet et tall, og hvilke rader som er sumrader. Blokkeringskodene
+bekreftet det: `YEAR_COLUMN_ASSIGNMENT_UNCERTAIN`, `SUSPICIOUS_COLUMN_SWAP`,
+`STATEMENT_TABLE_LAYOUT_WEAK`.
+
+Konsekvens: å bytte OCR-motor gir lite. Verdien ligger i et sterkt
+rekonstruksjonssystem rundt OCR, og i en løkke som retter seg selv.
+
+### Kjernen: en selvkorrigerende ekstraksjonsløkke
+
+Dagens pipeline er ett gjennomløp — OCR én gang, rekonstruer én gang,
+score én gang. Den nye modellen er en løkke:
+
+1. **Ekstraher.**
+2. **Score mot interne begrensninger** — regnskapsidentitetene (balansen
+   balanserer, delsummer summerer, noter stemmer med oppstilling). Dette er
+   en feilfunksjon dokumentet bærer med seg selv; ingen merkede etiketter
+   trengs. Bedre enn en lært modell som startpunkt — deterministisk og
+   forklarbar, virker fra dag én.
+3. **Diagnostiser** hvor og hvorfor konfidensen er lav: *recognition*
+   (tegnene ble lest feil) eller *reconstruction* (tegnene er riktige,
+   strukturen er feil)? De to etterlater forskjellige fingeravtrykk —
+   recognition gir lav OCR-ord-konfidens og ikke-parsbare tokens;
+   reconstruction gir høy OCR-konfidens men brutte begrensninger.
+4. **Målrettet omarbeiding av regionen** — aldri hele dokumentet:
+   - Recognition → re-OCR av regionen med ny rute: høyere oppløsning,
+     bildeforbehandling, annen page-seg-modus, eventuelt en annen motor
+     som *second opinion på den ene cellen*.
+   - Reconstruction → alternativ rekonstruksjonslogikk: geometri-først
+     kolonnetilordning, constraint-drevet gruppering.
+5. **Re-score. Behold det beste resultatet, ikke det siste.**
+
+Stoppbetingelse: maks 2 ekstra runder; stopp når begrensnings-avviket
+slutter å falle. Uten konvergenskriterium oscillerer løkken.
+
+### Slingringsmonn — en ikke-deterministisk toleranse
+
+Begrensningene kan ikke håndheves som eksakt likhet. Summen av
+balanseposter er ikke alltid nøyaktig lik totalen — **avrunding i selve
+regnskapsføringen** skaper små avvik, særlig når tall rapporteres i hele
+tusen. Toleransen skal derfor:
+
+- **Avledes, ikke hardkodes.** Et fast tak ("±2") er feil — det er nettopp
+  den deterministiske regelen vi vil unngå. Akseptabelt avrundingsavvik
+  avhenger av enhetsskala (rapportert i tusen → hver post kan være avrundet
+  ±1 tusen) og av antall poster som summeres. Når N poster hver er
+  uavhengig avrundet, vokser det *forventede* akkumulerte avviket omtrent
+  som √N — et statistisk bånd, ikke et lineært verste-fall.
+- **Være gradert, ikke binær.** Avviket gir ikke et skarpt bestått/ikke-
+  bestått ved en terskel. Det tolkes sannsynlighetsbasert: avvik på null →
+  sterkt bevis for korrekt; avvik på avrundingsstørrelse → svakt, godartet
+  signal; avvik langt utenfor båndet → sterkt bevis for ekstraksjonsfeil.
+  Begrensnings-sjekken bidrar en *kontinuerlig sannsynlighet* til
+  loss-funksjonen — ikke en port.
+
+### Tre årsaker til et begrensningsbrudd — og kildetroskap
+
+Et brudd på en regnskapsidentitet har minst tre årsaker:
+
+1. **Ekstraksjonsfeil** (recognition eller reconstruction) — løkkens
+   egentlige mål.
+2. **Avrunding** i den opprinnelige regnskapsføringen — godartet, innenfor
+   det graderte båndet.
+3. **En reell feil i det innleverte regnskapet.** Regnskaper *inneholder*
+   feil. Da er vår ekstraksjon korrekt, og kilden er gal.
+
+Å skille (1) fra (3) hindrer at løkken jager en uoppnåelig begrensning.
+Diskriminanten er **konsensus**: hvis flere uavhengige ekstraksjonsforsøk
+(Legacy, ODL, re-OCR) alle gir *samme* ikke-balanserende tall, ligger
+inkonsistensen i kilden — ikke i oss.
+
+Av dette følger et hardt prinsipp: **kildetroskap slår intern konsistens.**
+Løkken skal aldri "rette" et trofast ekstrahert tall for å tilfredsstille
+en begrensning kilden selv bryter. Vi registrerer regnskapet slik det er
+innlevert — også når det er feil — og *flagger* avviket som
+"kildeinkonsistens", tydelig adskilt fra "ekstraksjon usikker".
+Constraint-drevet korreksjon utløses derfor kun når det finnes uavhengig
+bevis for at avviket er et ekstraksjonsartefakt (lav OCR-konfidens på et
+tall, eller motorene er uenige) — aldri når motorene er enige.
+
+### Forutsetninger og komponenter
+
+- **Konfidens per region.** Dagens `calculateConfidenceScore` kollapser alt
+  til ett tall per filing. Løkken krever konfidens per side / rad / celle.
+  Ingrediensene finnes allerede (per-side klassifiseringskonfidens, per-rad
+  ambiguous-flagg, per-ord OCR-konfidens) — de midles bare bort. Å slutte å
+  kollapse konfidensen er det første konkrete steget.
+- **Konsensus som korrekthetssignal.** Dual-run produserer allerede en
+  `comparisonSummary` med `factDifferences` — i dag kun logget. Mat den
+  inn: enighet mellom motorer → høyere konfidens; uenighet → flagg akkurat
+  det faktumet for review.
+- **Bildeforbehandling** før OCR (deskew, binarisering, støyfjerning) —
+  gjøres ikke i dag. Billig, treffer recognition-grenen.
+- **Behold ekte geometri** for digitalt fødte PDF-er — tekstlag-veien
+  fabrikkerer i dag x-koordinater og mister kolonneinformasjon.
+- **Per-side ruting.** Decision-engine emitterer i dag én rute for *hele*
+  dokumentet, og `hasReliableTextLayer` er et gjennomsnitt over alle sider
+  — et dokument med mest prosa og noen få scannede regnskapssider feilrutes.
+  Ruting per side velger riktig vei per sidetype og reduserer hvor mye
+  løkka må rette i utgangspunktet.
+
+### Måling — gullsett som fundament
+
+Ingen av endringene over bør gjøres på magefølelse. Hver justering av
+rekonstruksjon, toleranse eller ruting må måles mot fasit, ellers vet vi
+ikke om vi forbedrer eller forverrer. Gullsett-apparatet finnes allerede
+(`generate-annual-report-gold-set`, `pdf-decision-gold-set`). Det som
+mangler er et merket referansesett på ~30–50 filings som spenner
+digital/scannet/konsern/SMB. Reviewer-korreksjonene er i ferd med å bli
+dette datasettet — derfor betyr bulk-ingest og review noe. Mønsteranalysen
+(Fase 3) bør så styre hvor innsatsen settes inn: dominerer `OCR_NOISE` →
+bildeforbehandling; dominerer `WRONG_PAGE` → klassifisering; dominerer
+årskolonne → reconstruction-grein.
+
+### Hvor ML hører hjemme
+
+Selve **diagnose-ruteren** — "gitt disse signalene, var dette recognition
+eller reconstruction?" — er den naturlige ML-oppgaven. Mennesket som retter
+i review-køen sier implisitt hva slags feil det var; det gir naturlig
+merkede data. Løkken identifiserer dessuten selv hvilke regioner som er
+vanskeligst — aktiv læring nær gratis.
+
+### Minste første steg
+
+Ikke bygg hele constraint-solveren først. Den minste versjonen som beviser
+tesen:
+- Konfidens per side (slutt å kollapse til ett tall).
+- Én forgrening: lav side-konfidens *men* høy OCR-ord-konfidens →
+  reconstruction → kjør geometri-først rekonstruksjon som alternativ.
+- Én iterasjon, kun på de 4–6 regnskapssidene.
+
+Flytter den selv en håndfull av de ~40 % tvetydige radene riktig, er tesen
+bevist — og arkitekturen utvides med selvtillit.
+
+---
+
 ## 5 · Framtidige faser (ikke startet)
 
-### Fase 8 — Sidetype-klassifikator
-Etter unit-scale fungerer, samme oppskrift for å klassifisere sidetyper
-(STATUTORY_INCOME, NOTE, AUDITOR_REPORT etc.). Krever mer data — anslag
-500+ eksempler per klasse.
+Merk: Canica-diagnosen (se seksjon D) har endret rekkefølgen. Tabell-
+rekonstruksjon og år-kolonne er flaskehalsen — de er flyttet fram og inn
+i den selvkorrigerende løkka. Sidetype er nedprioritert.
 
-### Fase 9 — År-kolonne-detektor
-Avgjøre hvilken numerisk kolonne tilhører hvilket regnskapsår. Layout-aware
-modell — mulig kandidat for LayoutLM når GPU er tilgjengelig.
+### Fase 9 (framskyndet) — År-kolonne-detektor
+Avgjøre hvilken numerisk kolonne som tilhører hvilket regnskapsår — selve
+feilmodusen i Canica-kjøringen (`YEAR_COLUMN_ASSIGNMENT_UNCERTAIN`,
+`SUSPICIOUS_COLUMN_SWAP`). Liten, veldefinert klassifiseringsoppgave med
+mye data; inngår som reconstruction-grein i løkka (seksjon D).
 
 ### Fase 10 — Tabell-rekonstruksjon
-End-to-end modell som tar et bilde + tekst-output og returnerer
-strukturert tabell. Mest ambisiøs; krever betydelig treningsdata og GPU.
+Folder inn i den selvkorrigerende løkka (seksjon D) framfor å være en egen
+end-to-end modell. Geometri-først og constraint-drevet rekonstruksjon
+først; en lært tabellmodell (f.eks. Doclings TableFormer, eller LayoutLM
+når GPU finnes) kommer som reconstruction-grein senere.
+
+### Fase 8 — Sidetype-klassifikator (nedprioritert)
+Samme oppskrift som unit-scale, for sidetyper (STATUTORY_INCOME, NOTE,
+AUDITOR_REPORT etc.). Krever mer data — anslag 500+ eksempler per klasse.
+Lavere prioritet enn rekonstruksjon.
 
 ### Fase 11 — Aktiv læring
-Modellen identifiserer hvilke filings som vil gi mest læringsverdi hvis
-en menneskelig reviewer går gjennom dem. Prioriterer review-køen
-intelligent.
+Den selvkorrigerende løkka identifiserer av seg selv hvilke regioner som
+er vanskeligst — det gir aktiv læring nær gratis. Prioriterer review-køen
+mot de mest lærerike filingene.
 
 ---
 
@@ -285,6 +444,13 @@ PC (CPU-only). Det går saktere, men det går.
       korreksjoner, kalender­basert, eller manuell?
 - [ ] Skal Python-tjenesten kjøre lokalt under utvikling (på din PC) eller
       bare i prod?
+- [ ] Docling-containeren OOM-krasjer under last (exit 137) og bruker
+      ~89 min på én scannet filing. Trenger mer minne, eller hybrid-modus
+      er ikke levedyktig for store scannede dokumenter. `OPENDATALOADER_TIMEOUT_MS`
+      er 30 min — når Docling er treg men oppe, ventes fullt timeout per forsøk.
+- [ ] Hvordan kalibreres det graderte slingringsmonnet (seksjon D)?
+      Startpunkt: avled båndet fra enhetsskala og √N for antall poster.
+      Bør det finjusteres mot reviewer-data over tid?
 
 ## I · Bakgrunns-opplastingsindikator (levert)
 
@@ -303,4 +469,4 @@ PC (CPU-only). Det går saktere, men det går.
 
 ---
 
-_Sist oppdatert: 2026-05-21 etter bakgrunns-opplastingsindikator (IngestionRun + live widget), K5, K4 og valutadeteksjon._
+_Sist oppdatert: 2026-05-22 etter ODL motorvalg (beste resultat vinner) og strategien for selvkorrigerende ekstraksjon (seksjon D — med ikke-deterministisk slingringsmonn og prinsippet om kildetroskap)._

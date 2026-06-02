@@ -121,6 +121,40 @@ export async function getAdminReviewDetail(reviewId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Draft persistence (non-terminal)
+// ---------------------------------------------------------------------------
+
+/**
+ * Store the reviewer's in-progress editing snapshot durably on the review so
+ * entered values/keys survive refreshes, hot-reloads and device changes. The
+ * snapshot is opaque to the server — it is stored under `reviewPayload.clientDraft`
+ * and rehydrated by the client. Does NOT change the review status.
+ */
+export async function saveReviewClientDraft(
+  reviewId: string,
+  draft: Prisma.InputJsonValue,
+) {
+  const review = await prisma.annualReportReview.findUnique({
+    where: { id: reviewId },
+    select: { reviewPayload: true, status: true },
+  });
+  if (!review) {
+    throw new Error(`Review ${reviewId} ikke funnet.`);
+  }
+  const existing =
+    review.reviewPayload && typeof review.reviewPayload === "object" && !Array.isArray(review.reviewPayload)
+      ? (review.reviewPayload as Record<string, unknown>)
+      : {};
+  await prisma.annualReportReview.update({
+    where: { id: reviewId },
+    data: {
+      reviewPayload: { ...existing, clientDraft: draft } as Prisma.InputJsonValue,
+    },
+  });
+  return { savedAt: new Date().toISOString() };
+}
+
+// ---------------------------------------------------------------------------
 // Create decision
 // ---------------------------------------------------------------------------
 

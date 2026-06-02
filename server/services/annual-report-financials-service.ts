@@ -26,7 +26,7 @@ import {
   loopCandidateWins,
   selectRecoveryCandidates,
 } from "@/integrations/brreg/annual-report-financials/extraction-loop";
-import { CanonicalMetricKey, requiredPublishMetricKeys } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { CanonicalMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import { validateCanonicalFacts } from "@/integrations/brreg/annual-report-financials/validation";
 import { AnnualReportParsedInputPage, CanonicalFactCandidate, PageClassification, ValidationIssueDraft } from "@/integrations/brreg/annual-report-financials/types";
 import {
@@ -46,6 +46,14 @@ import type {
 } from "@/integrations/brreg/annual-report-financials/pdf-decision-types";
 import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
 import { chooseCanonicalFacts, mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
+import type { MetricDefinition } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { loadMetricDefinitions } from "@/server/services/metric-mapping-service";
+import { loadRequiredPublishMetricKeys } from "@/server/services/canonical-registry-service";
+import {
+  evaluateNodeMatches,
+  type NodeEvalConfig,
+} from "@/integrations/brreg/annual-report-financials/presentation-node-evaluation";
+import { loadNodeEvaluationConfig } from "@/server/services/presentation-node-service";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { DataAvailability, NormalizedFinancialDocument, NormalizedFinancialStatement } from "@/lib/types";
 import { logRecoverableError } from "@/lib/recoverable-error";
@@ -489,8 +497,8 @@ function applyEngineConsensus(
   computation: FinancialPipelineComputation,
   consensus: EngineConsensus,
   filingFiscalYear: number,
+  requiredKeys: readonly string[],
 ): FinancialPipelineComputation {
-  const requiredKeys = requiredPublishMetricKeys as readonly string[];
   const disagreementIssues: ValidationIssueDraft[] = consensus.disagreedMetricKeys
     .filter((metricKey) => requiredKeys.includes(metricKey))
     .map((metricKey) => {
@@ -531,6 +539,7 @@ function applyEngineConsensus(
     selectedFacts: computation.selectedFacts,
     validationIssues: issues,
     confidenceScore,
+    requiredKeys: [...requiredKeys],
   });
   const reviewRuleCodes = buildReviewRuleCodes({
     selectedFacts: computation.selectedFacts,
@@ -563,6 +572,9 @@ function runFinancialPipeline(input: {
   engine: "LEGACY" | "OPENDATALOADER";
   mode: "legacy" | "local" | "hybrid";
   excludePageNumbers?: Set<number>;
+  definitions: MetricDefinition[];
+  requiredKeys: string[];
+  nodeRules: NodeEvalConfig[];
 }) {
   const startedAt = Date.now();
   const allClassifications = classifyPages(input.parsedPages);
@@ -579,7 +591,49 @@ function runFinancialPipeline(input: {
     engine: input.engine,
     mode: input.mode,
     startedAt,
+    definitions: input.definitions,
+    requiredKeys: input.requiredKeys,
+    nodeRules: input.nodeRules,
   });
+}
+
+/**
+ * Runs the presentation-node MATCH rules against the selected facts and turns
+ * out-of-tolerance deviations into validation issues. Emitted as ERROR so the
+ * filing cannot auto-publish and is surfaced in manual review (a MATCH rule is
+ * an explicit reviewer assertion that two derivations of a figure must agree).
+ */
+function buildNodeMatchIssues(
+  nodeRules: NodeEvalConfig[],
+  selectedFacts: ReturnType<typeof chooseCanonicalFacts>,
+): ValidationIssueDraft[] {
+  if (nodeRules.length === 0) {
+    return [];
+  }
+
+  const facts = new Map<string, number>();
+  for (const [metricKey, fact] of selectedFacts) {
+    facts.set(metricKey, fact.value);
+  }
+
+  const deviations = evaluateNodeMatches({ nodes: nodeRules, facts });
+  return deviations.map((deviation) => ({
+    severity: "ERROR" as const,
+    ruleCode: "NODE_MATCH_DEVIATION",
+    message: `Node «${deviation.nodeLabel}» avviker ${(deviation.relativeDeviation * 100).toFixed(1)}% fra match-nøkkelen ${deviation.matchMetricKey}.`,
+    expectedValue: deviation.matchValue,
+    actualValue: deviation.computedValue,
+    context: {
+      nodeId: deviation.nodeId,
+      nodeLabel: deviation.nodeLabel,
+      matchMetricKey: deviation.matchMetricKey,
+      computedValue: deviation.computedValue,
+      matchValue: deviation.matchValue,
+      absoluteDeviation: deviation.absoluteDeviation,
+      relativeDeviation: deviation.relativeDeviation,
+      tolerance: deviation.tolerance,
+    },
+  }));
 }
 
 /**
@@ -595,6 +649,9 @@ function assembleComputation(input: {
   engine: "LEGACY" | "OPENDATALOADER";
   mode: "legacy" | "local" | "hybrid";
   startedAt: number;
+  definitions: MetricDefinition[];
+  requiredKeys: string[];
+  nodeRules: NodeEvalConfig[];
 }): FinancialPipelineComputation {
   const pageConfidences = computePageConfidences({
     parsedPages: input.parsedPages,
@@ -605,6 +662,8 @@ function assembleComputation(input: {
     filingFiscalYear: input.fiscalYear,
     classifications: input.classifications,
     rows: input.rows,
+    definitions: input.definitions,
+    requiredKeys: input.requiredKeys,
   });
   // Pick the primary scope to validate, score and publish. Consolidated
   // (konsernregnskap) is the headline for a group; a standalone company has
@@ -617,8 +676,17 @@ function assembleComputation(input: {
     : "COMPANY";
   const validation = validateCanonicalFacts(mapped.facts, primaryScope);
   const classificationIssues = buildClassificationIssues(input.fiscalYear, input.classifications);
-  const issues = [...classificationIssues, ...mapped.issues, ...validation.issues];
   const selectedFacts = validation.selectedFacts;
+  // Presentation-node MATCH rules: the fold of a node's operand keys must agree
+  // with the key the reviewer flagged as MATCH (within ±1%). A confident
+  // deviation is an ERROR so the filing is routed to manual review.
+  const nodeMatchIssues = buildNodeMatchIssues(input.nodeRules, selectedFacts);
+  const issues = [
+    ...classificationIssues,
+    ...mapped.issues,
+    ...validation.issues,
+    ...nodeMatchIssues,
+  ];
   const duplicateSupport =
     validation.stats.duplicateComparisons > 0
       ? validation.stats.duplicateMatches / validation.stats.duplicateComparisons
@@ -634,6 +702,7 @@ function assembleComputation(input: {
     duplicateSupport,
     noteSupport,
     issueCount: issues.length,
+    requiredKeys: input.requiredKeys,
   });
   const canPublishSnapshot = canPublishProvisionally({
     filingFiscalYear: input.fiscalYear,
@@ -648,6 +717,7 @@ function assembleComputation(input: {
     selectedFacts,
     validationIssues: issues,
     confidenceScore,
+    requiredKeys: input.requiredKeys,
   });
   const sourcePrecedence =
     selectedFacts.get("revenue")?.precedence ??
@@ -1322,6 +1392,15 @@ export async function processAnnualReportFiling(
       ? legacyPages
       : primaryOpenDataLoaderResult!.annualReportPages;
 
+    // Editable alias mapping + publish-required keys (both DB-backed, falling
+    // back to built-in defaults). Loaded once and threaded through every
+    // pipeline run for this extraction so a rename in the admin hub is honoured.
+    const [metricDefinitions, requiredKeys, nodeRules] = await Promise.all([
+      loadMetricDefinitions(),
+      loadRequiredPublishMetricKeys(),
+      loadNodeEvaluationConfig(),
+    ]);
+
     let primaryComputation = runFinancialPipeline({
       filingId: filing.id,
       extractionRunId: extractionRun.id,
@@ -1330,6 +1409,9 @@ export async function processAnnualReportFiling(
       engine: primaryEngine,
       mode: primaryMode,
       excludePageNumbers: pageHints?.hasReliableHints ? pageHints.excludePages : undefined,
+      definitions: metricDefinitions,
+      requiredKeys,
+      nodeRules,
     });
 
     // ── ML unit-scale shadow comparison (measurement only, never affects output) ──
@@ -1368,6 +1450,9 @@ export async function processAnnualReportFiling(
         engine: "OPENDATALOADER",
         mode: openDataLoaderResult.routing.executionMode,
         excludePageNumbers: pageHints?.hasReliableHints ? pageHints.excludePages : undefined,
+        definitions: metricDefinitions,
+        requiredKeys,
+        nodeRules,
       });
 
       // Always compare against the Legacy result that started as primary, regardless
@@ -1504,6 +1589,7 @@ export async function processAnnualReportFiling(
         primaryComputation,
         consensus,
         filing.fiscalYear,
+        requiredKeys,
       );
       logPipelineEvent("document_understanding.engine_consensus", {
         filingId: filing.id,
@@ -1556,6 +1642,9 @@ export async function processAnnualReportFiling(
             engine: primaryEngine,
             mode: primaryMode,
             startedAt: Date.now(),
+            definitions: metricDefinitions,
+            requiredKeys,
+            nodeRules,
           });
           if (engineConsensus) {
             // Compare like-for-like: apply the same consensus signal that the
@@ -1564,6 +1653,7 @@ export async function processAnnualReportFiling(
               alternative,
               engineConsensus,
               filing.fiscalYear,
+              requiredKeys,
             );
           }
           const recovered = loopCandidateWins(alternative, primaryComputation);
@@ -1796,7 +1886,7 @@ export async function processAnnualReportFiling(
       validationScore: primaryComputation.validation.validationScore,
       metricsCoverage: {
         selectedFactCount: primaryComputation.selectedFacts.size,
-        requiredMetricCount: requiredPublishMetricKeys.length,
+        requiredMetricCount: requiredKeys.length,
         duplicateSupport: primaryComputation.duplicateSupport,
         noteSupport: primaryComputation.noteSupport,
         documentArtifactCount: artifactReferences.length,

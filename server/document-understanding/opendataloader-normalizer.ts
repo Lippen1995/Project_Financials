@@ -939,6 +939,497 @@ function buildLineFromBlock(block: NormalizedDocumentBlock, lineText: string, li
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Tabular-paragraph segmentation for Docling-produced Del 1 statement pages.
+//
+// Why this exists
+// ───────────────
+// When Docling's hybrid backend OCRs a Brønnøysund statutory form (Del 1),
+// the income statement and balance sheet pages frequently come back as ONE
+// giant `paragraph` block whose `text` contains the entire statement on a
+// single logical line — every row label, every note reference and every
+// number concatenated together with normal spaces and no `\n` between rows.
+//
+// The downstream geometry-first row reconstructor expects one line per
+// statement row and depends on word-level x positions to bucket numeric
+// tokens into year columns. With one mega-line and evenly-spread synthetic
+// x positions there are no detectable column anchors → 0 rows → 0 facts.
+//
+// This module splits such a paragraph into its constituent statement rows
+// and assigns each token a synthetic x position so the row label sits on
+// the left and value tokens sit near the year-column anchors of the page.
+//
+// Detection
+// ─────────
+// A block is considered "tabular paragraph collapse" when its text holds
+// enough number tokens (≥ TABULAR_MIN_NUMERIC_TOKENS) and enough alphabetic
+// tokens (≥ TABULAR_MIN_ALPHA_TOKENS) to plausibly be a statement, and the
+// raw text contains at most one line break. This avoids touching prose
+// blocks in the board report and short single-row paragraphs.
+//
+// Row segmentation
+// ────────────────
+// Tokens are classified as either numeric (`-?\d+`) or alphabetic (contains
+// a letter). A new row starts whenever an alphabetic token follows at least
+// two numeric tokens, which is the universal shape of a Norwegian
+// statement row: `<label words> [note] <year1 value> <year2 value>`.
+//
+// Number grouping
+// ───────────────
+// Within a row, consecutive numeric tokens are partitioned into 1–4
+// distinct "financial numbers". A financial number is a leading 1-3 digit
+// token (possibly negative) followed by zero or more trailing 3-digit
+// groups. The partitioner prefers MORE numbers over fewer, because rows
+// typically encode 2-3 column values (note + year1 + year2 or year1 +
+// year2). When multiple valid partitions exist the one with the most
+// numbers wins; ties go to the partition with the shortest leading number,
+// which keeps note references separate from year values.
+//
+// X-position assignment
+// ─────────────────────
+// For each row, label tokens are stacked from the block's left edge across
+// the LABEL_FRACTION (60%) of the block width. The right 40% is divided
+// equally among the row's numeric groups so each group's center x sits
+// near the year header anchors. This places year-1 values around the
+// year-1 column anchor and year-2 values around the year-2 anchor, so the
+// downstream geometry-first reconstructor correctly buckets them.
+// ────────────────────────────────────────────────────────────────────────────
+
+const TABULAR_MIN_NUMERIC_TOKENS = 6;
+const TABULAR_MIN_ALPHA_TOKENS = 4;
+const LABEL_FRACTION = 0.6;
+const NUMERIC_TOKEN_RE = /^-?\d+$/;
+const ALPHA_TOKEN_RE = /[A-Za-zÆØÅæøå]/;
+const ROW_HEIGHT = 14;
+
+interface TabularRow {
+  labelTokens: string[];
+  numericGroups: string[][]; // each inner array is the digit-group tokens of one financial number
+}
+
+function isNumericToken(token: string): boolean {
+  return NUMERIC_TOKEN_RE.test(token);
+}
+
+function hasAlpha(token: string): boolean {
+  return ALPHA_TOKEN_RE.test(token);
+}
+
+/**
+ * Returns true when the tokens form one valid Norwegian financial number:
+ * a leading 1-3 digit group (optionally negative) followed by zero or more
+ * exactly-3-digit groups. "211 739 845" ✓, "20 000" ✓, "12" ✓, "20 00" ✗.
+ */
+function isValidNumberSequence(tokens: string[]): boolean {
+  if (tokens.length === 0) return false;
+  if (!/^-?\d{1,3}$/.test(tokens[0]!)) return false;
+  for (let i = 1; i < tokens.length; i++) {
+    if (!/^\d{3}$/.test(tokens[i]!)) return false;
+  }
+  return true;
+}
+
+/**
+ * Greedy partition: consume the leading 1-3 digit (possibly negative) token,
+ * then keep absorbing trailing tokens for as long as they are exactly 3
+ * digits. Repeat until tokens are exhausted. This matches the natural
+ * Norwegian financial number format ("211 739 845" → one number).
+ */
+function greedyPartition(numericTokens: string[]): string[][] {
+  const result: string[][] = [];
+  let i = 0;
+  while (i < numericTokens.length) {
+    if (!/^-?\d{1,3}$/.test(numericTokens[i]!)) {
+      // Leading group must be 1-3 digits. Skip a malformed token rather
+      // than crash; partitioning is best-effort here.
+      i++;
+      continue;
+    }
+    const group: string[] = [numericTokens[i]!];
+    i++;
+    while (i < numericTokens.length && /^\d{3}$/.test(numericTokens[i]!)) {
+      group.push(numericTokens[i]!);
+      i++;
+    }
+    result.push(group);
+  }
+  return result;
+}
+
+/**
+ * Partitions `numericTokens` into the most plausible sequence of financial
+ * numbers. Returns null when no valid partition exists.
+ *
+ * Strategy:
+ *   1. Try to peel off a note prefix. A note is a 1-2 digit standalone
+ *      token at the start when greedy-partitioning the remainder yields
+ *      exactly 2 values (the typical {note, year1, year2} row shape).
+ *      Without this peel, greedy would absorb the note into year1
+ *      ("2 211 739 845" → one number 2,211,739,845, wrong).
+ *   2. Run pure greedy on the (possibly peeled) tokens.
+ *   3. If greedy collapses everything into a single number with ≥ 4
+ *      tokens, try halving it — "910 404 454 052" should be year1
+ *      "910 404" and year2 "454 052" not a single 12-digit number. The
+ *      halving is only kept when both halves are individually valid.
+ *
+ * The `maxNumbers` cap (typically 4) guards against pathological inputs
+ * where some rows might fragment into many tiny numbers.
+ */
+/**
+ * Total digit count (ignoring leading minus) of a single financial number,
+ * used to decide whether greedy's first group is suspiciously large and
+ * therefore likely a mis-parsed note + value sequence.
+ */
+function digitCountOfGroup(group: string[]): number {
+  let count = 0;
+  for (const token of group) count += token.replace(/-/g, "").length;
+  return count;
+}
+
+/**
+ * The ambiguity at the heart of partitioning: a leading 1-2 digit token can
+ * be either a NOTE reference ("2" in "Sumn inntekter 2 211 739 845 20 000")
+ * or the millions digit of a year-1 value ("5" in "Inntekt på investering
+ * datterselskap 5 359 186 34 212 057"). Both inputs look identical at the
+ * token level.
+ *
+ * Disambiguation rule (10-digit threshold): if greedy's first group has ≥ 10
+ * digits, it represents a value ≥ 1 000 000 000 NOK (one billion). Single
+ * statement-row line items rarely exceed a billion NOK, so a 10+ digit
+ * leading group is strong evidence that the parser absorbed a note into
+ * year-1 and should be re-split with peel. When greedy's first group has
+ * < 10 digits, trust greedy — the leading 1-2 digit token is part of year-1.
+ *
+ * This threshold matches the values seen for Canica AS 2024 page 2:
+ *   "Sumn inntekter 2 211 739 845 20 000"
+ *     greedy → [2 211 739 845, 20 000] → 2.2B (10 digits) → peel ✓
+ *   "Inntekt på investering ... 5 359 186 34 212 057"
+ *     greedy → [5 359 186, 34 212 057] → 5.4M (7 digits) → no peel ✓
+ *   "Renteinntekt fra foretak ... 39 632 040 43 125 107"
+ *     greedy → [39 632 040, 43 125 107] → 40M (8 digits) → no peel ✓
+ */
+const NOTE_PEEL_DIGIT_THRESHOLD = 10;
+
+function partitionFinancialNumbers(
+  numericTokens: string[],
+  maxNumbers: number,
+): string[][] | null {
+  if (numericTokens.length === 0) return [];
+
+  // Step 1: greedy partition is the default. It correctly handles rows
+  // where the note token naturally breaks the 3-digit-group chain (e.g.
+  // "Lønnskostnad 3 36 735 687 36 464 192" — greedy yields 3 groups).
+  const greedy = greedyPartition(numericTokens);
+  if (greedy.length === 0) return null;
+  if (!greedy.every(isValidNumberSequence)) return null;
+
+  // Step 2: detect "note absorbed into year-1" pattern. Only relevant when
+  // greedy returned exactly 2 groups (which is the only case where a 1-2
+  // digit lead can hide inside a longer first group).
+  if (
+    greedy.length === 2 &&
+    digitCountOfGroup(greedy[0]!) >= NOTE_PEEL_DIGIT_THRESHOLD &&
+    /^\d{1,2}$/.test(numericTokens[0]!) &&
+    numericTokens.length >= 4
+  ) {
+    const rest = greedyPartition(numericTokens.slice(1));
+    if (rest.length === 2 && rest.every(isValidNumberSequence)) {
+      const peeled = [[numericTokens[0]!], ...rest];
+      if (peeled.length <= maxNumbers) return peeled;
+    }
+  }
+
+  // Step 3: when greedy fuses everything into a single fat number with ≥ 4
+  // tokens, try a balanced split. Statement rows almost never legitimately
+  // have a single value spanning 4+ digit groups (trillions of NOK).
+  if (greedy.length === 1 && greedy[0]!.length >= 4) {
+    const tokens = greedy[0]!;
+    const half = Math.floor(tokens.length / 2);
+    const left = tokens.slice(0, half);
+    const right = tokens.slice(half);
+    if (isValidNumberSequence(left) && isValidNumberSequence(right)) {
+      return [left, right];
+    }
+  }
+
+  if (greedy.length > maxNumbers) {
+    // Truncate to maxNumbers by merging trailing groups into the last.
+    const trimmed = greedy.slice(0, maxNumbers - 1);
+    const tail = greedy.slice(maxNumbers - 1).flat();
+    if (isValidNumberSequence(tail)) {
+      return [...trimmed, tail];
+    }
+  }
+
+  return greedy;
+}
+
+/**
+ * Splits the paragraph token stream into rows. Each row starts when an
+ * alphabetic token follows ≥ 2 numeric tokens in the current row buffer.
+ */
+function splitTokensIntoTabularRows(tokens: string[]): TabularRow[] {
+  const rows: TabularRow[] = [];
+  let currentLabel: string[] = [];
+  let currentNumeric: string[] = [];
+  let collectingNumbers = false;
+
+  const flush = () => {
+    if (currentLabel.length === 0 && currentNumeric.length === 0) return;
+    if (currentNumeric.length === 0) {
+      // A label-only segment (section header like "Inntekter"). Skip it —
+      // it will get prepended to the next row's label below.
+      return;
+    }
+    const groups = partitionFinancialNumbers(currentNumeric, 4) ?? [currentNumeric];
+    rows.push({ labelTokens: [...currentLabel], numericGroups: groups });
+    currentLabel = [];
+    currentNumeric = [];
+    collectingNumbers = false;
+  };
+
+  let pendingLabelCarry: string[] = [];
+
+  for (const token of tokens) {
+    const numeric = isNumericToken(token);
+    const alpha = hasAlpha(token);
+    if (!numeric && !alpha) continue; // punctuation / symbols
+
+    if (alpha) {
+      // Transition NUMBER → ALPHA: emit row if we have enough numeric tokens.
+      if (collectingNumbers && currentNumeric.length >= 2) {
+        flush();
+        currentLabel = [...pendingLabelCarry];
+        pendingLabelCarry = [];
+      }
+      // Still in label-collection mode (no numbers yet) OR fresh row.
+      if (currentNumeric.length === 0) {
+        currentLabel.push(token);
+      } else {
+        // Saw 1 stray digit but not enough to be a row — treat as part of
+        // a noisy label and reset numeric buffer.
+        currentLabel.push(...currentNumeric.map(String));
+        currentNumeric = [];
+        currentLabel.push(token);
+        collectingNumbers = false;
+      }
+    } else {
+      // numeric token
+      currentNumeric.push(token);
+      collectingNumbers = true;
+    }
+  }
+  flush();
+
+  return rows;
+}
+
+/** Counts how many tokens in the raw text are alphabetic / numeric. */
+function classifyParagraphTokens(text: string): { numericCount: number; alphaCount: number; tokens: string[] } {
+  const tokens = text.split(/\s+/).filter(Boolean);
+  let numericCount = 0;
+  let alphaCount = 0;
+  for (const token of tokens) {
+    if (isNumericToken(token)) numericCount++;
+    else if (hasAlpha(token)) alphaCount++;
+  }
+  return { numericCount, alphaCount, tokens };
+}
+
+// Year-column anchor positions, expressed as a fraction of block width.
+//
+// The Brønnøysund statutory form year header is normally six tokens
+// ("Beløp i NOK Note 2024 2023") that `buildWordsFromBlockText` distributes
+// evenly across the heading block's bbox. The years land at indices 4 and 5
+// out of 6 ⇒ x ≈ 67 % and ≈ 83 % of the block width respectively.
+// We deliberately place value groups at the SAME relative positions so that
+// `findYearColumnAnchors` (which inspects the heading block) and the
+// downstream geometry-first reconstructor (which inspects each row line)
+// agree on what x belongs to which year column.
+const YEAR1_X_FRACTION = 0.67;
+const YEAR2_X_FRACTION = 0.83;
+const NOTE_X_FRACTION = 0.55; // far enough from YEAR1 (0.67) to stay separable
+const YEAR_VALUE_COLUMNS = 2;
+
+/**
+ * Build a synthetic ExtractedLine for a single segmented row.
+ *
+ * Layout per row:
+ *   • Label words: stacked across the left 0–60 % of the block.
+ *   • Leading "note" groups (everything beyond the trailing 2 financial
+ *     numbers): folded into the label area at ~55 % of width as label tokens
+ *     so they never compete for a year-column bucket. Critically these are
+ *     **dropped** from the value list — they aren't financial amounts.
+ *   • The trailing 2 financial numbers: positioned with their token cluster
+ *     centred exactly on YEAR1_X_FRACTION and YEAR2_X_FRACTION so they
+ *     bucket cleanly into their respective year columns downstream.
+ *
+ * Why drop the note?  Geometry-first treats every numeric token as a value
+ * candidate and bucket-assigns it to the nearest year-column anchor. A note
+ * reference like "2" near the label would still end up assigned to year 1
+ * and would corrupt the value (e.g. "2 211 739 845" → "2211739845"). By
+ * keeping the note in the label area as a *non-numeric appearance* word
+ * (we still emit it as a token but place its x at NOTE_X_FRACTION, well
+ * inside the label region, AND we deliberately drop its tokens from the
+ * value-column emission), we get the row's actual financial figures into
+ * the correct columns without losing the row identity.
+ *
+ * Each row gets a distinct y so the downstream sorter (descending y) keeps
+ * statement order: earlier rows higher up the page.
+ */
+function buildLineFromTabularRow(
+  block: NormalizedDocumentBlock,
+  row: TabularRow,
+  rowIndex: number,
+  totalRows: number,
+): ExtractedLine {
+  const bbox = toGeometryBox(block.bbox);
+  const left = bbox?.left ?? 40;
+  const right = bbox?.right ?? 520;
+  const top = bbox?.top ?? 12;
+  const bottom = bbox?.bottom ?? 0;
+  const width = Math.max(120, right - left);
+  const blockHeight = Math.max(12, top - bottom);
+
+  const rowHeight = totalRows > 0 ? blockHeight / totalRows : ROW_HEIGHT;
+  const rowBottom = bottom + (totalRows - 1 - rowIndex) * rowHeight;
+
+  const labelWidth = width * LABEL_FRACTION;
+
+  // Decide which numeric groups are notes (folded into the label area) and
+  // which are the real year values (placed at year-column anchors).
+  const groupCount = row.numericGroups.length;
+  const valueGroupCount = Math.min(YEAR_VALUE_COLUMNS, groupCount);
+  const noteGroupCount = groupCount - valueGroupCount;
+  const noteGroups = row.numericGroups.slice(0, noteGroupCount);
+  const valueGroups = row.numericGroups.slice(noteGroupCount);
+
+  const words: ExtractedWord[] = [];
+
+  // Label tokens: stack across the left LABEL_FRACTION of the block. With
+  // labelWidth divided by the label-token count, tokens land at evenly
+  // spaced x positions that all fall well to the left of year anchors.
+  //
+  // IMPORTANT: purely-numeric label tokens are NOT emitted as words even
+  // though they remain in the row's label text and audit trail. Numeric
+  // text like "1" (often OCR-mistaken for the letter "i" inside Norwegian
+  // labels — "investering i datterselskap" → "...investering 1
+  // datterselskap...") would otherwise satisfy isNumericToken() in
+  // geometry-first and be bucket-assigned to the nearest year column,
+  // corrupting that year's value with a stray leading digit. By omitting
+  // their word entry, the only numeric tokens left in the line are real
+  // financial values that belong to year columns.
+  if (row.labelTokens.length > 0) {
+    const labelTokenWidth = labelWidth / Math.max(row.labelTokens.length, 1);
+    for (let i = 0; i < row.labelTokens.length; i++) {
+      const token = row.labelTokens[i]!;
+      if (NUMERIC_TOKEN_RE.test(token)) continue;
+      words.push({
+        text: token,
+        normalizedText: normalizeNorwegianText(token),
+        x: left + i * labelTokenWidth,
+        y: rowBottom,
+        width: labelTokenWidth,
+        height: rowHeight,
+        confidence: 0.92,
+        lineNumber: rowIndex,
+      });
+    }
+  }
+
+  // Note groups are deliberately NOT emitted as words.
+  //
+  // Geometry-first treats every numeric token as a year-column value
+  // candidate (no opt-out): a note reference like "2" would otherwise be
+  // bucketed to the nearest year anchor and corrupt that year's value
+  // (e.g. "Sumn inntekter 2 211 739 845 20 000" → year-1 column gets
+  // "2" + "211 739 845" concatenated → "2 211 739 845" misread as 2.2B).
+  //
+  // Keeping the note text in `rowText` preserves the row's audit trail
+  // while omitting the note tokens from `words` ensures only true value
+  // tokens contribute to year-column bucketing downstream. The note
+  // reference is metadata, not a financial figure.
+  void noteGroups; // intentionally unused — see comment above
+
+  // Year-value tokens: cluster each group around its anchor position so all
+  // tokens of one financial number bucket into the same year column.
+  const anchorFractions = [YEAR1_X_FRACTION, YEAR2_X_FRACTION];
+  for (let groupIndex = 0; groupIndex < valueGroups.length; groupIndex++) {
+    const groupTokens = valueGroups[groupIndex]!;
+    const groupCenter = left + anchorFractions[groupIndex]! * width;
+    // Cluster radius: ~6 px so all digit-groups of a number share a column.
+    const innerSpan = 6;
+    const innerStep = groupTokens.length > 1 ? innerSpan / (groupTokens.length - 1) : 0;
+    const groupStart = groupCenter - innerSpan / 2;
+    for (let i = 0; i < groupTokens.length; i++) {
+      const token = groupTokens[i]!;
+      words.push({
+        text: token,
+        normalizedText: normalizeNorwegianText(token),
+        x: groupStart + i * innerStep,
+        y: rowBottom,
+        width: Math.max(8, innerSpan / Math.max(groupTokens.length, 1)),
+        height: rowHeight,
+        confidence: 0.92,
+        lineNumber: rowIndex,
+      });
+    }
+  }
+
+  const rowText = [
+    row.labelTokens.join(" "),
+    ...row.numericGroups.map((g) => g.join(" ")),
+  ]
+    .filter((part) => part.length > 0)
+    .join(" ");
+
+  return {
+    text: rowText,
+    normalizedText: normalizeNorwegianText(rowText),
+    x: left,
+    y: rowBottom,
+    width,
+    height: rowHeight,
+    confidence: 0.92,
+    words,
+  };
+}
+
+/**
+ * If the block looks like a collapsed Del 1 statement page (many numbers,
+ * many alphabetic labels, one logical line), return one ExtractedLine per
+ * reconstructed statement row. Otherwise return null and let the caller
+ * fall back to ordinary `\n`-based line splitting.
+ */
+function tryBuildLinesFromTabularBlock(block: NormalizedDocumentBlock): ExtractedLine[] | null {
+  if (block.kind !== "paragraph" && block.kind !== "heading") return null;
+  const rawText = block.text ?? "";
+  if (rawText.length === 0) return null;
+  // Bail out early when the block already has its own line breaks — those
+  // pages don't need segmentation help.
+  const newlineCount = (rawText.match(/\n/g) || []).length;
+  if (newlineCount >= 2) return null;
+
+  const { numericCount, alphaCount, tokens } = classifyParagraphTokens(rawText);
+  if (numericCount < TABULAR_MIN_NUMERIC_TOKENS) return null;
+  if (alphaCount < TABULAR_MIN_ALPHA_TOKENS) return null;
+
+  const rows = splitTokensIntoTabularRows(tokens);
+  // Need at least 2 rows to justify the rewrite — a single row would have
+  // been handled fine by the default single-line path.
+  if (rows.length < 2) return null;
+
+  return rows.map((row, index) => buildLineFromTabularRow(block, row, index, rows.length));
+}
+
+// Exported for unit tests.
+export const __internal = {
+  splitTokensIntoTabularRows,
+  partitionFinancialNumbers,
+  isValidNumberSequence,
+  tryBuildLinesFromTabularBlock,
+};
+
 export function normalizeOpenDataLoaderPayload(input: {
   payload: unknown;
   engineVersion?: string | null;
@@ -1066,6 +1557,15 @@ export function convertNormalizedDocumentToAnnualReportPages(
     const blockLines = page.blocks.flatMap((block) => {
       if (block.kind === "table" && block.table) {
         return [];
+      }
+
+      // Del 1 statement pages from Docling frequently collapse to a single
+      // paragraph block that contains the whole resultatregnskap or balanse
+      // on one logical line. Detect that shape and rebuild proper rows so
+      // the downstream geometry-first reconstructor can extract facts.
+      const tabularLines = tryBuildLinesFromTabularBlock(block);
+      if (tabularLines !== null) {
+        return tabularLines;
       }
 
       return block.text

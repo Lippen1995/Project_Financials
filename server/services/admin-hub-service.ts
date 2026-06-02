@@ -1,4 +1,4 @@
-import { type AppRole, AnnualReportReviewStatus } from "@prisma/client";
+import { type AppRole, AnnualReportFilingStatus, AnnualReportReviewStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -44,11 +44,28 @@ export type AdminHubActivity = {
   href?: string;
 };
 
+export type AdminPipelineStage = {
+  status: AnnualReportFilingStatus;
+  label: string;
+  count: number;
+  href: string;
+  tone: "neutral" | "active" | "success" | "warning" | "error";
+};
+
+export type AdminUserStats = {
+  total: number;
+  admins: number;
+  reviewers: number;
+  regularUsers: number;
+};
+
 export type AdminHubModel = {
   title: string;
   subtitle: string;
   generatedAt: string;
   metrics: AdminHubMetric[];
+  pipeline: AdminPipelineStage[];
+  userStats: AdminUserStats;
   navigationSections: AdminHubNavigationSection[];
   humanSteps: AdminHubHumanStep[];
   recentActivity: AdminHubActivity[];
@@ -90,6 +107,8 @@ export async function buildAdminHubModel(input: {
     latestReviewDecision,
     latestIngestionRun,
     totalReviewDecisions,
+    pipelineStatusGroups,
+    userRoleGroups,
   ] = await Promise.all([
     prisma.annualReportFiling.count(),
     prisma.annualReportFiling.count({
@@ -149,6 +168,14 @@ export async function buildAdminHubModel(input: {
     }),
     getCurrentIngestionRun(),
     prisma.annualReportReviewDecision.count(),
+    prisma.annualReportFiling.groupBy({
+      by: ["status"],
+      _count: { id: true },
+    }),
+    prisma.user.groupBy({
+      by: ["appRole"],
+      _count: { id: true },
+    }),
   ]);
 
   const openReviewFilingIds = Array.from(new Set(openReviewRows.map((row) => row.filingId)));
@@ -165,6 +192,47 @@ export async function buildAdminHubModel(input: {
     },
   });
   const currentManualCount = openReviewFilingIds.length + extraManualCount;
+
+  // Build pipeline stage count map
+  const statusCountMap = new Map<AnnualReportFilingStatus, number>();
+  for (const group of pipelineStatusGroups) {
+    statusCountMap.set(group.status, group._count.id);
+  }
+  const pipelineStageOrder: Array<{
+    status: AnnualReportFilingStatus;
+    label: string;
+    tone: AdminPipelineStage["tone"];
+  }> = [
+    { status: "DISCOVERED", label: "Oppdaget", tone: "neutral" },
+    { status: "DOWNLOADED", label: "Lastet ned", tone: "neutral" },
+    { status: "PROCESSING", label: "Behandles", tone: "active" },
+    { status: "PREFLIGHTED", label: "Preflight OK", tone: "active" },
+    { status: "EXTRACTED", label: "Ekstrahert", tone: "active" },
+    { status: "VALIDATED", label: "Validert", tone: "active" },
+    { status: "MANUAL_REVIEW", label: "Manuell kontroll", tone: "warning" },
+    { status: "PUBLISHED", label: "Publisert", tone: "success" },
+    { status: "FAILED", label: "Feilet", tone: "error" },
+  ];
+  const pipeline: AdminPipelineStage[] = pipelineStageOrder.map((stage) => ({
+    status: stage.status,
+    label: stage.label,
+    count: statusCountMap.get(stage.status) ?? 0,
+    href: `/admin/filings?status=${stage.status}`,
+    tone: stage.tone,
+  }));
+
+  // Build user stats
+  const userRoleCountMap = new Map<string, number>();
+  for (const group of userRoleGroups) {
+    userRoleCountMap.set(group.appRole, group._count.id);
+  }
+  const userStats: AdminUserStats = {
+    total: [...userRoleCountMap.values()].reduce((sum, n) => sum + n, 0),
+    admins: userRoleCountMap.get("ADMIN") ?? 0,
+    reviewers: userRoleCountMap.get("FINANCIAL_REVIEWER") ?? 0,
+    regularUsers: userRoleCountMap.get("USER") ?? 0,
+  };
+
   const automaticPublishedCount = findSummaryCount(published.summary, "AUTOMATIC");
   const reviewedWithoutChangesCount = findSummaryCount(
     published.summary,
@@ -178,10 +246,12 @@ export async function buildAdminHubModel(input: {
   );
 
   return {
-    title: "Adminhub",
+    title: "Kontrollsenter",
     subtitle:
-      "Oversikt over rapportflyt, manuell kontroll, publisering og adminoppgaver i Fjord Insight.",
+      "Oversikt over rapportpipelinens status, hva som krever tiltak, og systemets utvikling.",
     generatedAt: new Date().toISOString(),
+    pipeline,
+    userStats,
     metrics: [
       {
         key: "uploaded-filings",
@@ -286,6 +356,13 @@ export async function buildAdminHubModel(input: {
             title: "AI-modellen",
             description: "Følg læring, kalibrering og modellrelaterte vurderinger.",
             href: "/admin/extraction-learning",
+            available: true,
+          },
+          {
+            key: "metric-mapping",
+            title: "Regnskapsmapping",
+            description: "Koble norske kildelabels til de standardiserte regnskapsnøklene.",
+            href: "/admin/metric-mapping",
             available: true,
           },
           {

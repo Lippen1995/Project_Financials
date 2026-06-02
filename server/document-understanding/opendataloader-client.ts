@@ -170,6 +170,40 @@ function summarizeNormalizedDocument(
 }
 
 
+/**
+ * Quick TCP-connect probe. Returns immediately on success; rejects with the
+ * underlying error (with `code` populated) on failure. Used to fail fast
+ * when the Docling server isn't reachable on the network — far cheaper than
+ * sending the full multipart parse request and waiting for its timeout.
+ */
+async function probeDoclingPort(hostname: string, port: number, timeoutMs: number): Promise<void> {
+  const { connect } = await import("node:net");
+  return new Promise<void>((resolve, reject) => {
+    const socket = connect({ host: hostname, port });
+    const fail = (error: NodeJS.ErrnoException) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      reject(error);
+    };
+    const timer = setTimeout(() => {
+      const err = new Error(
+        `Docling TCP probe to ${hostname}:${port} timed out after ${timeoutMs}ms`,
+      ) as NodeJS.ErrnoException;
+      err.code = "ETIMEDOUT";
+      fail(err);
+    }, timeoutMs);
+    socket.once("connect", () => {
+      clearTimeout(timer);
+      socket.end();
+      resolve();
+    });
+    socket.once("error", (error) => {
+      clearTimeout(timer);
+      fail(error as NodeJS.ErrnoException);
+    });
+  });
+}
+
 async function callDoclingServerDirectly(input: {
   pdfBuffer: Buffer;
   sourceFilename: string;
@@ -179,6 +213,25 @@ async function callDoclingServerDirectly(input: {
   // Use node:http directly to avoid Next.js's patched global fetch (which breaks FormData uploads)
   const { request: httpRequest } = await import("node:http");
   const parsedUrl = new URL(`${input.hybridUrl}/v1/convert/file`);
+
+  // Before sending the heavy multipart parse request — which can sit on a
+  // 30-minute response timeout when Docling is hung — verify the TCP port
+  // is actually accepting connections. A 5-second probe turns "Docling is
+  // gone" into a sub-second failure instead of a half-hour wait per filing.
+  const probePort = Number(parsedUrl.port) || 80;
+  try {
+    await probeDoclingPort(parsedUrl.hostname, probePort, 5_000);
+  } catch (probeError) {
+    const code = (probeError as NodeJS.ErrnoException)?.code ?? "ETIMEDOUT";
+    console.warn(
+      `[ODL] Docling probe to ${parsedUrl.hostname}:${probePort} failed (${code}) — falling back to Legacy without sending the parse request.`,
+    );
+    const propagated = new Error(
+      `Docling server probe failed: ${(probeError as Error)?.message ?? String(probeError)}`,
+    ) as NodeJS.ErrnoException;
+    propagated.code = code;
+    throw propagated;
+  }
   const boundary = `----DoclingBoundary${Date.now().toString(16)}`;
   const preamble = Buffer.from(
     `--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${input.sourceFilename}"\r\nContent-Type: application/pdf\r\n\r\n`,
@@ -223,7 +276,13 @@ async function callDoclingServerDirectly(input: {
           },
         );
         req.on("timeout", () => {
-          req.destroy(new Error(`Docling request timed out after ${input.timeoutMs}ms`));
+          // Tag the error so the retry loop can recognise a hung server and
+          // fail fast instead of waiting another full timeout per attempt.
+          const timeoutError = new Error(
+            `Docling request timed out after ${input.timeoutMs}ms`,
+          ) as NodeJS.ErrnoException;
+          timeoutError.code = "ETIMEDOUT";
+          req.destroy(timeoutError);
         });
         req.on("error", reject);
         req.write(body);
@@ -234,12 +293,17 @@ async function callDoclingServerDirectly(input: {
       lastError = error;
       const code = (error as NodeJS.ErrnoException)?.code;
       const message = (error as Error)?.message || String(error);
-      // A refused/unreachable connection means the Docling server is simply
-      // not running. Retrying with 30–60 s backoff just burns ~90 s per
-      // filing for nothing — fail fast straight to the Legacy fallback so a
-      // down server doesn't cripple a bulk ingest. Transient errors
-      // (timeouts, 5xx) still get the retry.
-      if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ECONNRESET") {
+      // A refused/unreachable/timed-out connection means the Docling server
+      // is not actually serving — either down or hung. Retrying with 30–60 s
+      // backoff just burns 90+ minutes per filing for nothing (the timeout
+      // alone is 30 minutes); fail fast straight to the Legacy fallback.
+      // Genuinely transient HTTP errors (5xx) still get retried below.
+      if (
+        code === "ECONNREFUSED" ||
+        code === "ENOTFOUND" ||
+        code === "ECONNRESET" ||
+        code === "ETIMEDOUT"
+      ) {
         console.warn(
           `[ODL] Docling server unreachable (${code}) — skipping retries, falling back to Legacy.`,
         );

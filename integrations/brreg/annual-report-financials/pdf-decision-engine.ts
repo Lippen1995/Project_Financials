@@ -19,11 +19,13 @@ import type {
   JsonSafePdfDecisionArtifactPayload,
   PdfDecisionEngineOutput,
   PdfDecisionPageHints,
+  PdfDecisionPerPageRoute,
   PdfDecisionPhase,
   PdfDecisionRiskLevel,
   PdfDecisionRoute,
   PdfDecisionValidationSummary,
 } from "@/integrations/brreg/annual-report-financials/pdf-decision-types";
+import { isPageReliable } from "@/integrations/brreg/annual-report-financials/preflight";
 
 export const PDF_DECISION_ENGINE_VERSION = "pdf-decision-engine-v1";
 
@@ -305,6 +307,29 @@ export function runPdfDecisionEngine(
     reasons.push("Insufficient signals; conservative decision produced");
   }
 
+  // Per-page routing. The document-level `route` summarises the typical
+  // page; this array spells out what should actually happen to each page so
+  // a mixed (mostly prose + a few scanned) document no longer hides its
+  // scanned pages behind the majority verdict.
+  const perPageRoutes: PdfDecisionPerPageRoute[] = input.preflight.parsedPages.map(
+    (page) => {
+      const reliable = isPageReliable(page);
+      let pageRoute: PdfDecisionRoute;
+      if (manualReviewRequired) {
+        pageRoute = "MANUAL_REVIEW";
+      } else if (odlEnabled) {
+        pageRoute = reliable ? "OPENDATALOADER_LOCAL" : "OPENDATALOADER_HYBRID";
+      } else {
+        pageRoute = reliable ? "TEXT_LAYER" : "FORCE_OCR";
+      }
+      return {
+        pageNumber: page.pageNumber,
+        route: pageRoute,
+        hasReliableTextLayer: reliable,
+      };
+    },
+  );
+
   return {
     version: PDF_DECISION_ENGINE_VERSION,
     ruleConfigVersion: ruleConfig.version,
@@ -322,6 +347,7 @@ export function runPdfDecisionEngine(
       notes: hasNotes,
     },
     pageHints,
+    perPageRoutes,
     diagnostics: {
       qualityRisk: qualityRisk ?? undefined,
       ruleConfigVersion: ruleConfig.version,

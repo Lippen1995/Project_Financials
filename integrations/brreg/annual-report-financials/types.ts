@@ -1,5 +1,6 @@
 import {
   CanonicalMetricKey,
+  LiabilitySection,
   ReportingCurrency,
   StatementScope,
   StatementSectionType,
@@ -169,6 +170,10 @@ export type ReconstructedRow = {
   y: number;
   confidence: number;
   values: ReconstructedValueCell[];
+  /** Liability sub-section the row sits in (long-term vs current), when the
+   *  reconstructor could infer it from a preceding "Langsiktig/Kortsiktig
+   *  gjeld" header. Used to disambiguate maturity-split components. */
+  liabilitySection?: LiabilitySection | null;
 };
 
 export type CanonicalFactCandidate = {

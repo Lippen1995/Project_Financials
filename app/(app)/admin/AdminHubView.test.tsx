@@ -16,6 +16,42 @@ const model: AdminHubModel = {
     { key: "corrected", title: "Publisert etter manuell korrigering", value: "2", detail: "Krever oppfølging." },
     { key: "failed", title: "Feilet eller stoppet", value: "1", detail: "Stoppet i behandling." },
   ],
+  pipeline: [
+    {
+      status: "MANUAL_REVIEW",
+      label: "Til manuell kontroll",
+      count: 3,
+      href: "/admin/annual-report-reviews",
+      tone: "warning",
+    },
+    {
+      status: "FAILED",
+      label: "Feilet",
+      count: 1,
+      href: "/admin/annual-report-reviews?status=failed",
+      tone: "error",
+    },
+    {
+      status: "PROCESSING",
+      label: "Under behandling",
+      count: 2,
+      href: "/admin/annual-report-reviews?status=processing",
+      tone: "active",
+    },
+    {
+      status: "PUBLISHED",
+      label: "Publisert",
+      count: 7,
+      href: "/admin/published-annual-reports",
+      tone: "success",
+    },
+  ],
+  userStats: {
+    total: 12,
+    admins: 2,
+    reviewers: 3,
+    regularUsers: 7,
+  },
   navigationSections: [
     {
       title: "Daglig drift",
@@ -71,8 +107,8 @@ describe("AdminHubView", () => {
     expect(html).toContain("Adminhub");
     expect(html).toContain("Opplastede rapportfiler");
     expect(html).toContain("Brukere og roller");
-    expect(html).toContain("App-statistikk");
-    expect(html).toContain("Hva krever menneskelig vurdering?");
+    expect(html).toContain("AI-modellen");
+    expect(html).toContain("Krever tiltak");
     expect(html).toContain("Siste aktivitet");
   });
 });

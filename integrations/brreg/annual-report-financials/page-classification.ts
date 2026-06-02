@@ -749,5 +749,234 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
     ];
   }
 
-  return classifications.sort((left, right) => left.pageNumber - right.pageNumber);
+  // Third pass: retroactive COMPANY scope for selskapsregnskap pages.
+  //
+  // Norwegian group-company PDFs from Brønnøysund contain two sets of
+  // statutory statements back-to-back in "Del 1" (the standard form section):
+  //   1) Selskapsregnskap  — COMPANY scope  (income + balance for morselskapet)
+  //   2) Konsernregnskap   — CONSOLIDATED   (income + balance for konsernet)
+  //
+  // When the PDF uses a running page header such as "Canica AS | Konsernregnskap"
+  // on ALL financial pages, the Legacy engine's OCR picks it up as body text and
+  // the Tier-1 keyword "konsernregnskap" is found in topText for every page —
+  // including the selskapsregnskap ones. All statutory pages then receive
+  // CONSOLIDATED scope in the forward pass.
+  //
+  // The structured-document engine (Docling) correctly separates running page
+  // headers from section headings, so its page 2 heading reads "RESULTATREGNSKAP"
+  // (no konsern contamination) while page 6 reads "KONSERNRESULTATREGNSKAP".
+  // The scope forward-pass assigns COMPANY to page 2 and CONSOLIDATED to page 6
+  // naturally — but only when the heading itself tells us the truth.
+  //
+  // Detection strategy — scope transition within the initial statutory block:
+  //
+  //  1. Collect the "first statutory block": the opening run of STATUTORY pages
+  //     from the beginning of the document, allowing internal gaps of at most
+  //     MAX_GAP_WITHIN_BLOCK non-statutory pages (cover pages between the
+  //     income statement and balance sheet halves of each section).
+  //     Stop as soon as a larger gap is encountered (Del 1 is compact; Del 2
+  //     begins only after the board report, auditor report, etc.).
+  //
+  //  2. Within that block, search for the FIRST page whose heading explicitly
+  //     contains "konsern" — this is the selskaps→konsern scope boundary.
+  //
+  //  3. If such a boundary is found at a non-zero position, all statutory pages
+  //     before it lacked an explicit "konsern" heading and are the selskaps-
+  //     regnskap → retroactively assign COMPANY scope.
+  //
+  // Why this is safe across engine types:
+  //  • Docling: page headings reflect the real printed section headings, so
+  //    "KONSERNRESULTATREGNSKAP" is on page 6 and pages 2-5 have no "konsern"
+  //    heading → the retroactive fix fires correctly.
+  //  • Legacy: all pages have the same plain headings ("RESULTATREGNSKAP",
+  //    "BALANSE") regardless of section; no "konsern" heading exists in the
+  //    first block → firstKonsernInBlock = -1 → fix does NOT fire, all pages
+  //    remain CONSOLIDATED (the conservative pre-existing behaviour).
+  const sortedClassifications = classifications.sort((left, right) => left.pageNumber - right.pageNumber);
+
+  const isStatutoryStatementType = (type: string) =>
+    type === "STATUTORY_INCOME" ||
+    type === "STATUTORY_BALANCE" ||
+    type === "STATUTORY_BALANCE_CONTINUATION";
+
+  // Step 1 — build the first statutory block.
+  // A gap of 1-2 non-statutory pages within the block is normal (a cover page
+  // between the income statement and balance sheet halves). A gap larger than
+  // MAX_GAP_WITHIN_BLOCK means we have left Del 1 (e.g. board report follows).
+  const MAX_GAP_WITHIN_BLOCK = 3;
+
+  const firstStatutoryBlock: PageClassification[] = [];
+  let gapCounter = 0;
+
+  for (const c of sortedClassifications) {
+    if (isStatutoryStatementType(c.type)) {
+      if (firstStatutoryBlock.length > 0 && gapCounter > MAX_GAP_WITHIN_BLOCK) {
+        break; // Del 1 has ended; don't include Del 2 STATUTORY pages.
+      }
+      firstStatutoryBlock.push(c);
+      gapCounter = 0;
+    } else if (firstStatutoryBlock.length > 0) {
+      gapCounter += 1;
+    }
+  }
+
+  // Step 2 — find the scope-transition page: first page in the block whose
+  // heading text contains "konsern" (case-insensitive).
+  const firstKonsernInBlock = firstStatutoryBlock.findIndex(
+    (c) => c.heading !== null && c.heading.toLowerCase().includes("konsern"),
+  );
+
+  // Step 3 — retroactively assign COMPANY to all statutory pages before the
+  // transition. Nothing happens when firstKonsernInBlock ≤ 0 (transition is
+  // absent or at the very first page, meaning the whole block is konsern).
+  if (firstKonsernInBlock > 0) {
+    for (let i = 0; i < firstKonsernInBlock; i++) {
+      const c = firstStatutoryBlock[i];
+      if (!c) continue;
+      if (c.statementScope === "CONSOLIDATED") {
+        c.statementScope = "COMPANY";
+        c.hasExplicitScopeSignal = false;
+        c.reasons = [
+          ...new Set([
+            ...c.reasons,
+            "Retroactively assigned COMPANY scope: plain heading precedes explicit konsern section",
+          ]),
+        ];
+      }
+    }
+  }
+
+  // Step 4 — structural fallback for engines that strip "konsern" from headings.
+  //
+  // The Legacy OCR engine collapses page headings to a plain form: the second
+  // resultatregnskap page in Del 1 reads "RESULTATREGNSKAP" (no konsern prefix),
+  // identical to the first. As a result Step 2 never finds a konsern transition
+  // and Step 3 leaves all statutory pages as CONSOLIDATED (forward-pass result
+  // driven by the running page header "Canica AS | Konsernregnskap" appearing
+  // on every page).
+  //
+  // Brønnøysund Del 1 for group companies is always structured as two
+  // back-to-back statement rounds:
+  //   Round 1 — Resultatregnskap → Balanse (eiendeler) → Balanse (EK+gjeld)
+  //   Round 2 — Konsernresultat   → Konsernbalanse                  (same shape)
+  //
+  // Detect a round start as either a STATUTORY_INCOME page OR any page whose
+  // heading contains "resultatregnskap" (covers the common case where the
+  // second income page is mistyped as STATUTORY_BALANCE when layout is dense).
+  // Consecutive starts are suppressed because an income statement can span
+  // multiple pages (e.g. a "Minoritetsinteresser" continuation page).
+  //
+  // When at least two distinct round starts are found, the second one marks
+  // the selskap → konsern boundary: pages before it are flipped to COMPANY.
+  // This only fires when Step 3 did not already fire, so Docling's
+  // heading-based detection always takes precedence when available.
+  if (firstKonsernInBlock < 0 && firstStatutoryBlock.length >= 4) {
+    const isIncomeRoundStart = (c: PageClassification): boolean =>
+      c.type === "STATUTORY_INCOME" ||
+      (c.heading !== null && /resultatregnskap/i.test(c.heading));
+
+    const roundStartIndexes: number[] = [];
+    for (let i = 0; i < firstStatutoryBlock.length; i++) {
+      const page = firstStatutoryBlock[i];
+      if (!page) continue;
+      if (!isIncomeRoundStart(page)) continue;
+      const previousRoundStart = roundStartIndexes[roundStartIndexes.length - 1];
+      if (previousRoundStart === undefined || i - previousRoundStart > 1) {
+        roundStartIndexes.push(i);
+      }
+    }
+
+    if (roundStartIndexes.length >= 2) {
+      // Correct round-start page types: dense layouts can cause the Legacy
+      // forward pass to score a page with heading "RESULTATREGNSKAP" as
+      // STATUTORY_BALANCE (because balance keywords from a neighbouring or
+      // overlapping region outweigh income keywords). When the heading is
+      // unambiguously an income heading, the type must be STATUTORY_INCOME so
+      // that income metric extractors (revenue, operating_profit, net_income)
+      // look at the page. Without this correction, the scope flip below would
+      // strand the konsern income figures behind a BALANCE-typed page that the
+      // income extractor skips, producing REVENUE_MISSING / NET_INCOME_MISSING
+      // for the CONSOLIDATED scope.
+      for (const idx of roundStartIndexes) {
+        const page = firstStatutoryBlock[idx];
+        if (!page) continue;
+        if (
+          page.heading !== null &&
+          /resultatregnskap/i.test(page.heading) &&
+          (page.type === "STATUTORY_BALANCE" || page.type === "STATUTORY_BALANCE_CONTINUATION")
+        ) {
+          page.type = "STATUTORY_INCOME";
+          page.reasons = [
+            ...new Set([
+              ...page.reasons,
+              "Reclassified STATUTORY_INCOME: heading explicitly states 'Resultatregnskap' (round-start type correction)",
+            ]),
+          ];
+        }
+      }
+
+      const consolidatedBoundary = roundStartIndexes[1]!;
+      for (let i = 0; i < consolidatedBoundary; i++) {
+        const c = firstStatutoryBlock[i];
+        if (!c) continue;
+        if (c.statementScope === "CONSOLIDATED") {
+          c.statementScope = "COMPANY";
+          c.hasExplicitScopeSignal = false;
+          c.reasons = [
+            ...new Set([
+              ...c.reasons,
+              "Retroactively assigned COMPANY scope: first of two statement rounds in Del 1 (structural)",
+            ]),
+          ];
+        }
+      }
+    }
+  }
+
+  // Fifth pass: enforce the Del 1 / Del 2 boundary.
+  //
+  // All Norwegian Brønnøysund annual report PDFs contain two parts:
+  //   Del 1 — the standard Brønnøysund statutory forms (compact, ~4–12 pages).
+  //            Contains income statement and balance sheet for BOTH the parent
+  //            company (morselskapet) and the group (konsernet). No notes.
+  //   Del 2 — the company's own published annual report, appended after the
+  //            board report, auditor report, etc. (free-form, variable length).
+  //
+  // Structured-document engines (Docling) parse Del 2 income/balance pages as
+  // STATUTORY because the headings look identical to Del 1 ("Resultatregnskap",
+  // "Balanse"). But Del 2 figures are typically in thousands, whereas Del 1 is
+  // in whole NOK — a mismatch that causes validation failures and a 1000× unit-
+  // scale disagreement between the engines.
+  //
+  // Solution: any STATUTORY page that falls outside the first statutory block
+  // (Del 1) is reclassified as SUPPLEMENTARY. This makes Del 1 the sole source
+  // of primary facts and demotes Del 2 data to supplementary / note support.
+  //
+  // For the Legacy engine, Del 2 pages are already correctly classified as
+  // SUPPLEMENTARY by keyword signals ("artsinndelt", running-header heuristics,
+  // etc.), so this pass is effectively a no-op for Legacy.
+  const firstBlockPageNumbers = new Set(firstStatutoryBlock.map((c) => c.pageNumber));
+
+  for (const c of sortedClassifications) {
+    if (firstBlockPageNumbers.has(c.pageNumber)) continue; // Del 1 — leave as-is
+    if (c.type === "STATUTORY_INCOME") {
+      c.type = "SUPPLEMENTARY_INCOME";
+      c.reasons = [
+        ...new Set([
+          ...c.reasons,
+          "Reclassified SUPPLEMENTARY: beyond Del 1 (Brønnøysund statutory forms)",
+        ]),
+      ];
+    } else if (c.type === "STATUTORY_BALANCE" || c.type === "STATUTORY_BALANCE_CONTINUATION") {
+      c.type = "SUPPLEMENTARY_BALANCE";
+      c.reasons = [
+        ...new Set([
+          ...c.reasons,
+          "Reclassified SUPPLEMENTARY: beyond Del 1 (Brønnøysund statutory forms)",
+        ]),
+      ];
+    }
+  }
+
+  return sortedClassifications;
 }

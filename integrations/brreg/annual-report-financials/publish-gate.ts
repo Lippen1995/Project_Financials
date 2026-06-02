@@ -4,7 +4,10 @@ import {
   PageClassification,
   ValidationIssueDraft,
 } from "@/integrations/brreg/annual-report-financials/types";
-import { requiredPublishMetricKeys } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import {
+  CanonicalMetricKey,
+  requiredPublishMetricKeys,
+} from "@/integrations/brreg/annual-report-financials/taxonomy";
 
 export function primaryStatementPages(classifications: PageClassification[]) {
   return classifications.filter((classification) =>
@@ -126,7 +129,11 @@ export function calculateConfidenceScore(input: {
   duplicateSupport: number;
   noteSupport: number;
   issueCount: number;
+  /** Keys required for a complete filing. Defaults to the built-in list; the
+   *  service layer passes the DB-backed registry keys. */
+  requiredKeys?: string[];
 }) {
+  const requiredKeys = input.requiredKeys ?? requiredPublishMetricKeys;
   const primaryPages = primaryStatementPages(input.classifications);
   const classificationScore =
     primaryPages.length > 0
@@ -137,7 +144,10 @@ export function calculateConfidenceScore(input: {
       ? primaryPages.reduce((sum, page) => sum + page.unitScaleConfidence, 0) /
         primaryPages.length
       : 0;
-  const coverageScore = Math.min(1, input.selectedFactCount / requiredPublishMetricKeys.length);
+  const coverageScore = Math.min(
+    1,
+    input.selectedFactCount / Math.max(1, requiredKeys.length),
+  );
   const issuePenalty = Math.min(0.18, input.issueCount * 0.015);
   const deterministicReadinessBonus =
     primaryPages.length >= 2 &&
@@ -178,7 +188,11 @@ export function canPublishAutomatically(input: {
   selectedFacts: ReturnType<typeof chooseCanonicalFacts>;
   validationIssues: ValidationIssueDraft[];
   confidenceScore: number;
+  /** Keys required for auto-publish. Defaults to the built-in list; the service
+   *  layer passes the DB-backed registry keys. */
+  requiredKeys?: string[];
 }) {
+  const requiredKeys = input.requiredKeys ?? requiredPublishMetricKeys;
   const primaryPages = primaryStatementPages(input.classifications);
   const hasIncomePage = primaryPages.some((page) =>
     ["STATUTORY_INCOME", "SUPPLEMENTARY_INCOME"].includes(page.type),
@@ -189,8 +203,8 @@ export function canPublishAutomatically(input: {
     ),
   );
   const hasBlockingErrors = input.validationIssues.some((issue) => issue.severity === "ERROR");
-  const hasRequiredMetrics = requiredPublishMetricKeys.every((metricKey) =>
-    input.selectedFacts.has(metricKey),
+  const hasRequiredMetrics = requiredKeys.every((metricKey) =>
+    input.selectedFacts.has(metricKey as CanonicalMetricKey),
   );
   const hasReliableClassifications =
     primaryPages.length >= 2 && primaryPages.every((page) => page.confidence >= 0.74);

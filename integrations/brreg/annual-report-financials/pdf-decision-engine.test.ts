@@ -11,9 +11,10 @@ import {
   getActivePdfDecisionRuleConfig,
   getPdfDecisionRuleConfigByVersion,
 } from "./pdf-decision-rule-config";
+import { isPageReliable } from "./preflight";
 import type { FinancialExtractionPageHints } from "./financial-extraction-page-hints";
 import type { AnnualReportDocument, SectionKind } from "./document-model";
-import type { PreflightResult } from "./types";
+import type { PageTextLayer, PreflightResult } from "./types";
 
 function makePage(pageNumber: number, rawText = "text") {
   return {
@@ -316,5 +317,64 @@ describe("runPdfDecisionEngine", () => {
     });
     expect(payload.decision).toEqual(decision);
     expect(() => JSON.stringify(payload)).not.toThrow();
+  });
+});
+
+function makeTextLayerPage(
+  pageNumber: number,
+  text: string,
+  hasEmbeddedText = text.length > 0,
+): PageTextLayer {
+  return {
+    pageNumber,
+    text,
+    normalizedText: text.toLowerCase(),
+    lines: [],
+    hasEmbeddedText,
+  };
+}
+
+describe("isPageReliable", () => {
+  it("returns true for an embedded page above the text-length threshold", () => {
+    expect(isPageReliable(makeTextLayerPage(1, "Resultatregnskap " + "x".repeat(200)))).toBe(true);
+  });
+
+  it("returns false for an embedded page below the threshold", () => {
+    expect(isPageReliable(makeTextLayerPage(1, "short"))).toBe(false);
+  });
+
+  it("returns false for a page with no embedded text at all", () => {
+    expect(isPageReliable(makeTextLayerPage(1, "", false))).toBe(false);
+  });
+});
+
+describe("runPdfDecisionEngine perPageRoutes", () => {
+  it("routes reliable pages to TEXT_LAYER and unreliable pages to FORCE_OCR when ODL is disabled", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"]);
+    const reliable = makeTextLayerPage(1, "Resultatregnskap " + "x".repeat(200));
+    const unreliable = makeTextLayerPage(2, "", false);
+    const decision = runPdfDecisionEngine({
+      preflight: makePreflight(doc, { parsedPages: [reliable, unreliable] }),
+      pageHints: makePageHints(),
+    });
+    expect(decision.perPageRoutes).toEqual([
+      { pageNumber: 1, route: "TEXT_LAYER", hasReliableTextLayer: true },
+      { pageNumber: 2, route: "FORCE_OCR", hasReliableTextLayer: false },
+    ]);
+  });
+
+  it("uses OpenDataLoader routes per page when ODL is enabled", () => {
+    const doc = makeDocument(["INCOME_STATEMENT", "BALANCE_SHEET"]);
+    const reliable = makeTextLayerPage(1, "Resultatregnskap " + "x".repeat(200));
+    const unreliable = makeTextLayerPage(2, "", false);
+    const decision = runPdfDecisionEngine({
+      preflight: makePreflight(doc, { parsedPages: [reliable, unreliable] }),
+      pageHints: makePageHints(),
+      odlConfig: { enabled: true, mode: "hybrid" },
+    });
+    expect(decision.perPageRoutes.map((r) => r.route)).toEqual([
+      "OPENDATALOADER_LOCAL",
+      "OPENDATALOADER_HYBRID",
+    ]);
   });
 });

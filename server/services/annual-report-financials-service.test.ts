@@ -273,6 +273,7 @@ vi.mock("@/integrations/brreg/annual-report-financials/preflight", () => ({
     hasReliableTextLayer: true,
     parsedPages: [],
   })),
+  isPageReliable: vi.fn(() => true),
 }));
 
 vi.mock("@/integrations/brreg/annual-report-financials/page-classification", () => ({

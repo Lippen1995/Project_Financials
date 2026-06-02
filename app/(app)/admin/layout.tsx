@@ -23,6 +23,7 @@ export default async function AdminLayout({
 
   const adminLinks = [
     { href: "/admin", label: "Oversikt" },
+    { href: "/admin/filings", label: "Alle rapporter" },
     { href: "/admin/published-annual-reports", label: "Godkjente årsregnskaper" },
     { href: "/admin/annual-report-reviews", label: "Manuell kontroll" },
     ...(reviewer.appRole === "ADMIN"
@@ -30,6 +31,7 @@ export default async function AdminLayout({
       : []),
     { href: "/admin/annual-report-unified-confidence", label: "Datakvalitet" },
     { href: "/admin/extraction-learning", label: "AI-modellen" },
+    { href: "/admin/metric-mapping", label: "Regnskapsmapping" },
   ];
 
   return (

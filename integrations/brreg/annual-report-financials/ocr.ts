@@ -24,6 +24,10 @@ import {
   repairOcrTokenBoundaries,
   stripDuplicateWhitespace,
 } from "@/integrations/brreg/annual-report-financials/text";
+import {
+  OCR_PREPROCESSING_PIPELINE_VERSION,
+  preprocessOcrImage,
+} from "@/integrations/brreg/annual-report-financials/image-preprocessing";
 
 const OCR_MIN_WIDTH_PX = 64;
 const OCR_MIN_HEIGHT_PX = 64;
@@ -35,7 +39,7 @@ const OCR_MIN_AREA_PX = 8_192;
 // around ~425 DPI: comfortably above the ideal, with no expected accuracy
 // loss, and a large speed-up on big scanned filings.
 const OCR_RENDER_SCALE = 2;
-const OCR_PREPROCESSING_MODE = "page_png_scale2";
+const OCR_PREPROCESSING_MODE = `page_png_scale2_${OCR_PREPROCESSING_PIPELINE_VERSION}`;
 const OCR_RECOGNITION_MODES = [
   {
     name: "auto",
@@ -990,7 +994,21 @@ export async function extractOcrPagesWithDiagnostics(
       }
 
       const imagePath = path.join(os.tmpdir(), `projectx-financials-${page.pageNumber}.png`);
-      const imageBuffer = Buffer.from(page.data);
+      const rawBuffer = Buffer.from(page.data);
+      let imageBuffer: Buffer;
+      try {
+        // Greyscale + contrast normalisation + median denoise + sharpen.
+        // Moves marginal characters off Tesseract's failure boundary.
+        imageBuffer = await preprocessOcrImage(rawBuffer);
+      } catch (preprocessError) {
+        // Preprocessing must never drop a page. If sharp cannot decode the
+        // input, fall back to the raw image and let Tesseract try.
+        imageBuffer = rawBuffer;
+        pushSuppressedFailure(
+          suppressedFailures,
+          summarizeRecognitionError(preprocessError),
+        );
+      }
       await fs.writeFile(imagePath, imageBuffer);
       const recognitionResults: Array<{
         lines: ExtractedLine[];
@@ -1011,29 +1029,58 @@ export async function extractOcrPagesWithDiagnostics(
             await configurableWorker.setParameters(mode.parameters);
           }
 
-          const result = await worker.recognize(imagePath, {}, { text: true, tsv: true });
+          // Tesseract.js v7 changed the recognise output shape: words are no
+          // longer at data.words; they live nested inside
+          // data.blocks[].paragraphs[].lines[].words[], and the `blocks`
+          // output format must be opted into. Without this, the code below
+          // silently fell back to buildLinesFromRawText for every page,
+          // which fabricates x-positions and flat-lines per-line confidence
+          // at 0.65 — breaking both geometry-first reconstruction and the
+          // loop's recognition signal.
+          const result = await worker.recognize(
+            imagePath,
+            {},
+            { text: true, blocks: true, tsv: true },
+          );
           const data = result.data as {
             text?: string;
-            words?: Array<{
-              text: string;
-              confidence: number;
-              bbox: { x0: number; y0: number; x1: number; y1: number };
-              line_num?: number;
-            }>;
+            blocks?: Array<{
+              paragraphs?: Array<{
+                lines?: Array<{
+                  words?: Array<{
+                    text: string;
+                    confidence: number;
+                    bbox: { x0: number; y0: number; x1: number; y1: number };
+                  }>;
+                }>;
+              }>;
+            }> | null;
           };
 
-          const words: ExtractedWord[] = (data.words ?? [])
-            .map((word) => ({
-              text: word.text,
-              normalizedText: normalizeNorwegianText(word.text),
-              x: word.bbox.x0,
-              y: word.bbox.y0,
-              width: Math.max(1, word.bbox.x1 - word.bbox.x0),
-              height: Math.max(1, word.bbox.y1 - word.bbox.y0),
-              confidence: Number.isFinite(word.confidence) ? word.confidence / 100 : 0.6,
-              lineNumber: word.line_num,
-            }))
-            .filter((word) => Boolean(word.text?.trim()));
+          const words: ExtractedWord[] = [];
+          let nestedLineCounter = 0;
+          for (const block of data.blocks ?? []) {
+            for (const paragraph of block.paragraphs ?? []) {
+              for (const line of paragraph.lines ?? []) {
+                const lineNumber = nestedLineCounter++;
+                for (const word of line.words ?? []) {
+                  if (!word.text || !word.text.trim()) continue;
+                  words.push({
+                    text: word.text,
+                    normalizedText: normalizeNorwegianText(word.text),
+                    x: word.bbox.x0,
+                    y: word.bbox.y0,
+                    width: Math.max(1, word.bbox.x1 - word.bbox.x0),
+                    height: Math.max(1, word.bbox.y1 - word.bbox.y0),
+                    confidence: Number.isFinite(word.confidence)
+                      ? word.confidence / 100
+                      : 0.6,
+                    lineNumber,
+                  });
+                }
+              }
+            }
+          }
 
           const linesFromWords = buildLinesFromWords(words);
           const lines =

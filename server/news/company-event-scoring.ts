@@ -1,0 +1,163 @@
+import type { EventClassification } from "@/server/news/company-event-taxonomy";
+
+export type ScoreSourceInput = {
+  id: string;
+  sourceType?: string | null;
+  qualityScore?: number | null;
+  metadata?: unknown;
+};
+
+export type InvestorValueScoreInput = {
+  entityConfidence: number;
+  materialityScore: number;
+  sourceCredibilityScore: number;
+  financialImpactScore: number;
+  strategicImpactScore: number;
+  riskImpactScore: number;
+  noveltyScore: number;
+  timelinessScore: number;
+  userRelevanceScore: number;
+  evidenceStrengthScore: number;
+  lowSignalPenalty?: number;
+  duplicatePenalty?: number;
+};
+
+export type InvestorValueScoreResult = InvestorValueScoreInput & {
+  investorValueScore: number;
+};
+
+const PRIMARY_SOURCE_TYPES = new Set(["newsweb", "brreg", "financials"]);
+const REGULATORY_SOURCE_TYPES = new Set(["regulator"]);
+const INTERNAL_SOURCE_TYPES = new Set(["internal"]);
+const INDUSTRY_SOURCE_IDS = new Set([
+  "sodir-news",
+  "sodir-production",
+  "sodir-drilling-permits",
+  "sodir-exploration-results",
+  "eia-today",
+  "eia-press",
+  "eia-petroleum-weekly",
+]);
+
+export function clampScore(value: number, min = 0, max = 100) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+export function computeSourceCredibilityScore(source: ScoreSourceInput | null | undefined) {
+  if (!source) return 0.42;
+  if (typeof source.qualityScore === "number") return clampScore(source.qualityScore, 0, 1);
+  if (PRIMARY_SOURCE_TYPES.has(source.sourceType ?? "")) return 0.92;
+  if (REGULATORY_SOURCE_TYPES.has(source.sourceType ?? "")) return 0.9;
+  if (INTERNAL_SOURCE_TYPES.has(source.sourceType ?? "")) return 0.84;
+  if (INDUSTRY_SOURCE_IDS.has(source.id)) return 0.82;
+  if (source.id.includes("reuters")) return 0.84;
+  return 0.58;
+}
+
+export function computeTimelinessScore(eventDate?: Date | null, now = new Date()) {
+  if (!eventDate) return 0.35;
+  const ageDays = Math.max(0, (now.getTime() - eventDate.getTime()) / 86_400_000);
+  if (ageDays <= 2) return 1;
+  if (ageDays <= 7) return 0.86;
+  if (ageDays <= 30) return 0.64;
+  if (ageDays <= 90) return 0.42;
+  return 0.22;
+}
+
+export function computeEvidenceStrengthScore(input: { entityConfidence: number; eventTypeScore: number; evidenceCount?: number }) {
+  const countBoost = Math.min(0.16, Math.max(0, (input.evidenceCount ?? 1) - 1) * 0.04);
+  return clampScore((input.entityConfidence * 0.55 + input.eventTypeScore * 0.45 + countBoost), 0, 1);
+}
+
+export function computeNoveltyScore(input: { duplicateCount?: number; isFollowUp?: boolean }) {
+  if (input.isFollowUp) return 0.38;
+  const duplicateCount = input.duplicateCount ?? 0;
+  if (duplicateCount <= 0) return 0.82;
+  if (duplicateCount <= 2) return 0.62;
+  return 0.42;
+}
+
+export function computeUserRelevanceScore(_companyId?: string | null) {
+  return 0;
+}
+
+export function computeLowSignalPenalty(input: { entityConfidence: number; eventType: string; mentionContext?: string | null; lowSignalPenalty?: number }) {
+  let penalty = input.lowSignalPenalty ?? 0;
+  if (input.eventType === "low_signal_mention") penalty += 0.18;
+  if (input.mentionContext === "body") penalty += 0.08;
+  if (input.entityConfidence < 0.65) penalty += 0.08;
+  return clampScore(penalty, 0, 1);
+}
+
+export function computeDuplicatePenalty(input: { duplicateCount?: number; duplicateClusterSize?: number }) {
+  const size = Math.max(input.duplicateCount ?? 0, input.duplicateClusterSize ?? 0);
+  if (size <= 1) return 0;
+  return clampScore(0.04 + Math.min(0.16, (size - 1) * 0.03), 0, 1);
+}
+
+export function computeInvestorValueScore(input: InvestorValueScoreInput): InvestorValueScoreResult {
+  const raw =
+    0.18 * input.entityConfidence +
+    0.16 * input.materialityScore +
+    0.14 * input.sourceCredibilityScore +
+    0.12 * input.financialImpactScore +
+    0.1 * input.strategicImpactScore +
+    0.1 * input.riskImpactScore +
+    0.08 * input.noveltyScore +
+    0.06 * input.timelinessScore +
+    0.04 * input.userRelevanceScore +
+    0.02 * input.evidenceStrengthScore -
+    (input.lowSignalPenalty ?? 0) -
+    (input.duplicatePenalty ?? 0);
+
+  return {
+    ...input,
+    investorValueScore: clampScore(raw * 100),
+  };
+}
+
+export function scoreCompanyEvent(input: {
+  companyId: string;
+  eventDate?: Date | null;
+  source?: ScoreSourceInput | null;
+  classification: EventClassification;
+  entityConfidence: number;
+  mentionContext?: string | null;
+  lowSignalPenalty?: number;
+  evidenceCount?: number;
+  duplicateCount?: number;
+  now?: Date;
+}) {
+  const sourceCredibilityScore = computeSourceCredibilityScore(input.source);
+  const evidenceStrengthScore = computeEvidenceStrengthScore({
+    entityConfidence: input.entityConfidence,
+    eventTypeScore: input.classification.eventTypeScore,
+    evidenceCount: input.evidenceCount,
+  });
+  const noveltyScore = computeNoveltyScore({ duplicateCount: input.duplicateCount });
+  const timelinessScore = computeTimelinessScore(input.eventDate, input.now);
+  const userRelevanceScore = computeUserRelevanceScore(input.companyId);
+  const lowSignalPenalty = computeLowSignalPenalty({
+    entityConfidence: input.entityConfidence,
+    eventType: input.classification.eventType,
+    mentionContext: input.mentionContext,
+    lowSignalPenalty: input.lowSignalPenalty,
+  });
+  const duplicatePenalty = computeDuplicatePenalty({ duplicateCount: input.duplicateCount });
+
+  return computeInvestorValueScore({
+    entityConfidence: input.entityConfidence,
+    materialityScore: input.classification.materialityScore,
+    sourceCredibilityScore,
+    financialImpactScore: input.classification.financialImpactScore,
+    strategicImpactScore: input.classification.strategicImpactScore,
+    riskImpactScore: input.classification.riskImpactScore,
+    noveltyScore,
+    timelinessScore,
+    userRelevanceScore,
+    evidenceStrengthScore,
+    lowSignalPenalty,
+    duplicatePenalty,
+  });
+}

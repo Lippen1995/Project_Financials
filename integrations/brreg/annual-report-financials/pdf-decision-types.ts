@@ -58,6 +58,12 @@ export type PdfDecisionValidationSummary = {
   validationScore?: number;
 };
 
+export type PdfDecisionPerPageRoute = {
+  pageNumber: number;
+  route: PdfDecisionRoute;
+  hasReliableTextLayer: boolean;
+};
+
 export type PdfDecisionEngineOutput = {
   version: "pdf-decision-engine-v1";
   ruleConfigVersion: PdfDecisionRuleConfigVersion;
@@ -69,6 +75,12 @@ export type PdfDecisionEngineOutput = {
   enabledExtractors: PdfDecisionEnabledExtractors;
   pageHints: PdfDecisionPageHints;
   diagnostics: PdfDecisionDiagnostics;
+  /**
+   * One route per page. A mixed document (some pages with reliable embedded
+   * text, others scanned) gets the right route for each page rather than a
+   * single document-level route that misroutes the minority.
+   */
+  perPageRoutes: PdfDecisionPerPageRoute[];
 };
 
 export type PdfDecisionResult = PdfDecisionEngineOutput;

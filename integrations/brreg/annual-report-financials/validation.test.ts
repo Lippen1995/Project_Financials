@@ -152,4 +152,47 @@ describe("validateCanonicalFacts", () => {
       true,
     );
   });
+
+  it("treats a rounding-sized balance discrepancy in a thousands statement as consistent", () => {
+    const thousands = (metricKey: CanonicalFactCandidate["metricKey"], value: number) => ({
+      ...buildFact(metricKey, value),
+      unitScale: 1000 as const,
+    });
+    const facts = [
+      thousands("total_assets", 92_155_000),
+      thousands("total_equity", 36_372_000),
+      thousands("long_term_liabilities", 20_000_000),
+      thousands("current_liabilities", 35_783_000),
+      thousands("total_liabilities", 55_783_000),
+      // Off by 1 000 NOK — one displayed thousand. Pure bookkeeping rounding.
+      thousands("total_equity_and_liabilities", 92_154_000),
+    ];
+
+    const result = validateCanonicalFacts(facts);
+
+    expect(result.hasBlockingErrors).toBe(false);
+    expect(result.issues).toEqual([]);
+  });
+
+  it("grades a small balance discrepancy as a warning, not a blocking error", () => {
+    const thousands = (metricKey: CanonicalFactCandidate["metricKey"], value: number) => ({
+      ...buildFact(metricKey, value),
+      unitScale: 1000 as const,
+    });
+    const facts = [
+      thousands("total_assets", 92_155_000),
+      thousands("total_equity", 36_372_000),
+      thousands("long_term_liabilities", 20_000_000),
+      thousands("current_liabilities", 35_783_000),
+      thousands("total_liabilities", 55_783_000),
+      // Off by 6 000 NOK — past the rounding band but far short of a gross error.
+      thousands("total_equity_and_liabilities", 92_149_000),
+    ];
+
+    const result = validateCanonicalFacts(facts);
+
+    const balanceIssue = result.issues.find((issue) => issue.ruleCode === "BS_TOTAL_BALANCES");
+    expect(balanceIssue?.severity).toBe("WARNING");
+    expect(result.hasBlockingErrors).toBe(false);
+  });
 });

@@ -280,6 +280,7 @@ enum WorkspaceNotificationType {
   FINANCIAL_STATEMENT_NEW
   COMPANY_STATUS_CHANGED
   DISTRESS_MATCH
+  COMPANY_EVENT_NEW
 }
 
 // Categories of admin-targeted notifications surfaced in the global bell. Each value
@@ -304,6 +305,12 @@ enum AdminNotificationStatus {
   UNREAD
   READ
   DISMISSED
+}
+
+enum NewsFeedbackLabel {
+  RELEVANT
+  NOT_RELEVANT
+  WEAK_RELEVANT
 }
 
 // Lifecycle of a calibration threshold version.
@@ -511,6 +518,8 @@ model User {
   mlModelRejected                 MlModelVersion[]                  @relation("MlModelRejectedBy")
   userRoleChangesMade             UserRoleChangeAudit[]             @relation("UserRoleChangeAuditActor")
   userRoleChangesReceived         UserRoleChangeAudit[]             @relation("UserRoleChangeAuditTarget")
+  newsRelevanceFeedback           NewsRelevanceFeedback[]
+  companyEventFeedback            CompanyEventFeedback[]
 }
 
 model Subscription {
@@ -527,44 +536,44 @@ model Subscription {
 }
 
 model UserProfile {
-  id                       String    @id @default(cuid())
-  userId                   String    @unique
-  displayName              String?
-  profileImageUrl          String?
-  professionalBio          String?
-  jobTitle                 String?
-  employerName             String?
-  employerOrgNumber        String?
-  employerLogoUrl          String?
-  employerSector           String?
-  employerMatchedCompanyId String?
-  isStudent                Boolean   @default(false)
-  universityName           String?
-  degree                   String?
-  studyFocus               String?
-  graduationYear           Int?
-  internshipInterest       String?
-  workEmail                String?
-  phoneNumber              String?
-  countryOfOrigin          String?
-  countryOfWork            String?
-  currentLocation          String?
-  linkedinProfileUrl       String?
-  linkedinConnected        Boolean   @default(false)
+  id                        String    @id @default(cuid())
+  userId                    String    @unique
+  displayName               String?
+  profileImageUrl           String?
+  professionalBio           String?
+  jobTitle                  String?
+  employerName              String?
+  employerOrgNumber         String?
+  employerLogoUrl           String?
+  employerSector            String?
+  employerMatchedCompanyId  String?
+  isStudent                 Boolean   @default(false)
+  universityName            String?
+  degree                    String?
+  studyFocus                String?
+  graduationYear            Int?
+  internshipInterest        String?
+  workEmail                 String?
+  phoneNumber               String?
+  countryOfOrigin           String?
+  countryOfWork             String?
+  currentLocation           String?
+  linkedinProfileUrl        String?
+  linkedinConnected         Boolean   @default(false)
   linkedinProviderAccountId String?
-  profileCompletenessScore Int       @default(0)
-  onboardingCompleted      Boolean   @default(false)
-  onboardingCompletedAt    DateTime?
-  onboardingStep           Int       @default(1)
-  expertiseAreas           Json?
-  sectorsOfInterest        Json?
-  education                Json?
-  careerHistory            Json?
-  fieldSources             Json?
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
-  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  employerMatchedCompany   Company?  @relation(fields: [employerMatchedCompanyId], references: [id], onDelete: SetNull)
+  profileCompletenessScore  Int       @default(0)
+  onboardingCompleted       Boolean   @default(false)
+  onboardingCompletedAt     DateTime?
+  onboardingStep            Int       @default(1)
+  expertiseAreas            Json?
+  sectorsOfInterest         Json?
+  education                 Json?
+  careerHistory             Json?
+  fieldSources              Json?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employerMatchedCompany    Company?  @relation(fields: [employerMatchedCompanyId], references: [id], onDelete: SetNull)
 
   @@index([employerMatchedCompanyId])
   @@index([onboardingCompleted, onboardingStep])
@@ -572,23 +581,24 @@ model UserProfile {
 }
 
 model Workspace {
-  id               String                    @id @default(cuid())
-  name             String
-  type             WorkspaceType
-  status           WorkspaceStatus           @default(ACTIVE)
-  personalOwnerId  String?                   @unique
-  archivedAt       DateTime?
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
-  personalOwner    User?                     @relation("PersonalWorkspaceOwner", fields: [personalOwnerId], references: [id], onDelete: SetNull)
-  lastUsedByUsers  User[]                    @relation("LastWorkspace")
-  members          WorkspaceMember[]
-  invitations      WorkspaceInvitation[]
-  ddRooms          DdRoom[]
-  watches          WorkspaceWatch[]
-  petroleumWatches PetroleumWorkspaceWatch[]
-  notifications    WorkspaceNotification[]
-  monitors         WorkspaceMonitor[]
+  id                   String                    @id @default(cuid())
+  name                 String
+  type                 WorkspaceType
+  status               WorkspaceStatus           @default(ACTIVE)
+  personalOwnerId      String?                   @unique
+  archivedAt           DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  personalOwner        User?                     @relation("PersonalWorkspaceOwner", fields: [personalOwnerId], references: [id], onDelete: SetNull)
+  lastUsedByUsers      User[]                    @relation("LastWorkspace")
+  members              WorkspaceMember[]
+  invitations          WorkspaceInvitation[]
+  ddRooms              DdRoom[]
+  watches              WorkspaceWatch[]
+  petroleumWatches     PetroleumWorkspaceWatch[]
+  notifications        WorkspaceNotification[]
+  monitors             WorkspaceMonitor[]
+  companyEventFeedback CompanyEventFeedback[]
 
   @@index([status, type])
 }
@@ -681,6 +691,11 @@ model Company {
   narratives                AnnualReportNarrative[]
   newsArticles              NewsArticleCompany[]
   newsRelevanceScores       NewsArticleRelevance[]
+  newsFeatureSets           NewsArticleFeatureSet[]
+  newsRelevanceFeedback     NewsRelevanceFeedback[]
+  newsSignals               NewsSignal[]
+  companyEvents             CompanyEvent[]
+  companyEventExposures     CompanyEventExposure[]
   matchedUserProfiles       UserProfile[]
   industryCodeId            String?
   industryCode              IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
@@ -884,13 +899,13 @@ model PublishedFinancialLineItem {
 }
 
 model AnnualReportFiling {
-  id                      String                     @id @default(cuid())
+  id                      String                       @id @default(cuid())
   companyId               String
   fiscalYear              Int
   sourceSystem            String
   sourceUrl               String
   sourceDiscoveryKey      String
-  sourceIdempotencyKey    String                     @unique
+  sourceIdempotencyKey    String                       @unique
   sourceDocumentHash      String?
   sourceDocumentType      String
   discoveredAt            DateTime
@@ -902,22 +917,22 @@ model AnnualReportFiling {
   publishedSnapshotAt     DateTime?
   manualReviewAt          DateTime?
   failedAt                DateTime?
-  status                  AnnualReportFilingStatus   @default(DISCOVERED)
+  status                  AnnualReportFilingStatus     @default(DISCOVERED)
   unitHints               Json?
   metadata                Json?
   parserVersionLastTried  String?
   lastError               String?
-  isLatestForFiscalYear   Boolean                    @default(true)
-  createdAt               DateTime                   @default(now())
-  updatedAt               DateTime                   @updatedAt
-  company                 Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  isLatestForFiscalYear   Boolean                      @default(true)
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
+  company                 Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   artifacts               AnnualReportArtifact[]
   extractionRuns          FinancialExtractionRun[]
   facts                   FinancialFact[]
   validationIssues        FinancialValidationIssue[]
   reviews                 AnnualReportReview[]
-  publishedStatements     FinancialStatement[]       @relation("PublishedStatementFiling")
-  coverageAsLatestSuccess CompanyFinancialCoverage[] @relation("CoverageLatestSuccessfulFiling")
+  publishedStatements     FinancialStatement[]         @relation("PublishedStatementFiling")
+  coverageAsLatestSuccess CompanyFinancialCoverage[]   @relation("CoverageLatestSuccessfulFiling")
   reviewedFacts           AnnualReportReviewedFact[]
   pdfDecisionGoldSetItem  PdfDecisionGoldSetItem?
   rawLineItems            RawFinancialLineItem[]
@@ -1055,6 +1070,95 @@ model RawFinancialLineItem {
 
   @@index([filingId, statementType])
   @@index([companyId, fiscalYear])
+}
+
+// Editable alias mapping: which normalized Norwegian labels route to each
+// canonical metric key. Source of truth for findCanonicalMetricKey at runtime,
+// edited through the admin metric-mapping flow chart. The canonical key set
+// itself (CanonicalMetricKey) stays fixed in code.
+model MetricAlias {
+  id               String   @id @default(cuid())
+  metricKey        String
+  alias            String
+  normalizedAlias  String
+  statementFamily  String
+  liabilitySection String?
+  isActive         Boolean  @default(true)
+  createdByUserId  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([metricKey, normalizedAlias, liabilitySection])
+  @@index([statementFamily])
+  @@index([isActive])
+}
+
+// The editable registry of canonical metric keys. Seeded from the code skeleton
+// (canonicalMetricLayout + requiredPublishMetricKeys) so every key's identity,
+// display metadata, layout position and publish-gating flag live in data, not
+// code. A rename in the admin hub updates the `key` here too, so nothing in the
+// code skeleton is left referencing the old name. When the table is empty the
+// services fall back to the built-in code skeleton.
+model CanonicalKey {
+  id               String   @id @default(cuid())
+  key              String   @unique
+  label            String
+  family           String // INCOME_STATEMENT | BALANCE_SHEET
+  layoutGroup      String // MetricLayoutGroup, e.g. DRIFTSINNTEKTER
+  nodeType         String   @default("line") // line | subtotal | total
+  liabilitySection String? // LONG_TERM | CURRENT | null
+  isRequired       Boolean  @default(false) // part of the publish-required set
+  sortOrder        Int      @default(0) // vertical order in the flow
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@index([isRequired])
+}
+
+// A presentation node groups canonical metric keys (and/or other nodes) into a
+// single line of a standardized statement. A node's value is the sum of the
+// keys assigned to it plus the nodes linked into it. "SUBTOTAL" nodes are
+// rendered distinctly (e.g. Sum driftsinntekter, EBITDA) but share the model.
+model PresentationNode {
+  id              String   @id @default(cuid())
+  label           String
+  kind            String   @default("LINE") // LINE | SUBTOTAL
+  positionX       Float    @default(0)
+  positionY       Float    @default(0)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  keys     PresentationNodeKey[]
+  outgoing PresentationNodeLink[] @relation("NodeLinkSource")
+  incoming PresentationNodeLink[] @relation("NodeLinkTarget")
+}
+
+// Assignment of a canonical metric key to exactly one presentation node.
+// metricKey is the primary key, enforcing the "a key belongs to one node" rule.
+model PresentationNodeKey {
+  metricKey String           @id
+  nodeId    String
+  valueMode String           @default("NOMINAL") // NOMINAL | ABSOLUTE — whether the fact's signed value or its absolute value is used
+  operation String           @default("ADD") // ADD | SUBTRACT | MULTIPLY | DIVIDE | MATCH — how this key folds into the node value
+  node      PresentationNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId])
+}
+
+// A directed link from a source node into a target (subtotal) node: the source
+// node's value rolls up into the target.
+model PresentationNodeLink {
+  id           String           @id @default(cuid())
+  sourceNodeId String
+  targetNodeId String
+  operation    String           @default("ADD") // ADD | SUBTRACT — sign of the source in the target subtotal
+  source       PresentationNode @relation("NodeLinkSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  target       PresentationNode @relation("NodeLinkTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceNodeId, targetNodeId])
+  @@index([targetNodeId])
 }
 
 model CompanyFinancialCoverage {
@@ -2633,44 +2737,159 @@ model AnnualReportNarrative {
 }
 
 model NewsArticle {
-  id              String                 @id @default(cuid())
-  guid            String                 @unique
+  id              String                  @id @default(cuid())
+  guid            String                  @unique
   title           String
   summary         String?
   url             String
   publishedAt     DateTime
   source          String
   category        String?
+  extraction      NewsArticleExtraction?
   companies       NewsArticleCompany[]
   relevanceScores NewsArticleRelevance[]
-  createdAt       DateTime               @default(now())
+  featureSets     NewsArticleFeatureSet[]
+  feedback        NewsRelevanceFeedback[]
+  createdAt       DateTime                @default(now())
 
   @@index([publishedAt(sort: Desc)])
   @@index([source])
 }
 
+model NewsArticleExtraction {
+  id               String    @id @default(cuid())
+  newsArticleId    String    @unique
+  extractor        String
+  extractionStatus String
+  title            String?
+  lead             String?
+  mainText         String?
+  language         String?
+  authors          String[]  @default([])
+  imageUrl         String?
+  sourceDomain     String?
+  publishedAt      DateTime?
+  errorCode        String?
+  errorMessage     String?
+  sourceSystem     String
+  sourceEntityType String
+  sourceId         String
+  fetchedAt        DateTime
+  normalizedAt     DateTime
+  rawPayload       Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  newsArticle NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
+
+  @@index([extractionStatus, updatedAt(sort: Desc)])
+  @@index([sourceSystem, sourceEntityType])
+}
+
 model NewsArticleRelevance {
-  id            String @id @default(cuid())
+  id            String  @id @default(cuid())
   newsArticleId String
   companyId     String
+  scoringRunId  String?
 
   totalScore      Float
+  candidateScore  Float    @default(0)
+  confidenceScore Float    @default(0)
   directScore     Float
   sectorScore     Float
   macroScore      Float
   competitorScore Float
+  primaryType     String   @default("direct")
+  reasons         String[] @default([])
+  evidence        Json?
+  engineVersion   String   @default("local-v2")
+  featureVersion  String   @default("v1")
+  scoreVersion    String   @default("v1")
 
   reasoning String?
   tags      String[]
   scoredBy  String
   scoredAt  DateTime @default(now())
 
-  newsArticle NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
-  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  newsArticle NewsArticle     @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  scoringRun  NewsScoringRun? @relation(fields: [scoringRunId], references: [id], onDelete: SetNull)
 
   @@unique([newsArticleId, companyId])
   @@index([companyId, totalScore(sort: Desc)])
   @@index([companyId, scoredAt(sort: Desc)])
+}
+
+model NewsArticleFeatureSet {
+  id                 String   @id @default(cuid())
+  newsArticleId      String
+  companyId          String
+  scoringRunId       String?
+  candidateReasons   String[] @default([])
+  candidateScore     Float    @default(0)
+  directMentionScore Float    @default(0)
+  aliasMentionScore  Float    @default(0)
+  groupScore         Float    @default(0)
+  peerScore          Float    @default(0)
+  industryScore      Float    @default(0)
+  macroScore         Float    @default(0)
+  ipScore            Float    @default(0)
+  sourceQualityScore Float    @default(0)
+  titleWeight        Float    @default(0)
+  summaryWeight      Float    @default(0)
+  freshnessScore     Float    @default(0)
+  ambiguityPenalty   Float    @default(0)
+  confidenceScore    Float    @default(0)
+  evidence           Json?
+  engineVersion      String   @default("local-v2")
+  featureVersion     String   @default("v1")
+  scoreVersion       String   @default("v1")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  newsArticle NewsArticle     @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  scoringRun  NewsScoringRun? @relation(fields: [scoringRunId], references: [id], onDelete: SetNull)
+
+  @@unique([newsArticleId, companyId])
+  @@index([companyId, confidenceScore(sort: Desc)])
+  @@index([companyId, updatedAt(sort: Desc)])
+}
+
+model NewsRelevanceFeedback {
+  id            String            @id @default(cuid())
+  newsArticleId String
+  companyId     String
+  label         NewsFeedbackLabel
+  reviewedById  String?
+  reviewedAt    DateTime          @default(now())
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  newsArticle NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reviewedBy  User?       @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([companyId, reviewedAt(sort: Desc)])
+  @@index([newsArticleId, companyId, reviewedAt(sort: Desc)])
+}
+
+model NewsScoringRun {
+  id                 String                  @id @default(cuid())
+  triggerSource      String
+  engineVersion      String                  @default("local-v2")
+  featureVersion     String                  @default("v1")
+  scoreVersion       String                  @default("v1")
+  articlesConsidered Int                     @default(0)
+  candidatePairs     Int                     @default(0)
+  scoredPairs        Int                     @default(0)
+  createdAt          DateTime                @default(now())
+  completedAt        DateTime?
+  featureSets        NewsArticleFeatureSet[]
+  relevanceScores    NewsArticleRelevance[]
+
+  @@index([createdAt(sort: Desc)])
 }
 
 model NewsArticleCompany {
@@ -2683,6 +2902,178 @@ model NewsArticleCompany {
 
   @@id([newsArticleId, companyId])
   @@index([companyId])
+}
+
+model NewsSource {
+  id           String   @id
+  name         String
+  sourceType   String
+  baseUrl      String?
+  rssUrl       String?
+  apiUrl       String?
+  language     String?
+  country      String?
+  qualityScore Float    @default(0.5)
+  status       String   @default("ACTIVE")
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sourceDocuments SourceDocument[]
+
+  @@index([sourceType, status])
+  @@index([qualityScore])
+}
+
+model SourceDocument {
+  id                  String    @id @default(cuid())
+  sourceId            String
+  externalId          String?
+  canonicalUrl        String
+  originalUrl         String?
+  title               String
+  summary             String?
+  bodyText            String?
+  language            String?
+  publishedAt         DateTime?
+  fetchedAt           DateTime  @default(now())
+  normalizedAt        DateTime  @default(now())
+  contentHash         String?
+  documentFingerprint String?
+  sourcePayload       Json?
+  metadata            Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  source        NewsSource             @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  signals       NewsSignal[]
+  eventEvidence CompanyEventEvidence[]
+
+  @@unique([sourceId, externalId])
+  @@index([sourceId, publishedAt(sort: Desc)])
+  @@index([canonicalUrl])
+  @@index([contentHash])
+  @@index([documentFingerprint])
+}
+
+model NewsSignal {
+  id              String   @id @default(cuid())
+  documentId      String
+  companyId       String?
+  signalType      String
+  subtype         String?
+  strength        Float    @default(0)
+  confidence      Float    @default(0)
+  valueScore      Float    @default(0)
+  direction       String?
+  horizon         String?
+  keywords        String[] @default([])
+  evidence        Json?
+  detectorVersion String   @default("company-event-v1")
+  createdAt       DateTime @default(now())
+
+  document SourceDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  company  Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([companyId, signalType])
+  @@index([signalType, valueScore(sort: Desc)])
+}
+
+model CompanyEvent {
+  id                 String    @id @default(cuid())
+  companyId          String
+  eventFingerprint   String
+  eventType          String
+  title              String
+  summary            String?
+  eventDate          DateTime?
+  firstSeen          DateTime  @default(now())
+  lastSeen           DateTime  @default(now())
+  status             String    @default("ACTIVE")
+  investorValueScore Float     @default(0)
+  confidenceScore    Float     @default(0)
+  noveltyScore       Float     @default(0)
+  severityScore      Float     @default(0)
+  engineVersion      String    @default("company-event-v1")
+  metadata           Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  company   Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  evidence  CompanyEventEvidence[]
+  exposures CompanyEventExposure[]
+  feedback  CompanyEventFeedback[]
+
+  @@unique([companyId, eventFingerprint])
+  @@index([companyId, investorValueScore(sort: Desc)])
+  @@index([companyId, lastSeen(sort: Desc)])
+  @@index([eventType, lastSeen(sort: Desc)])
+  @@index([status, lastSeen(sort: Desc)])
+}
+
+model CompanyEventEvidence {
+  id              String   @id @default(cuid())
+  eventId         String
+  documentId      String
+  evidenceType    String
+  relevanceScore  Float    @default(0)
+  confidenceScore Float    @default(0)
+  excerpt         String?
+  reasons         String[] @default([])
+  featureSnapshot Json?
+  createdAt       DateTime @default(now())
+
+  event    CompanyEvent   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  document SourceDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, documentId])
+  @@index([documentId])
+  @@index([eventId, relevanceScore(sort: Desc)])
+}
+
+model CompanyEventExposure {
+  id              String   @id @default(cuid())
+  eventId         String
+  companyId       String
+  exposureType    String
+  exposureScore   Float    @default(0)
+  confidenceScore Float    @default(0)
+  rationale       String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  event   CompanyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, companyId, exposureType])
+  @@index([companyId, exposureScore(sort: Desc)])
+  @@index([eventId])
+}
+
+model CompanyEventFeedback {
+  id             String            @id @default(cuid())
+  eventId        String
+  userId         String
+  workspaceId    String?
+  label          NewsFeedbackLabel
+  action         String            @default("relevant")
+  previousValue  Json?
+  correctedValue Json?
+  notes          String?
+  reviewedAt     DateTime          @default(now())
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  event     CompanyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, reviewedAt(sort: Desc)])
+  @@index([userId, reviewedAt(sort: Desc)])
+  @@index([workspaceId, reviewedAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
 }
 
 // AdminNotification represents an item that needs attention from a platform administrator
@@ -2715,7 +3106,7 @@ model AdminNotification {
 }
 
 model UserRoleChangeAudit {
-  id           String  @id @default(cuid())
+  id           String   @id @default(cuid())
   actorUserId  String
   targetUserId String
   fromRole     AppRole
@@ -2748,24 +3139,24 @@ model UserRoleChangeAudit {
 // `impactEstimate` is a small summary (e.g. estimated auto-publish rate) shown
 // in the UI so reviewers can judge a proposal without opening the full report.
 model ConfidenceThresholdVersion {
-  id                  String                    @id @default(cuid())
-  version             Int                       @unique @default(autoincrement())
-  status              ConfidenceThresholdStatus @default(PROPOSED)
-  configBlob          Json
-  derivedFromReport   Json?
-  impactEstimate      Json?
-  summary             String?
-  notes               String?
-  proposedAt          DateTime                  @default(now())
-  appliedAt           DateTime?
-  appliedByUserId     String?
-  retiredAt           DateTime?
-  rejectedAt          DateTime?
-  rejectedByUserId    String?
-  rejectionReason     String?
+  id                String                    @id @default(cuid())
+  version           Int                       @unique @default(autoincrement())
+  status            ConfidenceThresholdStatus @default(PROPOSED)
+  configBlob        Json
+  derivedFromReport Json?
+  impactEstimate    Json?
+  summary           String?
+  notes             String?
+  proposedAt        DateTime                  @default(now())
+  appliedAt         DateTime?
+  appliedByUserId   String?
+  retiredAt         DateTime?
+  rejectedAt        DateTime?
+  rejectedByUserId  String?
+  rejectionReason   String?
 
-  appliedBy           User?                     @relation("ConfidenceThresholdAppliedBy", fields: [appliedByUserId], references: [id], onDelete: SetNull)
-  rejectedBy          User?                     @relation("ConfidenceThresholdRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: SetNull)
+  appliedBy  User? @relation("ConfidenceThresholdAppliedBy", fields: [appliedByUserId], references: [id], onDelete: SetNull)
+  rejectedBy User? @relation("ConfidenceThresholdRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: SetNull)
 
   @@index([status, version])
   @@index([proposedAt])
@@ -2799,15 +3190,15 @@ enum ExtractionPatternReportStatus {
 // `totalCorrections` is the denominator the UI uses for "X out of Y were unit
 // scale errors" stats.
 model ExtractionPatternReport {
-  id                String                         @id @default(cuid())
-  periodStart       DateTime
-  periodEnd         DateTime
-  generatedAt       DateTime                       @default(now())
-  status            ExtractionPatternReportStatus  @default(ACTIVE)
-  totalCorrections  Int                            @default(0)
-  notes             String?
+  id               String                        @id @default(cuid())
+  periodStart      DateTime
+  periodEnd        DateTime
+  generatedAt      DateTime                      @default(now())
+  status           ExtractionPatternReportStatus @default(ACTIVE)
+  totalCorrections Int                           @default(0)
+  notes            String?
 
-  patterns          ExtractionPattern[]
+  patterns ExtractionPattern[]
 
   @@index([status, generatedAt])
   @@index([generatedAt])
@@ -2818,17 +3209,17 @@ model ExtractionPatternReport {
 // `affectedFilings` carries a capped sample (up to 50) for drill-down without
 // blowing up row size on large reports.
 model ExtractionPattern {
-  id                String                       @id @default(cuid())
-  reportId          String
-  metricKey         String?
-  ruleCode          String?
-  errorClass        ExtractionPatternErrorClass
-  occurrenceCount   Int
-  severityScore     Float
-  affectedFilings   String[]
-  suggestedFix      String?
+  id              String                      @id @default(cuid())
+  reportId        String
+  metricKey       String?
+  ruleCode        String?
+  errorClass      ExtractionPatternErrorClass
+  occurrenceCount Int
+  severityScore   Float
+  affectedFilings String[]
+  suggestedFix    String?
 
-  report            ExtractionPatternReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  report ExtractionPatternReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   @@index([reportId])
   @@index([errorClass, occurrenceCount])
@@ -2871,17 +3262,17 @@ enum MlModelStatus {
 // the contract between the trainer (writes the file) and the inference
 // service (reads it). The DB never stores the binary itself.
 model MlModelVersion {
-  id                   String         @id @default(cuid())
+  id                   String        @id @default(cuid())
   taskType             MlTaskType
-  taskVersion          Int            // per-task incrementing version, set by the service
-  status               MlModelStatus  @default(PROPOSED)
-  algorithm            String         // e.g. "tfidf+logreg", "nb-bert-finetuned"
-  binaryPath           String         // path to the model file in the inference volume
+  taskVersion          Int // per-task incrementing version, set by the service
+  status               MlModelStatus @default(PROPOSED)
+  algorithm            String // e.g. "tfidf+logreg", "nb-bert-finetuned"
+  binaryPath           String // path to the model file in the inference volume
   evaluationMetrics    Json?
   trainingDataSnapshot Json?
   summary              String?
   notes                String?
-  proposedAt           DateTime       @default(now())
+  proposedAt           DateTime      @default(now())
   appliedAt            DateTime?
   appliedByUserId      String?
   retiredAt            DateTime?
@@ -2889,8 +3280,8 @@ model MlModelVersion {
   rejectedByUserId     String?
   rejectionReason      String?
 
-  appliedBy            User?          @relation("MlModelAppliedBy", fields: [appliedByUserId], references: [id], onDelete: SetNull)
-  rejectedBy           User?          @relation("MlModelRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: SetNull)
+  appliedBy  User? @relation("MlModelAppliedBy", fields: [appliedByUserId], references: [id], onDelete: SetNull)
+  rejectedBy User? @relation("MlModelRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([taskType, taskVersion])
   @@index([taskType, status])

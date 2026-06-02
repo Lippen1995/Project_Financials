@@ -1,7 +1,9 @@
 import {
   CanonicalMetricKey,
+  defaultMetricDefinitions,
   findCanonicalMetricKey,
   getStatementFamilyFromSection,
+  MetricDefinition,
   requiredPublishMetricKeys,
 } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import {
@@ -27,17 +29,20 @@ function getPrecedenceForSection(sectionType: ReconstructedRow["sectionType"]) {
   }
 }
 
-function getMetricKeyForRow(row: ReconstructedRow) {
+function getMetricKeyForRow(row: ReconstructedRow, definitions: MetricDefinition[]) {
   const statementFamily = getStatementFamilyFromSection(row.sectionType);
+  const liabilitySection = row.liabilitySection ?? null;
 
   if (statementFamily === "NOTE") {
     return (
-      findCanonicalMetricKey(row.normalizedLabel, "INCOME_STATEMENT") ??
-      findCanonicalMetricKey(row.normalizedLabel, "BALANCE_SHEET")
+      findCanonicalMetricKey(row.normalizedLabel, "INCOME_STATEMENT", null, definitions) ??
+      findCanonicalMetricKey(row.normalizedLabel, "BALANCE_SHEET", liabilitySection, definitions)
     );
   }
 
-  return statementFamily ? findCanonicalMetricKey(row.normalizedLabel, statementFamily) : null;
+  return statementFamily
+    ? findCanonicalMetricKey(row.normalizedLabel, statementFamily, liabilitySection, definitions)
+    : null;
 }
 
 function inferYearOrderForClassification(
@@ -122,7 +127,15 @@ export function mapRowsToCanonicalFacts(input: {
   filingFiscalYear: number;
   classifications: PageClassification[];
   rows: ReconstructedRow[];
+  /** Alias mapping to match labels against. Defaults to the built-in list;
+   *  the service layer passes the database-backed definitions at runtime. */
+  definitions?: MetricDefinition[];
+  /** Keys that must be present for the filing to count as complete. Defaults to
+   *  the built-in list; the service layer passes the DB-backed registry keys. */
+  requiredKeys?: string[];
 }) {
+  const definitions = input.definitions ?? defaultMetricDefinitions;
+  const requiredKeys = input.requiredKeys ?? requiredPublishMetricKeys;
   const facts: CanonicalFactCandidate[] = [];
   const issues: ValidationIssueDraft[] = [];
   const classificationByPage = new Map(
@@ -182,18 +195,14 @@ export function mapRowsToCanonicalFacts(input: {
 
   for (const row of input.rows) {
     const classification = classificationByPage.get(row.pageNumber);
-    const metricKey = getMetricKeyForRow(row);
+    const metricKey = getMetricKeyForRow(row, definitions);
     if (!metricKey) {
       continue;
     }
 
     const statementFamily =
       row.sectionType === "NOTE"
-        ? (
-            findCanonicalMetricKey(row.normalizedLabel, "INCOME_STATEMENT")
-              ? "NOTE"
-              : "NOTE"
-          )
+        ? "NOTE"
         : getStatementFamilyFromSection(row.sectionType);
     if (!statementFamily) {
       continue;
@@ -244,10 +253,10 @@ export function mapRowsToCanonicalFacts(input: {
     }
   }
 
-  const extractedMetricKeys = new Set(
+  const extractedMetricKeys = new Set<string>(
     facts.filter((fact) => fact.precedence !== "NOTE_DERIVED").map((fact) => fact.metricKey),
   );
-  const missingPrimaryMetrics = requiredPublishMetricKeys.filter((key) => !extractedMetricKeys.has(key));
+  const missingPrimaryMetrics = requiredKeys.filter((key) => !extractedMetricKeys.has(key));
   if (missingPrimaryMetrics.length > 0) {
     issues.push({
       severity: "ERROR",
