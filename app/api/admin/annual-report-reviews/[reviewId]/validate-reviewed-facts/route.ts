@@ -4,7 +4,7 @@ import { requireFinancialReviewer } from "@/lib/admin-auth";
 import { validateReviewedAnnualReportFacts } from "@/server/services/annual-report-review-service";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ reviewId: string }> },
 ) {
   const { user, error } = await requireFinancialReviewer();
@@ -13,8 +13,20 @@ export async function POST(
 
   const { reviewId } = await params;
 
+  let overriddenRuleCodes: string[] | undefined;
   try {
-    const result = await validateReviewedAnnualReportFacts(reviewId);
+    const body = (await request.json()) as { overriddenRuleCodes?: unknown };
+    if (Array.isArray(body?.overriddenRuleCodes)) {
+      overriddenRuleCodes = body.overriddenRuleCodes.filter(
+        (c): c is string => typeof c === "string",
+      );
+    }
+  } catch {
+    // No/!JSON body — validate with no overrides.
+  }
+
+  try {
+    const result = await validateReviewedAnnualReportFacts(reviewId, overriddenRuleCodes);
     return NextResponse.json({ data: result });
   } catch (err) {
     return NextResponse.json(

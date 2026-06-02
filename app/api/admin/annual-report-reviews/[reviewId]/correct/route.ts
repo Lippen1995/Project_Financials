@@ -13,6 +13,14 @@ const factSchema = z.object({
   sourcePage: z.number().int().nullable().optional(),
   unitScale: z.number().nullable().optional(),
   confidenceScore: z.number().min(0).max(1).nullable().optional(),
+  // Per-fact konsern/selskap scope. When omitted the review's primary scope
+  // is used. Lets a reviewer add a row of the OTHER scope than the review's
+  // primary one (e.g. a selskap line inside a konsern review).
+  statementScope: z.enum(["COMPANY", "CONSOLIDATED"]).optional(),
+  // Per-fact statement bucket. The client knows which section table a row
+  // belongs to, so it sends this directly. When omitted the server falls back
+  // to metric-key inference (which mis-buckets custom/unmapped keys).
+  statementType: z.enum(["INCOME_STATEMENT", "BALANCE_SHEET", "CASH_FLOW", "NOTE"]).optional(),
 });
 
 const sectionSchema = z.object({
@@ -39,6 +47,10 @@ const bodySchema = z.object({
     sections: z.array(sectionSchema).optional(),
     auditorOpinion: auditorOpinionSchema.optional(),
     failureReason: z.string().optional(),
+    // Metric keys the reviewer explicitly deleted. The machine-extracted fact
+    // for each of these keys is dropped instead of carried over as
+    // ACCEPTED_MACHINE — used when the model produced a spurious row.
+    deletedMetricKeys: z.array(z.string()).optional(),
   }),
   notes: z.string().max(2000).optional(),
   overrideReason: z.string().max(2000).optional(),

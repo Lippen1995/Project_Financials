@@ -444,6 +444,7 @@ type RawLineItem = {
   id: string;
   fiscalYear: number;
   statementType: string;
+  statementScope?: "COMPANY" | "CONSOLIDATED" | null;
   originalLabel: string;
   originalValue: string;
   parsedValue: string | null;
@@ -713,8 +714,9 @@ export function FinancialTimeSeriesTable({
           setStandardizationMode(v);
           if (v === "reported" && rawItems === null && !rawLoading) {
             setRawLoading(true);
-            const latestYear = dataset.years[0];
-            fetch(`/api/companies/${companySlug}/raw-financials${latestYear ? `?year=${latestYear}` : ""}`)
+            // No year filter — fetch every published year so the reported view
+            // shows the full multi-year statement, not just the latest.
+            fetch(`/api/companies/${companySlug}/raw-financials`)
               .then((r) => r.json())
               .then((body: { data: RawLineItem[] }) => setRawItems(body.data))
               .catch(() => setRawItems([]))
@@ -724,7 +726,12 @@ export function FinancialTimeSeriesTable({
       />
 
       {standardizationMode === "reported" ? (
-        <RawLineItemsTable items={rawItems} loading={rawLoading} />
+        <RawLineItemsTable
+          items={rawItems}
+          loading={rawLoading}
+          activeScope={activeScope}
+          hasScopeToggle={availableScopes.size > 1}
+        />
       ) : (
         <>
           {discussionRoomId && discussionRoomName ? (
@@ -1023,9 +1030,13 @@ function FragmentSection({
 function RawLineItemsTable({
   items,
   loading,
+  activeScope,
+  hasScopeToggle,
 }: {
   items: RawLineItem[] | null;
   loading: boolean;
+  activeScope: "COMPANY" | "CONSOLIDATED";
+  hasScopeToggle: boolean;
 }) {
   if (loading) {
     return (
@@ -1049,9 +1060,41 @@ function RawLineItemsTable({
     );
   }
 
+  // When the data carries scopes (reviewed/published items do), follow the
+  // konsern/selskap toggle so the reported view matches the standardized one.
+  const itemsHaveScope = items.some((i) => i.statementScope != null);
+  const scopedItems =
+    itemsHaveScope && hasScopeToggle
+      ? items.filter((i) => (i.statementScope ?? "COMPANY") === activeScope)
+      : items;
+
+  // Group by statement type, then build the per-year value matrix so the
+  // reported view shows every published year side by side (main + comparative).
+  const years = Array.from(new Set(scopedItems.map((i) => i.fiscalYear))).sort((a, b) => b - a);
   const byStatement: Record<string, RawLineItem[]> = {};
-  for (const item of items) {
+  for (const item of scopedItems) {
     (byStatement[item.statementType] ??= []).push(item);
+  }
+
+  // Within a statement, collapse rows that share a canonical key (or label)
+  // across years into a single row with one cell per year.
+  type MergedRow = { key: string; label: string; canonicalKey: string | null; valueByYear: Record<number, string> };
+  function mergeRows(rows: RawLineItem[]): MergedRow[] {
+    const order: string[] = [];
+    const map = new Map<string, MergedRow>();
+    for (const row of rows) {
+      const key = row.canonicalKey ?? `label:${row.originalLabel}`;
+      let merged = map.get(key);
+      if (!merged) {
+        merged = { key, label: row.originalLabel, canonicalKey: row.canonicalKey, valueByYear: {} };
+        map.set(key, merged);
+        order.push(key);
+      }
+      if (!merged.valueByYear[row.fiscalYear]) {
+        merged.valueByYear[row.fiscalYear] = row.originalValue;
+      }
+    }
+    return order.map((k) => map.get(k)!);
   }
 
   const statementLabels: Record<string, string> = {
@@ -1062,46 +1105,54 @@ function RawLineItemsTable({
 
   return (
     <div className="overflow-x-auto">
-      {Object.entries(byStatement).map(([stmtType, rows]) => (
-        <table key={stmtType} className="w-full border-separate border-spacing-0 text-sm">
-          <thead>
-            <tr className="bg-[var(--px-action)]">
-              <th
-                scope="col"
-                className="data-label sticky left-0 z-10 min-w-[320px] border-b border-[#101826] bg-[var(--px-action)] px-5 py-4 text-left text-xs font-semibold uppercase text-slate-200"
-              >
-                {statementLabels[stmtType] ?? stmtType}
-              </th>
-              <th
-                scope="col"
-                className="data-label border-b border-[#101826] bg-[var(--px-action)] px-5 py-4 text-right text-xs font-semibold uppercase text-slate-200"
-              >
-                Verdi
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="group border-b border-[rgba(15,23,42,0.06)] hover:bg-[rgba(248,249,250,0.8)]"
-              >
-                <td className="sticky left-0 min-w-[320px] bg-white px-5 py-2 font-medium text-slate-800 group-hover:bg-[rgba(248,249,250,0.8)]">
-                  {row.originalLabel}
-                  {row.canonicalKey && (
-                    <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                      {row.canonicalKey}
-                    </span>
-                  )}
-                </td>
-                <td className="px-5 py-2 text-right font-mono text-slate-700">
-                  {row.originalValue}
-                </td>
+      {Object.entries(byStatement).map(([stmtType, rows]) => {
+        const merged = mergeRows(rows);
+        return (
+          <table key={stmtType} className="w-full border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr className="bg-[var(--px-action)]">
+                <th
+                  scope="col"
+                  className="data-label sticky left-0 z-10 min-w-[320px] border-b border-[#101826] bg-[var(--px-action)] px-5 py-4 text-left text-xs font-semibold uppercase text-slate-200"
+                >
+                  {statementLabels[stmtType] ?? stmtType}
+                </th>
+                {years.map((year) => (
+                  <th
+                    key={year}
+                    scope="col"
+                    className="data-label border-b border-[#101826] bg-[var(--px-action)] px-5 py-4 text-right text-xs font-semibold uppercase text-slate-200"
+                  >
+                    {year}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      ))}
+            </thead>
+            <tbody>
+              {merged.map((row) => (
+                <tr
+                  key={row.key}
+                  className="group border-b border-[rgba(15,23,42,0.06)] hover:bg-[rgba(248,249,250,0.8)]"
+                >
+                  <td className="sticky left-0 min-w-[320px] bg-white px-5 py-2 font-medium text-slate-800 group-hover:bg-[rgba(248,249,250,0.8)]">
+                    {row.label}
+                    {row.canonicalKey && (
+                      <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                        {row.canonicalKey}
+                      </span>
+                    )}
+                  </td>
+                  {years.map((year) => (
+                    <td key={year} className="px-5 py-2 text-right font-mono text-slate-700">
+                      {row.valueByYear[year] ?? "—"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        );
+      })}
     </div>
   );
 }

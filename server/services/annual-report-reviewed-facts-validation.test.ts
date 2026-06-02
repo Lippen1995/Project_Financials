@@ -334,13 +334,47 @@ describe("validateReviewedFacts — unit scale and fiscal year", () => {
     expect(result.blockingIssues.some((i) => i.ruleCode === "UNIT_SCALE_INCONSISTENCY")).toBe(false);
   });
 
-  it("detects mixed fiscal years", () => {
+  it("allows mixed fiscal years and validates each year independently", () => {
+    // A review carries the main year plus the prior/comparative year. Mixed
+    // years are EXPECTED — no MIXED_FISCAL_YEARS block. Equation checks run per
+    // year, so a balanced 2024 and balanced 2023 both pass even though the
+    // cross-year totals differ.
     const facts: ReviewedFactForValidation[] = [
-      { metricKey: "total_assets", fiscalYear: 2023, statementType: "BALANCE_SHEET", value: 10000000n, unitScale: 1 },
+      { metricKey: "total_assets", fiscalYear: 2024, statementType: "BALANCE_SHEET", value: 10000000n, unitScale: 1 },
       { metricKey: "total_equity_and_liabilities", fiscalYear: 2024, statementType: "BALANCE_SHEET", value: 10000000n, unitScale: 1 },
+      { metricKey: "total_assets", fiscalYear: 2023, statementType: "BALANCE_SHEET", value: 8000000n, unitScale: 1 },
+      { metricKey: "total_equity_and_liabilities", fiscalYear: 2023, statementType: "BALANCE_SHEET", value: 8000000n, unitScale: 1 },
     ];
     const result = validateReviewedFacts(facts);
-    expect(result.blockingIssues.some((i) => i.ruleCode === "MIXED_FISCAL_YEARS")).toBe(true);
+    expect(result.blockingIssues.some((i) => i.ruleCode === "MIXED_FISCAL_YEARS")).toBe(false);
+    expect(result.passed).toBe(true);
+  });
+
+  it("catches a single-year balance mismatch and tags it with the year", () => {
+    const facts: ReviewedFactForValidation[] = [
+      { metricKey: "total_assets", fiscalYear: 2024, statementType: "BALANCE_SHEET", value: 10000000n, unitScale: 1 },
+      { metricKey: "total_equity_and_liabilities", fiscalYear: 2024, statementType: "BALANCE_SHEET", value: 10000000n, unitScale: 1 },
+      // 2023 is imbalanced — must be flagged, scoped to 2023.
+      { metricKey: "total_assets", fiscalYear: 2023, statementType: "BALANCE_SHEET", value: 8000000n, unitScale: 1 },
+      { metricKey: "total_equity_and_liabilities", fiscalYear: 2023, statementType: "BALANCE_SHEET", value: 9000000n, unitScale: 1 },
+    ];
+    const result = validateReviewedFacts(facts);
+    const issue = result.blockingIssues.find((i) => i.ruleCode === "BS_TOTAL_BALANCES");
+    expect(issue).toBeDefined();
+    expect(issue?.context?.fiscalYear).toBe(2023);
+  });
+
+  it("downgrades an overridden rule from ERROR to WARNING so it no longer blocks", () => {
+    const facts: ReviewedFactForValidation[] = [
+      { metricKey: "total_assets", fiscalYear: 2024, statementType: "BALANCE_SHEET", value: 10000000n, unitScale: 1 },
+      { metricKey: "total_equity_and_liabilities", fiscalYear: 2024, statementType: "BALANCE_SHEET", value: 12000000n, unitScale: 1 },
+    ];
+    const blocked = validateReviewedFacts(facts);
+    expect(blocked.passed).toBe(false);
+
+    const overridden = validateReviewedFacts(facts, { overriddenRuleCodes: ["BS_TOTAL_BALANCES"] });
+    expect(overridden.passed).toBe(true);
+    expect(overridden.warnings.some((w) => w.ruleCode === "BS_TOTAL_BALANCES")).toBe(true);
   });
 });
 
@@ -389,15 +423,16 @@ describe("serializeValidationPayload", () => {
   });
 
   it("omits expectedValue/actualValue from issues that have no values", () => {
+    // UNIT_SCALE_INCONSISTENCY carries no expected/actual values.
     const facts = [
-      { metricKey: "total_assets", fiscalYear: 2023, statementType: "BALANCE_SHEET" as const, value: 10000000n, unitScale: 1 },
-      { metricKey: "total_equity_and_liabilities", fiscalYear: 2024, statementType: "BALANCE_SHEET" as const, value: 10000000n, unitScale: 1 },
+      { metricKey: "total_assets", fiscalYear: 2024, statementType: "BALANCE_SHEET" as const, value: 10000000n, unitScale: 1 },
+      { metricKey: "total_equity_and_liabilities", fiscalYear: 2024, statementType: "BALANCE_SHEET" as const, value: 10000000n, unitScale: 1000 },
     ];
     const result = validateReviewedFacts(facts);
     const payload = serializeValidationPayload(result, 2);
-    const mixedYearIssue = payload.blockingIssues.find((i) => i.ruleCode === "MIXED_FISCAL_YEARS");
-    expect(mixedYearIssue).toBeDefined();
-    expect("expectedValue" in mixedYearIssue!).toBe(false);
-    expect("actualValue" in mixedYearIssue!).toBe(false);
+    const scaleIssue = payload.blockingIssues.find((i) => i.ruleCode === "UNIT_SCALE_INCONSISTENCY");
+    expect(scaleIssue).toBeDefined();
+    expect("expectedValue" in scaleIssue!).toBe(false);
+    expect("actualValue" in scaleIssue!).toBe(false);
   });
 });

@@ -20,6 +20,7 @@ enum AnnualReportReviewDecisionType {
   REPROCESS_REQUESTED
   UNREADABLE
   PUBLISHED_FROM_REVIEW
+  REOPENED
 }
 
 enum ReviewedFactCorrectionSource {
@@ -676,6 +677,7 @@ model Company {
   petroleumExposureSnapshot PetroleumCompanyExposureSnapshot?
   annualReportReviewedFacts AnnualReportReviewedFact[]
   rawLineItems              RawFinancialLineItem[]
+  publishedLineItems        PublishedFinancialLineItem[]
   narratives                AnnualReportNarrative[]
   newsArticles              NewsArticleCompany[]
   newsRelevanceScores       NewsArticleRelevance[]
@@ -847,6 +849,40 @@ model FinancialStatement {
   @@index([sourceExtractionRunId])
 }
 
+// Canonical, human-reviewed financial statement line items published for
+// display on company pages and search. This is the authoritative, full
+// "as reported" line-item store (entire income statement + balance sheet,
+// both fiscal years, both scopes). It is written ONLY by the review-publish
+// flow and is NEVER touched by the extraction pipeline, so a reprocess run
+// can never overwrite published manual-review data.
+model PublishedFinancialLineItem {
+  id             String                     @id @default(cuid())
+  companyId      String
+  filingId       String
+  fiscalYear     Int
+  statementType  FinancialFactStatementType
+  statementScope StatementScope             @default(COMPANY)
+  metricKey      String
+  rawLabel       String?
+  value          BigInt?
+  currency       String                     @default("NOK")
+  unitScale      Int                        @default(1)
+  sourcePage     Int?
+  sortOrder      Int                        @default(0)
+  reviewId       String?
+  reviewerUserId String?
+  publishedAt    DateTime                   @default(now())
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  filing  AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, fiscalYear, statementScope])
+  @@index([companyId, fiscalYear, statementType])
+  @@index([filingId])
+}
+
 model AnnualReportFiling {
   id                      String                     @id @default(cuid())
   companyId               String
@@ -885,6 +921,7 @@ model AnnualReportFiling {
   reviewedFacts           AnnualReportReviewedFact[]
   pdfDecisionGoldSetItem  PdfDecisionGoldSetItem?
   rawLineItems            RawFinancialLineItem[]
+  publishedLineItems      PublishedFinancialLineItem[]
   narratives              AnnualReportNarrative[]
 
   @@index([companyId, fiscalYear])
@@ -1288,7 +1325,7 @@ model AnnualReportReviewedFact {
   company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reviewer User               @relation("ReviewedFactReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
 
-  @@unique([reviewId, metricKey, statementScope])
+  @@unique([reviewId, metricKey, statementScope, fiscalYear])
   @@index([reviewId, metricKey])
   @@index([companyId, fiscalYear, metricKey])
 }

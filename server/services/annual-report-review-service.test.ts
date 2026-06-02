@@ -124,6 +124,12 @@ const { prismaMock } = vi.hoisted(() => {
     financialStatement: {
       findUnique: vi.fn(async () => null),
       upsert: vi.fn(async () => ({ id: "stmt-1" })),
+      // No newer report owns any year by default → both years publish.
+      findMany: vi.fn(async () => [] as Array<{ fiscalYear: number }>),
+    },
+    publishedFinancialLineItem: {
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+      createMany: vi.fn(async () => ({ count: 0 })),
     },
     publishFinancialStatementSnapshot: publishFinancialStatementSnapshotMock,
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prismaMock)),
@@ -294,9 +300,14 @@ describe("acceptAnnualReportReview", () => {
       extractionRun: null,
     } as never);
 
-    await expect(
-      acceptAnnualReportReview("review-1", "user-reviewer-1"),
-    ).rejects.toThrow("NO_REVIEWED_FACTS");
+    // A publish block is no longer a thrown error — the review data is saved and
+    // the result reports published: false with the blocking issue, so the UI can
+    // surface it instead of a 500 (the original silent-failure fix).
+    const result = await acceptAnnualReportReview("review-1", "user-reviewer-1");
+    expect(result.published).toBe(false);
+    expect((result as { blockingIssues: Array<{ ruleCode: string }> }).blockingIssues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ ruleCode: "NO_REVIEWED_FACTS" })]),
+    );
 
     expect(prismaMock.annualReportReviewedFact.createMany).not.toHaveBeenCalled();
   });
@@ -430,6 +441,23 @@ describe("correctAnnualReportReview", () => {
     expect(acceptedData.some((d) => d.metricKey === "revenue")).toBe(false);
   });
 
+  it("normalises reviewed-fact unitScale to 1 (values are already whole NOK)", async () => {
+    // Machine facts in the fixture carry unitScale 1000; the correction sends
+    // 1000 too. Both must be stored as 1 so a publish doesn't trip
+    // UNIT_SCALE_INCONSISTENCY on mixed metadata.
+    const corrections = {
+      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: "4500000", unitScale: 1000 }],
+    };
+
+    await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
+
+    type ReviewedFactArg = [{ data: Array<{ correctionSource: string; unitScale: number }> }];
+    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls as unknown as ReviewedFactArg[];
+    const allReviewed = calls.flatMap(([arg]) => arg.data);
+    expect(allReviewed.length).toBeGreaterThan(0);
+    expect(allReviewed.every((d) => d.unitScale === 1)).toBe(true);
+  });
+
   it("excludes the original machine fact when a row is reassigned to a new metric key", async () => {
     const corrections = {
       facts: [
@@ -454,6 +482,41 @@ describe("correctAnnualReportReview", () => {
     const acceptedData = acceptedMachineCall![0].data;
     expect(acceptedData.some((d) => d.metricKey === "revenue")).toBe(false);
     expect(acceptedData.some((d) => d.metricKey === "total_assets")).toBe(true);
+  });
+
+  it("drops a deleted metric key instead of carrying it over as ACCEPTED_MACHINE", async () => {
+    const corrections = {
+      facts: [{ metricKey: "revenue", fiscalYear: 2023, value: "4500000", unitScale: 1000 }],
+      deletedMetricKeys: ["total_assets"],
+    };
+
+    await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
+
+    type ReviewedFactArg = [{ data: Array<{ correctionSource: string; metricKey: string }> }];
+    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls as unknown as ReviewedFactArg[];
+    const acceptedMachineCall = calls.find(([arg]) =>
+      arg.data.some((d) => d.correctionSource === "ACCEPTED_MACHINE"),
+    );
+    // total_assets was deleted, so it must NOT appear in the carried-over set.
+    const acceptedData = acceptedMachineCall ? acceptedMachineCall[0].data : [];
+    expect(acceptedData.some((d) => d.metricKey === "total_assets")).toBe(false);
+  });
+
+  it("keeps a key that is both deleted and re-corrected (correction wins)", async () => {
+    const corrections = {
+      facts: [{ metricKey: "total_assets", fiscalYear: 2023, value: "9999999", unitScale: 1000 }],
+      deletedMetricKeys: ["total_assets"],
+    };
+
+    await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
+
+    type ReviewedFactArg = [{ data: Array<{ correctionSource: string; metricKey: string; value: unknown }> }];
+    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls as unknown as ReviewedFactArg[];
+    const manualCall = calls.find(([arg]) =>
+      arg.data.some((d) => d.correctionSource === "MANUAL_CORRECTION"),
+    );
+    expect(manualCall).toBeDefined();
+    expect(manualCall![0].data.some((d) => d.metricKey === "total_assets")).toBe(true);
   });
 
   it("converts large integer string to BigInt safely", async () => {

@@ -6,6 +6,7 @@ import type { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-
 import {
   getAdminReviewDetail,
   listAdminReviewQueue,
+  saveReviewClientDraft,
 } from "@/server/persistence/annual-report-review-repository";
 import {
   publishFinancialStatementSnapshot,
@@ -43,6 +44,12 @@ export type FactCorrection = {
   sourcePage?: number | null;
   unitScale?: number | null;
   confidenceScore?: number | null;
+  /** Per-fact konsern/selskap scope override. Falls back to the review's
+   *  primary scope when omitted. */
+  statementScope?: "COMPANY" | "CONSOLIDATED";
+  /** Per-fact statement bucket from the client (which knows the section). Falls
+   *  back to metric-key inference when omitted. */
+  statementType?: "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW" | "NOTE";
 };
 
 export type SectionCorrection = {
@@ -68,6 +75,9 @@ export type ReviewCorrections = {
   sections?: SectionCorrection[];
   auditorOpinion?: AuditorOpinionCorrection;
   failureReason?: string;
+  /** Metric keys the reviewer deleted. Their machine-extracted facts are
+   *  dropped (not carried over as ACCEPTED_MACHINE). */
+  deletedMetricKeys?: string[];
 };
 
 // Re-export for consumers that import from this module
@@ -208,6 +218,7 @@ export async function listReviewQueue(options?: {
 }
 
 export { getAdminReviewDetail as getReviewDetail };
+export { saveReviewClientDraft };
 
 /**
  * Maps filing IDs to their most recent AnnualReportReview id. Used so that
@@ -325,7 +336,12 @@ export async function acceptAnnualReportReview(
             statementScope: fact.statementScope,
             value: fact.value,
             currency: fact.currency,
-            unitScale: fact.unitScale,
+            // Reviewed-fact values are already in whole NOK (canonical mapping
+            // applied the page unit scale upstream). The scale here is pure
+            // metadata, so normalise it to 1 — a mix of 1 and 1000 across pages
+            // would otherwise trip UNIT_SCALE_INCONSISTENCY even though every
+            // value is correctly in NOK.
+            unitScale: 1,
             sourcePage: fact.sourcePage,
             rawLabel: fact.rawLabel,
             correctionSource: "ACCEPTED_MACHINE" as const,
@@ -497,12 +513,21 @@ export async function correctAnnualReportReview(
       ),
     );
 
+    // Keys the reviewer explicitly deleted: their machine facts must NOT be
+    // carried over. A key that is both deleted and re-corrected is treated as
+    // corrected (the correction wins).
+    const deletedMetricKeys = new Set(
+      (corrections.deletedMetricKeys ?? []).filter((k) => !correctedMetricKeys.has(k)),
+    );
+
     // Fetch machine facts and copy the non-corrected ones as ACCEPTED_MACHINE
     if (review.extractionRunId) {
       const machineFacts = await tx.financialFact.findMany({
         where: { extractionRunId: review.extractionRunId },
       });
-      const uncorrected = machineFacts.filter((f) => !correctedMetricKeys.has(f.metricKey));
+      const uncorrected = machineFacts.filter(
+        (f) => !correctedMetricKeys.has(f.metricKey) && !deletedMetricKeys.has(f.metricKey),
+      );
       if (uncorrected.length > 0) {
         await tx.annualReportReviewedFact.createMany({
           data: uncorrected.map((fact) => ({
@@ -516,7 +541,12 @@ export async function correctAnnualReportReview(
             statementScope: fact.statementScope,
             value: fact.value,
             currency: fact.currency,
-            unitScale: fact.unitScale,
+            // Reviewed-fact values are already in whole NOK (canonical mapping
+            // applied the page unit scale upstream). The scale here is pure
+            // metadata, so normalise it to 1 — a mix of 1 and 1000 across pages
+            // would otherwise trip UNIT_SCALE_INCONSISTENCY even though every
+            // value is correctly in NOK.
+            unitScale: 1,
             sourcePage: fact.sourcePage,
             rawLabel: fact.rawLabel,
             correctionSource: "ACCEPTED_MACHINE" as const,
@@ -535,18 +565,26 @@ export async function correctAnnualReportReview(
           filingId: review.filingId,
           extractionRunId: review.extractionRunId ?? null,
           companyId: review.companyId,
-          fiscalYear: review.fiscalYear,
+          // Each correction carries its own fiscal year (the reviewer enters
+          // both the main year and the prior/comparative year). Using
+          // review.fiscalYear here would collapse every prior-year value onto
+          // the main year and silently drop it via the unique constraint.
+          fiscalYear: fact.fiscalYear,
           metricKey: fact.metricKey,
           statementType:
-            (getStatementTypeForMetricKey(fact.metricKey) ?? "INCOME_STATEMENT") as
+            (fact.statementType ??
+              getStatementTypeForMetricKey(fact.metricKey) ??
+              "INCOME_STATEMENT") as
               | "INCOME_STATEMENT"
               | "BALANCE_SHEET"
               | "CASH_FLOW"
               | "NOTE",
-          statementScope: reviewScope,
+          statementScope: fact.statementScope ?? reviewScope,
           value: safeStringToBigInt(fact.value),
           currency: "NOK",
-          unitScale: fact.unitScale ?? 1,
+          // The reviewer enters values in whole NOK, so the stored scale is
+          // always 1 (consistent with the normalised ACCEPTED_MACHINE facts).
+          unitScale: 1,
           sourcePage: fact.sourcePage ?? null,
           rawLabel: fact.rawLabel ?? null,
           correctionSource: "MANUAL_CORRECTION" as const,
@@ -682,6 +720,49 @@ export async function reprocessAnnualReportReview(
 }
 
 // ---------------------------------------------------------------------------
+// Re-open a resolved review
+// ---------------------------------------------------------------------------
+
+/**
+ * Re-opens an ACCEPTED review back to PENDING_REVIEW so the reviewer can fix
+ * data without a DB reset. The durable clientDraft is preserved (it is the
+ * source the form rehydrates from), so all prior edits reappear. Published
+ * data is left untouched — re-opening does not unpublish; a subsequent save
+ * republishes idempotently.
+ */
+export async function reopenAnnualReportReview(reviewId: string, reviewerUserId: string) {
+  const review = await prisma.annualReportReview.findUnique({
+    where: { id: reviewId },
+    select: { id: true, status: true, filingId: true, companyId: true, fiscalYear: true, extractionRunId: true },
+  });
+  if (!review) throw new Error(`Review ${reviewId} ikke funnet.`);
+  if (review.status !== "ACCEPTED") {
+    throw new ReviewConflictError(review.id, review.status);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.annualReportReview.update({
+      where: { id: review.id },
+      data: { status: "PENDING_REVIEW", resolvedAt: null, updatedAt: new Date() },
+    });
+    await tx.annualReportReviewDecision.create({
+      data: {
+        reviewId: review.id,
+        filingId: review.filingId,
+        extractionRunId: review.extractionRunId ?? null,
+        companyId: review.companyId,
+        fiscalYear: review.fiscalYear,
+        reviewerUserId,
+        decisionType: "REOPENED",
+        correctionNotes: "Gjenåpnet for redigering.",
+      },
+    });
+  });
+
+  return { reviewId: review.id, status: "PENDING_REVIEW" as const };
+}
+
+// ---------------------------------------------------------------------------
 // Mark unreadable
 // ---------------------------------------------------------------------------
 
@@ -758,6 +839,7 @@ export async function markAnnualReportReviewUnreadable(
 
 export async function validateReviewedAnnualReportFacts(
   reviewId: string,
+  overriddenRuleCodes?: string[],
 ): Promise<ReviewedFactsValidationPayload> {
   const facts = await prisma.annualReportReviewedFact.findMany({
     where: { reviewId },
@@ -797,7 +879,7 @@ export async function validateReviewedAnnualReportFacts(
     rawLabel: f.rawLabel,
   }));
 
-  const result = validateReviewedFacts(validationFacts);
+  const result = validateReviewedFacts(validationFacts, { overriddenRuleCodes });
   return serializeValidationPayload(result, facts.length);
 }
 
@@ -808,8 +890,9 @@ export async function validateReviewedAnnualReportFacts(
 export async function publishReviewedAnnualReportFacts(
   reviewId: string,
   reviewerUserId: string,
+  overriddenRuleCodes?: string[],
 ): Promise<
-  | { published: true; fiscalYear: number; companyId: string }
+  | { published: true; fiscalYear: number; companyId: string; publishedYears: number[]; skippedYears: number[] }
   | { published: false; issues: ReviewedFactsValidationPayload["blockingIssues"] }
 > {
   const review = await prisma.annualReportReview.findUnique({
@@ -858,63 +941,91 @@ export async function publishReviewedAnnualReportFacts(
     sourcePage: f.sourcePage,
     rawLabel: f.rawLabel,
   }));
-  const validationResult = validateReviewedFacts(validationFacts);
+  const validationResult = validateReviewedFacts(validationFacts, { overriddenRuleCodes });
   if (validationResult.hasBlockingErrors) {
     const payload = serializeValidationPayload(validationResult, facts.length);
     return { published: false, issues: payload.blockingIssues };
   }
 
-  const factMap = new Map(facts.map((f) => [f.metricKey, f]));
-  const revenue = factMap.get("revenue")?.value ?? factMap.get("total_operating_income")?.value ?? null;
-  const operatingProfit = factMap.get("operating_profit")?.value ?? null;
-  const netIncome = factMap.get("net_income")?.value ?? null;
-  const equity = factMap.get("total_equity")?.value ?? null;
-  const assets = factMap.get("total_assets")?.value ?? null;
-  const unitScale = facts.find((f) => f.value !== null)?.unitScale ?? 1;
+  // ── Two-year publish rule: newer report wins for any given year ──────────
+  // A 2024 report carries 2024 (main) + 2023 (comparative). We publish a year
+  // from this review ONLY when no NEWER report has already published that year.
+  // Example: once the 2024 report is published, working the 2023 report must
+  // publish only 2022 — the 2024 report's 2023 figures (which may restate
+  // history) win. Years already covered by a newer filing are skipped.
+  const factYears = Array.from(new Set(facts.map((f) => f.fiscalYear))).sort((a, b) => a - b);
+  const newerStatements = await prisma.financialStatement.findMany({
+    where: {
+      companyId: review.companyId,
+      fiscalYear: { in: factYears },
+      sourceFiling: { is: { fiscalYear: { gt: review.fiscalYear } } },
+    },
+    select: { fiscalYear: true },
+  });
+  const yearsOwnedByNewerReport = new Set(newerStatements.map((s) => s.fiscalYear));
+  const publishYears = factYears.filter((y) => !yearsOwnedByNewerReport.has(y));
+  const skippedYears = factYears.filter((y) => yearsOwnedByNewerReport.has(y));
+
   const hasManualCorrection = facts.some((f) => f.correctionSource === "MANUAL_CORRECTION");
   const qualityStatus = hasManualCorrection ? "MANUAL_REVIEW" : "HIGH_CONFIDENCE";
-  const selectedFacts = new Map(
-    facts
-      .map((fact) => reviewedFactToCandidate(fact))
-      .filter((fact): fact is NonNullable<ReturnType<typeof reviewedFactToCandidate>> => fact !== null)
-      .map((fact) => [fact.metricKey, fact]),
-  );
-
+  const unitScale = facts.find((f) => f.value !== null)?.unitScale ?? 1;
   const publishedAt = new Date();
-  const sourceId = `review:${review.id}`;
-  const normalizedPayload = buildNormalizedFinancialPayload(review.fiscalYear, selectedFacts);
 
-  // Reviewed facts carry their own scope; publish under the dominant one.
-  const publishScope: "COMPANY" | "CONSOLIDATED" = facts.some(
-    (f) => (f as { statementScope?: string }).statementScope === "CONSOLIDATED",
-  )
-    ? "CONSOLIDATED"
-    : "COMPANY";
+  // Publish one FinancialStatement summary per (publishable year × scope). A
+  // group report has both COMPANY (morselskap) and CONSOLIDATED (konsern)
+  // figures; each is its own summary row keyed by [company, year, scope].
+  const scopes: Array<"COMPANY" | "CONSOLIDATED"> = ["COMPANY", "CONSOLIDATED"];
+  for (const year of publishYears) {
+    for (const scope of scopes) {
+      const yearScopeFacts = facts.filter(
+        // A missing scope defaults to COMPANY (the DB column default), so legacy
+        // facts without an explicit scope still publish under COMPANY.
+        (f) => f.fiscalYear === year && (f.statementScope ?? "COMPANY") === scope,
+      );
+      if (yearScopeFacts.length === 0) continue;
 
-  await publishFinancialStatementSnapshot({
-    companyId: review.companyId,
-    fiscalYear: review.fiscalYear,
-    statementScope: publishScope,
-    currency: "NOK",
-    revenue: revenue === null ? null : Number(revenue),
-    operatingProfit: operatingProfit === null ? null : Number(operatingProfit),
-    netIncome: netIncome === null ? null : Number(netIncome),
-    equity: equity === null ? null : Number(equity),
-    assets: assets === null ? null : Number(assets),
-    sourceSystem: "PROJECT_FINANCIALS_REVIEW",
-    sourceEntityType: "annualReportReviewedFact",
-    sourceId,
-    fetchedAt: publishedAt,
-    normalizedAt: publishedAt,
-    rawPayload: normalizedPayload as unknown as Prisma.InputJsonValue,
-    sourceFilingId: review.filingId,
-    sourceExtractionRunId: review.extractionRunId ?? null,
-    qualityStatus,
-    qualityScore: 1.0,
-    unitScale,
-    sourcePrecedence: "STATUTORY_NOK",
-    publishedAt,
-  });
+      const factMap = new Map(yearScopeFacts.map((f) => [f.metricKey, f]));
+      const revenue =
+        factMap.get("revenue")?.value ?? factMap.get("total_operating_income")?.value ?? null;
+      const operatingProfit = factMap.get("operating_profit")?.value ?? null;
+      const netIncome = factMap.get("net_income")?.value ?? null;
+      const equity = factMap.get("total_equity")?.value ?? null;
+      const assets = factMap.get("total_assets")?.value ?? null;
+
+      const selectedFacts = new Map(
+        yearScopeFacts
+          .map((fact) => reviewedFactToCandidate(fact))
+          .filter((fact): fact is NonNullable<ReturnType<typeof reviewedFactToCandidate>> => fact !== null)
+          .map((fact) => [fact.metricKey, fact]),
+      );
+      const normalizedPayload = buildNormalizedFinancialPayload(year, selectedFacts);
+
+      await publishFinancialStatementSnapshot({
+        companyId: review.companyId,
+        fiscalYear: year,
+        statementScope: scope,
+        currency: "NOK",
+        revenue: revenue === null ? null : Number(revenue),
+        operatingProfit: operatingProfit === null ? null : Number(operatingProfit),
+        netIncome: netIncome === null ? null : Number(netIncome),
+        equity: equity === null ? null : Number(equity),
+        assets: assets === null ? null : Number(assets),
+        sourceSystem: "PROJECT_FINANCIALS_REVIEW",
+        sourceEntityType: "annualReportReviewedFact",
+        sourceId: `review:${review.id}:${year}:${scope}`,
+        fetchedAt: publishedAt,
+        normalizedAt: publishedAt,
+        rawPayload: normalizedPayload as unknown as Prisma.InputJsonValue,
+        sourceFilingId: review.filingId,
+        sourceExtractionRunId: review.extractionRunId ?? null,
+        qualityStatus,
+        qualityScore: 1.0,
+        unitScale,
+        sourcePrecedence: "STATUTORY_NOK",
+        publishedAt,
+      });
+    }
+  }
 
   await prisma.$transaction(
     async (tx) => {
@@ -927,6 +1038,40 @@ export async function publishReviewedAnnualReportFacts(
         },
       });
 
+      // Publish the full "as reported" line items to the dedicated store the
+      // company page reads. Only years this review is allowed to own are
+      // written (a newer report already owns the skipped years). Delete-then-
+      // insert per filing keeps republish idempotent; the extraction pipeline
+      // never writes here, so a later reprocess can never overwrite published
+      // manual-review data.
+      const publishableFacts = facts.filter((f) => publishYears.includes(f.fiscalYear));
+      await tx.publishedFinancialLineItem.deleteMany({
+        where: { filingId: review.filingId },
+      });
+      await tx.publishedFinancialLineItem.createMany({
+        data: publishableFacts.map((fact, index) => ({
+          companyId: review.companyId,
+          filingId: review.filingId,
+          fiscalYear: fact.fiscalYear,
+          statementType: fact.statementType,
+          statementScope: fact.statementScope,
+          metricKey: fact.metricKey,
+          rawLabel: fact.rawLabel,
+          value: fact.value,
+          currency: fact.currency ?? "NOK",
+          unitScale: fact.unitScale ?? 1,
+          sourcePage: fact.sourcePage,
+          sortOrder: index,
+          reviewId: review.id,
+          reviewerUserId,
+          publishedAt,
+        })),
+      });
+
+      const skipNote =
+        skippedYears.length > 0
+          ? ` Hoppet over ${skippedYears.join(", ")} (eies av nyere rapport).`
+          : "";
       await tx.annualReportReviewDecision.create({
         data: {
           reviewId: review.id,
@@ -937,7 +1082,7 @@ export async function publishReviewedAnnualReportFacts(
           reviewerUserId,
           decisionType: "PUBLISHED_FROM_REVIEW",
           validationPassed: true,
-          correctionNotes: `Publisert ${facts.length} reviewed facts (${hasManualCorrection ? "med manuelle korreksjoner" : "maskinuttak godkjent"}).`,
+          correctionNotes: `Publisert ${publishableFacts.length} reviewed facts for år ${publishYears.join(", ")} (${hasManualCorrection ? "med manuelle korreksjoner" : "maskinuttak godkjent"}).${skipNote}`,
         },
       });
     },
@@ -953,26 +1098,52 @@ export async function publishReviewedAnnualReportFacts(
     latestSuccessfulFilingId: review.filingId,
   });
 
-  return { published: true, fiscalYear: review.fiscalYear, companyId: review.companyId };
+  return {
+    published: true,
+    fiscalYear: review.fiscalYear,
+    companyId: review.companyId,
+    publishedYears: publishYears,
+    skippedYears,
+  };
 }
 
 export async function finalizeAnnualReportReviewAndPublish(input: {
   reviewId: string;
   reviewerUserId: string;
+  overriddenRuleCodes?: string[];
 }) {
-  const result = await publishReviewedAnnualReportFacts(input.reviewId, input.reviewerUserId);
+  const result = await publishReviewedAnnualReportFacts(
+    input.reviewId,
+    input.reviewerUserId,
+    input.overriddenRuleCodes,
+  );
+  // A validation block is NOT an error: the corrections are already saved.
+  // Return a structured "not published" result so the caller (and UI) can show
+  // the blocking issues and let the reviewer fix or override them, instead of
+  // surfacing a 500 that hides why nothing published.
   if (!result.published) {
-    throw new Error(
-      result.issues.map((issue) => `${issue.ruleCode}: ${issue.message}`).join(" | "),
-    );
+    return {
+      reviewId: input.reviewId,
+      status: "ACCEPTED" as const,
+      published: false as const,
+      blockingIssues: result.issues,
+      message:
+        "Lagret, men publisering er blokkert av validering. Løs eller overstyr feilene og publiser på nytt.",
+    };
   }
 
+  const skipNote =
+    result.skippedYears.length > 0
+      ? ` Skipped ${result.skippedYears.join(", ")} (owned by a newer report).`
+      : "";
   return {
     reviewId: input.reviewId,
     status: "ACCEPTED" as const,
     published: true as const,
     fiscalYear: result.fiscalYear,
     companyId: result.companyId,
-    message: "Reviewed values saved and published to the active financial statement.",
+    publishedYears: result.publishedYears,
+    skippedYears: result.skippedYears,
+    message: `Reviewed values saved and published for ${result.publishedYears.join(", ")}.${skipNote}`,
   };
 }

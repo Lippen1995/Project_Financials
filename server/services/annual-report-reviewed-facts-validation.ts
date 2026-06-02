@@ -99,40 +99,28 @@ function getFactValue(
 // BigInt-safe validator
 // ---------------------------------------------------------------------------
 
-export function validateReviewedFacts(
-  facts: ReviewedFactForValidation[],
-): ReviewedFactsValidationResult {
-  // Build selected facts map: one entry per metricKey, prefer non-null values
-  const selectedFacts = new Map<string, ReviewedFactForValidation>();
-  for (const fact of facts) {
-    const existing = selectedFacts.get(fact.metricKey);
-    if (!existing || (existing.value === null && fact.value !== null)) {
-      selectedFacts.set(fact.metricKey, fact);
-    }
-  }
+export type ValidateReviewedFactsOptions = {
+  /** Rule codes the reviewer chose to override for this run. Issues with these
+   *  codes are still reported, but downgraded from ERROR to WARNING so they no
+   *  longer block publishing. Used while the metric-mapping rule set (a
+   *  parallel WIP) is incomplete. */
+  overriddenRuleCodes?: string[];
+};
 
+// Reconciliation rules for a single fiscal year. The reviewed facts now carry
+// both the main year and the prior/comparative year, so the equation checks
+// must run per year — comparing 2024 revenue against 2023 expenses would be
+// meaningless. Each emitted issue is tagged with its fiscal year in context.
+function validateSingleYear(
+  selectedFacts: Map<string, ReviewedFactForValidation>,
+  fiscalYear: number,
+): ReviewedFactsValidationIssue[] {
   const issues: ReviewedFactsValidationIssue[] = [];
-
-  // Unit scale consistency across non-null facts
-  const nonNullFacts = facts.filter((f) => f.value !== null);
-  const unitScales = new Set(nonNullFacts.map((f) => f.unitScale));
-  if (unitScales.size > 1) {
-    issues.push({
-      severity: "ERROR",
-      ruleCode: "UNIT_SCALE_INCONSISTENCY",
-      message: `Motstridende enhetsskalaer funnet: ${Array.from(unitScales).join(", ")}.`,
-    });
-  }
-
-  // Fiscal year consistency
-  const fiscalYears = new Set(facts.map((f) => f.fiscalYear));
-  if (fiscalYears.size > 1) {
-    issues.push({
-      severity: "ERROR",
-      ruleCode: "MIXED_FISCAL_YEARS",
-      message: `Reviewed facts har blandede regnskapsår: ${Array.from(fiscalYears).join(", ")}.`,
-    });
-  }
+  const tag = (issue: ReviewedFactsValidationIssue): ReviewedFactsValidationIssue => ({
+    ...issue,
+    message: `[${fiscalYear}] ${issue.message}`,
+    context: { ...(issue.context ?? {}), fiscalYear },
+  });
 
   // IS: operating_profit = total_operating_income - total_operating_expenses
   const totalOperatingIncome = getFactValue(selectedFacts, "total_operating_income");
@@ -144,14 +132,16 @@ export function validateReviewedFacts(
     operatingProfit !== null &&
     !bigintApproxEqual(operatingProfit, totalOperatingIncome - totalOperatingExpenses)
   ) {
-    issues.push({
-      severity: "ERROR",
-      ruleCode: "IS_OPERATING_PROFIT_MATCH",
-      message:
-        "Operating profit does not reconcile to total operating income minus total operating expenses.",
-      expectedValue: totalOperatingIncome - totalOperatingExpenses,
-      actualValue: operatingProfit,
-    });
+    issues.push(
+      tag({
+        severity: "ERROR",
+        ruleCode: "IS_OPERATING_PROFIT_MATCH",
+        message:
+          "Operating profit does not reconcile to total operating income minus total operating expenses.",
+        expectedValue: totalOperatingIncome - totalOperatingExpenses,
+        actualValue: operatingProfit,
+      }),
+    );
   }
 
   // IS: net_financial_items = financial_income - financial_expense (warning)
@@ -164,14 +154,16 @@ export function validateReviewedFacts(
     netFinancialItems !== null &&
     !bigintApproxEqual(netFinancialItems, financialIncome - financialExpense)
   ) {
-    issues.push({
-      severity: "WARNING",
-      ruleCode: "IS_NET_FINANCIAL_ITEMS_MATCH",
-      message:
-        "Net financial items do not reconcile to financial income minus financial expense.",
-      expectedValue: financialIncome - financialExpense,
-      actualValue: netFinancialItems,
-    });
+    issues.push(
+      tag({
+        severity: "WARNING",
+        ruleCode: "IS_NET_FINANCIAL_ITEMS_MATCH",
+        message:
+          "Net financial items do not reconcile to financial income minus financial expense.",
+        expectedValue: financialIncome - financialExpense,
+        actualValue: netFinancialItems,
+      }),
+    );
   }
 
   // IS: profit_before_tax = operating_profit + net_financial_items
@@ -182,14 +174,16 @@ export function validateReviewedFacts(
     profitBeforeTax !== null &&
     !bigintApproxEqual(profitBeforeTax, operatingProfit + netFinancialItems)
   ) {
-    issues.push({
-      severity: "ERROR",
-      ruleCode: "IS_PROFIT_BEFORE_TAX_MATCH",
-      message:
-        "Profit before tax does not reconcile to operating profit plus net financial items.",
-      expectedValue: operatingProfit + netFinancialItems,
-      actualValue: profitBeforeTax,
-    });
+    issues.push(
+      tag({
+        severity: "ERROR",
+        ruleCode: "IS_PROFIT_BEFORE_TAX_MATCH",
+        message:
+          "Profit before tax does not reconcile to operating profit plus net financial items.",
+        expectedValue: operatingProfit + netFinancialItems,
+        actualValue: profitBeforeTax,
+      }),
+    );
   }
 
   // IS: net_income = profit_before_tax - tax_expense
@@ -201,13 +195,15 @@ export function validateReviewedFacts(
     netIncome !== null &&
     !bigintApproxEqual(netIncome, profitBeforeTax - taxExpense)
   ) {
-    issues.push({
-      severity: "ERROR",
-      ruleCode: "IS_NET_INCOME_MATCH",
-      message: "Net income does not reconcile to profit before tax minus tax expense.",
-      expectedValue: profitBeforeTax - taxExpense,
-      actualValue: netIncome,
-    });
+    issues.push(
+      tag({
+        severity: "ERROR",
+        ruleCode: "IS_NET_INCOME_MATCH",
+        message: "Net income does not reconcile to profit before tax minus tax expense.",
+        expectedValue: profitBeforeTax - taxExpense,
+        actualValue: netIncome,
+      }),
+    );
   }
 
   // BS: total_assets = total_equity_and_liabilities
@@ -218,13 +214,15 @@ export function validateReviewedFacts(
     totalEquityAndLiabilities !== null &&
     !bigintApproxEqual(totalAssets, totalEquityAndLiabilities)
   ) {
-    issues.push({
-      severity: "ERROR",
-      ruleCode: "BS_TOTAL_BALANCES",
-      message: "Total assets do not match total equity and liabilities.",
-      expectedValue: totalAssets,
-      actualValue: totalEquityAndLiabilities,
-    });
+    issues.push(
+      tag({
+        severity: "ERROR",
+        ruleCode: "BS_TOTAL_BALANCES",
+        message: "Total assets do not match total equity and liabilities.",
+        expectedValue: totalAssets,
+        actualValue: totalEquityAndLiabilities,
+      }),
+    );
   }
 
   // BS: total_equity_and_liabilities = total_equity + total_liabilities
@@ -236,14 +234,16 @@ export function validateReviewedFacts(
     totalEquityAndLiabilities !== null &&
     !bigintApproxEqual(totalEquityAndLiabilities, totalEquity + totalLiabilities)
   ) {
-    issues.push({
-      severity: "ERROR",
-      ruleCode: "BS_EQUITY_LIABILITIES_MATCH",
-      message:
-        "Total equity and liabilities do not reconcile to total equity plus total liabilities.",
-      expectedValue: totalEquity + totalLiabilities,
-      actualValue: totalEquityAndLiabilities,
-    });
+    issues.push(
+      tag({
+        severity: "ERROR",
+        ruleCode: "BS_EQUITY_LIABILITIES_MATCH",
+        message:
+          "Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+        expectedValue: totalEquity + totalLiabilities,
+        actualValue: totalEquityAndLiabilities,
+      }),
+    );
   }
 
   // BS: total_liabilities = long_term_liabilities + current_liabilities
@@ -255,18 +255,76 @@ export function validateReviewedFacts(
     totalLiabilities !== null &&
     !bigintApproxEqual(totalLiabilities, longTermLiabilities + currentLiabilities)
   ) {
+    issues.push(
+      tag({
+        severity: "ERROR",
+        ruleCode: "BS_TOTAL_LIABILITIES_COMPONENTS",
+        message:
+          "Total liabilities do not reconcile to long-term plus current liabilities.",
+        expectedValue: longTermLiabilities + currentLiabilities,
+        actualValue: totalLiabilities,
+      }),
+    );
+  }
+
+  return issues;
+}
+
+export function validateReviewedFacts(
+  facts: ReviewedFactForValidation[],
+  options: ValidateReviewedFactsOptions = {},
+): ReviewedFactsValidationResult {
+  // Build selected facts map for the caller's convenience: one entry per
+  // metricKey across all years (prefer non-null). Equation checks below use a
+  // per-year map instead.
+  const selectedFacts = new Map<string, ReviewedFactForValidation>();
+  for (const fact of facts) {
+    const existing = selectedFacts.get(fact.metricKey);
+    if (!existing || (existing.value === null && fact.value !== null)) {
+      selectedFacts.set(fact.metricKey, fact);
+    }
+  }
+
+  const issues: ReviewedFactsValidationIssue[] = [];
+
+  // Unit scale consistency across non-null facts (global — all values should be
+  // stored in whole NOK, scale 1).
+  const nonNullFacts = facts.filter((f) => f.value !== null);
+  const unitScales = new Set(nonNullFacts.map((f) => f.unitScale));
+  if (unitScales.size > 1) {
     issues.push({
       severity: "ERROR",
-      ruleCode: "BS_TOTAL_LIABILITIES_COMPONENTS",
-      message:
-        "Total liabilities do not reconcile to long-term plus current liabilities.",
-      expectedValue: longTermLiabilities + currentLiabilities,
-      actualValue: totalLiabilities,
+      ruleCode: "UNIT_SCALE_INCONSISTENCY",
+      message: `Motstridende enhetsskalaer funnet: ${Array.from(unitScales).join(", ")}.`,
     });
   }
 
-  const blockingIssues = issues.filter((i) => i.severity === "ERROR");
-  const warnings = issues.filter((i) => i.severity === "WARNING");
+  // Mixed fiscal years is now EXPECTED (each review carries the main year plus
+  // the prior/comparative year). Validate reconciliation equations per year.
+  const years = Array.from(new Set(facts.map((f) => f.fiscalYear))).sort((a, b) => a - b);
+  for (const year of years) {
+    const yearMap = new Map<string, ReviewedFactForValidation>();
+    for (const fact of facts) {
+      if (fact.fiscalYear !== year) continue;
+      const existing = yearMap.get(fact.metricKey);
+      if (!existing || (existing.value === null && fact.value !== null)) {
+        yearMap.set(fact.metricKey, fact);
+      }
+    }
+    issues.push(...validateSingleYear(yearMap, year));
+  }
+
+  // Override: downgrade reviewer-overridden rule codes from ERROR to WARNING so
+  // they are still surfaced but no longer block publishing.
+  const overridden = new Set(options.overriddenRuleCodes ?? []);
+  const adjustedIssues: ReviewedFactsValidationIssue[] = issues.map((issue) =>
+    issue.severity === "ERROR" && overridden.has(issue.ruleCode)
+      ? { ...issue, severity: "WARNING", context: { ...(issue.context ?? {}), overridden: true } }
+      : issue,
+  );
+
+  const blockingIssues = adjustedIssues.filter((i) => i.severity === "ERROR");
+  const warnings = adjustedIssues.filter((i) => i.severity === "WARNING");
   const validationScore = Number(
     Math.max(
       0,
@@ -280,7 +338,7 @@ export function validateReviewedFacts(
     hasBlockingErrors: blockingIssues.length > 0,
     blockingIssues,
     warnings,
-    issues,
+    issues: adjustedIssues,
     selectedFacts,
   };
 }
