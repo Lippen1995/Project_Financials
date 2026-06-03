@@ -102,6 +102,7 @@
     "news:intelligence:sync-sources": "tsx scripts/sync-company-event-sources.ts",
     "news:intelligence:evaluate": "tsx scripts/evaluate-company-event-intelligence.ts",
     "news:intelligence:backfill-legacy": "tsx scripts/backfill-news-articles-to-company-events.ts",
+    "news:intelligence:export-shadow-dataset": "tsx scripts/export-company-event-shadow-dataset.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

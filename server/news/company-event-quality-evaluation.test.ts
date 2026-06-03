@@ -7,6 +7,7 @@ const { prismaMock } = vi.hoisted(() => ({
     },
     companyEvent: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
     },
     companyEventFeedback: {
       findMany: vi.fn(),
@@ -26,6 +27,7 @@ import { evaluateCompanyEventIntelligence } from "@/server/news/company-event-qu
 describe("company event quality evaluation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.companyEvent.findFirst.mockResolvedValue(null);
   });
 
   it("computes actionable event quality metrics", async () => {
@@ -126,5 +128,8 @@ describe("company event quality evaluation", () => {
         eventRate: 0,
       },
     ]);
+    expect(report.curatedGoldSet.totalCases).toBeGreaterThan(0);
+    expect(report.curatedGoldSet.matchedCases).toBe(0);
+    expect(report.curatedGoldSet.passRate).toBeNull();
   });
 });

@@ -13,9 +13,11 @@ import {
   inferExternalId,
 } from "@/server/news/source-document-normalization";
 import { BrregAnnouncementSourceAdapter } from "@/server/news/source-adapters/brreg-announcement-source-adapter";
+import { HtmlListSourceAdapter } from "@/server/news/source-adapters/html-list-source-adapter";
 import { InternalCompanyStatusSourceAdapter } from "@/server/news/source-adapters/internal-company-status-source-adapter";
 import { InternalFinancialsSourceAdapter } from "@/server/news/source-adapters/internal-financials-source-adapter";
 import { RssSourceAdapter } from "@/server/news/source-adapters/rss-source-adapter";
+import { SearchRssSourceAdapter } from "@/server/news/source-adapters/search-rss-source-adapter";
 import type { NewsSourceAdapter, ParsedSourceDocument, SourceFetchScope } from "@/server/news/source-adapters/types";
 import { upsertNewsSource, upsertSourceDocument } from "@/server/news/company-event-repository";
 
@@ -34,8 +36,12 @@ export type SyncNewsSourcesOptions = SourceFetchScope & {
 };
 
 const rssAdapter = new RssSourceAdapter();
+const searchRssAdapter = new SearchRssSourceAdapter();
+const htmlListAdapter = new HtmlListSourceAdapter();
 const adapters: NewsSourceAdapter[] = [
   rssAdapter,
+  searchRssAdapter,
+  htmlListAdapter,
   new BrregAnnouncementSourceAdapter(),
   new InternalFinancialsSourceAdapter(),
   new InternalCompanyStatusSourceAdapter(),
@@ -57,6 +63,8 @@ function adapterForSource(source: NewsSourceDefinition) {
   if (source.type === "brreg") return adapters.find((adapter) => adapter.sourceType === "brreg") ?? null;
   if (source.type === "financials") return adapters.find((adapter) => adapter.sourceType === "financials") ?? null;
   if (source.type === "internal") return adapters.find((adapter) => adapter.sourceType === "internal") ?? null;
+  if (source.type === "search_rss") return searchRssAdapter;
+  if (source.type === "html_list") return htmlListAdapter;
 
   return rssAdapter;
 }
@@ -220,7 +228,10 @@ export async function syncSource(sourceId: string, scope: SourceFetchScope = {})
     name: source.name,
     sourceType: source.type,
     baseUrl: source.url,
-    rssUrl: source.type === "rss" || source.type === "atom" ? source.url : null,
+    rssUrl:
+      source.type === "rss" || source.type === "atom" || source.type === "search_rss"
+        ? source.url
+        : null,
     language: source.language,
     country: source.country,
     qualityScore: source.defaultCredibilityScore,

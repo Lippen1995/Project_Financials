@@ -8,6 +8,10 @@ import { createDirectCompanyEventExposure } from "@/server/news/company-event-re
 import { attachEventEvidence, upsertCompanyEvent } from "@/server/news/company-event-repository";
 import { buildScoreExplanation } from "@/server/news/company-event-score-explanation";
 import { scoreCompanyEvent } from "@/server/news/company-event-scoring";
+import {
+  buildCompanyEventUserRelevanceContext,
+  computeCompanyEventUserRelevance,
+} from "@/server/news/company-event-user-relevance";
 
 export type ExtractCompanyEventsFromDocumentOptions = {
   minEntityConfidence?: number;
@@ -86,6 +90,18 @@ export async function extractCompanyEventsFromDocument(
     });
 
     const entityConfidence = signal.confidence ?? 0;
+    const userRelevanceContext = await buildCompanyEventUserRelevanceContext(signal.companyId!);
+    const userRelevance = computeCompanyEventUserRelevance({
+      context: userRelevanceContext,
+      source: {
+        id: document.source.id,
+        sourceType: document.source.sourceType,
+        metadata: document.source.metadata,
+      },
+      classification,
+      title: document.title,
+      summary: document.summary,
+    });
     const cluster = clusterEventDocuments([
       {
         id: document.id,
@@ -108,6 +124,8 @@ export async function extractCompanyEventsFromDocument(
       classification,
       entityConfidence,
       mentionContext: signal.subtype,
+      userRelevanceScore: userRelevance.userRelevanceScore,
+      sourceSectorMismatch: userRelevance.sourceSectorMismatch,
       evidenceCount: 1,
       duplicateCount: cluster.duplicateCount,
     });
@@ -139,6 +157,7 @@ export async function extractCompanyEventsFromDocument(
         classification,
         scoreComponents: score,
         scoreExplanation,
+        userRelevance,
         duplicateCluster: cluster,
       }),
     });
@@ -156,6 +175,7 @@ export async function extractCompanyEventsFromDocument(
         signalId: signal.id,
         classification,
         score,
+        userRelevance,
       }),
     });
     evidenceAttached += 1;

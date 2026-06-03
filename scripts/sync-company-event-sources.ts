@@ -1,4 +1,4 @@
-import { syncNewsSources } from "@/server/news/company-event-ingestion-service";
+import { syncCompanyEventIntelligence } from "@/server/news/company-event-intelligence-sync";
 
 function parseSourceIds(argv: string[]) {
   const sourceArg = argv.find((arg) => arg.startsWith("--source="));
@@ -11,21 +11,27 @@ function parseSourceIds(argv: string[]) {
 }
 
 async function main() {
-  console.log("Synkroniserer Company Event source documents...");
-  const metrics = await syncNewsSources({
+  console.log("Synkroniserer Company Event intelligence...");
+  const result = await syncCompanyEventIntelligence({
     sourceIds: parseSourceIds(process.argv.slice(2)),
   });
 
-  console.log(`Kilder behandlet:     ${metrics.sourcesProcessed}`);
-  console.log(`Kilder feilet:        ${metrics.sourcesFailed}`);
-  console.log(`Dokumenter hentet:    ${metrics.documentsFetched}`);
-  console.log(`Dokumenter opprettet: ${metrics.documentsCreated}`);
-  console.log(`Dokumenter oppdatert: ${metrics.documentsUpdated}`);
-  console.log(`Duplikater dempet:    ${metrics.documentsDuplicate}`);
+  console.log(`Kilder behandlet:     ${result.ingestion.sourcesProcessed}`);
+  console.log(`Kilder feilet:        ${result.ingestion.sourcesFailed}`);
+  console.log(`Dokumenter hentet:    ${result.ingestion.documentsFetched}`);
+  console.log(`Dokumenter opprettet: ${result.ingestion.documentsCreated}`);
+  console.log(`Dokumenter oppdatert: ${result.ingestion.documentsUpdated}`);
+  console.log(`Duplikater dempet:    ${result.ingestion.documentsDuplicate}`);
+  console.log(`Dokumenter resolvert: ${result.entityResolution.documentsProcessed}`);
+  console.log(`Signaler laget:       ${result.entityResolution.signalsCreated}`);
+  console.log(`Eventer oppdatert:    ${result.extraction.eventsUpserted}`);
+  console.log(`Evidens koblet:       ${result.extraction.evidenceAttached}`);
+  console.log(`Read-across events:   ${result.readAcross.eventsProcessed}`);
+  console.log(`Eksponeringer laget:  ${result.readAcross.exposuresCreated}`);
 
-  if (metrics.errors.length > 0) {
+  if (result.ingestion.errors.length > 0) {
     console.log("Feil:");
-    for (const error of metrics.errors) {
+    for (const error of result.ingestion.errors) {
       console.log(`  ${error}`);
     }
   }

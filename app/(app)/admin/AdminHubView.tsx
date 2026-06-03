@@ -219,6 +219,22 @@ export default function AdminHubView({ model }: AdminHubViewProps) {
           </span>
         </Link>
 
+        <Link
+          href="/admin/company-events"
+          className="group rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6 transition-colors hover:bg-[var(--px-subtle)]"
+        >
+          <p className="data-label text-[11px] uppercase tracking-widest text-[var(--px-accent)]">
+            Nyhetsmotor
+          </p>
+          <h3 className="mt-2 text-lg font-semibold text-[var(--px-text)]">Company event review</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--px-muted)]">
+            Vurder eventer, rydd bort støy og bygg treningsgrunnlag for shadow mode.
+          </p>
+          <span className="mt-4 inline-flex rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 text-sm font-medium text-[var(--px-text)]">
+            Ã…pne event-kÃ¸
+          </span>
+        </Link>
+
         {/* Published */}
         <Link
           href="/admin/published-annual-reports"

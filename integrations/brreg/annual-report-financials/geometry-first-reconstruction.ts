@@ -177,6 +177,50 @@ function nearestColumnIndex(x: number, anchors: ColumnAnchor[]): number {
   return bestIndex;
 }
 
+const NOTE_HEADER_RE = /^note(r|nr)?\.?$/i;
+
+/**
+ * Finds the x-position of the "Note" column header, if present. Brønnøysund
+ * statements print a note-reference column ("Note") between the row labels and
+ * the year value columns. Its single-digit references (e.g. "2", "3") sit at
+ * the same x as the header and would otherwise be bucketed into the first year
+ * column — fusing the note number onto the front of the value (note "2" +
+ * 3398713005 → 23398713005). Returns null when no note header is found.
+ */
+function findNoteColumnX(page: AnnualReportParsedPage): number | null {
+  const topLines = page.lines.slice(0, Math.min(15, page.lines.length));
+  for (const line of topLines) {
+    for (const word of line.words) {
+      if (NOTE_HEADER_RE.test(word.text.trim())) {
+        return word.x;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * True when a token at position x belongs to the note-reference column rather
+ * than a year value column: it is closer to the note-header x than to the
+ * nearest year anchor. Only applies to short tokens (1–2 digit note refs);
+ * a genuine multi-digit value sitting near the note column is not dropped.
+ */
+function isNoteReferenceToken(
+  token: { token: string; x: number },
+  noteColumnX: number | null,
+  anchors: ColumnAnchor[],
+): boolean {
+  if (noteColumnX === null) return false;
+  const digits = token.token.replace(/\D/g, "");
+  if (digits.length > 2) return false; // note refs are 1–2 digits
+  const distToNote = Math.abs(token.x - noteColumnX);
+  let distToNearestYear = Infinity;
+  for (const anchor of anchors) {
+    distToNearestYear = Math.min(distToNearestYear, Math.abs(token.x - anchor.x));
+  }
+  return distToNote < distToNearestYear;
+}
+
 function isNoiseLine(text: string): boolean {
   const normalized = normalizeRowLabel(repairOcrTokenBoundaries(text));
   if (!normalized) return true;
@@ -234,6 +278,11 @@ export function reconstructStatementRowsGeometryFirst(
     line.words.some((word) => YEAR_IN_TEXT_RE.test(word.text)),
   );
 
+  // The note-reference column, if the statement has one. Note references are
+  // single-digit tokens at this x; excluding them prevents the note number from
+  // fusing onto the front of the first year value.
+  const noteColumnX = findNoteColumnX(page);
+
   const rows: ReconstructedRow[] = [];
 
   for (let lineIndex = 0; lineIndex < page.lines.length; lineIndex++) {
@@ -244,10 +293,14 @@ export function reconstructStatementRowsGeometryFirst(
     const tokens = tokensWithPositions(line);
     if (tokens.length === 0) continue;
 
-    // Drop year-shaped tokens — they are references to a fiscal year, not a
-    // statement value, and they would otherwise be column-assigned.
+    // Drop year-shaped tokens (fiscal-year references) and note-reference
+    // tokens — neither is a statement value, and both would otherwise be
+    // column-assigned and fused into a value.
     const numericTokens = tokens.filter(
-      (t) => isNumericToken(t.token) && !YEAR_TOKEN_RE.test(t.token),
+      (t) =>
+        isNumericToken(t.token) &&
+        !YEAR_TOKEN_RE.test(t.token) &&
+        !isNoteReferenceToken(t, noteColumnX, anchors),
     );
     if (numericTokens.length === 0) continue;
 

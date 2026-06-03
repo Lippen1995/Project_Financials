@@ -84,6 +84,39 @@ describe("company event scoring", () => {
     expect(computeDuplicatePenalty({ duplicateCount: 5 })).toBeGreaterThan(computeDuplicatePenalty({ duplicateCount: 1 }));
   });
 
+  it("applies extra penalty when search-based sector sources mismatch the company context", () => {
+    const matched = scoreCompanyEvent({
+      companyId: "company-1",
+      eventDate: new Date("2026-06-02T08:00:00Z"),
+      source: {
+        id: "google-news-upstream",
+        sourceType: "search_rss",
+        metadata: { tier: "industry" },
+      },
+      classification: { ...classification, eventType: "board_change", materialityScore: 0.52, financialImpactScore: 0.3 },
+      entityConfidence: 0.9,
+      userRelevanceScore: 0.78,
+      sourceSectorMismatch: false,
+      now: new Date("2026-06-02T12:00:00Z"),
+    });
+    const mismatched = scoreCompanyEvent({
+      companyId: "company-2",
+      eventDate: new Date("2026-06-02T08:00:00Z"),
+      source: {
+        id: "google-news-upstream",
+        sourceType: "search_rss",
+        metadata: { tier: "industry" },
+      },
+      classification: { ...classification, eventType: "board_change", materialityScore: 0.52, financialImpactScore: 0.3 },
+      entityConfidence: 0.9,
+      userRelevanceScore: 0.12,
+      sourceSectorMismatch: true,
+      now: new Date("2026-06-02T12:00:00Z"),
+    });
+
+    expect(matched.investorValueScore).toBeGreaterThan(mismatched.investorValueScore + 20);
+  });
+
   it("makes high-value primary filings outrank generic low-signal mentions", () => {
     const high = scoreCompanyEvent({
       companyId: "company-1",

@@ -140,6 +140,35 @@ describe("reconstructStatementRowsGeometryFirst", () => {
     ]);
   });
 
+  it("excludes the note-reference column so it does not fuse onto the value", () => {
+    // Brønnøysund layout: label, a "Note" column, then the year columns. The
+    // single-digit note reference sits at the note-header x and must NOT be
+    // bucketed into the first year column (which would make note "2" + 3398713
+    // read as "23398713").
+    const result = reconstructStatementRowsGeometryFirst(
+      page([
+        line([word("Note", 250), word("2024", 400), word("2023", 520)], 20),
+        line(
+          [
+            word("Sum", 50),
+            word("inntekter", 90),
+            word("2", 250), // note reference — at the Note column x
+            word("3398713", 400), // 2024 value
+            word("3256853", 520), // 2023 value
+          ],
+          40,
+        ),
+      ]),
+      classification(),
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.values).toEqual([
+      { value: 3398713, columnIndex: 0, x: 400 },
+      { value: 3256853, columnIndex: 1, x: 520 },
+    ]);
+  });
+
   it("returns no rows when the page has no year header", () => {
     const result = reconstructStatementRowsGeometryFirst(
       page([
