@@ -37,7 +37,37 @@ const INDUSTRY_SOURCE_IDS = new Set([
   "eia-today",
   "eia-press",
   "eia-petroleum-weekly",
+  "iea-news",
+  "google-news-energy-majors",
+  "google-news-us-shale",
+  "google-news-upstream",
 ]);
+
+function asObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function sourceTier(metadata: unknown) {
+  const tier = asObject(metadata).tier;
+  return typeof tier === "string" ? tier : null;
+}
+
+function tierBaselineScore(tier: string | null) {
+  switch (tier) {
+    case "primary":
+      return 0.94;
+    case "regulatory":
+      return 0.9;
+    case "premium_media":
+      return 0.8;
+    case "industry":
+      return 0.74;
+    case "internal":
+      return 0.84;
+    default:
+      return 0.58;
+  }
+}
 
 export function clampScore(value: number, min = 0, max = 100) {
   if (!Number.isFinite(value)) return min;
@@ -46,12 +76,17 @@ export function clampScore(value: number, min = 0, max = 100) {
 
 export function computeSourceCredibilityScore(source: ScoreSourceInput | null | undefined) {
   if (!source) return 0.42;
-  if (typeof source.qualityScore === "number") return clampScore(source.qualityScore, 0, 1);
+  const tier = sourceTier(source.metadata);
+  const baseline = tierBaselineScore(tier);
+  if (typeof source.qualityScore === "number") {
+    return clampScore(source.qualityScore * 0.88 + baseline * 0.12, 0, 1);
+  }
   if (PRIMARY_SOURCE_TYPES.has(source.sourceType ?? "")) return 0.92;
   if (REGULATORY_SOURCE_TYPES.has(source.sourceType ?? "")) return 0.9;
   if (INTERNAL_SOURCE_TYPES.has(source.sourceType ?? "")) return 0.84;
   if (INDUSTRY_SOURCE_IDS.has(source.id)) return 0.82;
   if (source.id.includes("reuters")) return 0.84;
+  if (tier) return baseline;
   return 0.58;
 }
 
@@ -78,15 +113,29 @@ export function computeNoveltyScore(input: { duplicateCount?: number; isFollowUp
   return 0.42;
 }
 
-export function computeUserRelevanceScore(_companyId?: string | null) {
-  return 0;
+export function computeUserRelevanceScore(value?: number | null) {
+  return clampScore(value ?? 0, 0, 1);
 }
 
-export function computeLowSignalPenalty(input: { entityConfidence: number; eventType: string; mentionContext?: string | null; lowSignalPenalty?: number }) {
+export function computeLowSignalPenalty(input: {
+  entityConfidence: number;
+  eventType: string;
+  mentionContext?: string | null;
+  lowSignalPenalty?: number;
+  userRelevanceScore?: number | null;
+  source?: ScoreSourceInput | null;
+  sourceSectorMismatch?: boolean;
+}) {
   let penalty = input.lowSignalPenalty ?? 0;
   if (input.eventType === "low_signal_mention") penalty += 0.18;
   if (input.mentionContext === "body") penalty += 0.08;
   if (input.entityConfidence < 0.65) penalty += 0.08;
+  const tier = sourceTier(input.source?.metadata);
+  const searchLikeSource = input.source?.sourceType === "search_rss" || tier === "industry";
+  if (searchLikeSource && (input.userRelevanceScore ?? 0) < 0.15) penalty += 0.44;
+  else if (searchLikeSource && (input.userRelevanceScore ?? 0) < 0.25) penalty += 0.3;
+  else if (searchLikeSource && (input.userRelevanceScore ?? 0) < 0.35) penalty += 0.14;
+  if (searchLikeSource && input.sourceSectorMismatch) penalty += 0.22;
   return clampScore(penalty, 0, 1);
 }
 
@@ -125,6 +174,8 @@ export function scoreCompanyEvent(input: {
   entityConfidence: number;
   mentionContext?: string | null;
   lowSignalPenalty?: number;
+  userRelevanceScore?: number | null;
+  sourceSectorMismatch?: boolean;
   evidenceCount?: number;
   duplicateCount?: number;
   now?: Date;
@@ -137,12 +188,15 @@ export function scoreCompanyEvent(input: {
   });
   const noveltyScore = computeNoveltyScore({ duplicateCount: input.duplicateCount });
   const timelinessScore = computeTimelinessScore(input.eventDate, input.now);
-  const userRelevanceScore = computeUserRelevanceScore(input.companyId);
+  const userRelevanceScore = computeUserRelevanceScore(input.userRelevanceScore);
   const lowSignalPenalty = computeLowSignalPenalty({
     entityConfidence: input.entityConfidence,
     eventType: input.classification.eventType,
     mentionContext: input.mentionContext,
     lowSignalPenalty: input.lowSignalPenalty,
+    userRelevanceScore,
+    source: input.source,
+    sourceSectorMismatch: input.sourceSectorMismatch,
   });
   const duplicatePenalty = computeDuplicatePenalty({ duplicateCount: input.duplicateCount });
 

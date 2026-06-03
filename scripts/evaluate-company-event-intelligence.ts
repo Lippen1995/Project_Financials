@@ -37,6 +37,11 @@ async function main() {
   console.log(`Average score:     ${report.scoreStats.averageInvestorValueScore}`);
   console.log(`High-value events: ${report.scoreStats.highValueEvents}`);
   console.log(`Low-signal events: ${report.scoreStats.lowSignalEvents}`);
+  console.log(
+    `Curated gold set: ${report.curatedGoldSet.matchedCases}/${report.curatedGoldSet.totalCases} matched, ${
+      report.curatedGoldSet.passedCases
+    } passed${report.curatedGoldSet.passRate === null ? "" : ` (${(report.curatedGoldSet.passRate * 100).toFixed(1)}%)`}`,
+  );
   console.log("");
   console.log("Top event types:");
   for (const [eventType, count] of Object.entries(report.eventsByType).slice(0, 10)) {

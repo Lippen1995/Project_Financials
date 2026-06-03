@@ -26,6 +26,8 @@ Legacy-modellene slettes ikke. De er kompatibilitetslag til ny pipeline er fullt
 Første versjon støtter:
 
 - RSS/Atom-kilder via source registry.
+- Search-baserte Google News-feeds for energi-majors, US shale og Upstream-signaler.
+- HTML-listescraping for offisielle sider uten ren RSS, som IEA.
 - NewsWeb som primær markedskilde når data finnes.
 - Brreg-kunngjøringer som interne/offisielle dokumenter.
 - Interne finansielle og statusbaserte dokumenter fra persistert data.
@@ -124,6 +126,12 @@ Evaluer kvalitet:
 
 ```bash
 npm run news:intelligence:evaluate -- --json --limit=500
+```
+
+Eksporter shadow-datasett:
+
+```bash
+npm run news:intelligence:export-shadow-dataset -- --output=tmp/company-event-shadow.json
 ```
 
 Backfill legacy nyheter:

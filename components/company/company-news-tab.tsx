@@ -57,8 +57,8 @@ type EventTimelineItem = {
 
 const SOURCE_LABELS: Record<string, string> = {
   e24: "E24",
-  dn: "Dagens Næringsliv",
-  "nrk-okonomi": "NRK Økonomi",
+  dn: "Dagens Naeringsliv",
+  "nrk-okonomi": "NRK Okonomi",
   finansavisen: "Finansavisen",
   hegnar: "Hegnar Online",
   shifter: "Shifter",
@@ -67,10 +67,19 @@ const SOURCE_LABELS: Record<string, string> = {
   tu: "Teknisk Ukeblad",
   regjeringen: "Regjeringen.no",
   newsweb: "NewsWeb",
-  oslobors: "Oslo Børs",
+  oslobors: "Oslo Bors",
   norgesbank: "Norges Bank",
   finanstilsynet: "Finanstilsynet",
   konkurransetilsynet: "Konkurransetilsynet",
+  "bbc-business": "BBC Business",
+  "guardian-business": "The Guardian",
+  "guardian-world": "The Guardian",
+  "ssb-business-financials": "SSB",
+  "ssb-energy-industry": "SSB",
+  "ssb-tech-innovation": "SSB",
+  "ssb-transport-travel": "SSB",
+  "ssb-construction-property": "SSB",
+  "ssb-bank-finance": "SSB",
   "norsk-olje-gass": "Norsk olje og gass",
   "sodir-news": "Sokkeldirektoratet",
   "sodir-production": "Sokkeldirektoratet",
@@ -79,12 +88,46 @@ const SOURCE_LABELS: Record<string, string> = {
   "eia-today": "EIA",
   "eia-press": "EIA",
   "eia-petroleum-weekly": "EIA",
-  bygg: "Bygg.no",
-  "intrafish-no": "Intrafish",
-  sysla: "Sysla",
-  upstream: "Upstream Online",
+  "nasa-breaking": "NASA",
+  "fda-press": "FDA",
+  "ecb-press": "ECB",
+  "federalreserve-press": "Federal Reserve",
+  "iea-news": "IEA",
+  "offshore-energy": "Offshore Energy",
+  offshorewind: "Offshore Wind",
+  "worldoil-news": "World Oil",
+  "worldoil-permian": "World Oil",
+  pulpapernews: "PulpaperNews",
+  "mining-com": "MINING.COM",
+  "mining-technology": "Mining Technology",
+  marinelink: "MarineLink",
+  freightwaves: "FreightWaves",
+  splash247: "Splash247",
+  "undercurrent-news": "Undercurrent News",
+  fishfarmer: "Fish Farmer",
+  "renewable-energy-world": "Renewable Energy World",
+  semiengineering: "SemiEngineering",
+  siliconangle: "SiliconANGLE",
+  fiercebiotech: "Fierce Biotech",
+  biopharmadive: "BioPharma Dive",
+  constructiondive: "Construction Dive",
+  recyclingtoday: "Recycling Today",
+  spacenews: "SpaceNews",
+  defensenews: "Defense News",
+  "army-technology": "Army Technology",
+  "airport-technology": "Airport Technology",
+  agfunder: "AgFunderNews",
+  insurancejournal: "Insurance Journal",
+  "scmp-business": "SCMP",
+  asiafinancial: "Asia Financial",
   "reuters-business": "Reuters",
 };
+
+function getSourceLabel(sourceId: string) {
+  if (sourceId.startsWith("google-news-")) return "Google News";
+  if (sourceId.startsWith("ssb-")) return "SSB";
+  return SOURCE_LABELS[sourceId] ?? sourceId;
+}
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   buyback: "Tilbakekjop",
@@ -102,6 +145,10 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   interest_rate: "Rente",
   sector_news: "Sektor",
   macro_news: "Makro",
+  investigation: "Undersokelse",
+  contract: "Kontrakt",
+  discovery: "Funn",
+  low_signal_mention: "Lavsignal",
 };
 
 const EXPOSURE_BADGES: Record<string, { label: string; className: string }> = {
@@ -126,11 +173,52 @@ function formatRelativeDate(dateStr: string): string {
   const now = Date.now();
   const diff = now - new Date(dateStr).getTime();
   const hours = Math.floor(diff / 3_600_000);
-  if (hours < 1) return "Akkurat nå";
+  if (hours < 1) return "Akkurat na";
   if (hours < 24) return `${hours}t siden`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d siden`;
-  return new Date(dateStr).toLocaleDateString("nb-NO", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(dateStr).toLocaleDateString("nb-NO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function normalizeForDedupe(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\s[-–]\s[^-–]+$/u, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(equinor|asa|bp|shell|exxonmobil|exxon|chevron|totalenergies|conocophillips)\b/g, " ")
+    .replace(/\b(announces|announcement|melding|for|of|the|and|og|av|til)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isLikelyDuplicateTitle(left: string, right: string) {
+  const a = normalizeForDedupe(left);
+  const b = normalizeForDedupe(right);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.length < 18 || b.length < 18) return false;
+  const shorter = a.length < b.length ? a : b;
+  const longer = a.length < b.length ? b : a;
+  return longer.includes(shorter);
+}
+
+function dedupeArticlesAgainstEvents(articles: NewsItem[], events: EventTimelineItem[]) {
+  const eventUrls = new Set(events.flatMap((event) => event.evidence.map((evidence) => evidence.url)));
+  return articles.filter((article) => {
+    if (eventUrls.has(article.url)) {
+      return false;
+    }
+
+    return !events.some(
+      (event) =>
+        isLikelyDuplicateTitle(event.title, article.title) ||
+        event.evidence.some((evidence) => isLikelyDuplicateTitle(evidence.title, article.title)),
+    );
+  });
 }
 
 function RelevanceBadge({ relevance }: { relevance: RelevanceInfo }) {
@@ -158,10 +246,7 @@ function shouldShowSummary(article: NewsItem) {
 }
 
 function NewsCard({ article }: { article: NewsItem }) {
-  const sourceLabel =
-    article.source.startsWith("google-news-company-") || article.source.startsWith("google-news-oil-gas-")
-      ? "Google News"
-      : SOURCE_LABELS[article.source] ?? article.source;
+  const sourceLabel = getSourceLabel(article.source);
   const reasonsLabel = article.relevance?.reasons.slice(0, 1).join(" · ") ?? null;
   const showSummary = shouldShowSummary(article);
 
@@ -185,16 +270,16 @@ function NewsCard({ article }: { article: NewsItem }) {
           {article.title}
         </a>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-snug text-slate-500">
-          {showSummary && <span className="line-clamp-1 min-w-0 flex-1">{article.summary}</span>}
-          {reasonsLabel && <span className="font-medium text-[var(--px-muted)]">{reasonsLabel}</span>}
-          {article.relevance?.reasoning && !showSummary && (
+          {showSummary ? <span className="line-clamp-1 min-w-0 flex-1">{article.summary}</span> : null}
+          {reasonsLabel ? <span className="font-medium text-[var(--px-muted)]">{reasonsLabel}</span> : null}
+          {article.relevance?.reasoning && !showSummary ? (
             <span className="line-clamp-1 min-w-0 flex-1 italic text-slate-400">{article.relevance.reasoning}</span>
-          )}
+          ) : null}
         </div>
       </div>
 
       <div className="flex items-center md:justify-end">
-        {article.relevance && <RelevanceBadge relevance={article.relevance} />}
+        {article.relevance ? <RelevanceBadge relevance={article.relevance} /> : null}
       </div>
     </article>
   );
@@ -210,6 +295,13 @@ function EventTimelineCard({ event }: { event: EventTimelineItem }) {
   };
   const href = primaryEvidence?.url;
   const description = event.summary ?? event.exposure.rationale;
+  const whyReasons = [...event.exposure.reasons, ...event.evidence.flatMap((evidence) => evidence.reasons)]
+    .filter((value, index, array) => value && array.indexOf(value) === index)
+    .slice(0, 5);
+  const exposureContext =
+    event.exposure.type !== "direct" && event.exposure.sourceCompanyName
+      ? `Knyttet via ${event.exposure.sourceCompanyName}`
+      : null;
 
   const content = (
     <>
@@ -226,7 +318,10 @@ function EventTimelineCard({ event }: { event: EventTimelineItem }) {
         </div>
         <h3 className="line-clamp-1 text-sm font-semibold leading-snug text-slate-950">{event.title}</h3>
         {description ? (
-          <p className="mt-1 line-clamp-1 text-[11px] leading-snug text-slate-500">{description}</p>
+          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">{description}</p>
+        ) : null}
+        {exposureContext ? (
+          <p className="mt-1 text-[11px] font-medium text-[var(--px-muted)]">{exposureContext}</p>
         ) : null}
       </div>
 
@@ -242,15 +337,66 @@ function EventTimelineCard({ event }: { event: EventTimelineItem }) {
   );
 
   return (
-    <article className="grid gap-2 border-b border-[rgba(15,23,42,0.06)] px-4 py-3 last:border-b-0 hover:bg-[rgba(248,249,250,0.8)] md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-4">
-      {href ? (
-        <a href={href} target="_blank" rel="noopener noreferrer" className="contents">
-          {content}
-        </a>
-      ) : (
-        content
-      )}
+    <article className="border-b border-[rgba(15,23,42,0.06)] px-4 py-3 last:border-b-0 hover:bg-[rgba(248,249,250,0.8)]">
+      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-4">
+        {href ? (
+          <a href={href} target="_blank" rel="noopener noreferrer" className="contents">
+            {content}
+          </a>
+        ) : (
+          content
+        )}
+      </div>
+
+      <details className="mt-2 rounded-xl bg-[rgba(248,249,250,0.62)] p-3">
+        <summary className="cursor-pointer list-none text-[11px] font-medium text-[var(--px-accent)]">
+          Hvorfor ser jeg dette?
+        </summary>
+        <div className="mt-2 space-y-2 text-[11px] leading-5 text-[var(--px-muted)]">
+          {event.exposure.rationale ? <p>{event.exposure.rationale}</p> : null}
+          {whyReasons.length > 0 ? <p>{whyReasons.join(" · ")}</p> : null}
+          {event.evidence.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {event.evidence.slice(0, 2).map((evidence) => (
+                <a
+                  key={evidence.documentId}
+                  href={evidence.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-[var(--px-border)] bg-white px-2 py-1 text-[10px] text-[var(--px-text)] hover:bg-[var(--px-subtle)]"
+                >
+                  {evidence.sourceName}
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </details>
     </article>
+  );
+}
+
+function FilterPill({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+        active
+          ? "border-[var(--px-accent)] bg-[var(--px-accent-soft)] text-[var(--px-accent)]"
+          : "border-[var(--px-border)] bg-[var(--px-surface)] text-[var(--px-muted)] hover:bg-[var(--px-subtle)]"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -264,7 +410,7 @@ async function fetchNews(slug: string): Promise<NewsItem[]> {
         message = errorJson.error;
       }
     } catch {
-      // Ignore malformed error payloads and fall back to the generic message.
+      // Ignore malformed error payloads.
     }
     throw new Error(message);
   }
@@ -289,6 +435,7 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
+  const [selectedExposure, setSelectedExposure] = React.useState<string>("all");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -312,7 +459,6 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
     }
 
     void load();
-
     const interval = setInterval(() => {
       void load();
     }, 60_000);
@@ -321,6 +467,10 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
       cancelled = true;
       clearInterval(interval);
     };
+  }, [slug]);
+
+  React.useEffect(() => {
+    setSelectedExposure("all");
   }, [slug]);
 
   if (loading) {
@@ -341,47 +491,65 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
       <div className="px-5 py-10 text-sm text-slate-500">
         <p className="font-medium text-slate-700">Ingen nyheter tilgjengelig</p>
         <p className="mt-1">
-          Kjør <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">npm run news:sync</code> for
-          å hente, koble og score nyheter mot selskapet.
+          Kjor <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">npm run news:sync</code> for
+          a hente, koble og score nyheter mot selskapet.
         </p>
       </div>
     );
   }
 
-  const minutesAgo = lastUpdated
-    ? Math.floor((Date.now() - lastUpdated.getTime()) / 60_000)
-    : null;
+  const minutesAgo = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 60_000) : null;
+  const exposureTypes = Array.from(new Set(events.map((event) => event.exposure.type)));
+  const filteredEvents =
+    selectedExposure === "all"
+      ? events
+      : events.filter((event) => event.exposure.type === selectedExposure);
+  const dedupedArticles = dedupeArticlesAgainstEvents(articles, events);
 
   return (
     <div>
       <div className="flex items-center justify-between border-b border-[rgba(15,23,42,0.08)] px-4 py-2.5">
         <span className="data-label text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">
           {events.length > 0 ? `${events.length} hendelser · ` : ""}
-          {articles.length} artikler
+          {dedupedArticles.length} artikler
         </span>
         <span className="text-xs text-slate-400">
-          {minutesAgo === 0
-            ? "Oppdatert nå"
-            : minutesAgo === null
-              ? ""
-              : `Oppdatert for ${minutesAgo} min siden`}
+          {minutesAgo === 0 ? "Oppdatert na" : minutesAgo === null ? "" : `Oppdatert for ${minutesAgo} min siden`}
         </span>
       </div>
+
       {events.length > 0 ? (
         <div className="border-b border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)]">
-          <div className="flex items-center justify-between px-4 py-2">
-            <span className="data-label text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">
-              Event intelligence
-            </span>
-            <span className="text-[10px] text-slate-400">Direkte og read-across</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <div>
+              <span className="data-label text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+                Event intelligence
+              </span>
+              <p className="mt-1 text-[11px] text-slate-400">Direkte og read-across, uten a vise samme sak to ganger.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <FilterPill active={selectedExposure === "all"} label="Alle" onClick={() => setSelectedExposure("all")} />
+              {exposureTypes.map((exposureType) => (
+                <FilterPill
+                  key={exposureType}
+                  active={selectedExposure === exposureType}
+                  label={EXPOSURE_BADGES[exposureType]?.label ?? exposureType}
+                  onClick={() => setSelectedExposure(exposureType)}
+                />
+              ))}
+            </div>
           </div>
-          {events.map((event) => (
+          {filteredEvents.map((event) => (
             <EventTimelineCard key={event.id} event={event} />
           ))}
+          {filteredEvents.length === 0 ? (
+            <div className="px-4 py-5 text-sm text-[var(--px-muted)]">Ingen hendelser matcher dette filteret.</div>
+          ) : null}
         </div>
       ) : null}
+
       <div>
-        {articles.map((article) => (
+        {dedupedArticles.map((article) => (
           <NewsCard key={article.id} article={article} />
         ))}
       </div>

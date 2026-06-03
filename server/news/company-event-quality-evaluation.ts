@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { COMPANY_EVENT_EVAL_SET } from "@/server/news/company-event-eval-set";
 
 export type CompanyEventQualityEvaluation = {
   generatedAt: string;
@@ -26,6 +27,20 @@ export type CompanyEventQualityEvaluation = {
   };
   staleNoisySourceCandidates: Array<{ sourceId: string; documentCount: number; eventCount: number; eventRate: number }>;
   companiesWithManyLowValueEvents: Array<{ companyId: string; companyName: string; lowValueEvents: number }>;
+  curatedGoldSet: {
+    totalCases: number;
+    matchedCases: number;
+    passedCases: number;
+    passRate: number | null;
+    failures: Array<{
+      id: string;
+      expectedLabel: "RELEVANT" | "NOT_RELEVANT";
+      actualScore: number | null;
+      title: string | null;
+      companyName: string | null;
+      sourceId: string;
+    }>;
+  };
 };
 
 function increment(target: Record<string, number>, key: string | null | undefined) {
@@ -56,7 +71,7 @@ function stringArray(value: unknown): string[] {
 
 export async function evaluateCompanyEventIntelligence(options: { limit?: number } = {}): Promise<CompanyEventQualityEvaluation> {
   const limit = Math.min(Math.max(options.limit ?? 1000, 1), 5000);
-  const [sourceDocuments, events, feedback, exposures] = await Promise.all([
+  const [sourceDocuments, events, feedback, exposures, curatedGoldSetMatches] = await Promise.all([
     prisma.sourceDocument.findMany({
       select: {
         id: true,
@@ -119,6 +134,36 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
       },
       take: limit,
     }),
+    Promise.all(
+      COMPANY_EVENT_EVAL_SET.map((item) =>
+        prisma.companyEvent.findFirst({
+          where: {
+            company: {
+              orgNumber: item.companyOrgNumber,
+            },
+            evidence: {
+              some: {
+                document: {
+                  sourceId: item.sourceId,
+                  canonicalUrl: item.canonicalUrl,
+                },
+              },
+            },
+          },
+          orderBy: [{ investorValueScore: "desc" }, { lastSeen: "desc" }],
+          select: {
+            id: true,
+            title: true,
+            investorValueScore: true,
+            company: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        }),
+      ),
+    ),
   ]);
 
   const eventsByType: Record<string, number> = {};
@@ -214,6 +259,29 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
     .sort((a, b) => b.documentCount - a.documentCount)
     .slice(0, 25);
 
+  const curatedGoldSetEvaluations = COMPANY_EVENT_EVAL_SET.map((item, index) => {
+    const match = curatedGoldSetMatches[index];
+    const actualScore = match?.investorValueScore ?? null;
+    const passed =
+      item.expectedLabel === "RELEVANT"
+        ? actualScore !== null && actualScore >= (item.expectedMinScore ?? 45)
+        : actualScore !== null && actualScore <= (item.expectedMaxScore ?? 25);
+
+    return {
+      id: item.id,
+      expectedLabel: item.expectedLabel,
+      matched: Boolean(match),
+      passed,
+      actualScore,
+      title: match?.title ?? null,
+      companyName: match?.company.name ?? null,
+      sourceId: item.sourceId,
+    };
+  });
+
+  const matchedGoldSetCases = curatedGoldSetEvaluations.filter((item) => item.matched);
+  const passedGoldSetCases = matchedGoldSetCases.filter((item) => item.passed);
+
   return {
     generatedAt: new Date().toISOString(),
     totals: {
@@ -243,5 +311,21 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
       .filter((company) => company.lowValueEvents >= 5)
       .sort((a, b) => b.lowValueEvents - a.lowValueEvents)
       .slice(0, 25),
+    curatedGoldSet: {
+      totalCases: COMPANY_EVENT_EVAL_SET.length,
+      matchedCases: matchedGoldSetCases.length,
+      passedCases: passedGoldSetCases.length,
+      passRate: matchedGoldSetCases.length === 0 ? null : Math.round((passedGoldSetCases.length / matchedGoldSetCases.length) * 1000) / 1000,
+      failures: matchedGoldSetCases
+        .filter((item) => !item.passed)
+        .map((item) => ({
+          id: item.id,
+          expectedLabel: item.expectedLabel,
+          actualScore: item.actualScore,
+          title: item.title,
+          companyName: item.companyName,
+          sourceId: item.sourceId,
+        })),
+    },
   };
 }

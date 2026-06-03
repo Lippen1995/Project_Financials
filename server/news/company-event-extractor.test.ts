@@ -9,6 +9,26 @@ const { repositoryMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/server/news/company-event-repository", () => repositoryMock);
+vi.mock("@/server/news/company-event-user-relevance", () => ({
+  buildCompanyEventUserRelevanceContext: vi.fn(async () => ({
+    companyId: "eqnr",
+    orgNumber: "923609016",
+    industryCode: "06.100",
+    industryPrefixes: ["06", "0610"],
+    sectorTags: ["energy", "oil_gas", "offshore"],
+    isPetroleumCompany: true,
+    activeWatchCount: 2,
+  })),
+  computeCompanyEventUserRelevance: vi.fn(() => ({
+    userRelevanceScore: 0.82,
+    sectorFitScore: 0.78,
+    watchlistIntensity: 0.4,
+    sourceTopicScore: 0.9,
+    sourceSectorMismatch: false,
+    sourceSectorTags: ["energy", "oil_gas", "offshore"],
+    companySectorTags: ["energy", "oil_gas", "offshore"],
+  })),
+}));
 
 import { extractCompanyEventsFromDocument } from "@/server/news/company-event-extractor";
 
@@ -89,6 +109,9 @@ describe("company event extractor", () => {
         investorValueScore: expect.any(Number),
         metadata: expect.objectContaining({
           classification: expect.objectContaining({ eventType: "buyback" }),
+          userRelevance: expect.objectContaining({
+            userRelevanceScore: 0.82,
+          }),
         }),
       }),
     );
@@ -97,6 +120,11 @@ describe("company event extractor", () => {
         eventId: "event-1",
         documentId: "doc-1",
         evidenceType: "company_mention",
+        featureSnapshot: expect.objectContaining({
+          userRelevance: expect.objectContaining({
+            userRelevanceScore: 0.82,
+          }),
+        }),
       }),
     );
     expect(repositoryMock.upsertCompanyEventExposure).toHaveBeenCalledWith(
