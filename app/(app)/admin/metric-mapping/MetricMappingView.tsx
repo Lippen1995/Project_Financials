@@ -969,6 +969,15 @@ export default function MetricMappingView({
                           <option value="MATCH">Match (=)</option>
                         </select>
                       )}
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleAssign(key.key, null)}
+                        title="Fjern nøkkelen fra noden"
+                        className="rounded px-1.5 py-1 text-xs text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        ✕
+                      </button>
                     </li>
                   ))}
                 </ul>
