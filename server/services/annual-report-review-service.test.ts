@@ -117,6 +117,12 @@ const { prismaMock } = vi.hoisted(() => {
     annualReportReviewedFact: {
       createMany: reviewedFactCreateManyMock,
       findMany: vi.fn(async () => reviewedFactsStore as typeof dbMachineFacts),
+      // Save is idempotent: it clears existing reviewed facts before rewriting.
+      deleteMany: vi.fn(async () => {
+        const count = reviewedFactsStore.length;
+        reviewedFactsStore = [];
+        return { count };
+      }),
     },
     financialFact: {
       findMany: vi.fn(async () => dbMachineFacts),
@@ -500,6 +506,46 @@ describe("correctAnnualReportReview", () => {
     // total_assets was deleted, so it must NOT appear in the carried-over set.
     const acceptedData = acceptedMachineCall ? acceptedMachineCall[0].data : [];
     expect(acceptedData.some((d) => d.metricKey === "total_assets")).toBe(false);
+  });
+
+  it("persists two distinct lines that share a metricKey (label disambiguates)", async () => {
+    // metricKey is not a line identity: inngående and utgående egenkapital both
+    // map to total_equity. Both must be stored as separate reviewed facts.
+    const corrections = {
+      facts: [
+        {
+          metricKey: "total_equity",
+          fiscalYear: 2024,
+          value: "1000000",
+          rawLabel: "Egenkapital 01.01.2024",
+          statementScope: "CONSOLIDATED" as const,
+        },
+        {
+          metricKey: "total_equity",
+          fiscalYear: 2024,
+          value: "1500000",
+          rawLabel: "Egenkapital 31.12.2024",
+          statementScope: "CONSOLIDATED" as const,
+        },
+      ],
+    };
+
+    await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
+
+    type ReviewedFactArg = [
+      { data: Array<{ correctionSource: string; metricKey: string; rawLabel: string | null; value: unknown }> },
+    ];
+    const calls = prismaMock.annualReportReviewedFact.createMany.mock.calls as unknown as ReviewedFactArg[];
+    const manualFacts = calls
+      .flatMap(([arg]) => arg.data)
+      .filter((d) => d.correctionSource === "MANUAL_CORRECTION" && d.metricKey === "total_equity");
+
+    // Both lines survive — neither overwrites the other.
+    expect(manualFacts).toHaveLength(2);
+    expect(manualFacts.map((f) => f.rawLabel).sort()).toEqual([
+      "Egenkapital 01.01.2024",
+      "Egenkapital 31.12.2024",
+    ]);
   });
 
   it("keeps a key that is both deleted and re-corrected (correction wins)", async () => {

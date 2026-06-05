@@ -176,6 +176,10 @@ type RowEdit = {
   sourceMetricKey?: string | null;
   /** Reviewer-edited label for an extracted row (overrides row.label). */
   labelOverride?: string;
+  /** Konsern vs. selskap for this row, taken from the section the row is shown
+   *  in. Without it, a konsern and a morselskap row sharing the same metricKey
+   *  would collapse onto one fact on save (the "value reverts" bug). */
+  statementScope?: "COMPANY" | "CONSOLIDATED";
   /** Soft-delete: row is hidden and dropped on save (model produced a
    *  spurious line). Restorable from the deleted-rows tray. */
   deleted?: boolean;
@@ -549,8 +553,14 @@ function upsertFactCorrection(
   factMap: Map<string, FactCorrectionInput>,
   fact: FactCorrectionInput,
 ) {
+  // metricKey is NOT unique per line — two distinct rows can share a key
+  // (e.g. "Egenkapital 01.01" and "Egenkapital 31.12" both map to total_equity,
+  // or "Varelager" and "Sum varer" both to inventory). The line identity is
+  // metricKey + scope + year + rawLabel, so the label must be part of the dedup
+  // key or the second row silently overwrites the first.
   const scopeSuffix = fact.statementScope ? `:${fact.statementScope}` : "";
-  factMap.set(`${fact.metricKey}:${fact.fiscalYear}${scopeSuffix}`, fact);
+  const labelSuffix = `:${(fact.rawLabel ?? "").toLowerCase().trim()}`;
+  factMap.set(`${fact.metricKey}:${fact.fiscalYear}${scopeSuffix}${labelSuffix}`, fact);
 }
 
 function getPdfArtifactUrl(artifacts: Artifact[], filing: ReviewDetail["filing"], reviewId: string): string | null {
@@ -584,6 +594,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   // Collapse secondary detail sections behind "Se mer" by default.
   const [showArtifacts, setShowArtifacts] = useState(false);
   const [showValidationIssues, setShowValidationIssues] = useState(false);
+  const [showReviewedFacts, setShowReviewedFacts] = useState(false);
   const [extractionData, setExtractionData] = useState<ExtractionData | null>(null);
   const [extractionLoading, setExtractionLoading] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
@@ -1147,6 +1158,10 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         reassignedSourceMetricKeys.add(sourceMetricKey);
       }
 
+      // Scope for this row: the rowEdit carries the section's scope (konsern vs
+      // morselskap). Without it, konsern and selskap corrections for the same
+      // metric+year collapse onto one fact in upsertFactCorrection's dedup.
+      const rowScope = rowEdit.statementScope;
       if (mainValue !== null) {
         upsertFactCorrection(factCorrections, {
           metricKey: targetMetricKey,
@@ -1156,6 +1171,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           sourcePage: row.pageNumber,
           unitScale: row.unitScale,
           sourceMetricKey,
+          statementScope: rowScope,
         });
       }
       if (priorValue !== null) {
@@ -1167,6 +1183,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           sourcePage: row.pageNumber,
           unitScale: row.unitScale,
           sourceMetricKey,
+          statementScope: rowScope,
         });
       }
     }
@@ -1205,59 +1222,17 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       }
     }
 
-    // Soft-deleted canonical rows in the Standardisert view → also collect
-    // their keys so the backend drops the machine-extracted fact.
-    for (const fact of editableFacts) {
-      if (fact.deleted && fact.metricKey.trim() !== "") {
-        deletedMetricKeys.add(fact.metricKey.trim());
-      }
-    }
-
-    for (const fact of editableFacts) {
-      if (fact.deleted) continue;
-      if (reassignedSourceMetricKeys.has(fact.metricKey)) continue;
-      const metricKey = fact.metricKey.trim();
-      if (!metricKey) continue; // a half-added row with no key yet
-      const trimmed = normalizeAmountInput(fact.value);
-      const original = dbValueByKey.get(metricKey) ?? "";
-      const labelChanged =
-        fact.rawLabel.trim() !== "" &&
-        fact.rawLabel.trim() !== (facts.find((f) => f.metricKey === metricKey)?.rawLabel ?? "");
-
-      // Emit a correction when:
-      //   • the row is custom (user-added or non-canonical key), OR
-      //   • the value changed from the machine value, OR
-      //   • only the label changed (still record it as ground truth).
-      const valueChanged = trimmed !== "" && trimmed !== original;
-      if (!fact.isCustom && !valueChanged && !labelChanged) continue;
-
-      // A custom/label-only correction may legitimately have no value yet;
-      // skip emitting if there is genuinely nothing to record.
-      const effectiveValue = trimmed !== "" ? trimmed : original;
-      if (!effectiveValue && !labelChanged) continue;
-
-      upsertFactCorrection(factCorrections, {
-        metricKey,
-        fiscalYear: fact.fiscalYear,
-        value: effectiveValue !== "" ? effectiveValue : null,
-        rawLabel: fact.rawLabel.trim() || null,
-        sourcePage: fact.sourcePage.trim() !== "" ? parseInt(fact.sourcePage, 10) : null,
-        unitScale: fact.unitScale.trim() !== "" ? parseInt(fact.unitScale, 10) : null,
-      });
-    }
-
-    for (const [metricKey, value] of Object.entries(priorYearEdits)) {
-      if (reassignedSourceMetricKeys.has(metricKey)) continue;
-      if (!value.trim()) continue;
-      upsertFactCorrection(factCorrections, {
-        metricKey,
-        fiscalYear: priorFiscalYear,
-        value: value.trim(),
-        rawLabel: null,
-        sourcePage: null,
-        unitScale: null,
-      });
-    }
+    // NOTE: corrections are emitted SOLELY from rowEdits (the "Som rapportert"
+    // path) above. rowEdits is the single source of truth — each row carries its
+    // own statementScope (konsern/selskap) and rawLabel, so two rows sharing a
+    // metricKey never collide. The former editableFacts and priorYearEdits
+    // emission paths were SCOPE-BLIND (one slot per metricKey, no scope) and were
+    // the root of the whole bug class: konsern values getting the selskap value,
+    // cleared fields resurfacing a stale value, numbers reverting on save. Those
+    // edit surfaces (InlineFactTable / the editable Standardisert view) are no
+    // longer rendered — the Standardisert view is now a read-only sum derived
+    // from rowEdits — so editableFacts/priorYearEdits hold only stale machine
+    // values and must NOT be published.
 
     const correctedFacts = Array.from(factCorrections.values());
 
@@ -1678,23 +1653,36 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         {/* Reviewed facts — shown after accept/correct */}
         {hasReviewedFacts && (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-emerald-700">
-              Godkjente tall ({reviewedFacts.length})
-            </h2>
-            {rfIncome.length > 0 && (
-              <div className="mb-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600">
-                  Resultatregnskap
-                </h3>
-                <ReviewedFactTable facts={rfIncome} />
-              </div>
-            )}
-            {rfBalance.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600">
-                  Balanse
-                </h3>
-                <ReviewedFactTable facts={rfBalance} />
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-emerald-700">
+                Godkjente tall ({reviewedFacts.length})
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowReviewedFacts((v) => !v)}
+                className="shrink-0 text-xs font-medium text-[var(--px-accent)] hover:underline"
+              >
+                {showReviewedFacts ? "Skjul" : "Se mer"}
+              </button>
+            </div>
+            {showReviewedFacts && (
+              <div className="mt-3">
+                {rfIncome.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600">
+                      Resultatregnskap
+                    </h3>
+                    <ReviewedFactTable facts={rfIncome} />
+                  </div>
+                )}
+                {rfBalance.length > 0 && (
+                  <div>
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600">
+                      Balanse
+                    </h3>
+                    <ReviewedFactTable facts={rfBalance} />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2102,6 +2090,8 @@ function DeletedRowsTray({
     .map((fact, index) => ({ fact, index }))
     .filter(({ fact }) => fact.deleted);
 
+  const [open, setOpen] = useState(false);
+
   if (deleted.length === 0) return null;
 
   const restoreAt = (index: number) => {
@@ -2114,10 +2104,20 @@ function DeletedRowsTray({
 
   return (
     <div className="mb-6 rounded-lg border border-dashed border-red-200 bg-red-50/40 p-3">
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-400">
-        Slettede rader ({deleted.length})
-      </h4>
-      <ul className="space-y-1">
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-red-400">
+          Slettede rader ({deleted.length})
+        </h4>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="shrink-0 text-xs font-medium text-[var(--px-accent)] hover:underline"
+        >
+          {open ? "Skjul" : "Se mer"}
+        </button>
+      </div>
+      {open && (
+      <ul className="mt-2 space-y-1">
         {deleted.map(({ fact, index }) => (
           <li
             key={fact.id}
@@ -2138,6 +2138,7 @@ function DeletedRowsTray({
           </li>
         ))}
       </ul>
+      )}
     </div>
   );
 }
@@ -2382,11 +2383,11 @@ function deriveStandardizedTotals(input: {
     const fallbackMain = mainProposed ?? (reconMain !== null ? String(Math.round(reconMain * row.unitScale)) : null);
     const fallbackPrior = priorProposed ?? (reconPrior !== null ? String(Math.round(reconPrior * row.unitScale)) : null);
 
-    const editIdx = isMapped && canonicalKey ? editableFacts.findIndex((e) => e.metricKey === canonicalKey) : -1;
-    const mappedMainManual = editIdx >= 0 ? editableFacts[editIdx]!.value : "";
-    const mappedPriorManual = isMapped && canonicalKey ? priorYearEdits[canonicalKey] ?? "" : "";
-    const mainManual = hasKeyOverride || !isMapped ? rowEdit?.mainValue ?? "" : mappedMainManual;
-    const priorManual = hasKeyOverride || !isMapped ? rowEdit?.priorValue ?? "" : mappedPriorManual;
+    // Manual values come from the scope-aware rowEdit (keyed by rowId), never
+    // from the scope-blind editableFacts/priorYearEdits — so konsern and
+    // morselskap rows sharing a metricKey sum independently.
+    const mainManual = rowEdit?.mainValue ?? "";
+    const priorManual = rowEdit?.priorValue ?? "";
 
     const effMain = mainManual.trim() !== "" ? mainManual : fallbackMain;
     const effPrior = priorManual.trim() !== "" ? priorManual : fallbackPrior;
@@ -3194,6 +3195,7 @@ function DeletedAsReportedTray({
 }) {
   const deletedExtracted = effectiveRows.filter((r) => rowEdits[getRowId(r)]?.deleted);
   const deletedAdded = addedRows.filter((r) => r.deleted);
+  const [open, setOpen] = useState(false);
   if (deletedExtracted.length === 0 && deletedAdded.length === 0) return null;
 
   const restoreExtracted = (rowId: string) =>
@@ -3210,10 +3212,20 @@ function DeletedAsReportedTray({
 
   return (
     <div className="mb-4 rounded-lg border border-dashed border-red-200 bg-red-50/40 p-3">
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-400">
-        Slettede rader ({deletedExtracted.length + deletedAdded.length})
-      </h4>
-      <ul className="space-y-1">
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-red-400">
+          Slettede rader ({deletedExtracted.length + deletedAdded.length})
+        </h4>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="shrink-0 text-xs font-medium text-[var(--px-accent)] hover:underline"
+        >
+          {open ? "Skjul" : "Se mer"}
+        </button>
+      </div>
+      {open && (
+      <ul className="mt-2 space-y-1">
         {deletedExtracted.map((row, idx) => {
           const rowId = getRowId(row);
           return (
@@ -3248,6 +3260,7 @@ function DeletedAsReportedTray({
           </li>
         ))}
       </ul>
+      )}
     </div>
   );
 }
@@ -3535,12 +3548,32 @@ function AsReportedSection({
                   : null
               );
 
+              // Manual values for mapped rows live in rowEdits, keyed by the
+              // per-row rowId (which includes pageNumber+values, so a konsern
+              // and a morselskap row sharing the same metricKey stay distinct).
+              // editableFacts is scope-blind (one slot per key) and would let a
+              // konsern edit overwrite the morselskap value and vice-versa — the
+              // "value reverts on save" bug. We read rowEdits first and only fall
+              // back to the legacy scope-blind editableFacts slot for display.
+              // Once a row has a rowEdit entry, that entry is AUTHORITATIVE: an
+              // empty value means the reviewer intentionally cleared the field,
+              // not "fall back to the legacy scope-blind editableFacts /
+              // priorYearEdits slot". Falling back on empty made cleared fields
+              // resurface a stale legacy value (the "can't clear payroll 2023"
+              // bug). The legacy fallback only applies when there is NO rowEdit.
+              const hasRowEdit = rowEdits[rowId] !== undefined;
               const editIdx = isMapped && canonicalKey
                 ? editableFacts.findIndex((e) => e.metricKey === canonicalKey)
                 : -1;
-              const mappedMainManual = editIdx >= 0 ? editableFacts[editIdx].value : "";
-              const mappedPriorManual =
+              const legacyMappedMain = editIdx >= 0 ? editableFacts[editIdx].value : "";
+              const legacyMappedPrior =
                 isMapped && canonicalKey ? (priorYearEdits[canonicalKey] ?? "") : "";
+              const mappedMainManual = hasRowEdit
+                ? (rowEdit.mainValue ?? "")
+                : legacyMappedMain;
+              const mappedPriorManual = hasRowEdit
+                ? (rowEdit.priorValue ?? "")
+                : legacyMappedPrior;
               const mainManualValue =
                 hasKeyOverride || !isMapped ? rowEdit.mainValue : mappedMainManual;
               const priorManualValue =
@@ -3585,6 +3618,7 @@ function AsReportedSection({
                               sourceMetricKey: canonicalKey,
                             }),
                             labelOverride: value,
+                            statementScope: scopeTag,
                           },
                         }));
                       }}
@@ -3637,6 +3671,7 @@ function AsReportedSection({
                                 ...(prevEdit ?? { mainValue: "", priorValue: "" }),
                                 metricKey: value,
                                 sourceMetricKey: canonicalKey,
+                                statementScope: scopeTag,
                                 mainValue:
                                   (prevEdit?.mainValue ?? "") !== ""
                                     ? prevEdit!.mainValue
@@ -3701,15 +3736,28 @@ function AsReportedSection({
                             : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]")
                         }
                       />
-                    ) : isMapped && editIdx >= 0 ? (
+                    ) : isMapped ? (
                       <input
                         value={mainManualValue}
                         onChange={(e) => {
-                          setEditableFacts((prev) => {
-                            const next = [...prev];
-                            next[editIdx] = { ...next[editIdx], value: e.target.value };
-                            return next;
-                          });
+                          const value = e.target.value;
+                          // Write to rowEdits (scope-safe via rowId), NOT the
+                          // scope-blind editableFacts. sourceMetricKey carries
+                          // the canonical key so handleCorrect emits a correction
+                          // for this exact row/scope.
+                          setRowEdits((prev) => ({
+                            ...prev,
+                            [rowId]: {
+                              ...(prev[rowId] ?? {
+                                metricKey: selectedMetricKey,
+                                priorValue: "",
+                              }),
+                              metricKey: selectedMetricKey,
+                              mainValue: value,
+                              sourceMetricKey: canonicalKey,
+                              statementScope: scopeTag,
+                            },
+                          }));
                         }}
                         placeholder="—"
                         className={
@@ -3772,12 +3820,27 @@ function AsReportedSection({
                                 : "border-[rgba(15,23,42,0.10)] bg-white text-slate-500 focus:border-[var(--px-accent)]")
                             }
                           />
-                        ) : isMapped && canonicalKey ? (
+                        ) : isMapped ? (
                           <input
                             value={priorManualValue}
                             onChange={(e) => {
                               const value = e.target.value;
-                              setPriorYearEdits((prev) => ({ ...prev, [canonicalKey]: value }));
+                              // rowEdits (scope-safe), not priorYearEdits which
+                              // is keyed by metricKey only and collides across
+                              // konsern/morselskap.
+                              setRowEdits((prev) => ({
+                                ...prev,
+                                [rowId]: {
+                                  ...(prev[rowId] ?? {
+                                    metricKey: selectedMetricKey,
+                                    mainValue: "",
+                                  }),
+                                  metricKey: selectedMetricKey,
+                                  priorValue: value,
+                                  sourceMetricKey: canonicalKey,
+                                  statementScope: scopeTag,
+                                },
+                              }));
                             }}
                             placeholder="—"
                             className={

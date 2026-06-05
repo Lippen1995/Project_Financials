@@ -504,6 +504,14 @@ export async function correctAnnualReportReview(
       },
     });
 
+    // Clear this review's existing reviewed facts before rewriting them. Save
+    // is idempotent: re-saving a re-opened review must REPLACE the facts, not
+    // append. Without this, createMany({skipDuplicates}) keeps the first row
+    // ever written for a given (metricKey, scope, year, label) and silently
+    // drops the corrected value — the "numbers revert / konsern shows selskap
+    // value" bug, where a stale fact from an earlier save survived.
+    await tx.annualReportReviewedFact.deleteMany({ where: { reviewId: review.id } });
+
     // Build set of corrected metricKeys
     const correctedMetricKeys = new Set(
       (corrections.facts ?? []).flatMap((f) =>
@@ -511,6 +519,50 @@ export async function correctAnnualReportReview(
           ? [f.metricKey, f.sourceMetricKey]
           : [f.metricKey],
       ),
+    );
+
+    // Carry-over suppression needs two different identities:
+    //
+    //  1. REASSIGNED source keys — when a row's key is changed (revenue →
+    //     other_operating_income), the original sourceMetricKey machine fact no
+    //     longer represents anything and must be dropped by metricKey.
+    //
+    //  2. SAME-KEY corrections — metricKey is not a line identity (inngående vs
+    //     utgående egenkapital both map to total_equity). Suppress only the
+    //     SPECIFIC corrected line (metricKey+scope+year+label), so an untouched
+    //     same-key machine line still carries over.
+    const reassignedSourceKeys = new Set(
+      (corrections.facts ?? [])
+        .filter((f) => f.sourceMetricKey && f.sourceMetricKey !== f.metricKey)
+        .map((f) => f.sourceMetricKey as string),
+    );
+    const lineIdentity = (input: {
+      metricKey: string;
+      statementScope?: string | null;
+      fiscalYear: number;
+      rawLabel?: string | null;
+    }) =>
+      `${input.metricKey}|${input.statementScope ?? ""}|${input.fiscalYear}|${(input.rawLabel ?? "").toLowerCase().trim()}`;
+    const correctedLineIdentities = new Set(
+      (corrections.facts ?? [])
+        .filter((f) => (f.rawLabel ?? "").trim() !== "")
+        .map((f) =>
+          lineIdentity({
+            metricKey: f.metricKey,
+            statementScope: f.statementScope ?? reviewScope,
+            fiscalYear: f.fiscalYear,
+            rawLabel: f.rawLabel,
+          }),
+        ),
+    );
+    // A correction with NO label (the canonical/standardized edit path) can't
+    // identify a specific line, so it suppresses by metricKey — the original
+    // behaviour. Label-bearing corrections (the "Som rapportert" rowEdits path)
+    // suppress only their exact line via correctedLineIdentities above.
+    const correctedKeysWithoutLabel = new Set(
+      (corrections.facts ?? [])
+        .filter((f) => (f.rawLabel ?? "").trim() === "")
+        .map((f) => f.metricKey),
     );
 
     // Keys the reviewer explicitly deleted: their machine facts must NOT be
@@ -526,7 +578,11 @@ export async function correctAnnualReportReview(
         where: { extractionRunId: review.extractionRunId },
       });
       const uncorrected = machineFacts.filter(
-        (f) => !correctedMetricKeys.has(f.metricKey) && !deletedMetricKeys.has(f.metricKey),
+        (f) =>
+          !reassignedSourceKeys.has(f.metricKey) &&
+          !correctedKeysWithoutLabel.has(f.metricKey) &&
+          !correctedLineIdentities.has(lineIdentity(f)) &&
+          !deletedMetricKeys.has(f.metricKey),
       );
       if (uncorrected.length > 0) {
         await tx.annualReportReviewedFact.createMany({
@@ -873,6 +929,7 @@ export async function validateReviewedAnnualReportFacts(
     metricKey: f.metricKey,
     fiscalYear: f.fiscalYear,
     statementType: f.statementType,
+    statementScope: f.statementScope,
     value: f.value,
     unitScale: f.unitScale,
     sourcePage: f.sourcePage,
@@ -936,6 +993,7 @@ export async function publishReviewedAnnualReportFacts(
     metricKey: f.metricKey,
     fiscalYear: f.fiscalYear,
     statementType: f.statementType,
+    statementScope: f.statementScope,
     value: f.value,
     unitScale: f.unitScale,
     sourcePage: f.sourcePage,
@@ -985,8 +1043,16 @@ export async function publishReviewedAnnualReportFacts(
       if (yearScopeFacts.length === 0) continue;
 
       const factMap = new Map(yearScopeFacts.map((f) => [f.metricKey, f]));
+      // Revenue for the summary: prefer the operating-income TOTAL, then the
+      // sales line. Different filings map their income total to different keys
+      // (total_revenue vs total_operating_income), and some only have the
+      // sales-line `revenue`. Without total_revenue here the summary showed a
+      // null revenue even though the line item was published correctly.
       const revenue =
-        factMap.get("revenue")?.value ?? factMap.get("total_operating_income")?.value ?? null;
+        factMap.get("total_revenue")?.value ??
+        factMap.get("total_operating_income")?.value ??
+        factMap.get("revenue")?.value ??
+        null;
       const operatingProfit = factMap.get("operating_profit")?.value ?? null;
       const netIncome = factMap.get("net_income")?.value ?? null;
       const equity = factMap.get("total_equity")?.value ?? null;

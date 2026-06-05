@@ -1429,7 +1429,11 @@ model AnnualReportReviewedFact {
   company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   reviewer User               @relation("ReviewedFactReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
 
-  @@unique([reviewId, metricKey, statementScope, fiscalYear])
+  // metricKey is not unique per line — distinct rows can share a key
+  // (e.g. inngående vs utgående egenkapital both map to total_equity). The
+  // line identity includes the human-reviewed label, so two such rows persist
+  // as separate facts instead of one silently overwriting the other.
+  @@unique([reviewId, metricKey, statementScope, fiscalYear, rawLabel])
   @@index([reviewId, metricKey])
   @@index([companyId, fiscalYear, metricKey])
 }

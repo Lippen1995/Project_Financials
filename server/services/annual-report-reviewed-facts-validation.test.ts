@@ -334,6 +334,45 @@ describe("validateReviewedFacts — unit scale and fiscal year", () => {
     expect(result.blockingIssues.some((i) => i.ruleCode === "UNIT_SCALE_INCONSISTENCY")).toBe(false);
   });
 
+  it("validates konsern and selskap independently — does not mix scopes in one equation", () => {
+    // A group company carries both konsern and selskap statements. Each scope's
+    // operating_profit = income - expenses must reconcile WITHIN its own scope.
+    // Konsern is internally consistent; selskap is internally consistent; the
+    // cross-scope numbers differ, but that must NOT produce a phantom mismatch.
+    const facts: ReviewedFactForValidation[] = [
+      // Konsern: 1000 - 600 = 400 ✓
+      { metricKey: "total_operating_income", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "CONSOLIDATED", value: 1000n, unitScale: 1 },
+      { metricKey: "total_operating_expenses", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "CONSOLIDATED", value: 600n, unitScale: 1 },
+      { metricKey: "operating_profit", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "CONSOLIDATED", value: 400n, unitScale: 1 },
+      // Selskap: 200 - 250 = -50 ✓ (different magnitudes, own scope)
+      { metricKey: "total_operating_income", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "COMPANY", value: 200n, unitScale: 1 },
+      { metricKey: "total_operating_expenses", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "COMPANY", value: 250n, unitScale: 1 },
+      { metricKey: "operating_profit", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "COMPANY", value: -50n, unitScale: 1 },
+    ];
+    const result = validateReviewedFacts(facts);
+    // Both scopes reconcile within themselves → no operating-profit mismatch.
+    expect(result.blockingIssues.some((i) => i.ruleCode === "IS_OPERATING_PROFIT_MATCH")).toBe(false);
+    expect(result.passed).toBe(true);
+  });
+
+  it("flags a mismatch in only the offending scope, tagged with that scope", () => {
+    const facts: ReviewedFactForValidation[] = [
+      // Konsern reconciles
+      { metricKey: "total_operating_income", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "CONSOLIDATED", value: 1000n, unitScale: 1 },
+      { metricKey: "total_operating_expenses", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "CONSOLIDATED", value: 600n, unitScale: 1 },
+      { metricKey: "operating_profit", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "CONSOLIDATED", value: 400n, unitScale: 1 },
+      // Selskap does NOT reconcile (200M - 100M = 100M, but stored 999M)
+      { metricKey: "total_operating_income", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "COMPANY", value: 200_000_000n, unitScale: 1 },
+      { metricKey: "total_operating_expenses", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "COMPANY", value: 100_000_000n, unitScale: 1 },
+      { metricKey: "operating_profit", fiscalYear: 2024, statementType: "INCOME_STATEMENT", statementScope: "COMPANY", value: 999_000_000n, unitScale: 1 },
+    ];
+    const result = validateReviewedFacts(facts);
+    const mismatch = result.blockingIssues.find((i) => i.ruleCode === "IS_OPERATING_PROFIT_MATCH");
+    expect(mismatch).toBeDefined();
+    expect(mismatch?.context?.statementScope).toBe("COMPANY");
+    expect(mismatch?.message).toContain("Selskap");
+  });
+
   it("allows mixed fiscal years and validates each year independently", () => {
     // A review carries the main year plus the prior/comparative year. Mixed
     // years are EXPECTED — no MIXED_FISCAL_YEARS block. Equation checks run per

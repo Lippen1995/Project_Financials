@@ -8,6 +8,10 @@ export type ReviewedFactForValidation = {
   metricKey: string;
   fiscalYear: number;
   statementType: FinancialFactStatementType;
+  /** Konsern vs selskap. Reconciliation equations MUST be evaluated within a
+   *  single scope — mixing a konsern operating_profit with a selskap
+   *  net_financial_items produces a meaningless "mismatch". */
+  statementScope?: "COMPANY" | "CONSOLIDATED";
   value: bigint | null;
   unitScale: number;
   sourcePage?: number | null;
@@ -114,12 +118,15 @@ export type ValidateReviewedFactsOptions = {
 function validateSingleYear(
   selectedFacts: Map<string, ReviewedFactForValidation>,
   fiscalYear: number,
+  statementScope?: string,
 ): ReviewedFactsValidationIssue[] {
   const issues: ReviewedFactsValidationIssue[] = [];
+  const scopeLabel = statementScope === "CONSOLIDATED" ? "Konsern" : statementScope === "COMPANY" ? "Selskap" : null;
+  const prefix = scopeLabel ? `[${fiscalYear} · ${scopeLabel}]` : `[${fiscalYear}]`;
   const tag = (issue: ReviewedFactsValidationIssue): ReviewedFactsValidationIssue => ({
     ...issue,
-    message: `[${fiscalYear}] ${issue.message}`,
-    context: { ...(issue.context ?? {}), fiscalYear },
+    message: `${prefix} ${issue.message}`,
+    context: { ...(issue.context ?? {}), fiscalYear, statementScope },
   });
 
   // IS: operating_profit = total_operating_income - total_operating_expenses
@@ -299,19 +306,29 @@ export function validateReviewedFacts(
     });
   }
 
-  // Mixed fiscal years is now EXPECTED (each review carries the main year plus
-  // the prior/comparative year). Validate reconciliation equations per year.
-  const years = Array.from(new Set(facts.map((f) => f.fiscalYear))).sort((a, b) => a - b);
-  for (const year of years) {
-    const yearMap = new Map<string, ReviewedFactForValidation>();
-    for (const fact of facts) {
-      if (fact.fiscalYear !== year) continue;
-      const existing = yearMap.get(fact.metricKey);
-      if (!existing || (existing.value === null && fact.value !== null)) {
-        yearMap.set(fact.metricKey, fact);
-      }
+  // Reconciliation equations are evaluated per (fiscalYear, statementScope).
+  // Mixed years are EXPECTED (main + comparative year), and a group company
+  // carries BOTH konsern and selskap statements. Grouping only by year would
+  // let a konsern value and a selskap value for the same metricKey overwrite
+  // each other, so the equation would mix scopes and report a phantom mismatch.
+  const groups = new Map<string, { year: number; scope: string; map: Map<string, ReviewedFactForValidation> }>();
+  for (const fact of facts) {
+    const scope = fact.statementScope ?? "COMPANY";
+    const groupKey = `${fact.fiscalYear}|${scope}`;
+    let group = groups.get(groupKey);
+    if (!group) {
+      group = { year: fact.fiscalYear, scope, map: new Map() };
+      groups.set(groupKey, group);
     }
-    issues.push(...validateSingleYear(yearMap, year));
+    const existing = group.map.get(fact.metricKey);
+    if (!existing || (existing.value === null && fact.value !== null)) {
+      group.map.set(fact.metricKey, fact);
+    }
+  }
+  for (const group of [...groups.values()].sort(
+    (a, b) => a.year - b.year || a.scope.localeCompare(b.scope),
+  )) {
+    issues.push(...validateSingleYear(group.map, group.year, group.scope));
   }
 
   // Override: downgrade reviewer-overridden rule codes from ERROR to WARNING so
