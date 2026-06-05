@@ -46,10 +46,16 @@ function PresentationNodeView({ data }: NodeProps<Node<PresentationNodeData>>) {
   const [over, setOver] = useState(false);
   const isSubtotal = data.kind === "SUBTOTAL";
 
+  // Dropping a key on a SUBTOTAL attaches it as a MATCH (validation) reference,
+  // never as an additive operand — a subtotal's value comes from its operand
+  // nodes. The over-state colour signals this difference (purple = match).
+  const overColor = isSubtotal ? "#7c3aed" : "#2563eb";
+  const overBg = isSubtotal ? "#faf5ff" : "#eff6ff";
+
   return (
     <div
       onDragOver={(e) => {
-        if (!isSubtotal && e.dataTransfer.types.includes(KEY_MIME)) {
+        if (e.dataTransfer.types.includes(KEY_MIME)) {
           e.preventDefault();
           setOver(true);
         }
@@ -58,7 +64,7 @@ function PresentationNodeView({ data }: NodeProps<Node<PresentationNodeData>>) {
       onDrop={(e) => {
         setOver(false);
         const metricKey = e.dataTransfer.getData(KEY_MIME);
-        if (metricKey && !isSubtotal) {
+        if (metricKey) {
           e.preventDefault();
           data.onDropKey(metricKey, data.nodeId);
         }
@@ -68,11 +74,11 @@ function PresentationNodeView({ data }: NodeProps<Node<PresentationNodeData>>) {
         borderColor: data.selected
           ? "#00668a"
           : over
-            ? "#2563eb"
+            ? overColor
             : isSubtotal
               ? "#15803d"
               : "rgba(15,23,42,0.18)",
-        background: over ? "#eff6ff" : isSubtotal ? "#f0fdf4" : "#ffffff",
+        background: over ? overBg : isSubtotal ? "#f0fdf4" : "#ffffff",
       }}
     >
       <Handle type="target" position={Position.Left} />
@@ -86,28 +92,44 @@ function PresentationNodeView({ data }: NodeProps<Node<PresentationNodeData>>) {
       </div>
 
       {isSubtotal ? (
-        data.operands.length > 0 ? (
-          <ul className="mt-1.5 space-y-0.5 border-t border-green-100 pt-1.5 text-xs text-slate-600">
-            {data.operands.map((operand, i) => (
-              <li key={`${operand.label}-${i}`}>
-                <span
-                  className={
-                    operand.operation === "SUBTRACT"
-                      ? "font-bold text-red-600"
-                      : "font-bold text-green-700"
-                  }
-                >
-                  {i === 0 && operand.operation === "ADD" ? "" : operand.operation === "SUBTRACT" ? "− " : "+ "}
-                </span>
-                {operand.label}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-1.5 border-t border-green-100 pt-1.5 text-xs italic text-slate-400">
-            Ingen input-noder ennå
-          </p>
-        )
+        <>
+          {data.operands.length > 0 ? (
+            <ul className="mt-1.5 space-y-0.5 border-t border-green-100 pt-1.5 text-xs text-slate-600">
+              {data.operands.map((operand, i) => (
+                <li key={`${operand.label}-${i}`}>
+                  <span
+                    className={
+                      operand.operation === "SUBTRACT"
+                        ? "font-bold text-red-600"
+                        : "font-bold text-green-700"
+                    }
+                  >
+                    {i === 0 && operand.operation === "ADD" ? "" : operand.operation === "SUBTRACT" ? "− " : "+ "}
+                  </span>
+                  {operand.label}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1.5 border-t border-green-100 pt-1.5 text-xs italic text-slate-400">
+              Ingen input-noder ennå
+            </p>
+          )}
+          {data.keyIds.length > 0 ? (
+            <ul className="mt-1.5 space-y-0.5 border-t border-purple-100 pt-1.5 font-mono text-xs text-purple-600">
+              {data.keyIds.map((id) => (
+                <li key={id}>
+                  <span className="font-bold">= </span>
+                  {id}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-[10px] italic text-purple-400">
+              Dra en nøkkel hit for å matche/validere
+            </p>
+          )}
+        </>
       ) : data.keyIds.length > 0 ? (
         <ul className="mt-1.5 space-y-0.5 border-t border-slate-100 pt-1.5 font-mono text-xs text-slate-500">
           {data.keyIds.map((id) => (
@@ -221,8 +243,31 @@ export default function MetricMappingView({
       ),
     [runMutation],
   );
-  const handleAssignRef = useRef(handleAssign);
-  handleAssignRef.current = handleAssign;
+  // Assigns a key to a node via drag-and-drop. Dropping onto a SUBTOTAL node
+  // attaches the key as a MATCH reference: a subtotal's value is computed from
+  // its operand nodes, so a key there can only validate that computed value
+  // (the reported figure must match within tolerance). This keeps subtotal keys
+  // restricted to matching, which the downstream validation step relies on.
+  const handleDropKeyOnNode = useCallback(
+    (metricKey: string, nodeId: string) => {
+      const isSubtotal =
+        model.nodes.find((n) => n.id === nodeId)?.kind === "SUBTOTAL";
+      return runMutation(async () => {
+        const res = await mutate("/api/admin/presentation-nodes/keys", "PATCH", {
+          metricKey,
+          nodeId,
+        });
+        if (!res.ok || !isSubtotal) return res;
+        return mutate("/api/admin/presentation-nodes/keys/config", "PATCH", {
+          metricKey,
+          operation: "MATCH",
+        });
+      });
+    },
+    [runMutation, model.nodes],
+  );
+  const handleDropKeyOnNodeRef = useRef(handleDropKeyOnNode);
+  handleDropKeyOnNodeRef.current = handleDropKeyOnNode;
 
   const handleKeyConfig = useCallback(
     (metricKey: string, patch: { valueMode?: string; operation?: string }) =>
@@ -280,7 +325,7 @@ export default function MetricMappingView({
           })),
           selected: node.id === selectedNodeId,
           onDropKey: (metricKey: string, nodeId: string) =>
-            handleAssignRef.current(metricKey, nodeId),
+            handleDropKeyOnNodeRef.current(metricKey, nodeId),
         },
       })),
     );
@@ -869,6 +914,13 @@ export default function MetricMappingView({
                   funksjon den har. <span className="font-semibold">Match</span> betyr at funksjonen
                   av de andre nøklene skal stemme med denne verdien (±1 %); avvik flagges i manuell
                   kontroll.
+                  {selectedNode.kind === "SUBTOTAL" ? (
+                    <>
+                      {" "}
+                      Nøkler på en subtotal er låst til <span className="font-semibold">Match</span>:
+                      subtotalens verdi beregnes fra input-nodene, så nøkkelen kan bare validere den.
+                    </>
+                  ) : null}
                 </p>
                 <ul className="space-y-1.5">
                   {selectedNodeKeys.map((key) => (
@@ -889,24 +941,34 @@ export default function MetricMappingView({
                         <option value="NOMINAL">Nominell</option>
                         <option value="ABSOLUTE">Absolutt</option>
                       </select>
-                      <select
-                        disabled={busy}
-                        value={key.operation}
-                        onChange={(e) => void handleKeyConfig(key.key, { operation: e.target.value })}
-                        className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-2 py-1 text-xs"
-                        style={{
-                          borderColor: key.operation === "MATCH" ? "#7c3aed" : undefined,
-                          color: key.operation === "MATCH" ? "#7c3aed" : undefined,
-                          fontWeight: key.operation === "MATCH" ? 600 : undefined,
-                        }}
-                        title="Beregningsfunksjon"
-                      >
-                        <option value="ADD">Addisjon (+)</option>
-                        <option value="SUBTRACT">Subtraksjon (−)</option>
-                        <option value="MULTIPLY">Multiplikasjon (×)</option>
-                        <option value="DIVIDE">Divisjon (÷)</option>
-                        <option value="MATCH">Match (=)</option>
-                      </select>
+                      {selectedNode.kind === "SUBTOTAL" ? (
+                        <span
+                          className="rounded border px-2 py-1 text-xs font-semibold"
+                          style={{ borderColor: "#7c3aed", color: "#7c3aed" }}
+                          title="Nøkler på en subtotal er låst til Match (validering)"
+                        >
+                          Match (=)
+                        </span>
+                      ) : (
+                        <select
+                          disabled={busy}
+                          value={key.operation}
+                          onChange={(e) => void handleKeyConfig(key.key, { operation: e.target.value })}
+                          className="rounded border border-[rgba(15,23,42,0.12)] bg-white px-2 py-1 text-xs"
+                          style={{
+                            borderColor: key.operation === "MATCH" ? "#7c3aed" : undefined,
+                            color: key.operation === "MATCH" ? "#7c3aed" : undefined,
+                            fontWeight: key.operation === "MATCH" ? 600 : undefined,
+                          }}
+                          title="Beregningsfunksjon"
+                        >
+                          <option value="ADD">Addisjon (+)</option>
+                          <option value="SUBTRACT">Subtraksjon (−)</option>
+                          <option value="MULTIPLY">Multiplikasjon (×)</option>
+                          <option value="DIVIDE">Divisjon (÷)</option>
+                          <option value="MATCH">Match (=)</option>
+                        </select>
+                      )}
                     </li>
                   ))}
                 </ul>
