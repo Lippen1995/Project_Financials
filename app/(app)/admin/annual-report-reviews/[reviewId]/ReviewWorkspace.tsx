@@ -750,6 +750,50 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     });
   };
 
+  // Global universe of custom keys created across ALL prior reviews (the same
+  // keys surfaced in the metric-mapping admin). Without this, keys a reviewer
+  // created earlier would be invisible in a fresh review's picker. Fetched once
+  // and merged into the picker options below; NOT persisted to the draft.
+  const [knownKeys, setKnownKeys] = useState<CustomKeyState>({ income: [], balance: [] });
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/canonical-keys", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          data: { keys: { key: string; family: string }[] };
+        };
+        if (cancelled) return;
+        const income: string[] = [];
+        const balance: string[] = [];
+        for (const k of json.data.keys) {
+          if (CANONICAL_ORDER_MAP.has(k.key)) continue; // already in the skeleton order
+          if (k.family === "BALANCE_SHEET") balance.push(k.key);
+          else income.push(k.key);
+        }
+        setKnownKeys({ income, balance });
+      } catch {
+        // Best-effort enrichment — the picker still works with the skeleton
+        // order plus any keys added in this session.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Picker universe shown in the comboboxes: previously-created keys first,
+  // then any added in this session. Deduped; the draft still persists only the
+  // session-added `customKeys`.
+  const mergedKeyUniverse = useMemo<CustomKeyState>(() => {
+    const dedupe = (a: string[], b: string[]) => Array.from(new Set([...a, ...b]));
+    return {
+      income: dedupe(knownKeys.income, customKeys.income),
+      balance: dedupe(knownKeys.balance, customKeys.balance),
+    };
+  }, [knownKeys, customKeys]);
+
   // Standardized view = read-only aggregation (sum per canonical key) of the
   // values entered in "Som rapportert". Recomputed whenever any editing state
   // changes so it always mirrors the as-reported numbers.
@@ -1539,7 +1583,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                     setRowEdits={setRowEdits}
                     addedRows={addedRows}
                     setAddedRows={setAddedRows}
-                    customKeys={customKeys}
+                    customKeys={mergedKeyUniverse}
                     addCustomKey={addCustomKey}
                   />
                 )}
