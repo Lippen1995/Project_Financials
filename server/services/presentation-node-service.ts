@@ -173,14 +173,16 @@ export async function buildNodeMappingModel(): Promise<NodeMappingModel> {
  * evaluator. Nodes without assigned keys are omitted (nothing to evaluate).
  */
 export async function loadNodeEvaluationConfig(): Promise<NodeEvalConfig[]> {
-  const [nodes, assignments] = await Promise.all([
-    prisma.presentationNode.findMany({ select: { id: true, label: true } }),
+  const [nodes, assignments, links] = await Promise.all([
+    prisma.presentationNode.findMany({ select: { id: true, label: true, kind: true } }),
     prisma.presentationNodeKey.findMany({
       select: { metricKey: true, nodeId: true, valueMode: true, operation: true },
     }),
+    prisma.presentationNodeLink.findMany({
+      select: { sourceNodeId: true, targetNodeId: true, operation: true },
+    }),
   ]);
 
-  const labelByNode = new Map(nodes.map((n) => [n.id, n.label]));
   const keysByNode = new Map<string, NodeEvalConfig["keys"]>();
   for (const a of assignments) {
     const list = keysByNode.get(a.nodeId) ?? [];
@@ -192,10 +194,26 @@ export async function loadNodeEvaluationConfig(): Promise<NodeEvalConfig[]> {
     keysByNode.set(a.nodeId, list);
   }
 
-  return [...keysByNode.entries()].map(([nodeId, keys]) => ({
-    nodeId,
-    nodeLabel: labelByNode.get(nodeId) ?? nodeId,
-    keys,
+  // Operand nodes per SUBTOTAL target — lets the evaluator fold a subtotal's
+  // value from its input nodes and check it against the subtotal's MATCH keys.
+  const operandsByNode = new Map<string, NonNullable<NodeEvalConfig["operands"]>>();
+  for (const l of links) {
+    const list = operandsByNode.get(l.targetNodeId) ?? [];
+    list.push({
+      sourceNodeId: l.sourceNodeId,
+      operation: l.operation === "SUBTRACT" ? "SUBTRACT" : "ADD",
+    });
+    operandsByNode.set(l.targetNodeId, list);
+  }
+
+  // Every node is included (not just those with keys): a subtotal needs its
+  // operand nodes resolvable even when they carry no MATCH keys themselves.
+  return nodes.map((n) => ({
+    nodeId: n.id,
+    nodeLabel: n.label,
+    kind: n.kind === "SUBTOTAL" ? "SUBTOTAL" : "LINE",
+    keys: keysByNode.get(n.id) ?? [],
+    operands: operandsByNode.get(n.id) ?? [],
   }));
 }
 

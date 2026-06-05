@@ -20,16 +20,32 @@
 export type KeyValueMode = "NOMINAL" | "ABSOLUTE";
 export type KeyOperation = "ADD" | "SUBTRACT" | "MULTIPLY" | "DIVIDE" | "MATCH";
 
+export type NodeKind = "LINE" | "SUBTOTAL";
+
 export type NodeEvalKey = {
   metricKey: string;
   valueMode: KeyValueMode;
   operation: KeyOperation;
 };
 
+/** A node-to-node input of a SUBTOTAL: the source node's value, signed. */
+export type NodeEvalOperand = {
+  sourceNodeId: string;
+  operation: "ADD" | "SUBTRACT";
+};
+
 export type NodeEvalConfig = {
   nodeId: string;
   nodeLabel: string;
+  /**
+   * LINE nodes derive their value by folding their operand keys; SUBTOTAL nodes
+   * derive it by folding their operand nodes (see `operands`). Defaults to LINE
+   * when omitted for backward compatibility.
+   */
+  kind?: NodeKind;
   keys: NodeEvalKey[];
+  /** Operand nodes for a SUBTOTAL. Ignored for LINE nodes. */
+  operands?: NodeEvalOperand[];
 };
 
 export type NodeMatchDeviation = {
@@ -113,9 +129,78 @@ function foldOperands(keys: NodeEvalKey[], facts: Map<string, number>): number |
 }
 
 /**
+ * Folds a SUBTOTAL's operand nodes into a single value: the signed sum of each
+ * source node's computed value. Missing (incomputable) operand nodes are
+ * skipped — consistent with the operand-key fold — so a partially-extracted
+ * filing does not raise a false MATCH deviation. Returns null when nothing
+ * could be computed.
+ */
+function foldOperandNodes(
+  operands: NodeEvalOperand[],
+  valueOf: (nodeId: string) => number | null,
+): number | null {
+  let acc: number | null = null;
+
+  for (const operand of operands) {
+    const value = valueOf(operand.sourceNodeId);
+    if (value === null || !Number.isFinite(value)) {
+      continue; // skip incomputable operand node — no false flag
+    }
+    if (acc === null) {
+      acc = operand.operation === "SUBTRACT" ? -value : value;
+      continue;
+    }
+    acc = operand.operation === "SUBTRACT" ? acc - value : acc + value;
+  }
+
+  return acc;
+}
+
+/**
+ * Builds a memoized resolver for a node's computed value:
+ *   - LINE node → fold of its operand (non-MATCH) keys from the facts.
+ *   - SUBTOTAL node → signed fold of its operand nodes' values (recursive).
+ * A cycle guard returns null for any node currently being resolved; the admin
+ * UI already forbids cycles, this is defence in depth.
+ */
+function makeNodeValueResolver(
+  nodes: NodeEvalConfig[],
+  facts: Map<string, number>,
+): (nodeId: string) => number | null {
+  const byId = new Map(nodes.map((n) => [n.nodeId, n]));
+  const memo = new Map<string, number | null>();
+  const inProgress = new Set<string>();
+
+  function resolve(nodeId: string): number | null {
+    const cached = memo.get(nodeId);
+    if (cached !== undefined) return cached;
+
+    const node = byId.get(nodeId);
+    if (!node) return null;
+    if (inProgress.has(nodeId)) return null; // cycle guard
+
+    inProgress.add(nodeId);
+    const value =
+      node.kind === "SUBTOTAL"
+        ? foldOperandNodes(node.operands ?? [], resolve)
+        : foldOperands(
+            node.keys.filter((key) => key.operation !== "MATCH"),
+            facts,
+          );
+    inProgress.delete(nodeId);
+
+    memo.set(nodeId, value);
+    return value;
+  }
+
+  return resolve;
+}
+
+/**
  * Evaluates every node that declares one or more MATCH keys and returns the
- * deviations that fall outside tolerance. Nodes without enough data to compute
- * a folded value, or whose MATCH facts are missing, are silently skipped.
+ * deviations that fall outside tolerance. A node's computed value comes from its
+ * operand keys (LINE) or its operand nodes (SUBTOTAL). Nodes without enough data
+ * to compute a value, or whose MATCH facts are missing, are silently skipped.
  */
 export function evaluateNodeMatches(input: {
   nodes: NodeEvalConfig[];
@@ -126,6 +211,7 @@ export function evaluateNodeMatches(input: {
   const relativeTolerance = input.relativeTolerance ?? DEFAULT_MATCH_RELATIVE_TOLERANCE;
   const absoluteFloor = input.absoluteFloor ?? DEFAULT_MATCH_ABSOLUTE_FLOOR;
   const deviations: NodeMatchDeviation[] = [];
+  const valueOf = makeNodeValueResolver(input.nodes, input.facts);
 
   for (const node of input.nodes) {
     const matchKeys = node.keys.filter((key) => key.operation === "MATCH");
@@ -133,10 +219,9 @@ export function evaluateNodeMatches(input: {
       continue;
     }
 
-    const operandKeys = node.keys.filter((key) => key.operation !== "MATCH");
-    const computed = foldOperands(operandKeys, input.facts);
+    const computed = valueOf(node.nodeId);
     if (computed === null || !Number.isFinite(computed)) {
-      continue; // not enough operand data to compare against
+      continue; // not enough data to compare against
     }
 
     for (const matchKey of matchKeys) {

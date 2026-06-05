@@ -165,4 +165,123 @@ describe("evaluateNodeMatches", () => {
     });
     expect(result).toEqual([]);
   });
+
+  // ── SUBTOTAL nodes: value folded from operand nodes, checked vs MATCH key ──
+
+  const ebitGraph = (overrides: Partial<NodeEvalConfig> = {}): NodeEvalConfig[] => [
+    {
+      nodeId: "rev",
+      nodeLabel: "Totale inntekter",
+      kind: "LINE",
+      keys: [{ metricKey: "revenue", valueMode: "NOMINAL", operation: "ADD" }],
+    },
+    {
+      nodeId: "cost",
+      nodeLabel: "Totale driftskostnader",
+      kind: "LINE",
+      keys: [{ metricKey: "opex", valueMode: "NOMINAL", operation: "ADD" }],
+    },
+    {
+      nodeId: "ebit",
+      nodeLabel: "Driftsresultat (EBIT)",
+      kind: "SUBTOTAL",
+      keys: [{ metricKey: "operating_profit", valueMode: "NOMINAL", operation: "MATCH" }],
+      operands: [
+        { sourceNodeId: "rev", operation: "ADD" },
+        { sourceNodeId: "cost", operation: "SUBTRACT" },
+      ],
+      ...overrides,
+    },
+  ];
+
+  it("folds a SUBTOTAL from its operand nodes and matches its MATCH key", () => {
+    const result = evaluateNodeMatches({
+      nodes: ebitGraph(),
+      facts: new Map([
+        ["revenue", 1000],
+        ["opex", 400], // computed EBIT = 1000 - 400 = 600
+        ["operating_profit", 603], // 0.5% off → within 1%
+      ]),
+    });
+    expect(result).toEqual([]);
+  });
+
+  it("flags a SUBTOTAL whose operand-node fold deviates from its MATCH key", () => {
+    const result = evaluateNodeMatches({
+      nodes: ebitGraph(),
+      facts: new Map([
+        ["revenue", 1000],
+        ["opex", 400], // computed EBIT = 600
+        ["operating_profit", 800], // 25% off
+      ]),
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].nodeLabel).toBe("Driftsresultat (EBIT)");
+    expect(result[0].matchMetricKey).toBe("operating_profit");
+    expect(result[0].computedValue).toBe(600);
+    expect(result[0].matchValue).toBe(800);
+  });
+
+  it("skips a SUBTOTAL when no operand node can be computed (no false flag)", () => {
+    const result = evaluateNodeMatches({
+      nodes: ebitGraph(),
+      facts: new Map([["operating_profit", 600]]), // revenue/opex missing
+    });
+    expect(result).toEqual([]);
+  });
+
+  it("resolves nested SUBTOTALs recursively", () => {
+    const nodes: NodeEvalConfig[] = [
+      {
+        nodeId: "rev",
+        nodeLabel: "Inntekter",
+        kind: "LINE",
+        keys: [{ metricKey: "revenue", valueMode: "NOMINAL", operation: "ADD" }],
+      },
+      {
+        nodeId: "cogs",
+        nodeLabel: "Varekostnad",
+        kind: "LINE",
+        keys: [{ metricKey: "cogs", valueMode: "NOMINAL", operation: "ADD" }],
+      },
+      {
+        nodeId: "opex",
+        nodeLabel: "Driftskostnader",
+        kind: "LINE",
+        keys: [{ metricKey: "opex", valueMode: "NOMINAL", operation: "ADD" }],
+      },
+      {
+        nodeId: "gross",
+        nodeLabel: "Bruttofortjeneste",
+        kind: "SUBTOTAL",
+        keys: [],
+        operands: [
+          { sourceNodeId: "rev", operation: "ADD" },
+          { sourceNodeId: "cogs", operation: "SUBTRACT" },
+        ],
+      },
+      {
+        nodeId: "ebit",
+        nodeLabel: "EBIT",
+        kind: "SUBTOTAL",
+        keys: [{ metricKey: "operating_profit", valueMode: "NOMINAL", operation: "MATCH" }],
+        operands: [
+          { sourceNodeId: "gross", operation: "ADD" }, // 1000 - 300 = 700
+          { sourceNodeId: "opex", operation: "SUBTRACT" }, // 700 - 200 = 500
+        ],
+      },
+    ];
+    const result = evaluateNodeMatches({
+      nodes,
+      facts: new Map([
+        ["revenue", 1000],
+        ["cogs", 300],
+        ["opex", 200],
+        ["operating_profit", 800], // computed = 500 → flagged
+      ]),
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].nodeLabel).toBe("EBIT");
+    expect(result[0].computedValue).toBe(500);
+  });
 });
