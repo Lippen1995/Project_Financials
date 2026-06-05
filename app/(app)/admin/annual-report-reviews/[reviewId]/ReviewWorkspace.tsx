@@ -539,6 +539,11 @@ type FactCorrectionInput = {
   metricKey: string;
   fiscalYear: number;
   value: string | null;
+  /** The on-screen "Endelig" (manual ?? machine) — the authoritative number
+   *  that publishes. Sent for every visible line; equals value. */
+  finalInput?: string | null;
+  /** Provenance only: did the reviewer override the machine value or keep it. */
+  correctionSource?: "MANUAL_CORRECTION" | "ACCEPTED_MACHINE";
   rawLabel: string | null;
   sourcePage: number | null;
   unitScale: number | null;
@@ -547,6 +552,9 @@ type FactCorrectionInput = {
    *  review's primary scope. Included in the dedup key so a konsern and a
    *  selskap value for the same metric+year don't overwrite each other. */
   statementScope?: "COMPANY" | "CONSOLIDATED";
+  /** Statement bucket from the client (knows the section); avoids backend
+   *  mis-bucketing of custom keys. */
+  statementType?: "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW" | "NOTE";
 };
 
 function upsertFactCorrection(
@@ -1107,113 +1115,151 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
             : buildSyntheticRows(extractionData.mappedFacts, [review.fiscalYear, priorFiscalYear])
         )
       : [];
-    const reassignedSourceMetricKeys = new Set<string>();
-    // Keys whose machine fact must be dropped (rows the reviewer deleted).
-    const deletedMetricKeys = new Set<string>();
+
+    // FULL-GRID emit: the backend no longer re-derives machine-vs-manual. We
+    // send EVERY visible line with its on-screen "Endelig" (finalInput =
+    // manual ?? machine), so what the reviewer sees is exactly what publishes.
+    // Per-row scope/key/fallback mirror deriveStandardizedTotals so the emitted
+    // values match the Standardisert totals and the Endelig column 1:1.
+    const pageToScope = new Map<number, "COMPANY" | "CONSOLIDATED">();
+    for (const f of allFacts) {
+      if (f.sourcePage !== null && f.statementScope && !pageToScope.has(f.sourcePage)) {
+        pageToScope.set(f.sourcePage, f.statementScope);
+      }
+    }
+    for (const mf of mappedFacts) {
+      if (mf.statementScope && typeof mf.sourcePage === "number") {
+        pageToScope.set(mf.sourcePage, mf.statementScope);
+      }
+    }
+    const statementTypeByKey = new Map<
+      string,
+      "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW" | "NOTE"
+    >();
+    for (const f of allFacts) {
+      if (statementTypeByKey.has(f.metricKey)) continue;
+      if (
+        f.statementType === "INCOME_STATEMENT" ||
+        f.statementType === "BALANCE_SHEET" ||
+        f.statementType === "CASH_FLOW" ||
+        f.statementType === "NOTE"
+      ) {
+        statementTypeByKey.set(f.metricKey, f.statementType);
+      }
+    }
+
+    // Whole-NOK digit string (or null when blank). "-" is the nil marker (0).
+    const toNok = (s: string | null | undefined): string | null => {
+      if (s === null || s === undefined) return null;
+      const t = s.trim();
+      if (t === "") return null;
+      if (/^[-–—_]$/.test(t)) return "0";
+      const n = Number(t.replace(/\s/g, ""));
+      return Number.isFinite(n) ? String(Math.round(n)) : null;
+    };
 
     for (const row of effectiveRows) {
-      const rowId = getRowId(row);
-      const rowEdit = rowEdits[rowId];
-      if (!rowEdit) continue;
+      const rowEdit = rowEdits[getRowId(row)];
+      if (rowEdit?.deleted) continue; // deleted row: absent = dropped
 
       const lookupKey = (row.normalizedLabel ?? row.label ?? "").toLowerCase().trim();
-      const sourceMetricKey =
-        rowEdit.sourceMetricKey?.trim() || canonicalByLabel.get(lookupKey) || null;
+      const canonicalKey = canonicalByLabel.get(lookupKey) ?? null;
+      const isMapped = canonicalKey !== null;
+      const selectedMetricKey = (rowEdit?.metricKey?.trim() || canonicalKey) ?? "";
+      if (!selectedMetricKey) continue; // unmapped row with no assigned key
 
-      // Soft-deleted extracted row: drop its machine fact (by the canonical
-      // key it would otherwise have produced) and emit no correction.
-      if (rowEdit.deleted) {
-        const keyToDrop = sourceMetricKey || rowEdit.metricKey.trim();
-        if (keyToDrop) deletedMetricKeys.add(keyToDrop);
-        continue;
-      }
+      const scope = pageToScope.get(row.pageNumber) ?? reviewScope;
+      const effectiveLabel = (rowEdit?.labelOverride ?? row.label) || null;
+      const statementType = statementTypeByKey.get(selectedMetricKey);
 
-      const targetMetricKey = rowEdit.metricKey.trim();
-      if (!targetMetricKey) continue;
+      const mainProposed = isMapped && canonicalKey ? dbValueByKey.get(canonicalKey) ?? null : null;
+      const priorProposed = isMapped && canonicalKey ? priorValueByKey.get(canonicalKey) ?? null : null;
+      const [reconMain, reconPrior] = isMapped ? [null, null] : reconstructYearValues(row.values);
+      const fallbackMain = mainProposed ?? (reconMain !== null ? String(Math.round(reconMain * row.unitScale)) : null);
+      const fallbackPrior = priorProposed ?? (reconPrior !== null ? String(Math.round(reconPrior * row.unitScale)) : null);
 
-      const effectiveLabel = (rowEdit.labelOverride ?? row.label) || null;
-      const mainProposed = sourceMetricKey ? (dbValueByKey.get(sourceMetricKey) ?? null) : null;
-      const priorProposed = sourceMetricKey ? (priorValueByKey.get(sourceMetricKey) ?? null) : null;
-      const [reconstructedMain, reconstructedPrior] = sourceMetricKey
-        ? [null, null]
-        : reconstructYearValues(row.values);
+      // Resolve the manual value EXACTLY as the renderer does, so what publishes
+      // equals the on-screen "Endelig". Critically this includes the legacy
+      // scope-blind editableFacts/priorYearEdits surfaces: a value typed there
+      // (no rowEdit) shows as Endelig but would otherwise be invisible to this
+      // emit, leaving the machine value to publish — the exact mismatch we hit.
+      const hasRowEdit = rowEdit !== undefined;
+      const hasKeyOverride =
+        isMapped && canonicalKey !== null && selectedMetricKey !== "" && selectedMetricKey !== canonicalKey;
+      const editIdx =
+        isMapped && canonicalKey ? editableFacts.findIndex((e) => e.metricKey === canonicalKey) : -1;
+      const legacyMappedMain = editIdx >= 0 ? (editableFacts[editIdx]!.value ?? "") : "";
+      const legacyMappedPrior = isMapped && canonicalKey ? (priorYearEdits[canonicalKey] ?? "") : "";
+      const mappedMainManual = hasRowEdit ? (rowEdit!.mainValue ?? "") : legacyMappedMain;
+      const mappedPriorManual = hasRowEdit ? (rowEdit!.priorValue ?? "") : legacyMappedPrior;
+      const mainManualRaw = hasKeyOverride || !isMapped ? (rowEdit?.mainValue ?? "") : mappedMainManual;
+      const priorManualRaw = hasKeyOverride || !isMapped ? (rowEdit?.priorValue ?? "") : mappedPriorManual;
+      const mainManual = normalizeAmountInput(mainManualRaw);
+      const priorManual = normalizeAmountInput(priorManualRaw);
+      const effMain = toNok(mainManual !== "" ? mainManual : fallbackMain);
+      const effPrior = toNok(priorManual !== "" ? priorManual : fallbackPrior);
+      const mainIsManual = mainManual !== "" && mainManual !== (fallbackMain ?? "");
+      const priorIsManual = priorManual !== "" && priorManual !== (fallbackPrior ?? "");
 
-      const fallbackMainValue = mainProposed ?? (
-        reconstructedMain !== null
-          ? String(Math.round(reconstructedMain * row.unitScale))
-          : null
-      );
-      const fallbackPriorValue = priorProposed ?? (
-        reconstructedPrior !== null
-          ? String(Math.round(reconstructedPrior * row.unitScale))
-          : null
-      );
-
-      const mainManual = normalizeAmountInput(rowEdit.mainValue);
-      const priorManual = normalizeAmountInput(rowEdit.priorValue);
-      const mainValue = mainManual !== "" ? mainManual : fallbackMainValue;
-      const priorValue = priorManual !== "" ? priorManual : fallbackPriorValue;
-
-      if (sourceMetricKey && sourceMetricKey !== targetMetricKey) {
-        reassignedSourceMetricKeys.add(sourceMetricKey);
-      }
-
-      // Scope for this row: the rowEdit carries the section's scope (konsern vs
-      // morselskap). Without it, konsern and selskap corrections for the same
-      // metric+year collapse onto one fact in upsertFactCorrection's dedup.
-      const rowScope = rowEdit.statementScope;
-      if (mainValue !== null) {
+      if (effMain !== null) {
         upsertFactCorrection(factCorrections, {
-          metricKey: targetMetricKey,
+          metricKey: selectedMetricKey,
           fiscalYear: review.fiscalYear,
-          value: mainValue,
+          value: effMain,
+          finalInput: effMain,
+          correctionSource: mainIsManual ? "MANUAL_CORRECTION" : "ACCEPTED_MACHINE",
           rawLabel: effectiveLabel,
           sourcePage: row.pageNumber,
           unitScale: row.unitScale,
-          sourceMetricKey,
-          statementScope: rowScope,
+          statementScope: scope,
+          statementType,
         });
       }
-      if (priorValue !== null) {
+      if (effPrior !== null) {
         upsertFactCorrection(factCorrections, {
-          metricKey: targetMetricKey,
+          metricKey: selectedMetricKey,
           fiscalYear: priorFiscalYear,
-          value: priorValue,
+          value: effPrior,
+          finalInput: effPrior,
+          correctionSource: priorIsManual ? "MANUAL_CORRECTION" : "ACCEPTED_MACHINE",
           rawLabel: effectiveLabel,
           sourcePage: row.pageNumber,
           unitScale: row.unitScale,
-          sourceMetricKey,
-          statementScope: rowScope,
+          statementScope: scope,
+          statementType,
         });
       }
     }
 
     // Manually added rows (lines the model missed). Only committed rows
     // (the reviewer clicked "Legg til") are saved — uncommitted ones are
-    // still being drafted in the tray. Each becomes a correction for the
-    // current year (and prior year if filled).
+    // still being drafted in the tray. Always MANUAL_CORRECTION.
     for (const added of addedRows) {
       if (added.deleted || !added.committed) continue;
       const metricKey = added.metricKey.trim();
       if (!metricKey) continue;
-      const main = normalizeAmountInput(added.mainValue);
-      const prior = normalizeAmountInput(added.priorValue);
-      if (main) {
+      const main = toNok(added.mainValue);
+      const prior = toNok(added.priorValue);
+      if (main !== null) {
         upsertFactCorrection(factCorrections, {
           metricKey,
           fiscalYear: review.fiscalYear,
           value: main,
+          finalInput: main,
+          correctionSource: "MANUAL_CORRECTION",
           rawLabel: added.label.trim() || null,
           sourcePage: null,
           unitScale: null,
           statementScope: added.statementScope,
         });
       }
-      if (prior) {
+      if (prior !== null) {
         upsertFactCorrection(factCorrections, {
           metricKey,
           fiscalYear: priorFiscalYear,
           value: prior,
+          finalInput: prior,
+          correctionSource: "MANUAL_CORRECTION",
           rawLabel: added.label.trim() || null,
           sourcePage: null,
           unitScale: null,
@@ -1251,14 +1297,9 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     if (auditorOpinion !== "UNKNOWN") {
       corrections.auditorOpinion = { opinionType: auditorOpinion };
     }
-    // Don't ask the backend to delete a key that is also being re-emitted as
-    // a correction (e.g. the row was deleted then a new row with the same key
-    // was added). Corrections win.
-    const correctedKeySet = new Set(correctedFacts.map((f) => f.metricKey));
-    const deletions = [...deletedMetricKeys].filter((k) => !correctedKeySet.has(k));
-    if (deletions.length > 0) {
-      corrections.deletedMetricKeys = deletions;
-    }
+    // No deletedMetricKeys: with full-grid emit, a deleted row is simply not
+    // emitted (absent = dropped). The backend no longer carries machine facts
+    // over, so there is nothing to suppress.
 
     call("correct", {
       corrections,

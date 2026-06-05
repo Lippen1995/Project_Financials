@@ -40,6 +40,14 @@ export type FactCorrection = {
   sourceMetricKey?: string | null;
   fiscalYear: number;
   value: string | null;
+  /** The reviewer's on-screen "Endelig" (manual ?? machine) for this line — the
+   *  authoritative number that gets published. The client sends it for every
+   *  visible row so the backend stores the grid verbatim (no machine-vs-manual
+   *  re-derivation). Falls back to `value` when omitted (legacy callers). */
+  finalInput?: string | null;
+  /** Provenance only: whether the reviewer kept the machine value
+   *  (ACCEPTED_MACHINE) or overrode it (MANUAL_CORRECTION). */
+  correctionSource?: "MANUAL_CORRECTION" | "ACCEPTED_MACHINE";
   rawLabel?: string | null;
   sourcePage?: number | null;
   unitScale?: number | null;
@@ -162,13 +170,16 @@ function reviewedFactToCandidate(
     statementType: string;
     statementScope?: "COMPANY" | "CONSOLIDATED";
     value: bigint | null;
+    finalInput?: bigint | null;
     currency: string;
     unitScale: number;
     sourcePage: number | null;
     rawLabel: string | null;
   },
 ) {
-  if (fact.value === null) {
+  // Prefer the authoritative final value; fall back to value for legacy rows.
+  const effectiveValue = fact.finalInput ?? fact.value;
+  if (effectiveValue === null) {
     return null;
   }
 
@@ -184,7 +195,7 @@ function reviewedFactToCandidate(
     metricKey: fact.metricKey as CanonicalFactCandidate["metricKey"],
     rawLabel: fact.rawLabel ?? fact.metricKey,
     normalizedLabel: fact.metricKey,
-    value: Number(fact.value),
+    value: Number(effectiveValue),
     currency: fact.currency,
     unitScale: (fact.unitScale === 1000 ? 1000 : 1) as CanonicalFactCandidate["unitScale"],
     sourcePage: fact.sourcePage ?? 0,
@@ -344,6 +355,8 @@ export async function acceptAnnualReportReview(
             unitScale: 1,
             sourcePage: fact.sourcePage,
             rawLabel: fact.rawLabel,
+            // The accepted/carried-over machine value is the final value.
+            finalInput: fact.value,
             correctionSource: "ACCEPTED_MACHINE" as const,
             reviewerUserId,
           })),
@@ -512,6 +525,64 @@ export async function correctAnnualReportReview(
     // value" bug, where a stale fact from an earlier save survived.
     await tx.annualReportReviewedFact.deleteMany({ where: { reviewId: review.id } });
 
+    // ── Full-grid contract: the UI sends EVERY visible line with its resolved
+    // "Endelig" (finalInput = manual ?? machine). We persist the grid verbatim
+    // — value = finalInput, provenance from correctionSource — and skip the
+    // machine-vs-manual re-derivation below. That re-derivation suppressed a
+    // machine fact only when its metricKey|scope|year|label exactly matched a
+    // correction; a label/scope mismatch left the buggy ACCEPTED_MACHINE value
+    // in place and published it. That was the publish "krøll". Letting the UI
+    // own the final value removes the whole failure class.
+    const allFacts = corrections.facts ?? [];
+    const isFullGridContract = allFacts.some(
+      (f) => f.finalInput !== undefined && f.finalInput !== null,
+    );
+
+    if (isFullGridContract) {
+      await tx.annualReportReviewedFact.createMany({
+        data: allFacts.map((fact) => {
+          const finalInput = safeStringToBigInt(fact.finalInput ?? fact.value);
+          return {
+            reviewId: review.id,
+            filingId: review.filingId,
+            extractionRunId: review.extractionRunId ?? null,
+            companyId: review.companyId,
+            fiscalYear: fact.fiscalYear,
+            metricKey: fact.metricKey,
+            statementType:
+              (fact.statementType ??
+                getStatementTypeForMetricKey(fact.metricKey) ??
+                "INCOME_STATEMENT") as
+                | "INCOME_STATEMENT"
+                | "BALANCE_SHEET"
+                | "CASH_FLOW"
+                | "NOTE",
+            statementScope: fact.statementScope ?? reviewScope,
+            // value mirrors finalInput for back-compat; publishing reads finalInput.
+            value: finalInput,
+            finalInput,
+            currency: "NOK",
+            unitScale: 1,
+            sourcePage: fact.sourcePage ?? null,
+            rawLabel: fact.rawLabel ?? null,
+            correctionSource: fact.correctionSource ?? "MANUAL_CORRECTION",
+            reviewerUserId,
+          };
+        }),
+        skipDuplicates: true,
+      });
+
+      if (labelInputs.length > 0) {
+        await tx.pdfTrainingLabel.createMany({ data: labelInputs });
+      }
+      return;
+    }
+
+    // ── Legacy partial-correction contract (carry-over) ─────────────────────
+    // Callers that send only CHANGED facts (no finalInput). The backend copies
+    // uncorrected machine facts as ACCEPTED_MACHINE and layers the corrections
+    // as MANUAL_CORRECTION. Kept for back-compat; the UI no longer uses it.
+
     // Build set of corrected metricKeys
     const correctedMetricKeys = new Set(
       (corrections.facts ?? []).flatMap((f) =>
@@ -605,6 +676,8 @@ export async function correctAnnualReportReview(
             unitScale: 1,
             sourcePage: fact.sourcePage,
             rawLabel: fact.rawLabel,
+            // The accepted/carried-over machine value is the final value.
+            finalInput: fact.value,
             correctionSource: "ACCEPTED_MACHINE" as const,
             reviewerUserId,
           })),
@@ -637,6 +710,7 @@ export async function correctAnnualReportReview(
               | "NOTE",
           statementScope: fact.statementScope ?? reviewScope,
           value: safeStringToBigInt(fact.value),
+          finalInput: safeStringToBigInt(fact.value),
           currency: "NOK",
           // The reviewer enters values in whole NOK, so the stored scale is
           // always 1 (consistent with the normalised ACCEPTED_MACHINE facts).
@@ -930,7 +1004,8 @@ export async function validateReviewedAnnualReportFacts(
     fiscalYear: f.fiscalYear,
     statementType: f.statementType,
     statementScope: f.statementScope,
-    value: f.value,
+    // Validate (and publish) against the authoritative final value.
+    value: f.finalInput ?? f.value,
     unitScale: f.unitScale,
     sourcePage: f.sourcePage,
     rawLabel: f.rawLabel,
@@ -994,7 +1069,8 @@ export async function publishReviewedAnnualReportFacts(
     fiscalYear: f.fiscalYear,
     statementType: f.statementType,
     statementScope: f.statementScope,
-    value: f.value,
+    // Validate (and publish) against the authoritative final value.
+    value: f.finalInput ?? f.value,
     unitScale: f.unitScale,
     sourcePage: f.sourcePage,
     rawLabel: f.rawLabel,
@@ -1048,15 +1124,21 @@ export async function publishReviewedAnnualReportFacts(
       // (total_revenue vs total_operating_income), and some only have the
       // sales-line `revenue`. Without total_revenue here the summary showed a
       // null revenue even though the line item was published correctly.
+      // Summary figures source from the authoritative final value, same as the
+      // published line items below.
+      const fin = (key: string): bigint | null => {
+        const f = factMap.get(key);
+        return f ? (f.finalInput ?? f.value) : null;
+      };
       const revenue =
-        factMap.get("total_revenue")?.value ??
-        factMap.get("total_operating_income")?.value ??
-        factMap.get("revenue")?.value ??
+        fin("total_revenue") ??
+        fin("total_operating_income") ??
+        fin("revenue") ??
         null;
-      const operatingProfit = factMap.get("operating_profit")?.value ?? null;
-      const netIncome = factMap.get("net_income")?.value ?? null;
-      const equity = factMap.get("total_equity")?.value ?? null;
-      const assets = factMap.get("total_assets")?.value ?? null;
+      const operatingProfit = fin("operating_profit");
+      const netIncome = fin("net_income");
+      const equity = fin("total_equity");
+      const assets = fin("total_assets");
 
       const selectedFacts = new Map(
         yearScopeFacts
@@ -1115,7 +1197,11 @@ export async function publishReviewedAnnualReportFacts(
         where: { filingId: review.filingId },
       });
       await tx.publishedFinancialLineItem.createMany({
-        data: publishableFacts.map((fact, index) => ({
+        data: publishableFacts.map((fact, index) => {
+          // Publish ONLY the final value. value mirrors finalInput for the many
+          // existing readers of PublishedFinancialLineItem.value.
+          const finalInput = fact.finalInput ?? fact.value;
+          return {
           companyId: review.companyId,
           filingId: review.filingId,
           fiscalYear: fact.fiscalYear,
@@ -1123,7 +1209,8 @@ export async function publishReviewedAnnualReportFacts(
           statementScope: fact.statementScope,
           metricKey: fact.metricKey,
           rawLabel: fact.rawLabel,
-          value: fact.value,
+          value: finalInput,
+          finalInput,
           currency: fact.currency ?? "NOK",
           unitScale: fact.unitScale ?? 1,
           sourcePage: fact.sourcePage,
@@ -1131,7 +1218,8 @@ export async function publishReviewedAnnualReportFacts(
           reviewId: review.id,
           reviewerUserId,
           publishedAt,
-        })),
+          };
+        }),
       });
 
       const skipNote =

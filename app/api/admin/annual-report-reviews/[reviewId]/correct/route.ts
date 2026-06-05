@@ -9,6 +9,13 @@ const factSchema = z.object({
   sourceMetricKey: z.string().nullable().optional(),
   fiscalYear: z.number().int(),
   value: z.string().regex(/^-?[0-9]+$/).nullable(),
+  // The reviewer's on-screen "Endelig" (manual ?? machine) for this line — the
+  // single authoritative number that gets published. The client sends it for
+  // every visible row, so the backend stores the grid verbatim instead of
+  // re-deriving machine-vs-manual. Defaults to `value` when omitted (legacy).
+  finalInput: z.string().regex(/^-?[0-9]+$/).nullable().optional(),
+  // Provenance only: whether the reviewer kept the machine value or overrode it.
+  correctionSource: z.enum(["MANUAL_CORRECTION", "ACCEPTED_MACHINE"]).optional(),
   rawLabel: z.string().nullable().optional(),
   sourcePage: z.number().int().nullable().optional(),
   unitScale: z.number().nullable().optional(),

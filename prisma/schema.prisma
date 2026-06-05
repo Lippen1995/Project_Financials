@@ -880,6 +880,10 @@ model PublishedFinancialLineItem {
   metricKey      String
   rawLabel       String?
   value          BigInt?
+  // The authoritative published number: the reviewer's on-screen "Endelig"
+  // (manual ?? machine), persisted verbatim from the review grid. `value`
+  // mirrors it for back-compat; publishing sources the figure from finalInput.
+  finalInput     BigInt?
   currency       String                     @default("NOK")
   unitScale      Int                        @default(1)
   sourcePage     Int?
@@ -1416,6 +1420,10 @@ model AnnualReportReviewedFact {
   statementType    FinancialFactStatementType
   statementScope   StatementScope               @default(COMPANY)
   value            BigInt?
+  // The reviewer's on-screen "Endelig" (manual ?? machine), persisted verbatim
+  // from the review grid. This is the single authoritative number that gets
+  // published; `value` mirrors it. correctionSource records only provenance.
+  finalInput       BigInt?
   currency         String                       @default("NOK")
   unitScale        Int                          @default(1)
   sourcePage       Int?

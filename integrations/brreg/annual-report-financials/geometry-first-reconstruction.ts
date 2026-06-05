@@ -66,25 +66,27 @@ function isNumericToken(token: string): boolean {
   return NUMERIC_TOKEN_RE.test(token.trim());
 }
 
-function tokensWithPositions(line: ExtractedLine): Array<{ token: string; x: number }> {
+type PositionedToken = { token: string; x: number; rightX: number };
+
+function tokensWithPositions(line: ExtractedLine): PositionedToken[] {
   if (line.words.length === 0) {
     // No per-word geometry. Geometry-first cannot do useful work here.
     return [];
   }
-  const result: Array<{ token: string; x: number }> = [];
+  const result: PositionedToken[] = [];
   for (const word of line.words) {
     const repaired = repairOcrTokenBoundaries(word.text);
     const parts = repaired.split(/\s+/).filter(Boolean);
     if (parts.length === 0) continue;
     if (parts.length === 1) {
-      result.push({ token: parts[0]!, x: word.x });
+      result.push({ token: parts[0]!, x: word.x, rightX: word.x + word.width });
       continue;
     }
     // A word that repaired into multiple tokens: distribute them across the
-    // word's bounding box so each gets a distinct x.
+    // word's bounding box so each gets a distinct x (and right edge).
     const step = Math.max(1, Math.floor(word.width / parts.length));
     for (let i = 0; i < parts.length; i++) {
-      result.push({ token: parts[i]!, x: word.x + i * step });
+      result.push({ token: parts[i]!, x: word.x + i * step, rightX: word.x + (i + 1) * step });
     }
   }
   return result;
@@ -311,12 +313,42 @@ export function reconstructStatementRowsGeometryFirst(
     const normalizedLabel = normalizeRowLabel(label);
     if (!normalizedLabel || normalizedLabel.length < 3) continue;
 
-    // Bucket each numeric token into the column whose anchor it is nearest.
-    const tokensByColumn = new Map<number, Array<{ token: string; x: number }>>();
-    for (const token of numericTokens) {
-      const columnIndex = nearestColumnIndex(token.x, anchors);
+    // Cluster numeric tokens into printed numbers by whitespace gaps, THEN
+    // assign each whole cluster to a year column. A right-aligned number's
+    // digit groups sit a small gap apart (~40px); the gap between the two year
+    // columns is several times larger (~200px+). Assigning per-token by nearest
+    // anchor splits a WIDE number across columns: an 11-digit balance total
+    // pushes its leftmost group to the midpoint between anchors, where the
+    // tie breaks toward the current-year column and that group fuses onto the
+    // current-year value (the "16 021 578 171" + "16" → 1602157817116 bug).
+    // Clustering keeps each printed number whole; the cluster is then placed by
+    // its RIGHT edge, since the columns are right-aligned.
+    const sortedNumeric = [...numericTokens].sort((a, b) => a.x - b.x);
+    const columnSpacing =
+      anchors.length >= 2
+        ? Math.abs(anchors[anchors.length - 1]!.x - anchors[0]!.x) / (anchors.length - 1)
+        : Number.POSITIVE_INFINITY;
+    // A gap wider than ~1/5 of the inter-column spacing is a column break, not
+    // a thousands separator. Within-number gaps measured ~40px vs ~200px+
+    // between columns on the Canica statements, so this sits well clear of both.
+    const clusterGap = columnSpacing * 0.2;
+    type NumberCluster = { tokens: PositionedToken[]; rightX: number };
+    const clusters: NumberCluster[] = [];
+    for (const token of sortedNumeric) {
+      const last = clusters[clusters.length - 1];
+      if (last && token.x - last.rightX <= clusterGap) {
+        last.tokens.push(token);
+        last.rightX = Math.max(last.rightX, token.rightX);
+      } else {
+        clusters.push({ tokens: [token], rightX: token.rightX });
+      }
+    }
+
+    const tokensByColumn = new Map<number, PositionedToken[]>();
+    for (const cluster of clusters) {
+      const columnIndex = nearestColumnIndex(cluster.rightX, anchors);
       const bucket = tokensByColumn.get(columnIndex) ?? [];
-      bucket.push(token);
+      bucket.push(...cluster.tokens);
       tokensByColumn.set(columnIndex, bucket);
     }
 

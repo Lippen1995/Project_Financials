@@ -199,14 +199,13 @@ describe("reconstructStatementRowsGeometryFirst", () => {
     expect(result).toEqual([]);
   });
 
-  it("assigns each numeric token to the nearest year anchor", () => {
-    // Midpoint between anchors is 450. A token at 440 belongs to col 0; a
-    // token at 460 belongs to col 1.
+  it("assigns each numeric cluster to the nearest year anchor", () => {
+    // Two separate column values, each a single-token cluster near its anchor.
     const result = reconstructStatementRowsGeometryFirst(
       page([
-        line([word("2024", 400), word("2023", 500)], 20),
+        line([word("2024", 400), word("2023", 700)], 20),
         line(
-          [word("Inntekter", 50), word("100", 440), word("200", 460)],
+          [word("Inntekter", 50), word("100", 380), word("200", 680)],
           40,
         ),
       ]),
@@ -215,8 +214,39 @@ describe("reconstructStatementRowsGeometryFirst", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]!.values).toEqual([
-      { value: 100, columnIndex: 0, x: 440 },
-      { value: 200, columnIndex: 1, x: 460 },
+      { value: 100, columnIndex: 0, x: 380 },
+      { value: 200, columnIndex: 1, x: 680 },
+    ]);
+  });
+
+  it("keeps a wide multi-group number whole instead of fusing the next column's leading group", () => {
+    // Regression for the Canica balance-total over-fusion: an 11-digit number's
+    // leftmost group reaches the midpoint between anchors, so per-token nearest-
+    // anchor assignment pulled the NEXT column's leading group into this value
+    // ("16 021 578 171" + "16" → 1602117…). Clustering by gap keeps each printed
+    // number whole. Here 2024 = "16 021" and 2023 = "16 802"; the 2023 "16" sits
+    // near the midpoint (550) and must stay with the 2023 cluster.
+    const result = reconstructStatementRowsGeometryFirst(
+      page([
+        line([word("2024", 400), word("2023", 700)], 20),
+        line(
+          [
+            word("Sum", 40),
+            word("16", 360, 16),
+            word("021", 400, 24),
+            word("16", 540, 16),
+            word("802", 580, 24),
+          ],
+          40,
+        ),
+      ]),
+      classification(),
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.values).toEqual([
+      { value: 16021, columnIndex: 0, x: 360 },
+      { value: 16802, columnIndex: 1, x: 540 },
     ]);
   });
 

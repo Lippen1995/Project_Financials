@@ -447,6 +447,45 @@ describe("correctAnnualReportReview", () => {
     expect(acceptedData.some((d) => d.metricKey === "revenue")).toBe(false);
   });
 
+  it("full-grid contract: stores the grid verbatim with finalInput, no machine carry-over", async () => {
+    // The UI sends EVERY visible line with its resolved finalInput. The backend
+    // must persist exactly those rows — no ACCEPTED_MACHINE copy of machine
+    // facts. total_assets is a machine fact NOT in the grid, so it must NOT
+    // appear. The label deliberately differs from the machine fact's
+    // "Salgsinntekter": under the old carry-over that mismatch left the buggy
+    // machine value in place ("krøll"); now the manual finalInput wins.
+    const corrections = {
+      facts: [
+        {
+          metricKey: "revenue",
+          fiscalYear: 2023,
+          value: "3086817561",
+          finalInput: "3086817561",
+          correctionSource: "MANUAL_CORRECTION" as const,
+          rawLabel: "Salgsinntekt",
+          statementScope: "CONSOLIDATED" as const,
+        },
+      ],
+    };
+
+    await correctAnnualReportReview("review-1", "user-reviewer-1", corrections);
+
+    type ReviewedFactArg = [{ data: Array<Record<string, unknown>> }];
+    const calls = prismaMock.annualReportReviewedFact.createMany.mock
+      .calls as unknown as ReviewedFactArg[];
+    const all = calls.flatMap(([arg]) => arg.data);
+    expect(all).toHaveLength(1);
+    expect(all[0]).toEqual(
+      expect.objectContaining({
+        metricKey: "revenue",
+        correctionSource: "MANUAL_CORRECTION",
+        value: BigInt("3086817561"),
+        finalInput: BigInt("3086817561"),
+      }),
+    );
+    expect(all.some((d) => d.metricKey === "total_assets")).toBe(false);
+  });
+
   it("normalises reviewed-fact unitScale to 1 (values are already whole NOK)", async () => {
     // Machine facts in the fixture carry unitScale 1000; the correction sends
     // 1000 too. Both must be stored as 1 so a publish doesn't trip
