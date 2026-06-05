@@ -1120,6 +1120,20 @@ model CanonicalKey {
   @@index([isRequired])
 }
 
+// Persisted family classification for keys that are NOT in the CanonicalKey
+// registry — i.e. reviewer-created custom keys. A custom key's family is
+// otherwise derived from the statementType of its facts, which is unreliable
+// for balance-detail keys commonly entered on NOTE/income-typed rows (software,
+// goodwill, pension_liability, …). When a reviewer sets the family in the
+// canonical-key inspector, that choice is authoritative and stored here.
+model CanonicalKeyFamilyOverride {
+  id        String   @id @default(cuid())
+  metricKey String   @unique
+  family    String // INCOME_STATEMENT | BALANCE_SHEET
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // A presentation node groups canonical metric keys (and/or other nodes) into a
 // single line of a standardized statement. A node's value is the sum of the
 // keys assigned to it plus the nodes linked into it. "SUBTOTAL" nodes are

@@ -762,15 +762,29 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         const res = await fetch("/api/admin/canonical-keys", { cache: "no-store" });
         if (!res.ok) return;
         const json = (await res.json()) as {
-          data: { keys: { key: string; family: string }[] };
+          data: {
+            keys: { key: string; family: string; isCustom: boolean; familyConfirmed: boolean }[];
+          };
         };
         if (cancelled) return;
         const income: string[] = [];
         const balance: string[] = [];
         for (const k of json.data.keys) {
           if (CANONICAL_ORDER_MAP.has(k.key)) continue; // already in the skeleton order
-          if (k.family === "BALANCE_SHEET") balance.push(k.key);
-          else income.push(k.key);
+          if (!k.familyConfirmed) {
+            // Family is only a guess derived from the fact's statementType, which
+            // collapses balance-detail keys (commonly entered on NOTE or income-
+            // typed rows — e.g. software, goodwill, pension_liability) to
+            // INCOME_STATEMENT. Until a reviewer confirms the family in the
+            // canonical-key inspector, surface the key in BOTH pickers rather
+            // than hiding it from balance.
+            income.push(k.key);
+            balance.push(k.key);
+          } else if (k.family === "BALANCE_SHEET") {
+            balance.push(k.key);
+          } else {
+            income.push(k.key);
+          }
         }
         setKnownKeys({ income, balance });
       } catch {

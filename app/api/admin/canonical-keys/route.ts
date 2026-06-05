@@ -7,6 +7,7 @@ import {
   deleteCanonicalKey,
   getCanonicalKeyUsage,
   reassignCanonicalKey,
+  setKeyFamily,
 } from "@/server/services/canonical-key-service";
 
 export async function GET() {
@@ -33,6 +34,11 @@ const actionSchema = z.discriminatedUnion("action", [
     action: z.literal("delete"),
     key: z.string().min(1),
   }),
+  z.object({
+    action: z.literal("setFamily"),
+    key: z.string().min(1),
+    family: z.enum(["INCOME_STATEMENT", "BALANCE_SHEET"]),
+  }),
 ]);
 
 export async function POST(request: NextRequest) {
@@ -57,6 +63,11 @@ export async function POST(request: NextRequest) {
   try {
     if (parsed.data.action === "delete") {
       await deleteCanonicalKey(parsed.data.key);
+      return NextResponse.json({ data: { ok: true } });
+    }
+
+    if (parsed.data.action === "setFamily") {
+      await setKeyFamily({ key: parsed.data.key, family: parsed.data.family });
       return NextResponse.json({ data: { ok: true } });
     }
 

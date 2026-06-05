@@ -482,6 +482,20 @@ export default function MetricMappingView({
     [inspectedKey, moveTarget, runMutation, openInspector],
   );
 
+  const handleSetFamily = useCallback(
+    (family: "INCOME_STATEMENT" | "BALANCE_SHEET") => {
+      if (!inspectedKey) return;
+      void runMutation(() =>
+        mutate("/api/admin/canonical-keys", "POST", {
+          action: "setFamily",
+          key: inspectedKey,
+          family,
+        }),
+      );
+    },
+    [inspectedKey, runMutation],
+  );
+
   const handleDeleteKey = useCallback(() => {
     if (!inspectedKey) return;
     void runMutation(async () => {
@@ -1038,7 +1052,14 @@ export default function MetricMappingView({
                       Påkrevd
                     </span>
                   ) : null}
-                  <span className="text-slate-500">{inspected?.family}</span>
+                  {inspected && inspected.isCustom && !inspected.familyConfirmed ? (
+                    <span
+                      title="Familien er gjettet fra dataene og kan være feil — bekreft den under."
+                      className="rounded bg-orange-100 px-1 font-medium uppercase tracking-wide text-orange-700"
+                    >
+                      Familie ubekreftet
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <button
@@ -1048,6 +1069,44 @@ export default function MetricMappingView({
               >
                 ✕
               </button>
+            </div>
+
+            {/* Statement family — editable. Determines which picker (resultat
+                vs. balanse) offers the key in manual review. */}
+            <div className="mb-4 rounded-lg border border-[rgba(15,23,42,0.08)] p-3">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                Regnskapsoppstilling
+              </p>
+              <div className="flex gap-2">
+                {(
+                  [
+                    ["INCOME_STATEMENT", "Resultat"],
+                    ["BALANCE_SHEET", "Balanse"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const active = inspected?.family === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={busy || active}
+                      onClick={() => handleSetFamily(value)}
+                      className={`flex-1 rounded border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-default ${
+                        active
+                          ? "border-[#00668a] bg-[#00668a] text-white"
+                          : "border-[rgba(15,23,42,0.12)] bg-white text-slate-600 hover:border-[#00668a] hover:text-[#00668a]"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-500">
+                {inspected?.isCustom
+                  ? "Egendefinerte nøkler gjettes ofte feil (balanseposter havner under resultat). Sett riktig oppstilling her — da dukker nøkkelen opp i riktig velger i manuell kontroll."
+                  : "Skjelettnøkkel — endring oppdaterer registeret."}
+              </p>
             </div>
 
             <div className="mb-4 grid grid-cols-3 gap-2 text-center">

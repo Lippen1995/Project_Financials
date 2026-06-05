@@ -26,6 +26,14 @@ export type CanonicalKeyUsage = {
   key: string;
   label: string;
   family: CanonicalKeyFamily;
+  /**
+   * True when `family` is authoritative: a registry key (family from the
+   * registry) or a custom key whose family a reviewer set explicitly. False
+   * when `family` is only a guess derived from the facts' statementType — which
+   * is unreliable for custom balance-detail keys. Consumers (e.g. the review
+   * key-picker) can widen behaviour for unconfirmed keys.
+   */
+  familyConfirmed: boolean;
   /** Not part of the fixed code skeleton — created by a reviewer in manual review. */
   isCustom: boolean;
   /** One of the publish-required keys (renaming/deleting affects gating logic). */
@@ -53,24 +61,39 @@ function familyFromStatementType(statementType: string): CanonicalKeyFamily {
 }
 
 export async function getCanonicalKeyUsage(): Promise<CanonicalKeyUsage[]> {
-  const [registry, reviewedPairs, machinePairs, reviewedCounts, machineCounts, assignments] =
-    await Promise.all([
-      loadCanonicalRegistry(),
-      prisma.annualReportReviewedFact.findMany({
-        distinct: ["metricKey", "companyId"],
-        select: { metricKey: true, companyId: true, statementType: true },
-      }),
-      prisma.financialFact.findMany({
-        distinct: ["metricKey", "companyId"],
-        select: { metricKey: true, companyId: true, statementType: true },
-      }),
-      prisma.annualReportReviewedFact.groupBy({
-        by: ["metricKey"],
-        _count: { _all: true },
-      }),
-      prisma.financialFact.groupBy({ by: ["metricKey"], _count: { _all: true } }),
-      prisma.presentationNodeKey.findMany(),
-    ]);
+  const [
+    registry,
+    reviewedPairs,
+    machinePairs,
+    reviewedCounts,
+    machineCounts,
+    assignments,
+    familyOverrides,
+  ] = await Promise.all([
+    loadCanonicalRegistry(),
+    prisma.annualReportReviewedFact.findMany({
+      distinct: ["metricKey", "companyId"],
+      select: { metricKey: true, companyId: true, statementType: true },
+    }),
+    prisma.financialFact.findMany({
+      distinct: ["metricKey", "companyId"],
+      select: { metricKey: true, companyId: true, statementType: true },
+    }),
+    prisma.annualReportReviewedFact.groupBy({
+      by: ["metricKey"],
+      _count: { _all: true },
+    }),
+    prisma.financialFact.groupBy({ by: ["metricKey"], _count: { _all: true } }),
+    prisma.presentationNodeKey.findMany(),
+    prisma.canonicalKeyFamilyOverride.findMany(),
+  ]);
+
+  const overrideByKey = new Map<string, CanonicalKeyFamily>(
+    familyOverrides.map((o) => [
+      o.metricKey,
+      o.family === "BALANCE_SHEET" ? "BALANCE_SHEET" : "INCOME_STATEMENT",
+    ]),
+  );
 
   const companiesByKey = new Map<string, Set<string>>();
   const familyByKey = new Map<string, CanonicalKeyFamily>();
@@ -100,10 +123,19 @@ export async function getCanonicalKeyUsage(): Promise<CanonicalKeyUsage[]> {
     const entry = registryByKey.get(key);
     const isCustom = !entry;
     const isRequired = entry?.isRequired ?? false;
+    const overrideFamily = overrideByKey.get(key);
+    // Registry family wins; then a reviewer's explicit override; then the
+    // (unreliable) statementType-derived guess; finally a safe default.
+    const family =
+      entry?.family ?? overrideFamily ?? familyByKey.get(key) ?? "INCOME_STATEMENT";
+    // A registry key's family is always authoritative; a custom key's only once
+    // a reviewer has set it explicitly.
+    const familyConfirmed = !isCustom || overrideFamily !== undefined;
     return {
       key,
       label: entry?.label ?? humanizeKey(key),
-      family: entry?.family ?? familyByKey.get(key) ?? "INCOME_STATEMENT",
+      family,
+      familyConfirmed,
       isCustom,
       isRequired,
       // A registry (skeleton) key is referenced by code only as a seed/fallback;
@@ -126,6 +158,36 @@ export async function getCanonicalKeyUsage(): Promise<CanonicalKeyUsage[]> {
     .sort((a, b) => b.companyCount - a.companyCount || a.key.localeCompare(b.key));
 
   return [...skeleton, ...customKeys];
+}
+
+/**
+ * Set a key's statement family. For a registry key the family is updated on the
+ * `CanonicalKey` row (authoritative source). For a custom key — which has no
+ * registry row — the choice is persisted as a `CanonicalKeyFamilyOverride`,
+ * making the family authoritative instead of the unreliable statementType-
+ * derived guess. Idempotent.
+ */
+export async function setKeyFamily(input: {
+  key: string;
+  family: CanonicalKeyFamily;
+}): Promise<void> {
+  const key = input.key.trim();
+  if (!key) throw new CanonicalKeyError("Mangler nøkkel.");
+  if (input.family !== "INCOME_STATEMENT" && input.family !== "BALANCE_SHEET") {
+    throw new CanonicalKeyError("Ugyldig familie.");
+  }
+
+  const registryRow = await prisma.canonicalKey.findUnique({ where: { key } });
+  if (registryRow) {
+    await prisma.canonicalKey.update({ where: { key }, data: { family: input.family } });
+    return;
+  }
+
+  await prisma.canonicalKeyFamilyOverride.upsert({
+    where: { metricKey: key },
+    create: { metricKey: key, family: input.family },
+    update: { family: input.family },
+  });
 }
 
 /** Companies that currently use a given key, with display names. */
@@ -340,6 +402,25 @@ export async function reassignCanonicalKey(input: {
           });
         }
       }
+
+      // Custom-key family override follows the rename. If the target already has
+      // one (a merge), keep it and drop the source's; otherwise re-point.
+      const fromOverride = await tx.canonicalKeyFamilyOverride.findUnique({
+        where: { metricKey: from },
+      });
+      if (fromOverride) {
+        const toOverride = await tx.canonicalKeyFamilyOverride.findUnique({
+          where: { metricKey: to },
+        });
+        if (toOverride) {
+          await tx.canonicalKeyFamilyOverride.delete({ where: { metricKey: from } });
+        } else {
+          await tx.canonicalKeyFamilyOverride.update({
+            where: { metricKey: from },
+            data: { metricKey: to },
+          });
+        }
+      }
     }
 
     return {
@@ -373,5 +454,6 @@ export async function deleteCanonicalKey(key: string): Promise<void> {
     prisma.canonicalKey.deleteMany({ where: { key } }),
     prisma.presentationNodeKey.deleteMany({ where: { metricKey: key } }),
     prisma.metricAlias.deleteMany({ where: { metricKey: key } }),
+    prisma.canonicalKeyFamilyOverride.deleteMany({ where: { metricKey: key } }),
   ]);
 }
