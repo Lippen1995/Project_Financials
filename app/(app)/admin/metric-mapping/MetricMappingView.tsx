@@ -154,6 +154,7 @@ export default function MetricMappingView({
   const [model, setModel] = useState<NodeMappingModel>(initialModel);
   const [search, setSearch] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [newLabel, setNewLabel] = useState("");
@@ -347,6 +348,7 @@ export default function MetricMappingView({
     const term = search.trim().toLowerCase();
     return model.keys.filter((key) => {
       if (selectedNodeId && key.nodeId !== selectedNodeId) return false;
+      if (showUnassignedOnly && key.nodeId) return false;
       if (!term) return true;
       const nodeLabel = key.nodeId ? nodeById.get(key.nodeId)?.label ?? "" : "";
       return (
@@ -355,7 +357,7 @@ export default function MetricMappingView({
         nodeLabel.toLowerCase().includes(term)
       );
     });
-  }, [model.keys, search, selectedNodeId, nodeById]);
+  }, [model.keys, search, selectedNodeId, showUnassignedOnly, nodeById]);
 
   const unassignedCount = useMemo(
     () => model.keys.filter((k) => !k.nodeId).length,
@@ -519,7 +521,21 @@ export default function MetricMappingView({
             </h2>
             <span className="text-xs text-slate-400">
               {unassignedCount > 0 ? (
-                <span className="text-red-600">{unassignedCount} ufordelt</span>
+                <button
+                  type="button"
+                  onClick={() => setShowUnassignedOnly((prev) => !prev)}
+                  title={
+                    showUnassignedOnly
+                      ? "Vis alle nøkler"
+                      : "Vis kun ufordelte nøkler"
+                  }
+                  aria-pressed={showUnassignedOnly}
+                  className={`rounded px-1.5 py-0.5 font-medium text-red-600 underline-offset-2 hover:underline focus:outline-none ${
+                    showUnassignedOnly ? "bg-red-50 underline" : ""
+                  }`}
+                >
+                  {unassignedCount} ufordelt
+                </button>
               ) : (
                 "alle fordelt"
               )}
