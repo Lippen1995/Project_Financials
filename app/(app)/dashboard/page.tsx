@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { RelevantInsightsSection } from "@/components/dashboard/relevant-insights-section";
 import { safeAuth } from "@/lib/auth";
+import { getDashboardRelevantInsights } from "@/server/news/dashboard-insights-service";
 
 export default async function DashboardPage() {
   const session = await safeAuth();
@@ -11,6 +13,7 @@ export default async function DashboardPage() {
   }
 
   const firstName = session.user.name?.split(" ")[0] ?? session.user.email ?? "der";
+  const relevantInsights = await getDashboardRelevantInsights(session.user.id, 8);
 
   return (
     <div className="min-h-screen pt-0">
@@ -81,77 +84,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="max-w-container-max mx-auto px-margin-lg pb-16">
-        <div className="border-b border-primary pb-3 mb-8 flex items-center justify-between">
-          <h3 className="font-headline-md text-headline-md text-primary tracking-wide uppercase">
-            Latest Company Insights
-          </h3>
-          <Link
-            href="#"
-            className="font-label-caps text-xs text-secondary tracking-widest hover:underline"
-          >
-            VIEW ALL
-          </Link>
-        </div>
-
-        <div className="space-y-8">
-          <div className="grid grid-cols-12 gap-6 border-b border-outline-variant pb-8">
-            <div className="col-span-12 sm:col-span-3">
-              <p className="font-label-caps text-xs text-secondary tracking-widest mb-1">
-                ENERGY SECTOR
-              </p>
-              <p className="font-label-caps text-xs text-outline-variant tracking-widest">
-                12 OCT 2023
-              </p>
-            </div>
-            <div className="col-span-12 sm:col-span-6">
-              <h4 className="font-headline-sm text-headline-sm text-primary mb-3">
-                Equinor ASA Announces Structural Reorganization of Offshore Wind Division
-              </h4>
-              <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
-                Internal restructuring signals a strategic pivot following underperformance in the
-                Barents region. Board sources indicate accelerated divestiture of non-core assets
-                slated for Q1 2024, with leadership changes expected at the divisional level.
-              </p>
-            </div>
-            <div className="col-span-12 sm:col-span-3">
-              <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjo4WRnV7HRnnjlmWFSSlREEWUPfnJxmxfvshl_ISVd1XCmV4E40PPWrMy6XqWXebHN0xEYqEYyKB3wKe3w70vX7FGi91LY03jg9TMVlDx9Br-89Gj-BEVJEgJhgP-EHBwK2YIR_yNXyML4CyHhQOPmi7WqxFfqebS9OEb2vFjzV-qBH41KV9nESjDO2LiXcrzPov1AEycTYaOnOhoMma_7wua0trJgwRwFVptqY51UwRhB9ThwxM3adNE2XXgSWrAhtyAJ27wHA8"
-                alt="Equinor offshore wind"
-                className="w-full h-40 object-cover"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-12 gap-6">
-            <div className="col-span-12 sm:col-span-3">
-              <p className="font-label-caps text-xs text-secondary tracking-widest mb-1">
-                TECH / VENTURE
-              </p>
-              <p className="font-label-caps text-xs text-outline-variant tracking-widest">
-                11 OCT 2023
-              </p>
-            </div>
-            <div className="col-span-12 sm:col-span-6">
-              <h4 className="font-headline-sm text-headline-sm text-primary mb-3">
-                Oslo Tech Hub: Series C Funding Alert for Cognite AI
-              </h4>
-              <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
-                Board composition analysis reveals three new international directors, signaling
-                preparation for cross-border expansion. Secondary market activity suggests a
-                pre-IPO liquidity event targeting Nordic institutional investors before year-end.
-              </p>
-            </div>
-            <div className="col-span-12 sm:col-span-3">
-              <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkbEIHbmsUzVleRVY5Fw7oIo0FaUwpPoVu6PPZZdjjuqhNB1b9kp6KNMREpiX4dEj7YuCXO67RpG_LCOcSo_Ft1Kme0WhjyH1d57yIvDIk-9sBh2XAOzOQyuXj_o2kedlzUCtWDEbt8SYg8F7I3Daa2t2rMKTWys-v0cPXiFuwamrHxg1q6tXq2MHnBtcjKbyPOUaFjiAaz_Kd2g0EX91FbbHRYNNjQhYARvdtjn_SIEYbrDMOfrFzBD6OlRwDUT0D5PsVJfWzmac"
-                alt="Oslo Tech Hub Cognite"
-                className="w-full h-40 object-cover"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+      <RelevantInsightsSection items={relevantInsights} />
 
       <section className="max-w-container-max mx-auto px-margin-lg pb-16">
         <div className="border-b border-primary pb-3 mb-8 flex items-center justify-between">
