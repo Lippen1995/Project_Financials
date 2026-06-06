@@ -133,6 +133,11 @@ export function mapRowsToCanonicalFacts(input: {
   /** Keys that must be present for the filing to count as complete. Defaults to
    *  the built-in list; the service layer passes the DB-backed registry keys. */
   requiredKeys?: string[];
+  /** When true, also emit facts for the comparative (prior-year) column, which
+   *  geometry-first already reads. Production defaults to false (publishes the
+   *  filing's current year only), but the accuracy eval opts in to measure how
+   *  much of the prior-year column the extractor recovers. */
+  emitComparativeYears?: boolean;
 }) {
   const definitions = input.definitions ?? defaultMetricDefinitions;
   const requiredKeys = input.requiredKeys ?? requiredPublishMetricKeys;
@@ -215,7 +220,7 @@ export function mapRowsToCanonicalFacts(input: {
 
     for (const valueCell of row.values) {
       const fiscalYear = yearOrder[valueCell.columnIndex] ?? yearOrder[0];
-      if (fiscalYear !== input.filingFiscalYear) {
+      if (!input.emitComparativeYears && fiscalYear !== input.filingFiscalYear) {
         continue;
       }
 

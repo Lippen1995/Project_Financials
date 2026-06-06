@@ -223,6 +223,35 @@ function isNoteReferenceToken(
   return distToNote < distToNearestYear;
 }
 
+// Bare statement section headers (normalized). These sit above their rows as
+// label-only lines but are NOT part of any row's label, so they must never be
+// merged into a wrapped-label fragment. A genuine wrap fragment ("Sum
+// finansielle") is multi-word and not in this set, so it still merges.
+const SECTION_HEADER_WORDS = new Set([
+  "inntekter",
+  "driftsinntekter",
+  "driftskostnader",
+  "kostnader",
+  "finansinntekter",
+  "finanskostnader",
+  "eiendeler",
+  "anleggsmidler",
+  "immaterielle eiendeler",
+  "varige driftsmidler",
+  "finansielle anleggsmidler",
+  "omlopsmidler",
+  "omløpsmidler",
+  "fordringer",
+  "investeringer",
+  "egenkapital",
+  "innskutt egenkapital",
+  "opptjent egenkapital",
+  "gjeld",
+  "kortsiktig gjeld",
+  "langsiktig gjeld",
+  "avsetning for forpliktelser",
+]);
+
 function isNoiseLine(text: string): boolean {
   const normalized = normalizeRowLabel(repairOcrTokenBoundaries(text));
   if (!normalized) return true;
@@ -287,13 +316,30 @@ export function reconstructStatementRowsGeometryFirst(
 
   const rows: ReconstructedRow[] = [];
 
+  // Wrapped-label fragments from preceding label-only lines. Brønnøysund forms
+  // wrap long labels, and OCR emits the wrap as its own line with the value on
+  // the LAST line — "Sum finansielle" / "anleggsmidler  12 328 727 170". Without
+  // re-joining, the value row is labelled just "anleggsmidler" and won't match
+  // its registry alias ("sum finansielle anleggsmidler"). We remember each
+  // label-only line and prepend the fragment(s) directly above a value line.
+  let pendingLabel: Array<{ text: string; y: number; height: number }> = [];
+
   for (let lineIndex = 0; lineIndex < page.lines.length; lineIndex++) {
-    if (lineIndex === yearHeaderIndex) continue;
+    if (lineIndex === yearHeaderIndex) {
+      pendingLabel = [];
+      continue;
+    }
     const line = page.lines[lineIndex]!;
-    if (isNoiseLine(line.text)) continue;
+    if (isNoiseLine(line.text)) {
+      pendingLabel = [];
+      continue;
+    }
 
     const tokens = tokensWithPositions(line);
-    if (tokens.length === 0) continue;
+    if (tokens.length === 0) {
+      pendingLabel = [];
+      continue;
+    }
 
     // Drop year-shaped tokens (fiscal-year references) and note-reference
     // tokens — neither is a statement value, and both would otherwise be
@@ -304,12 +350,43 @@ export function reconstructStatementRowsGeometryFirst(
         !YEAR_TOKEN_RE.test(t.token) &&
         !isNoteReferenceToken(t, noteColumnX, anchors),
     );
-    if (numericTokens.length === 0) continue;
+    if (numericTokens.length === 0) {
+      // Label-only line: a wrapped-label fragment OR a section header. Keep a
+      // genuine wrap fragment as a prefix for the value line below, but NEVER a
+      // bare section header ("Inntekter", "Fordringer") — merging those mislabels
+      // the next row.
+      const fragText = stripDuplicateWhitespace(tokens.map((t) => t.token).join(" "));
+      const fragNorm = normalizeRowLabel(fragText);
+      if (fragNorm && /[a-zæøå]/i.test(fragNorm) && !SECTION_HEADER_WORDS.has(fragNorm)) {
+        pendingLabel.push({ text: fragText, y: line.y, height: line.height });
+        if (pendingLabel.length > 2) pendingLabel = pendingLabel.slice(-2);
+      } else {
+        pendingLabel = [];
+      }
+      continue;
+    }
 
-    // Label = everything strictly to the left of the first numeric token.
+    // Label = everything strictly to the left of the first numeric token, with
+    // any wrapped-label fragment(s) sitting just above this value line prepended.
     const firstNumericX = numericTokens[0]!.x;
     const labelTokens = tokens.filter((t) => t.x < firstNumericX);
-    const label = stripDuplicateWhitespace(labelTokens.map((t) => t.token).join(" "));
+    const ownLabel = stripDuplicateWhitespace(labelTokens.map((t) => t.token).join(" "));
+
+    const prefixFragments: string[] = [];
+    let cutoffY = line.y;
+    for (let k = pendingLabel.length - 1; k >= 0; k--) {
+      const frag = pendingLabel[k]!;
+      const gap = cutoffY - frag.y;
+      if (gap > 0 && gap <= Math.max(line.height, frag.height) * 1.6) {
+        prefixFragments.unshift(frag.text);
+        cutoffY = frag.y;
+      } else {
+        break;
+      }
+    }
+    pendingLabel = [];
+
+    const label = stripDuplicateWhitespace([...prefixFragments, ownLabel].join(" "));
     const normalizedLabel = normalizeRowLabel(label);
     if (!normalizedLabel || normalizedLabel.length < 3) continue;
 
