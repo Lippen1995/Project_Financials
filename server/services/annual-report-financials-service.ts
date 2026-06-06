@@ -664,17 +664,29 @@ function assembleComputation(input: {
     rows: input.rows,
     definitions: input.definitions,
     requiredKeys: input.requiredKeys,
+    // Also extract the comparative (prior-year) column — geometry-first already
+    // reads it. These facts flow into storage and the review artifact so the
+    // reviewer gets prior-year suggestions instead of hand-keying every value.
+    // The auto-publish gate below deliberately operates on the FILING year only
+    // (currentYearFacts), so adding the prior year does not change validation,
+    // confidence, scope selection or the published snapshot.
+    emitComparativeYears: true,
   });
+  // The validation / confidence / snapshot all reason about a single statement
+  // year — the filing's year. Restrict the gate to current-year facts so the
+  // prior-year column (suggestions only) can never pick a wrong-year value
+  // through chooseCanonicalFacts' per-key dedup.
+  const currentYearFacts = mapped.facts.filter((fact) => fact.fiscalYear === input.fiscalYear);
   // Pick the primary scope to validate, score and publish. Consolidated
   // (konsernregnskap) is the headline for a group; a standalone company has
   // only COMPANY facts so it falls through to COMPANY. Facts of BOTH scopes
   // are still persisted — only the published snapshot uses the primary scope.
-  const primaryScope: "COMPANY" | "CONSOLIDATED" = mapped.facts.some(
+  const primaryScope: "COMPANY" | "CONSOLIDATED" = currentYearFacts.some(
     (fact) => fact.statementScope === "CONSOLIDATED",
   )
     ? "CONSOLIDATED"
     : "COMPANY";
-  const validation = validateCanonicalFacts(mapped.facts, primaryScope);
+  const validation = validateCanonicalFacts(currentYearFacts, primaryScope);
   const classificationIssues = buildClassificationIssues(input.fiscalYear, input.classifications);
   const selectedFacts = validation.selectedFacts;
   // Presentation-node MATCH rules: the fold of a node's operand keys must agree
