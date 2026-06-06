@@ -149,6 +149,56 @@ export function buildAlternativeRowsForRecovery(input: {
 }
 
 /**
+ * PRIMARY row reconstruction: prefer geometry-first on every statement page,
+ * falling back to the legacy rows only where geometry-first produces nothing.
+ *
+ * The accuracy eval proved geometry-first vastly outperforms the legacy
+ * partition reconstruction on SCANNED statement pages (≈0.9% → ≈57% canonical
+ * recall): the legacy path truncates and column-fuses values on OCR text.
+ * Geometry-first requires real word coordinates, so on DIGITAL / embedded-text
+ * pages (and ODL output without per-word geometry) it returns no rows and we
+ * transparently keep the legacy reconstruction — making this a safe default,
+ * not a scanned-only path. Continuation pages inherit year-column anchors from
+ * the nearest preceding statement page (same rule as the recovery branch).
+ */
+export function buildStatementRowsPreferGeometryFirst(input: {
+  parsedPages: AnnualReportParsedInputPage[];
+  classifications: PageClassification[];
+  legacyRows: ReconstructedRow[];
+}): ReconstructedRow[] {
+  const classificationByPage = new Map(
+    input.classifications.map((c) => [c.pageNumber, c]),
+  );
+  const sortedPages = [...input.parsedPages].sort((a, b) => a.pageNumber - b.pageNumber);
+  const anchorsByPage = new Map<number, ColumnAnchor[]>(
+    sortedPages.map((p) => [p.pageNumber, detectYearColumnAnchorsForPage(p)]),
+  );
+  const findInheritedAnchors = (pageNumber: number): ColumnAnchor[] | undefined => {
+    for (let pn = pageNumber - 1; pn >= 1; pn--) {
+      const candidate = anchorsByPage.get(pn);
+      if (candidate && candidate.length >= 2) return candidate;
+      const cls = classificationByPage.get(pn);
+      if (cls && !RECOVERABLE_PAGE_TYPES.has(cls.type)) return undefined;
+    }
+    return undefined;
+  };
+
+  const geometryRowsByPage = new Map<number, ReconstructedRow[]>();
+  for (const page of sortedPages) {
+    const cls = classificationByPage.get(page.pageNumber);
+    if (!cls || !RECOVERABLE_PAGE_TYPES.has(cls.type)) continue;
+    const own = anchorsByPage.get(page.pageNumber);
+    const inherited = own && own.length >= 2 ? undefined : findInheritedAnchors(page.pageNumber);
+    const rows = reconstructStatementRowsGeometryFirst(page, cls, inherited);
+    if (rows.length > 0) geometryRowsByPage.set(page.pageNumber, rows);
+  }
+
+  const result = input.legacyRows.filter((row) => !geometryRowsByPage.has(row.pageNumber));
+  for (const rows of geometryRowsByPage.values()) result.push(...rows);
+  return result.sort((a, b) => a.pageNumber - b.pageNumber || a.y - b.y);
+}
+
+/**
  * The loop keeps an alternative only when it strictly wins: publishable
  * outranks non-publishable, and within the same tier the alternative must
  * have a higher confidence score. A draw stays on the current computation —

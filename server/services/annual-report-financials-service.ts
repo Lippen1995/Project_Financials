@@ -23,6 +23,7 @@ import {
 } from "@/integrations/brreg/annual-report-financials/engine-consensus";
 import {
   buildAlternativeRowsForRecovery,
+  buildStatementRowsPreferGeometryFirst,
   loopCandidateWins,
   selectRecoveryCandidates,
 } from "@/integrations/brreg/annual-report-financials/extraction-loop";
@@ -582,7 +583,17 @@ function runFinancialPipeline(input: {
     input.excludePageNumbers && input.excludePageNumbers.size > 0
       ? allClassifications.filter((c) => !input.excludePageNumbers!.has(c.pageNumber))
       : allClassifications;
-  const rows = reconstructStatementRows(input.parsedPages, classifications);
+  // Geometry-first is now the PRIMARY reconstruction on statement pages where it
+  // produces rows (scanned/OCR); the legacy partition reconstruction is the
+  // fallback for digital/embedded-text pages where geometry-first has no word
+  // coordinates. This brings the eval-validated path into production instead of
+  // leaving geometry-first as a conditional recovery branch.
+  const legacyRows = reconstructStatementRows(input.parsedPages, classifications);
+  const rows = buildStatementRowsPreferGeometryFirst({
+    parsedPages: input.parsedPages,
+    classifications,
+    legacyRows,
+  });
   return assembleComputation({
     fiscalYear: input.fiscalYear,
     parsedPages: input.parsedPages,
