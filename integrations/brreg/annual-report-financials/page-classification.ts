@@ -80,6 +80,17 @@ const NOTE_KEYWORDS = [
   "regnskapsprinsipper",
   "note ",
   "accounting principles",
+  // Tax-/specification-note cues. These reconciliation terms appear ONLY in
+  // notes (the tax note, the equity specification), never on a face income
+  // statement or balance sheet — so they reliably keep a note from being typed
+  // as a statutory statement (the CLAIRE KIDS tax note that became a "konsern
+  // resultatregnskap").
+  "skattepliktig inntekt",
+  "permanente forskjeller",
+  "midlertidige forskjeller",
+  "betalbar skatt i balansen",
+  "grunnlag for utsatt skatt",
+  "spesifikasjon av",
 ];
 const AUDITOR_KEYWORDS = [
   "uavhengig revisors beretning",
@@ -191,6 +202,8 @@ function detectScopeSignal(
 
   // A bare "konsern" word next to a statement noun is a consolidated marker
   // (e.g. heading "Resultatregnskap konsern" or "Konsern - Resultatregnskap").
+  // The document-level group gate at the end of classifyPages overrides any
+  // CONSOLIDATED this infers when the filing declares it is NOT a group.
   const konsernNextToStatement = containsWord(text, "konsern") && hasStatementNoun;
   // "morselskap" only counts next to a statement noun — on its own it appears
   // in note prose ("transaksjoner med morselskap").
@@ -975,6 +988,36 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
           "Reclassified SUPPLEMENTARY: beyond Del 1 (Brønnøysund statutory forms)",
         ]),
       ];
+    }
+  }
+
+  // ── Document-level group gate ─────────────────────────────────────────────
+  // When the Brønnøysund cover declares the entity is NOT part of a group
+  // ("Morselskap i konsern: Nei" → normalised "... konsern nei"), no page can be
+  // a konsern statement. Small single-entity reports were getting a spurious
+  // CONSOLIDATED scope (from the structural two-round fallback or a stray note
+  // heading) that pulled their notes in as a "konsernregnskap". A legal non-group
+  // is unambiguous, so force COMPANY scope across the whole document, overriding
+  // any CONSOLIDATED the per-page heuristics inferred.
+  // Read the Brønnøysund cover field "Morselskap i konsern: <Ja/Nei>". OCR
+  // mangles the short value (Nei → "nel", "ne|"), so we match the field label
+  // and treat a value beginning with "ne" as the negative. Matching the leading
+  // "ne" (not "!= ja") keeps a real group safe even if its "Ja" is misread.
+  const documentText = featuresByPage.map((features) => features.page.normalizedText).join(" ");
+  const groupFieldMatch = documentText.match(/morselskap i konsern\s+([a-zæøå]+)/);
+  const documentExplicitlyNotGroup = /^ne/.test(groupFieldMatch?.[1] ?? "");
+  if (documentExplicitlyNotGroup) {
+    for (const classification of sortedClassifications) {
+      if (classification.statementScope === "CONSOLIDATED") {
+        classification.statementScope = "COMPANY";
+        classification.hasExplicitScopeSignal = false;
+        classification.reasons = [
+          ...new Set([
+            ...classification.reasons,
+            "Forced COMPANY scope: filing declares 'Morselskap i konsern: Nei' (not a group)",
+          ]),
+        ];
+      }
     }
   }
 

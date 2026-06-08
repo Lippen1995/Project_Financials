@@ -1281,13 +1281,26 @@ export async function processAnnualReportFiling(
     .map((page) => page.pageNumber);
   const isMixedMode =
     preflight.hasReliableTextLayer && unreliablePageNumbers.length > 0;
+  // The Brønnøysund statutory forms (Del 1 — the primary facts) are always the
+  // FIRST pages of the filing; the company's own Del-2 report and the notes
+  // follow and are noise for primary extraction (and a source of misclassified
+  // pages). OCR is by far the most expensive step, so on a scanned document we
+  // OCR only this Del-1 window and let the rest fall out as non-statutory. Del-1
+  // is compact (~4-12 pages); 18 leaves margin for a cover + selskap + konsern.
+  const DEL1_PAGE_WINDOW = 18;
+  const del1PageNumbers = preflight.parsedPages
+    .map((page) => page.pageNumber)
+    .filter((pageNumber) => pageNumber <= DEL1_PAGE_WINDOW);
   let legacyOcrResult: Awaited<ReturnType<typeof extractOcrPagesWithDiagnostics>> | null = null;
   if (!preflight.hasReliableTextLayer) {
-    legacyOcrResult = await extractOcrPagesWithDiagnostics(pdfBuffer);
+    legacyOcrResult = await extractOcrPagesWithDiagnostics(
+      pdfBuffer,
+      del1PageNumbers.length > 0 ? del1PageNumbers : undefined,
+    );
   } else if (isMixedMode) {
     legacyOcrResult = await extractOcrPagesWithDiagnostics(
       pdfBuffer,
-      unreliablePageNumbers,
+      unreliablePageNumbers.filter((pageNumber) => pageNumber <= DEL1_PAGE_WINDOW),
     );
   }
   const ocrPagesByNumber = new Map(
@@ -1318,8 +1331,17 @@ export async function processAnnualReportFiling(
     preflight,
   });
 
+  // Doc-type routing: Docling runs ONLY on digital documents. Scanned filings
+  // (the majority of Brønnøysund reports) extract via OCR + geometry-first only —
+  // Docling cannot table a scanned image, it instead runs its own internal OCR
+  // which stalls indefinitely (the production hang). A scanned document
+  // therefore skips Docling entirely and uses the LEGACY/OCR path, which is now
+  // geometry-first-primary.
+  const shouldRunOpenDataLoader =
+    openDataLoaderConfig.enabled && preflight.hasReliableTextLayer;
+
   const plannedPrimaryEngine =
-    openDataLoaderConfig.enabled && !openDataLoaderConfig.dualRun
+    shouldRunOpenDataLoader && !openDataLoaderConfig.dualRun
       ? "OPENDATALOADER"
       : "LEGACY";
   const plannedPrimaryMode =
@@ -1358,7 +1380,7 @@ export async function processAnnualReportFiling(
   let engineConsensus: EngineConsensus | null = null;
 
   try {
-    if (openDataLoaderConfig.enabled) {
+    if (shouldRunOpenDataLoader) {
       try {
         openDataLoaderResult = await parseAnnualReportPdfWithOpenDataLoader({
           pdfBuffer,
