@@ -93,8 +93,8 @@ export const defaultMetricDefinitions: MetricDefinition[] = [
   { key: "other_operating_expense", statementFamily: "INCOME_STATEMENT", aliases: ["annen driftskostnad", "andre driftskostnader"] },
   { key: "total_operating_expenses", statementFamily: "INCOME_STATEMENT", aliases: ["sum driftskostnader", "sum kostnader", "totale driftskostnader"] },
   { key: "operating_profit", statementFamily: "INCOME_STATEMENT", aliases: ["driftsresultat", "resultat av drift", "operating profit", "operating result"] },
-  { key: "financial_income", statementFamily: "INCOME_STATEMENT", aliases: ["sum finansinntekter", "finansinntekter", "financial income"] },
-  { key: "financial_expense", statementFamily: "INCOME_STATEMENT", aliases: ["sum finanskostnader", "finanskostnader", "financial expense"] },
+  { key: "financial_income", statementFamily: "INCOME_STATEMENT", aliases: ["finansinntekter", "financial income"] },
+  { key: "financial_expense", statementFamily: "INCOME_STATEMENT", aliases: ["finanskostnader", "financial expense"] },
   { key: "net_financial_items", statementFamily: "INCOME_STATEMENT", aliases: ["resultat av finansposter", "netto finans", "netto finansposter", "net financial items"] },
   { key: "profit_before_tax", statementFamily: "INCOME_STATEMENT", aliases: ["resultat for skattekostnad", "ordinaert resultat for skattekostnad", "resultat for skatt", "ordinaert resultat for skatt", "ordinaert resultat", "profit before tax"] },
   { key: "tax_expense", statementFamily: "INCOME_STATEMENT", aliases: ["skattekostnad pa resultat", "skattekostnad", "skatt pa ordinart resultat", "tax expense"] },
@@ -111,7 +111,7 @@ export const defaultMetricDefinitions: MetricDefinition[] = [
   { key: "total_assets", statementFamily: "BALANCE_SHEET", aliases: ["sum eiendeler", "totale eiendeler"] },
   { key: "share_capital", statementFamily: "BALANCE_SHEET", aliases: ["aksjekapital", "innskutt aksjekapital"] },
   { key: "share_premium", statementFamily: "BALANCE_SHEET", aliases: ["overkurs", "share premium"] },
-  { key: "retained_earnings", statementFamily: "BALANCE_SHEET", aliases: ["annen egenkapital", "opptjent egenkapital", "retained earnings"] },
+  { key: "retained_earnings", statementFamily: "BALANCE_SHEET", aliases: ["opptjent egenkapital", "retained earnings"] },
   { key: "total_equity", statementFamily: "BALANCE_SHEET", aliases: ["sum egenkapital", "egenkapital"] },
   { key: "long_term_liabilities", statementFamily: "BALANCE_SHEET", aliases: ["sum langsiktig gjeld", "langsiktig gjeld", "annen langsiktig gjeld"] },
   { key: "trade_payables", statementFamily: "BALANCE_SHEET", aliases: ["leverandorgjeld", "trade payables"] },
@@ -139,13 +139,25 @@ export const defaultMetricDefinitions: MetricDefinition[] = [
 
 export const allCanonicalMetricKeys = defaultMetricDefinitions.map((definition) => definition.key);
 
+// High-frequency OCR confusions in statement row labels. These are repaired on
+// the label (not the alias) before matching so an OCR slip does not strand a row
+// on a shorter, less-specific alias. "Sum" — the most common label token in a
+// Norwegian statement (every total line) — is routinely misread as "sun"; that
+// single error makes e.g. "Sum finansinntekter" miss its «Sum finansinntekter»
+// alias (total_financial_income) and fall through to the shorter «finansinntekter»
+// (financial_income). "sun" is not a Norwegian financial term, so the repair is
+// safe.
+function repairLabelOcr(normalizedLabel: string): string {
+  return normalizedLabel.replace(/\bsun\b/g, "sum");
+}
+
 export function findCanonicalMetricKey(
   label: string,
   statementFamily: MetricDefinition["statementFamily"],
   liabilitySection?: LiabilitySection | null,
   definitions: MetricDefinition[] = defaultMetricDefinitions,
 ) {
-  const normalizedLabel = normalizeNorwegianText(label);
+  const normalizedLabel = repairLabelOcr(normalizeNorwegianText(label));
   let bestMatch: { key: CanonicalMetricKey; aliasLength: number } | null = null;
 
   for (const definition of definitions) {
