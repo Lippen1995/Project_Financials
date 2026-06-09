@@ -421,8 +421,26 @@ export function reconstructStatementRowsGeometryFirst(
       }
     }
 
+    // Header-independent note-column guard. The "Note" reference column sits in
+    // the gap between the row label and the first value column; its 1–2 digit
+    // refs form their own cluster well LEFT of the leftmost (right-aligned) year
+    // anchor. nearestColumnIndex would still bucket that cluster into column 0,
+    // fusing the note number onto the front of the current-year value
+    // ("16" + 13 334 998 420 → 1613334998420) or, when the real value was not
+    // read, standing in as a bogus value ("9"). isNoteReferenceToken only fires
+    // when the "Note" header was OCR'd; this positional rule covers the common
+    // case where it was not. Value clusters are right-aligned AT the anchors, so
+    // their rightX is never in the note zone — only genuine note refs are.
+    const leftmostAnchorX = Math.min(...anchors.map((a) => a.x));
+    const noteZoneRightBound =
+      Number.isFinite(columnSpacing) ? leftmostAnchorX - columnSpacing * 0.5 : -Infinity;
+
     const tokensByColumn = new Map<number, PositionedToken[]>();
     for (const cluster of clusters) {
+      const clusterDigits = cluster.tokens.map((t) => t.token).join("").replace(/\D/g, "");
+      if (clusterDigits.length <= 2 && cluster.rightX < noteZoneRightBound) {
+        continue; // note-reference column, not a statement value
+      }
       const columnIndex = nearestColumnIndex(cluster.rightX, anchors);
       const bucket = tokensByColumn.get(columnIndex) ?? [];
       bucket.push(...cluster.tokens);
