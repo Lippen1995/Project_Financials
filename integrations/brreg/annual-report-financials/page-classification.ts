@@ -201,6 +201,24 @@ function isStatutoryStatementType(type: string): boolean {
   );
 }
 
+// A statement page whose TITLE is an income-statement title ("Totalresultat",
+// "Resultatregnskap", "Resultatoppstilling") is an income statement even if its
+// body trips a stray balance cue. IFRS groups (REITAN) title the consolidated
+// income statement "Totalresultat" (statement of comprehensive income), and its
+// page carries OCI lines that mention "egenkapital"/"investeringseiendom" — a
+// stray "eiendeler"/balance match then mis-types the page as a balance sheet,
+// stranding the konsern revenue/net-income behind a BALANCE-typed page that the
+// income extractor skips. Trust the title (the reading-order head, since the
+// block-sorted heading field is unreliable on noisy scans) over body cues, and
+// only when the title is NOT itself a balance title.
+function titleIndicatesIncome(scopeHeadText: string): boolean {
+  const titleWindow = scopeHeadText.slice(0, 80);
+  const hasIncomeTitle =
+    /\b(totalresultat|resultatregnskap|resultatoppstilling)/.test(titleWindow);
+  const hasBalanceTitle = /\b(balanse|eiendeler|egenkapital og gjeld)/.test(titleWindow);
+  return hasIncomeTitle && !hasBalanceTitle;
+}
+
 /**
  * Detects whether a page carries an explicit statement-scope heading.
  * Returns "CONSOLIDATED" or "COMPANY" when a marker is found, or null when
@@ -647,7 +665,19 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
   for (const features of featuresByPage) {
     const previous = classifications[classifications.length - 1] ?? null;
     const scored = scoreFeatures(features);
-    const { type, top } = selectType(features, scored, previous);
+    const selected = selectType(features, scored, previous);
+    const top = selected.top;
+    let type = selected.type;
+
+    // Title-based income correction: a page titled "Totalresultat" /
+    // "Resultatregnskap" is an income statement even if a stray body cue typed
+    // it as a balance sheet (the REITAN konsern "Totalresultat" page).
+    if (
+      (type === "STATUTORY_BALANCE" || type === "STATUTORY_BALANCE_CONTINUATION") &&
+      titleIndicatesIncome(features.scopeHeadText)
+    ) {
+      type = "STATUTORY_INCOME";
+    }
 
     // A scope heading takes effect from this page onward. Board/auditor
     // pages are excluded — their prose mentions "konsernet" freely and must
@@ -1018,7 +1048,65 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
   // For the Legacy engine, Del 2 pages are already correctly classified as
   // SUPPLEMENTARY by keyword signals ("artsinndelt", running-header heuristics,
   // etc.), so this pass is effectively a no-op for Legacy.
-  const firstBlockPageNumbers = new Set(firstStatutoryBlock.map((c) => c.pageNumber));
+  //
+  // Exception — a Konsernregnskap presented as its own section. Some groups
+  // (REITAN-style annual reports that lack the standardised Brønnøysund Del-1
+  // konsern forms) place the konsernregnskap far from the parent statements,
+  // after the board report, introduced by a standalone "Konsernregnskap"
+  // divider page. The firstStatutoryBlock then holds ONLY the parent (COMPANY)
+  // statements, so the boundary above would demote the konsern as Del-2 noise —
+  // dropping the group figures entirely. Keep that konsern block too, but only
+  // when (a) the first block has no consolidated figures of its own and (b) an
+  // explicit "Konsernregnskap" scope divider introduces the block. A re-presented
+  // Del-2 duplicate of an EXISTING scope (e.g. CLAIRE's thousands-scaled COMPANY
+  // statements) has neither property and is still demoted.
+  const documentTextForGroup = featuresByPage
+    .map((features) => features.page.normalizedText)
+    .join(" ");
+  const groupFieldMatch = documentTextForGroup.match(
+    /morselskap i konsern\s+([a-zæøå]+)/,
+  );
+  const documentExplicitlyNotGroup = /^ne/.test(groupFieldMatch?.[1] ?? "");
+
+  const firstBlockHasConsolidated = firstStatutoryBlock.some(
+    (c) => c.statementScope === "CONSOLIDATED",
+  );
+  const lastFirstBlockPage =
+    firstStatutoryBlock.length > 0
+      ? firstStatutoryBlock[firstStatutoryBlock.length - 1]!.pageNumber
+      : 0;
+  const hasKonsernDividerBeyondFirstBlock = sortedClassifications.some(
+    (c) =>
+      c.pageNumber > lastFirstBlockPage &&
+      c.hasExplicitScopeSignal &&
+      c.statementScope === "CONSOLIDATED",
+  );
+
+  const secondStatutoryBlock: PageClassification[] = [];
+  if (
+    !firstBlockHasConsolidated &&
+    hasKonsernDividerBeyondFirstBlock &&
+    !documentExplicitlyNotGroup
+  ) {
+    let gapCounter2 = 0;
+    for (const c of sortedClassifications) {
+      if (c.pageNumber <= lastFirstBlockPage) continue;
+      if (isStatutoryStatementType(c.type) && c.statementScope === "CONSOLIDATED") {
+        if (secondStatutoryBlock.length > 0 && gapCounter2 > MAX_GAP_WITHIN_BLOCK) {
+          break;
+        }
+        secondStatutoryBlock.push(c);
+        gapCounter2 = 0;
+      } else if (secondStatutoryBlock.length > 0) {
+        gapCounter2 += 1;
+      }
+    }
+  }
+
+  const firstBlockPageNumbers = new Set([
+    ...firstStatutoryBlock.map((c) => c.pageNumber),
+    ...secondStatutoryBlock.map((c) => c.pageNumber),
+  ]);
 
   for (const c of sortedClassifications) {
     if (firstBlockPageNumbers.has(c.pageNumber)) continue; // Del 1 — leave as-is
@@ -1053,9 +1141,8 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
   // mangles the short value (Nei → "nel", "ne|"), so we match the field label
   // and treat a value beginning with "ne" as the negative. Matching the leading
   // "ne" (not "!= ja") keeps a real group safe even if its "Ja" is misread.
-  const documentText = featuresByPage.map((features) => features.page.normalizedText).join(" ");
-  const groupFieldMatch = documentText.match(/morselskap i konsern\s+([a-zæøå]+)/);
-  const documentExplicitlyNotGroup = /^ne/.test(groupFieldMatch?.[1] ?? "");
+  // (documentExplicitlyNotGroup is computed once above, before the Del 1/Del 2
+  // boundary, so the konsern second-block exception respects it too.)
   if (documentExplicitlyNotGroup) {
     for (const classification of sortedClassifications) {
       if (classification.statementScope === "CONSOLIDATED") {

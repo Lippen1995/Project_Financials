@@ -1206,3 +1206,75 @@ export async function extractOcrPages(pdfBuffer: Buffer, pageNumbers?: number[])
   const result = await extractOcrPagesWithDiagnostics(pdfBuffer, pageNumbers);
   return result.pages;
 }
+
+// Number of pages OCR'd per underlying call. extractOcrPagesWithDiagnostics
+// renders every requested page bitmap up front and OCRs them on one worker;
+// native memory (rendered bitmaps + Tesseract heap) is only reclaimed when the
+// call returns. On dense scanned filings ~18 pages in one call is the ceiling
+// before the OS kills the process. Splitting a large page set across several
+// calls keeps each call under that ceiling — memory is released between calls —
+// which is what lets us OCR a wide window (parent + a far konsern section) on
+// big scanned konsern reports that previously crashed.
+const OCR_PAGE_BATCH_SIZE = 4;
+
+function mergeOcrDiagnostics(
+  target: AnnualReportOcrDiagnostics,
+  source: AnnualReportOcrDiagnostics,
+): AnnualReportOcrDiagnostics {
+  const constantKeys = new Set([
+    "minWidthPx",
+    "minHeightPx",
+    "minAreaPx",
+    "renderScale",
+    "preprocessingMode",
+  ]);
+  const merged = { ...target } as Record<string, unknown>;
+  for (const [key, value] of Object.entries(source) as [string, unknown][]) {
+    if (constantKeys.has(key)) continue;
+    const current = merged[key];
+    if (typeof value === "number" && typeof current === "number") {
+      merged[key] = current + value;
+    } else if (Array.isArray(value) && Array.isArray(current)) {
+      merged[key] = [...current, ...value];
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged as unknown as AnnualReportOcrDiagnostics;
+}
+
+/**
+ * OCRs a page set in fixed-size batches, one underlying call per batch, and
+ * merges the pages and diagnostics. Each call renders and tears down on its own,
+ * so memory is reclaimed between batches — the only reliable way to OCR more
+ * than ~18 dense scanned pages in a single process without an OOM kill.
+ */
+export async function extractOcrPagesBatched(
+  pdfBuffer: Buffer,
+  pageNumbers: number[],
+  batchSize: number = OCR_PAGE_BATCH_SIZE,
+): Promise<AnnualReportOcrExtractionResult> {
+  if (pageNumbers.length <= batchSize) {
+    return extractOcrPagesWithDiagnostics(pdfBuffer, pageNumbers);
+  }
+
+  const batches: number[][] = [];
+  for (let index = 0; index < pageNumbers.length; index += batchSize) {
+    batches.push(pageNumbers.slice(index, index + batchSize));
+  }
+
+  const pages: AnnualReportOcrExtractionResult["pages"] = [];
+  let diagnostics: AnnualReportOcrDiagnostics | null = null;
+  for (const batch of batches) {
+    const result = await extractOcrPagesWithDiagnostics(pdfBuffer, batch);
+    pages.push(...result.pages);
+    diagnostics = diagnostics
+      ? mergeOcrDiagnostics(diagnostics, result.diagnostics)
+      : result.diagnostics;
+  }
+
+  return {
+    pages: pages.sort((left, right) => left.pageNumber - right.pageNumber),
+    diagnostics: diagnostics ?? (await extractOcrPagesWithDiagnostics(pdfBuffer, [])).diagnostics,
+  };
+}

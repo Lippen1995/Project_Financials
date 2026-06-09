@@ -10,7 +10,7 @@ import {
   hasKnownUnitScale,
 } from "@/integrations/brreg/annual-report-financials/publish-gate";
 import { buildNormalizedFinancialPayload } from "@/integrations/brreg/annual-report-financials/normalized-payload";
-import { extractOcrPagesWithDiagnostics } from "@/integrations/brreg/annual-report-financials/ocr";
+import { extractOcrPagesBatched, extractOcrPagesWithDiagnostics } from "@/integrations/brreg/annual-report-financials/ocr";
 import { isPageReliable, preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
 import { reconstructStatementRows } from "@/integrations/brreg/annual-report-financials/table-reconstruction";
 import { computePageConfidences, PageConfidence } from "@/integrations/brreg/annual-report-financials/page-confidence";
@@ -1281,24 +1281,34 @@ export async function processAnnualReportFiling(
     .map((page) => page.pageNumber);
   const isMixedMode =
     preflight.hasReliableTextLayer && unreliablePageNumbers.length > 0;
-  // The Brønnøysund statutory forms (Del 1 — the primary facts) are always the
-  // FIRST pages of the filing; the company's own Del-2 report and the notes
-  // follow and are noise for primary extraction (and a source of misclassified
-  // pages). OCR is by far the most expensive step, so on a scanned document we
-  // OCR only this Del-1 window and let the rest fall out as non-statutory. Del-1
-  // is compact (~4-12 pages); 18 leaves margin for a cover + selskap + konsern.
-  const DEL1_PAGE_WINDOW = 18;
+  // The statutory statements live near the FRONT of the filing; the bulk of the
+  // notes and Del-2 prose that follow are noise for primary extraction. OCR is
+  // by far the most expensive step, so on a scanned document we OCR only a front
+  // window and let the rest fall out as non-statutory.
+  //
+  // The window must be wide enough for the harder layout: groups whose
+  // konsernregnskap is NOT in the standardised Brønnøysund Del-1 but is presented
+  // as its own section after the board report (REITAN: parent statements at p8-9,
+  // a "Konsernregnskap" divider at p22, konsern statements at p23-27). A tight
+  // 18-page window captured only the parent and silently dropped the entire
+  // group statement set. 32 covers the cover + parent + board report + a
+  // following konsern section, which is where these statements sit in practice.
+  const DEL1_PAGE_WINDOW = 32;
   const del1PageNumbers = preflight.parsedPages
     .map((page) => page.pageNumber)
     .filter((pageNumber) => pageNumber <= DEL1_PAGE_WINDOW);
   let legacyOcrResult: Awaited<ReturnType<typeof extractOcrPagesWithDiagnostics>> | null = null;
   if (!preflight.hasReliableTextLayer) {
-    legacyOcrResult = await extractOcrPagesWithDiagnostics(
-      pdfBuffer,
-      del1PageNumbers.length > 0 ? del1PageNumbers : undefined,
-    );
+    // Batched OCR: the Del-1 window can span 30+ pages on large scanned konsern
+    // filings (parent statements up front, a separate konsernregnskap section
+    // after the board report). OCR'ing that many dense pages in a single call
+    // OOM-kills the process, so split the window across several calls.
+    legacyOcrResult =
+      del1PageNumbers.length > 0
+        ? await extractOcrPagesBatched(pdfBuffer, del1PageNumbers)
+        : await extractOcrPagesWithDiagnostics(pdfBuffer);
   } else if (isMixedMode) {
-    legacyOcrResult = await extractOcrPagesWithDiagnostics(
+    legacyOcrResult = await extractOcrPagesBatched(
       pdfBuffer,
       unreliablePageNumbers.filter((pageNumber) => pageNumber <= DEL1_PAGE_WINDOW),
     );
