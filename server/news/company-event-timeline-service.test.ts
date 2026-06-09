@@ -101,9 +101,33 @@ describe("company event timeline service", () => {
 
     expect(result.meta).toEqual({
       limit: 10,
-      minInvestorValueScore: 0,
-      minExposureScore: 0.58,
+      minInvestorValueScore: 35,
+      minExposureScore: 0.65,
     });
+    expect(prismaMock.companyEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          eventType: { notIn: ["low_signal_mention"] },
+          investorValueScore: { gte: 35 },
+        }),
+      }),
+    );
+    expect(prismaMock.companyEventExposure.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          exposureType: { not: "direct" },
+          exposureScore: { gte: 0.65 },
+          event: expect.objectContaining({
+            eventType: { in: expect.arrayContaining(["production_update", "regulatory_change"]) },
+            investorValueScore: { gte: 35 },
+            OR: expect.arrayContaining([
+              expect.objectContaining({ eventDate: expect.any(Object) }),
+              expect.objectContaining({ eventDate: null }),
+            ]),
+          }),
+        }),
+      }),
+    );
     expect(result.data).toHaveLength(2);
     expect(result.data).toEqual(
       expect.arrayContaining([

@@ -6,6 +6,7 @@ export type CompanyTabId =
   | "oversikt"
   | "regnskap"
   | "nokkeltall"
+  | "eierskap"
   | "organisasjon"
   | "kunngjoringer"
   | "dokumenter"
@@ -16,6 +17,7 @@ export const defaultCompanyTabs: { id: CompanyTabId; label: string }[] = [
   { id: "oversikt", label: "Oversikt" },
   { id: "regnskap", label: "Regnskap" },
   { id: "nokkeltall", label: "Nøkkeltall" },
+  { id: "eierskap", label: "Eierskap" },
   { id: "organisasjon", label: "Organisasjon" },
   { id: "kunngjoringer", label: "Kunngjøringer" },
   { id: "dokumenter", label: "Dokumenter" },

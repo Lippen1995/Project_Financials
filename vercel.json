@@ -5,6 +5,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/internal/company-event-sync/scheduled",
+      "schedule": "5 * * * *"
+    },
+    {
       "path": "/api/internal/petroleum-sync/scheduled",
       "schedule": "15 * * * *"
     },

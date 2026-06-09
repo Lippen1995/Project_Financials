@@ -773,7 +773,15 @@ export const NEWS_SOURCE_REGISTRY: NewsSourceDefinition[] = [
     name: feed.name,
     url: feed.url,
     enabled: true,
-    fetchConfig: { rssUrl: feed.url },
+    fetchConfig: feed.id === "oslobors"
+      ? {
+          rssUrl: feed.url,
+          newswebCompanyLimit: 40,
+          newswebMessageLimit: 12,
+          newswebConcurrency: 4,
+          includeNewswebBody: false,
+        }
+      : { rssUrl: feed.url },
     ...classifyRssSource(feed.id),
   })),
   {

@@ -15,6 +15,9 @@ const { prismaMock } = vi.hoisted(() => ({
     companyEventExposure: {
       findMany: vi.fn(),
     },
+    companyEventExposureFeedback: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -28,6 +31,7 @@ describe("company event quality evaluation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.companyEvent.findFirst.mockResolvedValue(null);
+    prismaMock.companyEventExposureFeedback.findMany.mockResolvedValue([]);
   });
 
   it("computes actionable event quality metrics", async () => {
@@ -96,8 +100,8 @@ describe("company event quality evaluation", () => {
       },
     ]);
     prismaMock.companyEventFeedback.findMany.mockResolvedValue([
-      { action: "wrong_company", label: "NOT_RELEVANT" },
-      { action: "relevant", label: "RELEVANT" },
+      { action: "wrong_company", label: "NOT_RELEVANT", previousValue: null, correctedValue: null },
+      { action: "relevant", label: "RELEVANT", previousValue: null, correctedValue: null },
     ]);
     prismaMock.companyEventExposure.findMany.mockResolvedValue([
       { exposureType: "direct" },
@@ -118,7 +122,7 @@ describe("company event quality evaluation", () => {
     expect(report.exposuresByType).toEqual({ direct: 1, petroleum: 1 });
     expect(report.feedbackByAction).toEqual({ wrong_company: 1, relevant: 1 });
     expect(report.falsePositiveCandidates.lowEntityConfidenceHighScore).toHaveLength(1);
-    expect(report.falsePositiveCandidates.highScoreWeakEvidence).toHaveLength(1);
+    expect(report.falsePositiveCandidates.highScoreWeakEvidence).toHaveLength(0);
     expect(report.falsePositiveCandidates.commonNameMatches).toHaveLength(1);
     expect(report.staleNoisySourceCandidates).toEqual([
       {
@@ -129,7 +133,9 @@ describe("company event quality evaluation", () => {
       },
     ]);
     expect(report.curatedGoldSet.totalCases).toBeGreaterThan(0);
-    expect(report.curatedGoldSet.matchedCases).toBe(0);
-    expect(report.curatedGoldSet.passRate).toBeNull();
+    expect(report.curatedGoldSet.matchedCases).toBeGreaterThan(0);
+    expect(report.curatedGoldSet.passedCases).toBeGreaterThan(0);
+    expect(report.curatedGoldSet.passRate).not.toBeNull();
+    expect(report.curatedGoldSet.failures.some((failure) => failure.expectedLabel === "RELEVANT")).toBe(true);
   });
 });

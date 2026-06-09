@@ -114,9 +114,21 @@ describe("company event alert service", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           exposureScore: { gte: 0.7 },
+          OR: expect.arrayContaining([
+            { exposureType: "direct" },
+            expect.objectContaining({
+              exposureType: { not: "direct" },
+            }),
+          ]),
           event: expect.objectContaining({
             investorValueScore: { gte: 55 },
-            lastSeen: { gt: watch.createdAt },
+            OR: [
+              { eventDate: { gt: watch.createdAt } },
+              {
+                eventDate: null,
+                lastSeen: { gt: watch.createdAt },
+              },
+            ],
           }),
         }),
         take: 25,

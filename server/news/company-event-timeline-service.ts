@@ -1,4 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { INDIRECT_TRANSFERABLE_EVENT_TYPES } from "@/server/news/company-exposure-rules";
+import { computeCompanyEventFeedRank } from "@/server/news/company-event-feed-ranking";
+
+const DEFAULT_MIN_INVESTOR_VALUE_SCORE = 35;
+const DEFAULT_MIN_EXPOSURE_SCORE = 0.65;
+const INDIRECT_EVENT_LOOKBACK_DAYS = 45;
+const HIDDEN_EVENT_TYPES = ["low_signal_mention"];
 
 export type CompanyEventTimelineItem = {
   id: string;
@@ -33,6 +40,7 @@ export type CompanyEventTimelineItem = {
     reasons: string[];
   }>;
   engineVersion: string;
+  storyKey: string | null;
 };
 
 export type CompanyEventTimelineResult = {
@@ -117,6 +125,7 @@ type TimelineEvent = {
   noveltyScore: number;
   severityScore: number;
   engineVersion: string;
+  storyKey: string | null;
   company: {
     id: string;
     name: string;
@@ -157,7 +166,23 @@ function mapTimelineItem(input: {
     },
     evidence: mapEvidence(input.event.evidence),
     engineVersion: input.event.engineVersion,
+    storyKey: input.event.storyKey,
   };
+}
+
+function timelineFeedRank(item: CompanyEventTimelineItem) {
+  return computeCompanyEventFeedRank({
+    id: item.eventId,
+    companyId: item.exposure.sourceCompanyId,
+    eventType: item.eventType,
+    title: item.title,
+    eventDate: item.eventDate ? new Date(item.eventDate) : null,
+    lastSeen: new Date(item.lastSeen),
+    investorValueScore: item.investorValueScore,
+    confidenceScore: item.confidenceScore,
+    noveltyScore: item.noveltyScore,
+    severityScore: item.severityScore,
+  });
 }
 
 export async function getCompanyEventTimeline(
@@ -169,8 +194,11 @@ export async function getCompanyEventTimeline(
   } = {},
 ): Promise<CompanyEventTimelineResult> {
   const limit = Math.min(Math.max(options.limit ?? 30, 1), 100);
-  const minInvestorValueScore = options.minInvestorValueScore ?? 0;
-  const minExposureScore = options.minExposureScore ?? 0.58;
+  const minInvestorValueScore = options.minInvestorValueScore ?? DEFAULT_MIN_INVESTOR_VALUE_SCORE;
+  const minExposureScore = options.minExposureScore ?? DEFAULT_MIN_EXPOSURE_SCORE;
+  const indirectEventThreshold = new Date(
+    Date.now() - INDIRECT_EVENT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
 
   const include = {
     company: {
@@ -197,19 +225,30 @@ export async function getCompanyEventTimeline(
       where: {
         companyId,
         status: "ACTIVE",
+        eventType: { notIn: HIDDEN_EVENT_TYPES },
         investorValueScore: { gte: minInvestorValueScore },
       },
       include,
-      orderBy: [{ investorValueScore: "desc" }, { lastSeen: "desc" }],
-      take: limit,
+      orderBy: [{ eventDate: { sort: "desc", nulls: "last" } }, { lastSeen: "desc" }],
+      take: limit * 4,
     }),
     prisma.companyEventExposure.findMany({
       where: {
         companyId,
+        active: true,
+        exposureType: { not: "direct" },
         exposureScore: { gte: minExposureScore },
         event: {
           status: "ACTIVE",
+          eventType: { in: [...INDIRECT_TRANSFERABLE_EVENT_TYPES] },
           investorValueScore: { gte: minInvestorValueScore },
+          OR: [
+            { eventDate: { gte: indirectEventThreshold } },
+            {
+              eventDate: null,
+              lastSeen: { gte: indirectEventThreshold },
+            },
+          ],
         },
       },
       include: {
@@ -217,8 +256,11 @@ export async function getCompanyEventTimeline(
           include,
         },
       },
-      orderBy: [{ exposureScore: "desc" }, { event: { lastSeen: "desc" } }],
-      take: limit,
+      orderBy: [
+        { event: { eventDate: { sort: "desc", nulls: "last" } } },
+        { exposureScore: "desc" },
+      ],
+      take: limit * 4,
     }),
   ]);
 
@@ -252,16 +294,22 @@ export async function getCompanyEventTimeline(
     items.set(item.id, item);
   }
 
-  const data = [...items.values()]
+  const ranked = [...items.values()]
     .sort((a, b) => {
       const scoreDiff =
-        b.exposure.score * 0.45 +
-        b.investorValueScore * 0.005 -
-        (a.exposure.score * 0.45 + a.investorValueScore * 0.005);
+        timelineFeedRank(b) * 0.72 +
+        b.exposure.score * 0.28 -
+        (timelineFeedRank(a) * 0.72 + a.exposure.score * 0.28);
       if (scoreDiff !== 0) return scoreDiff;
       return new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime();
-    })
-    .slice(0, limit);
+    });
+  const seenStories = new Set<string>();
+  const data = ranked.filter((item) => {
+    if (!item.storyKey) return true;
+    if (seenStories.has(item.storyKey)) return false;
+    seenStories.add(item.storyKey);
+    return true;
+  }).slice(0, limit);
 
   return {
     data,

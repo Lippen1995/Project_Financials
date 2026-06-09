@@ -62,8 +62,9 @@ export async function syncPetroleumCompanyExposureSnapshots() {
 
     const ensureExposure = (npdCompanyId: number) => {
       const link = linkByNpd.get(npdCompanyId);
-      if (!link?.linkedCompanyOrgNumber) return null;
-      const company = companyByOrg.get(link.linkedCompanyOrgNumber);
+      const companyOrgNumber = link?.linkedCompanyOrgNumber ?? link?.orgNumber;
+      if (!companyOrgNumber) return null;
+      const company = companyByOrg.get(companyOrgNumber);
       if (!company) return null;
 
       const existing = exposureByCompany.get(company.id);

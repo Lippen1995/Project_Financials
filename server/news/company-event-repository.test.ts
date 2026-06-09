@@ -144,6 +144,12 @@ describe("company event repository", () => {
             eventFingerprint: "eqnr-share-buyback-2026-05-27",
           },
         },
+        update: expect.objectContaining({
+          status: "ACTIVE",
+        }),
+        create: expect.objectContaining({
+          status: "ACTIVE",
+        }),
       }),
     );
   });

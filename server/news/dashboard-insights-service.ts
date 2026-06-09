@@ -1,23 +1,68 @@
 import { DdRoomStatus, WorkspaceStatus, WorkspaceType, WorkspaceWatchStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { INDIRECT_TRANSFERABLE_EVENT_TYPES } from "@/server/news/company-exposure-rules";
+import {
+  areSameInvestorStory,
+  computeCompanyEventFeedRank,
+} from "@/server/news/company-event-feed-ranking";
+import {
+  classifyNewsDataType,
+  type NewsDataType,
+} from "@/server/news/news-data-type";
 
 const DEFAULT_LIMIT = 8;
 const PERSONAL_LOOKBACK_DAYS = 90;
 const FALLBACK_LOOKBACK_DAYS = 45;
+const CONTEXT_DOCUMENT_LOOKBACK_DAYS = 120;
 const MIN_PERSONAL_INVESTOR_VALUE = 45;
 const MIN_FALLBACK_INVESTOR_VALUE = 55;
 const MIN_INDIRECT_EXPOSURE_SCORE = 0.7;
 const MAX_ITEMS_PER_COMPANY = 2;
+const PROMINENT_COMPANY_MIN_EMPLOYEES = 1_000;
+const PROMINENT_COMPANY_MIN_REVENUE = 1_000_000_000;
 const OBX_INDEX_URL = "https://live.euronext.com/en/markets/oslo/equities-by-index/obx";
 const OBX_CACHE_MS = 12 * 60 * 60 * 1000;
 
 const MACRO_EVENT_TYPES = new Set([
   "commodity_price_exposure",
-  "interest_rate",
+  "interest_rate_exposure",
   "macro_news",
   "regulatory_change",
   "sector_news",
+]);
+
+const MACRO_DOCUMENT_SOURCE_IDS = new Set([
+  "reuters-business",
+  "dn",
+  "e24",
+  "nrk-okonomi",
+  "bbc-business",
+  "guardian-business",
+  "guardian-world",
+  "scmp-business",
+  "asiafinancial",
+  "ecb-press",
+  "federalreserve-press",
+  "norgesbank",
+  "ssb-business-financials",
+  "ssb-tech-innovation",
+  "ssb-bank-finance",
+  "ssb-energy-industry",
+  "google-news-ai-software",
+  "google-news-semiconductors",
+  "google-news-bank-insurance-capital-markets",
+  "google-news-robotics-automation",
+  "semiengineering",
+  "siliconangle",
+  "sodir-news",
+  "sodir-production",
+  "sodir-drilling-permits",
+  "sodir-exploration-results",
+  "eia-today",
+  "eia-press",
+  "eia-petroleum-weekly",
+  "iea-news",
 ]);
 
 export type InsightVisual =
@@ -42,6 +87,7 @@ export type InsightItem = {
   sourceLabel: string | null;
   companyLabel: string | null;
   visual: InsightVisual | null;
+  dataType: NewsDataType;
 };
 
 type CompanyPriority = {
@@ -72,6 +118,8 @@ type CandidateEvent = {
   lastSeen: Date;
   investorValueScore: number;
   confidenceScore: number;
+  noveltyScore: number;
+  severityScore: number;
   company: {
     id: string;
     slug: string;
@@ -85,15 +133,52 @@ type CandidateEvent = {
 
 type InsightCandidate = {
   event: CandidateEvent;
+  exposureType: string;
   exposureScore: number;
   companyPriority: number;
   score: number;
+};
+
+type MacroDocument = {
+  id: string;
+  sourceId: string;
+  title: string;
+  summary: string | null;
+  canonicalUrl: string;
+  publishedAt: Date | null;
+  fetchedAt: Date;
+  source: {
+    id: string;
+    name: string;
+    qualityScore: number;
+    metadata: unknown;
+  };
+};
+
+type MacroDocumentCandidate = {
+  document: MacroDocument;
+  score: number;
+  contextLabel: string;
+  dataType: NewsDataType;
 };
 
 let obxCache: { expiresAt: number; companyIds: string[] } | null = null;
 
 function daysAgo(days: number) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
+function eventDateWindow(days: number) {
+  const threshold = daysAgo(days);
+  return {
+    OR: [
+      { eventDate: { gte: threshold } },
+      {
+        eventDate: null,
+        lastSeen: { gte: threshold },
+      },
+    ],
+  };
 }
 
 function decay(date: Date | null | undefined, halfLifeDays: number) {
@@ -166,7 +251,7 @@ async function getObxCompanyIds() {
         some: {
           status: "ACTIVE",
           investorValueScore: { gte: MIN_FALLBACK_INVESTOR_VALUE },
-          lastSeen: { gte: daysAgo(FALLBACK_LOOKBACK_DAYS) },
+          ...eventDateWindow(FALLBACK_LOOKBACK_DAYS),
         },
       },
     },
@@ -290,34 +375,170 @@ function toInsightItem(candidate: InsightCandidate): InsightItem {
     sourceLabel: document?.source.name ?? null,
     companyLabel: event.company.name,
     visual: imageFromEvidence(event) ?? textualVisual(event),
+    dataType: classifyNewsDataType({
+      eventType: event.eventType,
+      exposureType: candidate.exposureType,
+      sourceId: document?.source.id,
+    }),
+  };
+}
+
+function normalizeDocumentTitle(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\beuropean union\b/g, "europe")
+    .replace(/\beuropean\b/g, "europe")
+    .replace(/\beu\b/g, "europe")
+    .replace(/\s[-–]\s[^-–]+$/u, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function textIncludesAny(text: string, values: string[]) {
+  return keywordHits(text, values) > 0;
+}
+
+function keywordHits(text: string, values: string[]) {
+  return values.filter((value) => {
+    const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
+  }).length;
+}
+
+function sourceTierScore(metadata: unknown) {
+  const tier = metadataObject(metadata).tier;
+  switch (tier) {
+    case "primary":
+      return 0.94;
+    case "regulatory":
+      return 0.9;
+    case "premium_media":
+      return 0.8;
+    case "industry":
+      return 0.72;
+    default:
+      return 0.6;
+  }
+}
+
+function macroDocumentContext(text: string, sourceName: string) {
+  if (textIncludesAny(text, ["oil", "gas", "petroleum", "crude", "brent", "lng", "offshore", "norsk sokkel", "north sea"])) {
+    return "Energy markets";
+  }
+  if (textIncludesAny(text, ["semiconductor", "semiconductors", "chip", "chips", "nvidia", "asml", "tsmc", "amd", "broadcom"])) {
+    return "Technology markets";
+  }
+  if (textIncludesAny(text, ["ai", "artificial intelligence", "datacenter", "data center"])) {
+    return "AI markets";
+  }
+  if (textIncludesAny(text, ["interest rate", "inflation", "central bank", "fed", "ecb", "norges bank"])) {
+    return "Macro markets";
+  }
+  return sourceName;
+}
+
+function scoreMacroDocument(document: MacroDocument): MacroDocumentCandidate | null {
+  const normalizedText = normalizeDocumentTitle(`${document.title} ${document.summary ?? ""}`);
+  const marketTerms = ["stock", "stocks", "share", "shares", "equities", "nasdaq", "market", "markets", "investor", "investors", "wall street"];
+  const movementTerms = ["fall", "falls", "drop", "drops", "slump", "slumps", "tumble", "tumbles", "selloff", "sell off", "sell-off", "rout", "weak", "caution", "concern", "jitters", "forecast"];
+  const technologyTerms = ["ai", "artificial intelligence", "semiconductor", "semiconductors", "chip", "chips", "nvidia", "amd", "broadcom", "asml", "tsmc", "memory", "datacenter", "data center"];
+  const macroTerms = ["gdp", "growth", "economy", "inflation", "interest rate", "central bank", "recession", "consumer", "investment", "capex", "productivity"];
+  const policyTerms = ["chips act", "sovereignty", "tariff", "export control", "regulation", "funding", "subsidy", "supply demand", "supply-demand"];
+  const energyTerms = ["oil", "gas", "petroleum", "crude", "brent", "wti", "lng", "offshore", "north sea", "norsk sokkel", "production", "supply", "demand", "inventory", "inventories", "discovery", "licence", "license", "drilling"];
+
+  const marketHitCount = keywordHits(normalizedText, marketTerms);
+  const movementHitCount = keywordHits(normalizedText, movementTerms);
+  const technologyHitCount = keywordHits(normalizedText, technologyTerms);
+  const macroHitCount = keywordHits(normalizedText, macroTerms);
+  const policyHitCount = keywordHits(normalizedText, policyTerms);
+  const energyHitCount = keywordHits(normalizedText, energyTerms);
+
+  const hasMarketMove = marketHitCount > 0 && movementHitCount > 0;
+  const hasTechnologyMarketSignal = technologyHitCount >= 1 && (hasMarketMove || policyHitCount > 0 || macroHitCount > 0);
+  const hasMacroMarketSignal = macroHitCount > 0 && (marketHitCount > 0 || movementHitCount > 0 || policyHitCount > 0);
+  const hasEnergyMarketSignal = energyHitCount >= 2;
+  const isTrustedMacroSource = MACRO_DOCUMENT_SOURCE_IDS.has(document.sourceId);
+
+  if (!hasTechnologyMarketSignal && !hasMacroMarketSignal && !hasEnergyMarketSignal && !(isTrustedMacroSource && hasMarketMove)) {
+    return null;
+  }
+
+  const keywordScore = Math.min(
+    1,
+    technologyHitCount * 0.16 +
+      macroHitCount * 0.14 +
+      marketHitCount * 0.08 +
+      movementHitCount * 0.12 +
+      policyHitCount * 0.1 +
+      energyHitCount * 0.12,
+  );
+  const sourceScore = Math.max(document.source.qualityScore ?? 0, sourceTierScore(document.source.metadata));
+  const freshnessScore = decay(document.publishedAt ?? document.fetchedAt, 7);
+  const score = keywordScore * 0.48 + sourceScore * 0.28 + freshnessScore * 0.24;
+
+  if (score < 0.48) return null;
+
+  const context = macroDocumentContext(normalizedText, document.source.name);
+  const sourceDataType = classifyNewsDataType({ sourceId: document.sourceId });
+
+  return {
+    document,
+    score,
+    contextLabel: context,
+    dataType:
+      sourceDataType === "company"
+        ? (hasMacroMarketSignal && !hasTechnologyMarketSignal) ||
+          (hasMarketMove && technologyHitCount === 0)
+          ? "macro"
+          : "industry"
+        : sourceDataType,
+  };
+}
+
+function toMacroInsightItem(candidate: MacroDocumentCandidate): InsightItem {
+  const date = candidate.document.publishedAt ?? candidate.document.fetchedAt;
+  return {
+    id: `macro:${candidate.document.id}`,
+    title: candidate.document.title,
+    summary: candidate.document.summary,
+    contextLabel: candidate.contextLabel,
+    publishedAt: date.toISOString(),
+    href: candidate.document.canonicalUrl,
+    sourceLabel: candidate.document.source.name,
+    companyLabel: null,
+    dataType: candidate.dataType,
+    visual: {
+      type: "textual",
+      eyebrow: candidate.document.source.name,
+      value: candidate.contextLabel,
+    },
   };
 }
 
 function scoreCandidate(event: CandidateEvent, exposureScore: number, companyPriority: number) {
-  const investorValue = Math.min(event.investorValueScore / 100, 1);
-  const confidence = Math.min(Math.max(event.confidenceScore, 0), 1);
-  const freshness = decay(evidenceDate(event), 14);
-
   return (
-    investorValue * 0.5 +
-    Math.min(Math.max(exposureScore, 0), 1) * 0.2 +
-    confidence * 0.1 +
-    freshness * 0.1 +
-    Math.min(companyPriority, 1.2) * 0.1
+    computeCompanyEventFeedRank(event) * 0.72 +
+    Math.min(Math.max(exposureScore, 0), 1) * 0.12 +
+    Math.min(companyPriority, 1.2) * 0.16
   );
 }
 
 function rankedUniqueItems(candidates: InsightCandidate[], limit: number) {
   const seenEvents = new Set<string>();
+  const selectedEvents: CandidateEvent[] = [];
   const companyCounts = new Map<string, number>();
   const items: InsightItem[] = [];
 
   for (const candidate of [...candidates].sort((left, right) => right.score - left.score)) {
     if (seenEvents.has(candidate.event.id)) continue;
+    if (selectedEvents.some((event) => areSameInvestorStory(event, candidate.event))) continue;
     const companyCount = companyCounts.get(candidate.event.companyId) ?? 0;
     if (companyCount >= MAX_ITEMS_PER_COMPANY) continue;
 
     seenEvents.add(candidate.event.id);
+    selectedEvents.push(candidate.event);
     companyCounts.set(candidate.event.companyId, companyCount + 1);
     items.push(toInsightItem(candidate));
 
@@ -325,6 +546,49 @@ function rankedUniqueItems(candidates: InsightCandidate[], limit: number) {
   }
 
   return items;
+}
+
+function appendMacroDocumentItems(items: InsightItem[], candidates: MacroDocumentCandidate[], limit: number) {
+  const seenTitles = new Set(items.map((item) => normalizeDocumentTitle(item.title)));
+  const nextItems = [...items];
+
+  for (const candidate of [...candidates].sort((left, right) => right.score - left.score)) {
+    const titleKey = normalizeDocumentTitle(candidate.document.title);
+    if (!titleKey || seenTitles.has(titleKey)) continue;
+    if ([...seenTitles].some((seenTitle) => areLikelySameMacroStory(titleKey, seenTitle))) continue;
+
+    seenTitles.add(titleKey);
+    nextItems.push(toMacroInsightItem(candidate));
+
+    if (nextItems.length >= limit) break;
+  }
+
+  return nextItems;
+}
+
+function titleTokens(value: string) {
+  const stopWords = new Set(["the", "and", "for", "with", "from", "that", "this", "after", "into", "over", "under", "home"]);
+  return value.split(" ").filter((token) => token.length >= 3 && !stopWords.has(token));
+}
+
+function areLikelySameMacroStory(left: string, right: string) {
+  if (left.includes(right) || right.includes(left)) return true;
+  const sharedTechnologyPolicyStory =
+    textIncludesAny(left, ["europe"]) &&
+    textIncludesAny(right, ["europe"]) &&
+    textIncludesAny(left, ["sovereignty"]) &&
+    textIncludesAny(right, ["sovereignty"]) &&
+    textIncludesAny(left, ["chip", "chips", "ai", "cloud", "technology", "tech"]) &&
+    textIncludesAny(right, ["chip", "chips", "ai", "cloud", "technology", "tech"]);
+  if (sharedTechnologyPolicyStory) return true;
+
+  const leftTokens = new Set(titleTokens(left));
+  const rightTokens = new Set(titleTokens(right));
+  if (leftTokens.size < 4 || rightTokens.size < 4) return false;
+
+  const overlap = [...leftTokens].filter((token) => rightTokens.has(token)).length;
+  const smaller = Math.min(leftTokens.size, rightTokens.size);
+  return overlap / smaller >= 0.5;
 }
 
 const eventInclude = {
@@ -367,20 +631,23 @@ async function getPersonalCandidates(priorities: CompanyPriority[], limit: numbe
         companyId: { in: companyIds },
         status: "ACTIVE",
         investorValueScore: { gte: MIN_PERSONAL_INVESTOR_VALUE },
-        lastSeen: { gte: daysAgo(PERSONAL_LOOKBACK_DAYS) },
+        ...eventDateWindow(PERSONAL_LOOKBACK_DAYS),
       },
       include: eventInclude,
-      orderBy: [{ investorValueScore: "desc" }, { lastSeen: "desc" }],
-      take: limit * 3,
+      orderBy: [{ eventDate: { sort: "desc", nulls: "last" } }, { lastSeen: "desc" }],
+      take: limit * 8,
     }),
     prisma.companyEventExposure.findMany({
       where: {
         companyId: { in: companyIds },
+        active: true,
+        exposureType: { not: "direct" },
         exposureScore: { gte: MIN_INDIRECT_EXPOSURE_SCORE },
         event: {
           status: "ACTIVE",
+          eventType: { in: [...INDIRECT_TRANSFERABLE_EVENT_TYPES] },
           investorValueScore: { gte: MIN_PERSONAL_INVESTOR_VALUE },
-          lastSeen: { gte: daysAgo(PERSONAL_LOOKBACK_DAYS) },
+          ...eventDateWindow(PERSONAL_LOOKBACK_DAYS),
         },
       },
       include: {
@@ -388,8 +655,11 @@ async function getPersonalCandidates(priorities: CompanyPriority[], limit: numbe
           include: eventInclude,
         },
       },
-      orderBy: [{ exposureScore: "desc" }, { event: { lastSeen: "desc" } }],
-      take: limit * 3,
+      orderBy: [
+        { event: { eventDate: { sort: "desc", nulls: "last" } } },
+        { exposureScore: "desc" },
+      ],
+      take: limit * 8,
     }),
   ]);
 
@@ -397,6 +667,7 @@ async function getPersonalCandidates(priorities: CompanyPriority[], limit: numbe
     const companyPriority = priorityByCompany.get(event.companyId) ?? 0;
     return {
       event,
+      exposureType: "direct",
       exposureScore: 0.96,
       companyPriority,
       score: scoreCandidate(event, 0.96, companyPriority),
@@ -407,6 +678,7 @@ async function getPersonalCandidates(priorities: CompanyPriority[], limit: numbe
     const companyPriority = priorityByCompany.get(row.companyId) ?? 0;
     candidates.push({
       event: row.event,
+      exposureType: row.exposureType,
       exposureScore: row.exposureScore,
       companyPriority,
       score: scoreCandidate(row.event, row.exposureScore, companyPriority),
@@ -426,11 +698,11 @@ async function getFallbackCandidates(limit: number): Promise<InsightCandidate[]>
             companyId: { in: obxCompanyIds },
             status: "ACTIVE",
             investorValueScore: { gte: MIN_FALLBACK_INVESTOR_VALUE },
-            lastSeen: { gte: daysAgo(FALLBACK_LOOKBACK_DAYS) },
+            ...eventDateWindow(FALLBACK_LOOKBACK_DAYS),
           },
           include: eventInclude,
-          orderBy: [{ investorValueScore: "desc" }, { lastSeen: "desc" }],
-          take: limit * 2,
+          orderBy: [{ eventDate: { sort: "desc", nulls: "last" } }, { lastSeen: "desc" }],
+          take: limit * 6,
         })
       : Promise.resolve([]),
     prisma.companyEvent.findMany({
@@ -438,18 +710,43 @@ async function getFallbackCandidates(limit: number): Promise<InsightCandidate[]>
         status: "ACTIVE",
         eventType: { in: [...MACRO_EVENT_TYPES] },
         investorValueScore: { gte: MIN_FALLBACK_INVESTOR_VALUE },
-        lastSeen: { gte: daysAgo(FALLBACK_LOOKBACK_DAYS) },
+        ...eventDateWindow(FALLBACK_LOOKBACK_DAYS),
       },
       include: eventInclude,
-      orderBy: [{ investorValueScore: "desc" }, { lastSeen: "desc" }],
-      take: limit * 2,
+      orderBy: [{ eventDate: { sort: "desc", nulls: "last" } }, { lastSeen: "desc" }],
+      take: limit * 6,
     }),
   ]);
 
-  return [...obxEvents, ...macroEvents].map((event) => {
-    const companyPriority = MACRO_EVENT_TYPES.has(event.eventType) ? 0.45 : 0.35;
+  const fallbackEvents = [...obxEvents, ...macroEvents];
+
+  if (fallbackEvents.length < limit * 2) {
+    const prominentCompanyEvents = await prisma.companyEvent.findMany({
+      where: {
+        status: "ACTIVE",
+        eventType: { not: "low_signal_mention" },
+        investorValueScore: { gte: MIN_FALLBACK_INVESTOR_VALUE },
+        ...eventDateWindow(FALLBACK_LOOKBACK_DAYS),
+        company: {
+          OR: [
+            { employeeCount: { gte: PROMINENT_COMPANY_MIN_EMPLOYEES } },
+            { revenue: { gte: PROMINENT_COMPANY_MIN_REVENUE } },
+          ],
+        },
+      },
+      include: eventInclude,
+      orderBy: [{ eventDate: { sort: "desc", nulls: "last" } }, { lastSeen: "desc" }],
+      take: limit * 8,
+    });
+
+    fallbackEvents.push(...(prominentCompanyEvents ?? []));
+  }
+
+  return fallbackEvents.map((event) => {
+    const companyPriority = MACRO_EVENT_TYPES.has(event.eventType) ? 0.3 : 0.35;
     return {
       event,
+      exposureType: "direct",
       exposureScore: 0.82,
       companyPriority,
       score: scoreCandidate(event, 0.82, companyPriority),
@@ -457,19 +754,58 @@ async function getFallbackCandidates(limit: number): Promise<InsightCandidate[]>
   });
 }
 
+async function getMacroDocumentCandidates(limit: number): Promise<MacroDocumentCandidate[]> {
+  const documents = await prisma.sourceDocument.findMany({
+    where: {
+      sourceId: { in: [...MACRO_DOCUMENT_SOURCE_IDS] },
+      OR: [
+        { publishedAt: { gte: daysAgo(CONTEXT_DOCUMENT_LOOKBACK_DAYS) } },
+        {
+          publishedAt: null,
+          fetchedAt: { gte: daysAgo(CONTEXT_DOCUMENT_LOOKBACK_DAYS) },
+        },
+      ],
+    },
+    include: {
+      source: {
+        select: {
+          id: true,
+          name: true,
+          qualityScore: true,
+          metadata: true,
+        },
+      },
+    },
+    orderBy: [{ publishedAt: "desc" }, { fetchedAt: "desc" }],
+    take: limit * 12,
+  });
+
+  return documents.flatMap((document) => {
+    const candidate = scoreMacroDocument(document);
+    return candidate ? [candidate] : [];
+  });
+}
+
 export async function getDashboardRelevantInsights(userId: string, limit = DEFAULT_LIMIT): Promise<InsightItem[]> {
   const resolvedLimit = Math.min(Math.max(limit, 1), 10);
   const priorities = await getPersonalCompanyPriorities(userId);
   const personalCandidates = await getPersonalCandidates(priorities, resolvedLimit);
-  const personalItems = rankedUniqueItems(personalCandidates, resolvedLimit);
-
-  if (personalItems.length >= resolvedLimit) {
-    return personalItems;
-  }
-
   const fallbackCandidates = await getFallbackCandidates(resolvedLimit);
+  const eventItems = rankedUniqueItems([...personalCandidates, ...fallbackCandidates], resolvedLimit);
+  const macroDocumentCandidates = await getMacroDocumentCandidates(resolvedLimit);
+  const contextualItems = appendMacroDocumentItems([], macroDocumentCandidates, resolvedLimit);
+  if (contextualItems.length === 0) return eventItems;
 
-  return rankedUniqueItems([...personalCandidates, ...fallbackCandidates], resolvedLimit);
+  const minimumContextualQuota = Math.max(1, Math.ceil(resolvedLimit * 0.25));
+  const openSlots = Math.max(0, resolvedLimit - eventItems.length);
+  const contextualQuota = Math.min(
+    contextualItems.length,
+    Math.max(minimumContextualQuota, openSlots),
+  );
+  return [
+    ...eventItems.slice(0, Math.max(0, resolvedLimit - contextualQuota)),
+    ...contextualItems.slice(0, contextualQuota),
+  ];
 }
 
 export function clearDashboardInsightsCachesForTest() {

@@ -24,9 +24,24 @@ function documentText(document: ClassifiableSourceDocument) {
     .join(" ");
 }
 
-function keywordHits(rule: EventRule, normalizedText: string) {
-  return rule.keywords.filter((keyword) => normalizedText.includes(normalizeCompanyName(keyword)));
+function phraseMatches(normalizedText: string, keyword: string) {
+  const normalizedKeyword = normalizeCompanyName(keyword);
+  if (!normalizedKeyword) return false;
+  const escaped = normalizedKeyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(normalizedText);
 }
+
+function keywordHits(rule: EventRule, normalizedText: string) {
+  return rule.keywords.filter((keyword) => phraseMatches(normalizedText, keyword));
+}
+
+const BROAD_MARKET_EVENT_TYPES = new Set([
+  "sector_news",
+  "macro_news",
+  "peer_read_across",
+  "commodity_price_exposure",
+  "interest_rate_exposure",
+]);
 
 function sourceBoost(rule: EventRule, document: ClassifiableSourceDocument) {
   const sourceType = document.source?.sourceType;
@@ -59,9 +74,114 @@ function defaultLowSignalClassification(reason: string): EventClassification {
   };
 }
 
+function classificationFromRule(
+  rule: EventRule,
+  score: number,
+  explanation: Record<string, unknown>,
+): EventClassification {
+  return {
+    eventType: rule.eventType,
+    eventTypeScore: score,
+    materialityScore: rule.materialityScore,
+    financialImpactScore: rule.financialImpactScore,
+    strategicImpactScore: rule.strategicImpactScore,
+    riskImpactScore: rule.riskImpactScore,
+    direction: rule.direction,
+    impactHorizon: rule.impactHorizon,
+    confidenceLevel: confidenceLevel(score),
+    explanation,
+  };
+}
+
+function reportingCalendarOverride(document: ClassifiableSourceDocument) {
+  const normalizedTitle = normalizeCompanyName(document.title);
+  const isInvitation =
+    (normalizedTitle.includes("invitation") || normalizedTitle.includes("invitasjon")) &&
+    (
+      normalizedTitle.includes("presentation") ||
+      normalizedTitle.includes("presentasjon") ||
+      normalizedTitle.includes("webcast")
+    );
+  const isScheduledPublication =
+    /\bto publish (?:q[1-4]|first quarter|second quarter|third quarter|fourth quarter|interim report)\b/.test(
+      normalizedTitle,
+    );
+  const isCalendar =
+    normalizedTitle.includes("financial calendar") ||
+    normalizedTitle.includes("finansiell kalender") ||
+    normalizedTitle.includes("invitasjon til resultatpresentasjon");
+  if (!isInvitation && !isScheduledPublication && !isCalendar) return null;
+
+  const rule = EVENT_CLASSIFICATION_RULES.find(
+    (candidate) => candidate.eventType === "reporting_calendar",
+  );
+  return rule
+    ? classificationFromRule(rule, 0.86, {
+        matchedKeywords: ["reporting_calendar_context"],
+        titleKeywords: ["reporting_calendar_context"],
+        sourceType: document.source?.sourceType ?? null,
+        candidateCount: 1,
+      })
+    : null;
+}
+
+function financialReportOverride(document: ClassifiableSourceDocument) {
+  const normalizedTitle = normalizeCompanyName(document.title);
+  const isQuarterReport =
+    /\b(?:first|second|third|fourth) quarter report\b/.test(normalizedTitle);
+  if (!isQuarterReport) return null;
+
+  const rule = EVENT_CLASSIFICATION_RULES.find(
+    (candidate) => candidate.eventType === "financial_statement",
+  );
+  return rule
+    ? classificationFromRule(rule, 0.9, {
+        matchedKeywords: ["quarter_report_context"],
+        titleKeywords: ["quarter_report_context"],
+        sourceType: document.source?.sourceType ?? null,
+        candidateCount: 1,
+      })
+    : null;
+}
+
+function legalSettlementOverride(document: ClassifiableSourceDocument) {
+  const normalizedTitle = normalizeCompanyName(document.title);
+  if (
+    !normalizedTitle.includes("settlement agreement with") &&
+    !normalizedTitle.includes("forliksavtale med")
+  ) {
+    return null;
+  }
+
+  const rule = EVENT_CLASSIFICATION_RULES.find(
+    (candidate) => candidate.eventType === "legal_settlement",
+  );
+  return rule
+    ? classificationFromRule(rule, 0.9, {
+        matchedKeywords: ["legal_settlement_context"],
+        titleKeywords: ["legal_settlement_context"],
+        sourceType: document.source?.sourceType ?? null,
+        candidateCount: 1,
+      })
+    : null;
+}
+
 export function classifyCompanyEvent(document: ClassifiableSourceDocument): EventClassification {
+  const calendarOverride = reportingCalendarOverride(document);
+  if (calendarOverride) return calendarOverride;
+  const reportOverride = financialReportOverride(document);
+  if (reportOverride) return reportOverride;
+  const settlementOverride = legalSettlementOverride(document);
+  if (settlementOverride) return settlementOverride;
+
   const normalizedText = normalizeCompanyName(documentText(document));
-  const matches = EVENT_CLASSIFICATION_RULES.flatMap((rule) => {
+  const candidateRules =
+    document.source?.sourceType === "newsweb"
+      ? EVENT_CLASSIFICATION_RULES.filter(
+          (rule) => !BROAD_MARKET_EVENT_TYPES.has(rule.eventType),
+        )
+      : EVENT_CLASSIFICATION_RULES;
+  const matches = candidateRules.flatMap((rule) => {
     const hits = keywordHits(rule, normalizedText);
     if (hits.length === 0) return [];
     const titleHits = keywordHits(rule, normalizeCompanyName(document.title));
@@ -74,21 +194,10 @@ export function classifyCompanyEvent(document: ClassifiableSourceDocument): Even
     return defaultLowSignalClassification("No deterministic investor event keywords matched.");
   }
 
-  return {
-    eventType: best.rule.eventType,
-    eventTypeScore: best.score,
-    materialityScore: best.rule.materialityScore,
-    financialImpactScore: best.rule.financialImpactScore,
-    strategicImpactScore: best.rule.strategicImpactScore,
-    riskImpactScore: best.rule.riskImpactScore,
-    direction: best.rule.direction,
-    impactHorizon: best.rule.impactHorizon,
-    confidenceLevel: confidenceLevel(best.score),
-    explanation: {
+  return classificationFromRule(best.rule, best.score, {
       matchedKeywords: best.hits,
       titleKeywords: best.titleHits,
       sourceType: document.source?.sourceType ?? null,
       candidateCount: matches.length,
-    },
-  };
+  });
 }

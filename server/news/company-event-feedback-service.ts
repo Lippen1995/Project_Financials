@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createCompanyEventFeedback } from "@/server/news/company-event-repository";
 
 export const COMPANY_EVENT_FEEDBACK_ACTIONS = [
+  "rated",
   "relevant",
   "not_relevant",
   "wrong_company",
@@ -40,6 +41,58 @@ export type CompanyEventFeedbackMetrics = {
   lastReviewedAt: string | null;
 };
 
+export async function recordCompanyEventExposureFeedback(input: {
+  exposureId: string;
+  userId: string;
+  relevanceScore: number;
+  investorValueScore: number;
+  notes?: string | null;
+  issueTags?: string[];
+}) {
+  const exposure = await prisma.companyEventExposure.findUnique({
+    where: { id: input.exposureId },
+    select: {
+      id: true,
+      exposureType: true,
+      exposureScore: true,
+      confidenceScore: true,
+      metadata: true,
+    },
+  });
+  if (!exposure) throw new Error("Company event exposure not found.");
+
+  const relevanceScore = Math.min(100, Math.max(0, input.relevanceScore));
+  const investorValueScore = Math.min(100, Math.max(0, input.investorValueScore));
+  const label =
+    relevanceScore >= 70
+      ? "RELEVANT"
+      : relevanceScore >= 30
+        ? "WEAK_RELEVANT"
+        : "NOT_RELEVANT";
+
+  return prisma.companyEventExposureFeedback.create({
+    data: {
+      exposureId: exposure.id,
+      userId: input.userId,
+      relevanceScore,
+      investorValueScore,
+      label,
+      previousValue: json({
+        exposureType: exposure.exposureType,
+        exposureScore: exposure.exposureScore,
+        confidenceScore: exposure.confidenceScore,
+      }),
+      correctedValue: json({
+        relevanceScore,
+        investorValueScore,
+        issueTags: input.issueTags ?? [],
+        reviewerMethod: "admin-exposure-review-v1",
+      }),
+      notes: input.notes?.trim() || null,
+    },
+  });
+}
+
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
@@ -57,6 +110,27 @@ export function labelForFeedbackAction(action: CompanyEventFeedbackAction) {
     return "WEAK_RELEVANT" as const;
   }
 
+  return "NOT_RELEVANT" as const;
+}
+
+function numericRating(value: unknown, key: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const rating = (value as Record<string, unknown>)[key];
+  return typeof rating === "number" && Number.isFinite(rating)
+    ? Math.min(100, Math.max(0, rating))
+    : null;
+}
+
+export function labelForFeedback(
+  action: CompanyEventFeedbackAction,
+  correctedValue?: unknown,
+) {
+  if (action !== "rated") return labelForFeedbackAction(action);
+
+  const relevanceScore = numericRating(correctedValue, "relevanceScore");
+  if (relevanceScore === null) return "WEAK_RELEVANT" as const;
+  if (relevanceScore >= 70) return "RELEVANT" as const;
+  if (relevanceScore >= 30) return "WEAK_RELEVANT" as const;
   return "NOT_RELEVANT" as const;
 }
 
@@ -103,7 +177,7 @@ export async function recordCompanyEventFeedback(input: RecordCompanyEventFeedba
     eventId: input.eventId,
     userId: input.userId,
     workspaceId: input.workspaceId,
-    label: labelForFeedbackAction(input.action),
+    label: labelForFeedback(input.action, input.correctedValue),
     action: input.action,
     previousValue: input.previousValue === undefined ? null : json(input.previousValue),
     correctedValue: input.correctedValue === undefined ? null : json(input.correctedValue),
@@ -153,8 +227,7 @@ export async function getCompanyEventFeedbackMetrics(eventId?: string): Promise<
     byAction,
     byLabel,
     correctionCount: feedback.filter((item) => item.action.startsWith("corrected_")).length,
-    negativeFeedbackCount: feedback.filter((item) => labelForFeedbackAction(item.action as CompanyEventFeedbackAction) === "NOT_RELEVANT")
-      .length,
+    negativeFeedbackCount: feedback.filter((item) => item.label === "NOT_RELEVANT").length,
     lastReviewedAt: feedback[0]?.reviewedAt.toISOString() ?? null,
   };
 }

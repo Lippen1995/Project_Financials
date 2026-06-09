@@ -20,6 +20,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/server/news/company-event-repository", () => repositoryMock);
 
 import { upsertSourceDocuments } from "@/server/news/company-event-ingestion-service";
+import { createContentHash } from "@/server/news/source-document-normalization";
 
 describe("company event ingestion service", () => {
   beforeEach(() => {
@@ -79,5 +80,30 @@ describe("company event ingestion service", () => {
         metadata: { duplicateKind: "titleWindow" },
       }),
     );
+  });
+
+  it("skips unchanged source documents without triggering downstream reprocessing", async () => {
+    const title = "EIA publishes petroleum update";
+    const summary = "Weekly petroleum data.";
+    prismaMock.sourceDocument.findUnique.mockResolvedValue({
+      id: "doc-1",
+      contentHash: createContentHash(`${title}\n${summary}`),
+    });
+
+    const metrics = await upsertSourceDocuments([
+      {
+        sourceId: "eia-press",
+        externalId: "press588",
+        url: "https://www.eia.gov/pressroom/releases/press588.php",
+        title,
+        summary,
+        language: "en",
+        publishedAt: new Date("2026-06-02T10:00:00Z"),
+      },
+    ]);
+
+    expect(metrics).toEqual({ fetched: 1, created: 0, updated: 0, duplicate: 0 });
+    expect(repositoryMock.upsertSourceDocument).not.toHaveBeenCalled();
+    expect(prismaMock.sourceDocument.findFirst).not.toHaveBeenCalled();
   });
 });

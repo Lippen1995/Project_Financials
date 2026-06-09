@@ -138,4 +138,31 @@ describe("company event scoring", () => {
 
     expect(high.investorValueScore).toBeGreaterThan(low.investorValueScore + 30);
   });
+
+  it("caps routine disclosures without lowering entity relevance", () => {
+    const invitation = scoreCompanyEvent({
+      companyId: "company-1",
+      title: "Invitation to presentation of first quarter results",
+      source: { id: "newsweb", sourceType: "newsweb" },
+      classification: {
+        ...classification,
+        eventType: "reporting_calendar",
+      },
+      entityConfidence: 1,
+    });
+    const exDividend = scoreCompanyEvent({
+      companyId: "company-1",
+      title: "Company ASA: Ex dividend NOK 2.00 today",
+      source: { id: "newsweb", sourceType: "newsweb" },
+      classification: {
+        ...classification,
+        eventType: "dividend",
+      },
+      entityConfidence: 1,
+    });
+
+    expect(invitation.investorValueScore).toBeLessThanOrEqual(20);
+    expect(invitation.routineDisclosure).toBe(true);
+    expect(exDividend.investorValueScore).toBeLessThanOrEqual(45);
+  });
 });

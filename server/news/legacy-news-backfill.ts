@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { classifyCompanyEvent } from "@/server/news/company-event-classifier";
+import { buildCompanyEventStoryKey } from "@/server/news/company-event-feed-ranking";
 import { createCompanyEventFingerprint } from "@/server/news/company-event-fingerprinting";
 import { createDirectCompanyEventExposure } from "@/server/news/company-event-read-across";
 import {
@@ -197,6 +198,7 @@ export async function backfillLegacyNewsArticlesToCompanyEvents(
         category: article.category,
       },
     });
+    const promoteToEvent = classification.eventType !== "low_signal_mention";
 
     for (const link of article.companies) {
       const matchScore = Math.min(Math.max(link.matchScore, 0), 1);
@@ -212,6 +214,9 @@ export async function backfillLegacyNewsArticlesToCompanyEvents(
       } else {
         result.signalsExisting += 1;
       }
+      if (!promoteToEvent) {
+        continue;
+      }
 
       const score = scoreCompanyEvent({
         companyId: link.companyId,
@@ -226,6 +231,7 @@ export async function backfillLegacyNewsArticlesToCompanyEvents(
         mentionContext: "legacy_company_link",
         evidenceCount: 1,
         duplicateCount: 1,
+        title: article.title,
       });
       const scoreExplanation = buildScoreExplanation({
         eventType: classification.eventType,
@@ -258,10 +264,18 @@ export async function backfillLegacyNewsArticlesToCompanyEvents(
         title: article.title,
         summary: summary(article),
         eventDate: article.publishedAt,
+        relevanceScore: matchScore * 100,
         investorValueScore: Math.min(score.investorValueScore, 65),
         confidenceScore: Math.min(0.72, (matchScore + classification.eventTypeScore + score.evidenceStrengthScore) / 3),
         noveltyScore: score.noveltyScore,
         severityScore: Math.max(classification.riskImpactScore, classification.materialityScore),
+        routineDisclosure: score.routineDisclosure,
+        storyKey: buildCompanyEventStoryKey({
+          companyId: link.companyId,
+          eventType: classification.eventType,
+          title: article.title,
+          eventDate: article.publishedAt,
+        }),
         engineVersion: "company-event-v1",
         metadata: json({
           migratedFrom: "NewsArticle",

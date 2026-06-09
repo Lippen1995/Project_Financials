@@ -1,6 +1,34 @@
 import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
+import { prisma } from "@/lib/prisma";
 import type { NewsSourceDefinition } from "@/server/news/news-source-registry";
-import type { NewsSourceAdapter, SourceFetchResult, SourceFetchScope } from "@/server/news/source-adapters/types";
+import type { NewsSourceAdapter, SourceCompanyScope, SourceFetchResult, SourceFetchScope } from "@/server/news/source-adapters/types";
+
+async function defaultCompanyScopes(limit: number): Promise<SourceCompanyScope[]> {
+  const companies = await prisma.company.findMany({
+    where: {
+      orgNumber: { not: "" },
+      workspaceWatches: {
+        some: {
+          status: "ACTIVE",
+          watchAnnouncements: true,
+        },
+      },
+    },
+    select: {
+      id: true,
+      orgNumber: true,
+      name: true,
+    },
+    orderBy: { updatedAt: "desc" },
+    take: limit,
+  });
+
+  return companies.map((company) => ({
+    companyId: company.id,
+    orgNumber: company.orgNumber,
+    name: company.name,
+  }));
+}
 
 export class BrregAnnouncementSourceAdapter implements NewsSourceAdapter {
   sourceType = "brreg";
@@ -9,7 +37,7 @@ export class BrregAnnouncementSourceAdapter implements NewsSourceAdapter {
 
   async fetch(source: NewsSourceDefinition, scope: SourceFetchScope = {}): Promise<SourceFetchResult> {
     const fetchedAt = new Date();
-    const companyScopes = scope.companyScopes ?? [];
+    const companyScopes = scope.companyScopes ?? (await defaultCompanyScopes(scope.limit ?? 100));
     const documents: SourceFetchResult["documents"] = [];
     const errors: string[] = [];
 

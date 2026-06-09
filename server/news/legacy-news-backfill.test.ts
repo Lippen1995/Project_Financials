@@ -137,4 +137,32 @@ describe("legacy news backfill", () => {
     expect(result.signalsExisting).toBe(1);
     expect(prismaMock.newsSignal.create).not.toHaveBeenCalled();
   });
+
+  it("keeps low-signal legacy articles as signals without promoting them to events", async () => {
+    prismaMock.newsArticle.findMany.mockResolvedValue([
+      {
+        ...article(),
+        title: "Equinor ASA mentioned in local business roundup",
+        summary: "The article lists several companies in passing.",
+        category: "General business",
+      },
+    ]);
+
+    const result = await backfillLegacyNewsArticlesToCompanyEvents({ limit: 10 });
+
+    expect(result).toEqual({
+      articlesScanned: 1,
+      sourceDocumentsUpserted: 1,
+      signalsCreated: 1,
+      signalsExisting: 0,
+      eventsUpserted: 0,
+      evidenceAttached: 0,
+      exposuresUpserted: 0,
+    });
+    expect(repositoryMock.upsertSourceDocument).toHaveBeenCalledTimes(1);
+    expect(prismaMock.newsSignal.create).toHaveBeenCalledTimes(1);
+    expect(repositoryMock.upsertCompanyEvent).not.toHaveBeenCalled();
+    expect(repositoryMock.attachEventEvidence).not.toHaveBeenCalled();
+    expect(repositoryMock.upsertCompanyEventExposure).not.toHaveBeenCalled();
+  });
 });

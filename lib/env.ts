@@ -63,6 +63,7 @@ const env = {
   financialsSyncSecret:
     process.env.FINANCIALS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
   workspaceSyncSecret: process.env.WORKSPACE_SYNC_SECRET ?? "",
+  cronSecret: process.env.CRON_SECRET ?? "",
   newsSyncSecret: process.env.NEWS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
   newsArticleExtractionMode:
     (process.env.NEWS_ARTICLE_EXTRACTION_MODE ?? "auto").trim().toLowerCase(),

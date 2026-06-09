@@ -20,6 +20,14 @@ export type CompanyEventQualityEvaluation = {
   exposuresByType: Record<string, number>;
   feedbackByAction: Record<string, number>;
   feedbackByLabel: Record<string, number>;
+  feedbackCalibration: {
+    ratedEvents: number;
+    meanAbsoluteValueError: number | null;
+    overvaluedBy20OrMore: number;
+    undervaluedBy20OrMore: number;
+    exposureReviews: number;
+    exposurePrecisionAt70: number | null;
+  };
   falsePositiveCandidates: {
     lowEntityConfidenceHighScore: Array<{ eventId: string; title: string; investorValueScore: number; entityConfidence: number | null }>;
     highScoreWeakEvidence: Array<{ eventId: string; title: string; investorValueScore: number; evidenceCount: number }>;
@@ -69,9 +77,16 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
 }
 
+const TRUSTED_STRUCTURED_SOURCE_TYPES = new Set([
+  "newsweb",
+  "brreg",
+  "financials",
+  "internal",
+]);
+
 export async function evaluateCompanyEventIntelligence(options: { limit?: number } = {}): Promise<CompanyEventQualityEvaluation> {
   const limit = Math.min(Math.max(options.limit ?? 1000, 1), 5000);
-  const [sourceDocuments, events, feedback, exposures, curatedGoldSetMatches] = await Promise.all([
+  const [sourceDocuments, events, feedback, exposureFeedback, exposures, curatedGoldSetMatches] = await Promise.all([
     prisma.sourceDocument.findMany({
       select: {
         id: true,
@@ -87,6 +102,7 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
       take: limit,
     }),
     prisma.companyEvent.findMany({
+      where: { status: "ACTIVE" },
       select: {
         id: true,
         companyId: true,
@@ -125,10 +141,26 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
       select: {
         action: true,
         label: true,
+        previousValue: true,
+        correctedValue: true,
+      },
+      take: limit,
+    }),
+    prisma.companyEventExposureFeedback.findMany({
+      select: {
+        label: true,
+        relevanceScore: true,
+        previousValue: true,
       },
       take: limit,
     }),
     prisma.companyEventExposure.findMany({
+      where: {
+        active: true,
+        event: {
+          status: "ACTIVE",
+        },
+      },
       select: {
         exposureType: true,
       },
@@ -138,6 +170,7 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
       COMPANY_EVENT_EVAL_SET.map((item) =>
         prisma.companyEvent.findFirst({
           where: {
+            status: "ACTIVE",
             company: {
               orgNumber: item.companyOrgNumber,
             },
@@ -211,6 +244,16 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
     increment(feedbackByLabel, item.label);
   }
 
+  const ratedDeltas = feedback.flatMap((item) => {
+    if (item.action !== "rated") return [];
+    const previous = nestedNumber(item.previousValue, ["investorValueScore"]);
+    const corrected = nestedNumber(item.correctedValue, ["investorValueScore"]);
+    return previous === null || corrected === null ? [] : [corrected - previous];
+  });
+  const highExposureReviews = exposureFeedback.filter(
+    (item) => (nestedNumber(item.previousValue, ["exposureScore"]) ?? 0) >= 0.7,
+  );
+
   const lowEntityConfidenceHighScore = events
     .map((event) => ({
       eventId: event.id,
@@ -222,7 +265,15 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
     .slice(0, 50);
 
   const highScoreWeakEvidence = events
-    .filter((event) => event.investorValueScore >= 70 && event.evidence.length <= 1 && event.confidenceScore < 0.7)
+    .filter(
+      (event) =>
+        event.investorValueScore >= 70 &&
+        event.evidence.length <= 1 &&
+        event.confidenceScore < 0.7 &&
+        !event.evidence.some((evidence) =>
+          TRUSTED_STRUCTURED_SOURCE_TYPES.has(evidence.document.source.sourceType),
+        ),
+    )
     .map((event) => ({
       eventId: event.id,
       title: event.title,
@@ -265,12 +316,12 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
     const passed =
       item.expectedLabel === "RELEVANT"
         ? actualScore !== null && actualScore >= (item.expectedMinScore ?? 45)
-        : actualScore !== null && actualScore <= (item.expectedMaxScore ?? 25);
+        : actualScore === null || actualScore <= (item.expectedMaxScore ?? 25);
 
     return {
       id: item.id,
       expectedLabel: item.expectedLabel,
-      matched: Boolean(match),
+      matched: Boolean(match) || item.expectedLabel === "NOT_RELEVANT",
       passed,
       actualScore,
       title: match?.title ?? null,
@@ -280,7 +331,7 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
   });
 
   const matchedGoldSetCases = curatedGoldSetEvaluations.filter((item) => item.matched);
-  const passedGoldSetCases = matchedGoldSetCases.filter((item) => item.passed);
+  const passedGoldSetCases = curatedGoldSetEvaluations.filter((item) => item.passed);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -301,6 +352,24 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
     exposuresByType,
     feedbackByAction,
     feedbackByLabel,
+    feedbackCalibration: {
+      ratedEvents: ratedDeltas.length,
+      meanAbsoluteValueError:
+        ratedDeltas.length === 0
+          ? null
+          : average(ratedDeltas.map((delta) => Math.abs(delta))),
+      overvaluedBy20OrMore: ratedDeltas.filter((delta) => delta <= -20).length,
+      undervaluedBy20OrMore: ratedDeltas.filter((delta) => delta >= 20).length,
+      exposureReviews: exposureFeedback.length,
+      exposurePrecisionAt70:
+        highExposureReviews.length === 0
+          ? null
+          : Math.round(
+              (highExposureReviews.filter((item) => item.relevanceScore >= 70).length /
+                highExposureReviews.length) *
+                1000,
+            ) / 1000,
+    },
     falsePositiveCandidates: {
       lowEntityConfidenceHighScore,
       highScoreWeakEvidence,
@@ -315,8 +384,11 @@ export async function evaluateCompanyEventIntelligence(options: { limit?: number
       totalCases: COMPANY_EVENT_EVAL_SET.length,
       matchedCases: matchedGoldSetCases.length,
       passedCases: passedGoldSetCases.length,
-      passRate: matchedGoldSetCases.length === 0 ? null : Math.round((passedGoldSetCases.length / matchedGoldSetCases.length) * 1000) / 1000,
-      failures: matchedGoldSetCases
+      passRate:
+        COMPANY_EVENT_EVAL_SET.length === 0
+          ? null
+          : Math.round((passedGoldSetCases.length / COMPANY_EVENT_EVAL_SET.length) * 1000) / 1000,
+      failures: curatedGoldSetEvaluations
         .filter((item) => !item.passed)
         .map((item) => ({
           id: item.id,

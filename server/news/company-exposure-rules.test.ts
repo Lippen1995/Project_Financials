@@ -43,7 +43,7 @@ describe("company exposure rules", () => {
     );
   });
 
-  it("creates petroleum read-across when petroleum exposure exists", () => {
+  it("does not create company-specific read-across from petroleum similarity alone", () => {
     const akerBp: CompanyExposureCompanyContext = {
       companyId: "akerbp",
       name: "Aker BP ASA",
@@ -58,15 +58,48 @@ describe("company exposure rules", () => {
 
     const exposures = scoreCompanyEventExposures(petroleumEvent, akerBp, { includeDirect: false });
 
+    expect(exposures).toEqual([]);
+  });
+
+  it("prefers an explicit exposure graph path for official gas-market news", () => {
+    const exposures = scoreCompanyEventExposures(
+      {
+        eventId: "event-iea-gas",
+        sourceCompanyId: "macro-source",
+        eventType: "macro_news",
+        title: "Global LNG supply wave delayed by natural gas disruption",
+        sourceId: "iea-news",
+      },
+      {
+        companyId: "eqnr",
+        name: "Equinor ASA",
+        industryCode: "06.100",
+        exposureGraphEdges: [
+          {
+            relationType: "produces_commodity",
+            weight: 0.9,
+            confidenceScore: 0.95,
+            rationale: "Hydrokarbontype registrert av Sokkeldirektoratet.",
+            node: {
+              nodeType: "commodity",
+              key: "natural_gas",
+              label: "Naturgass",
+            },
+          },
+        ],
+      },
+      { includeDirect: false, threshold: 0.7 },
+    );
+
     expect(exposures).toContainEqual(
       expect.objectContaining({
-        exposureType: "petroleum",
-        exposureScore: expect.any(Number),
+        exposureType: "commodity",
+        rationale: expect.stringContaining("Eksponeringsgraf"),
       }),
     );
   });
 
-  it("creates sector read-across for same narrow industry code", () => {
+  it("does not propagate ordinary company financial reports to sector peers", () => {
     const peer: CompanyExposureCompanyContext = {
       companyId: "peer-1",
       name: "Peer Energy ASA",
@@ -85,10 +118,44 @@ describe("company exposure rules", () => {
       { includeDirect: false },
     );
 
-    expect(exposures).toContainEqual(expect.objectContaining({ exposureType: "sector" }));
+    expect(exposures).toEqual([]);
   });
 
-  it("scores macro rate news for rate-sensitive sectors", () => {
+  it("does not create sector read-across for company-specific production updates", () => {
+    const peer: CompanyExposureCompanyContext = {
+      companyId: "peer-1",
+      name: "Peer Energy ASA",
+      industryCode: "06.100",
+      industryTitle: "Utvinning av raolje",
+    };
+
+    const exposures = scoreCompanyEventExposures(
+      petroleumEvent,
+      peer,
+      { includeDirect: false },
+    );
+
+    expect(exposures).toEqual([]);
+  });
+
+  it("does not propagate ownership disclosures to petroleum peers", () => {
+    const exposures = scoreCompanyEventExposures(
+      {
+        ...petroleumEvent,
+        eventType: "ownership_change",
+        title: "Major shareholding disclosure in DNO ASA",
+      },
+      {
+        ...equinor,
+        companyId: "akerbp",
+      },
+      { includeDirect: false },
+    );
+
+    expect(exposures).toEqual([]);
+  });
+
+  it("does not infer macro exposure from company size or industry alone", () => {
     const proff: CompanyExposureCompanyContext = {
       companyId: "proff",
       name: "Proff AS",
@@ -109,10 +176,43 @@ describe("company exposure rules", () => {
       { includeDirect: false },
     );
 
+    expect(exposures).toEqual([]);
+  });
+
+  it("allows standard read-across through a verified controlling ownership path", () => {
+    const exposures = scoreCompanyEventExposures(
+      {
+        eventId: "subsidiary-event",
+        sourceCompanyId: "subsidiary",
+        sourceCompanyOrgNumber: "990888213",
+        eventType: "production_update",
+        title: "Subsidiary production update",
+      },
+      {
+        companyId: "parent",
+        name: "Parent ASA",
+        exposureGraphEdges: [
+          {
+            relationType: "controls_company",
+            weight: 1,
+            confidenceScore: 0.99,
+            rationale: "100 % direct ownership.",
+            node: {
+              nodeType: "company",
+              key: "controlled_company:990888213",
+              label: "Subsidiary AS",
+            },
+          },
+        ],
+      },
+      { includeDirect: false, threshold: 0.7 },
+    );
+
     expect(exposures).toContainEqual(
       expect.objectContaining({
-        exposureType: "sector",
-        rationale: expect.stringContaining("Makro"),
+        exposureType: "ownership",
+        exposureLevel: "group",
+        feedPolicy: "standard",
       }),
     );
   });
@@ -131,6 +231,28 @@ describe("company exposure rules", () => {
         sourceCompanyIndustryTitle: "Butikkhandel med datamaskiner",
       },
       equinor,
+      { includeDirect: false },
+    );
+
+    expect(exposures).toEqual([]);
+  });
+
+  it("does not propagate generic traffic production updates to petroleum companies", () => {
+    const exposures = scoreCompanyEventExposures(
+      {
+        eventId: "event-traffic",
+        sourceCompanyId: "airline",
+        eventType: "production_update",
+        title: "Traffic figures for May 2026",
+        summary: "Passenger volume increased during the month.",
+        sourceId: "oslobors",
+        sourceType: "newsweb",
+        sourceCompanyIndustryCode: "51.100",
+      },
+      {
+        ...equinor,
+        companyId: "akerbp",
+      },
       { includeDirect: false },
     );
 

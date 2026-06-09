@@ -348,11 +348,26 @@ enum ShareholdingImportStatus {
   FAILED
 }
 
+enum ShareholderRegisterImportStatus {
+  UPLOADED
+  VALIDATING
+  IMPORTING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
 enum ShareholdingGraphNodeType {
   COMPANY
   PERSON
   COMPANY_SHAREHOLDER
   UNKNOWN_SHAREHOLDER
+}
+
+enum OwnershipRelationship {
+  SUBSIDIARY
+  ASSOCIATED
+  MINORITY
 }
 
 enum PetroleumEntityType {
@@ -520,6 +535,7 @@ model User {
   userRoleChangesReceived         UserRoleChangeAudit[]             @relation("UserRoleChangeAuditTarget")
   newsRelevanceFeedback           NewsRelevanceFeedback[]
   companyEventFeedback            CompanyEventFeedback[]
+  companyEventExposureFeedback    CompanyEventExposureFeedback[]
 }
 
 model Subscription {
@@ -696,6 +712,8 @@ model Company {
   newsSignals               NewsSignal[]
   companyEvents             CompanyEvent[]
   companyEventExposures     CompanyEventExposure[]
+  exposureGraphEdges        CompanyExposureGraphEdge[]
+  newsIssuerIdentities      NewsIssuerIdentity[]
   matchedUserProfiles       UserProfile[]
   industryCodeId            String?
   industryCode              IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
@@ -2705,6 +2723,94 @@ model ShareholdingGraphEdge {
   @@index([snapshotId, sortOrder])
 }
 
+model ShareholderRegisterImport {
+  id               String                           @id @default(cuid())
+  taxYear          Int
+  sourceSystem     ShareholdingSourceSystem         @default(SKATTEETATEN_CSV)
+  sourceEntityType String                           @default("shareholder_register_csv")
+  sourceId         String?
+  sourceFileName   String
+  sourcePath       String?
+  sourceChecksum   String?
+  fileSizeBytes    BigInt?
+  totalBytes       BigInt?
+  processedBytes   BigInt                           @default(0)
+  parsedRowCount   Int                              @default(0)
+  importedRowCount Int                              @default(0)
+  skippedRowCount  Int                              @default(0)
+  errorRowCount    Int                              @default(0)
+  status           ShareholderRegisterImportStatus  @default(UPLOADED)
+  failureMessage   String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  fetchedAt        DateTime
+  normalizedAt     DateTime?
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+  holdings         ShareholderRegisterHolding[]
+
+  @@index([taxYear, status])
+  @@index([status, createdAt])
+  @@index([sourceChecksum])
+}
+
+model ShareholderRegisterHolding {
+  importId                 String
+  sourceRowNumber          Int
+  taxYear                  Int
+  issuerOrgNumber          String                   @db.VarChar(9)
+  issuerName               String
+  shareClass               String?
+  shareholderName          String
+  shareholderIdentifierRaw String?
+  shareholderOrgNumber     String?                  @db.VarChar(9)
+  shareholderBirthYear     Int?
+  shareholderType          ShareholderType
+  postalCode               String?                  @db.VarChar(16)
+  postalPlace              String?
+  countryCode              String?                  @db.VarChar(8)
+  numberOfShares           BigInt
+  totalCompanyShares       BigInt?
+  ownershipPercent         Decimal?                 @db.Decimal(20, 8)
+  sourceSystem             ShareholdingSourceSystem @default(SKATTEETATEN_CSV)
+  sourceEntityType         String                   @default("shareholder_register_row")
+  sourceId                 String
+  fetchedAt                DateTime
+  normalizedAt             DateTime
+  createdAt                DateTime                 @default(now())
+  import                   ShareholderRegisterImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@id([importId, sourceRowNumber])
+  @@index([taxYear, issuerOrgNumber])
+  @@index([taxYear, shareholderOrgNumber])
+  @@index([taxYear, issuerOrgNumber, shareholderOrgNumber])
+  @@index([issuerOrgNumber])
+  @@index([shareholderOrgNumber])
+  @@index([taxYear, ownershipPercent])
+}
+
+/// Materialised company-to-company ownership graph, aggregated per tax year from
+/// ShareholderRegisterHolding (share classes summed). Only org->org edges are stored;
+/// person shareholders terminate the chain and are read directly from the register.
+/// Built by server/ownership/ownership-edge-builder.ts (npm run ownership:build-edges).
+model OwnershipEdge {
+  taxYear           Int
+  issuerOrgNumber   String                @db.VarChar(9) // the company that is owned
+  ownerOrgNumber    String                @db.VarChar(9) // the corporate owner
+  issuerName        String
+  ownerName         String
+  aggregatedShares  BigInt // summed across share classes for this owner/issuer pair
+  totalIssuerShares BigInt?
+  ownershipPercent  Decimal?              @db.Decimal(9, 6) // aggregatedShares / totalIssuerShares * 100
+  relationship      OwnershipRelationship
+  builtAt           DateTime              @default(now())
+
+  @@id([taxYear, issuerOrgNumber, ownerOrgNumber])
+  @@index([taxYear, ownerOrgNumber]) // downward traversal: what does X own
+  @@index([taxYear, issuerOrgNumber]) // upward traversal: who owns X
+  @@index([taxYear, ownerOrgNumber, relationship])
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -2883,15 +2989,18 @@ model NewsArticleFeatureSet {
 }
 
 model NewsRelevanceFeedback {
-  id            String            @id @default(cuid())
-  newsArticleId String
-  companyId     String
-  label         NewsFeedbackLabel
-  reviewedById  String?
-  reviewedAt    DateTime          @default(now())
-  notes         String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id                 String            @id @default(cuid())
+  newsArticleId      String
+  companyId          String
+  label              NewsFeedbackLabel
+  relevanceScore     Int?
+  investorValueScore Int?
+  issueTags          String[]          @default([])
+  reviewedById       String?
+  reviewedAt         DateTime          @default(now())
+  notes              String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   newsArticle NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
   company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -2949,6 +3058,33 @@ model NewsSource {
 
   @@index([sourceType, status])
   @@index([qualityScore])
+}
+
+model NewsIssuerIdentity {
+  id                    String    @id @default(cuid())
+  sourceSystem          String
+  sourceIssuerId        String
+  issuerSign            String?
+  symbol                String?
+  issuerName            String
+  isActive              Boolean   @default(true)
+  companyId             String?
+  matchMethod           String?
+  matchConfidence       Float     @default(0)
+  fetchedAt             DateTime
+  normalizedAt          DateTime
+  lastMessagesFetchedAt DateTime?
+  rawPayload            Json?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceSystem, sourceIssuerId])
+  @@index([companyId, isActive])
+  @@index([sourceSystem, isActive, lastMessagesFetchedAt])
+  @@index([issuerSign])
+  @@index([symbol])
 }
 
 model SourceDocument {
@@ -3017,10 +3153,13 @@ model CompanyEvent {
   firstSeen          DateTime  @default(now())
   lastSeen           DateTime  @default(now())
   status             String    @default("ACTIVE")
+  relevanceScore     Float     @default(0)
   investorValueScore Float     @default(0)
   confidenceScore    Float     @default(0)
   noveltyScore       Float     @default(0)
   severityScore      Float     @default(0)
+  routineDisclosure  Boolean   @default(false)
+  storyKey           String?
   engineVersion      String    @default("company-event-v1")
   metadata           Json?
   createdAt          DateTime  @default(now())
@@ -3033,6 +3172,7 @@ model CompanyEvent {
 
   @@unique([companyId, eventFingerprint])
   @@index([companyId, investorValueScore(sort: Desc)])
+  @@index([companyId, storyKey, lastSeen(sort: Desc)])
   @@index([companyId, lastSeen(sort: Desc)])
   @@index([eventType, lastSeen(sort: Desc)])
   @@index([status, lastSeen(sort: Desc)])
@@ -3067,15 +3207,88 @@ model CompanyEventExposure {
   confidenceScore Float    @default(0)
   rationale       String?
   metadata        Json?
+  active          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   event   CompanyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
   company Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  feedback CompanyEventExposureFeedback[]
 
   @@unique([eventId, companyId, exposureType])
-  @@index([companyId, exposureScore(sort: Desc)])
+  @@index([companyId, active, exposureScore(sort: Desc)])
   @@index([eventId])
+}
+
+model CompanyEventExposureFeedback {
+  id                 String   @id @default(cuid())
+  exposureId         String
+  userId             String
+  relevanceScore     Float
+  investorValueScore Float
+  label              NewsFeedbackLabel
+  previousValue      Json?
+  correctedValue     Json?
+  notes              String?
+  reviewedAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  exposure CompanyEventExposure @relation(fields: [exposureId], references: [id], onDelete: Cascade)
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([exposureId, reviewedAt(sort: Desc)])
+  @@index([userId, reviewedAt(sort: Desc)])
+  @@index([label, reviewedAt(sort: Desc)])
+}
+
+model CompanyExposureGraphNode {
+  id               String   @id @default(cuid())
+  nodeType         String
+  key              String
+  label            String
+  description      String?
+  metadata         Json?
+  sourceSystem     String
+  sourceEntityType String
+  sourceId         String
+  fetchedAt        DateTime
+  normalizedAt     DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  companyEdges CompanyExposureGraphEdge[]
+
+  @@unique([nodeType, key])
+  @@index([nodeType, label])
+  @@index([sourceSystem, sourceEntityType])
+}
+
+model CompanyExposureGraphEdge {
+  id               String   @id @default(cuid())
+  companyId        String
+  nodeId           String
+  relationType     String
+  weight           Float    @default(0)
+  confidenceScore  Float    @default(0)
+  rationale        String?
+  metadata         Json?
+  sourceSystem     String
+  sourceEntityType String
+  sourceId         String
+  fetchedAt        DateTime
+  normalizedAt     DateTime
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  company Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  node    CompanyExposureGraphNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, nodeId, relationType])
+  @@index([companyId, active, weight(sort: Desc)])
+  @@index([nodeId, active, weight(sort: Desc)])
+  @@index([sourceSystem, sourceEntityType])
 }
 
 model CompanyEventFeedback {

@@ -29,6 +29,7 @@ export type CompanyEventFingerprintInput = {
   title: string;
   eventDate?: Date | null;
   sourceSpecificId?: string | null;
+  eventGroupKey?: string | null;
 };
 
 export function normalizeTitleCore(title: string) {
@@ -50,6 +51,15 @@ function dateWindow(date?: Date | null) {
 }
 
 export function createCompanyEventFingerprint(input: CompanyEventFingerprintInput) {
+  if (input.eventGroupKey) {
+    const groupedRaw = [
+      input.companyId,
+      input.eventType,
+      normalizeCompanyName(input.eventGroupKey),
+    ].join("|");
+    return createHash("sha256").update(groupedRaw, "utf8").digest("hex").slice(0, 32);
+  }
+
   const sourceStablePart = input.sourceSpecificId ? normalizeCompanyName(input.sourceSpecificId) : "";
   const raw = [
     input.companyId,

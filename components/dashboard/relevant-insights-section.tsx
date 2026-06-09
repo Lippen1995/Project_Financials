@@ -1,6 +1,18 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 
 import type { InsightItem, InsightVisual } from "@/server/news/dashboard-insights-service";
+import type { NewsDataType } from "@/server/news/news-data-type";
+
+const DATA_TYPE_FILTERS: Array<{ value: "all" | NewsDataType; label: string }> = [
+  { value: "all", label: "Alle" },
+  { value: "company", label: "Selskapsnyheter" },
+  { value: "industry", label: "Industrinyheter" },
+  { value: "macro", label: "Makro" },
+  { value: "regulatory", label: "Regulatorisk" },
+];
 
 function formatInsightDate(value: string, variant: "highlight" | "compact") {
   const date = new Date(value);
@@ -108,18 +120,40 @@ function CompactInsightRow({ item }: { item: InsightItem }) {
 }
 
 export function RelevantInsightsSection({ items }: { items: InsightItem[] }) {
-  const highlighted = items.slice(0, 2);
-  const compact = items.slice(2, 8);
+  const [selectedDataType, setSelectedDataType] = useState<"all" | NewsDataType>("all");
+  const filteredItems =
+    selectedDataType === "all"
+      ? items
+      : items.filter((item) => item.dataType === selectedDataType);
+  const highlighted = filteredItems.slice(0, 2);
+  const compact = filteredItems.slice(2, 8);
 
   return (
     <section className="max-w-container-max mx-auto px-margin-lg pb-16">
-      <div className="border-b border-primary pb-3 mb-8 flex items-center justify-between">
+      <div className="border-b border-primary pb-3 mb-8 flex flex-wrap items-end justify-between gap-4">
         <h3 className="font-headline-md text-headline-md text-primary tracking-wide uppercase">
           Relevant innsikt for deg
         </h3>
+        <div className="flex flex-wrap gap-2" aria-label="Filtrer innsikt etter datatype">
+          {DATA_TYPE_FILTERS.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              aria-pressed={selectedDataType === filter.value}
+              onClick={() => setSelectedDataType(filter.value)}
+              className={`border px-3 py-1.5 font-label-caps text-xs tracking-widest transition-colors ${
+                selectedDataType === filter.value
+                  ? "border-primary bg-primary text-white"
+                  : "border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary"
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {items.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <div className="border-b border-outline-variant pb-8">
           <p className="font-headline-sm text-headline-sm text-primary mb-2">
             Ingen nye innsikter akkurat nå

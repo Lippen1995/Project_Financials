@@ -43,6 +43,9 @@ export function normalizeCompanyName(name: string): string {
   return name
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u00e6/gi, "ae")
+    .replace(/\u00f8/gi, "o")
+    .replace(/\u00e5/gi, "a")
     .replace(/æ/gi, "ae")
     .replace(/ø/gi, "o")
     .replace(/å/gi, "a")
@@ -80,10 +83,12 @@ function extractDomain(website?: string | null) {
 function buildInitialism(name: string) {
   const tokens = stripLegalSuffix(name)
     .split(" ")
-    .filter((token) => token.length > 1 && !COMMON_COMPANY_WORDS.has(token));
+    .filter((token) => token.length >= 3 && !COMMON_COMPANY_WORDS.has(token));
   if (tokens.length < 2 || tokens.length > 5) return null;
   const initials = tokens.map((token) => token[0]).join("").toUpperCase();
-  return initials.length >= 2 ? initials : null;
+  // Short generated initialisms collide heavily with ordinary words and foreign tickers.
+  // Official short tickers should come from structured issuer metadata, not name guessing.
+  return initials.length >= 4 ? initials : null;
 }
 
 export function buildCompanyAliases(company: CompanyAliasInput): string[] {
@@ -92,6 +97,9 @@ export function buildCompanyAliases(company: CompanyAliasInput): string[] {
   const withoutSuffix = stripLegalSuffix(company.name);
   const initialism = buildInitialism(company.name);
   const domain = extractDomain(company.website);
+  const domainLabel = domain?.split(".")[0] ?? null;
+  const normalizedDomainLabel = domainLabel ? normalizeCompanyName(domainLabel.replace(/-/g, " ")) : null;
+  const normalizedCompanyBrand = normalizeCompanyName(withoutSuffix);
 
   aliases.add(company.name);
   aliases.add(normalizedName);
@@ -101,7 +109,12 @@ export function buildCompanyAliases(company: CompanyAliasInput): string[] {
   if (company.slug) aliases.add(company.slug.replace(/-/g, " "));
   if (domain) {
     aliases.add(domain);
-    aliases.add(domain.split(".")[0]);
+    if (
+      normalizedDomainLabel &&
+      normalizedCompanyBrand === normalizedDomainLabel
+    ) {
+      aliases.add(domainLabel!);
+    }
   }
 
   return [...aliases]

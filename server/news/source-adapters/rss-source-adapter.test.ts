@@ -28,6 +28,7 @@ describe("rss source adapter", () => {
           <guid>article-1</guid>
           <title>Equinor announces contract</title>
           <link>https://example.com/article?utm_source=x</link>
+          <category>CONTRACTS</category>
           <description><![CDATA[Important update]]></description>
           <pubDate>Tue, 02 Jun 2026 10:00:00 GMT</pubDate>
         </item></channel></rss>`,
@@ -43,6 +44,9 @@ describe("rss source adapter", () => {
       externalId: "article-1",
       title: "Equinor announces contract",
       summary: "Important update",
+      rawPayload: expect.objectContaining({
+        categories: ["CONTRACTS"],
+      }),
     });
   });
 

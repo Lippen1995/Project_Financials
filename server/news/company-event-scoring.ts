@@ -1,4 +1,5 @@
 import type { EventClassification } from "@/server/news/company-event-taxonomy";
+import { classifyCompanyEventStage } from "@/server/news/company-event-feed-ranking";
 
 export type ScoreSourceInput = {
   id: string;
@@ -24,6 +25,9 @@ export type InvestorValueScoreInput = {
 
 export type InvestorValueScoreResult = InvestorValueScoreInput & {
   investorValueScore: number;
+  uncappedInvestorValueScore?: number;
+  valueCap?: number;
+  routineDisclosure?: boolean;
 };
 
 const PRIMARY_SOURCE_TYPES = new Set(["newsweb", "brreg", "financials"]);
@@ -145,7 +149,38 @@ export function computeDuplicatePenalty(input: { duplicateCount?: number; duplic
   return clampScore(0.04 + Math.min(0.16, (size - 1) * 0.03), 0, 1);
 }
 
-export function computeInvestorValueScore(input: InvestorValueScoreInput): InvestorValueScoreResult {
+export function eventInvestorValueCap(input: {
+  eventType: string;
+  title?: string | null;
+}) {
+  const title = (input.title ?? "").toLowerCase();
+  const stage = classifyCompanyEventStage({
+    eventType: input.eventType,
+    title: input.title ?? "",
+  });
+  let cap = 100;
+
+  if (input.eventType === "reporting_calendar") cap = 20;
+  else if (input.eventType === "insider_transaction") cap = 45;
+  else if (input.eventType === "annual_report") cap = 65;
+  else if (input.eventType === "ownership_change") cap = 60;
+  else if (input.eventType === "dividend" && /\bex[. -]?(?:dividend|utbytte)\b/.test(title)) cap = 45;
+
+  if (/\b(?:employee|ansatt).*(?:share|aksje)/.test(title)) cap = Math.min(cap, 35);
+  if (/\b(?:proxy|proxies|voting proxies|fullmakt)/.test(title)) cap = Math.min(cap, 20);
+  if (stage === "administrative") cap = Math.min(cap, 50);
+  if (stage === "routine") cap = Math.min(cap, 60);
+
+  return {
+    valueCap: cap,
+    routineDisclosure: stage === "administrative" || stage === "routine",
+  };
+}
+
+export function computeInvestorValueScore(
+  input: InvestorValueScoreInput,
+  policy: { valueCap?: number; routineDisclosure?: boolean } = {},
+): InvestorValueScoreResult {
   const raw =
     0.18 * input.entityConfidence +
     0.16 * input.materialityScore +
@@ -160,9 +195,14 @@ export function computeInvestorValueScore(input: InvestorValueScoreInput): Inves
     (input.lowSignalPenalty ?? 0) -
     (input.duplicatePenalty ?? 0);
 
+  const uncappedInvestorValueScore = clampScore(raw * 100);
+  const valueCap = policy.valueCap ?? 100;
   return {
     ...input,
-    investorValueScore: clampScore(raw * 100),
+    investorValueScore: Math.min(uncappedInvestorValueScore, valueCap),
+    uncappedInvestorValueScore,
+    valueCap,
+    routineDisclosure: policy.routineDisclosure ?? false,
   };
 }
 
@@ -178,6 +218,7 @@ export function scoreCompanyEvent(input: {
   sourceSectorMismatch?: boolean;
   evidenceCount?: number;
   duplicateCount?: number;
+  title?: string | null;
   now?: Date;
 }) {
   const sourceCredibilityScore = computeSourceCredibilityScore(input.source);
@@ -200,6 +241,11 @@ export function scoreCompanyEvent(input: {
   });
   const duplicatePenalty = computeDuplicatePenalty({ duplicateCount: input.duplicateCount });
 
+  const valuePolicy = eventInvestorValueCap({
+    eventType: input.classification.eventType,
+    title: input.title,
+  });
+
   return computeInvestorValueScore({
     entityConfidence: input.entityConfidence,
     materialityScore: input.classification.materialityScore,
@@ -213,5 +259,5 @@ export function scoreCompanyEvent(input: {
     evidenceStrengthScore,
     lowSignalPenalty,
     duplicatePenalty,
-  });
+  }, valuePolicy);
 }

@@ -14,6 +14,7 @@ import { KeyFiguresGrid } from "@/components/company/key-figures-grid";
 import { LegalStructure } from "@/components/company/legal-structure";
 import { MetricGrid } from "@/components/company/metric-grid";
 import { OrganizationTab } from "@/components/company/organization-tab";
+import { OwnershipTab } from "@/components/company/ownership/ownership-tab";
 import { OverviewAnalytics } from "@/components/company/overview-analytics";
 import { PremiumLock } from "@/components/paywall/premium-lock";
 import { Card } from "@/components/ui/card";
@@ -37,6 +38,11 @@ import {
   listFinancialStatementCommentThreads,
 } from "@/server/services/dd-comment-service";
 import { getLegalStructure } from "@/server/services/legal-structure-service";
+import {
+  getCompanyOwnershipOverview,
+  getRegisterBackedCompanyProfile,
+  type RegisterBackedProfile,
+} from "@/server/ownership/ownership-overview-service";
 
 function sortStatements(statements: NormalizedFinancialStatement[]) {
   return [...statements].sort((a, b) => a.fiscalYear - b.fiscalYear);
@@ -500,10 +506,16 @@ export default async function CompanyPage({
 
   const session = await safeAuth();
   const premium = isPremium(session?.user.subscriptionStatus, session?.user.subscriptionPlan);
-  const profile = await getCompanyProfile(slug, {
+  let profile: RegisterBackedProfile | null = await getCompanyProfile(slug, {
     rolesMode: parsedTab === "oversikt" || parsedTab === "organisasjon" ? "full" : "none",
     financialsMode: parsedTab === "regnskap" ? "full" : "summary",
   });
+
+  // Fall back to a register-backed minimal profile so ownership drill-through resolves any
+  // company from the local database, even before the full Company table is populated.
+  if (!profile && /^\d{9}$/.test(slug)) {
+    profile = await getRegisterBackedCompanyProfile(slug);
+  }
 
   if (!profile) {
     notFound();
@@ -545,6 +557,7 @@ export default async function CompanyPage({
     { id: "oversikt", label: "Oversikt" },
     { id: "regnskap", label: "Regnskap" },
     { id: "nokkeltall", label: "Nøkkeltall" },
+    { id: "eierskap", label: "Eierskap" },
     { id: "organisasjon", label: "Organisasjon" },
     { id: "kunngjoringer", label: "Kunngjøringer" },
     { id: "dokumenter", label: "Dokumenter" },
@@ -556,11 +569,15 @@ export default async function CompanyPage({
   const activeTab =
     parsedTab === "sokkeleksponering" && !petroleumVisibility.available ? "oversikt" : parsedTab;
 
-  const [petroleumProfile, legalStructure, announcementsData, narratives] = await Promise.all([
+  const [petroleumProfile, legalStructure, ownershipOverview, announcementsData, narratives] =
+    await Promise.all([
     activeTab === "sokkeleksponering" && petroleumVisibility.available
       ? getCompanyPetroleumProfile(company)
       : Promise.resolve(null),
     activeTab === "organisasjon" ? getLegalStructure(company.orgNumber) : Promise.resolve(null),
+    activeTab === "eierskap"
+      ? getCompanyOwnershipOverview({ orgNumber: company.orgNumber, companyName: company.name })
+      : Promise.resolve(null),
     activeTab === "kunngjoringer" ? getCompanyAnnouncements(company.orgNumber) : Promise.resolve(null),
     activeTab === "dokumenter"
       ? prisma.annualReportNarrative.findMany({
@@ -774,6 +791,10 @@ export default async function CompanyPage({
             </div>
           </Card>
         </div>
+      ) : null}
+
+      {activeTab === "eierskap" && ownershipOverview ? (
+        <OwnershipTab slug={slug} initial={ownershipOverview} />
       ) : null}
 
       {activeTab === "organisasjon" ? (

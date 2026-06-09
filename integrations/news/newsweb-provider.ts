@@ -57,10 +57,12 @@ const NEWSWEB_SOURCE_SYSTEM = "newsweb";
 const ISSUER_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const API_BASE_CACHE_TTL_MS = 60 * 60 * 1000;
 const ISSUER_MESSAGES_CACHE_TTL_MS = 2 * 60 * 1000;
+const LATEST_MESSAGES_CACHE_TTL_MS = 60 * 1000;
 
 let cachedApiBase: { value: string; fetchedAt: number } | null = null;
 let cachedIssuers: { value: NewswebIssuer[]; fetchedAt: number } | null = null;
 const issuerMessagesCache = new Map<string, { value: NewswebArticle[]; fetchedAt: number }>();
+let latestMessagesCache: { value: NewswebArticle[]; fetchedAt: number } | null = null;
 
 function stripHtml(value: string) {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -203,6 +205,74 @@ async function fetchNewswebMessageSummary(messageId: number) {
   }
 }
 
+async function mapNewswebMessages(
+  messages: NewswebListMessage[],
+  includeBody: boolean,
+) {
+  const summaries = includeBody
+    ? await Promise.all(messages.map((message) => fetchNewswebMessageSummary(message.messageId)))
+    : messages.map(() => null);
+
+  return messages.flatMap((message, index): NewswebArticle[] => {
+    const publishedAt = new Date(message.publishedTime);
+    if (Number.isNaN(publishedAt.getTime())) {
+      return [];
+    }
+
+    const category = categoryLabel(message.category);
+    const summary = summaries[index] ?? category;
+
+    return [
+      {
+        guid: `${NEWSWEB_SOURCE_SYSTEM}:${message.messageId}`,
+        title: message.title,
+        summary,
+        url: `${NEWSWEB_ORIGIN}/message/${message.messageId}`,
+        publishedAt,
+        source: NEWSWEB_SOURCE_SYSTEM,
+        category,
+        issuerId: message.issuerId,
+        issuerSign: message.issuerSign ?? null,
+        issuerName: message.issuerName ?? null,
+      },
+    ];
+  });
+}
+
+export async function fetchNewswebLatestMessages(
+  options: { limit?: number; includeBody?: boolean } = {},
+) {
+  const limit = options.limit ?? 50;
+  if (
+    !options.includeBody &&
+    latestMessagesCache &&
+    Date.now() - latestMessagesCache.fetchedAt < LATEST_MESSAGES_CACHE_TTL_MS
+  ) {
+    return latestMessagesCache.value.slice(0, limit);
+  }
+
+  const params = new URLSearchParams({
+    category: "",
+    issuer: "",
+    fromDate: "",
+    toDate: "",
+    market: "",
+    messageTitle: "",
+  });
+  const data = await postNewsweb<{ messages?: NewswebListMessage[] }>(
+    `/v1/newsreader/list?${params.toString()}`,
+  );
+  const articles = await mapNewswebMessages(
+    (data.messages ?? []).slice(0, limit),
+    options.includeBody ?? false,
+  );
+
+  if (!options.includeBody) {
+    latestMessagesCache = { value: articles, fetchedAt: Date.now() };
+  }
+  return articles;
+}
+
 export async function fetchNewswebIssuerMessages(
   issuerId: number,
   options: { limit?: number; includeBody?: boolean; fromDate?: string; toDate?: string } = {},
@@ -231,34 +301,7 @@ export async function fetchNewswebIssuerMessages(
   const data = await postNewsweb<{ messages?: NewswebListMessage[] }>(`/v1/newsreader/list?${params.toString()}`);
   const messages = (data.messages ?? []).slice(0, options.limit ?? 30);
 
-  const summaries = options.includeBody
-    ? await Promise.all(messages.map((message) => fetchNewswebMessageSummary(message.messageId)))
-    : messages.map(() => null);
-
-  const articles = messages.flatMap((message, index): NewswebArticle[] => {
-    const publishedAt = new Date(message.publishedTime);
-    if (Number.isNaN(publishedAt.getTime())) {
-      return [];
-    }
-
-    const category = categoryLabel(message.category);
-    const summary = summaries[index] ?? category;
-
-    return [
-      {
-        guid: `${NEWSWEB_SOURCE_SYSTEM}:${message.messageId}`,
-        title: message.title,
-        summary,
-        url: `${NEWSWEB_ORIGIN}/message/${message.messageId}`,
-        publishedAt,
-        source: NEWSWEB_SOURCE_SYSTEM,
-        category,
-        issuerId: message.issuerId,
-        issuerSign: message.issuerSign ?? null,
-        issuerName: message.issuerName ?? null,
-      },
-    ];
-  });
+  const articles = await mapNewswebMessages(messages, options.includeBody ?? false);
 
   issuerMessagesCache.set(cacheKey, { value: articles, fetchedAt: Date.now() });
   return articles;

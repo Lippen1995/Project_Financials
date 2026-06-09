@@ -2,13 +2,13 @@ import Link from "next/link";
 
 import { getCompanyEventReviewDashboard } from "@/server/news/company-event-admin-review-service";
 
-import { reviewCompanyEventAction } from "./actions";
+import { reviewCompanyEventAction, reviewCompanyEventExposureAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const FEEDBACK_LABELS = {
-  relevant: "Relevant",
-  not_relevant: "Ikke relevant",
+const ISSUE_FEEDBACK_LABELS = {
+  wrong_company: "Feil selskap",
+  wrong_event_type: "Feil hendelsestype",
   duplicate: "Duplikat",
   dismissed: "Avvis",
 } as const;
@@ -38,6 +38,18 @@ function toneClass(tone: string | undefined) {
     return "border-rose-200 bg-rose-50 text-rose-700";
   }
   return "border-emerald-200 bg-emerald-50 text-emerald-700";
+}
+
+function feedbackRatings(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const relevanceScore =
+    typeof record.relevanceScore === "number" ? record.relevanceScore : null;
+  const investorValueScore =
+    typeof record.investorValueScore === "number" ? record.investorValueScore : null;
+  return relevanceScore === null && investorValueScore === null
+    ? null
+    : { relevanceScore, investorValueScore };
 }
 
 function buildReturnPath(searchParams: Record<string, string | string[] | undefined>) {
@@ -218,6 +230,11 @@ export default async function AdminCompanyEventsPage({
                     <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                       Score {Math.round(item.investorValueScore)}
                     </span>
+                    {item.routineDisclosure ? (
+                      <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                        Rutinemelding
+                      </span>
+                    ) : null}
                   </div>
                   <h2 className="text-lg font-semibold text-[var(--px-text)]">{item.title}</h2>
                   <p className="text-sm text-[var(--px-muted)]">
@@ -234,10 +251,89 @@ export default async function AdminCompanyEventsPage({
                       className="rounded-full border border-[var(--px-border)] bg-[var(--px-subtle)] px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--px-text)]"
                     >
                       {EXPOSURE_LABELS[exposure.exposureType] ?? exposure.exposureType}
+                      {exposure.exposureLevel ? ` · ${exposure.exposureLevel}` : ""}
                     </span>
                   ))}
                 </div>
               </div>
+
+              {item.exposures.some((exposure) => exposure.exposureType !== "direct") ? (
+                <div className="mt-4 space-y-3 border-t border-[var(--px-border)] pt-4">
+                  <p className="data-label text-[10px] uppercase tracking-widest text-[var(--px-muted)]">
+                    Målspesifikk read-across
+                  </p>
+                  {item.exposures
+                    .filter((exposure) => exposure.exposureType !== "direct")
+                    .map((exposure) => (
+                      <form
+                        key={exposure.id}
+                        action={reviewCompanyEventExposureAction}
+                        className="rounded-xl border border-[var(--px-border)] p-4"
+                      >
+                        <input type="hidden" name="exposureId" value={exposure.id} />
+                        <input type="hidden" name="returnPath" value={returnPath} />
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-[var(--px-text)]">
+                              {exposure.sourceCompanyName} → {exposure.targetCompanyName}
+                            </p>
+                            <p className="mt-1 text-xs text-[var(--px-muted)]">
+                              {exposure.exposureLevel ?? exposure.exposureType} · {exposure.feedPolicy ?? "ukjent policy"}
+                            </p>
+                            {exposure.rationale ? (
+                              <p className="mt-1 text-xs text-[var(--px-muted)]">{exposure.rationale}</p>
+                            ) : null}
+                          </div>
+                          {exposure.latestFeedback ? (
+                            <span className="rounded-full border border-[var(--px-border)] bg-[var(--px-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--px-text)]">
+                              {exposure.latestFeedback.label} · {Math.round(exposure.latestFeedback.relevanceScore)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <input
+                            name="relevanceScore"
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={5}
+                            defaultValue={Math.round(exposure.exposureScore * 100)}
+                            aria-label="Relevans for målselskapet"
+                            className="rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)]"
+                          />
+                          <input
+                            name="investorValueScore"
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={5}
+                            defaultValue={Math.round(item.investorValueScore * exposure.exposureScore)}
+                            aria-label="Investorverdi for målselskapet"
+                            className="rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)]"
+                          />
+                        </div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                          <input
+                            name="issueTags"
+                            placeholder="Feiltagger, kommaseparert"
+                            className="rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)]"
+                          />
+                          <input
+                            name="notes"
+                            placeholder="Begrunn koblingen"
+                            className="rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)]"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--px-action-hover)]"
+                          >
+                            Lagre
+                          </button>
+                        </div>
+                      </form>
+                    ))}
+                </div>
+              ) : null}
 
               {item.scoreExplanation ? (
                 <div className="mt-4 rounded-xl bg-[var(--px-subtle)] p-4">
@@ -287,6 +383,13 @@ export default async function AdminCompanyEventsPage({
                         {feedback.notes ? (
                           <p className="mt-1 text-xs text-[var(--px-muted)]">{feedback.notes}</p>
                         ) : null}
+                        {feedbackRatings(feedback.correctedValue) ? (
+                          <p className="mt-1 text-xs text-[var(--px-muted)]">
+                            Relevans {Math.round(feedbackRatings(feedback.correctedValue)?.relevanceScore ?? 0)}
+                            {" · "}
+                            Investorverdi {Math.round(feedbackRatings(feedback.correctedValue)?.investorValueScore ?? 0)}
+                          </p>
+                        ) : null}
                       </div>
                     ))
                   ) : (
@@ -297,26 +400,72 @@ export default async function AdminCompanyEventsPage({
                 </div>
               </div>
 
-              <form action={reviewCompanyEventAction} className="mt-4 flex flex-wrap items-center gap-2">
+              <form action={reviewCompanyEventAction} className="mt-4 space-y-3 border-t border-[var(--px-border)] pt-4">
                 <input type="hidden" name="eventId" value={item.id} />
                 <input type="hidden" name="returnPath" value={returnPath} />
+                <input type="hidden" name="previousInvestorValueScore" value={item.investorValueScore} />
+                <input
+                  type="hidden"
+                  name="previousRelevanceScore"
+                  value={Math.round(item.relevanceScore)}
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="data-label text-[10px] uppercase text-[var(--px-muted)]">
+                      Relevans for selskapet
+                    </span>
+                    <input
+                      name="relevanceScore"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={5}
+                      defaultValue={Math.round(item.relevanceScore)}
+                      className="w-full rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)]"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="data-label text-[10px] uppercase text-[var(--px-muted)]">
+                      Investorverdi
+                    </span>
+                    <input
+                      name="investorValueScore"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={5}
+                      defaultValue={Math.round(item.investorValueScore)}
+                      className="w-full rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)]"
+                    />
+                  </label>
+                </div>
                 <input
                   type="text"
                   name="notes"
-                  placeholder="Kort notat (valgfritt)"
-                  className="min-w-[14rem] flex-1 rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)]"
+                  placeholder="Begrunn vurderingen (valgfritt)"
+                  className="w-full rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)]"
                 />
-                {Object.entries(FEEDBACK_LABELS).map(([action, label]) => (
+                <div className="flex flex-wrap items-center gap-2">
                   <button
-                    key={action}
                     type="submit"
                     name="action"
-                    value={action}
-                    className="rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)] hover:bg-[var(--px-subtle)]"
+                    value="rated"
+                    className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--px-action-hover)]"
                   >
-                    {label}
+                    Lagre gradert vurdering
                   </button>
-                ))}
+                  {Object.entries(ISSUE_FEEDBACK_LABELS).map(([action, label]) => (
+                    <button
+                      key={action}
+                      type="submit"
+                      name="action"
+                      value={action}
+                      className="rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm text-[var(--px-text)] hover:bg-[var(--px-subtle)]"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </form>
             </article>
           ))}

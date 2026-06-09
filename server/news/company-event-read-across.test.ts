@@ -11,6 +11,9 @@ const { repositoryMock, prismaMock } = vi.hoisted(() => ({
     company: {
       findMany: vi.fn(),
     },
+    companyEventExposure: {
+      updateMany: vi.fn(),
+    },
   },
 }));
 
@@ -21,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   createDirectCompanyEventExposure,
+  createReadAcrossExposuresForRecentEvents,
   persistReadAcrossExposures,
 } from "@/server/news/company-event-read-across";
 
@@ -28,6 +32,7 @@ describe("company event read-across", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     repositoryMock.upsertCompanyEventExposure.mockResolvedValue({ id: "exposure-1" });
+    prismaMock.companyEventExposure.updateMany.mockResolvedValue({ count: 0 });
   });
 
   it("persists direct exposure with stable metadata", async () => {
@@ -46,7 +51,7 @@ describe("company event read-across", () => {
         exposureType: "direct",
         rationale: expect.stringContaining("Direkte"),
         metadata: expect.objectContaining({
-          engineVersion: "company-event-exposure-v1",
+          engineVersion: "company-event-exposure-v2",
           documentId: "doc-1",
         }),
       }),
@@ -65,6 +70,7 @@ describe("company event read-across", () => {
         sourceType: "official",
         sourceSectorTags: ["oil_gas"],
         sourceCompanyIndustryCode: "06.100",
+        sourceCompanyOrgNumber: "990888213",
       },
       companies: [
         {
@@ -72,11 +78,17 @@ describe("company event read-across", () => {
           name: "Aker BP ASA",
           industryCode: "06.100",
           industryTitle: "Utvinning av raolje",
-          hasPetroleumExposure: true,
-          petroleumExposure: {
-            operatorFieldCount: 3,
-            licenceCount: 10,
-          },
+          exposureGraphEdges: [{
+            relationType: "controls_company",
+            weight: 1,
+            confidenceScore: 0.99,
+            rationale: "100 % direct ownership.",
+            node: {
+              nodeType: "company",
+              key: "controlled_company:990888213",
+              label: "Equinor Energy AS",
+            },
+          }],
         },
         {
           companyId: "eplehuset",
@@ -92,10 +104,12 @@ describe("company event read-across", () => {
     expect(repositoryMock.upsertCompanyEventExposure).toHaveBeenCalledWith(
       expect.objectContaining({
         companyId: "akerbp",
-        exposureType: expect.stringMatching(/petroleum|sector|commodity|regulatory/),
+        exposureType: "ownership",
         rationale: expect.any(String),
         metadata: expect.objectContaining({
-          engineVersion: "company-event-exposure-v1",
+          engineVersion: "company-event-exposure-v2",
+          exposureLevel: "group",
+          feedPolicy: "standard",
           sourceCompanyId: "eqnr",
           reasons: expect.any(Array),
         }),
@@ -104,6 +118,92 @@ describe("company event read-across", () => {
     expect(repositoryMock.upsertCompanyEventExposure).not.toHaveBeenCalledWith(
       expect.objectContaining({
         companyId: "eplehuset",
+      }),
+    );
+  });
+
+  it("does not fan a company-specific update out to sector peers", async () => {
+    prismaMock.companyEvent.findMany.mockResolvedValue([
+      {
+        id: "event-1",
+        companyId: "eqnr",
+        eventType: "production_update",
+        title: "Oil and gas discovery in the Norwegian Sea",
+        summary: "A petroleum discovery affects production outlook.",
+        confidenceScore: 0.82,
+        metadata: null,
+        company: {
+          id: "eqnr",
+          orgNumber: "923609016",
+          industryCode: { code: "06.100", title: "Utvinning av raolje" },
+        },
+        evidence: [
+          {
+            document: {
+              source: {
+                id: "sodir-news",
+                sourceType: "official",
+                qualityScore: 0.9,
+                metadata: { sectorTags: ["oil_gas", "petroleum"] },
+              },
+            },
+          },
+        ],
+      },
+    ]);
+    prismaMock.company.findMany.mockResolvedValue([
+      {
+        id: "eqnr",
+        name: "Equinor ASA",
+        industryCode: { code: "06.100", title: "Utvinning av raolje" },
+        description: null,
+        revenue: null,
+        employeeCount: null,
+        petroleumExposureSnapshot: null,
+      },
+      ...Array.from({ length: 12 }, (_, index) => ({
+        id: `peer-${index}`,
+        name: `Petroleum Peer ${index}`,
+        industryCode: { code: "06.100", title: "Utvinning av raolje" },
+        description: null,
+        revenue: null,
+        employeeCount: null,
+        petroleumExposureSnapshot: {
+          operatorFieldCount: 1,
+          licenceCount: 2,
+          operatedProductionOe: null,
+          attributableProductionOe: null,
+          remainingReservesOe: null,
+        },
+      })),
+    ]);
+
+    const result = await createReadAcrossExposuresForRecentEvents({ limit: 1 });
+
+    expect(result.exposuresCreated).toBe(1);
+    expect(result.exposuresRemoved).toBe(0);
+    expect(repositoryMock.upsertCompanyEventExposure).toHaveBeenCalledTimes(1);
+    expect(prismaMock.companyEventExposure.updateMany).toHaveBeenCalledWith({
+      where: {
+        exposureType: { not: "direct" },
+        active: true,
+        event: {
+          eventType: { notIn: expect.arrayContaining(["production_update", "regulatory_change"]) },
+        },
+      },
+      data: { active: false },
+    });
+    expect(prismaMock.companyEventExposure.updateMany).toHaveBeenCalledWith({
+      where: {
+        eventId: "event-1",
+        exposureType: { not: "direct" },
+        active: true,
+      },
+      data: { active: false },
+    });
+    expect(prismaMock.company.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 1000,
       }),
     );
   });

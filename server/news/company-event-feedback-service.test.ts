@@ -25,6 +25,7 @@ vi.mock("@/server/news/company-event-repository", () => repositoryMock);
 
 import {
   getCompanyEventFeedbackMetrics,
+  labelForFeedback,
   labelForFeedbackAction,
   recordCompanyEventFeedback,
 } from "@/server/news/company-event-feedback-service";
@@ -47,6 +48,12 @@ describe("company event feedback service", () => {
     expect(labelForFeedbackAction("relevant")).toBe("RELEVANT");
     expect(labelForFeedbackAction("too_high_score")).toBe("WEAK_RELEVANT");
     expect(labelForFeedbackAction("wrong_company")).toBe("NOT_RELEVANT");
+  });
+
+  it("derives the learning label from graded relevance, not investor value", () => {
+    expect(labelForFeedback("rated", { relevanceScore: 85, investorValueScore: 20 })).toBe("RELEVANT");
+    expect(labelForFeedback("rated", { relevanceScore: 50, investorValueScore: 90 })).toBe("WEAK_RELEVANT");
+    expect(labelForFeedback("rated", { relevanceScore: 10, investorValueScore: 90 })).toBe("NOT_RELEVANT");
   });
 
   it("persists validated feedback with action and corrected value", async () => {

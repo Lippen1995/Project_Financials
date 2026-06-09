@@ -183,4 +183,105 @@ describe("company event extractor", () => {
     expect(repositoryMock.upsertCompanyEvent).not.toHaveBeenCalled();
     expect(repositoryMock.upsertCompanyEventExposure).not.toHaveBeenCalled();
   });
+
+  it("does not promote low-signal company mentions into investor events", async () => {
+    const result = await extractCompanyEventsFromDocument(
+      buildDocument({
+        title: "Equinor ASA mentioned in local business roundup",
+        summary: "The article lists several companies in passing.",
+      }),
+    );
+
+    expect(result).toEqual({ eventsUpserted: 0, evidenceAttached: 0 });
+    expect(repositoryMock.upsertCompanyEvent).not.toHaveBeenCalled();
+    expect(repositoryMock.attachEventEvidence).not.toHaveBeenCalled();
+    expect(repositoryMock.upsertCompanyEventExposure).not.toHaveBeenCalled();
+  });
+
+  it("does not assign company-specific events to body-only mentioned companies", async () => {
+    const result = await extractCompanyEventsFromDocument(
+      buildDocument({
+        bodyText: "Aker BP ASA was mentioned as a sector peer in the background section.",
+        signals: [
+          {
+            id: "signal-issuer",
+            documentId: "doc-1",
+            companyId: "eqnr",
+            signalType: "company_mention",
+            subtype: "headline",
+            strength: 0.9,
+            confidence: 0.91,
+            valueScore: 0.91,
+            direction: null,
+            horizon: null,
+            keywords: ["Equinor ASA"],
+            evidence: { evidence: [] },
+            detectorVersion: "company-entity-resolution-v1",
+            createdAt: new Date(),
+          },
+          {
+            id: "signal-body-peer",
+            documentId: "doc-1",
+            companyId: "akerbp",
+            signalType: "company_mention",
+            subtype: "body",
+            strength: 0.88,
+            confidence: 0.88,
+            valueScore: 0.88,
+            direction: null,
+            horizon: null,
+            keywords: ["Aker BP ASA"],
+            evidence: { evidence: [] },
+            detectorVersion: "company-entity-resolution-v1",
+            createdAt: new Date(),
+          },
+        ],
+      }),
+    );
+
+    expect(result).toEqual({ eventsUpserted: 1, evidenceAttached: 1 });
+    expect(repositoryMock.upsertCompanyEvent).toHaveBeenCalledTimes(1);
+    expect(repositoryMock.upsertCompanyEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "eqnr",
+        eventType: "buyback",
+      }),
+    );
+    expect(repositoryMock.upsertCompanyEventExposure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "eqnr",
+      }),
+    );
+  });
+
+  it("does not promote short acronym-only matches from open RSS sources", async () => {
+    const result = await extractCompanyEventsFromDocument(
+      buildDocument({
+        sourceId: "reuters-business",
+        title: "HPE shares soar after strong quarterly demand",
+        summary: "HPE reported stronger infrastructure sales.",
+        source: {
+          ...buildDocument().source,
+          id: "reuters-business",
+          sourceType: "rss",
+        },
+        signals: [
+          {
+            ...buildDocument().signals[0],
+            companyId: "hans-petter-engineering",
+            confidence: 0.78,
+            evidence: {
+              evidence: [
+                { kind: "alias_title", value: "HPE", score: 0.6, location: "title" },
+                { kind: "alias_summary", value: "HPE", score: 0.5, location: "summary" },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(result).toEqual({ eventsUpserted: 0, evidenceAttached: 0 });
+    expect(repositoryMock.upsertCompanyEvent).not.toHaveBeenCalled();
+  });
 });

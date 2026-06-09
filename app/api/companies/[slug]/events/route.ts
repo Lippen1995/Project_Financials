@@ -23,8 +23,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
   try {
     const { slug } = await context.params;
     const limit = boundedNumber(request.nextUrl.searchParams.get("limit"), 30, 1, 100);
-    const minInvestorValueScore = boundedNumber(request.nextUrl.searchParams.get("minScore"), 0, 0, 100);
-    const minExposureScore = boundedNumber(request.nextUrl.searchParams.get("minExposure"), 0.58, 0, 1);
+    const minInvestorValueScore = boundedNumber(request.nextUrl.searchParams.get("minScore"), 35, 0, 100);
+    const minExposureScore = boundedNumber(request.nextUrl.searchParams.get("minExposure"), 0.65, 0, 1);
 
     const companyReference = await getCompanyByReference(slug);
     if (!companyReference) {

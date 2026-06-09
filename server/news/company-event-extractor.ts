@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { classifyCompanyEvent } from "@/server/news/company-event-classifier";
 import { clusterEventDocuments } from "@/server/news/company-event-clustering";
+import { buildCompanyEventStoryKey } from "@/server/news/company-event-feed-ranking";
 import { createCompanyEventFingerprint } from "@/server/news/company-event-fingerprinting";
 import { createDirectCompanyEventExposure } from "@/server/news/company-event-read-across";
 import { attachEventEvidence, upsertCompanyEvent } from "@/server/news/company-event-repository";
@@ -12,6 +13,7 @@ import {
   buildCompanyEventUserRelevanceContext,
   computeCompanyEventUserRelevance,
 } from "@/server/news/company-event-user-relevance";
+import type { EventClassification } from "@/server/news/company-event-taxonomy";
 
 export type ExtractCompanyEventsFromDocumentOptions = {
   minEntityConfidence?: number;
@@ -41,6 +43,11 @@ function sourceSpecificId(document: DocumentWithSignals) {
   return document.externalId ?? filingId ?? announcementId ?? null;
 }
 
+function sourceEventGroupKey(document: DocumentWithSignals) {
+  if (document.source.sourceType !== "newsweb" || !document.publishedAt) return null;
+  return `${document.source.id}:${document.publishedAt.toISOString().slice(0, 16)}`;
+}
+
 function eventTitle(document: DocumentWithSignals) {
   return document.title;
 }
@@ -51,6 +58,51 @@ function eventSummary(document: DocumentWithSignals) {
 
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+const BROAD_MULTI_COMPANY_EVENT_TYPES = new Set([
+  "sector_news",
+  "macro_news",
+  "peer_read_across",
+  "commodity_price_exposure",
+  "interest_rate_exposure",
+  "regulatory_change",
+]);
+
+const TRUSTED_DIRECT_SOURCE_TYPES = new Set(["newsweb", "brreg", "financials", "internal"]);
+const STRONG_IDENTITY_EVIDENCE_KINDS = new Set([
+  "org_number",
+  "domain",
+  "exact_name_title",
+  "exact_name_summary",
+]);
+
+function signalEvidenceRows(signal: DocumentWithSignals["signals"][number]) {
+  const evidence = asObject(signal.evidence);
+  const rows = evidence.evidence;
+  return Array.isArray(rows) ? rows.map(asObject) : [];
+}
+
+function hasStrongIdentityEvidence(signal: DocumentWithSignals["signals"][number]) {
+  return signalEvidenceRows(signal).some((row) => {
+    const kind = typeof row.kind === "string" ? row.kind : "";
+    const value = typeof row.value === "string" ? row.value.trim() : "";
+    if (STRONG_IDENTITY_EVIDENCE_KINDS.has(kind)) return true;
+    if (!kind.startsWith("alias_") || value.length < 5) return false;
+    return !/^[A-Z0-9]+$/.test(value);
+  });
+}
+
+function shouldPromoteSignalToEvent(
+  signal: DocumentWithSignals["signals"][number],
+  classification: EventClassification,
+  sourceType: string,
+) {
+  if (!TRUSTED_DIRECT_SOURCE_TYPES.has(sourceType) && !hasStrongIdentityEvidence(signal)) {
+    return false;
+  }
+  if (BROAD_MULTI_COMPANY_EVENT_TYPES.has(classification.eventType)) return signal.subtype !== "body";
+  return signal.subtype !== "body";
 }
 
 export async function extractCompanyEventsFromDocument(
@@ -76,17 +128,25 @@ export async function extractCompanyEventsFromDocument(
     },
     sourcePayload: document.sourcePayload,
   });
+  if (classification.eventType === "low_signal_mention") {
+    return { eventsUpserted: 0, evidenceAttached: 0 };
+  }
 
   let eventsUpserted = 0;
   let evidenceAttached = 0;
 
   for (const signal of companySignals) {
+    if (!shouldPromoteSignalToEvent(signal, classification, document.source.sourceType)) {
+      continue;
+    }
+
     const eventFingerprint = createCompanyEventFingerprint({
       companyId: signal.companyId!,
       eventType: classification.eventType,
       title: document.title,
       eventDate: document.publishedAt,
       sourceSpecificId: sourceSpecificId(document),
+      eventGroupKey: sourceEventGroupKey(document),
     });
 
     const entityConfidence = signal.confidence ?? 0;
@@ -128,6 +188,7 @@ export async function extractCompanyEventsFromDocument(
       sourceSectorMismatch: userRelevance.sourceSectorMismatch,
       evidenceCount: 1,
       duplicateCount: cluster.duplicateCount,
+      title: document.title,
     });
     const scoreExplanation = buildScoreExplanation({
       eventType: classification.eventType,
@@ -145,10 +206,18 @@ export async function extractCompanyEventsFromDocument(
       title: eventTitle(document),
       summary: eventSummary(document),
       eventDate: document.publishedAt,
+      relevanceScore: entityConfidence * 100,
       investorValueScore: score.investorValueScore,
       confidenceScore: Math.min(1, (entityConfidence + classification.eventTypeScore + score.evidenceStrengthScore) / 3),
       noveltyScore: score.noveltyScore,
       severityScore: Math.max(classification.riskImpactScore, classification.materialityScore),
+      routineDisclosure: score.routineDisclosure,
+      storyKey: buildCompanyEventStoryKey({
+        companyId: signal.companyId!,
+        eventType: classification.eventType,
+        title: document.title,
+        eventDate: document.publishedAt,
+      }),
       engineVersion: "company-event-v1",
       metadata: json({
         direction: classification.direction,
@@ -200,6 +269,7 @@ export async function extractCompanyEventsFromDocument(
 export async function extractCompanyEventsFromRecentDocuments(options: {
   limit?: number;
   minEntityConfidence?: number;
+  sourceIds?: string[];
 } = {}): Promise<CompanyEventExtractionResult> {
   const documents = await prisma.sourceDocument.findMany({
     include: {
@@ -207,6 +277,7 @@ export async function extractCompanyEventsFromRecentDocuments(options: {
       signals: true,
     },
     where: {
+      ...(options.sourceIds?.length ? { sourceId: { in: options.sourceIds } } : {}),
       signals: {
         some: {
           signalType: "company_mention",

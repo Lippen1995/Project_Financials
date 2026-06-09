@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { INDIRECT_TRANSFERABLE_EVENT_TYPES } from "@/server/news/company-exposure-rules";
 
 export const COMPANY_EVENT_ALERT_ENGINE_VERSION = "company-event-alert-v1";
 
@@ -39,11 +40,27 @@ export async function syncCompanyEventNotificationsForWatches(
     const exposures = await prisma.companyEventExposure.findMany({
       where: {
         companyId: watch.companyId,
+        active: true,
         exposureScore: { gte: minExposureScore },
+        OR: [
+          { exposureType: "direct" },
+          {
+            exposureType: { not: "direct" },
+            event: {
+              eventType: { in: [...INDIRECT_TRANSFERABLE_EVENT_TYPES] },
+            },
+          },
+        ],
         event: {
           status: "ACTIVE",
           investorValueScore: { gte: minInvestorValueScore },
-          lastSeen: { gt: watch.createdAt },
+          OR: [
+            { eventDate: { gt: watch.createdAt } },
+            {
+              eventDate: null,
+              lastSeen: { gt: watch.createdAt },
+            },
+          ],
         },
       },
       include: {

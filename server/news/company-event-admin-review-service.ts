@@ -19,9 +19,12 @@ export type CompanyEventReviewItem = {
   summary: string | null;
   eventType: string;
   status: string;
+  relevanceScore: number;
   investorValueScore: number;
   confidenceScore: number;
   lastSeen: string;
+  routineDisclosure: boolean;
+  storyKey: string | null;
   company: {
     id: string;
     name: string;
@@ -42,16 +45,27 @@ export type CompanyEventReviewItem = {
     relevanceScore: number;
   }>;
   exposures: Array<{
+    id: string;
     exposureType: string;
+    exposureLevel: string | null;
+    feedPolicy: string | null;
     exposureScore: number;
     confidenceScore: number;
     rationale: string | null;
     sourceCompanyName: string | null;
+    targetCompanyName: string;
     reasons: string[];
+    latestFeedback: {
+      relevanceScore: number;
+      investorValueScore: number;
+      label: string;
+      notes: string | null;
+    } | null;
   }>;
   latestFeedback: Array<{
     label: string;
     action: string;
+    correctedValue: unknown;
     reviewedAt: string;
     notes: string | null;
     reviewerName: string | null;
@@ -125,6 +139,7 @@ function buildWhere(filters: Required<CompanyEventReviewFilters>) {
       ? {
           exposures: {
             some: {
+              active: true,
               exposureType: filters.exposureType,
               exposureScore: { gte: 0.58 },
             },
@@ -161,6 +176,7 @@ export async function getCompanyEventReviewDashboard(
       }),
       prisma.companyEventFeedback.count(),
       prisma.companyEventExposure.findMany({
+        where: { active: true },
         distinct: ["exposureType"],
         select: { exposureType: true },
         orderBy: { exposureType: "asc" },
@@ -186,9 +202,12 @@ export async function getCompanyEventReviewDashboard(
           summary: true,
           eventType: true,
           status: true,
+          relevanceScore: true,
           investorValueScore: true,
           confidenceScore: true,
           lastSeen: true,
+          routineDisclosure: true,
+          storyKey: true,
           metadata: true,
           company: {
             select: {
@@ -220,15 +239,29 @@ export async function getCompanyEventReviewDashboard(
             },
           },
           exposures: {
-            where: { exposureScore: { gte: 0.58 } },
+            where: { active: true, exposureScore: { gte: 0.58 } },
             take: 3,
             orderBy: [{ exposureScore: "desc" }, { confidenceScore: "desc" }],
             select: {
+              id: true,
               exposureType: true,
               exposureScore: true,
               confidenceScore: true,
               rationale: true,
               metadata: true,
+              company: {
+                select: { name: true },
+              },
+              feedback: {
+                take: 1,
+                orderBy: { reviewedAt: "desc" },
+                select: {
+                  relevanceScore: true,
+                  investorValueScore: true,
+                  label: true,
+                  notes: true,
+                },
+              },
               event: {
                 select: {
                   company: {
@@ -246,6 +279,7 @@ export async function getCompanyEventReviewDashboard(
             select: {
               label: true,
               action: true,
+              correctedValue: true,
               reviewedAt: true,
               notes: true,
               user: {
@@ -283,9 +317,12 @@ export async function getCompanyEventReviewDashboard(
         summary: event.summary,
         eventType: event.eventType,
         status: event.status,
+        relevanceScore: event.relevanceScore,
         investorValueScore: event.investorValueScore,
         confidenceScore: event.confidenceScore,
         lastSeen: event.lastSeen.toISOString(),
+        routineDisclosure: event.routineDisclosure,
+        storyKey: event.storyKey,
         company: event.company,
         scoreExplanation:
           Object.keys(scoreExplanation).length > 0
@@ -305,16 +342,28 @@ export async function getCompanyEventReviewDashboard(
           relevanceScore: evidence.relevanceScore,
         })),
         exposures: event.exposures.map((exposure) => ({
+          id: exposure.id,
           exposureType: exposure.exposureType,
+          exposureLevel:
+            typeof asObject(exposure.metadata).exposureLevel === "string"
+              ? String(asObject(exposure.metadata).exposureLevel)
+              : null,
+          feedPolicy:
+            typeof asObject(exposure.metadata).feedPolicy === "string"
+              ? String(asObject(exposure.metadata).feedPolicy)
+              : null,
           exposureScore: exposure.exposureScore,
           confidenceScore: exposure.confidenceScore,
           rationale: exposure.rationale,
           sourceCompanyName: exposure.event.company.name,
+          targetCompanyName: exposure.company.name,
           reasons: stringArray(asObject(exposure.metadata).reasons),
+          latestFeedback: exposure.feedback[0] ?? null,
         })),
         latestFeedback: event.feedback.map((feedback) => ({
           label: feedback.label,
           action: feedback.action,
+          correctedValue: feedback.correctedValue,
           reviewedAt: feedback.reviewedAt.toISOString(),
           notes: feedback.notes,
           reviewerName: feedback.user.name ?? feedback.user.email ?? null,

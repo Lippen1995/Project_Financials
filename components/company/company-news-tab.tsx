@@ -22,6 +22,7 @@ type NewsItem = {
   publishedAt: string;
   source: string;
   category: string | null;
+  dataType: "company" | "industry" | "macro" | "regulatory";
   relevance: RelevanceInfo;
 };
 
@@ -54,6 +55,16 @@ type EventTimelineItem = {
     reasons: string[];
   }>;
 };
+
+type NewsDataType = NewsItem["dataType"];
+
+const DATA_TYPE_FILTERS: Array<{ value: "all" | NewsDataType; label: string }> = [
+  { value: "all", label: "Alle" },
+  { value: "company", label: "Selskapsnyheter" },
+  { value: "industry", label: "Industrinyheter" },
+  { value: "macro", label: "Makro" },
+  { value: "regulatory", label: "Regulatorisk" },
+];
 
 const SOURCE_LABELS: Record<string, string> = {
   e24: "E24",
@@ -133,14 +144,37 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   buyback: "Tilbakekjop",
   dividend: "Utbytte",
   financial_result: "Resultat",
+  reporting_calendar: "Finansiell kalender",
   capital_raise: "Kapital",
+  share_issue: "Aksjeutstedelse",
+  bond_issue: "Obligasjonslan",
+  debt_refinancing: "Refinansiering",
   insider_transaction: "Innsidehandel",
+  ownership_change: "Eierendring",
   mna: "M&A",
+  listing: "Notering",
+  delisting: "Avnotering",
+  earnings: "Resultat",
+  annual_report: "Arsrapport",
+  financial_statement: "Regnskapsrapport",
+  restructuring: "Restrukturering",
+  strategic_review: "Strategisk gjennomgang",
+  contract_award: "Kontrakt",
+  contract_loss: "Kontrakttap",
   regulatory_change: "Regulering",
   regulatory_approval: "Godkjenning",
+  legal_settlement: "Juridisk forlik",
+  lawsuit: "Rettssak",
   license_award: "Lisens",
   license_loss: "Lisens",
   production_update: "Produksjon",
+  capacity_expansion: "Kapasitetsutvidelse",
+  project_delay: "Prosjektforsinkelse",
+  cost_overrun: "Kostnadsoverskridelse",
+  ceo_change: "Lederskifte",
+  cfo_change: "Finansdirektor",
+  board_change: "Styreendring",
+  procurement_tender: "Anbud og innkjop",
   commodity_price_exposure: "Ravare",
   interest_rate: "Rente",
   sector_news: "Sektor",
@@ -219,6 +253,29 @@ function dedupeArticlesAgainstEvents(articles: NewsItem[], events: EventTimeline
         event.evidence.some((evidence) => isLikelyDuplicateTitle(evidence.title, article.title)),
     );
   });
+}
+
+function eventDataType(event: EventTimelineItem): NewsDataType {
+  if (
+    ["macro_news", "interest_rate", "interest_rate_exposure", "commodity_price_exposure"].includes(
+      event.eventType,
+    )
+  ) {
+    return "macro";
+  }
+  if (
+    ["sector_news", "peer_read_across"].includes(event.eventType) ||
+    ["sector", "petroleum", "commodity", "value_chain", "peer"].includes(event.exposure.type)
+  ) {
+    return "industry";
+  }
+  if (
+    ["regulatory_change", "license_award", "license_loss"].includes(event.eventType) ||
+    event.exposure.type === "regulatory"
+  ) {
+    return "regulatory";
+  }
+  return "company";
 }
 
 function RelevanceBadge({ relevance }: { relevance: RelevanceInfo }) {
@@ -420,7 +477,7 @@ async function fetchNews(slug: string): Promise<NewsItem[]> {
 }
 
 async function fetchEvents(slug: string): Promise<EventTimelineItem[]> {
-  const res = await fetch(`/api/companies/${slug}/events?limit=20&minExposure=0.58`, { cache: "no-store" });
+  const res = await fetch(`/api/companies/${slug}/events?limit=20&minScore=35&minExposure=0.7`, { cache: "no-store" });
   if (!res.ok) {
     return [];
   }
@@ -436,6 +493,7 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
   const [error, setError] = React.useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
   const [selectedExposure, setSelectedExposure] = React.useState<string>("all");
+  const [selectedDataType, setSelectedDataType] = React.useState<"all" | NewsDataType>("all");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -471,6 +529,7 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
 
   React.useEffect(() => {
     setSelectedExposure("all");
+    setSelectedDataType("all");
   }, [slug]);
 
   if (loading) {
@@ -499,12 +558,20 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
   }
 
   const minutesAgo = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 60_000) : null;
-  const exposureTypes = Array.from(new Set(events.map((event) => event.exposure.type)));
+  const dataTypeEvents =
+    selectedDataType === "all"
+      ? events
+      : events.filter((event) => eventDataType(event) === selectedDataType);
+  const dataTypeArticles =
+    selectedDataType === "all"
+      ? articles
+      : articles.filter((article) => article.dataType === selectedDataType);
+  const exposureTypes = Array.from(new Set(dataTypeEvents.map((event) => event.exposure.type)));
   const filteredEvents =
     selectedExposure === "all"
-      ? events
-      : events.filter((event) => event.exposure.type === selectedExposure);
-  const dedupedArticles = dedupeArticlesAgainstEvents(articles, events);
+      ? dataTypeEvents
+      : dataTypeEvents.filter((event) => event.exposure.type === selectedExposure);
+  const dedupedArticles = dedupeArticlesAgainstEvents(dataTypeArticles, dataTypeEvents);
 
   return (
     <div>
@@ -518,7 +585,21 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
         </span>
       </div>
 
-      {events.length > 0 ? (
+      <div className="flex flex-wrap gap-2 border-b border-[rgba(15,23,42,0.08)] px-4 py-3">
+        {DATA_TYPE_FILTERS.map((filter) => (
+          <FilterPill
+            key={filter.value}
+            active={selectedDataType === filter.value}
+            label={filter.label}
+            onClick={() => {
+              setSelectedDataType(filter.value);
+              setSelectedExposure("all");
+            }}
+          />
+        ))}
+      </div>
+
+      {dataTypeEvents.length > 0 ? (
         <div className="border-b border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.62)]">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <div>
@@ -528,7 +609,7 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
               <p className="mt-1 text-[11px] text-slate-400">Direkte og read-across, uten a vise samme sak to ganger.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <FilterPill active={selectedExposure === "all"} label="Alle" onClick={() => setSelectedExposure("all")} />
+              <FilterPill active={selectedExposure === "all"} label="Alle koblinger" onClick={() => setSelectedExposure("all")} />
               {exposureTypes.map((exposureType) => (
                 <FilterPill
                   key={exposureType}
@@ -552,6 +633,11 @@ export function CompanyNewsTab({ slug }: { slug: string }) {
         {dedupedArticles.map((article) => (
           <NewsCard key={article.id} article={article} />
         ))}
+        {filteredEvents.length === 0 && dedupedArticles.length === 0 ? (
+          <div className="px-4 py-8 text-sm text-[var(--px-muted)]">
+            Ingen nyheter matcher dette typefilteret.
+          </div>
+        ) : null}
       </div>
     </div>
   );

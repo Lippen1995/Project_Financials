@@ -104,6 +104,23 @@ For børsnoterte selskaper brukes NewsWeb som autoritativ kilde for børsmelding
 
 Åpne nyhetsartikler kan berikes med fulltekst via en valgfri `news-please` sidecar. Sett `NEWS_ARTICLE_EXTRACTION_MODE=auto` og `NEWS_ARTICLE_EXTRACTION_PYTHON` til en Python-runtime der pakken `news-please` er installert. Hvis Python eller pakken mangler, fortsetter nyhetsmotoren uten fulltekstberiking.
 
+### Nyhetsrelevans og read-across
+
+Company Event Intelligence lagrer selskapstreff (`relevanceScore`) separat fra investorverdi. Rutinemeldinger som rapporteringsinvitasjoner, ex-datoer og ordinære innsidehandler har hendelsesspesifikke verditak, selv når selskapet er identifisert med høy sikkerhet.
+
+Indirekte selskapskoblinger krever en dokumentert grafsti. Verifisert konserneierskap og eksplisitt råvare- eller regulatorisk eksponering kan brukes i standardfeeden. Ren sektor-, peer- eller petroleumslikhet er ikke tilstrekkelig. Historiske koblinger deaktiveres i stedet for å slettes, slik at manuell feedback beholdes.
+
+Nyttige kommandoer:
+
+```bash
+npm run news:intelligence:recalibrate -- --apply
+npm run news:intelligence:rebuild-read-across
+npm run news:intelligence:build-gold-set -- --output=company-event-gold-set.json
+npm run news:intelligence:export-shadow-dataset -- --output=company-event-shadow.json
+```
+
+Goldsett-eksporten rapporterer dekning separat for direkte selskapsnyheter, makro/råvare, industri/regulering, konsern/prosjekt og negative navnekollisjoner. Manglende review blir stående som et dokumentert dekningsgap, ikke fylt med syntetiske etiketter.
+
 ## Viktige begrensninger
 
 - Fjord Insight viser bare publiserte regnskapssnapshots når pipeline-en klarer å identifisere relevante sider, enhetsskala, primærmetrikker og nødvendige balansesjekker.

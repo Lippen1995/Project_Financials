@@ -17,13 +17,16 @@ async function main() {
   const asJson = process.argv.includes("--json") || Boolean(output);
   const limit = limitArg ? Number(limitArg) : 500;
 
-  const feedbackRows = await prisma.companyEventFeedback.findMany({
+  const [feedbackRows, exposureFeedbackRows] = await Promise.all([
+    prisma.companyEventFeedback.findMany({
     take: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 5000) : 500,
     orderBy: { reviewedAt: "desc" },
     select: {
       id: true,
       label: true,
       action: true,
+      previousValue: true,
+      correctedValue: true,
       reviewedAt: true,
       event: {
         select: {
@@ -39,6 +42,7 @@ async function main() {
             select: { id: true },
           },
           exposures: {
+            where: { active: true },
             orderBy: [{ exposureScore: "desc" }, { confidenceScore: "desc" }],
             take: 1,
             select: {
@@ -50,7 +54,39 @@ async function main() {
         },
       },
     },
-  });
+    }),
+    prisma.companyEventExposureFeedback.findMany({
+      take: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 5000) : 500,
+      orderBy: { reviewedAt: "desc" },
+      select: {
+        id: true,
+        label: true,
+        relevanceScore: true,
+        investorValueScore: true,
+        previousValue: true,
+        correctedValue: true,
+        reviewedAt: true,
+        exposure: {
+          select: {
+            id: true,
+            eventId: true,
+            companyId: true,
+            exposureType: true,
+            exposureScore: true,
+            confidenceScore: true,
+            metadata: true,
+            event: {
+              select: {
+                companyId: true,
+                title: true,
+                eventType: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
 
   const rows = feedbackRows
     .filter((row) => row.event.exposures[0])
@@ -70,12 +106,15 @@ async function main() {
 
       return {
         feedbackId: row.id,
+        targetKind: "event",
         eventId: row.event.id,
         companyId: row.event.companyId,
         title: row.event.title,
         eventType: row.event.eventType,
         label: row.label,
         action: row.action,
+        previousValue: row.previousValue,
+        correctedValue: row.correctedValue,
         reviewedAt: row.reviewedAt.toISOString(),
         heuristicScore: row.event.investorValueScore,
         shadowProbability: shadow.probability,
@@ -87,19 +126,41 @@ async function main() {
       };
     });
 
+  const exposureRows = exposureFeedbackRows.map((row) => ({
+    feedbackId: row.id,
+    targetKind: "exposure",
+    exposureId: row.exposure.id,
+    eventId: row.exposure.eventId,
+    sourceCompanyId: row.exposure.event.companyId,
+    targetCompanyId: row.exposure.companyId,
+    title: row.exposure.event.title,
+    eventType: row.exposure.event.eventType,
+    label: row.label,
+    reviewedAt: row.reviewedAt.toISOString(),
+    relevanceScore: row.relevanceScore,
+    investorValueScore: row.investorValueScore,
+    previousValue: row.previousValue,
+    correctedValue: row.correctedValue,
+    exposureType: row.exposure.exposureType,
+    exposureScore: row.exposure.exposureScore,
+    exposureConfidence: row.exposure.confidenceScore,
+    exposureMetadata: row.exposure.metadata,
+  }));
+  const dataset = [...rows, ...exposureRows];
+
   if (output) {
-    await writeFile(output, JSON.stringify(rows, null, 2), "utf8");
+    await writeFile(output, JSON.stringify(dataset, null, 2), "utf8");
     console.log(`Company Event shadow dataset written to ${output}`);
     return;
   }
 
   if (asJson) {
-    console.log(JSON.stringify(rows, null, 2));
+    console.log(JSON.stringify(dataset, null, 2));
     return;
   }
 
   console.log("Company Event shadow dataset");
-  console.log(`Rows: ${rows.length}`);
+  console.log(`Rows: ${dataset.length}`);
   console.log("");
   for (const row of rows.slice(0, 10)) {
     console.log(

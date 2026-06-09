@@ -721,6 +721,9 @@ export async function recordNewsFeedback(input: {
   articleId: string;
   companyId: string;
   label: NewsFeedbackLabel;
+  relevanceScore?: number | null;
+  investorValueScore?: number | null;
+  issueTags?: string[];
   reviewedById?: string | null;
   notes?: string | null;
 }) {
@@ -729,6 +732,9 @@ export async function recordNewsFeedback(input: {
       newsArticleId: input.articleId,
       companyId: input.companyId,
       label: input.label as never,
+      relevanceScore: input.relevanceScore ?? null,
+      investorValueScore: input.investorValueScore ?? null,
+      issueTags: input.issueTags ?? [],
       reviewedById: input.reviewedById ?? null,
       notes: input.notes ?? null,
     },

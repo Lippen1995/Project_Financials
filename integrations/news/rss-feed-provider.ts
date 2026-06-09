@@ -13,6 +13,7 @@ export type ParsedRssItem = {
   url: string;
   publishedAt: Date;
   source: string;
+  categories: string[];
 };
 
 type GoogleNewsSearchOptions = {
@@ -173,6 +174,20 @@ function extractUrl(item: Record<string, unknown>, feedUrl: string): string {
   return "";
 }
 
+function extractCategories(item: Record<string, unknown>): string[] {
+  return asArray(item.category as unknown)
+    .flatMap((category) => {
+      if (typeof category === "string") return [category];
+      if (category && typeof category === "object") {
+        const value = (category as Record<string, unknown>)["#text"] ?? (category as Record<string, unknown>).term;
+        return typeof value === "string" ? [value] : [];
+      }
+      return [];
+    })
+    .map((category) => category.trim())
+    .filter(Boolean);
+}
+
 function itemToRssItem(item: Record<string, unknown>, source: string, feedUrl: string): ParsedRssItem | null {
   const title = typeof item.title === "string" ? item.title.trim() : null;
   if (!title) return null;
@@ -190,7 +205,7 @@ function itemToRssItem(item: Record<string, unknown>, source: string, feedUrl: s
   );
   if (!publishedAt) return null;
 
-  return { guid, title, summary, url, publishedAt, source };
+  return { guid, title, summary, url, publishedAt, source, categories: extractCategories(item) };
 }
 
 function parseFeedXml(feed: RssFeedDef, xml: string): ParsedRssItem[] {

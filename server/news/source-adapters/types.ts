@@ -4,6 +4,9 @@ export type SourceCompanyScope = {
   companyId: string;
   orgNumber: string;
   name: string;
+  sourceIssuerId?: string;
+  issuerSign?: string | null;
+  issuerName?: string | null;
 };
 
 export type SourceFetchScope = {

@@ -16,6 +16,7 @@ import { BrregAnnouncementSourceAdapter } from "@/server/news/source-adapters/br
 import { HtmlListSourceAdapter } from "@/server/news/source-adapters/html-list-source-adapter";
 import { InternalCompanyStatusSourceAdapter } from "@/server/news/source-adapters/internal-company-status-source-adapter";
 import { InternalFinancialsSourceAdapter } from "@/server/news/source-adapters/internal-financials-source-adapter";
+import { NewswebSourceAdapter } from "@/server/news/source-adapters/newsweb-source-adapter";
 import { RssSourceAdapter } from "@/server/news/source-adapters/rss-source-adapter";
 import { SearchRssSourceAdapter } from "@/server/news/source-adapters/search-rss-source-adapter";
 import type { NewsSourceAdapter, ParsedSourceDocument, SourceFetchScope } from "@/server/news/source-adapters/types";
@@ -38,10 +39,12 @@ export type SyncNewsSourcesOptions = SourceFetchScope & {
 const rssAdapter = new RssSourceAdapter();
 const searchRssAdapter = new SearchRssSourceAdapter();
 const htmlListAdapter = new HtmlListSourceAdapter();
+const newswebAdapter = new NewswebSourceAdapter();
 const adapters: NewsSourceAdapter[] = [
   rssAdapter,
   searchRssAdapter,
   htmlListAdapter,
+  newswebAdapter,
   new BrregAnnouncementSourceAdapter(),
   new InternalFinancialsSourceAdapter(),
   new InternalCompanyStatusSourceAdapter(),
@@ -63,6 +66,7 @@ function adapterForSource(source: NewsSourceDefinition) {
   if (source.type === "brreg") return adapters.find((adapter) => adapter.sourceType === "brreg") ?? null;
   if (source.type === "financials") return adapters.find((adapter) => adapter.sourceType === "financials") ?? null;
   if (source.type === "internal") return adapters.find((adapter) => adapter.sourceType === "internal") ?? null;
+  if (source.type === "newsweb") return newswebAdapter;
   if (source.type === "search_rss") return searchRssAdapter;
   if (source.type === "html_list") return htmlListAdapter;
 
@@ -102,9 +106,15 @@ async function findExistingDocumentCandidate(input: {
           externalId: input.externalId,
         },
       },
-      select: { id: true },
+      select: { id: true, contentHash: true },
     });
-    if (byExternalId) return { id: byExternalId.id, duplicateKind: "externalId" };
+    if (byExternalId) {
+      return {
+        id: byExternalId.id,
+        contentHash: byExternalId.contentHash,
+        duplicateKind: "externalId",
+      };
+    }
   }
 
   const byCanonicalUrl = await prisma.sourceDocument.findFirst({
@@ -112,17 +122,29 @@ async function findExistingDocumentCandidate(input: {
       sourceId: input.sourceId,
       canonicalUrl: input.canonicalUrl,
     },
-    select: { id: true },
+    select: { id: true, contentHash: true },
   });
-  if (byCanonicalUrl) return { id: byCanonicalUrl.id, duplicateKind: "canonicalUrl" };
+  if (byCanonicalUrl) {
+    return {
+      id: byCanonicalUrl.id,
+      contentHash: byCanonicalUrl.contentHash,
+      duplicateKind: "canonicalUrl",
+    };
+  }
 
   const byContentHash = await prisma.sourceDocument.findFirst({
     where: {
       contentHash: input.contentHash,
     },
-    select: { id: true },
+    select: { id: true, contentHash: true },
   });
-  if (byContentHash) return { id: byContentHash.id, duplicateKind: "contentHash" };
+  if (byContentHash) {
+    return {
+      id: byContentHash.id,
+      contentHash: byContentHash.contentHash,
+      duplicateKind: "contentHash",
+    };
+  }
 
   if (input.publishedAt) {
     const start = new Date(input.publishedAt);
@@ -138,9 +160,15 @@ async function findExistingDocumentCandidate(input: {
           lte: end,
         },
       },
-      select: { id: true },
+      select: { id: true, contentHash: true },
     });
-    if (byTitleWindow) return { id: byTitleWindow.id, duplicateKind: "titleWindow" };
+    if (byTitleWindow) {
+      return {
+        id: byTitleWindow.id,
+        contentHash: byTitleWindow.contentHash,
+        duplicateKind: "titleWindow",
+      };
+    }
   }
 
   return null;
@@ -173,6 +201,10 @@ export async function upsertSourceDocuments(documents: ParsedSourceDocument[]) {
       contentHash,
       publishedAt: document.publishedAt,
     });
+
+    if (existing?.contentHash === contentHash) {
+      continue;
+    }
 
     await upsertSourceDocument({
       id: existing?.id,

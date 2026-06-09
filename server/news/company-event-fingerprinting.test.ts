@@ -42,4 +42,25 @@ describe("company event fingerprinting", () => {
 
     expect(base).not.toBe(otherCompany);
   });
+
+  it("groups structured bilingual disclosures by issuer, event type and minute", () => {
+    const norwegian = createCompanyEventFingerprint({
+      companyId: "eqnr",
+      eventType: "buyback",
+      title: "Equinor ASA: Tilbakekjop av egne aksjer",
+      eventDate: new Date("2026-05-27T06:00:04.822Z"),
+      sourceSpecificId: "newsweb:674547",
+      eventGroupKey: "oslobors:2026-05-27T06:00",
+    });
+    const english = createCompanyEventFingerprint({
+      companyId: "eqnr",
+      eventType: "buyback",
+      title: "Equinor ASA: Share buy-back",
+      eventDate: new Date("2026-05-27T06:00:04.211Z"),
+      sourceSpecificId: "newsweb:674546",
+      eventGroupKey: "oslobors:2026-05-27T06:00",
+    });
+
+    expect(norwegian).toBe(english);
+  });
 });

@@ -1,4 +1,30 @@
-export const COMPANY_EVENT_EXPOSURE_ENGINE_VERSION = "company-event-exposure-v1";
+import {
+  scoreCompanyExposureGraph,
+  type PersistedCompanyExposureGraphEdge,
+} from "@/server/news/company-exposure-graph";
+
+export const COMPANY_EVENT_EXPOSURE_ENGINE_VERSION = "company-event-exposure-v2";
+
+export const INDIRECT_TRANSFERABLE_EVENT_TYPES = [
+  "production_update",
+  "procurement_tender",
+  "project_delay",
+  "cost_overrun",
+  "license_award",
+  "license_loss",
+  "regulatory_change",
+  "commodity_price_exposure",
+  "interest_rate_exposure",
+  "interest_rate",
+  "inflation",
+  "currency",
+  "credit_market",
+  "peer_read_across",
+  "sector_news",
+  "macro_news",
+] as const;
+
+const INDIRECT_TRANSFERABLE_EVENT_TYPE_SET = new Set<string>(INDIRECT_TRANSFERABLE_EVENT_TYPES);
 
 export const COMPANY_EVENT_EXPOSURE_TYPES = [
   "direct",
@@ -28,6 +54,7 @@ export type CompanyExposureEventContext = {
   sourceSectorTags?: string[];
   sourceCompanyIndustryCode?: string | null;
   sourceCompanyIndustryTitle?: string | null;
+  sourceCompanyOrgNumber?: string | null;
   metadata?: unknown;
 };
 
@@ -49,10 +76,13 @@ export type CompanyExposureCompanyContext = {
   } | null;
   country?: string | null;
   city?: string | null;
+  exposureGraphEdges?: PersistedCompanyExposureGraphEdge[];
 };
 
 export type CompanyExposureRuleResult = {
   exposureType: CompanyEventExposureType;
+  exposureLevel: "direct" | "group" | "asset" | "commercial" | "commodity" | "regulatory" | "geography" | "peer" | "sector";
+  feedPolicy: "standard" | "context_only" | "hidden";
   exposureScore: number;
   confidenceScore: number;
   rationale: string;
@@ -144,8 +174,8 @@ function isPetroleumEvent(event: CompanyExposureEventContext) {
   const text = eventText(event);
   return (
     sourceTagsContainAny(event.sourceSectorTags, ["oil", "gas", "petroleum", "energy", "eia", "iea", "sodir", "npd"]) ||
+    ["sodir-news", "sodir-production", "sodir-drilling-permits", "sodir-exploration-results", "eia-today", "eia-press", "eia-petroleum-weekly", "iea-news"].includes(event.sourceId ?? "") ||
     hasPrefix(event.sourceCompanyIndustryCode, PETROLEUM_INDUSTRY_PREFIXES) ||
-    ["license_award", "license_loss", "production_update", "commodity_price_exposure"].includes(event.eventType) ||
     textContainsAny(text, [
       "petroleum",
       "oil",
@@ -252,6 +282,8 @@ export function scoreDirectExposure(
 
   return {
     exposureType: "direct",
+    exposureLevel: "direct",
+    feedPolicy: "standard",
     exposureScore: DIRECT_EXPOSURE_SCORE,
     confidenceScore: 0.94,
     rationale: "Direkte eksponering: hendelsen er knyttet til selskapet selv.",
@@ -394,18 +426,31 @@ function macroSectorExposure(event: CompanyExposureEventContext, company: Compan
 export function scoreCompanyEventExposures(
   event: CompanyExposureEventContext,
   company: CompanyExposureCompanyContext,
-  options: { threshold?: number; includeDirect?: boolean } = {},
+  options: { threshold?: number; includeDirect?: boolean; includeContext?: boolean } = {},
 ) {
   const threshold = options.threshold ?? DEFAULT_THRESHOLD;
   const includeDirect = options.includeDirect ?? true;
+  const includeContext = options.includeContext ?? false;
+  const isDirectCompany = event.sourceCompanyId === company.companyId;
+  if (!isDirectCompany && !INDIRECT_TRANSFERABLE_EVENT_TYPE_SET.has(event.eventType)) {
+    return [];
+  }
   const candidates = [
     includeDirect ? scoreDirectExposure(event, company) : null,
-    event.sourceCompanyId === company.companyId ? null : petroleumExposure(event, company),
-    event.sourceCompanyId === company.companyId ? null : sectorExposure(event, company),
-    event.sourceCompanyId === company.companyId ? null : commodityExposure(event, company),
-    event.sourceCompanyId === company.companyId ? null : regulatoryExposure(event, company),
-    event.sourceCompanyId === company.companyId ? null : valueChainExposure(event, company),
-    event.sourceCompanyId === company.companyId ? null : macroSectorExposure(event, company),
+    ...(!isDirectCompany
+      ? scoreCompanyExposureGraph(
+          {
+            eventType: event.eventType,
+            title: event.title,
+            summary: event.summary,
+            sourceId: event.sourceId,
+            sourceCompanyIndustryCode: event.sourceCompanyIndustryCode,
+            sourceCompanyOrgNumber: event.sourceCompanyOrgNumber,
+          },
+          company.exposureGraphEdges ?? [],
+          threshold,
+        )
+      : []),
   ].filter(Boolean) as CompanyExposureRuleResult[];
 
   const bestByType = new Map<CompanyEventExposureType, CompanyExposureRuleResult>();
@@ -422,6 +467,10 @@ export function scoreCompanyEventExposures(
   }
 
   return [...bestByType.values()]
-    .filter((candidate) => candidate.exposureScore >= threshold)
+    .filter(
+      (candidate) =>
+        candidate.exposureScore >= threshold &&
+        (includeContext || candidate.feedPolicy === "standard"),
+    )
     .sort((a, b) => b.exposureScore - a.exposureScore);
 }

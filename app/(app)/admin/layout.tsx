@@ -27,7 +27,10 @@ export default async function AdminLayout({
     { href: "/admin/published-annual-reports", label: "Godkjente årsregnskaper" },
     { href: "/admin/annual-report-reviews", label: "Manuell kontroll" },
     ...(reviewer.appRole === "ADMIN"
-      ? [{ href: "/admin/users", label: "Brukere og roller" }]
+      ? [
+          { href: "/admin/shareholder-register", label: "Aksjonærregister" },
+          { href: "/admin/users", label: "Brukere og roller" },
+        ]
       : []),
     { href: "/admin/annual-report-unified-confidence", label: "Datakvalitet" },
     { href: "/admin/extraction-learning", label: "AI-modellen" },

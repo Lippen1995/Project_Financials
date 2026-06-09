@@ -6,9 +6,14 @@ import {
   CompanyExposureCompanyContext,
   CompanyExposureEventContext,
   CompanyExposureRuleResult,
+  INDIRECT_TRANSFERABLE_EVENT_TYPES,
   scoreCompanyEventExposures,
 } from "@/server/news/company-exposure-rules";
 import { upsertCompanyEventExposure } from "@/server/news/company-event-repository";
+
+const DEFAULT_READ_ACROSS_THRESHOLD = 0.7;
+const DEFAULT_MAX_COMPANIES = 1000;
+const DEFAULT_MAX_EXPOSURES_PER_EVENT = 8;
 
 type CreateDirectExposureInput = {
   eventId: string;
@@ -41,6 +46,8 @@ export async function createDirectCompanyEventExposure(input: CreateDirectExposu
     metadata: json({
       engineVersion: COMPANY_EVENT_EXPOSURE_ENGINE_VERSION,
       reasons: ["direct_company_event"],
+      exposureLevel: "direct",
+      feedPolicy: "standard",
       ...(input.metadata ?? {}),
     }),
   });
@@ -76,6 +83,8 @@ export async function persistReadAcrossExposures(input: PersistReadAcrossExposur
         engineVersion: COMPANY_EVENT_EXPOSURE_ENGINE_VERSION,
         reasons: exposure.reasons,
         matchedSignals: exposure.matchedSignals,
+        exposureLevel: exposure.exposureLevel,
+        feedPolicy: exposure.feedPolicy,
         sourceCompanyId: input.event.sourceCompanyId,
         sourceIndustryCode: input.event.sourceCompanyIndustryCode,
         sourceId: input.event.sourceId,
@@ -135,6 +144,7 @@ function eventContextFromDbEvent(event: EventForReadAcross): CompanyExposureEven
     sourceSectorTags: sourceSectorTagsFromMetadata(source?.metadata),
     sourceCompanyIndustryCode: event.company.industryCode?.code ?? null,
     sourceCompanyIndustryTitle: event.company.industryCode?.title ?? null,
+    sourceCompanyOrgNumber: event.company.orgNumber,
     metadata: event.metadata,
   };
 }
@@ -142,6 +152,11 @@ function eventContextFromDbEvent(event: EventForReadAcross): CompanyExposureEven
 type CompanyForExposure = Prisma.CompanyGetPayload<{
   include: {
     industryCode: true;
+    exposureGraphEdges: {
+      include: {
+        node: true;
+      };
+    };
     petroleumExposureSnapshot: {
       select: {
         operatorFieldCount: true;
@@ -175,6 +190,17 @@ function companyContextFromDbCompany(company: CompanyForExposure): CompanyExposu
           remainingReservesOe: petroleumExposure.remainingReservesOe,
         }
       : null,
+    exposureGraphEdges: (company.exposureGraphEdges ?? []).map((edge) => ({
+      relationType: edge.relationType,
+      weight: edge.weight,
+      confidenceScore: edge.confidenceScore,
+      rationale: edge.rationale,
+      node: {
+        nodeType: edge.node.nodeType,
+        key: edge.node.key,
+        label: edge.node.label,
+      },
+    })),
   };
 }
 
@@ -184,7 +210,19 @@ export async function createReadAcrossExposuresForRecentEvents(options: {
   maxCompanies?: number;
   maxExposuresPerEvent?: number;
 } = {}) {
+  const pruned = await prisma.companyEventExposure.updateMany({
+    where: {
+      exposureType: { not: "direct" },
+      active: true,
+      event: {
+        eventType: { notIn: [...INDIRECT_TRANSFERABLE_EVENT_TYPES] },
+      },
+    },
+    data: { active: false },
+  });
+
   const events = await prisma.companyEvent.findMany({
+    where: { status: "ACTIVE" },
     include: {
       company: {
         include: {
@@ -210,6 +248,12 @@ export async function createReadAcrossExposuresForRecentEvents(options: {
   const companies = await prisma.company.findMany({
     include: {
       industryCode: true,
+      exposureGraphEdges: {
+        where: { active: true },
+        include: {
+          node: true,
+        },
+      },
       petroleumExposureSnapshot: {
         select: {
           operatorFieldCount: true,
@@ -221,15 +265,25 @@ export async function createReadAcrossExposuresForRecentEvents(options: {
       },
     },
     orderBy: [{ updatedAt: "desc" }],
-    take: options.maxCompanies ?? 2000,
+    take: options.maxCompanies ?? DEFAULT_MAX_COMPANIES,
   });
   const companyContexts = companies.map(companyContextFromDbCompany);
 
   let eventsProcessed = 0;
   let exposuresCreated = 0;
+  let staleExposuresRemoved = 0;
 
   for (const event of events) {
     eventsProcessed += 1;
+    const stale = await prisma.companyEventExposure.updateMany({
+      where: {
+        eventId: event.id,
+        exposureType: { not: "direct" },
+        active: true,
+      },
+      data: { active: false },
+    });
+    staleExposuresRemoved += stale.count;
     await createDirectCompanyEventExposure({
       eventId: event.id,
       companyId: event.companyId,
@@ -244,8 +298,8 @@ export async function createReadAcrossExposuresForRecentEvents(options: {
     const result = await persistReadAcrossExposures({
       event: eventContextFromDbEvent(event),
       companies: indirectCompanies,
-      threshold: options.threshold,
-      maxExposures: options.maxExposuresPerEvent,
+      threshold: options.threshold ?? DEFAULT_READ_ACROSS_THRESHOLD,
+      maxExposures: options.maxExposuresPerEvent ?? DEFAULT_MAX_EXPOSURES_PER_EVENT,
     });
     exposuresCreated += result.exposuresCreated + 1;
   }
@@ -254,5 +308,6 @@ export async function createReadAcrossExposuresForRecentEvents(options: {
     eventsProcessed,
     companiesEvaluated: companyContexts.length,
     exposuresCreated,
+    exposuresRemoved: pruned.count + staleExposuresRemoved,
   };
 }

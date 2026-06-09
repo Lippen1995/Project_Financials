@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { scoreCompanyExposureGraph } from "@/server/news/company-exposure-graph";
+import { getCompanyExposureGraph } from "@/server/news/company-exposure-graph-service";
 import {
   RSS_FEEDS,
   fetchAndParseRssFeed,
@@ -10,6 +12,7 @@ import {
 import { extractNewsArticle } from "@/integrations/news/article-extraction-provider";
 import { fetchNewswebCompanyMessages } from "@/integrations/news/newsweb-provider";
 import env from "@/lib/env";
+import { classifyNewsDataType } from "@/server/news/news-data-type";
 import {
   NEWS_ENGINE_VERSION,
   NEWS_FEATURE_VERSION,
@@ -24,11 +27,26 @@ import {
 
 type CompanyCandidate = { id: string; name: string; orgNumber: string };
 const ON_DEMAND_NEWS_LOOKBACK_DAYS = 45;
+const OFFICIAL_CONTEXT_LOOKBACK_DAYS = 120;
 const EXTERNAL_DISCOVERY_THRESHOLD = 0.16;
-const NEWSWEB_DIRECT_SCORE = 0.99;
+const NEWSWEB_DIRECT_SCORE = 0.78;
 const NEWSWEB_LIST_SHARE = 0.25;
 const MAX_EXTRACTED_TEXT_CHARS = 8_000;
 const OIL_GAS_INDUSTRY_PREFIXES = new Set(["05", "06", "09", "19"]);
+const OFFICIAL_OIL_GAS_CONTEXT_SOURCE_IDS = [
+  "sodir-news",
+  "sodir-production",
+  "sodir-drilling-permits",
+  "sodir-exploration-results",
+  "eia-today",
+  "eia-press",
+  "eia-petroleum-weekly",
+  "iea-news",
+] as const;
+const OFFICIAL_OIL_GAS_CONTEXT_SOURCE_ID_SET = new Set<string>(
+  OFFICIAL_OIL_GAS_CONTEXT_SOURCE_IDS,
+);
+const ENERGY_MACRO_SOURCE_IDS = new Set(["eia-today", "eia-press", "eia-petroleum-weekly", "iea-news"]);
 const ROUTINE_NEWSWEB_PATTERNS = [
   "ex date",
   "ex. utbytte",
@@ -60,6 +78,8 @@ const ROUTINE_NEWSWEB_PATTERNS = [
   "protokoll",
   "innkalling",
   "notice of annual general meeting",
+  "nomination committee",
+  "valgkomite",
 ];
 const HIGH_VALUE_NEWSWEB_PATTERNS = [
   "inside information",
@@ -187,6 +207,31 @@ function uniqueStrings(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
 }
 
+function addNewsDataType<T extends {
+  source: string;
+  relevance?: {
+    primaryType?: string | null;
+    type?: string | null;
+    dataType?: string | null;
+  } | null;
+}>(article: T) {
+  const dataType = classifyNewsDataType({
+    sourceId: article.source,
+    relevanceType: article.relevance?.primaryType ?? article.relevance?.type ?? null,
+  });
+
+  return {
+    ...article,
+    dataType,
+    relevance: article.relevance
+      ? {
+          ...article.relevance,
+          dataType,
+        }
+      : article.relevance,
+  };
+}
+
 function mergeArticleText(summary: string | null, extraction: { lead: string | null; mainText: string | null } | null) {
   if (!extraction?.mainText && !extraction?.lead) {
     return summary;
@@ -258,7 +303,20 @@ function diversifyNewsItems<T extends { source: string; publishedAt: Date; relev
 ) {
   const sorted = sortNewsByRelevanceAndFreshness(articles);
   const direct = sorted.filter((article) => article.source === "newsweb");
-  const contextual = sorted.filter((article) => article.source !== "newsweb");
+  const contextualGroups = new Map<string, T[]>();
+  for (const article of sorted) {
+    if (article.source === "newsweb") continue;
+    const group = contextualGroups.get(article.source) ?? [];
+    group.push(article);
+    contextualGroups.set(article.source, group);
+  }
+  const contextual: T[] = [];
+  while ([...contextualGroups.values()].some((group) => group.length > 0)) {
+    for (const group of contextualGroups.values()) {
+      const next = group.shift();
+      if (next) contextual.push(next);
+    }
+  }
 
   if (direct.length === 0 || contextual.length === 0) {
     return sorted.slice(0, limit);
@@ -269,7 +327,7 @@ function diversifyNewsItems<T extends { source: string; publishedAt: Date; relev
   let contextualIndex = 0;
 
   while (blended.length < limit && (directIndex < direct.length || contextualIndex < contextual.length)) {
-    for (let i = 0; i < 2 && directIndex < direct.length && blended.length < limit; i += 1) {
+    if (directIndex < direct.length && blended.length < limit) {
       blended.push(direct[directIndex]);
       directIndex += 1;
     }
@@ -736,6 +794,207 @@ async function hasNewsEnginePersistenceSchema() {
     tableRows.length === requiredTables.length && columnRows.length === requiredColumns.length;
 
   return cachedNewsEnginePersistenceAvailable;
+}
+
+function officialContextTopicScore(sourceId: string, title: string, summary: string | null) {
+  const text = normalizeForMatch(`${title} ${summary ?? ""}`);
+  const terms = [
+    "oil",
+    "gas",
+    "petroleum",
+    "crude",
+    "brent",
+    "wti",
+    "lng",
+    "offshore",
+    "north sea",
+    "norsk sokkel",
+    "production",
+    "produksjon",
+    "demand",
+    "ettersporsel",
+    "supply",
+    "tilbud",
+    "inventory",
+    "inventories",
+    "lager",
+    "discovery",
+    "funn",
+    "licence",
+    "license",
+    "utvinningstillatelse",
+    "drilling",
+    "boring",
+    "field",
+    "felt",
+  ];
+  const hits = terms.filter((term) => wordBoundaryMatch(normalizeForMatch(term), text)).length;
+  if (sourceId.startsWith("sodir-")) return Math.min(1, 0.62 + hits * 0.08);
+  return Math.min(1, 0.48 + hits * 0.1);
+}
+
+function contextMentionsCompany(
+  context: CompanyNewsContext,
+  title: string,
+  summary: string | null,
+) {
+  const text = normalizeForMatch(`${title} ${summary ?? ""}`);
+  return uniqueStrings([
+    context.normalizedName,
+    ...context.aliases,
+    ...context.websiteAliases,
+  ]).some((alias) => {
+    const normalizedAlias = normalizeForMatch(alias);
+    return normalizedAlias.length >= 4 && wordBoundaryMatch(normalizedAlias, text);
+  });
+}
+
+async function getOfficialSectorContextNews(companyId: string, limit: number, after?: Date) {
+  const [context, exposureGraph] = await Promise.all([
+    buildCompanyNewsContext(companyId),
+    getCompanyExposureGraph(companyId),
+  ]);
+  if (!context) return [];
+  const hasPetroleumGraphExposure = exposureGraph.some(
+    (edge) =>
+      (edge.node.nodeType === "sector" && edge.node.key === "petroleum") ||
+      (edge.node.nodeType === "commodity" &&
+        ["crude_oil", "natural_gas"].includes(edge.node.key)) ||
+      (edge.node.nodeType === "value_chain" && edge.node.key === "upstream_oil_gas"),
+  );
+  if (!hasPetroleumGraphExposure && !isOilGasContext(context)) return [];
+
+  const publishedAfter =
+    after ??
+    new Date(Date.now() - OFFICIAL_CONTEXT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+  const documents = await prisma.sourceDocument.findMany({
+    where: {
+      sourceId: { in: [...OFFICIAL_OIL_GAS_CONTEXT_SOURCE_IDS] },
+      OR: [
+        { publishedAt: { gt: publishedAfter } },
+        {
+          publishedAt: null,
+          fetchedAt: { gt: publishedAfter },
+        },
+      ],
+    },
+    include: {
+      source: {
+        select: {
+          id: true,
+          name: true,
+          qualityScore: true,
+        },
+      },
+    },
+    orderBy: [{ publishedAt: "desc" }, { fetchedAt: "desc" }],
+    take: limit * 8,
+  });
+
+  return documents
+    .flatMap((document) => {
+      const text = normalizeForMatch(`${document.title} ${document.summary ?? ""}`);
+      const companyMention = contextMentionsCompany(
+        context,
+        document.title,
+        document.summary,
+      );
+      const graphMatches = scoreCompanyExposureGraph(
+        {
+          eventType: ENERGY_MACRO_SOURCE_IDS.has(document.sourceId)
+            ? "macro_news"
+            : "sector_news",
+          title: document.title,
+          summary: document.summary,
+          sourceId: document.sourceId,
+        },
+        exposureGraph,
+        0.55,
+      );
+      const graphMatch = graphMatches[0] ?? null;
+      const granularSodirSource =
+        document.sourceId === "sodir-drilling-permits" ||
+        document.sourceId === "sodir-exploration-results";
+      if (granularSodirSource && !companyMention) return [];
+      if (
+        document.sourceId === "sodir-news" &&
+        ["skjema", "prospektskjema", "veiledning", "seminar", "webinar"].some((term) =>
+          text.includes(term),
+        ) &&
+        !companyMention
+      ) {
+        return [];
+      }
+
+      const topicScore = officialContextTopicScore(
+        document.sourceId,
+        document.title,
+        document.summary,
+      );
+      const minimumTopicScore = ENERGY_MACRO_SOURCE_IDS.has(document.sourceId)
+        ? 0.68
+        : 0.62;
+      if (topicScore < minimumTopicScore) return [];
+      if (hasPetroleumGraphExposure && !graphMatch && !companyMention) return [];
+
+      const publishedAt = document.publishedAt ?? document.fetchedAt;
+      const ageDays = Math.max(0, (Date.now() - publishedAt.getTime()) / 86_400_000);
+      const freshness = Math.pow(0.5, ageDays / 14);
+      const sourceScore = Math.max(document.source.qualityScore, 0.82);
+      const totalScore = Math.min(
+        0.92,
+        topicScore * 0.34 +
+          sourceScore * 0.24 +
+          freshness * 0.16 +
+          (graphMatch?.exposureScore ?? 0) * 0.18 +
+          (companyMention ? 0.08 : 0),
+      );
+      const primaryType = ENERGY_MACRO_SOURCE_IDS.has(document.sourceId) ? "macro" : "industry";
+
+      return [{
+        id: `source-document:${document.id}`,
+        title: document.title,
+        summary: document.summary,
+        url: document.canonicalUrl,
+        publishedAt,
+        source: document.sourceId,
+        category: primaryType === "macro" ? "Energy markets" : "Petroleum industry",
+        relevance: {
+          totalScore,
+          candidateScore: topicScore,
+          confidence: Math.min(0.96, sourceScore),
+          primaryType,
+          type: primaryType,
+          tags: uniqueStrings([
+            primaryType === "macro" ? "Energy macro" : "Petroleum industry",
+            document.source.name,
+          ]),
+          reasons: uniqueStrings([
+            "Offisiell energikilde",
+            companyMention ? "Selskapet er omtalt i kilden" : null,
+            graphMatch ? graphMatch.rationale : null,
+            primaryType === "macro"
+              ? "Markedsrelevant for olje- og gasseksponering"
+              : "Relevant for norsk sokkel og petroleumsvirksomhet",
+          ]),
+          reasoning:
+            graphMatch
+              ? graphMatch.rationale
+              : primaryType === "macro"
+              ? "Energi-, tilbuds- eller ettersporselsdata fra en offisiell kilde er relevant for olje- og gasselskaper selv uten selskapsnavn i tittelen."
+              : "Offisiell informasjon om norsk sokkel er sektorrelevant for petroleumsselskaper selv uten direkte navneomtale.",
+          scoredBy: graphMatch
+            ? "official-sector-context-exposure-graph-v1"
+            : "official-sector-context-v1",
+        },
+      }];
+    })
+    .sort((left, right) => {
+      const scoreDelta = right.relevance.totalScore - left.relevance.totalScore;
+      if (scoreDelta !== 0) return scoreDelta;
+      return right.publishedAt.getTime() - left.publishedAt.getTime();
+    })
+    .slice(0, limit);
 }
 
 async function hasNewsArticleExtractionSchema() {
@@ -1311,19 +1570,39 @@ export async function getCompanyNewsWithRelevance(companyId: string, limit = 30,
     }
   }
 
-  const newswebNews = await getNewswebCompanyNews(companyId, newswebLimit, after);
-  collectedArticles.push(...newswebNews);
-
-  const onDemandRelevantNews = await getOnDemandRelevantNews(companyId, limit, after);
-  collectedArticles.push(...onDemandRelevantNews);
-
-  const externallyDiscoveredNews = await getExternallyDiscoveredCompanyNews(companyId, limit, after);
-  collectedArticles.push(...externallyDiscoveredNews);
+  const [
+    newswebNews,
+    officialSectorContextNews,
+    onDemandRelevantNews,
+    externallyDiscoveredNews,
+  ] = await Promise.all([
+    getNewswebCompanyNews(companyId, newswebLimit, after),
+    getOfficialSectorContextNews(companyId, limit, after),
+    getOnDemandRelevantNews(companyId, limit, after),
+    getExternallyDiscoveredCompanyNews(companyId, limit, after),
+  ]);
+  collectedArticles.push(
+    ...newswebNews,
+    ...officialSectorContextNews,
+    ...onDemandRelevantNews,
+    ...externallyDiscoveredNews,
+  );
 
   if (collectedArticles.length > 0) {
-    return diversifyNewsItems(dedupeNewsItems(collectedArticles), limit);
+    const sourceScopedArticles = collectedArticles.filter(
+      (article) =>
+        (
+          !OFFICIAL_OIL_GAS_CONTEXT_SOURCE_ID_SET.has(article.source) ||
+          article.relevance?.scoredBy?.startsWith("official-sector-context")
+        ) &&
+        (
+          article.relevance?.primaryType === "direct" ||
+          (article.relevance?.totalScore ?? 0) >= 0.4
+        ),
+    );
+    return diversifyNewsItems(dedupeNewsItems(sourceScopedArticles), limit).map(addNewsDataType);
   }
 
   const fallback = await getCompanyNews(companyId, limit);
-  return fallback.map((article) => ({ ...article, relevance: null }));
+  return fallback.map((article) => addNewsDataType({ ...article, relevance: null }));
 }

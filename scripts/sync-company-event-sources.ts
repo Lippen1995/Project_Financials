@@ -10,10 +10,23 @@ function parseSourceIds(argv: string[]) {
     .filter(Boolean);
 }
 
+function parseLimit(argv: string[]) {
+  const limitArg = argv.find((arg) => arg.startsWith("--limit="));
+  if (!limitArg) return undefined;
+  const parsed = Number(limitArg.slice("--limit=".length));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
+}
+
 async function main() {
+  const argv = process.argv.slice(2);
   console.log("Synkroniserer Company Event intelligence...");
   const result = await syncCompanyEventIntelligence({
-    sourceIds: parseSourceIds(process.argv.slice(2)),
+    sourceIds: parseSourceIds(argv),
+    limit: parseLimit(argv),
+    fullReprocess: argv.includes("--full"),
+    onProgress: (stage, detail) => {
+      console.log(`${stage}: ${JSON.stringify(detail)}`);
+    },
   });
 
   console.log(`Kilder behandlet:     ${result.ingestion.sourcesProcessed}`);
@@ -24,10 +37,13 @@ async function main() {
   console.log(`Duplikater dempet:    ${result.ingestion.documentsDuplicate}`);
   console.log(`Dokumenter resolvert: ${result.entityResolution.documentsProcessed}`);
   console.log(`Signaler laget:       ${result.entityResolution.signalsCreated}`);
+  console.log(`Feilevidens fjernet:  ${result.reconciliation.evidenceRemoved}`);
+  console.log(`Eventer deaktivert:   ${result.reconciliation.eventsDeactivated}`);
   console.log(`Eventer oppdatert:    ${result.extraction.eventsUpserted}`);
   console.log(`Evidens koblet:       ${result.extraction.evidenceAttached}`);
   console.log(`Read-across events:   ${result.readAcross.eventsProcessed}`);
   console.log(`Eksponeringer laget:  ${result.readAcross.exposuresCreated}`);
+  console.log(`Eksponeringer fjernet: ${result.readAcross.exposuresRemoved}`);
 
   if (result.ingestion.errors.length > 0) {
     console.log("Feil:");

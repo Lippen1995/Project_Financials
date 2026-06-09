@@ -6,6 +6,7 @@ const { authMock, feedbackServiceMock } = vi.hoisted(() => ({
   },
   feedbackServiceMock: {
     COMPANY_EVENT_FEEDBACK_ACTIONS: [
+      "rated",
       "relevant",
       "not_relevant",
       "wrong_company",
@@ -90,6 +91,27 @@ describe("company event feedback route", () => {
         action: "wrong_company",
         notes: "This belongs elsewhere",
         actorRole: "USER",
+      }),
+    );
+  });
+
+  it("accepts separate relevance and investor-value ratings", async () => {
+    const response = await POST(
+      request({
+        action: "rated",
+        previousValue: { relevanceScore: 90, investorValueScore: 80 },
+        correctedValue: { relevanceScore: 75, investorValueScore: 35 },
+      }),
+      {
+        params: Promise.resolve({ eventId: "event-1" }),
+      },
+    );
+
+    expect(response.status).toBe(201);
+    expect(feedbackServiceMock.recordCompanyEventFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "rated",
+        correctedValue: { relevanceScore: 75, investorValueScore: 35 },
       }),
     );
   });

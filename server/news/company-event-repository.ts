@@ -60,10 +60,13 @@ export type UpsertCompanyEventInput = {
   firstSeen?: Date;
   lastSeen?: Date;
   status?: string;
+  relevanceScore?: number;
   investorValueScore?: number;
   confidenceScore?: number;
   noveltyScore?: number;
   severityScore?: number;
+  routineDisclosure?: boolean;
+  storyKey?: string | null;
   engineVersion?: string;
   metadata?: Prisma.InputJsonValue | null;
 };
@@ -87,6 +90,7 @@ export type UpsertCompanyEventExposureInput = {
   confidenceScore?: number;
   rationale?: string | null;
   metadata?: Prisma.InputJsonValue | null;
+  active?: boolean;
 };
 
 export type CreateCompanyEventFeedbackInput = {
@@ -259,11 +263,14 @@ export async function upsertCompanyEvent(input: UpsertCompanyEventInput) {
     eventDate: input.eventDate,
     firstSeen: input.firstSeen,
     lastSeen: input.lastSeen,
-    status: input.status,
+    status: input.status ?? "ACTIVE",
+    relevanceScore: input.relevanceScore,
     investorValueScore: input.investorValueScore,
     confidenceScore: input.confidenceScore,
     noveltyScore: input.noveltyScore,
     severityScore: input.severityScore,
+    routineDisclosure: input.routineDisclosure,
+    storyKey: input.storyKey,
     engineVersion: input.engineVersion,
     metadata: nullableJson(input.metadata),
   });
@@ -316,6 +323,7 @@ export async function upsertCompanyEventExposure(input: UpsertCompanyEventExposu
     confidenceScore: input.confidenceScore,
     rationale: input.rationale,
     metadata: nullableJson(input.metadata),
+    active: input.active ?? true,
   });
 
   return prisma.companyEventExposure.upsert({
