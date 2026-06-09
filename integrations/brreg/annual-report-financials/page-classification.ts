@@ -14,6 +14,7 @@ type PageFeatures = {
   heading: string | null;
   headingText: string;
   topText: string;
+  scopeHeadText: string;
   declaredYears: number[];
   yearHeaderYears: number[];
   numericRowCount: number;
@@ -167,6 +168,22 @@ const COMPANY_SCOPE_SECTION_KEYWORDS_HEADING = [
   "morselskapsregnskapet",
 ];
 
+// Concatenated compound forms of the scope marker. Many report templates — and
+// the OCR of them — render the marker as a SINGLE token:
+// "Konsernresultatregnskap", "Konsernbalanse", "Konsernkontantstrøm". A
+// whole-word match misses these: "konsernregnskap" is not a substring of
+// "konsernresultatregnskap" (it is konsern·resultat·regnskap), and
+// \bkonsernresultat\b fails because "regnskap" follows with no word boundary.
+// Even SCOPE_STATEMENT_NOUN (\bresultatregnskap\b) fails on such a token because
+// "konsern" precedes it with no boundary. So a page whose only scope marker is a
+// concatenated compound (STATKRAFT's "KONSERNRESULTATREGNSKAP") gets no signal
+// at all and defaults to COMPANY. Match the "konsern"/"selskaps"/"mor" prefix
+// immediately followed by a statement-noun stem, with NO trailing boundary.
+const CONSOLIDATED_COMPOUND_RE =
+  /\bkonsern(regnskap|resultat|balanse|oppstilling|kontantstr)/;
+const COMPANY_COMPOUND_RE =
+  /\b(selskaps|morselskaps)(regnskap|resultat|balanse|oppstilling|kontantstr)/;
+
 // Statement nouns used to qualify the bare "konsern" / "morselskap" tokens
 // (tier 1) and the genitive forms "konsernets" / "morselskapets" (tier 3).
 const SCOPE_STATEMENT_NOUN =
@@ -174,6 +191,14 @@ const SCOPE_STATEMENT_NOUN =
 
 function containsWord(text: string, word: string): boolean {
   return new RegExp(`\\b${word}\\b`).test(text);
+}
+
+function isStatutoryStatementType(type: string): boolean {
+  return (
+    type === "STATUTORY_INCOME" ||
+    type === "STATUTORY_BALANCE" ||
+    type === "STATUTORY_BALANCE_CONTINUATION"
+  );
 }
 
 /**
@@ -187,16 +212,31 @@ function containsWord(text: string, word: string): boolean {
 function detectScopeSignal(
   headingText: string,
   topText: string,
+  scopeHeadText = "",
+  isStatementPage = false,
 ): "CONSOLIDATED" | "COMPANY" | null {
   const text = `${headingText} ${topText}`;
 
+  // The concatenated statement-title compounds ("konsernresultatregnskap",
+  // "konsernbalanse", "selskapsresultatregnskap") are page TITLES, so they are
+  // only trusted on an actual statement page and only in the title region
+  // (the page heading + the reading-order head band — never the prose body).
+  // This catches the title when unreliable block ordering keeps it out of
+  // headingText/topText (the STATKRAFT case) without letting an inflected
+  // konsern mention in a board report or note ("Konsernregnskapet viser…")
+  // flip the scope. The prefix match (no trailing boundary) is what makes it
+  // see the compound; restricting it to statement pages is what makes it safe.
+  const titleRegion = `${headingText} ${scopeHeadText}`;
+  const hasConsolidatedTitle = isStatementPage && CONSOLIDATED_COMPOUND_RE.test(titleRegion);
+  const hasCompanyTitle = isStatementPage && COMPANY_COMPOUND_RE.test(titleRegion);
+
   // ── Tier 1: bare indefinite forms ─────────────────────────────────────────
-  const hasConsolidatedKeyword = CONSOLIDATED_SECTION_KEYWORDS.some((k) =>
-    containsWord(text, k),
-  );
-  const hasCompanyKeyword = COMPANY_SCOPE_SECTION_KEYWORDS.some((k) =>
-    containsWord(text, k),
-  );
+  const hasConsolidatedKeyword =
+    hasConsolidatedTitle ||
+    CONSOLIDATED_SECTION_KEYWORDS.some((k) => containsWord(text, k));
+  const hasCompanyKeyword =
+    hasCompanyTitle ||
+    COMPANY_SCOPE_SECTION_KEYWORDS.some((k) => containsWord(text, k));
 
   const hasStatementNoun = SCOPE_STATEMENT_NOUN.test(text);
 
@@ -358,11 +398,20 @@ function buildPageFeatures(page: AnnualReportParsedPage): PageFeatures {
     (numericRowCount >= 3 &&
       (yearHeaderYears.length >= 2 || balance.count > 0 || income.count > 0));
 
+  // Reading-order head band. The block-sorted topText above is unreliable on
+  // some OCR sources — block bbox.top ordering can surface footer text first,
+  // so the page TITLE ("Konsernresultatregnskap") never reaches topText and the
+  // heading block resolves to a section label ("Resultatregnskap"). The page's
+  // normalizedText is in reading order (top→bottom), so its leading slice is the
+  // most reliable view of the page's title region for scope detection.
+  const scopeHeadText = normalizeNorwegianText(fullText.slice(0, 400));
+
   return {
     page,
     heading,
     headingText: heading ? normalizeNorwegianText(heading) : "",
     topText,
+    scopeHeadText,
     declaredYears: extractDeclaredYears(page),
     yearHeaderYears,
     numericRowCount,
@@ -603,7 +652,12 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
     // A scope heading takes effect from this page onward. Board/auditor
     // pages are excluded — their prose mentions "konsernet" freely and must
     // never be allowed to flip the scope.
-    const scopeSignal = detectScopeSignal(features.headingText, features.topText);
+    const scopeSignal = detectScopeSignal(
+      features.headingText,
+      features.topText,
+      features.scopeHeadText,
+      isStatutoryStatementType(type),
+    );
     const hasExplicitScopeSignal =
       scopeSignal !== null && type !== "BOARD_REPORT" && type !== "AUDITOR_REPORT";
     if (hasExplicitScopeSignal) {
@@ -807,10 +861,6 @@ export function classifyPages(pages: AnnualReportParsedInputPage[]) {
   //    remain CONSOLIDATED (the conservative pre-existing behaviour).
   const sortedClassifications = classifications.sort((left, right) => left.pageNumber - right.pageNumber);
 
-  const isStatutoryStatementType = (type: string) =>
-    type === "STATUTORY_INCOME" ||
-    type === "STATUTORY_BALANCE" ||
-    type === "STATUTORY_BALANCE_CONTINUATION";
 
   // Step 1 — build the first statutory block.
   // A gap of 1-2 non-statutory pages within the block is normal (a cover page
