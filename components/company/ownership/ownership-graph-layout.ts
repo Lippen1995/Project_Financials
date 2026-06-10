@@ -25,6 +25,8 @@ export type RenderNode = {
   collapsed: boolean;
   /** Children folded into an overflow node (overflow nodes only). */
   hiddenChildCount: number;
+  /** Registry status from the local Company table, when known. */
+  status: "ACTIVE" | "DISSOLVED" | "BANKRUPT" | null;
   x: number;
   y: number;
 };
@@ -131,6 +133,7 @@ export function buildRenderTree(
       childCount: node.childCount,
       collapsed: isCollapsed,
       hiddenChildCount: 0,
+      status: node.status ?? null,
       x,
       y: node.depth * (NODE_HEIGHT + V_GAP),
     });
@@ -184,6 +187,7 @@ export function buildRenderTree(
         childCount: 0,
         collapsed: false,
         hiddenChildCount: hidden,
+        status: null,
         x: overflowX,
         y: overflowDepth * (NODE_HEIGHT + V_GAP),
       });

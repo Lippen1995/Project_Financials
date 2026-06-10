@@ -209,7 +209,29 @@ export async function getGroupStructure(params: {
   maxDepth?: number;
   maxNodes?: number;
 }): Promise<GroupStructure> {
-  return buildGroupStructure(params, createPrismaDeps(params.year));
+  const structure = await buildGroupStructure(params, createPrismaDeps(params.year));
+  await enrichWithCompanyStatus(structure.nodes);
+  return structure;
+}
+
+/**
+ * Attach registry status (active/dissolved/bankrupt) from the local Company table to the
+ * group nodes, where it exists. DB-only — companies not yet loaded simply have no status
+ * and are shown without an inactive marker.
+ */
+async function enrichWithCompanyStatus(nodes: GroupStructure["nodes"]): Promise<void> {
+  const orgNumbers = nodes.map((node) => node.orgNumber);
+  if (orgNumbers.length === 0) {
+    return;
+  }
+  const companies = await prisma.company.findMany({
+    where: { orgNumber: { in: orgNumbers } },
+    select: { orgNumber: true, status: true },
+  });
+  const statusByOrg = new Map(companies.map((company) => [company.orgNumber, company.status]));
+  for (const node of nodes) {
+    node.status = statusByOrg.get(node.orgNumber) ?? null;
+  }
 }
 
 /** Tax years for which a materialised ownership graph exists. */

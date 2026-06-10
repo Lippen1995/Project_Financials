@@ -152,7 +152,7 @@ export function OwnershipTab({
 }) {
   const [overview, setOverview] = useState<OwnershipOverview>(initial);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState<"chart" | "list">("chart");
+  const [view, setView] = useState<"chart" | "list">("list");
 
   useEffect(() => {
     setOverview(initial);
@@ -175,6 +175,10 @@ export function OwnershipTab({
   const { group } = overview;
   const subsidiaryCount = group?.nodes.filter((n) => n.relationshipToParent === "SUBSIDIARY").length ?? 0;
   const associatedCount = group?.nodes.filter((n) => n.relationshipToParent === "ASSOCIATED").length ?? 0;
+  const currentNode = group?.nodes.find((n) => n.orgNumber === group.currentOrgNumber);
+  const immediateParentName = currentNode?.parentOrgNumber
+    ? (group?.nodes.find((n) => n.orgNumber === currentNode.parentOrgNumber)?.name ?? null)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -223,12 +227,14 @@ export function OwnershipTab({
           {group ? (
             <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
               <SectionHeader
-                label="Konsernkart"
-                title="Organisasjonskart"
+                label="Konsernstruktur"
+                title="Konsernstruktur"
                 lead={
                   group.ultimateParent
-                    ? `Inngår i konsernet til ${group.ultimateParent.name}. Du er uthevet i kartet.`
-                    : "Selskapet er øverste ledd (konsernspiss) i sitt eget konsern."
+                    ? `${overview.companyName} inngår i et konsern.${
+                        immediateParentName ? ` Morselskapet er ${immediateParentName}.` : ""
+                      }`
+                    : `${overview.companyName} er konsernspiss i sitt eget konsern.`
                 }
               />
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -253,8 +259,8 @@ export function OwnershipTab({
                   <div className="flex overflow-hidden rounded-lg border border-[rgba(15,23,42,0.12)]">
                     {(
                       [
+                        { id: "list", label: "Struktur" },
                         { id: "chart", label: "Kart" },
-                        { id: "list", label: "Liste" },
                       ] as const
                     ).map((option) => (
                       <button

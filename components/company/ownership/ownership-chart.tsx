@@ -34,8 +34,16 @@ type CompanyNodeData = {
   isRoot: boolean;
   childCount: number;
   collapsed: boolean;
+  status: "ACTIVE" | "DISSOLVED" | "BANKRUPT" | null;
   onToggle: (orgNumber: string) => void;
 };
+
+/** Short marker for companies that are no longer active (null when active/unknown). */
+function inactiveLabel(status: CompanyNodeData["status"]): string | null {
+  if (status === "BANKRUPT") return "KONKURS";
+  if (status === "DISSOLVED") return "SLETTET";
+  return null;
+}
 
 type OverflowNodeData = {
   parentOrgNumber: string;
@@ -69,14 +77,19 @@ function CompanyNodeView({ data }: NodeProps<Node<CompanyNodeData>>) {
       <Handle type="target" position={Position.Top} className="!h-1.5 !w-1.5 !border-0 !bg-slate-400" />
 
       <div className="flex items-start justify-between gap-2">
-        <span
-          className={`data-label text-[9px] font-semibold uppercase ${subtle}`}
-        >
-          {data.isRoot && !data.relationship
-            ? "Konsernspiss"
-            : data.relationship
-              ? relationshipLabel(data.relationship)
-              : "Selskap"}
+        <span className="flex items-center gap-1.5">
+          <span className={`data-label text-[9px] font-semibold uppercase ${subtle}`}>
+            {data.isRoot && !data.relationship
+              ? "Konsernspiss"
+              : data.relationship
+                ? relationshipLabel(data.relationship)
+                : "Selskap"}
+          </span>
+          {inactiveLabel(data.status) ? (
+            <span className="rounded bg-red-600 px-1 py-px text-[8px] font-bold uppercase leading-none text-white">
+              {inactiveLabel(data.status)}
+            </span>
+          ) : null}
         </span>
         {percent ? (
           <span className="shrink-0 text-[12px] font-semibold tabular-nums">{percent}</span>
@@ -201,6 +214,7 @@ export function OwnershipChart({ group }: { group: GroupStructure }) {
               isRoot: node.isRoot,
               childCount: node.childCount,
               collapsed: node.collapsed,
+              status: node.status,
               onToggle: toggleNode,
             } satisfies CompanyNodeData,
           }

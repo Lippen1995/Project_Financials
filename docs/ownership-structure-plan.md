@@ -35,9 +35,17 @@ brreg-selskaper i registeret:
 - **`ownership-chart.tsx`** (redesign) — React Flow, on-brand noder (konsernspiss mørk,
   «dette selskapet» aksent, datter/tilknyttet venstre-stripe), legende, «Utvid/Skjul alle»,
   klamret `fitView` (`minZoom 0.5`) så brede konsern forblir lesbare og panorerbare.
-- **`ownership-tree.tsx`** — listevisning som skalerer til ethvert antall (de breddeste
-  konsernene), med innrykk, badges, %-kolonne, utvid/skjul.
-- **Kart/Liste-veksler** i `ownership-tab.tsx`.
+- **`ownership-tree.tsx`** — kompakt innrykket «konsernstruktur»-tre i proff.no-stil:
+  stiplede føringslinjer, fylte aksent-prikker på stien til det aktive selskapet (hule grå
+  ellers), uthevet pille for «deg», %-verdi til venstre, inline SVG-flagg (ikke emoji —
+  Windows mangler flagg-font). **Standardvisning** (mer info på mindre plass enn kartet);
+  React Flow-kartet beholdes som valgfri «Kart»-visning.
+- **Struktur/Kart-veksler** i `ownership-tab.tsx`; lead viser «Morselskapet er …».
+- **Inaktiv-merking:** nodene berikes med status fra den lokale `Company`-tabellen
+  (`getGroupStructure` → `enrichWithCompanyStatus`). Vises i **begge** visninger — rødt
+  `(KONKURS)` / `(SLETTET)` i strukturtreet og som rødt merke i React Flow-kortene (status
+  føres gjennom `buildRenderTree`). DB-basert, ingen BRREG-kall; selskaper som ennå ikke er
+  lastet inn vises uten merke.
 - Visuelt verifisert mot Orkla-konsernet (konsernspiss + 40 datterselskaper), et 3-nivå
   datterselskap (konsernspiss→mor→deg→datter, korrekt uthevet), og aksjonær-/eierpost-
   tabeller med riktig datter/tilknyttet/minoritet-klassifisering.

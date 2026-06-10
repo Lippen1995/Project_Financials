@@ -3,27 +3,62 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { relationshipLabel, type OwnershipRelationship } from "@/server/ownership/ownership-thresholds";
 import type { GroupNode, GroupStructure } from "@/server/ownership/types";
 
-import { buildChildrenMap, computeDefaultCollapsed } from "./ownership-graph-layout";
+import { buildChildrenMap } from "./ownership-graph-layout";
 
 function formatPercent(value: number | null) {
-  if (value === null) return null;
+  if (value === null) return "";
   return `${new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 1 }).format(value)} %`;
 }
 
-function relationshipBadge(relationship: OwnershipRelationship | null, isRoot: boolean) {
-  if (isRoot && !relationship) {
-    return { label: "Konsernspiss", className: "border-[#192536] bg-[#192536] text-white" };
+/** Short red marker for companies that are no longer active (null when active/unknown). */
+function inactiveLabel(status: GroupNode["status"]): string | null {
+  if (status === "BANKRUPT") return "KONKURS";
+  if (status === "DISSOLVED") return "SLETTET";
+  return null;
+}
+
+/** Ancestors of the current company (including itself) — these sit on the highlighted spine. */
+function pathToCurrent(nodes: GroupNode[], currentOrgNumber: string): Set<string> {
+  const byOrg = new Map(nodes.map((node) => [node.orgNumber, node]));
+  const path = new Set<string>();
+  let cursor = byOrg.get(currentOrgNumber);
+  while (cursor) {
+    path.add(cursor.orgNumber);
+    cursor = cursor.parentOrgNumber ? byOrg.get(cursor.parentOrgNumber) : undefined;
   }
-  if (relationship === "ASSOCIATED") {
-    return { label: "Tilknyttet", className: "border-[#E6D9C7] bg-[#FCF7EF] text-[#704E23]" };
+  return path;
+}
+
+function NorwayFlag() {
+  // Inline SVG — Windows has no flag-emoji font, so 🇳🇴 would render as "NO".
+  return (
+    <svg
+      width="14"
+      height="10"
+      viewBox="0 0 22 16"
+      className="inline-block shrink-0 rounded-[1px] ring-1 ring-black/5"
+      aria-label="Norge"
+      role="img"
+    >
+      <rect width="22" height="16" fill="#ef2b2d" />
+      <rect x="6" width="4" height="16" fill="#fff" />
+      <rect y="6" width="22" height="4" fill="#fff" />
+      <rect x="7" width="2" height="16" fill="#002868" />
+      <rect y="7" width="22" height="2" fill="#002868" />
+    </svg>
+  );
+}
+
+function NodeDot({ onPath, current }: { onPath: boolean; current: boolean }) {
+  if (current) {
+    return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--px-accent)]" />;
   }
-  if (relationship === "SUBSIDIARY") {
-    return { label: "Datter", className: "border-[#D4E2F4] bg-[#F5F9FF] text-[#173B71]" };
+  if (onPath) {
+    return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--px-accent)]" />;
   }
-  return { label: "Selskap", className: "border-[rgba(15,23,42,0.1)] bg-slate-50 text-slate-600" };
+  return <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-slate-300 bg-slate-200" />;
 }
 
 function TreeRow({
@@ -32,84 +67,80 @@ function TreeRow({
   collapsed,
   toggle,
   currentOrgNumber,
+  path,
 }: {
   node: GroupNode;
   childrenMap: Map<string, GroupNode[]>;
   collapsed: Set<string>;
   toggle: (org: string) => void;
   currentOrgNumber: string;
+  path: Set<string>;
 }) {
   const children = childrenMap.get(node.orgNumber) ?? [];
   const hasChildren = children.length > 0;
   const isCollapsed = collapsed.has(node.orgNumber);
   const isCurrent = node.orgNumber === currentOrgNumber;
-  const badge = relationshipBadge(node.relationshipToParent, node.parentOrgNumber === null);
+  const onPath = path.has(node.orgNumber);
   const percent = formatPercent(node.ownershipPercent);
 
   return (
-    <div>
-      <div
-        className={`flex items-center gap-2 rounded-lg py-1.5 pr-3 ${
-          isCurrent ? "bg-[var(--px-accent-soft)] ring-1 ring-[var(--px-accent)]" : "hover:bg-[rgba(15,23,42,0.03)]"
-        }`}
-        style={{ paddingLeft: `${node.depth * 22 + 8}px` }}
-      >
-        {hasChildren ? (
-          <button
-            type="button"
-            onClick={() => toggle(node.orgNumber)}
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-[rgba(15,23,42,0.06)]"
-            aria-label={isCollapsed ? "Vis datterselskaper" : "Skjul datterselskaper"}
-          >
-            <span className="material-symbols-outlined !text-[18px]">
-              {isCollapsed ? "chevron_right" : "expand_more"}
-            </span>
-          </button>
-        ) : (
-          <span className="h-5 w-5 shrink-0" />
-        )}
-
-        <span
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${badge.className}`}
-        >
-          {badge.label}
+    <div className="relative">
+      <div className="flex items-center gap-2 py-[3px]">
+        <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-500">
+          {percent}
         </span>
 
-        <Link
-          href={`/companies/${node.orgNumber}?tab=eierskap`}
-          className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900 hover:text-[var(--px-accent)] hover:underline"
+        <button
+          type="button"
+          onClick={() => hasChildren && toggle(node.orgNumber)}
+          className={`flex shrink-0 items-center justify-center ${hasChildren ? "cursor-pointer" : "cursor-default"}`}
+          aria-label={hasChildren ? (isCollapsed ? "Vis datterselskaper" : "Skjul datterselskaper") : undefined}
         >
-          {node.name}
-        </Link>
+          <NodeDot onPath={onPath} current={isCurrent} />
+        </button>
 
-        <span className="data-label hidden shrink-0 text-[10px] tabular-nums text-slate-400 sm:inline">
-          {node.orgNumber}
-        </span>
-
-        {hasChildren ? (
-          <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{node.childCount}</span>
-        ) : null}
-
-        {percent ? (
-          <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums text-slate-900">
-            {percent}
+        {isCurrent ? (
+          <span className="rounded-md bg-[var(--px-accent)] px-2.5 py-1 text-[13px] font-semibold text-white">
+            {node.name}
           </span>
         ) : (
-          <span className="w-16 shrink-0" />
+          <Link
+            href={`/companies/${node.orgNumber}?tab=eierskap`}
+            className={`text-[13px] hover:underline ${
+              onPath ? "font-semibold text-[var(--px-accent)]" : "font-medium text-[var(--px-accent)]"
+            }`}
+          >
+            {node.name}
+          </Link>
         )}
+
+        <NorwayFlag />
+
+        {inactiveLabel(node.status) ? (
+          <span className="text-[11px] font-semibold text-red-600">
+            ({inactiveLabel(node.status)})
+          </span>
+        ) : null}
+
+        {hasChildren && isCollapsed ? (
+          <span className="text-[11px] tabular-nums text-slate-400">({node.childCount})</span>
+        ) : null}
       </div>
 
       {hasChildren && !isCollapsed ? (
-        <div>
+        <div className="ml-[27px] border-l border-dotted border-slate-300">
           {children.map((child) => (
-            <TreeRow
-              key={child.orgNumber}
-              node={child}
-              childrenMap={childrenMap}
-              collapsed={collapsed}
-              toggle={toggle}
-              currentOrgNumber={currentOrgNumber}
-            />
+            <div key={child.orgNumber} className="relative pl-5">
+              <span className="absolute left-0 top-[15px] w-4 border-t border-dotted border-slate-300" />
+              <TreeRow
+                node={child}
+                childrenMap={childrenMap}
+                collapsed={collapsed}
+                toggle={toggle}
+                currentOrgNumber={currentOrgNumber}
+                path={path}
+              />
+            </div>
           ))}
         </div>
       ) : null}
@@ -119,9 +150,12 @@ function TreeRow({
 
 export function OwnershipTree({ group }: { group: GroupStructure }) {
   const childrenMap = useMemo(() => buildChildrenMap(group.nodes), [group.nodes]);
-  const [collapsed, setCollapsed] = useState<Set<string>>(() =>
-    computeDefaultCollapsed(group.nodes, group.currentOrgNumber),
+  const path = useMemo(
+    () => pathToCurrent(group.nodes, group.currentOrgNumber),
+    [group.nodes, group.currentOrgNumber],
   );
+  // Default: fully expanded — the compact indented tree shows the whole konsern at once.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const toggle = (org: string) =>
     setCollapsed((prev) => {
@@ -139,8 +173,8 @@ export function OwnershipTree({ group }: { group: GroupStructure }) {
   if (!root) return null;
 
   return (
-    <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-2">
-      <div className="flex items-center justify-end gap-2 px-2 py-1">
+    <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
+      <div className="mb-1 flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={() => setCollapsed(new Set())}
@@ -167,6 +201,7 @@ export function OwnershipTree({ group }: { group: GroupStructure }) {
         collapsed={collapsed}
         toggle={toggle}
         currentOrgNumber={group.currentOrgNumber}
+        path={path}
       />
     </div>
   );

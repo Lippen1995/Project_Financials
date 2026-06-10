@@ -17,6 +17,8 @@ export type GroupNode = {
   isCurrent: boolean;
   /** Number of direct children present in this tree (for collapse/expand UI). */
   childCount: number;
+  /** Registry status from the local Company table, when known (null = not loaded). */
+  status?: "ACTIVE" | "DISSOLVED" | "BANKRUPT" | null;
 };
 
 export type GroupStructure = {
