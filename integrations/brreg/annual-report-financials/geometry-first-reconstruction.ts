@@ -1,5 +1,6 @@
 import { toAnnualReportParsedPages } from "@/integrations/brreg/annual-report-financials/page-model";
 import {
+  normalizeNorwegianText,
   normalizeRowLabel,
   parseFinancialInteger,
   repairOcrTokenBoundaries,
@@ -252,6 +253,61 @@ const SECTION_HEADER_WORDS = new Set([
   "avsetning for forpliktelser",
 ]);
 
+/**
+ * Re-groups OCR lines that belong to the same printed row. Tesseract's layout
+ * analysis sometimes fragments a statement row into MANY one-token "lines"
+ * (NORGESGRUPPEN p3: "Utsatt skattefordel" and each numeric group "11", "118",
+ * "972", "000" came back as seven separate lines, all at the same y). The
+ * reconstruction walks lines one at a time, so each fragment became its own
+ * bogus row ("sum omløpsmidler" -> 3911) and the entire page was lost. The
+ * fragments share their printed row's y-coordinate, so lines whose vertical
+ * midpoints sit within ~60 % of the line height are re-merged into one logical
+ * row before reconstruction. Statement rows are pitched well over one line
+ * height apart (~54 px pitch vs ~34 px height on the Brønnøysund forms), so
+ * distinct rows never merge.
+ */
+function mergeLinesByVerticalOverlap(lines: ExtractedLine[]): ExtractedLine[] {
+  const sorted = [...lines].sort(
+    (a, b) => a.y + a.height / 2 - (b.y + b.height / 2) || a.x - b.x,
+  );
+  const groups: ExtractedLine[][] = [];
+  for (const line of sorted) {
+    const group = groups[groups.length - 1];
+    if (group) {
+      const groupMid =
+        group.reduce((sum, l) => sum + l.y + l.height / 2, 0) / group.length;
+      const tolerance =
+        Math.max(...group.map((l) => l.height), line.height) * 0.6;
+      if (Math.abs(line.y + line.height / 2 - groupMid) <= tolerance) {
+        group.push(line);
+        continue;
+      }
+    }
+    groups.push([line]);
+  }
+  return groups.map((group) => {
+    if (group.length === 1) return group[0]!;
+    const byX = [...group].sort((a, b) => a.x - b.x);
+    const words = group.flatMap((l) => l.words).sort((a, b) => a.x - b.x);
+    const text = stripDuplicateWhitespace(byX.map((l) => l.text).join(" "));
+    const x = Math.min(...group.map((l) => l.x));
+    const y = Math.min(...group.map((l) => l.y));
+    const right = Math.max(...group.map((l) => l.x + l.width));
+    const bottom = Math.max(...group.map((l) => l.y + l.height));
+    return {
+      text,
+      normalizedText: normalizeNorwegianText(text),
+      x,
+      y,
+      width: right - x,
+      height: bottom - y,
+      confidence:
+        group.reduce((sum, l) => sum + l.confidence, 0) / group.length,
+      words,
+    };
+  });
+}
+
 function isNoiseLine(text: string): boolean {
   const normalized = normalizeRowLabel(repairOcrTokenBoundaries(text));
   if (!normalized) return true;
@@ -296,8 +352,12 @@ export function reconstructStatementRowsGeometryFirst(
     return [];
   }
 
-  const [page] = toAnnualReportParsedPages([inputPage]);
-  if (!page) return [];
+  const [rawPage] = toAnnualReportParsedPages([inputPage]);
+  if (!rawPage) return [];
+  const page: AnnualReportParsedPage = {
+    ...rawPage,
+    lines: mergeLinesByVerticalOverlap(rawPage.lines),
+  };
 
   let anchors = findYearColumnAnchors(page);
   if (anchors.length < 2 && inheritedAnchors && inheritedAnchors.length >= 2) {
@@ -422,24 +482,29 @@ export function reconstructStatementRowsGeometryFirst(
     }
 
     // Header-independent note-column guard. The "Note" reference column sits in
-    // the gap between the row label and the first value column; its 1–2 digit
-    // refs form their own cluster well LEFT of the leftmost (right-aligned) year
-    // anchor. nearestColumnIndex would still bucket that cluster into column 0,
-    // fusing the note number onto the front of the current-year value
-    // ("16" + 13 334 998 420 → 1613334998420) or, when the real value was not
-    // read, standing in as a bogus value ("9"). isNoteReferenceToken only fires
-    // when the "Note" header was OCR'd; this positional rule covers the common
-    // case where it was not. Value clusters are right-aligned AT the anchors, so
-    // their rightX is never in the note zone — only genuine note refs are.
+    // the gap between the row label and the first value column; its refs form
+    // their own cluster well LEFT of the leftmost (right-aligned) year anchor.
+    // nearestColumnIndex would still bucket that cluster into column 0 — fusing
+    // the note number onto the front of the current-year value ("16" +
+    // 13 334 998 420 → 1613334998420), standing in as a bogus value ("9"), or —
+    // for multi-refs like "8,10" — poisoning the concatenation so the REAL value
+    // is destroyed ("8,10" + 817 929 000 → parses as 8). isNoteReferenceToken
+    // only fires when the "Note" header was OCR'd; this positional rule covers
+    // the common case where it was not.
+    //
+    // A genuine value cluster always right-aligns AT an anchor, so its rightX is
+    // never in the note zone — ANY cluster ending left of the value zone is a
+    // note ref or stray label numerics, never a statement value. (A long value
+    // whose leading groups extend left is safe: the guard tests the cluster's
+    // RIGHT edge, which sits at the anchor.)
     const leftmostAnchorX = Math.min(...anchors.map((a) => a.x));
     const noteZoneRightBound =
       Number.isFinite(columnSpacing) ? leftmostAnchorX - columnSpacing * 0.5 : -Infinity;
 
     const tokensByColumn = new Map<number, PositionedToken[]>();
     for (const cluster of clusters) {
-      const clusterDigits = cluster.tokens.map((t) => t.token).join("").replace(/\D/g, "");
-      if (clusterDigits.length <= 2 && cluster.rightX < noteZoneRightBound) {
-        continue; // note-reference column, not a statement value
+      if (cluster.rightX < noteZoneRightBound) {
+        continue; // left of the value zone — note reference or label numerics
       }
       const columnIndex = nearestColumnIndex(cluster.rightX, anchors);
       const bucket = tokensByColumn.get(columnIndex) ?? [];
@@ -454,6 +519,20 @@ export function reconstructStatementRowsGeometryFirst(
     const sortedColumns = [...tokensByColumn.entries()].sort((a, b) => a[0] - b[0]);
     for (const [columnIndex, columnTokens] of sortedColumns) {
       const sorted = [...columnTokens].sort((a, b) => a.x - b.x);
+      // Structural corruption check. In a thousands-grouped number every group
+      // after the first has EXACTLY 3 digits, so a non-first token whose digit
+      // count is not a multiple of 3 proves OCR inserted or dropped a digit
+      // ("6 8792 042 000" — "879" misread as "8792" → 68 792 042 000, a 10×
+      // error for a 6 879 042 000 cell). Emitting nothing is strictly better
+      // than emitting a corrupt magnitude: the cell stays blank for review
+      // instead of publishing a wrong figure. Multiples of 3 stay allowed so a
+      // token that merged complete groups ("817929") still parses.
+      const corrupted = sorted.some((t, index) => {
+        if (index === 0) return false;
+        const digits = t.token.replace(/\D/g, "");
+        return digits.length > 0 && digits.length % 3 !== 0;
+      });
+      if (corrupted) continue;
       const combined = sorted.map((t) => t.token).join("");
       const value = parseFinancialInteger(combined);
       if (value === null) continue;
