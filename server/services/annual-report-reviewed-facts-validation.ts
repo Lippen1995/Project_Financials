@@ -151,9 +151,18 @@ function validateSingleYear(
     );
   }
 
-  // IS: net_financial_items = financial_income - financial_expense (warning)
-  const financialIncome = getFactValue(selectedFacts, "financial_income");
-  const financialExpense = getFactValue(selectedFacts, "financial_expense");
+  // IS: net_financial_items = financial income - financial expense (warning).
+  // When the statement splits the finance section into several lines it carries
+  // a "Sum finansinntekter/finanskostnader" total (total_financial_income/
+  // _expense) AND individual detail lines (financial_income/_expense). The net
+  // reconciles to the TOTALS; comparing it to a single detail line false-warns
+  // on every multi-line finance section (all IFRS konsern). Prefer the totals.
+  const financialIncome =
+    getFactValue(selectedFacts, "total_financial_income") ??
+    getFactValue(selectedFacts, "financial_income");
+  const financialExpense =
+    getFactValue(selectedFacts, "total_financial_expense") ??
+    getFactValue(selectedFacts, "financial_expense");
   const netFinancialItems = getFactValue(selectedFacts, "net_financial_items");
   if (
     financialIncome !== null &&
@@ -253,22 +262,39 @@ function validateSingleYear(
     );
   }
 
-  // BS: total_liabilities = long_term_liabilities + current_liabilities
+  // BS: total_liabilities = non-current + current liabilities.
+  // The non-current half has two shapes. NGAAP (the small-company default)
+  // reports a single "Sum langsiktig gjeld" -> long_term_liabilities. IFRS
+  // groups (NORGESGRUPPEN, Statkraft, Coop, …) split it into
+  // total_non_current_liabilities_excl_provisions (incl. lease liabilities) plus
+  // total_provisions (pensions, deferred tax, other avsetninger), and there
+  // long_term_liabilities is only a SUB-line — so checking long_term + current
+  // false-fails every IFRS konsern. Prefer the IFRS sum when its parts are
+  // present; otherwise fall back to long_term_liabilities.
   const longTermLiabilities = getFactValue(selectedFacts, "long_term_liabilities");
   const currentLiabilities = getFactValue(selectedFacts, "current_liabilities");
+  const nonCurrentExclProvisions = getFactValue(
+    selectedFacts,
+    "total_non_current_liabilities_excl_provisions",
+  );
+  const totalProvisions = getFactValue(selectedFacts, "total_provisions");
+  const nonCurrentLiabilities =
+    nonCurrentExclProvisions !== null
+      ? nonCurrentExclProvisions + (totalProvisions ?? 0n)
+      : longTermLiabilities;
   if (
-    longTermLiabilities !== null &&
+    nonCurrentLiabilities !== null &&
     currentLiabilities !== null &&
     totalLiabilities !== null &&
-    !bigintApproxEqual(totalLiabilities, longTermLiabilities + currentLiabilities)
+    !bigintApproxEqual(totalLiabilities, nonCurrentLiabilities + currentLiabilities)
   ) {
     issues.push(
       tag({
         severity: "ERROR",
         ruleCode: "BS_TOTAL_LIABILITIES_COMPONENTS",
         message:
-          "Total liabilities do not reconcile to long-term plus current liabilities.",
-        expectedValue: longTermLiabilities + currentLiabilities,
+          "Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+        expectedValue: nonCurrentLiabilities + currentLiabilities,
         actualValue: totalLiabilities,
       }),
     );
