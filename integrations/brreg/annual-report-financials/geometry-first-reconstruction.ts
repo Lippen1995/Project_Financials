@@ -437,7 +437,13 @@ export function reconstructStatementRowsGeometryFirst(
     for (let k = pendingLabel.length - 1; k >= 0; k--) {
       const frag = pendingLabel[k]!;
       const gap = cutoffY - frag.y;
-      if (gap > 0 && gap <= Math.max(line.height, frag.height) * 1.6) {
+      // 2.0× line height: one printed-row pitch runs ~54-62px at ~32-46px line
+      // height on the Brønnøysund forms, so a directly-adjacent wrap fragment
+      // can sit just past 1.6× (NORGESGRUPPEN: "Andre immaterielle" 58px above
+      // its value line at height 36 → 1.6× = 57.6px missed it by 0.4px and the
+      // row was labelled bare "eiendeler"). Two rows up is ~110px+, still well
+      // beyond 2.0×, so unrelated fragments stay excluded.
+      if (gap > 0 && gap <= Math.max(line.height, frag.height) * 2.0) {
         prefixFragments.unshift(frag.text);
         cutoffY = frag.y;
       } else {

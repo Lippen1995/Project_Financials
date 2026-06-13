@@ -41,7 +41,16 @@ const BALANCE_RE =
 const INCOME_RE =
   /(revenue|_income|expense|profit|_cost|operating|payroll|depreciat|amortiz|ebit|financial_items|interest|tax_expense|inntekt|kostnad|resultat)/;
 
+// Keys the name-regexes misclassify: net_income_to_common_shareholders is an
+// income-statement line ("Årsresultat etter minoritetsinteresser") but matches
+// the balance regex via "share(holders)".
+const FAMILY_OVERRIDES: Record<string, "INCOME_STATEMENT" | "BALANCE_SHEET"> = {
+  net_income_to_common_shareholders: "INCOME_STATEMENT",
+};
+
 function truthFamily(key: string): "INCOME_STATEMENT" | "BALANCE_SHEET" | "NOTE" | null {
+  const override = FAMILY_OVERRIDES[key];
+  if (override) return override;
   const code = codeFamily.get(key);
   if (code) return code;
   if (BALANCE_RE.test(key)) return "BALANCE_SHEET";

@@ -151,6 +151,94 @@ function repairLabelOcr(normalizedLabel: string): string {
   return normalizedLabel.replace(/\bsun\b/g, "sum");
 }
 
+/**
+ * Levenshtein distance with an upper bound; returns null when the distance
+ * exceeds maxEdits (with early exit). Small inputs only (statement labels).
+ */
+function boundedLevenshtein(a: string, b: string, maxEdits: number): number | null {
+  if (Math.abs(a.length - b.length) > maxEdits) return null;
+  let previous = Array.from({ length: b.length + 1 }, (_unused, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const current = new Array<number>(b.length + 1);
+    current[0] = i;
+    let rowMin = current[0]!;
+    for (let j = 1; j <= b.length; j++) {
+      const substitution = previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1);
+      const insertion = current[j - 1]! + 1;
+      const deletion = previous[j]! + 1;
+      current[j] = Math.min(substitution, insertion, deletion);
+      rowMin = Math.min(rowMin, current[j]!);
+    }
+    if (rowMin > maxEdits) return null;
+    previous = current;
+  }
+  return previous[b.length]! <= maxEdits ? previous[b.length]! : null;
+}
+
+/**
+ * OCR-tolerant fallback for findCanonicalMetricKey: when no alias matches
+ * exactly, allow a small, length-scaled edit distance between the label and an
+ * alias. Scanned statements routinely garble labels beyond the targeted repairs
+ * ("Lennskostnad" for Lønnskostnad, "Sum finanskeostnader", "Rezultat fer
+ * szkattekosztnad") and every such row is otherwise dropped entirely.
+ *
+ * Safety bounds, in order of importance:
+ *  - Only runs when the exact tiers found nothing.
+ *  - Aliases shorter than 8 chars never fuzzy-match (too easy to collide).
+ *  - maxEdits = floor(aliasLength / 6), capped at 4 — distinct statement labels
+ *    differ by far more ("finansinntekter" vs "finanskostnader" is ~6 edits at
+ *    19 chars, where the bound is 3).
+ *  - Ambiguity rejection: if two different keys tie at the best distance, the
+ *    row stays unmapped rather than guessing.
+ */
+function findFuzzyMetricKey(
+  normalizedLabel: string,
+  statementFamily: MetricDefinition["statementFamily"],
+  liabilitySection: LiabilitySection | null | undefined,
+  definitions: MetricDefinition[],
+): CanonicalMetricKey | null {
+  // Trailing note references ("skattekostnad 18") break whole-string distance;
+  // the exact tiers handle them via prefix matching, so strip them here.
+  const label = normalizedLabel.replace(/(\s+\d[\d.,]*)+\s*$/g, "").trim();
+  if (label.length < 8) return null;
+
+  let best: { key: CanonicalMetricKey; distance: number; aliasLength: number } | null = null;
+  let bestIsAmbiguous = false;
+  for (const definition of definitions) {
+    if (definition.statementFamily !== statementFamily) continue;
+    if (definition.liabilitySection) {
+      if (!liabilitySection || definition.liabilitySection !== liabilitySection) continue;
+    }
+    for (const alias of definition.aliases) {
+      const normalizedAlias = normalizeNorwegianText(alias);
+      if (normalizedAlias.length < 8) continue;
+      const maxEdits = Math.min(4, Math.floor(normalizedAlias.length / 6));
+      if (maxEdits < 1) continue;
+      const distance = boundedLevenshtein(label, normalizedAlias, maxEdits);
+      if (distance === null || distance === 0) continue;
+      if (
+        !best ||
+        distance < best.distance ||
+        (distance === best.distance && normalizedAlias.length > best.aliasLength)
+      ) {
+        bestIsAmbiguous =
+          best !== null && distance === best.distance && best.key !== definition.key &&
+          normalizedAlias.length === best.aliasLength;
+        best = { key: definition.key, distance, aliasLength: normalizedAlias.length };
+      } else if (
+        best &&
+        distance === best.distance &&
+        normalizedAlias.length === best.aliasLength &&
+        definition.key !== best.key
+      ) {
+        bestIsAmbiguous = true;
+      }
+    }
+  }
+  if (!best || bestIsAmbiguous) return null;
+  return best.key;
+}
+
 export function findCanonicalMetricKey(
   label: string,
   statementFamily: MetricDefinition["statementFamily"],
@@ -191,7 +279,14 @@ export function findCanonicalMetricKey(
     }
   }
 
-  return bestMatch?.key ?? null;
+  if (bestMatch) {
+    return bestMatch.key;
+  }
+
+  // No exact alias matched — try the OCR-tolerant fuzzy fallback before giving
+  // up, so a garbled-but-recognisable label still maps instead of dropping the
+  // whole row.
+  return findFuzzyMetricKey(normalizedLabel, statementFamily, liabilitySection, definitions);
 }
 
 export function getStatementFamilyFromSection(sectionType: StatementSectionType) {
