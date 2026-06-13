@@ -169,6 +169,13 @@ function normalizeAmountInput(raw: string): string {
   return t;
 }
 
+/** Manual placement override: which statement section a row belongs in.
+ *  scope is set only when the target section is konsern/selskap-split. */
+type MovedPlacement = {
+  statement: "INCOME_STATEMENT" | "BALANCE_SHEET" | "OTHER";
+  scope?: "COMPANY" | "CONSOLIDATED";
+};
+
 type RowEdit = {
   metricKey: string;
   mainValue: string;
@@ -183,6 +190,11 @@ type RowEdit = {
   /** Soft-delete: row is hidden and dropped on save (model produced a
    *  spurious line). Restorable from the deleted-rows tray. */
   deleted?: boolean;
+  /** Reviewer moved the row to another statement section because the
+   *  extractor bucketed it wrong (e.g. cash-flow lines under Balanse).
+   *  Drives which section renders the row and the statementType/scope that
+   *  publish on save. Absent = keep the extractor's placement. */
+  movedTo?: MovedPlacement;
 };
 
 /** A row the reviewer added manually because the model missed it entirely. */
@@ -325,7 +337,8 @@ const SUM_KEYS = new Set([
   "total_equity", "current_liabilities", "total_liabilities", "total_equity_and_liabilities",
 ]);
 
-function getRowId(row: RawRow): string {
+/** Content-derived base id: page + normalized label + values signature. */
+function baseRowId(row: RawRow): string {
   const lookupKey = (row.normalizedLabel ?? row.label ?? "").toLowerCase().trim();
   // Two rows on the same page can share a label (e.g. two "immaterielle
   // eiendeler" lines). Include the values signature so each row gets a
@@ -333,6 +346,40 @@ function getRowId(row: RawRow): string {
   // would hit both) and produce duplicate React keys.
   const valuesSig = row.values.map((v) => `${v.columnIndex}:${v.value}`).join(",");
   return `${row.pageNumber}_${lookupKey}_${valuesSig}`;
+}
+
+// Even the base id isn't always unique: a note table can hold two physically
+// distinct rows with the SAME page, label AND values (e.g. two "Samlet beløp
+// foretak i samme konsern" lines both reading 0). Those collided on one id,
+// which merged their rowEdits (editing one hit both) and produced duplicate
+// React keys. We disambiguate by source-array position: the first occurrence
+// keeps the clean base id, later duplicates get a deterministic "#n" suffix.
+// Source order is server-fixed, so ids stay stable across reloads (persisted
+// rowEdits keep resolving) and across drag-reorder (which changes display
+// order, not the source array). Keyed by row object so every call site —
+// React keys, rowEdits, drag — resolves the same id without threading.
+const rowIdByRow = new WeakMap<RawRow, string>();
+
+/**
+ * Assign a stable, unique id to each row in a canonical source array. Idempotent:
+ * a row already registered keeps its first-assigned id. Returns `rows` for
+ * convenient inline use at the effectiveRows derivation site.
+ */
+function registerRowIds(rows: RawRow[]): RawRow[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const base = baseRowId(row);
+    const seen = counts.get(base) ?? 0;
+    counts.set(base, seen + 1);
+    if (!rowIdByRow.has(row)) {
+      rowIdByRow.set(row, seen === 0 ? base : `${base}#${seen}`);
+    }
+  }
+  return rows;
+}
+
+function getRowId(row: RawRow): string {
+  return rowIdByRow.get(row) ?? baseRowId(row);
 }
 
 function removeRowEdit(
@@ -535,6 +582,137 @@ function MetricKeyCombobox({
   );
 }
 
+/** One selectable target in the per-row "Flytt til…" menu. `id` must equal
+ *  the sectionId of the AsReportedSection it represents, so a section can
+ *  filter itself out of its own menu. */
+type MoveDestination = MovedPlacement & { id: string; label: string };
+
+/**
+ * Per-row move control: a ⇄ button opening a portaled menu of the other
+ * statement sections. Lets the reviewer relocate a row the extractor (or
+ * they themselves) placed in the wrong section.
+ */
+function MoveRowMenu({
+  destinations,
+  currentId,
+  moved,
+  onMove,
+  onReset,
+}: {
+  destinations: MoveDestination[];
+  /** Section the row currently renders in — excluded from the menu. */
+  currentId: string;
+  /** True when the row carries a manual placement override. */
+  moved?: boolean;
+  onMove: (dest: MoveDestination) => void;
+  /** Clears the override (extracted rows only). */
+  onReset?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    // Portaled to <body> (fixed) so the table's overflow-x-auto can't clip
+    // it — must track the button across scroll/resize like the key picker.
+    const onReflow = () => {
+      if (btnRef.current) setRect(btnRef.current.getBoundingClientRect());
+    };
+    document.addEventListener("mousedown", onDocClick);
+    window.addEventListener("scroll", onReflow, true);
+    window.addEventListener("resize", onReflow);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      window.removeEventListener("scroll", onReflow, true);
+      window.removeEventListener("resize", onReflow);
+    };
+  }, [open]);
+
+  const options = destinations.filter((d) => d.id !== currentId);
+
+  const menu =
+    open && rect
+      ? createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: "fixed",
+              top: rect.bottom + 4,
+              left: Math.max(8, rect.right - 230),
+              width: 230,
+              zIndex: 60,
+            }}
+            className="rounded-lg border border-[rgba(15,23,42,0.12)] bg-white py-1 shadow-lg"
+          >
+            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+              Flytt raden til
+            </div>
+            {options.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onMove(d);
+                  setOpen(false);
+                }}
+                className="block w-full px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50"
+              >
+                {d.label}
+              </button>
+            ))}
+            {moved && onReset && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onReset();
+                  setOpen(false);
+                }}
+                className="mt-1 block w-full border-t border-[rgba(15,23,42,0.06)] px-3 py-1.5 text-left text-xs text-blue-600 hover:bg-blue-50"
+              >
+                ↩ Tilbake til opprinnelig plassering
+              </button>
+            )}
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => {
+          if (btnRef.current) setRect(btnRef.current.getBoundingClientRect());
+          setOpen((v) => !v);
+        }}
+        title={
+          moved
+            ? "Raden er flyttet manuelt — flytt igjen eller tilbakestill"
+            : "Flytt raden til en annen oppstilling"
+        }
+        className={
+          "mr-0.5 rounded px-1.5 py-0.5 hover:bg-blue-50 hover:text-blue-600 " +
+          (moved ? "text-blue-500" : "text-slate-300")
+        }
+      >
+        ⇄
+      </button>
+      {menu}
+    </>
+  );
+}
+
 type FactCorrectionInput = {
   metricKey: string;
   fiscalYear: number;
@@ -700,7 +878,14 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
         id: newEditableFactId(),
         metricKey: key,
         fiscalYear: f?.fiscalYear ?? review.fiscalYear,
-        value: f ? bigintToDisplay(f.value) : "",
+        // Do NOT seed the manual value with the machine fact: the "Manuell"
+        // column must start empty so it only ever shows genuine human overrides
+        // (from rowEdits) or corrections restored from a saved draft. Seeding it
+        // made the scope-blind machine value masquerade as a manual edit — and
+        // worse, a wrong-scope seed (seed != proposed) flipped hasMainManual and
+        // could publish that wrong value as a MANUAL_CORRECTION. The proposed
+        // machine value still shows read-only in the "Foreslått" column.
+        value: "",
         rawLabel: f?.rawLabel ?? "",
         sourcePage: String(f?.sourcePage ?? ""),
         unitScale: String(f?.unitScale ?? 1000),
@@ -716,7 +901,13 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
           id: newEditableFactId(),
           metricKey: f.metricKey,
           fiscalYear: f.fiscalYear,
-          value: bigintToDisplay(f.value),
+          // Empty for the same reason as the canonical seed above: the machine
+          // value must not pre-fill the "Manuell" column as a fake override. For
+          // a non-canonical key the extractor often emits several facts (both
+          // years / both scopes), so seeding here also made the legacy fallback's
+          // first-match leak the WRONG one (e.g. the prior-year value) into the
+          // current-year manual cell. Proposed value still shows via dbValueByKey.
+          value: "",
           rawLabel: f.rawLabel ?? "",
           sourcePage: String(f.sourcePage ?? ""),
           unitScale: String(f.unitScale),
@@ -736,6 +927,13 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
   const [priorYearEdits, setPriorYearEdits] = useState<Record<string, string>>({});
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
   const [addedRows, setAddedRows] = useState<AddedRow[]>([]);
+  // Manual within-section row order, keyed by sectionId. Each value is the
+  // ordered list of row keys (getRowId for extracted rows, "added:"+id for
+  // manually-added rows). Absent = the section keeps its default order (page
+  // order for extracted rows, canonical slot for added rows). Purely a display
+  // concern: published facts are keyed by metric/scope/year, so order never
+  // affects what is saved — it only needs to survive reload via the draft.
+  const [rowOrder, setRowOrder] = useState<Record<string, string[]>>({});
   // Session-scoped universe of reviewer-added metric keys, split by category.
   const [customKeys, setCustomKeys] = useState<CustomKeyState>({ income: [], balance: [] });
   const addCustomKey = (category: MetricCategory, key: string) => {
@@ -879,6 +1077,8 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
     if (d.priorYearEdits && typeof d.priorYearEdits === "object")
       setPriorYearEdits(d.priorYearEdits as Record<string, string>);
     if (Array.isArray(d.addedRows)) setAddedRows(d.addedRows as AddedRow[]);
+    if (d.rowOrder && typeof d.rowOrder === "object")
+      setRowOrder(d.rowOrder as Record<string, string[]>);
     if (d.customKeys && typeof d.customKeys === "object")
       setCustomKeys(d.customKeys as CustomKeyState);
     if (typeof d.boardReportText === "string") setBoardReportText(d.boardReportText);
@@ -892,6 +1092,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       rowEdits,
       priorYearEdits,
       addedRows,
+      rowOrder,
       customKeys,
       boardReportText,
       auditorReportText,
@@ -903,6 +1104,7 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       rowEdits,
       priorYearEdits,
       addedRows,
+      rowOrder,
       customKeys,
       boardReportText,
       auditorReportText,
@@ -1166,13 +1368,23 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       priorValueByKey.set(key, String(candidate.value));
     }
 
-    const effectiveRows = extractionData
-      ? (
-          extractionData.rows.length > 0
-            ? extractionData.rows
-            : buildSyntheticRows(extractionData.mappedFacts, [review.fiscalYear, priorFiscalYear])
-        )
-      : [];
+    const effectiveRows = registerRowIds(
+      extractionData
+        ? (
+            extractionData.rows.length > 0
+              ? extractionData.rows
+              : buildSyntheticRows(extractionData.mappedFacts, [review.fiscalYear, priorFiscalYear])
+          )
+        : [],
+    );
+    // Year- and row-accurate machine proposals (see buildRowProposalIndex);
+    // must mirror the renderer so what publishes equals the on-screen Endelig.
+    const rowProposals = buildRowProposalIndex(
+      effectiveRows,
+      mappedFacts,
+      review.fiscalYear,
+      priorFiscalYear,
+    );
 
     // FULL-GRID emit: the backend no longer re-derives machine-vs-manual. We
     // send EVERY visible line with its on-screen "Endelig" (finalInput =
@@ -1226,12 +1438,24 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
       const selectedMetricKey = (rowEdit?.metricKey?.trim() || canonicalKey) ?? "";
       if (!selectedMetricKey) continue; // unmapped row with no assigned key
 
-      const scope = pageToScope.get(row.pageNumber) ?? reviewScope;
+      // A manual placement override (row moved to another section) wins over
+      // both the page-derived scope and the key-derived statement bucket.
+      const movedTo = rowEdit?.movedTo;
+      const scope = movedTo?.scope ?? pageToScope.get(row.pageNumber) ?? reviewScope;
       const effectiveLabel = (rowEdit?.labelOverride ?? row.label) || null;
-      const statementType = statementTypeByKey.get(selectedMetricKey);
+      const statementType = movedTo
+        ? movedTo.statement === "OTHER"
+          ? ("NOTE" as const)
+          : movedTo.statement
+        : statementTypeByKey.get(selectedMetricKey);
 
-      const mainProposed = isMapped && canonicalKey ? dbValueByKey.get(canonicalKey) ?? null : null;
-      const priorProposed = isMapped && canonicalKey ? priorValueByKey.get(canonicalKey) ?? null : null;
+      // Row-identity proposals mirror the renderer (year- and row-accurate);
+      // the key-level maps remain the fallback for unresolved rows.
+      const rowProposal = rowProposals.get(row) ?? null;
+      const mainProposed = rowProposal?.main
+        ?? (isMapped && canonicalKey ? dbValueByKey.get(canonicalKey) ?? null : null);
+      const priorProposed = rowProposal?.prior
+        ?? (isMapped && canonicalKey ? priorValueByKey.get(canonicalKey) ?? null : null);
       const [reconMain, reconPrior] = isMapped ? [null, null] : reconstructYearValues(row.values);
       const fallbackMain = mainProposed ?? (reconMain !== null ? String(Math.round(reconMain * row.unitScale)) : null);
       const fallbackPrior = priorProposed ?? (reconPrior !== null ? String(Math.round(reconPrior * row.unitScale)) : null);
@@ -1597,6 +1821,8 @@ export function ReviewWorkspace({ review }: { review: ReviewDetail }) {
                     setRowEdits={setRowEdits}
                     addedRows={addedRows}
                     setAddedRows={setAddedRows}
+                    rowOrder={rowOrder}
+                    setRowOrder={setRowOrder}
                     customKeys={mergedKeyUniverse}
                     addCustomKey={addCustomKey}
                   />
@@ -2323,6 +2549,56 @@ function reconstructYearValues(
 }
 
 /**
+ * Per-row machine proposals, matched by ROW IDENTITY (sourcePage +
+ * normalizedLabel, consumed in document order) with the mappedFact's explicit
+ * fiscalYear deciding main vs prior.
+ *
+ * The previous lookup went through metricKey-level maps (dbValueByKey /
+ * priorValueByKey) which are year- and scope-blind: with comparative-year
+ * facts present, whichever fact iterated LAST won the key slot, so "Foreslått
+ * 2024" frequently displayed the 2023 value (NORGESGRUPPEN: Varekostnad,
+ * Driftsresultat, Årsresultat all showed prior-year figures) — and two rows
+ * sharing a metricKey (two financial_income detail lines) displayed each
+ * other's value. Matching facts back to their source row eliminates both.
+ * Rows the index can't resolve fall back to the legacy key-level maps.
+ */
+function buildRowProposalIndex(
+  rows: RawRow[],
+  mappedFacts: MappedFactRaw[],
+  mainYear: number,
+  priorYear: number,
+): Map<RawRow, { main: string | null; prior: string | null }> {
+  const byIdentity = new Map<string, { main: number[]; prior: number[] }>();
+  for (const mf of mappedFacts) {
+    if (mf.isDerived) continue;
+    const label = (mf.normalizedLabel ?? mf.rawLabel ?? "").toLowerCase().trim();
+    if (!label) continue;
+    const identity = `${mf.sourcePage ?? 0}|${label}`;
+    let bucket = byIdentity.get(identity);
+    if (!bucket) {
+      bucket = { main: [], prior: [] };
+      byIdentity.set(identity, bucket);
+    }
+    if (mf.fiscalYear === mainYear) bucket.main.push(mf.value);
+    else if (mf.fiscalYear === priorYear) bucket.prior.push(mf.value);
+  }
+  const proposals = new Map<RawRow, { main: string | null; prior: string | null }>();
+  for (const row of rows) {
+    const label = (row.normalizedLabel ?? row.label ?? "").toLowerCase().trim();
+    const bucket = byIdentity.get(`${row.pageNumber}|${label}`);
+    if (!bucket) continue;
+    const main = bucket.main.length > 0 ? bucket.main.shift()! : null;
+    const prior = bucket.prior.length > 0 ? bucket.prior.shift()! : null;
+    if (main === null && prior === null) continue;
+    proposals.set(row, {
+      main: main !== null ? String(main) : null,
+      prior: prior !== null ? String(prior) : null,
+    });
+  }
+  return proposals;
+}
+
+/**
  * Build synthetic RawRows from mappedFacts when the EXTRACTION_JSON artifact
  * pre-dates the addition of `rows` to the payload. Each unique
  * (sourceSection + normalizedLabel) combination becomes one row, with year
@@ -2456,11 +2732,16 @@ function deriveStandardizedTotals(input: {
   }
 
   const priorFiscalYear = fiscalYear - 1;
-  const effectiveRows = extractionData
-    ? extractionData.rows.length > 0
-      ? extractionData.rows
-      : buildSyntheticRows(extractionData.mappedFacts, [fiscalYear, priorFiscalYear])
-    : [];
+  const effectiveRows = registerRowIds(
+    extractionData
+      ? extractionData.rows.length > 0
+        ? extractionData.rows
+        : buildSyntheticRows(extractionData.mappedFacts, [fiscalYear, priorFiscalYear])
+      : [],
+  );
+  // Year- and row-accurate machine proposals (see buildRowProposalIndex);
+  // must mirror the As-Reported render so totals match what the reviewer sees.
+  const rowProposals = buildRowProposalIndex(effectiveRows, mappedFacts, fiscalYear, priorFiscalYear);
 
   for (const row of effectiveRows) {
     const rowEdit = rowEdits[getRowId(row)];
@@ -2474,10 +2755,14 @@ function deriveStandardizedTotals(input: {
     const hasKeyOverride =
       isMapped && !!rowEdit?.metricKey && rowEdit.metricKey.trim() !== "" && rowEdit.metricKey.trim() !== canonicalKey;
 
-    const scope = pageToScope.get(row.pageNumber) ?? reviewScope;
+    // Mirror handleCorrect: a manual placement override carries the scope.
+    const scope = rowEdit?.movedTo?.scope ?? pageToScope.get(row.pageNumber) ?? reviewScope;
 
-    const mainProposed = isMapped && canonicalKey ? dbValueByKey.get(canonicalKey) ?? null : null;
-    const priorProposed = isMapped && canonicalKey ? priorValueByKey.get(canonicalKey) ?? null : null;
+    const rowProposal = rowProposals.get(row) ?? null;
+    const mainProposed = rowProposal?.main
+      ?? (isMapped && canonicalKey ? dbValueByKey.get(canonicalKey) ?? null : null);
+    const priorProposed = rowProposal?.prior
+      ?? (isMapped && canonicalKey ? priorValueByKey.get(canonicalKey) ?? null : null);
     const [reconMain, reconPrior] = isMapped ? [null, null] : reconstructYearValues(row.values);
     const fallbackMain = mainProposed ?? (reconMain !== null ? String(Math.round(reconMain * row.unitScale)) : null);
     const fallbackPrior = priorProposed ?? (reconPrior !== null ? String(Math.round(reconPrior * row.unitScale)) : null);
@@ -2689,6 +2974,8 @@ function AsReportedPanel({
   setRowEdits,
   addedRows,
   setAddedRows,
+  rowOrder,
+  setRowOrder,
   customKeys,
   addCustomKey,
 }: {
@@ -2705,6 +2992,8 @@ function AsReportedPanel({
   setRowEdits: React.Dispatch<React.SetStateAction<Record<string, RowEdit>>>;
   addedRows: AddedRow[];
   setAddedRows: React.Dispatch<React.SetStateAction<AddedRow[]>>;
+  rowOrder: Record<string, string[]>;
+  setRowOrder: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
   customKeys: CustomKeyState;
   addCustomKey: (category: MetricCategory, key: string) => void;
 }) {
@@ -2766,14 +3055,26 @@ function AsReportedPanel({
   );
   const effectiveRows = isSynthetic ? buildSyntheticRows(mappedFacts, yearsInData) : rows;
 
+  // Year- and row-accurate machine proposals (see buildRowProposalIndex).
+  const rowProposals = buildRowProposalIndex(effectiveRows, mappedFacts, mainYear, priorYear);
+
+  // Effective statement bucket per row: a manual placement override (the
+  // reviewer moved the row) wins over the extractor's sectionType.
+  const bucketOf = (r: RawRow): MovedPlacement["statement"] => {
+    const moved = rowEdits[getRowId(r)]?.movedTo;
+    if (moved) return moved.statement;
+    if (INCOME_SECTIONS.has(r.sectionType)) return "INCOME_STATEMENT";
+    if (BALANCE_SECTIONS.has(r.sectionType)) return "BALANCE_SHEET";
+    return "OTHER";
+  };
   const incomeRows = effectiveRows
-    .filter((r) => INCOME_SECTIONS.has(r.sectionType))
+    .filter((r) => bucketOf(r) === "INCOME_STATEMENT")
     .sort((a, b) => a.pageNumber - b.pageNumber);
   const balanceRows = effectiveRows
-    .filter((r) => BALANCE_SECTIONS.has(r.sectionType))
+    .filter((r) => bucketOf(r) === "BALANCE_SHEET")
     .sort((a, b) => a.pageNumber - b.pageNumber);
   const otherRows = effectiveRows
-    .filter((r) => !INCOME_SECTIONS.has(r.sectionType) && !BALANCE_SECTIONS.has(r.sectionType))
+    .filter((r) => bucketOf(r) === "OTHER")
     .sort((a, b) => a.pageNumber - b.pageNumber);
 
   // Build page → scope map. Priority: EXTRACTION_JSON mappedFacts (same extraction run,
@@ -2804,7 +3105,7 @@ function AsReportedPanel({
     const selskap: RawRow[] = [];
     const unscoped: RawRow[] = [];
     for (const r of rows) {
-      const scope = pageToScope.get(r.pageNumber);
+      const scope = rowEdits[getRowId(r)]?.movedTo?.scope ?? pageToScope.get(r.pageNumber);
       if (scope === "CONSOLIDATED") konsern.push(r);
       else if (scope === "COMPANY") selskap.push(r);
       else unscoped.push(r);
@@ -2825,6 +3126,48 @@ function AsReportedPanel({
 
   const incomeSplit = splitByScope(incomeRows);
   const balanceSplit = splitByScope(balanceRows);
+
+  // Targets for the per-row "Flytt til…" menu. Ids match the sectionId each
+  // AsReportedSection renders with, so a section excludes itself from the menu.
+  const moveDestinations: MoveDestination[] = [
+    ...(incomeSplit.isMulti
+      ? ([
+          {
+            id: "INCOME_STATEMENT:CONSOLIDATED",
+            label: "Resultatregnskap — Konsern",
+            statement: "INCOME_STATEMENT",
+            scope: "CONSOLIDATED",
+          },
+          {
+            id: "INCOME_STATEMENT:COMPANY",
+            label: "Resultatregnskap — Morselskap",
+            statement: "INCOME_STATEMENT",
+            scope: "COMPANY",
+          },
+        ] satisfies MoveDestination[])
+      : ([
+          { id: "INCOME_STATEMENT", label: "Resultatregnskap", statement: "INCOME_STATEMENT" },
+        ] satisfies MoveDestination[])),
+    ...(balanceSplit.isMulti
+      ? ([
+          {
+            id: "BALANCE_SHEET:CONSOLIDATED",
+            label: "Balanse — Konsern",
+            statement: "BALANCE_SHEET",
+            scope: "CONSOLIDATED",
+          },
+          {
+            id: "BALANCE_SHEET:COMPANY",
+            label: "Balanse — Morselskap",
+            statement: "BALANCE_SHEET",
+            scope: "COMPANY",
+          },
+        ] satisfies MoveDestination[])
+      : ([
+          { id: "BALANCE_SHEET", label: "Balanse", statement: "BALANCE_SHEET" },
+        ] satisfies MoveDestination[])),
+    { id: "OTHER", label: "Noter og øvrige", statement: "OTHER" },
+  ];
 
   if (effectiveRows.length === 0) {
     return (
@@ -2874,8 +3217,12 @@ function AsReportedPanel({
               title="Resultatregnskap — Konsern"
               rows={incomeSplit.konsern}
               scopeTag="CONSOLIDATED"
+              category="INCOME"
+              sectionId="INCOME_STATEMENT:CONSOLIDATED"
+              moveDestinations={moveDestinations}
               canonicalByLabel={canonicalByLabel}
               dbValueByKey={dbValueByKey}
+              rowProposals={rowProposals}
               priorValueByKey={priorValueByKey}
               confidenceByKey={confidenceByKey}
               precedenceByKey={precedenceByKey}
@@ -2888,6 +3235,8 @@ function AsReportedPanel({
               setPriorYearEdits={setPriorYearEdits}
               rowEdits={rowEdits}
               setRowEdits={setRowEdits}
+              rowOrder={rowOrder}
+              setRowOrder={setRowOrder}
               customKeys={customKeys}
               addCustomKey={addCustomKey}
               addedRows={addedRows}
@@ -2897,8 +3246,12 @@ function AsReportedPanel({
               title="Resultatregnskap — Morselskap"
               rows={incomeSplit.selskap}
               scopeTag="COMPANY"
+              category="INCOME"
+              sectionId="INCOME_STATEMENT:COMPANY"
+              moveDestinations={moveDestinations}
               canonicalByLabel={canonicalByLabel}
               dbValueByKey={dbValueByKey}
+              rowProposals={rowProposals}
               priorValueByKey={priorValueByKey}
               confidenceByKey={confidenceByKey}
               precedenceByKey={precedenceByKey}
@@ -2911,6 +3264,8 @@ function AsReportedPanel({
               setPriorYearEdits={setPriorYearEdits}
               rowEdits={rowEdits}
               setRowEdits={setRowEdits}
+              rowOrder={rowOrder}
+              setRowOrder={setRowOrder}
               customKeys={customKeys}
               addCustomKey={addCustomKey}
               addedRows={addedRows}
@@ -2926,8 +3281,12 @@ function AsReportedPanel({
             <AsReportedSection
               title="Resultatregnskap"
               rows={incomeRows}
+              category="INCOME"
+              sectionId="INCOME_STATEMENT"
+              moveDestinations={moveDestinations}
               canonicalByLabel={canonicalByLabel}
               dbValueByKey={dbValueByKey}
+              rowProposals={rowProposals}
               priorValueByKey={priorValueByKey}
               confidenceByKey={confidenceByKey}
               precedenceByKey={precedenceByKey}
@@ -2940,6 +3299,8 @@ function AsReportedPanel({
               setPriorYearEdits={setPriorYearEdits}
               rowEdits={rowEdits}
               setRowEdits={setRowEdits}
+              rowOrder={rowOrder}
+              setRowOrder={setRowOrder}
               customKeys={customKeys}
               addCustomKey={addCustomKey}
               addedRows={addedRows}
@@ -2956,8 +3317,12 @@ function AsReportedPanel({
               title="Balanse — Konsern"
               rows={balanceSplit.konsern}
               scopeTag="CONSOLIDATED"
+              category="BALANCE"
+              sectionId="BALANCE_SHEET:CONSOLIDATED"
+              moveDestinations={moveDestinations}
               canonicalByLabel={canonicalByLabel}
               dbValueByKey={dbValueByKey}
+              rowProposals={rowProposals}
               priorValueByKey={priorValueByKey}
               confidenceByKey={confidenceByKey}
               precedenceByKey={precedenceByKey}
@@ -2970,6 +3335,8 @@ function AsReportedPanel({
               setPriorYearEdits={setPriorYearEdits}
               rowEdits={rowEdits}
               setRowEdits={setRowEdits}
+              rowOrder={rowOrder}
+              setRowOrder={setRowOrder}
               customKeys={customKeys}
               addCustomKey={addCustomKey}
               addedRows={addedRows}
@@ -2979,8 +3346,12 @@ function AsReportedPanel({
               title="Balanse — Morselskap"
               rows={balanceSplit.selskap}
               scopeTag="COMPANY"
+              category="BALANCE"
+              sectionId="BALANCE_SHEET:COMPANY"
+              moveDestinations={moveDestinations}
               canonicalByLabel={canonicalByLabel}
               dbValueByKey={dbValueByKey}
+              rowProposals={rowProposals}
               priorValueByKey={priorValueByKey}
               confidenceByKey={confidenceByKey}
               precedenceByKey={precedenceByKey}
@@ -2993,6 +3364,8 @@ function AsReportedPanel({
               setPriorYearEdits={setPriorYearEdits}
               rowEdits={rowEdits}
               setRowEdits={setRowEdits}
+              rowOrder={rowOrder}
+              setRowOrder={setRowOrder}
               customKeys={customKeys}
               addCustomKey={addCustomKey}
               addedRows={addedRows}
@@ -3003,8 +3376,12 @@ function AsReportedPanel({
           <AsReportedSection
             title="Balanse"
             rows={balanceRows}
+            category="BALANCE"
+            sectionId="BALANCE_SHEET"
+            moveDestinations={moveDestinations}
             canonicalByLabel={canonicalByLabel}
             dbValueByKey={dbValueByKey}
+            rowProposals={rowProposals}
             priorValueByKey={priorValueByKey}
             confidenceByKey={confidenceByKey}
             precedenceByKey={precedenceByKey}
@@ -3017,6 +3394,8 @@ function AsReportedPanel({
             setPriorYearEdits={setPriorYearEdits}
             rowEdits={rowEdits}
             setRowEdits={setRowEdits}
+            rowOrder={rowOrder}
+            setRowOrder={setRowOrder}
             customKeys={customKeys}
             addCustomKey={addCustomKey}
             addedRows={addedRows}
@@ -3029,8 +3408,12 @@ function AsReportedPanel({
         <AsReportedSection
           title="Noter og øvrige"
           rows={otherRows}
+          category="OTHER"
+          sectionId="OTHER"
+          moveDestinations={moveDestinations}
           canonicalByLabel={canonicalByLabel}
           dbValueByKey={dbValueByKey}
+          rowProposals={rowProposals}
           priorValueByKey={priorValueByKey}
           confidenceByKey={confidenceByKey}
           precedenceByKey={precedenceByKey}
@@ -3043,6 +3426,8 @@ function AsReportedPanel({
           setPriorYearEdits={setPriorYearEdits}
           rowEdits={rowEdits}
           setRowEdits={setRowEdits}
+          rowOrder={rowOrder}
+          setRowOrder={setRowOrder}
           customKeys={customKeys}
           addCustomKey={addCustomKey}
           addedRows={addedRows}
@@ -3364,12 +3749,37 @@ function DeletedAsReportedTray({
   );
 }
 
+/** One renderable line in an AsReportedSection: an extracted PDF row or a
+ *  committed manually-added row. `key` is the stable identity used both as the
+ *  React key and as the entry in the section's manual row-order list. */
+type SectionItem =
+  | { key: string; kind: "extracted"; row: RawRow }
+  | { key: string; kind: "added"; row: AddedRow };
+
+/** Stable-sort items into the manual order; keys absent from `order` keep
+ *  their default relative position at the end. */
+function applyManualOrder(items: SectionItem[], order: string[]): SectionItem[] {
+  const pos = new Map(order.map((k, i) => [k, i]));
+  return items
+    .map((it, idx) => ({ it, idx }))
+    .sort((a, b) => {
+      const pa = pos.get(a.it.key) ?? Number.MAX_SAFE_INTEGER;
+      const pb = pos.get(b.it.key) ?? Number.MAX_SAFE_INTEGER;
+      return pa !== pb ? pa - pb : a.idx - b.idx;
+    })
+    .map((x) => x.it);
+}
+
 function AsReportedSection({
   title,
   rows,
   scopeTag,
+  category,
+  sectionId,
+  moveDestinations,
   canonicalByLabel,
   dbValueByKey,
+  rowProposals,
   priorValueByKey,
   confidenceByKey,
   precedenceByKey,
@@ -3382,6 +3792,8 @@ function AsReportedSection({
   setPriorYearEdits,
   rowEdits,
   setRowEdits,
+  rowOrder,
+  setRowOrder,
   customKeys,
   addCustomKey,
   addedRows,
@@ -3390,8 +3802,17 @@ function AsReportedSection({
   title: string;
   rows: RawRow[];
   scopeTag?: "COMPANY" | "CONSOLIDATED";
+  /** Key-picker family for this section (income/balance/other). */
+  category: MetricCategory;
+  /** Identity of this section in the move-menu destination list. */
+  sectionId: string;
+  moveDestinations: MoveDestination[];
+  /** Manual within-section order (key list) keyed by sectionId, and its setter. */
+  rowOrder: Record<string, string[]>;
+  setRowOrder: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
   canonicalByLabel: Map<string, string>;
   dbValueByKey: Map<string, string>;
+  rowProposals: Map<RawRow, { main: string | null; prior: string | null }>;
   priorValueByKey: Map<string, string>;
   confidenceByKey: Map<string, number>;
   precedenceByKey: Map<string, string>;
@@ -3412,20 +3833,19 @@ function AsReportedSection({
   // Show rows without an assigned key by default so the reviewer sees every
   // extracted line; offer hiding them instead.
   const [showUnmapped, setShowUnmapped] = useState(true);
+  // Drag-to-reorder state: the key of the row being dragged and the key of the
+  // row currently hovered as a drop target (for the insertion-line highlight).
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   const isMappedRow = (r: RawRow) =>
     canonicalByLabel.has((r.normalizedLabel ?? r.label ?? "").toLowerCase().trim());
 
   // Category for this section's key picker — income sections only offer
-  // income keys, balance sections only balance keys. Derived from the rows'
-  // sectionType (all rows in a section share a family); notes fall back to
-  // OTHER which offers everything.
-  const sectionCategory: MetricCategory =
-    rows.length > 0 && INCOME_SECTIONS.has(rows[0]!.sectionType)
-      ? "INCOME"
-      : rows.length > 0 && BALANCE_SECTIONS.has(rows[0]!.sectionType)
-        ? "BALANCE"
-        : "OTHER";
+  // income keys, balance sections only balance keys; notes (OTHER) offer
+  // everything. Passed in from the panel rather than derived from the rows'
+  // sectionType, because moved rows keep their original sectionType.
+  const sectionCategory: MetricCategory = category;
 
   // Hide soft-deleted rows from the table (they live in the deleted tray).
   const liveRows = rows.filter((r) => !rowEdits[getRowId(r)]?.deleted);
@@ -3475,26 +3895,108 @@ function AsReportedSection({
     addedBySlot.set(slot, bucket);
   }
 
+  // Default-ordered unified list: added rows interleaved at their canonical
+  // slot, extracted rows in page order. This is the order shown until the
+  // reviewer drags a row, at which point rowOrder[sectionId] overrides it.
+  const addedKey = (r: AddedRow) => "added:" + r.id;
+  const defaultItems: SectionItem[] = [];
+  for (const ar of addedBySlot.get(-1) ?? []) {
+    defaultItems.push({ key: addedKey(ar), kind: "added", row: ar });
+  }
+  displayRows.forEach((row, i) => {
+    defaultItems.push({ key: getRowId(row), kind: "extracted", row });
+    for (const ar of addedBySlot.get(i) ?? []) {
+      defaultItems.push({ key: addedKey(ar), kind: "added", row: ar });
+    }
+  });
+  const manualOrder = rowOrder[sectionId];
+  const orderedItems = manualOrder ? applyManualOrder(defaultItems, manualOrder) : defaultItems;
+  const hasManualOrder = manualOrder !== undefined;
+
+  // Move the dragged row to just before/after the drop target and persist the
+  // new key order for this section. Insert direction follows drag direction so
+  // dropping onto a row below lands the row after it (and vice-versa).
+  const reorderTo = (targetKey: string) => {
+    if (!dragKey || dragKey === targetKey) return;
+    const keys = orderedItems.map((it) => it.key);
+    const from = keys.indexOf(dragKey);
+    const to = keys.indexOf(targetKey);
+    if (from === -1 || to === -1) return;
+    const without = keys.filter((k) => k !== dragKey);
+    const targetPos = without.indexOf(targetKey);
+    const insertAt = from < to ? targetPos + 1 : targetPos;
+    without.splice(insertAt, 0, dragKey);
+    setRowOrder((prev) => ({ ...prev, [sectionId]: without }));
+  };
+
+  // Shared drag handle (the grip) placed at the left of every row's label cell.
+  const dragHandle = (key: string) => (
+    <span
+      draggable
+      onDragStart={(e) => {
+        setDragKey(key);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragEnd={() => {
+        setDragKey(null);
+        setDragOverKey(null);
+      }}
+      title="Dra for å endre rekkefølge"
+      className="shrink-0 cursor-grab select-none px-0.5 leading-none text-slate-300 hover:text-slate-500 active:cursor-grabbing"
+    >
+      ⠿
+    </span>
+  );
+
+  // Drop-target props for a row's <tr>. The whole row accepts the drop; a top
+  // border marks the insertion point while hovering.
+  const dropProps = (key: string) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!dragKey) return;
+      e.preventDefault();
+      if (dragOverKey !== key) setDragOverKey(key);
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      reorderTo(key);
+      setDragKey(null);
+      setDragOverKey(null);
+    },
+  });
+  const dropHighlight = (key: string) =>
+    dragKey && dragOverKey === key && dragKey !== key
+      ? " border-t-2 border-t-[var(--px-accent)]"
+      : "";
+
   const renderAddedRow = (r: AddedRow) => {
     const updateAdded = (patch: Partial<AddedRow>) =>
       setAddedRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, ...patch } : x)));
+    const key = addedKey(r);
     return (
       <tr
         key={"added-" + r.id}
-        className="border-b border-[rgba(15,23,42,0.04)] last:border-0 bg-violet-50/30"
+        {...dropProps(key)}
+        className={
+          "border-b border-[rgba(15,23,42,0.04)] last:border-0 bg-violet-50/30" +
+          dropHighlight(key) +
+          (dragKey === key ? " opacity-40" : "")
+        }
       >
         <td className="py-1 pr-2">
-          <div className="flex items-center gap-1.5 border-l-2 border-violet-300 pl-2">
-            <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400"
-              title="Manuelt lagt til"
-            />
-            <input
-              value={r.label}
-              onChange={(e) => updateAdded({ label: e.target.value })}
-              placeholder="Label…"
-              className="w-full min-w-[130px] rounded border border-[rgba(15,23,42,0.10)] bg-white px-1.5 py-0.5 text-xs text-slate-700 placeholder-slate-300 focus:border-[var(--px-accent)] focus:outline-none"
-            />
+          <div className="flex items-center gap-1">
+            {dragHandle(key)}
+            <div className="flex flex-1 items-center gap-1.5 border-l-2 border-violet-300 pl-2">
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400"
+                title="Manuelt lagt til"
+              />
+              <input
+                value={r.label}
+                onChange={(e) => updateAdded({ label: e.target.value })}
+                placeholder="Label…"
+                className="w-full min-w-[130px] rounded border border-[rgba(15,23,42,0.10)] bg-white px-1.5 py-0.5 text-xs text-slate-700 placeholder-slate-300 focus:border-[var(--px-accent)] focus:outline-none"
+              />
+            </div>
           </div>
         </td>
         <td className="py-1 pr-1">
@@ -3534,7 +4036,18 @@ function AsReportedSection({
           </span>
         </td>
         <td className="py-1 pr-1 text-right font-mono text-slate-300">—</td>
-        <td className="py-1 text-center">
+        <td className="py-1 text-center whitespace-nowrap">
+          <MoveRowMenu
+            // Added rows only exist as income/balance — notes is not a target.
+            destinations={moveDestinations.filter((d) => d.statement !== "OTHER")}
+            currentId={sectionId}
+            onMove={(dest) =>
+              updateAdded({
+                statementType: dest.statement as AddedRow["statementType"],
+                statementScope: dest.scope ?? r.statementScope,
+              })
+            }
+          />
           <button
             type="button"
             onClick={() => updateAdded({ deleted: true })}
@@ -3572,6 +4085,21 @@ function AsReportedSection({
           )}
         </div>
         <div className="flex items-center gap-3 text-xs">
+          {hasManualOrder && (
+            <button
+              onClick={() =>
+                setRowOrder((prev) => {
+                  const next = { ...prev };
+                  delete next[sectionId];
+                  return next;
+                })
+              }
+              title="Tilbakestill til opprinnelig rekkefølge"
+              className="rounded border border-[rgba(15,23,42,0.10)] bg-white px-2 py-0.5 text-slate-500 hover:bg-slate-50"
+            >
+              ↩ Standardrekkefølge
+            </button>
+          )}
           <span className="text-slate-500">{mappedCount} mappede</span>
           {unmappedCount > 0 && (
             <button
@@ -3609,9 +4137,18 @@ function AsReportedSection({
             </tr>
           </thead>
           <tbody>
-            {/* Added rows that sort before every extracted row. */}
-            {(addedBySlot.get(-1) ?? []).map((r) => renderAddedRow(r))}
-            {displayRows.map((row, i) => {
+            {orderedItems.map((item) =>
+              item.kind === "added"
+                ? renderAddedRow(item.row)
+                : renderExtractedRow(item.row),
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  function renderExtractedRow(row: RawRow) {
               const lookupKey = (row.normalizedLabel ?? row.label ?? "").toLowerCase().trim();
               const canonicalKey = canonicalByLabel.get(lookupKey) ?? null;
               const isMapped = canonicalKey !== null;
@@ -3626,12 +4163,13 @@ function AsReportedSection({
               const hasKeyOverride =
                 isMapped && canonicalKey !== null && selectedMetricKey !== "" && selectedMetricKey !== canonicalKey;
 
-              const mainProposed = isMapped && canonicalKey
-                ? (dbValueByKey.get(canonicalKey) ?? null)
-                : null;
-              const priorProposed = isMapped && canonicalKey
-                ? (priorValueByKey.get(canonicalKey) ?? null)
-                : null;
+              // Row-identity proposals are year- and row-accurate; the key-level
+              // maps remain the fallback for rows the index couldn't resolve.
+              const rowProposal = rowProposals.get(row) ?? null;
+              const mainProposed = rowProposal?.main
+                ?? (isMapped && canonicalKey ? (dbValueByKey.get(canonicalKey) ?? null) : null);
+              const priorProposed = rowProposal?.prior
+                ?? (isMapped && canonicalKey ? (priorValueByKey.get(canonicalKey) ?? null) : null);
               const [reconstructedMain, reconstructedPrior] = isMapped
                 ? [null, null]
                 : reconstructYearValues(row.values);
@@ -3697,35 +4235,56 @@ function AsReportedSection({
                 ? precedenceByKey.get(canonicalKey)
                 : null;
 
+              const isMoved = rowEdit.movedTo !== undefined;
+
               return (
-                <React.Fragment key={row.pageNumber + "-" + i}>
                 <tr
-                  className={`border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50 ${!isMapped ? "bg-amber-50/20" : ""}`}
+                  key={rowId}
+                  {...dropProps(rowId)}
+                  className={
+                    `border-b border-[rgba(15,23,42,0.04)] last:border-0 hover:bg-slate-50/50 ${!isMapped ? "bg-amber-50/20" : ""}` +
+                    dropHighlight(rowId) +
+                    (dragKey === rowId ? " opacity-40" : "")
+                  }
                 >
                   <td className="py-1 pr-2">
-                    <input
-                      value={rowEdit.labelOverride ?? row.label}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setRowEdits((prev) => ({
-                          ...prev,
-                          [rowId]: {
-                            ...(prev[rowId] ?? {
-                              metricKey: selectedMetricKey,
-                              mainValue: "",
-                              priorValue: "",
-                              sourceMetricKey: canonicalKey,
-                            }),
-                            labelOverride: value,
-                            statementScope: scopeTag,
-                          },
-                        }));
-                      }}
-                      className={
-                        "w-full min-w-[150px] rounded border px-1.5 py-0.5 text-xs focus:outline-none border-[rgba(15,23,42,0.10)] bg-white focus:border-[var(--px-accent)] " +
-                        (isMapped ? "text-slate-700" : "text-slate-500")
-                      }
-                    />
+                    <div className="flex items-center gap-1">
+                      {dragHandle(rowId)}
+                    <div className={
+                      "flex flex-1 items-center gap-1.5 " +
+                      (isMoved ? "border-l-2 border-blue-300 pl-2" : "")
+                    }>
+                      {isMoved && (
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"
+                          title={`Flyttet manuelt · opprinnelig: ${sectionLabel(row.sectionType)}`}
+                        />
+                      )}
+                      <input
+                        value={rowEdit.labelOverride ?? row.label}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setRowEdits((prev) => ({
+                            ...prev,
+                            [rowId]: {
+                              ...(prev[rowId] ?? {
+                                metricKey: selectedMetricKey,
+                                mainValue: "",
+                                priorValue: "",
+                                sourceMetricKey: canonicalKey,
+                              }),
+                              labelOverride: value,
+                              statementScope: scopeTag,
+                            },
+                          }));
+                        }}
+                        className={
+                          "w-full min-w-[150px] rounded border px-1.5 py-0.5 text-xs focus:outline-none border-[rgba(15,23,42,0.10)] bg-white focus:border-[var(--px-accent)] " +
+                          (isMapped ? "text-slate-700" : "text-slate-500")
+                        }
+                      />
+                    </div>
+                    </div>
                   </td>
 
                   <td className="py-1 pr-1">
@@ -3971,7 +4530,46 @@ function AsReportedSection({
                   <td className="py-1 pr-1 text-right font-mono text-slate-400">
                     {confidence != null ? (confidence * 100).toFixed(0) + "%" : "—"}
                   </td>
-                  <td className="py-1 text-center">
+                  <td className="py-1 text-center whitespace-nowrap">
+                    <MoveRowMenu
+                      destinations={moveDestinations}
+                      currentId={sectionId}
+                      moved={isMoved}
+                      onMove={(dest) => {
+                        setRowEdits((prev) => ({
+                          ...prev,
+                          [rowId]: {
+                            ...(prev[rowId] ?? {
+                              metricKey: selectedMetricKey,
+                              mainValue: "",
+                              priorValue: "",
+                              sourceMetricKey: canonicalKey,
+                            }),
+                            movedTo: { statement: dest.statement, scope: dest.scope },
+                          },
+                        }));
+                      }}
+                      onReset={() => {
+                        setRowEdits((prev) => {
+                          const existing = prev[rowId];
+                          if (!existing) return prev;
+                          const { movedTo, ...rest } = existing;
+                          void movedTo;
+                          // Prune the entry when the move was the only edit, so
+                          // the row falls back to pure machine state.
+                          if (
+                            !rest.metricKey &&
+                            !rest.mainValue &&
+                            !rest.priorValue &&
+                            rest.labelOverride === undefined &&
+                            !rest.deleted
+                          ) {
+                            return removeRowEdit(prev, rowId);
+                          }
+                          return { ...prev, [rowId]: rest };
+                        });
+                      }}
+                    />
                     <button
                       type="button"
                       onClick={() => {
@@ -3995,15 +4593,8 @@ function AsReportedSection({
                     </button>
                   </td>
                 </tr>
-                {(addedBySlot.get(i) ?? []).map((added) => renderAddedRow(added))}
-                </React.Fragment>
               );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  }
 }
 
 type DocumentSection = {
