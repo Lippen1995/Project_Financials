@@ -193,10 +193,33 @@ export function buildStatementRowsPreferGeometryFirst(input: {
     if (rows.length > 0) geometryRowsByPage.set(page.pageNumber, rows);
   }
 
-  const result = input.legacyRows.filter((row) => !geometryRowsByPage.has(row.pageNumber));
-  for (const rows of geometryRowsByPage.values()) result.push(...rows);
+  // Drop SUPPLEMENTARY rows. These come from Del-2 — the company's OWN published
+  // report appended after the statutory Del-1 forms — which the Del-1/Del-2
+  // boundary demotes because it re-presents the same statements (usually in
+  // thousands) and would duplicate Del-1's authoritative figures. They are never
+  // a source of primary facts (a genuinely separate konsernregnskap, e.g.
+  // REITAN's, is KEPT as STATUTORY by the second-block rule, not demoted). On the
+  // image-heavy glossy Del-2 pages of large reports, OCR turns charts and prose
+  // into gibberish rows ("uaddninsa" 3, "JIS IA" 39 — NORGESGRUPPEN's 236-page
+  // report flooded the review with ~410 of them). Excluding them keeps both the
+  // canonical facts and the review surface to the actual financial statements.
+  const result = input.legacyRows.filter(
+    (row) =>
+      !geometryRowsByPage.has(row.pageNumber) &&
+      !SUPPLEMENTARY_SECTION_TYPES.has(row.sectionType),
+  );
+  for (const rows of geometryRowsByPage.values()) {
+    for (const row of rows) {
+      if (!SUPPLEMENTARY_SECTION_TYPES.has(row.sectionType)) result.push(row);
+    }
+  }
   return result.sort((a, b) => a.pageNumber - b.pageNumber || a.y - b.y);
 }
+
+const SUPPLEMENTARY_SECTION_TYPES = new Set<StatementSectionType>([
+  "SUPPLEMENTARY_INCOME",
+  "SUPPLEMENTARY_BALANCE",
+]);
 
 /**
  * The loop keeps an alternative only when it strictly wins: publishable
