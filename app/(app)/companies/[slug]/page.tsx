@@ -7,22 +7,18 @@ import { CompanyNarrativesTab } from "@/components/company/company-narratives-ta
 import { CompanyNewsTab } from "@/components/company/company-news-tab";
 import { WatchButton } from "@/components/company/watch-button";
 import { CompanyPetroleumTab } from "@/components/company/company-petroleum-tab";
-import { CompanyTabId, CompanyTabs, isCompanyTab } from "@/components/company/company-tabs";
+import { CompanyTabId, CompanyTabs, resolveCompanyTab } from "@/components/company/company-tabs";
 import { FinancialDocuments } from "@/components/company/financial-documents";
 import { FinancialTimeSeriesTable } from "@/components/company/financial-time-series-table";
 import { KeyFiguresGrid } from "@/components/company/key-figures-grid";
-import { LegalStructure } from "@/components/company/legal-structure";
-import { MetricGrid } from "@/components/company/metric-grid";
-import { OrganizationTab } from "@/components/company/organization-tab";
 import { OwnershipTab } from "@/components/company/ownership/ownership-tab";
+import { ShareholdersTab } from "@/components/company/ownership/shareholders-tab";
 import { OverviewAnalytics } from "@/components/company/overview-analytics";
-import { PremiumLock } from "@/components/paywall/premium-lock";
 import { Card } from "@/components/ui/card";
 import { safeAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CompanyProfile, NormalizedCompany, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
-import { isPremium } from "@/server/billing/subscription";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import { getCompanyDdDiscussionContext } from "@/server/services/company-dd-discussion-service";
 import {
   getCompanyPetroleumProfile,
@@ -37,12 +33,12 @@ import {
   listFinancialMetricCommentThreads,
   listFinancialStatementCommentThreads,
 } from "@/server/services/dd-comment-service";
-import { getLegalStructure } from "@/server/services/legal-structure-service";
 import {
   getCompanyOwnershipOverview,
   getRegisterBackedCompanyProfile,
   type RegisterBackedProfile,
 } from "@/server/ownership/ownership-overview-service";
+import { getCompanyShareholdingOverview } from "@/server/shareholdings/shareholding-service";
 
 function sortStatements(statements: NormalizedFinancialStatement[]) {
   return [...statements].sort((a, b) => a.fiscalYear - b.fiscalYear);
@@ -273,9 +269,9 @@ function HealthGauge({ score }: { score: number }) {
   const circ = 2 * Math.PI * r;
   const offset = circ * (1 - score / 100);
   return (
-    <div className="relative h-[80px] w-[80px]">
+    <div className="relative h-14 w-14 sm:h-20 sm:w-20">
       <svg className="h-full w-full -rotate-90" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(0,102,138,0.12)" strokeWidth="6" />
+        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--px-border)" strokeWidth="6" />
         <circle
           cx="40" cy="40" r={r} fill="none" stroke="var(--px-accent)" strokeWidth="6"
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
@@ -316,20 +312,31 @@ function Sparkline({ values }: { values: (number | null)[] }) {
     .join(" ");
   const isPositive = filtered[filtered.length - 1] >= filtered[0];
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-8 w-20 shrink-0" preserveAspectRatio="none">
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className="hidden h-8 w-20 shrink-0 sm:block"
+      preserveAspectRatio="none"
+    >
       <polyline
         points={points}
         fill="none"
-        stroke={isPositive ? "#10b981" : "#ef4444"}
+        stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
+        className={isPositive ? "text-emerald-600" : "text-rose-500"}
       />
     </svg>
   );
 }
 
-function FinancialTrendsStrip({ statements }: { statements: NormalizedFinancialStatement[] }) {
+function FinancialTrendsStrip({
+  statements,
+  employeeCount,
+}: {
+  statements: NormalizedFinancialStatement[];
+  employeeCount?: number | null;
+}) {
   const sorted = sortStatements(statements);
   if (sorted.length === 0) return null;
   const latest = sorted.at(-1);
@@ -340,11 +347,15 @@ function FinancialTrendsStrip({ statements }: { statements: NormalizedFinancialS
     { label: "Omsetning", value: formatCurrency(latest?.revenue ?? null), values: sorted.map((s) => s.revenue ?? null) },
     { label: "EBIT", value: formatCurrency(latest?.operatingProfit ?? null), values: sorted.map((s) => s.operatingProfit ?? null) },
     { label: "EK-andel", value: ratioLabel(equityRatios.at(-1) ?? null), values: equityRatios },
+    { label: "Ansatte", value: formatNumber(employeeCount), values: [] },
   ];
   return (
-    <div className="grid grid-cols-3 divide-x divide-[rgba(15,23,42,0.08)] rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white">
+    <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] lg:grid-cols-4 lg:divide-x lg:divide-[var(--px-border)]">
       {metrics.map(({ label, value, values }) => (
-        <div key={label} className="flex items-center justify-between gap-3 p-4">
+        <div
+          key={label}
+          className="flex min-h-20 items-center justify-between gap-4 border-b border-r border-[var(--px-border)] p-4 [&:nth-child(even)]:border-r-0 [&:nth-last-child(-n+2)]:border-b-0 sm:min-h-24 sm:p-5 lg:border-b-0 lg:border-r-0"
+        >
           <div className="min-w-0">
             <div className="data-label text-[10px] font-semibold uppercase text-[var(--px-muted)]">{label}</div>
             <div className="mt-1 text-[1.1rem] font-semibold tabular-nums text-slate-950">{value}</div>
@@ -371,18 +382,18 @@ function CompanyHeader({
   const municipality = company.municipality ?? company.addresses[0]?.city ?? null;
 
   return (
-    <section className="border-b border-[rgba(15,23,42,0.08)] pb-8">
-      <div className="flex items-start justify-between gap-6">
+    <section className="pb-2">
+      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
           {company.legalForm ? (
-            <div className="inline-flex items-center rounded-md bg-[var(--px-text)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-white">
+            <div className="data-label inline-flex items-center rounded-full bg-[var(--px-panel)] px-3 py-1 text-[10px] font-semibold uppercase text-white">
               {company.legalForm}
             </div>
           ) : null}
-          <h1 className="editorial-display mt-3 text-[3rem] leading-[0.96] text-slate-950 sm:text-[4rem] xl:text-[4.5rem]">
+          <h1 className="editorial-display mt-3 text-4xl leading-none text-[var(--px-text)] sm:text-5xl">
             {company.name}
           </h1>
-          <div className="mt-3 text-sm text-slate-500">
+          <div className="mt-2 text-sm text-[var(--px-muted)]">
             Org.nr. {company.orgNumber}
             {company.registeredAt
               ? ` · Registrert ${new Date(company.registeredAt).getFullYear()}`
@@ -423,14 +434,7 @@ function CompanyHeader({
           </div>
         </div>
 
-        <div className="hidden shrink-0 flex-col items-center gap-3 rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5 md:flex">
-          <HealthGauge score={healthScore} />
-          <div className="text-center">
-            <div className="text-[1.8rem] font-semibold tabular-nums text-slate-950">{healthScore}</div>
-            <div className="data-label text-[10px] font-semibold uppercase text-[var(--px-muted)]">
-              Finansiell helse
-            </div>
-          </div>
+        <div className="flex shrink-0 items-center gap-4">
           {watchInfo ? (
             <WatchButton
               isWatched={watchInfo.watchId !== null}
@@ -440,52 +444,18 @@ function CompanyHeader({
               slug={slug}
             />
           ) : null}
+          <div className="flex items-center gap-4 rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 sm:gap-3 sm:px-5 sm:py-4">
+            <HealthGauge score={healthScore} />
+            <div>
+              <div className="text-2xl font-semibold tabular-nums text-[var(--px-text)] sm:text-3xl">{healthScore}</div>
+              <div className="data-label text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                Finansiell helse
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function QuickLinksSidebar({ company }: { company: NormalizedCompany }) {
-  const orgNr = company.orgNumber.replace(/\s/g, "");
-  const brregUrl = `https://www.brreg.no/foretak/oppslag/?orgnr=${orgNr}`;
-  const announcementsUrl =
-    company.announcementsUrl ?? `https://kunngjoring.brreg.no/?q=${orgNr}`;
-
-  return (
-    <aside className="sticky top-[4.5rem] self-start space-y-4">
-      <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-5">
-        <div className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
-          Snarlenker
-        </div>
-        <div className="mt-4 space-y-2">
-          {[
-            { label: "Brønnøysundregistrene", href: brregUrl },
-            { label: "Kunngjøringer", href: announcementsUrl },
-          ].map(({ label, href }) => (
-            <a
-              key={label}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-xl border border-[rgba(15,23,42,0.08)] bg-[var(--px-subtle)] px-4 py-3 text-sm font-semibold text-[var(--px-text)] transition-colors hover:border-[rgba(15,23,42,0.14)] hover:bg-white"
-            >
-              {label}
-              <span className="material-symbols-outlined ml-auto text-[14px] text-[var(--px-muted)]">
-                open_in_new
-              </span>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-[rgba(15,23,42,0.06)] bg-[var(--px-subtle)] p-4 text-xs text-[var(--px-muted)]">
-        <div className="data-label font-semibold uppercase">Datakilde</div>
-        <div className="mt-1">
-          {company.sourceSystem} · oppdatert {formatDate(company.fetchedAt)}
-        </div>
-      </div>
-    </aside>
   );
 }
 
@@ -499,15 +469,14 @@ export default async function CompanyPage({
   const { slug } = await params;
   const query = await searchParams;
   const requestedTab = typeof query.tab === "string" ? query.tab : undefined;
-  const parsedTab = isCompanyTab(requestedTab) ? requestedTab : "oversikt";
+  const parsedTab = resolveCompanyTab(requestedTab);
   const notice = typeof query.notice === "string" ? query.notice : null;
   const error = typeof query.error === "string" ? query.error : null;
   const requestedDdRoomId = typeof query.ddRoom === "string" ? query.ddRoom : null;
 
   const session = await safeAuth();
-  const premium = isPremium(session?.user.subscriptionStatus, session?.user.subscriptionPlan);
   let profile: RegisterBackedProfile | null = await getCompanyProfile(slug, {
-    rolesMode: parsedTab === "oversikt" || parsedTab === "organisasjon" ? "full" : "none",
+    rolesMode: parsedTab === "oversikt" ? "full" : "none",
     financialsMode: parsedTab === "regnskap" ? "full" : "summary",
   });
 
@@ -523,17 +492,12 @@ export default async function CompanyPage({
 
   const {
     company,
-    companyDbId,
-    roles,
     rolesAvailability,
     financialStatements,
     financialStatementsAllScopes,
     financialDocuments,
     financialsAvailability,
-    regulatoryAvailability,
   } = profile;
-  const companyId = companyDbId ?? null;
-  const visibleRoles = premium ? roles : roles.slice(0, 5);
 
   const [petroleumVisibility, watchInfo] = await Promise.all([
     getCompanyPetroleumTabVisibility(company),
@@ -557,8 +521,8 @@ export default async function CompanyPage({
     { id: "oversikt", label: "Oversikt" },
     { id: "regnskap", label: "Regnskap" },
     { id: "nokkeltall", label: "Nøkkeltall" },
-    { id: "eierskap", label: "Eierskap" },
-    { id: "organisasjon", label: "Organisasjon" },
+    { id: "konsern", label: "Konsern" },
+    { id: "aksjonaerer", label: "Aksjonærer" },
     { id: "kunngjoringer", label: "Kunngjøringer" },
     { id: "dokumenter", label: "Dokumenter" },
     { id: "nyheter", label: "Nyheter" },
@@ -569,14 +533,21 @@ export default async function CompanyPage({
   const activeTab =
     parsedTab === "sokkeleksponering" && !petroleumVisibility.available ? "oversikt" : parsedTab;
 
-  const [petroleumProfile, legalStructure, ownershipOverview, announcementsData, narratives] =
-    await Promise.all([
+  const [
+    petroleumProfile,
+    ownershipOverview,
+    shareholdersOverview,
+    announcementsData,
+    narratives,
+  ] = await Promise.all([
     activeTab === "sokkeleksponering" && petroleumVisibility.available
       ? getCompanyPetroleumProfile(company)
       : Promise.resolve(null),
-    activeTab === "organisasjon" ? getLegalStructure(company.orgNumber) : Promise.resolve(null),
-    activeTab === "eierskap"
+    activeTab === "konsern"
       ? getCompanyOwnershipOverview({ orgNumber: company.orgNumber, companyName: company.name })
+      : Promise.resolve(null),
+    activeTab === "aksjonaerer"
+      ? getCompanyShareholdingOverview(company.orgNumber)
       : Promise.resolve(null),
     activeTab === "kunngjoringer" ? getCompanyAnnouncements(company.orgNumber) : Promise.resolve(null),
     activeTab === "dokumenter"
@@ -621,13 +592,14 @@ export default async function CompanyPage({
   ]);
 
   const healthScore = deriveHealthScore(profile);
+  const executiveSignals = getExecutiveSignals(profile);
 
   return (
-    <main className="space-y-6 pb-10">
+    <main className="space-y-4 pb-10 sm:space-y-6">
       <CompanyHeader profile={profile} healthScore={healthScore} watchInfo={watchInfo} slug={slug} />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr),minmax(0,1fr)]">
-        <div className="space-y-6">
+      <div>
+        <div className="space-y-4 sm:space-y-6">
           <CompanyTabs
             companySlug={company.orgNumber}
             activeTab={activeTab}
@@ -682,18 +654,19 @@ export default async function CompanyPage({
 
           {activeTab === "oversikt" ? (
         <>
-          <FinancialTrendsStrip statements={financialStatements} />
-
-          <ExecutiveSnapshot profile={profile} />
-
-          <MetricGrid
+          <FinancialTrendsStrip
+            statements={financialStatements}
             employeeCount={company.employeeCount}
-            legalForm={company.legalForm}
-            vatRegistered={company.vatRegistered}
-            registeredAt={company.registeredAt}
           />
 
-          <OverviewAnalytics company={company} statements={financialStatements} />
+          <OverviewAnalytics
+            company={company}
+            statements={financialStatements}
+            healthScore={healthScore}
+            investigationNotes={executiveSignals.investigationNotes}
+            financialsAvailability={financialsAvailability}
+            rolesAvailability={rolesAvailability}
+          />
         </>
       ) : null}
 
@@ -793,36 +766,12 @@ export default async function CompanyPage({
         </div>
       ) : null}
 
-      {activeTab === "eierskap" && ownershipOverview ? (
+      {activeTab === "konsern" && ownershipOverview ? (
         <OwnershipTab slug={slug} initial={ownershipOverview} />
       ) : null}
 
-      {activeTab === "organisasjon" ? (
-        <div className="space-y-6">
-          {legalStructure ? <LegalStructure structure={legalStructure} /> : null}
-
-          {!premium && roles.length > visibleRoles.length ? (
-            <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-              <PremiumLock
-                title="Premium"
-                description="Utvidet tilgang gir mer komplett visning av roller og relasjoner."
-              />
-            </Card>
-          ) : null}
-
-          <OrganizationTab
-            profile={{
-              company,
-              roles: visibleRoles,
-              rolesAvailability,
-              financialStatements,
-              financialStatementsAllScopes,
-              financialDocuments,
-              financialsAvailability,
-              regulatoryAvailability,
-            }}
-          />
-        </div>
+      {activeTab === "aksjonaerer" && shareholdersOverview ? (
+        <ShareholdersTab slug={slug} initial={shareholdersOverview} />
       ) : null}
 
       {activeTab === "kunngjoringer" ? (
@@ -894,7 +843,6 @@ export default async function CompanyPage({
           ) : null}
         </div>
 
-        <QuickLinksSidebar company={company} />
       </div>
     </main>
   );

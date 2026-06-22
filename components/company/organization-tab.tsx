@@ -253,7 +253,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
               </div>
               <div className="flex min-h-[520px] items-center justify-center p-8">
                 <div className="group relative w-full max-w-[420px]">
-                  <Link href={`/companies/${model.company.orgNumber}?tab=organisasjon`} className="block">
+                  <Link href={`/companies/${model.company.orgNumber}?tab=konsern`} className="block">
                     <div className="rounded-2xl border border-[#0F172A] bg-[#0F172A] p-6 text-white shadow-[0_28px_70px_rgba(15,23,42,0.22)] transition group-hover:-translate-y-1">
                       <div className="flex items-start justify-between gap-4">
                         <div>
@@ -364,7 +364,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                       </div>
                       {owner.orgNumber ? (
                         <Link
-                          href={`/companies/${owner.orgNumber}?tab=organisasjon`}
+                          href={`/companies/${owner.orgNumber}?tab=konsern`}
                           className="inline-flex items-center gap-1 text-sm font-medium text-[#1F4C8F] hover:text-[#173B71]"
                         >
                           Åpne foretak <ArrowUpRight className="size-4" />
@@ -499,7 +499,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                         </div>
                         {advisor.orgNumber ? (
                           <Link
-                            href={`/companies/${advisor.orgNumber}?tab=organisasjon`}
+                            href={`/companies/${advisor.orgNumber}?tab=konsern`}
                             className="inline-flex items-center gap-1 text-sm font-medium text-[#476075] hover:text-[#2E475C]"
                           >
                             Org.nr. {advisor.orgNumber} <ArrowUpRight className="size-4" />
@@ -598,7 +598,7 @@ export function OrganizationTab({ profile }: { profile: CompanyProfile }) {
                   </div>
                   {selected.orgNumber ? (
                     <Link
-                      href={`/companies/${selected.orgNumber}?tab=organisasjon`}
+                      href={`/companies/${selected.orgNumber}?tab=konsern`}
                       className="inline-flex items-center gap-1 rounded-full border border-[#D5DCE5] px-3 py-1.5 text-xs font-semibold text-[#344054] hover:bg-white"
                     >
                       Åpne side <ArrowUpRight className="size-3.5" />

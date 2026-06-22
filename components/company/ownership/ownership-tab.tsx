@@ -1,329 +1,485 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ExternalLink, X } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
 import { relationshipLabel } from "@/server/ownership/ownership-thresholds";
-import type {
-  CompanyHolding,
-  DirectShareholder,
-  OwnershipOverview,
-} from "@/server/ownership/types";
+import type { CompanyHolding, GroupNode, OwnershipOverview } from "@/server/ownership/types";
 
 import { OwnershipChart } from "./ownership-chart";
 import { OwnershipTree } from "./ownership-tree";
 
-const numberFormat = new Intl.NumberFormat("nb-NO");
+type GroupView = "structure" | "network";
+
+const percentFormat = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 1 });
 
 function formatPercent(value: number | null) {
-  if (value === null) return "–";
-  return `${new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 2 }).format(value)} %`;
+  if (value === null) return "Ikke oppgitt";
+  return `${percentFormat.format(value)} %`;
 }
 
-function relationshipBadgeClass(relationship: CompanyHolding["relationship"]) {
-  if (relationship === "SUBSIDIARY") return "border-[#D4E2F4] bg-[#F5F9FF] text-[#173B71]";
-  if (relationship === "ASSOCIATED") return "border-[#E6D9C7] bg-[#FCF7EF] text-[#704E23]";
-  return "border-[rgba(15,23,42,0.1)] bg-[rgba(248,249,250,0.8)] text-slate-600";
+function statusLabel(status: GroupNode["status"]) {
+  if (status === "DISSOLVED") return "Oppløst";
+  if (status === "BANKRUPT") return "Konkurs";
+  if (status === "ACTIVE") return "Aktiv";
+  return "Ukjent";
 }
 
-function SectionHeader({ label, title, lead }: { label: string; title: string; lead: string }) {
-  return (
-    <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
-      <div className="data-label text-[11px] font-semibold uppercase text-slate-500">{label}</div>
-      <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">{title}</h2>
-      <p className="mt-1.5 text-sm leading-6 text-slate-500">{lead}</p>
-    </div>
-  );
-}
-
-function ShareholderTable({ shareholders }: { shareholders: DirectShareholder[] }) {
-  if (shareholders.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-6 text-slate-600">
-        Ingen registrerte aksjonærer for valgt år.
-      </p>
-    );
+function statusClass(status: GroupNode["status"]) {
+  if (status === "DISSOLVED" || status === "BANKRUPT") {
+    return "border-rose-200 bg-rose-50 text-rose-700";
   }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-[rgba(15,23,42,0.08)] text-left text-[11px] uppercase tracking-wide text-slate-500">
-            <th className="py-2 pr-4 font-semibold">Aksjonær</th>
-            <th className="py-2 pr-4 font-semibold">Type</th>
-            <th className="py-2 pr-4 text-right font-semibold">Aksjer</th>
-            <th className="py-2 text-right font-semibold">Eierandel</th>
-          </tr>
-        </thead>
-        <tbody>
-          {shareholders.map((shareholder, index) => (
-            <tr
-              key={`${shareholder.orgNumber ?? shareholder.name}-${shareholder.birthYear ?? index}`}
-              className="border-b border-[rgba(15,23,42,0.05)]"
-            >
-              <td className="py-2 pr-4">
-                {shareholder.orgNumber ? (
-                  <Link
-                    href={`/companies/${shareholder.orgNumber}?tab=eierskap`}
-                    className="font-semibold text-[var(--px-text)] hover:underline"
-                  >
-                    {shareholder.name}
-                  </Link>
-                ) : (
-                  <span className="font-semibold text-slate-900">{shareholder.name}</span>
-                )}
-                <div className="text-[11px] text-slate-500">
-                  {shareholder.orgNumber
-                    ? `Org.nr. ${shareholder.orgNumber}`
-                    : shareholder.birthYear
-                      ? `Født ${shareholder.birthYear}`
-                      : ""}
-                  {shareholder.postalPlace ? ` · ${shareholder.postalPlace}` : ""}
-                </div>
-              </td>
-              <td className="py-2 pr-4 text-slate-600">
-                {shareholder.type === "PERSON"
-                  ? "Person"
-                  : shareholder.type === "COMPANY"
-                    ? "Selskap"
-                    : "Uavklart"}
-              </td>
-              <td className="py-2 pr-4 text-right tabular-nums text-slate-700">
-                {numberFormat.format(BigInt(shareholder.shares))}
-              </td>
-              <td className="py-2 text-right font-semibold tabular-nums text-slate-900">
-                {formatPercent(shareholder.ownershipPercent)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function HoldingsList({ holdings }: { holdings: CompanyHolding[] }) {
-  if (holdings.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-6 text-slate-600">
-        Selskapet eier ingen registrerte aksjeposter i andre selskaper for valgt år.
-      </p>
-    );
+  if (status === "ACTIVE") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
-
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {holdings.map((holding) => (
-        <Link
-          key={holding.orgNumber}
-          href={`/companies/${holding.orgNumber}?tab=eierskap`}
-          className="flex items-center justify-between gap-3 rounded-xl border border-[rgba(15,23,42,0.08)] bg-white px-4 py-3 transition-colors hover:border-[rgba(15,23,42,0.16)]"
-        >
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-900">{holding.name}</div>
-            <div className="text-[11px] text-slate-500">Org.nr. {holding.orgNumber}</div>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <span className="text-sm font-semibold tabular-nums text-slate-900">
-              {formatPercent(holding.ownershipPercent)}
-            </span>
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${relationshipBadgeClass(
-                holding.relationship,
-              )}`}
-            >
-              {relationshipLabel(holding.relationship)}
-            </span>
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
+  return "border-[var(--px-border)] bg-[var(--px-subtle)] text-[var(--px-muted)]";
 }
 
-export function OwnershipTab({
-  slug,
-  initial,
+function findParent(groupNodes: GroupNode[], node: GroupNode | null) {
+  if (!node?.parentOrgNumber) return null;
+  return groupNodes.find((candidate) => candidate.orgNumber === node.parentOrgNumber) ?? null;
+}
+
+function buildSummary(overview: OwnershipOverview) {
+  const group = overview.group;
+  if (!group) return null;
+
+  const currentNode = group.nodes.find((node) => node.orgNumber === group.currentOrgNumber) ?? null;
+  const parent = findParent(group.nodes, currentNode);
+  const subsidiaries = group.nodes.filter((node) => node.relationshipToParent === "SUBSIDIARY").length;
+  const associated = group.nodes.filter((node) => node.relationshipToParent === "ASSOCIATED").length;
+  const dissolved = group.nodes.filter((node) => node.status === "DISSOLVED").length;
+
+  return {
+    currentNode,
+    parent,
+    subsidiaries,
+    associated,
+    dissolved,
+    lead: group.ultimateParent
+      ? `${overview.companyName} inngår i konsernet ${group.ultimateParent.name}.`
+      : `${overview.companyName} er konsernspiss i den rekonstruerte strukturen.`,
+  };
+}
+
+function YearSelect({
+  availableYears,
+  selectedYear,
+  disabled,
+  onChange,
 }: {
-  slug: string;
-  initial: OwnershipOverview;
+  availableYears: number[];
+  selectedYear: number | null;
+  disabled: boolean;
+  onChange: (year: number) => void;
 }) {
+  if (availableYears.length === 0 || selectedYear === null) return null;
+
+  return (
+    <label className="flex items-center gap-2 text-sm text-[var(--px-muted)]">
+      <span className="data-label text-[11px] font-semibold uppercase">År</span>
+      <select
+        value={selectedYear}
+        disabled={disabled}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-2 text-sm font-semibold tabular-nums text-[var(--px-text)] outline-none transition-colors hover:border-[var(--px-accent)] disabled:opacity-50"
+      >
+        {availableYears.map((year) => (
+          <option key={year} value={year}>
+            {year}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ViewSwitch({ view, onChange }: { view: GroupView; onChange: (view: GroupView) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
+        Visning
+      </span>
+      <div className="flex overflow-hidden rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)]">
+        {(
+          [
+            { id: "structure", label: "Struktur" },
+            { id: "network", label: "Nettverk" },
+          ] as const
+        ).map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onChange(option.id)}
+            className={`px-3 py-2 text-[11px] font-semibold transition-colors ${
+              view === option.id
+                ? "bg-[var(--px-action)] text-white"
+                : "text-[var(--px-muted)] hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]"
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DetailPanel({
+  node,
+  parent,
+  selectedYear,
+  onClose,
+}: {
+  node: GroupNode;
+  parent: GroupNode | null;
+  selectedYear: number | null;
+  onClose: () => void;
+}) {
+  const role =
+    node.relationshipToParent === null ? "Konsernspiss" : relationshipLabel(node.relationshipToParent);
+
+  return (
+    <aside className="sticky top-36 h-fit rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
+            Selskapsdetaljer
+          </div>
+          <h3 className="mt-2 text-lg font-semibold leading-tight text-[var(--px-text)]">
+            {node.name}
+          </h3>
+          <p className="mt-1 text-xs tabular-nums text-[var(--px-muted)]">Org.nr. {node.orgNumber}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full border border-[var(--px-border)] p-2 text-[var(--px-muted)] transition-colors hover:border-[var(--px-accent)] hover:text-[var(--px-text)]"
+          aria-label="Lukk detaljpanel"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-5 space-y-3 border-t border-[var(--px-border)] pt-4 text-sm">
+        <DetailRow label="Nåværende status">
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(
+              node.status,
+            )}`}
+          >
+            {statusLabel(node.status)}
+          </span>
+        </DetailRow>
+        <DetailRow label="Rolle i valgt struktur">{role}</DetailRow>
+        <DetailRow label="Forelder i valgt år">{parent?.name ?? "Ingen"}</DetailRow>
+        <DetailRow label="Eierandel i valgt år">{formatPercent(node.ownershipPercent)}</DetailRow>
+        <DetailRow label="Valgt år">{selectedYear ?? "Ikke valgt"}</DetailRow>
+        <DetailRow label="I konsernet valgt år">Ja, node inngår i rekonstruert struktur.</DetailRow>
+        {node.status === "DISSOLVED" ? (
+          <>
+            <DetailRow label="Dagens status">Oppløst</DetailRow>
+            <DetailRow label="Oppløsningsdato">Ikke tilgjengelig i strukturdata</DetailRow>
+          </>
+        ) : null}
+        <DetailRow label="Nøkkeltall">Ikke tilgjengelig i strukturdata</DetailRow>
+        <DetailRow label="Ansatte">Ikke tilgjengelig i strukturdata</DetailRow>
+        <DetailRow label="Siste regnskapsår">Ikke tilgjengelig i strukturdata</DetailRow>
+      </div>
+
+      <Link
+        href={`/companies/${node.orgNumber}?tab=konsern`}
+        className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--px-action-hover)]"
+      >
+        Åpne selskap
+        <ExternalLink className="h-4 w-4" />
+      </Link>
+    </aside>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-1 border-b border-[rgba(15,23,42,0.06)] pb-3 last:border-b-0 last:pb-0">
+      <dt className="data-label text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+        {label}
+      </dt>
+      <dd className="text-[var(--px-text)]">{children}</dd>
+    </div>
+  );
+}
+
+function formatShares(value: string) {
+  try {
+    return new Intl.NumberFormat("nb-NO").format(BigInt(value));
+  } catch {
+    return value;
+  }
+}
+
+function FinancialPositions({
+  positions,
+  expanded,
+  onToggleExpanded,
+  showEmpty,
+}: {
+  positions: CompanyHolding[];
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  showEmpty: boolean;
+}) {
+  if (positions.length === 0 && !showEmpty) return null;
+
+  const visiblePositions = expanded ? positions : positions.slice(0, 10);
+  const hiddenCount = Math.max(positions.length - visiblePositions.length, 0);
+
+  return (
+    <section className="space-y-3 border-t border-[var(--px-border)] pt-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-[var(--px-text)]">Finansielle posisjoner</h3>
+          <p className="mt-1 text-sm leading-6 text-[var(--px-muted)]">
+            Aksjeposter under 20 % vises som finansielle posisjoner, ikke som konsern- eller
+            tilknyttet selskapsstruktur.
+          </p>
+        </div>
+        {positions.length > 0 ? (
+          <div className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
+            {positions.length} posisjoner
+          </div>
+        ) : null}
+      </div>
+
+      {positions.length > 0 ? (
+        <div className="overflow-x-auto border-y border-[var(--px-border)]">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-[var(--px-border)] text-left">
+                <th className="data-label py-2 pr-4 text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                  Selskap
+                </th>
+                <th className="data-label py-2 pr-4 text-right text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                  Aksjer
+                </th>
+                <th className="data-label py-2 pr-4 text-right text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                  Eierandel
+                </th>
+                <th className="w-10 py-2" aria-label="Åpne selskap" />
+              </tr>
+            </thead>
+            <tbody>
+              {visiblePositions.map((position) => (
+                <tr
+                  key={position.orgNumber}
+                  className="border-b border-[rgba(15,23,42,0.06)] transition-colors last:border-b-0 hover:bg-[var(--px-subtle)]"
+                >
+                  <td className="py-2 pr-4">
+                    <div className="font-semibold text-[var(--px-text)]">{position.name}</div>
+                    <div className="text-xs tabular-nums text-[var(--px-muted)]">
+                      Org.nr. {position.orgNumber}
+                    </div>
+                  </td>
+                  <td className="py-2 pr-4 text-right tabular-nums text-[var(--px-text)]">
+                    {formatShares(position.shares)}
+                  </td>
+                  <td className="py-2 pr-4 text-right font-semibold tabular-nums text-[var(--px-text)]">
+                    {formatPercent(position.ownershipPercent)}
+                  </td>
+                  <td className="py-2 text-right">
+                    <Link
+                      href={`/companies/${position.orgNumber}?tab=konsern`}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--px-muted)] transition-colors hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]"
+                      aria-label={`Åpne ${position.name}`}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] px-4 py-3 text-sm leading-6 text-[var(--px-muted)]">
+          Ingen finansielle posisjoner under 20 % er registrert for valgt år.
+        </p>
+      )}
+
+      {hiddenCount > 0 || expanded ? (
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="text-xs font-semibold text-[var(--px-accent)] hover:underline"
+        >
+          {expanded ? "Vis færre" : `Vis alle ${positions.length} posisjoner`}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+export function OwnershipTab({ slug, initial }: { slug: string; initial: OwnershipOverview }) {
   const [overview, setOverview] = useState<OwnershipOverview>(initial);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState<"chart" | "list">("list");
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [view, setView] = useState<GroupView>("structure");
+  const [selectedOrgNumber, setSelectedOrgNumber] = useState<string | null>(null);
+  const [financialPositionsExpanded, setFinancialPositionsExpanded] = useState(false);
 
   useEffect(() => {
     setOverview(initial);
+    setSelectedOrgNumber(null);
+    setFinancialPositionsExpanded(false);
+    setRequestError(null);
   }, [initial]);
 
   async function selectYear(year: number) {
     if (year === overview.year || loading) return;
     setLoading(true);
+    setRequestError(null);
     try {
       const response = await fetch(`/api/companies/${slug}/group-structure?year=${year}`);
-      if (response.ok) {
-        const payload = (await response.json()) as { data: OwnershipOverview };
-        setOverview(payload.data);
+      if (!response.ok) {
+        setRequestError("Kunne ikke hente konsernstruktur for valgt år.");
+        return;
       }
+      const payload = (await response.json()) as { data: OwnershipOverview };
+      setOverview(payload.data);
+      setSelectedOrgNumber(null);
+      setFinancialPositionsExpanded(false);
     } finally {
       setLoading(false);
     }
   }
 
-  const { group } = overview;
-  const subsidiaryCount = group?.nodes.filter((n) => n.relationshipToParent === "SUBSIDIARY").length ?? 0;
-  const associatedCount = group?.nodes.filter((n) => n.relationshipToParent === "ASSOCIATED").length ?? 0;
-  const currentNode = group?.nodes.find((n) => n.orgNumber === group.currentOrgNumber);
-  const immediateParentName = currentNode?.parentOrgNumber
-    ? (group?.nodes.find((n) => n.orgNumber === currentNode.parentOrgNumber)?.name ?? null)
-    : null;
+  const summary = useMemo(() => buildSummary(overview), [overview]);
+  const selectedNode = useMemo(
+    () => overview.group?.nodes.find((node) => node.orgNumber === selectedOrgNumber) ?? null,
+    [overview.group, selectedOrgNumber],
+  );
+  const selectedParent = useMemo(
+    () => findParent(overview.group?.nodes ?? [], selectedNode),
+    [overview.group, selectedNode],
+  );
+  const financialPositions = useMemo(
+    () =>
+      overview.holdings
+        .filter((holding) => holding.relationship === "MINORITY")
+        .sort((left, right) => (right.ownershipPercent ?? -1) - (left.ownershipPercent ?? -1)),
+    [overview.holdings],
+  );
+  const hasGroupStructure = Boolean(overview.group && overview.group.nodes.length > 1);
 
   return (
-    <div className="space-y-6">
-      <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-              Eierskap og konsern
+    <div className="space-y-5">
+      <section className="space-y-3">
+        <div>
+          <h2 className="editorial-display text-3xl font-semibold text-[var(--px-text)]">
+            Konsernstruktur
+          </h2>
+          {summary ? (
+            <div className="mt-3 space-y-1 text-sm leading-6 text-[var(--px-muted)]">
+              <p className="text-[var(--px-text)]">{summary.lead}</p>
+              <p>
+                Morselskap: {summary.parent?.name ?? "Ingen"} · Direkte eierandel:{" "}
+                {formatPercent(summary.currentNode?.ownershipPercent ?? null)}
+              </p>
+              <p>
+                {summary.subsidiaries} datterselskaper · {summary.associated} tilknyttede selskaper ·{" "}
+                {summary.dissolved} oppløste selskaper
+              </p>
             </div>
-            <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
-              Konsern- og aksjonærstruktur
-            </h2>
-            <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-500">
-              Eierbasert struktur fra Skatteetatens aksjonærregister: datterselskaper (&gt;50 %),
-              tilknyttede selskaper (20–50 %) og hele konsernet over deg når du er kontrollert.
+          ) : (
+            <p className="mt-3 text-sm leading-6 text-[var(--px-muted)]">
+              Konsernstruktur vises når aksjonærregisteret og eierskapskanter er tilgjengelige.
             </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 border-y border-[var(--px-border)] py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-4">
+            <YearSelect
+              availableYears={overview.availableYears}
+              selectedYear={overview.year}
+              disabled={loading}
+              onChange={selectYear}
+            />
+            <ViewSwitch view={view} onChange={setView} />
           </div>
-          {overview.availableYears.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {overview.availableYears.map((year) => (
-                <button
-                  key={year}
-                  type="button"
-                  onClick={() => selectYear(year)}
-                  disabled={loading}
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold tabular-nums transition-colors disabled:opacity-50 ${
-                    year === overview.year
-                      ? "border-[var(--px-action)] bg-[var(--px-action)] text-white"
-                      : "border-[rgba(15,23,42,0.12)] bg-white text-slate-700 hover:border-[rgba(15,23,42,0.2)]"
-                  }`}
-                >
-                  {year}
-                </button>
-              ))}
-            </div>
+          {loading ? (
+            <span className="text-xs font-medium text-[var(--px-muted)]">Laster valgt år...</span>
           ) : null}
         </div>
-      </Card>
+      </section>
+
+      {requestError ? (
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {requestError}
+        </p>
+      ) : null}
 
       {overview.availabilityMessage ? (
-        <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-          <p className="text-sm leading-6 text-slate-600">{overview.availabilityMessage}</p>
-        </Card>
-      ) : (
-        <>
-          {group ? (
-            <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-              <SectionHeader
-                label="Konsernstruktur"
-                title="Konsernstruktur"
-                lead={
-                  group.ultimateParent
-                    ? `${overview.companyName} inngår i et konsern.${
-                        immediateParentName ? ` Morselskapet er ${immediateParentName}.` : ""
-                      }`
-                    : `${overview.companyName} er konsernspiss i sitt eget konsern.`
-                }
+        <p className="rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] px-4 py-3 text-sm leading-6 text-[var(--px-muted)]">
+          {overview.availabilityMessage}
+        </p>
+      ) : null}
+
+      {hasGroupStructure && overview.group ? (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="min-w-0">
+            {view === "network" ? (
+              <OwnershipChart
+                group={overview.group}
+                selectedOrgNumber={selectedOrgNumber}
+                onSelectNode={setSelectedOrgNumber}
               />
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                  <span className="font-semibold tabular-nums text-slate-900">
-                    {subsidiaryCount}
-                  </span>
-                  <span className="-ml-2">datterselskaper</span>
-                  <span className="text-slate-300">·</span>
-                  <span className="font-semibold tabular-nums text-slate-900">
-                    {associatedCount}
-                  </span>
-                  <span className="-ml-2">tilknyttede</span>
-                  {group.truncated ? (
-                    <>
-                      <span className="text-slate-300">·</span>
-                      <span className="text-amber-700">Begrenset visning for store konsern</span>
-                    </>
-                  ) : null}
-                </div>
-                {group.nodes.length > 1 ? (
-                  <div className="flex overflow-hidden rounded-lg border border-[rgba(15,23,42,0.12)]">
-                    {(
-                      [
-                        { id: "list", label: "Struktur" },
-                        { id: "chart", label: "Kart" },
-                      ] as const
-                    ).map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => setView(option.id)}
-                        className={`px-3 py-1 text-[11px] font-semibold transition-colors ${
-                          view === option.id
-                            ? "bg-[var(--px-accent)] text-white"
-                            : "bg-white text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-              <div className="mt-4">
-                {group.nodes.length > 1 ? (
-                  view === "chart" ? (
-                    <OwnershipChart group={group} />
-                  ) : (
-                    <OwnershipTree group={group} />
-                  )
-                ) : (
-                  <p className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-6 text-slate-600">
-                    Ingen registrerte konsernrelasjoner (datter- eller morselskap) for valgt år.
-                  </p>
-                )}
-              </div>
-            </Card>
-          ) : null}
+            ) : (
+              <OwnershipTree
+                group={overview.group}
+                selectedOrgNumber={selectedOrgNumber}
+                onSelectNode={setSelectedOrgNumber}
+              />
+            )}
+          </div>
 
-          <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-            <SectionHeader
-              label="Aksjonærer"
-              title="Hvem eier selskapet"
-              lead="Direkte aksjonærer med eierandel, aggregert over aksjeklasser."
+          {selectedNode ? (
+            <DetailPanel
+              node={selectedNode}
+              parent={selectedParent}
+              selectedYear={overview.year}
+              onClose={() => setSelectedOrgNumber(null)}
             />
-            <div className="mt-4">
-              <ShareholderTable shareholders={overview.directShareholders} />
-            </div>
-          </Card>
+          ) : (
+            <aside className="hidden rounded-2xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] p-5 text-sm leading-6 text-[var(--px-muted)] lg:block">
+              Klikk på en rad eller node for detaljer om rolle, status og eierandel i valgt år.
+            </aside>
+          )}
+        </div>
+      ) : overview.group && financialPositions.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] px-4 py-3 text-sm leading-6 text-[var(--px-muted)]">
+          Ingen registrerte konsernrelasjoner for valgt år.
+        </p>
+      ) : null}
 
-          <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-            <SectionHeader
-              label="Eierposter"
-              title="Hva selskapet eier"
-              lead="Aksjeposter selskapet selv har i andre selskaper."
-            />
-            <div className="mt-4">
-              <HoldingsList holdings={overview.holdings} />
-            </div>
-          </Card>
+      <FinancialPositions
+        positions={financialPositions}
+        expanded={financialPositionsExpanded}
+        onToggleExpanded={() => setFinancialPositionsExpanded((current) => !current)}
+        showEmpty={!hasGroupStructure}
+      />
 
-          {overview.year ? (
-            <p className="px-1 text-xs text-slate-400">
-              Datakilde: Skatteetatens aksjonærregister · skatteåret {overview.year}
-            </p>
-          ) : null}
-        </>
-      )}
+      {overview.group?.truncated ? (
+        <p className="text-xs text-amber-700">
+          Visningen er begrenset fordi konsernet er stort. Dataene er ikke komplettert med syntetiske noder.
+        </p>
+      ) : null}
+
+      <p className="border-t border-[var(--px-border)] pt-3 text-xs leading-5 text-[var(--px-muted)]">
+        Kilde: Rekonstruert konsernstruktur basert på Skatteetatens aksjonærregister,
+        Enhetsregisteret og historiske selskapsstatuser. Valgt år betyr historisk
+        rekonstruksjon av konsernstruktur, ikke aksjonærregister-snapshot.
+      </p>
     </div>
   );
 }

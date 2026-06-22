@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import {
   Background,
@@ -14,6 +13,8 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 
 import { relationshipLabel, type OwnershipRelationship } from "@/server/ownership/ownership-thresholds";
 import type { GroupStructure } from "@/server/ownership/types";
@@ -34,8 +35,10 @@ type CompanyNodeData = {
   isRoot: boolean;
   childCount: number;
   collapsed: boolean;
+  selected: boolean;
   status: "ACTIVE" | "DISSOLVED" | "BANKRUPT" | null;
   onToggle: (orgNumber: string) => void;
+  onSelect: (orgNumber: string) => void;
 };
 
 /** Short marker for companies that are no longer active (null when active/unknown). */
@@ -63,15 +66,18 @@ function CompanyNodeView({ data }: NodeProps<Node<CompanyNodeData>>) {
     ? "border-[var(--px-accent)] bg-[var(--px-accent)] text-white ring-2 ring-[var(--px-accent)] ring-offset-2"
     : data.isRoot
       ? "border-[#192536] bg-[#192536] text-white"
-      : data.relationship === "ASSOCIATED"
-        ? "border-l-4 border-l-[#C9A86A] border-y border-r border-[rgba(15,23,42,0.1)] bg-white text-slate-900"
-        : "border-l-4 border-l-[var(--px-accent)] border-y border-r border-[rgba(15,23,42,0.1)] bg-white text-slate-900";
+    : data.relationship === "ASSOCIATED"
+        ? "border-l-4 border-l-amber-500 border-y border-r border-[rgba(15,23,42,0.1)] bg-[var(--px-surface)] text-[var(--px-text)]"
+        : "border-l-4 border-l-[var(--px-accent)] border-y border-r border-[rgba(15,23,42,0.1)] bg-[var(--px-surface)] text-[var(--px-text)]";
 
-  const subtle = data.isCurrent || data.isRoot ? "text-white/70" : "text-slate-500";
+  const subtle = data.isCurrent || data.isRoot ? "text-white/70" : "text-[var(--px-muted)]";
 
   return (
     <div
-      className={`group relative flex flex-col justify-between rounded-xl px-3.5 py-2.5 shadow-[0_4px_14px_rgba(15,23,42,0.06)] ${tone}`}
+      onClick={() => data.onSelect(data.orgNumber)}
+      className={`group relative flex cursor-pointer flex-col justify-between rounded-xl px-3.5 py-2.5 shadow-[0_4px_14px_rgba(15,23,42,0.06)] ${tone} ${
+        data.selected ? "outline outline-2 outline-offset-2 outline-[var(--px-action)]" : ""
+      }`}
       style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
     >
       <Handle type="target" position={Position.Top} className="!h-1.5 !w-1.5 !border-0 !bg-slate-400" />
@@ -86,7 +92,7 @@ function CompanyNodeView({ data }: NodeProps<Node<CompanyNodeData>>) {
                 : "Selskap"}
           </span>
           {inactiveLabel(data.status) ? (
-            <span className="rounded bg-red-600 px-1 py-px text-[8px] font-bold uppercase leading-none text-white">
+            <span className="rounded-full bg-rose-600 px-1.5 py-px text-[8px] font-bold uppercase leading-none text-white">
               {inactiveLabel(data.status)}
             </span>
           ) : null}
@@ -96,12 +102,17 @@ function CompanyNodeView({ data }: NodeProps<Node<CompanyNodeData>>) {
         ) : null}
       </div>
 
-      <Link
-        href={`/companies/${data.orgNumber}?tab=eierskap`}
-        className="line-clamp-2 text-[13px] font-semibold leading-tight hover:underline"
+      <button
+        type="button"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          data.onSelect(data.orgNumber);
+        }}
+        className="line-clamp-2 text-left text-[13px] font-semibold leading-tight hover:underline"
       >
         {data.name}
-      </Link>
+      </button>
 
       <div className="flex items-center justify-between gap-2">
         <span className={`data-label text-[10px] tabular-nums ${subtle}`}>
@@ -118,7 +129,7 @@ function CompanyNodeView({ data }: NodeProps<Node<CompanyNodeData>>) {
             className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
               data.isCurrent || data.isRoot
                 ? "bg-white/15 text-white hover:bg-white/25"
-                : "bg-[var(--px-accent-soft)] text-[var(--px-accent)] hover:bg-[rgba(0,102,138,0.16)]"
+                : "bg-[var(--px-accent-soft)] text-[var(--px-accent)] hover:bg-[var(--px-subtle)]"
             }`}
             aria-label={data.collapsed ? "Vis datterselskaper" : "Skjul datterselskaper"}
           >
@@ -128,6 +139,18 @@ function CompanyNodeView({ data }: NodeProps<Node<CompanyNodeData>>) {
             {data.childCount}
           </button>
         ) : null}
+        <Link
+          href={`/companies/${data.orgNumber}?tab=konsern`}
+          onClick={(event) => event.stopPropagation()}
+          className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+            data.isCurrent || data.isRoot
+              ? "text-white/70 hover:bg-white/15 hover:text-white"
+              : "text-[var(--px-muted)] hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]"
+          }`}
+          aria-label={`Åpne ${data.name}`}
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
       <Handle type="source" position={Position.Bottom} className="!h-1.5 !w-1.5 !border-0 !bg-slate-400" />
@@ -140,7 +163,7 @@ function OverflowNodeView({ data }: NodeProps<Node<OverflowNodeData>>) {
     <button
       type="button"
       onClick={() => data.onExpand(data.parentOrgNumber)}
-      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[var(--px-accent)] bg-[var(--px-accent-soft)] text-[var(--px-accent)] transition-colors hover:bg-[rgba(0,102,138,0.14)]"
+      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[var(--px-accent)] bg-[var(--px-accent-soft)] text-[var(--px-accent)] transition-colors hover:bg-[var(--px-subtle)]"
       style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
     >
       <Handle type="target" position={Position.Top} className="!h-1.5 !w-1.5 !border-0 !bg-slate-400" />
@@ -156,11 +179,20 @@ const nodeTypes = { company: CompanyNodeView, overflow: OverflowNodeView };
 const LEGEND = [
   { label: "Konsernspiss", className: "bg-[#192536]" },
   { label: "Dette selskapet", className: "bg-[var(--px-accent)]" },
-  { label: "Datterselskap", className: "bg-white border-l-4 border-l-[var(--px-accent)] border border-[rgba(15,23,42,0.15)]" },
-  { label: "Tilknyttet", className: "bg-white border-l-4 border-l-[#C9A86A] border border-[rgba(15,23,42,0.15)]" },
+  { label: "Datterselskap", className: "bg-[var(--px-surface)] border-l-4 border-l-[var(--px-accent)] border border-[rgba(15,23,42,0.15)]" },
+  { label: "Tilknyttet", className: "bg-[var(--px-surface)] border-l-4 border-l-amber-500 border border-[rgba(15,23,42,0.15)]" },
+  { label: "Oppløst", className: "bg-rose-50 border border-rose-200" },
 ];
 
-export function OwnershipChart({ group }: { group: GroupStructure }) {
+export function OwnershipChart({
+  group,
+  selectedOrgNumber,
+  onSelectNode,
+}: {
+  group: GroupStructure;
+  selectedOrgNumber: string | null;
+  onSelectNode: (orgNumber: string) => void;
+}) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() =>
     computeDefaultCollapsed(group.nodes, group.currentOrgNumber),
   );
@@ -214,8 +246,10 @@ export function OwnershipChart({ group }: { group: GroupStructure }) {
               isRoot: node.isRoot,
               childCount: node.childCount,
               collapsed: node.collapsed,
+              selected: node.orgNumber === selectedOrgNumber,
               status: node.status,
               onToggle: toggleNode,
+              onSelect: onSelectNode,
             } satisfies CompanyNodeData,
           }
         : {
@@ -237,17 +271,17 @@ export function OwnershipChart({ group }: { group: GroupStructure }) {
       target: edge.target,
       type: "smoothstep",
       style: {
-        stroke: edge.relationship === "ASSOCIATED" ? "#C9A86A" : "#9DB6D6",
+        stroke: edge.relationship === "ASSOCIATED" ? "var(--px-muted)" : "var(--px-accent)",
         strokeWidth: 1.5,
         strokeDasharray: edge.relationship === "ASSOCIATED" ? "5 4" : undefined,
       },
     }));
 
     return { rfNodes, rfEdges };
-  }, [group, collapsed, expandedOverflow, toggleNode, expandOverflow]);
+  }, [group, collapsed, expandedOverflow, selectedOrgNumber, toggleNode, expandOverflow, onSelectNode]);
 
   return (
-    <div className="h-[600px] w-full overflow-hidden rounded-2xl border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.7)]">
+    <div className="h-[600px] w-full overflow-hidden border-y border-[var(--px-border)] bg-[var(--px-subtle)]">
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
@@ -260,32 +294,32 @@ export function OwnershipChart({ group }: { group: GroupStructure }) {
         nodesConnectable={false}
         proOptions={{ hideAttribution: true }}
       >
-        <Background color="#cdd6e4" gap={24} />
+        <Background color="var(--px-border)" gap={24} />
         <Controls showInteractive={false} />
         <Panel position="top-left" className="!m-3">
           <div className="flex gap-1.5">
             <button
               type="button"
               onClick={expandAll}
-              className="rounded-lg border border-[rgba(15,23,42,0.12)] bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-sm transition-colors hover:border-[rgba(15,23,42,0.2)]"
+              className="rounded-full border border-[rgba(15,23,42,0.12)] bg-[var(--px-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--px-muted)] shadow-sm transition-colors hover:border-[rgba(15,23,42,0.2)]"
             >
               Utvid alle
             </button>
             <button
               type="button"
               onClick={collapseAll}
-              className="rounded-lg border border-[rgba(15,23,42,0.12)] bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-sm transition-colors hover:border-[rgba(15,23,42,0.2)]"
+              className="rounded-full border border-[rgba(15,23,42,0.12)] bg-[var(--px-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--px-muted)] shadow-sm transition-colors hover:border-[rgba(15,23,42,0.2)]"
             >
               Skjul alle
             </button>
           </div>
         </Panel>
         <Panel position="bottom-right" className="!m-3">
-          <div className="flex flex-col gap-1.5 rounded-xl border border-[rgba(15,23,42,0.1)] bg-white/95 p-3 shadow-sm backdrop-blur">
+          <div className="flex flex-col gap-1.5 rounded-xl border border-[rgba(15,23,42,0.1)] bg-[var(--px-surface)] p-3 shadow-sm">
             {LEGEND.map((item) => (
               <div key={item.label} className="flex items-center gap-2">
-                <span className={`h-3 w-5 rounded ${item.className}`} />
-                <span className="text-[11px] font-medium text-slate-600">{item.label}</span>
+                <span className={`h-3 w-5 rounded-full ${item.className}`} />
+                <span className="text-[11px] font-medium text-[var(--px-muted)]">{item.label}</span>
               </div>
             ))}
           </div>

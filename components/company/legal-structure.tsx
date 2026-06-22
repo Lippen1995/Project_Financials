@@ -317,7 +317,7 @@ export function LegalStructure({ structure }: { structure: BrregLegalStructureSn
               ) : null}
               {selectedNode.metadata?.orgNumber ? (
                 <Link
-                  href={`/companies/${selectedNode.metadata.orgNumber}?tab=organisasjon`}
+                  href={`/companies/${selectedNode.metadata.orgNumber}?tab=konsern`}
                   className="inline-flex items-center gap-1 rounded-full border border-[#D5DCE5] px-3 py-2 text-sm font-medium text-[#344054] hover:bg-[#F8FAFC]"
                 >
                   Åpne selskapside <ArrowUpRight className="size-4" />

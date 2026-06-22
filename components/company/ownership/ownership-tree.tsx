@@ -2,24 +2,38 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 
+import { relationshipLabel } from "@/server/ownership/ownership-thresholds";
 import type { GroupNode, GroupStructure } from "@/server/ownership/types";
 
 import { buildChildrenMap } from "./ownership-graph-layout";
 
+const percentFormat = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 1 });
+
 function formatPercent(value: number | null) {
   if (value === null) return "";
-  return `${new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 1 }).format(value)} %`;
+  return `${percentFormat.format(value)} %`;
 }
 
-/** Short red marker for companies that are no longer active (null when active/unknown). */
-function inactiveLabel(status: GroupNode["status"]): string | null {
-  if (status === "BANKRUPT") return "KONKURS";
-  if (status === "DISSOLVED") return "SLETTET";
+function statusLabel(status: GroupNode["status"]): string | null {
+  if (status === "BANKRUPT") return "Konkurs";
+  if (status === "DISSOLVED") return "Oppløst";
   return null;
 }
 
-/** Ancestors of the current company (including itself) — these sit on the highlighted spine. */
+function statusClass(status: GroupNode["status"]) {
+  if (status === "BANKRUPT" || status === "DISSOLVED") {
+    return "border-rose-200 bg-rose-50 text-rose-700";
+  }
+  return "border-[var(--px-border)] bg-[var(--px-subtle)] text-[var(--px-muted)]";
+}
+
+function countryFlag(countryCode?: string | null) {
+  if (!countryCode || countryCode === "NO") return "🇳🇴";
+  return countryCode;
+}
+
 function pathToCurrent(nodes: GroupNode[], currentOrgNumber: string): Set<string> {
   const byOrg = new Map(nodes.map((node) => [node.orgNumber, node]));
   const path = new Set<string>();
@@ -31,114 +45,138 @@ function pathToCurrent(nodes: GroupNode[], currentOrgNumber: string): Set<string
   return path;
 }
 
-function NorwayFlag() {
-  // Inline SVG — Windows has no flag-emoji font, so 🇳🇴 would render as "NO".
-  return (
-    <svg
-      width="14"
-      height="10"
-      viewBox="0 0 22 16"
-      className="inline-block shrink-0 rounded-[1px] ring-1 ring-black/5"
-      aria-label="Norge"
-      role="img"
-    >
-      <rect width="22" height="16" fill="#ef2b2d" />
-      <rect x="6" width="4" height="16" fill="#fff" />
-      <rect y="6" width="22" height="4" fill="#fff" />
-      <rect x="7" width="2" height="16" fill="#002868" />
-      <rect y="7" width="22" height="2" fill="#002868" />
-    </svg>
-  );
-}
-
-function NodeDot({ onPath, current }: { onPath: boolean; current: boolean }) {
-  if (current) {
-    return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--px-accent)]" />;
-  }
-  if (onPath) {
-    return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--px-accent)]" />;
-  }
-  return <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-slate-300 bg-slate-200" />;
-}
-
 function TreeRow({
   node,
   childrenMap,
   collapsed,
   toggle,
   currentOrgNumber,
+  selectedOrgNumber,
   path,
+  onSelectNode,
 }: {
   node: GroupNode;
   childrenMap: Map<string, GroupNode[]>;
   collapsed: Set<string>;
   toggle: (org: string) => void;
   currentOrgNumber: string;
+  selectedOrgNumber: string | null;
   path: Set<string>;
+  onSelectNode: (orgNumber: string) => void;
 }) {
   const children = childrenMap.get(node.orgNumber) ?? [];
   const hasChildren = children.length > 0;
   const isCollapsed = collapsed.has(node.orgNumber);
   const isCurrent = node.orgNumber === currentOrgNumber;
+  const isSelected = node.orgNumber === selectedOrgNumber;
   const onPath = path.has(node.orgNumber);
-  const percent = formatPercent(node.ownershipPercent);
+  const inactive = statusLabel(node.status);
+  const relationship =
+    node.relationshipToParent === null ? "Konsernspiss" : relationshipLabel(node.relationshipToParent);
 
   return (
-    <div className="relative">
-      <div className="flex items-center gap-2 py-[3px]">
-        <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-500">
-          {percent}
-        </span>
-
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onSelectNode(node.orgNumber)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onSelectNode(node.orgNumber);
+          }
+        }}
+        className={`group grid cursor-pointer grid-cols-[2.75rem_3.75rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[rgba(15,23,42,0.06)] px-2 py-2 text-sm outline-none transition-colors hover:bg-[var(--px-subtle)] ${
+          isSelected ? "bg-[var(--px-accent-soft)]" : ""
+        }`}
+      >
         <button
           type="button"
-          onClick={() => hasChildren && toggle(node.orgNumber)}
-          className={`flex shrink-0 items-center justify-center ${hasChildren ? "cursor-pointer" : "cursor-default"}`}
-          aria-label={hasChildren ? (isCollapsed ? "Vis datterselskaper" : "Skjul datterselskaper") : undefined}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (hasChildren) toggle(node.orgNumber);
+          }}
+          className={`flex h-7 w-7 items-center justify-center rounded-full text-[var(--px-muted)] transition-colors ${
+            hasChildren ? "hover:bg-[var(--px-surface)] hover:text-[var(--px-text)]" : "cursor-default"
+          }`}
+          aria-label={hasChildren ? (isCollapsed ? "Vis underliggende selskaper" : "Skjul underliggende selskaper") : undefined}
         >
-          <NodeDot onPath={onPath} current={isCurrent} />
+          {hasChildren ? (
+            isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )
+          ) : null}
         </button>
 
-        {isCurrent ? (
-          <span className="rounded-md bg-[var(--px-accent)] px-2.5 py-1 text-[13px] font-semibold text-white">
-            {node.name}
-          </span>
-        ) : (
-          <Link
-            href={`/companies/${node.orgNumber}?tab=eierskap`}
-            className={`text-[13px] hover:underline ${
-              onPath ? "font-semibold text-[var(--px-accent)]" : "font-medium text-[var(--px-accent)]"
-            }`}
-          >
-            {node.name}
-          </Link>
-        )}
+        <span className="text-right text-xs font-semibold tabular-nums text-[var(--px-muted)]">
+          {formatPercent(node.ownershipPercent)}
+        </span>
 
-        <NorwayFlag />
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span
+              className={`truncate font-semibold ${
+                isCurrent
+                  ? "rounded-full bg-[var(--px-action)] px-2 py-0.5 text-white"
+                  : onPath
+                    ? "text-[var(--px-accent)]"
+                    : "text-[var(--px-text)]"
+              }`}
+            >
+              {node.name}
+            </span>
+            <span className="text-xs" aria-label="Land">
+              {countryFlag("NO")}
+            </span>
+            <span className="data-label text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+              {relationship}
+            </span>
+            {inactive ? (
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusClass(
+                  node.status,
+                )}`}
+              >
+                {inactive}
+              </span>
+            ) : null}
+            {isCurrent ? (
+              <span className="rounded-full border border-[var(--px-accent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--px-accent)]">
+                Søkt selskap
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-1 hidden text-xs text-[var(--px-muted)] group-hover:block">
+            Org.nr. {node.orgNumber} · {node.childCount} direkte underliggende · Regnskap/ansatte vises
+            når tilgjengelig i normalisert strukturdata
+          </div>
+        </div>
 
-        {inactiveLabel(node.status) ? (
-          <span className="text-[11px] font-semibold text-red-600">
-            ({inactiveLabel(node.status)})
-          </span>
-        ) : null}
-
-        {hasChildren && isCollapsed ? (
-          <span className="text-[11px] tabular-nums text-slate-400">({node.childCount})</span>
-        ) : null}
+        <Link
+          href={`/companies/${node.orgNumber}?tab=konsern`}
+          onClick={(event) => event.stopPropagation()}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--px-muted)] opacity-0 transition-opacity hover:bg-[var(--px-surface)] hover:text-[var(--px-text)] group-hover:opacity-100 focus:opacity-100"
+          aria-label={`Åpne ${node.name}`}
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Link>
       </div>
 
       {hasChildren && !isCollapsed ? (
-        <div className="ml-[27px] border-l border-dotted border-slate-300">
+        <div className="ml-7 border-l border-dotted border-[var(--px-border)]">
           {children.map((child) => (
-            <div key={child.orgNumber} className="relative pl-5">
-              <span className="absolute left-0 top-[15px] w-4 border-t border-dotted border-slate-300" />
+            <div key={child.orgNumber} className="pl-4">
               <TreeRow
                 node={child}
                 childrenMap={childrenMap}
                 collapsed={collapsed}
                 toggle={toggle}
                 currentOrgNumber={currentOrgNumber}
+                selectedOrgNumber={selectedOrgNumber}
                 path={path}
+                onSelectNode={onSelectNode}
               />
             </div>
           ))}
@@ -148,13 +186,20 @@ function TreeRow({
   );
 }
 
-export function OwnershipTree({ group }: { group: GroupStructure }) {
+export function OwnershipTree({
+  group,
+  selectedOrgNumber,
+  onSelectNode,
+}: {
+  group: GroupStructure;
+  selectedOrgNumber: string | null;
+  onSelectNode: (orgNumber: string) => void;
+}) {
   const childrenMap = useMemo(() => buildChildrenMap(group.nodes), [group.nodes]);
   const path = useMemo(
     () => pathToCurrent(group.nodes, group.currentOrgNumber),
     [group.nodes, group.currentOrgNumber],
   );
-  // Default: fully expanded — the compact indented tree shows the whole konsern at once.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const toggle = (org: string) =>
@@ -173,36 +218,40 @@ export function OwnershipTree({ group }: { group: GroupStructure }) {
   if (!root) return null;
 
   return (
-    <div className="rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white p-4">
-      <div className="mb-1 flex items-center justify-end gap-2">
+    <div>
+      <div className="mb-2 flex items-center justify-end gap-2 text-xs">
         <button
           type="button"
           onClick={() => setCollapsed(new Set())}
-          className="text-[11px] font-semibold text-[var(--px-accent)] hover:underline"
+          className="font-semibold text-[var(--px-accent)] hover:underline"
         >
           Utvid alle
         </button>
-        <span className="text-slate-300">·</span>
+        <span className="text-[var(--px-muted)]">·</span>
         <button
           type="button"
           onClick={() =>
             setCollapsed(
-              new Set(group.nodes.filter((n) => n.depth >= 1 && n.childCount > 0).map((n) => n.orgNumber)),
+              new Set(group.nodes.filter((node) => node.depth >= 1 && node.childCount > 0).map((node) => node.orgNumber)),
             )
           }
-          className="text-[11px] font-semibold text-[var(--px-accent)] hover:underline"
+          className="font-semibold text-[var(--px-accent)] hover:underline"
         >
           Skjul alle
         </button>
       </div>
-      <TreeRow
-        node={root}
-        childrenMap={childrenMap}
-        collapsed={collapsed}
-        toggle={toggle}
-        currentOrgNumber={group.currentOrgNumber}
-        path={path}
-      />
+      <div className="border-t border-[var(--px-border)]">
+        <TreeRow
+          node={root}
+          childrenMap={childrenMap}
+          collapsed={collapsed}
+          toggle={toggle}
+          currentOrgNumber={group.currentOrgNumber}
+          selectedOrgNumber={selectedOrgNumber}
+          path={path}
+          onSelectNode={onSelectNode}
+        />
+      </div>
     </div>
   );
 }

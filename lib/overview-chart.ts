@@ -1,3 +1,4 @@
+import { getHeadlineFinancialStatements } from "@/lib/financial-statements";
 import { NormalizedCompany, NormalizedFinancialStatement } from "@/lib/types";
 
 export type OverviewChartPoint = {
@@ -137,7 +138,7 @@ function calcGrowth(current: number | null, previous: number | null) {
 }
 
 export function getOverviewChartPoints(statements: NormalizedFinancialStatement[]) {
-  const points = statements
+  const points = getHeadlineFinancialStatements(statements)
     .slice()
     .sort((left, right) => left.fiscalYear - right.fiscalYear)
     .map((statement) => {
