@@ -225,6 +225,7 @@ export function mapDbFinancialStatements(
     rawPayload: statement.rawPayload,
     fiscalYear: statement.fiscalYear,
     currency: statement.currency,
+    statementScope: statement.statementScope,
     revenue: toSafeNumber(statement.revenue),
     operatingProfit: toSafeNumber(statement.operatingProfit),
     netIncome: toSafeNumber(statement.netIncome),

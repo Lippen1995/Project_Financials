@@ -56,6 +56,7 @@ import {
 } from "@/integrations/brreg/annual-report-financials/presentation-node-evaluation";
 import { loadNodeEvaluationConfig } from "@/server/services/presentation-node-service";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
+import { getHeadlineFinancialStatements } from "@/lib/financial-statements";
 import { DataAvailability, NormalizedFinancialDocument, NormalizedFinancialStatement } from "@/lib/types";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import { buildOpenDataLoaderComparisonSummary } from "@/server/document-understanding/opendataloader-comparison";
@@ -203,35 +204,6 @@ function mapPublishedStatements(statements: Array<{ fiscalYear: number; currency
     equity: toSafeNumber(statement.equity),
     assets: toSafeNumber(statement.assets),
   }));
-}
-
-/**
- * Reduces a list that may contain both konsern and selskap statements for the
- * same year down to one "headline" statement per fiscal year. Consolidated
- * (konsernregnskap) wins when both exist — it is the figure a group is judged
- * by. Used everywhere that expects one statement per year (KPIs, distress
- * analysis, year-over-year trends); the konsern/selskap toggle uses the full
- * list instead.
- */
-function dedupeToHeadlineStatements(
-  statements: NormalizedFinancialStatement[],
-): NormalizedFinancialStatement[] {
-  const byYear = new Map<number, NormalizedFinancialStatement>();
-  for (const statement of statements) {
-    const existing = byYear.get(statement.fiscalYear);
-    if (!existing) {
-      byYear.set(statement.fiscalYear, statement);
-      continue;
-    }
-    // Prefer the consolidated statement when the same year has both.
-    if (
-      statement.statementScope === "CONSOLIDATED" &&
-      existing.statementScope !== "CONSOLIDATED"
-    ) {
-      byYear.set(statement.fiscalYear, statement);
-    }
-  }
-  return [...byYear.values()].sort((left, right) => right.fiscalYear - left.fiscalYear);
 }
 
 function buildPublicAvailability(statements: NormalizedFinancialStatement[]): DataAvailability {
@@ -2456,7 +2428,7 @@ export async function getPublishedAnnualReportFinancials(orgNumber: string): Pro
   // statements is deduped to one headline statement per year so callers that
   // expect one-per-year (KPIs, distress, trends) are not double-counted.
   const allScopeStatements = mapPublishedStatements(record.financialStatements);
-  const statements = dedupeToHeadlineStatements(allScopeStatements);
+  const statements = getHeadlineFinancialStatements(allScopeStatements);
   const documents = mapPublishedDocuments(record.annualReportFilings);
   return { statements, allScopeStatements, documents, availability: buildPublicAvailability(statements) };
 }

@@ -1,3 +1,4 @@
+import { getHeadlineFinancialStatements } from "@/lib/financial-statements";
 import { mergeIndustryCodeClassification } from "@/lib/industry-code";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import {
@@ -527,7 +528,7 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
       if (cachedStatements) {
         const cached = mapDbFinancialStatements(cachedStatements);
         financials = {
-          statements: cached,
+          statements: getHeadlineFinancialStatements(cached),
           allScopeStatements: cached,
           documents: [],
           availability: {
