@@ -1,0 +1,1898 @@
+{
+  "generatedAt": "2026-06-23T08:43:34.204Z",
+  "evidenceSource": "PDF_VISUALLY_VERIFIED_AS_REPORTED_GOLD_SET_2026_06_23",
+  "reviewerUserId": "cmmsaurk300ecvmm825pota4j",
+  "processed": 13,
+  "skipped": 8,
+  "totalReviewedFacts": 1708,
+  "totalTrainingLabels": 1708,
+  "documents": [
+    {
+      "filingId": "cmq28bc7e0016vmec173ukkpi",
+      "reviewId": "cmqc5ezy9007dvmokv6z23lil",
+      "orgNumber": "819731322",
+      "fiscalYear": 2024,
+      "companyName": "NORGESGRUPPEN ASA",
+      "status": "SKIPPED",
+      "reason": "blocking_validation_errors_after_visual_pass",
+      "attemptedFactCount": 248,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bc7e0016vmec173ukkpi/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      "validation": {
+        "passed": false,
+        "validationScore": 0.38,
+        "hasBlockingErrors": true,
+        "blockingIssues": [
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2023 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "43713981000",
+            "actualValue": "44713981000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_NET_INCOME_MATCH",
+            "message": "[2024 · Selskap] Net income does not reconcile to profit before tax minus tax expense.",
+            "expectedValue": "1828978000",
+            "actualValue": "1728978000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2024 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "44775654000",
+            "actualValue": "45775654000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "938751000",
+            "actualValue": "1523177000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "1466456000",
+            "actualValue": "2313891000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "938751000",
+            "actualValue": "1523177000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2023 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "43713981000",
+            "actualValue": "44713981000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "1466456000",
+            "actualValue": "2313891000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_NET_INCOME_MATCH",
+            "message": "[2024 · Selskap] Net income does not reconcile to profit before tax minus tax expense.",
+            "expectedValue": "1828978000",
+            "actualValue": "1728978000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2024 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "44775654000",
+            "actualValue": "45775654000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "reviewedFactCount": 248
+      }
+    },
+    {
+      "filingId": "cmq28bctk002yvmech5ab55oo",
+      "reviewId": "cmq6jsuo9004dvmvwuhj47kcc",
+      "orgNumber": "987059699",
+      "fiscalYear": 2024,
+      "companyName": "STATKRAFT AS",
+      "status": "SAVED",
+      "factCount": 211,
+      "labelCount": 211,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bctk002yvmech5ab55oo/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 0.84,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "12282000000",
+            "actualValue": "11557000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "973000000",
+            "actualValue": "2468000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "0",
+            "actualValue": "12013000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-528000000",
+            "actualValue": "-4032000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "12282000000",
+            "actualValue": "11557000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "973000000",
+            "actualValue": "2468000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "0",
+            "actualValue": "12013000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-528000000",
+            "actualValue": "-4032000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "reviewedFactCount": 211
+      }
+    },
+    {
+      "filingId": "cmq28bcjn0024vmecn1ob6usc",
+      "reviewId": "cmq6iqhr90020vmdsbvetw9cn",
+      "orgNumber": "912609987",
+      "fiscalYear": 2024,
+      "companyName": "REITAN AS",
+      "status": "SAVED",
+      "factCount": 128,
+      "labelCount": 128,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bcjn0024vmecn1ob6usc/contact-sheet.png",
+        "pages": [
+          23,
+          24,
+          25
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 0.92,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "880000000",
+            "actualValue": "-776000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "1021000000",
+            "actualValue": "-669000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "880000000",
+            "actualValue": "-776000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "1021000000",
+            "actualValue": "-669000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "reviewedFactCount": 128
+      }
+    },
+    {
+      "filingId": "cmobtujr90003vmvorzjg483p",
+      "reviewId": "cmq5rv2dr002cvm606mmrhbm7",
+      "orgNumber": "918298037",
+      "fiscalYear": 2023,
+      "companyName": "PROFF AS",
+      "status": "SAVED",
+      "factCount": 76,
+      "labelCount": 76,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmobtujr90003vmvorzjg483p/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 1,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [],
+        "issues": [],
+        "reviewedFactCount": 76
+      }
+    },
+    {
+      "filingId": "cmobtujrs0007vmvos2b14yat",
+      "reviewId": "cmq5rid3i00imvm4wit7xgr5g",
+      "orgNumber": "918298037",
+      "fiscalYear": 2021,
+      "companyName": "PROFF AS",
+      "status": "SAVED",
+      "factCount": 73,
+      "labelCount": 73,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmobtujrs0007vmvos2b14yat/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 1,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [],
+        "issues": [],
+        "reviewedFactCount": 73
+      }
+    },
+    {
+      "filingId": "cmobtujs10009vmvogmdoowt3",
+      "reviewId": "cmq5rdfo200g1vm4wkoudk7e3",
+      "orgNumber": "918298037",
+      "fiscalYear": 2020,
+      "companyName": "PROFF AS",
+      "status": "SAVED",
+      "factCount": 76,
+      "labelCount": 76,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmobtujs10009vmvogmdoowt3/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 1,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [],
+        "issues": [],
+        "reviewedFactCount": 76
+      }
+    },
+    {
+      "filingId": "cmobtujsb000bvmvoasemqhzr",
+      "reviewId": "cmq5r82yw00e8vm4w4g5ih6xs",
+      "orgNumber": "918298037",
+      "fiscalYear": 2019,
+      "companyName": "PROFF AS",
+      "status": "SAVED",
+      "factCount": 83,
+      "labelCount": 83,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmobtujsb000bvmvoasemqhzr/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 1,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [],
+        "issues": [],
+        "reviewedFactCount": 83
+      }
+    },
+    {
+      "filingId": "cmobtujsq000fvmvo9l9qppa8",
+      "reviewId": "cmq5r2xuu00bvvm4wi59mxzr9",
+      "orgNumber": "918298037",
+      "fiscalYear": 2017,
+      "companyName": "PROFF AS",
+      "status": "SAVED",
+      "factCount": 88,
+      "labelCount": 88,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmobtujsq000fvmvo9l9qppa8/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 1,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [],
+        "issues": [],
+        "reviewedFactCount": 88
+      }
+    },
+    {
+      "filingId": "cmpf7rzqi0007vmusbke18kad",
+      "reviewId": "cmq5qxzkz008svm4w3fjinwc0",
+      "orgNumber": "938701237",
+      "fiscalYear": 2023,
+      "companyName": "CANICA AS",
+      "status": "SKIPPED",
+      "reason": "blocking_validation_errors_after_visual_pass",
+      "attemptedFactCount": 241,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmpf7rzqi0007vmusbke18kad/contact-sheet.png",
+        "pages": [
+          2,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "validation": {
+        "passed": false,
+        "validationScore": 0.66,
+        "hasBlockingErrors": true,
+        "blockingIssues": [
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2023 · Selskap] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "1617110214067",
+            "actualValue": "17110214067",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-455043069",
+            "actualValue": "-74041184",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-496181830",
+            "actualValue": "-288508589",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "22480356",
+            "actualValue": "-276324668",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "14513468",
+            "actualValue": "-969474925",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-455043069",
+            "actualValue": "-74041184",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-496181830",
+            "actualValue": "-288508589",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "22480356",
+            "actualValue": "-276324668",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2023 · Selskap] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "1617110214067",
+            "actualValue": "17110214067",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "14513468",
+            "actualValue": "-969474925",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "reviewedFactCount": 241
+      }
+    },
+    {
+      "filingId": "cmpf7rzra000bvmusjq2317ms",
+      "reviewId": "cmq5qqwgf003ovm4wkzbow0wo",
+      "orgNumber": "938701237",
+      "fiscalYear": 2021,
+      "companyName": "CANICA AS",
+      "status": "SKIPPED",
+      "reason": "blocking_validation_errors_after_visual_pass",
+      "attemptedFactCount": 245,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmpf7rzra000bvmusjq2317ms/contact-sheet.png",
+        "pages": [
+          2,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "validation": {
+        "passed": false,
+        "validationScore": 0.74,
+        "hasBlockingErrors": true,
+        "blockingIssues": [
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2021 · Selskap] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "1117898830782",
+            "actualValue": "17898830782",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2020 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "58884746",
+            "actualValue": "814691721",
+            "context": {
+              "fiscalYear": 2020,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2021 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-4185698",
+            "actualValue": "794441773",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2020 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "58884746",
+            "actualValue": "814691721",
+            "context": {
+              "fiscalYear": 2020,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2021 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-4185698",
+            "actualValue": "794441773",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2021 · Selskap] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "1117898830782",
+            "actualValue": "17898830782",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "reviewedFactCount": 245
+      }
+    },
+    {
+      "filingId": "cmq28bdf5004wvmeckncizu3g",
+      "reviewId": "cmq5qk4pw00devmssz4nem2jd",
+      "orgNumber": "984661185",
+      "fiscalYear": 2023,
+      "companyName": "POSTEN BRING AS",
+      "status": "SAVED",
+      "factCount": 180,
+      "labelCount": 180,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bdf5004wvmeckncizu3g/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4,
+          5,
+          7,
+          8
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 1,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [],
+        "issues": [],
+        "reviewedFactCount": 180
+      }
+    },
+    {
+      "filingId": "cmq28bdeo004uvmecvmlo0cgc",
+      "reviewId": "cmq5qjsyj00hovmucmg4s8vc6",
+      "orgNumber": "984661185",
+      "fiscalYear": 2024,
+      "status": "SKIPPED",
+      "reason": "not_visually_verifiable_statement_pages",
+      "visualEvidence": {
+        "classifierContactSheet": "output/manual-review-visuals/cmq28bdeo004uvmecvmlo0cgc/contact-sheet.png",
+        "extraContactSheets": [
+          "output/manual-review-visuals/cmq28bdeo004uvmecvmlo0cgc/extra-pages-1-20/contact-sheet.png",
+          "output/manual-review-visuals/cmq28bdeo004uvmecvmlo0cgc/extra-pages-20-60/contact-sheet.png",
+          "output/manual-review-visuals/cmq28bdeo004uvmecvmlo0cgc/extra-pages-100-180/contact-sheet.png"
+        ]
+      }
+    },
+    {
+      "filingId": "cmq28bd4z003yvmecsgn9hhcd",
+      "reviewId": "cmq5qbaln0099vmsskgzomp7g",
+      "orgNumber": "936560288",
+      "fiscalYear": 2023,
+      "companyName": "COOP NORGE SA",
+      "status": "SAVED",
+      "factCount": 214,
+      "labelCount": 214,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bd4z003yvmecsgn9hhcd/contact-sheet.png",
+        "pages": [
+          2,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 0.84,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-228000000",
+            "actualValue": "-643000000",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-272000000",
+            "actualValue": "-749000000",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "287000000",
+            "actualValue": "706000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-373000000",
+            "actualValue": "58000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-228000000",
+            "actualValue": "-643000000",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-272000000",
+            "actualValue": "-749000000",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "287000000",
+            "actualValue": "706000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-373000000",
+            "actualValue": "58000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "reviewedFactCount": 214
+      }
+    },
+    {
+      "filingId": "cmq28bd4j003wvmec2h2ha1mt",
+      "reviewId": "cmq5q6d9f00gkvmuc4wsb3qf3",
+      "orgNumber": "936560288",
+      "fiscalYear": 2024,
+      "companyName": "COOP NORGE SA",
+      "status": "SAVED",
+      "factCount": 226,
+      "labelCount": 226,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bd4j003wvmec2h2ha1mt/contact-sheet.png",
+        "pages": [
+          2,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 0.84,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "287000000",
+            "actualValue": "706000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-373000000",
+            "actualValue": "58000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-27000000",
+            "actualValue": "485000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-402000000",
+            "actualValue": "3000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "287000000",
+            "actualValue": "706000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-373000000",
+            "actualValue": "58000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-27000000",
+            "actualValue": "485000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-402000000",
+            "actualValue": "3000000",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "reviewedFactCount": 226
+      }
+    },
+    {
+      "filingId": "cmq28bcu00030vmecprys6r9o",
+      "reviewId": "cmq5q1wcy004ovmss83vwnbtf",
+      "orgNumber": "987059699",
+      "fiscalYear": 2023,
+      "companyName": "STATKRAFT AS",
+      "status": "SAVED",
+      "factCount": 171,
+      "labelCount": 171,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bcu00030vmecprys6r9o/contact-sheet.png",
+        "pages": [
+          2,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 0.92,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "13866000000",
+            "actualValue": "11905000000",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "12282000000",
+            "actualValue": "11557000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "13866000000",
+            "actualValue": "11905000000",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "12282000000",
+            "actualValue": "11557000000",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "reviewedFactCount": 171
+      }
+    },
+    {
+      "filingId": "cmq28bdyz0063vmec99uck14n",
+      "reviewId": "cmq5oo6mc005avmm0jwv0u5et",
+      "orgNumber": "918714529",
+      "fiscalYear": 2025,
+      "companyName": "SANITY AS",
+      "status": "SAVED",
+      "factCount": 82,
+      "labelCount": 82,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bdyz0063vmec99uck14n/contact-sheet.png",
+        "pages": [
+          2,
+          4,
+          5
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 0.92,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "1543102",
+            "actualValue": "4003336",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2025 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "1546287",
+            "actualValue": "3506416",
+            "context": {
+              "fiscalYear": 2025,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "1543102",
+            "actualValue": "4003336",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2025 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "1546287",
+            "actualValue": "3506416",
+            "context": {
+              "fiscalYear": 2025,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "reviewedFactCount": 82
+      }
+    },
+    {
+      "filingId": "cmq28bdm6005ovmeccnihc2o9",
+      "reviewId": "cmq5n87tt004xvmk8wu3cn0ws",
+      "orgNumber": "928846466",
+      "fiscalYear": 2024,
+      "companyName": "CLAIRE KIDS AS",
+      "status": "SKIPPED",
+      "reason": "blocking_validation_errors_after_visual_pass",
+      "attemptedFactCount": 174,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bdm6005ovmeccnihc2o9/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4,
+          7,
+          8,
+          9
+        ]
+      },
+      "validation": {
+        "passed": false,
+        "validationScore": 0.74,
+        "hasBlockingErrors": true,
+        "blockingIssues": [
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2024 · Selskap] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "904737",
+            "actualValue": "2079720",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-30667",
+            "actualValue": "-41946",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-23328",
+            "actualValue": "-58236",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-30667",
+            "actualValue": "-41946",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2024 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-23328",
+            "actualValue": "-58236",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2024 · Selskap] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "904737",
+            "actualValue": "2079720",
+            "context": {
+              "fiscalYear": 2024,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "reviewedFactCount": 174
+      }
+    },
+    {
+      "filingId": "cmq28bdn4005svmeckojefe3f",
+      "reviewId": "cmq28ruqs00hxvmecv3o4dp1w",
+      "orgNumber": "928846466",
+      "fiscalYear": 2022,
+      "companyName": "CLAIRE KIDS AS",
+      "status": "SKIPPED",
+      "reason": "blocking_validation_errors_after_visual_pass",
+      "attemptedFactCount": 148,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bdn4005svmeckojefe3f/contact-sheet.png",
+        "pages": [
+          2,
+          4,
+          5,
+          8,
+          9
+        ]
+      },
+      "validation": {
+        "passed": false,
+        "validationScore": 0.3,
+        "hasBlockingErrors": true,
+        "blockingIssues": [
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_NET_INCOME_MATCH",
+            "message": "[2021 · Konsern] Net income does not reconcile to profit before tax minus tax expense.",
+            "expectedValue": "-213662",
+            "actualValue": "702",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_PROFIT_BEFORE_TAX_MATCH",
+            "message": "[2022 · Konsern] Profit before tax does not reconcile to operating profit plus net financial items.",
+            "expectedValue": "221763",
+            "actualValue": "221",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_NET_INCOME_MATCH",
+            "message": "[2022 · Konsern] Net income does not reconcile to profit before tax minus tax expense.",
+            "expectedValue": "-47839",
+            "actualValue": "5173",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2021 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-37605",
+            "actualValue": "-40",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2021 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-42897",
+            "actualValue": "-40",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-299",
+            "actualValue": "6936",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "53699",
+            "actualValue": "6936",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2021 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-37605",
+            "actualValue": "-40",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2021 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-42897",
+            "actualValue": "-40",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_NET_INCOME_MATCH",
+            "message": "[2021 · Konsern] Net income does not reconcile to profit before tax minus tax expense.",
+            "expectedValue": "-213662",
+            "actualValue": "702",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-299",
+            "actualValue": "6936",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "53699",
+            "actualValue": "6936",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_PROFIT_BEFORE_TAX_MATCH",
+            "message": "[2022 · Konsern] Profit before tax does not reconcile to operating profit plus net financial items.",
+            "expectedValue": "221763",
+            "actualValue": "221",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_NET_INCOME_MATCH",
+            "message": "[2022 · Konsern] Net income does not reconcile to profit before tax minus tax expense.",
+            "expectedValue": "-47839",
+            "actualValue": "5173",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "reviewedFactCount": 148
+      }
+    },
+    {
+      "filingId": "cmq28bdmr005qvmecezqk2wet",
+      "reviewId": "cmq28lqw100davmec4526puk7",
+      "orgNumber": "928846466",
+      "fiscalYear": 2023,
+      "companyName": "CLAIRE KIDS AS",
+      "status": "SAVED",
+      "factCount": 100,
+      "labelCount": 100,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmq28bdmr005qvmecezqk2wet/contact-sheet.png",
+        "pages": [
+          2,
+          4,
+          5,
+          9
+        ]
+      },
+      "validation": {
+        "passed": true,
+        "validationScore": 0.92,
+        "hasBlockingErrors": false,
+        "blockingIssues": [],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-37299",
+            "actualValue": "6936",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-667",
+            "actualValue": "946",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-37299",
+            "actualValue": "6936",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "COMPANY"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2023 · Selskap] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-667",
+            "actualValue": "946",
+            "context": {
+              "fiscalYear": 2023,
+              "statementScope": "COMPANY"
+            }
+          }
+        ],
+        "reviewedFactCount": 100
+      }
+    },
+    {
+      "filingId": "cmpf7rzro000dvmusomkntqwu",
+      "reviewId": "cmpkcpk7x00e9vmt0e7lj686e",
+      "orgNumber": "938701237",
+      "fiscalYear": 2020,
+      "companyName": "CANICA AS",
+      "status": "SKIPPED",
+      "reason": "blocking_validation_errors_after_visual_pass",
+      "attemptedFactCount": 246,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmpf7rzro000dvmusomkntqwu/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "validation": {
+        "passed": false,
+        "validationScore": 0,
+        "hasBlockingErrors": true,
+        "blockingIssues": [
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_OPERATING_PROFIT_MATCH",
+            "message": "[2019 · Konsern] Operating profit does not reconcile to total operating income minus total operating expenses.",
+            "expectedValue": "-384897",
+            "actualValue": "536169",
+            "context": {
+              "fiscalYear": 2019,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2019 · Konsern] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "13710581048",
+            "actualValue": "736600",
+            "context": {
+              "fiscalYear": 2019,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2019 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "1707626",
+            "actualValue": "949990",
+            "context": {
+              "fiscalYear": 2019,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_OPERATING_PROFIT_MATCH",
+            "message": "[2020 · Konsern] Operating profit does not reconcile to total operating income minus total operating expenses.",
+            "expectedValue": "-117536",
+            "actualValue": "-117",
+            "context": {
+              "fiscalYear": 2020,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2020 · Konsern] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "14106791499",
+            "actualValue": "18996",
+            "context": {
+              "fiscalYear": 2020,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2020 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "321543",
+            "actualValue": "4889",
+            "context": {
+              "fiscalYear": 2020,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "warnings": [],
+        "issues": [
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_OPERATING_PROFIT_MATCH",
+            "message": "[2019 · Konsern] Operating profit does not reconcile to total operating income minus total operating expenses.",
+            "expectedValue": "-384897",
+            "actualValue": "536169",
+            "context": {
+              "fiscalYear": 2019,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2019 · Konsern] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "13710581048",
+            "actualValue": "736600",
+            "context": {
+              "fiscalYear": 2019,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2019 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "1707626",
+            "actualValue": "949990",
+            "context": {
+              "fiscalYear": 2019,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_OPERATING_PROFIT_MATCH",
+            "message": "[2020 · Konsern] Operating profit does not reconcile to total operating income minus total operating expenses.",
+            "expectedValue": "-117536",
+            "actualValue": "-117",
+            "context": {
+              "fiscalYear": 2020,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2020 · Konsern] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "14106791499",
+            "actualValue": "18996",
+            "context": {
+              "fiscalYear": 2020,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2020 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "321543",
+            "actualValue": "4889",
+            "context": {
+              "fiscalYear": 2020,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "reviewedFactCount": 246
+      }
+    },
+    {
+      "filingId": "cmpf7rzqw0009vmus6mcvtw4o",
+      "reviewId": "cmpkc3jeo004dvmt0r8jt5dk7",
+      "orgNumber": "938701237",
+      "fiscalYear": 2022,
+      "companyName": "CANICA AS",
+      "status": "SKIPPED",
+      "reason": "blocking_validation_errors_after_visual_pass",
+      "attemptedFactCount": 255,
+      "visualEvidence": {
+        "contactSheet": "output/manual-review-visuals/cmpf7rzqw0009vmus6mcvtw4o/contact-sheet.png",
+        "pages": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "validation": {
+        "passed": false,
+        "validationScore": 0,
+        "hasBlockingErrors": true,
+        "blockingIssues": [
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_OPERATING_PROFIT_MATCH",
+            "message": "[2021 · Konsern] Operating profit does not reconcile to total operating income minus total operating expenses.",
+            "expectedValue": "1132843",
+            "actualValue": "149422",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2021 · Konsern] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "14265935373",
+            "actualValue": "744766",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2021 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "139225",
+            "actualValue": "387813",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_OPERATING_PROFIT_MATCH",
+            "message": "[2022 · Konsern] Operating profit does not reconcile to total operating income minus total operating expenses.",
+            "expectedValue": "2473721",
+            "actualValue": "-240",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2022 · Konsern] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "12951361655",
+            "actualValue": "17653",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2022 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "40021",
+            "actualValue": "4702",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "warnings": [
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2021 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-41184",
+            "actualValue": "184794441773",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-74",
+            "actualValue": "-74041",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "issues": [
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_OPERATING_PROFIT_MATCH",
+            "message": "[2021 · Konsern] Operating profit does not reconcile to total operating income minus total operating expenses.",
+            "expectedValue": "1132843",
+            "actualValue": "149422",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2021 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-41184",
+            "actualValue": "184794441773",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2021 · Konsern] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "14265935373",
+            "actualValue": "744766",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2021 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "139225",
+            "actualValue": "387813",
+            "context": {
+              "fiscalYear": 2021,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "IS_OPERATING_PROFIT_MATCH",
+            "message": "[2022 · Konsern] Operating profit does not reconcile to total operating income minus total operating expenses.",
+            "expectedValue": "2473721",
+            "actualValue": "-240",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "WARNING",
+            "ruleCode": "IS_NET_FINANCIAL_ITEMS_MATCH",
+            "message": "[2022 · Konsern] Net financial items do not reconcile to financial income minus financial expense.",
+            "expectedValue": "-74",
+            "actualValue": "-74041",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_EQUITY_LIABILITIES_MATCH",
+            "message": "[2022 · Konsern] Total equity and liabilities do not reconcile to total equity plus total liabilities.",
+            "expectedValue": "12951361655",
+            "actualValue": "17653",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          },
+          {
+            "severity": "ERROR",
+            "ruleCode": "BS_TOTAL_LIABILITIES_COMPONENTS",
+            "message": "[2022 · Konsern] Total liabilities do not reconcile to non-current (long-term/provisions) plus current liabilities.",
+            "expectedValue": "40021",
+            "actualValue": "4702",
+            "context": {
+              "fiscalYear": 2022,
+              "statementScope": "CONSOLIDATED"
+            }
+          }
+        ],
+        "reviewedFactCount": 255
+      }
+    }
+  ]
+}
