@@ -46,11 +46,40 @@ function toNumber(value: unknown) {
   return null;
 }
 
-export function formatCompactNok(value: number | null | undefined) {
+/**
+ * The unit suffix shown next to amounts. Brreg filings are almost always NOK,
+ * which we render in the Norwegian convention as "kr". A minority of companies
+ * (typically listed ones, e.g. Elopak) report in USD, EUR, etc.; for those we
+ * keep the Norwegian magnitude words (mill./mrd.) but use the ISO code as the
+ * unit, e.g. "1,5 mrd. USD".
+ */
+function currencyUnit(currency?: string | null) {
+  const code = (currency ?? "NOK").trim().toUpperCase();
+  return code === "" || code === "NOK" ? "kr" : code;
+}
+
+/**
+ * Resolves the reporting currency for the overview charts/tables from the
+ * headline statements, falling back to NOK. We use the most recent year's
+ * declared currency as the single currency for the whole series — switching
+ * reporting currency mid-history is rare, and mixed-currency bars would not be
+ * comparable on a shared axis anyway.
+ */
+export function getReportingCurrency(statements: NormalizedFinancialStatement[]) {
+  const latest = getHeadlineFinancialStatements(statements)
+    .slice()
+    .sort((left, right) => left.fiscalYear - right.fiscalYear)
+    .at(-1);
+  const code = latest?.currency?.trim().toUpperCase();
+  return code && code.length > 0 ? code : "NOK";
+}
+
+export function formatCompactNok(value: number | null | undefined, currency?: string | null) {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return "Ikke tilgjengelig";
   }
 
+  const unit = currencyUnit(currency);
   const absolute = Math.abs(value);
   const sign = value < 0 ? "-" : "";
 
@@ -58,44 +87,46 @@ export function formatCompactNok(value: number | null | undefined) {
     return `${sign}${new Intl.NumberFormat("nb-NO", {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
-    }).format(absolute / 1_000_000_000)} mrd. kr`;
+    }).format(absolute / 1_000_000_000)} mrd. ${unit}`;
   }
 
   if (absolute >= 1_000_000) {
     return `${sign}${new Intl.NumberFormat("nb-NO", {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
-    }).format(absolute / 1_000_000)} mill. kr`;
+    }).format(absolute / 1_000_000)} mill. ${unit}`;
   }
 
   if (absolute >= 1_000) {
     return `${sign}${new Intl.NumberFormat("nb-NO", {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
-    }).format(absolute / 1_000)}k kr`;
+    }).format(absolute / 1_000)}k ${unit}`;
   }
 
   return `${sign}${new Intl.NumberFormat("nb-NO", {
     maximumFractionDigits: 0,
-  }).format(absolute)} kr`;
+  }).format(absolute)} ${unit}`;
 }
 
-export function formatAxisNok(value: number) {
+export function formatAxisNok(value: number, currency?: string | null) {
+  const unit = currencyUnit(currency);
+
   if (Math.abs(value) >= 1_000_000) {
     return `${new Intl.NumberFormat("nb-NO", {
       maximumFractionDigits: 1,
-    }).format(value / 1_000_000)} mill. kr`;
+    }).format(value / 1_000_000)} mill. ${unit}`;
   }
 
   if (Math.abs(value) >= 1_000) {
     return `${new Intl.NumberFormat("nb-NO", {
       maximumFractionDigits: 0,
-    }).format(value / 1_000)}k kr`;
+    }).format(value / 1_000)}k ${unit}`;
   }
 
   return `${new Intl.NumberFormat("nb-NO", {
     maximumFractionDigits: 0,
-  }).format(value)} kr`;
+  }).format(value)} ${unit}`;
 }
 
 export function formatSignedPercent(value: number | null | undefined) {
@@ -193,6 +224,7 @@ export function getOverviewSummaryMetrics(
   selectedYear?: number | null,
 ): OverviewSummarySection {
   const points = getOverviewChartPoints(statements);
+  const currency = getReportingCurrency(statements);
   const latest = points.at(-1) ?? null;
   const selected =
     (selectedYear !== null && selectedYear !== undefined
@@ -210,13 +242,13 @@ export function getOverviewSummaryMetrics(
     primaryMetrics: [
       {
         label: "Omsetning",
-        value: formatCompactNok(selected?.revenue ?? null),
+        value: formatCompactNok(selected?.revenue ?? null, currency),
         meta: revenueGrowth !== null ? `${formatSignedPercent(revenueGrowth)} mot forrige år` : undefined,
         tone: revenueGrowth !== null && revenueGrowth < 0 ? "negative" : "default",
       },
       {
         label: "Driftsresultat (EBIT)",
-        value: formatCompactNok(selected?.operatingProfit ?? null),
+        value: formatCompactNok(selected?.operatingProfit ?? null, currency),
         meta: ebitMargin !== null ? `Margin ${formatSignedPercent(ebitMargin)}` : undefined,
         tone:
           selected && selected.operatingProfit !== null && selected.operatingProfit < 0
@@ -225,14 +257,14 @@ export function getOverviewSummaryMetrics(
       },
       {
         label: "Årsresultat",
-        value: formatCompactNok(selected?.netIncome ?? null),
+        value: formatCompactNok(selected?.netIncome ?? null, currency),
         tone: selected && selected.netIncome !== null && selected.netIncome < 0 ? "negative" : "default",
       },
     ],
     secondaryMetrics: [
       {
         label: "Egenkapital",
-        value: formatCompactNok(selected?.equity ?? null),
+        value: formatCompactNok(selected?.equity ?? null, currency),
       },
       {
         label: "Siste årsregnskap",

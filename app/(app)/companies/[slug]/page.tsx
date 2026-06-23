@@ -299,74 +299,6 @@ function deriveHealthScore(profile: CompanyProfile): number {
   return Math.min(100, score);
 }
 
-function Sparkline({ values }: { values: (number | null)[] }) {
-  const filtered = values.filter((v): v is number => v !== null);
-  if (filtered.length < 2) return <div className="h-8 w-20" />;
-  const min = Math.min(...filtered);
-  const max = Math.max(...filtered);
-  const range = max - min || 1;
-  const w = 80;
-  const h = 32;
-  const points = filtered
-    .map((v, i) => `${(i / (filtered.length - 1)) * w},${h - ((v - min) / range) * h}`)
-    .join(" ");
-  const isPositive = filtered[filtered.length - 1] >= filtered[0];
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      className="hidden h-8 w-20 shrink-0 sm:block"
-      preserveAspectRatio="none"
-    >
-      <polyline
-        points={points}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={isPositive ? "text-emerald-600" : "text-rose-500"}
-      />
-    </svg>
-  );
-}
-
-function FinancialTrendsStrip({
-  statements,
-  employeeCount,
-}: {
-  statements: NormalizedFinancialStatement[];
-  employeeCount?: number | null;
-}) {
-  const sorted = sortStatements(statements);
-  if (sorted.length === 0) return null;
-  const latest = sorted.at(-1);
-  const equityRatios = sorted.map((s) =>
-    s.equity != null && s.assets != null && s.assets !== 0 ? (s.equity / s.assets) * 100 : null,
-  );
-  const metrics = [
-    { label: "Omsetning", value: formatCurrency(latest?.revenue ?? null), values: sorted.map((s) => s.revenue ?? null) },
-    { label: "EBIT", value: formatCurrency(latest?.operatingProfit ?? null), values: sorted.map((s) => s.operatingProfit ?? null) },
-    { label: "EK-andel", value: ratioLabel(equityRatios.at(-1) ?? null), values: equityRatios },
-    { label: "Ansatte", value: formatNumber(employeeCount), values: [] },
-  ];
-  return (
-    <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] lg:grid-cols-4 lg:divide-x lg:divide-[var(--px-border)]">
-      {metrics.map(({ label, value, values }) => (
-        <div
-          key={label}
-          className="flex min-h-20 items-center justify-between gap-4 border-b border-r border-[var(--px-border)] p-4 [&:nth-child(even)]:border-r-0 [&:nth-last-child(-n+2)]:border-b-0 sm:min-h-24 sm:p-5 lg:border-b-0 lg:border-r-0"
-        >
-          <div className="min-w-0">
-            <div className="data-label text-[10px] font-semibold uppercase text-[var(--px-muted)]">{label}</div>
-            <div className="mt-1 text-[1.1rem] font-semibold tabular-nums text-slate-950">{value}</div>
-          </div>
-          <Sparkline values={values} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function CompanyHeader({
   profile,
   healthScore,
@@ -592,7 +524,6 @@ export default async function CompanyPage({
   ]);
 
   const healthScore = deriveHealthScore(profile);
-  const executiveSignals = getExecutiveSignals(profile);
 
   return (
     <main className="space-y-4 pb-10 sm:space-y-6">
@@ -653,21 +584,12 @@ export default async function CompanyPage({
           ) : null}
 
           {activeTab === "oversikt" ? (
-        <>
-          <FinancialTrendsStrip
-            statements={financialStatements}
-            employeeCount={company.employeeCount}
-          />
-
-          <OverviewAnalytics
-            company={company}
-            statements={financialStatements}
-            healthScore={healthScore}
-            investigationNotes={executiveSignals.investigationNotes}
-            financialsAvailability={financialsAvailability}
-            rolesAvailability={rolesAvailability}
-          />
-        </>
+        <OverviewAnalytics
+          company={company}
+          roles={profile.roles}
+          statements={financialStatements}
+          financialsAvailability={financialsAvailability}
+        />
       ) : null}
 
       {activeTab === "regnskap" ? (
