@@ -250,6 +250,35 @@ describe("reconstructStatementRowsGeometryFirst", () => {
     ]);
   });
 
+  it("rejoins a stranded leading thousands group before note-zone filtering", () => {
+    const result = reconstructStatementRowsGeometryFirst(
+      page([
+        line([word("2024", 400), word("2023", 700)], 20),
+        line(
+          [
+            word("Kundefordringer", 50),
+            // OCR occasionally leaves the leading group far enough left that
+            // the basic cluster gap sees it as a separate note-zone cluster.
+            word("12", 210, 16),
+            word("560", 320, 24),
+            word("000", 356, 24),
+            word("9", 560, 8),
+            word("531", 620, 24),
+            word("000", 656, 24),
+          ],
+          40,
+        ),
+      ]),
+      classification({ type: "STATUTORY_BALANCE", unitScale: 1 }),
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.values).toEqual([
+      { value: 12560000, columnIndex: 0, x: 210 },
+      { value: 9531000, columnIndex: 1, x: 560 },
+    ]);
+  });
+
   it("parses parenthesised negatives correctly", () => {
     const result = reconstructStatementRowsGeometryFirst(
       page([

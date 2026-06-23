@@ -68,6 +68,7 @@ function isNumericToken(token: string): boolean {
 }
 
 type PositionedToken = { token: string; x: number; rightX: number };
+type NumberCluster = { tokens: PositionedToken[]; rightX: number };
 
 function tokensWithPositions(line: ExtractedLine): PositionedToken[] {
   if (line.words.length === 0) {
@@ -222,6 +223,77 @@ function isNoteReferenceToken(
     distToNearestYear = Math.min(distToNearestYear, Math.abs(token.x - anchor.x));
   }
   return distToNote < distToNearestYear;
+}
+
+function digitText(token: string): string {
+  return token.replace(/\D/g, "");
+}
+
+function isGroupedFinancialNumber(tokens: PositionedToken[]): boolean {
+  if (tokens.length === 0) return false;
+  const groups = tokens.map((token) => digitText(token.token));
+  const [first, ...rest] = groups;
+  if (!first || first.length < 1 || first.length > 3) return false;
+  return rest.every((group) => group.length === 3);
+}
+
+function tokenGap(left: NumberCluster, right: NumberCluster): number {
+  const firstRightToken = right.tokens[0];
+  return firstRightToken ? firstRightToken.x - left.rightX : Infinity;
+}
+
+/**
+ * Rejoins thousands groups that OCR separated into multiple geometry clusters.
+ * The first value column is the vulnerable case: a leading 1-2 digit group can
+ * sit in the gap between the label/note area and the first year anchor. If the
+ * gap to the next group is slightly wider than the normal intra-number
+ * threshold, the old logic dropped the leading group as note-zone noise and
+ * read "12 560 000" as "560000". This pass is conservative: it only joins
+ * adjacent clusters when their combined tokens are still a valid Norwegian
+ * grouped integer and their right edge belongs to the same year column.
+ */
+function rejoinSplitNumberClusters(
+  clusters: NumberCluster[],
+  anchors: ColumnAnchor[],
+  columnSpacing: number,
+): NumberCluster[] {
+  if (clusters.length < 2 || !Number.isFinite(columnSpacing)) return clusters;
+
+  const maxRepairGap = Math.max(80, columnSpacing * 0.35);
+  const repaired: NumberCluster[] = [];
+
+  let i = 0;
+  while (i < clusters.length) {
+    let current: NumberCluster = {
+      tokens: [...clusters[i]!.tokens],
+      rightX: clusters[i]!.rightX,
+    };
+    let j = i + 1;
+
+    while (j < clusters.length) {
+      const next = clusters[j]!;
+      const gap = tokenGap(current, next);
+      if (gap < 0 || gap > maxRepairGap) break;
+
+      const combined: NumberCluster = {
+        tokens: [...current.tokens, ...next.tokens],
+        rightX: Math.max(current.rightX, next.rightX),
+      };
+      if (!isGroupedFinancialNumber(combined.tokens)) break;
+
+      const currentColumn = nearestColumnIndex(current.rightX, anchors);
+      const combinedColumn = nearestColumnIndex(combined.rightX, anchors);
+      if (currentColumn !== combinedColumn) break;
+
+      current = combined;
+      j++;
+    }
+
+    repaired.push(current);
+    i = j;
+  }
+
+  return repaired;
 }
 
 // Bare statement section headers (normalized). These sit above their rows as
@@ -475,7 +547,6 @@ export function reconstructStatementRowsGeometryFirst(
     // a thousands separator. Within-number gaps measured ~40px vs ~200px+
     // between columns on the Canica statements, so this sits well clear of both.
     const clusterGap = columnSpacing * 0.2;
-    type NumberCluster = { tokens: PositionedToken[]; rightX: number };
     const clusters: NumberCluster[] = [];
     for (const token of sortedNumeric) {
       const last = clusters[clusters.length - 1];
@@ -486,6 +557,7 @@ export function reconstructStatementRowsGeometryFirst(
         clusters.push({ tokens: [token], rightX: token.rightX });
       }
     }
+    const repairedClusters = rejoinSplitNumberClusters(clusters, anchors, columnSpacing);
 
     // Header-independent note-column guard. The "Note" reference column sits in
     // the gap between the row label and the first value column; its refs form
@@ -508,7 +580,7 @@ export function reconstructStatementRowsGeometryFirst(
       Number.isFinite(columnSpacing) ? leftmostAnchorX - columnSpacing * 0.5 : -Infinity;
 
     const tokensByColumn = new Map<number, PositionedToken[]>();
-    for (const cluster of clusters) {
+    for (const cluster of repairedClusters) {
       if (cluster.rightX < noteZoneRightBound) {
         continue; // left of the value zone — note reference or label numerics
       }

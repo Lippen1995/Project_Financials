@@ -1,0 +1,691 @@
+{
+  "evidenceSource": "PDF_VISUALLY_VERIFIED_AS_REPORTED_GOLD_SET_2026_06_23",
+  "reviewId": "cmq5ox1b40035vmucklayd0ew",
+  "filingId": "cmq28bbxo0008vmecm33zomyz",
+  "extractionRunId": "cmq5ox0vl0009vmucqdgnykc2",
+  "companyId": "cmq28bbsm0002vmec2ge6ay0g",
+  "orgNumber": "923248579",
+  "companyName": "JOTUN A/S",
+  "fiscalYear": 2024,
+  "scope": "CONSOLIDATED",
+  "asReported": true,
+  "somRapportert": true,
+  "renderedPages": [
+    "C:/Users/simen/Project_Financials/output/jotun-2024-page-5.png",
+    "C:/Users/simen/Project_Financials/output/jotun-2024-page-6.png",
+    "C:/Users/simen/Project_Financials/output/jotun-2024-page-7.png"
+  ],
+  "before": {
+    "reviewedFacts": 16,
+    "factValueLabels": 16
+  },
+  "after": {
+    "reviewedFacts": 114,
+    "factValueLabels": 114,
+    "asReportedLabels": 114
+  },
+  "checks": {
+    "rows": 57,
+    "values": 114,
+    "byPage": {
+      "5": 36,
+      "6": 36,
+      "7": 42
+    },
+    "byYear": {
+      "2023": 57,
+      "2024": 57
+    },
+    "balance2024": {
+      "totalAssets": 34904000000,
+      "totalEquityAndLiabilities": 34904000000,
+      "totalEquityPlusLiabilities": 34904000000
+    },
+    "balance2023": {
+      "totalAssets": 30081000000,
+      "totalEquityAndLiabilities": 30081000000,
+      "totalEquityPlusLiabilities": 30081000000
+    }
+  },
+  "rows": [
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "revenue",
+      "rawLabel": "Operating revenue 2.1",
+      "values": {
+        "2023": 31861000000,
+        "2024": 34206000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "as_reported_share_of_profit_from_associates_and_joint_ventures",
+      "rawLabel": "Share of profit from associates and joint ventures 5.5",
+      "values": {
+        "2023": 1333000000,
+        "2024": 1492000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "total_revenue",
+      "rawLabel": "Sum inntekter",
+      "values": {
+        "2023": 33194000000,
+        "2024": 35698000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "cost_of_goods_sold",
+      "rawLabel": "Cost of goods sold 2.1",
+      "values": {
+        "2023": 16646000000,
+        "2024": 17466000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "payroll_expense",
+      "rawLabel": "Payroll expenses 2.2",
+      "values": {
+        "2023": 4388000000,
+        "2024": 5088000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "depreciation_amortization",
+      "rawLabel": "Depreciation, amortisation and impairment 3.2,3.3",
+      "values": {
+        "2023": 1038000000,
+        "2024": 1160000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "other_operating_expense",
+      "rawLabel": "Other operating expenses 2.3",
+      "values": {
+        "2023": 4693000000,
+        "2024": 5219000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "total_operating_expenses",
+      "rawLabel": "Sum kostnader",
+      "values": {
+        "2023": 26765000000,
+        "2024": 28933000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "operating_profit",
+      "rawLabel": "Driftsresultat",
+      "values": {
+        "2023": 6429000000,
+        "2024": 6765000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "as_reported_net_financial_items_positive_line",
+      "rawLabel": "Net financial items 4.3",
+      "values": {
+        "2023": 552000000,
+        "2024": 916000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "financial_expense",
+      "rawLabel": "Sum finanskostnader",
+      "values": {
+        "2023": 552000000,
+        "2024": 916000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "net_financial_items",
+      "rawLabel": "Netto finans",
+      "values": {
+        "2023": -552000000,
+        "2024": -916000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "profit_before_tax",
+      "rawLabel": "Resultat f?r skattekostnad",
+      "values": {
+        "2023": 5877000000,
+        "2024": 5849000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "tax_expense",
+      "rawLabel": "Income tax expense 5.1",
+      "values": {
+        "2023": 1378000000,
+        "2024": 1400000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "net_income",
+      "rawLabel": "?rsresultat",
+      "values": {
+        "2023": 4499000000,
+        "2024": 4449000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "as_reported_other_comprehensive_income_reclassified_to_profit_or_loss",
+      "rawLabel": "Other comprehensive income to be reclassified to profit or loss in subsequent periods:",
+      "values": {
+        "2023": 280000000,
+        "2024": 1235000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "as_reported_sum_resultatkomponenter_for_ifrs_foretak",
+      "rawLabel": "Sum resultatkomponenter for IFRS-foretak",
+      "values": {
+        "2023": 280000000,
+        "2024": 1235000000
+      }
+    },
+    {
+      "page": 5,
+      "section": "STATUTORY_INCOME",
+      "statementType": "INCOME_STATEMENT",
+      "metricKey": "as_reported_totalresultat",
+      "rawLabel": "Totalresultat",
+      "values": {
+        "2023": 4779000000,
+        "2024": 5684000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_other_intangible_assets",
+      "rawLabel": "Other intangible assets 3.2",
+      "values": {
+        "2023": 877000000,
+        "2024": 911000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "deferred_tax_asset",
+      "rawLabel": "Utsatt skattefordel 5.1",
+      "values": {
+        "2023": 483000000,
+        "2024": 617000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "intangible_assets",
+      "rawLabel": "Sum immaterielle eiendeler",
+      "values": {
+        "2023": 1360000000,
+        "2024": 1528000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "tangible_assets",
+      "rawLabel": "Property, plant and equipment 3.3,5.4",
+      "values": {
+        "2023": 8747000000,
+        "2024": 9511000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "tangible_assets",
+      "rawLabel": "Sum varige driftsmidler",
+      "values": {
+        "2023": 8747000000,
+        "2024": 9511000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_investments_in_associates",
+      "rawLabel": "Investeringer i tilknyttet selskap 5.5",
+      "values": {
+        "2023": 2289000000,
+        "2024": 2798000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_investments_in_shares",
+      "rawLabel": "Investeringer i aksjer og andeler 5.9",
+      "values": {
+        "2023": 6000000,
+        "2024": 7000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_other_non_current_financial_receivables",
+      "rawLabel": "Other non-current financial receivables 4.1,5.9",
+      "values": {
+        "2023": 105000000,
+        "2024": 69000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "financial_fixed_assets",
+      "rawLabel": "Sum finansielle anleggsmidler",
+      "values": {
+        "2023": 2400000000,
+        "2024": 2874000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_sum_anleggsmidler",
+      "rawLabel": "Sum anleggsmidler",
+      "values": {
+        "2023": 12507000000,
+        "2024": 13913000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "inventory",
+      "rawLabel": "Varer Inventories 3.4",
+      "values": {
+        "2023": 4529000000,
+        "2024": 5623000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "inventory",
+      "rawLabel": "Sum varer",
+      "values": {
+        "2023": 4529000000,
+        "2024": 5623000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "trade_receivables",
+      "rawLabel": "Trade and other receivables 3.5,5.9",
+      "values": {
+        "2023": 7654000000,
+        "2024": 9191000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "trade_receivables",
+      "rawLabel": "Sum fordringer",
+      "values": {
+        "2023": 7654000000,
+        "2024": 9191000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "cash_and_cash_equivalents",
+      "rawLabel": "Bankinnskudd, kontanter og lignende Cash and cash equivalents 4.2,5.9",
+      "values": {
+        "2023": 5391000000,
+        "2024": 6177000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "cash_and_cash_equivalents",
+      "rawLabel": "Sum bankinnskudd, kontanter og lignende",
+      "values": {
+        "2023": 5391000000,
+        "2024": 6177000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "current_assets",
+      "rawLabel": "Sum oml?psmidler",
+      "values": {
+        "2023": 17574000000,
+        "2024": 20991000000
+      }
+    },
+    {
+      "page": 6,
+      "section": "STATUTORY_BALANCE",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "total_assets",
+      "rawLabel": "SUM EIENDELER",
+      "values": {
+        "2023": 30081000000,
+        "2024": 34904000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "share_capital",
+      "rawLabel": "Share capital 5.9",
+      "values": {
+        "2023": 103000000,
+        "2024": 103000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "share_capital",
+      "rawLabel": "Sum innskutt egenkapital",
+      "values": {
+        "2023": 103000000,
+        "2024": 103000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "retained_earnings",
+      "rawLabel": "Other equity",
+      "values": {
+        "2023": 17789000000,
+        "2024": 21186000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "retained_earnings",
+      "rawLabel": "Sum opptjent egenkapital",
+      "values": {
+        "2023": 17789000000,
+        "2024": 21186000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_minority_interests",
+      "rawLabel": "Minoritetsinteresser",
+      "values": {
+        "2023": 433000000,
+        "2024": 372000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "total_equity",
+      "rawLabel": "Sum egenkapital",
+      "values": {
+        "2023": 18325000000,
+        "2024": 21661000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_pension_obligations",
+      "rawLabel": "Pensjonsforpliktelser 5.2",
+      "values": {
+        "2023": 279000000,
+        "2024": 373000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_deferred_tax_liability",
+      "rawLabel": "Utsatt skatt 5.1",
+      "values": {
+        "2023": 171000000,
+        "2024": 179000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_provisions",
+      "rawLabel": "Provisions 3.7",
+      "values": {
+        "2023": 144000000,
+        "2024": 179000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "total_provisions",
+      "rawLabel": "Sum avsetninger for forpliktelser",
+      "values": {
+        "2023": 594000000,
+        "2024": 731000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_interest_bearing_debt_non_current",
+      "rawLabel": "Interest-bearing debt 4.1,5.10",
+      "values": {
+        "2023": 2149000000,
+        "2024": 2757000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_other_non_current_liabilities",
+      "rawLabel": "Other non-current liabilities",
+      "values": {
+        "2023": 27000000,
+        "2024": 33000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "total_non_current_liabilities_excl_provisions",
+      "rawLabel": "Sum annen langsiktig gjeld",
+      "values": {
+        "2023": 2176000000,
+        "2024": 2790000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "long_term_liabilities",
+      "rawLabel": "Sum langsiktig gjeld",
+      "values": {
+        "2023": 2770000000,
+        "2024": 3521000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "as_reported_interest_bearing_debt_current",
+      "rawLabel": "Interest-bearing debt 4.1",
+      "values": {
+        "2023": 2163000000,
+        "2024": 2007000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "trade_payables",
+      "rawLabel": "Leverand?rgjeld 5.10",
+      "values": {
+        "2023": 3407000000,
+        "2024": 3955000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "tax_payable",
+      "rawLabel": "Tax payable 5.1",
+      "values": {
+        "2023": 560000000,
+        "2024": 579000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "other_current_liabilities",
+      "rawLabel": "Other current liabilities 3.6,3.7,5",
+      "values": {
+        "2023": 2856000000,
+        "2024": 3181000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "current_liabilities",
+      "rawLabel": "Sum kortsiktig gjeld",
+      "values": {
+        "2023": 8986000000,
+        "2024": 9722000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "total_liabilities",
+      "rawLabel": "Sum gjeld",
+      "values": {
+        "2023": 11756000000,
+        "2024": 13243000000
+      }
+    },
+    {
+      "page": 7,
+      "section": "STATUTORY_BALANCE_CONTINUATION",
+      "statementType": "BALANCE_SHEET",
+      "metricKey": "total_equity_and_liabilities",
+      "rawLabel": "SUM EGENKAPITAL OG GJELD",
+      "values": {
+        "2023": 30081000000,
+        "2024": 34904000000
+      }
+    }
+  ],
+  "mappingCorrections": [
+    {
+      "rawLabel": "Net financial items 4.3",
+      "metricKey": "as_reported_net_financial_items_positive_line",
+      "reason": "Keep Som rapportert row identity separate from canonical subtotal validation key."
+    },
+    {
+      "rawLabel": "Totalresultat",
+      "metricKey": "as_reported_totalresultat",
+      "reason": "Keep Som rapportert row identity separate from canonical subtotal validation key."
+    }
+  ]
+}
