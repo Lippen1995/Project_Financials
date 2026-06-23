@@ -89,18 +89,15 @@
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Skyldig offentlige avgifter","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Skyldig offentlige avgifter","proposedUnitScale":null},"label":1000,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Investeringer i tilknyttet selskap 5.5","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Andre fordringer","proposedUnitScale":null},"label":1000,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Bankinnskudd, kontanter o.l.","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Bankinnskudd, kontanter o.l.","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1000,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Interest-bearing debt 4.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1000,"proposedLabel":null}
@@ -140,9 +137,6 @@
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1000,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Interest-bearing debt 4.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Leverand?rgjeld 5.10","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Leverand?rgjeld 5.10","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1000,"proposedLabel":null}
@@ -165,7 +159,6 @@
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1000,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Bankinnskudd, kontanter o.l.","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Bankinnskudd, kontanter o.l.","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1000,"proposedLabel":null}
@@ -196,7 +189,6 @@
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1000,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Varelager","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Andre fordringer","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Egenkapital 31.12.2024","proposedUnitScale":null},"label":1000,"proposedLabel":null}
@@ -423,7 +415,6 @@
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Share of profit from associates and joint ventures 5.5","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Bankinnskudd, kontanter o.l.","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Bankinnskudd, kontanter o.l.","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1000,"proposedLabel":null}
@@ -478,10 +469,8 @@
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other comprehensive income to be reclassified to profit or loss in subsequent periods:","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Konsernfordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Utsatt skatt","proposedUnitScale":null},"label":1000,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Utsatt skatt","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Bankinnskudd, kontanter o.l.","proposedUnitScale":null},"label":1000,"proposedLabel":null}
 {"filingId":"cmpf7rzpu0005vmus8st1n2l7","features":{"rawLabel":"Bankinnskudd, kontanter o.l.","proposedUnitScale":null},"label":1000,"proposedLabel":null}
@@ -585,19 +574,16 @@
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"SUM EIENDELER","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Selskapskapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Selskapskapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Property, plant and equipment 3.3,5.4","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Overkurs","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Overkurs","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Property, plant and equipment 3.3,5.4","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujqo0001vmvoz4tcie6q","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrj0005vmvopubneto4","features":{"rawLabel":"Salgsinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrj0005vmvopubneto4","features":{"rawLabel":"Salgsinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrj0005vmvopubneto4","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -777,7 +763,6 @@
 {"filingId":"cmq28bc7e0016vmec173ukkpi","features":{"rawLabel":"Overkurs","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bc7e0016vmec173ukkpi","features":{"rawLabel":"Overkurs","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bc7e0016vmec173ukkpi","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bc7e0016vmec173ukkpi","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bc7e0016vmec173ukkpi","features":{"rawLabel":"Annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bc7e0016vmec173ukkpi","features":{"rawLabel":"Annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -953,6 +938,7 @@
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Avskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Avskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Andre driftskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Andre driftskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -962,145 +948,70 @@
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto realisert og urealisert verdipapir","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto realisert og urealisert verdipapir","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto realisert og urealisert valuta og derivater 9","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto realisert og urealisert valuta og derivater 9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Operating revenue 2.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Operating revenue 2.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Share of profit from associates and joint ventures 5.5","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Cost of goods sold 2.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Cost of goods sold 2.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Payroll expenses 2.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Payroll expenses 2.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Depreciation, amortisation and impairment 3.2,3.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Depreciation, amortisation and impairment 3.2,3.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other operating expenses 2.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other operating expenses 2.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Net financial items 4.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Resultat f?r skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Resultat f?r skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other operating expenses 2.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other operating expenses 2.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Income tax expense 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Income tax expense 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"?rsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"?rsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Resultat før skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Resultat før skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Skattekostnad 10","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other comprehensive income to be reclassified to profit or loss in subsequent periods:","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other intangible assets 3.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other intangible assets 3.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Utsatt skattefordel 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Utsatt skattefordel 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Skattekostnad 10","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto estimatavvik pensjon","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto estimatavvik pensjon","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Investeringer i tilknyttet selskap 5.5","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Investeringer i aksjer og andeler 5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Investeringer i aksjer og andeler 5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other non-current financial receivables 4.1,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other non-current financial receivables 4.1,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Varer Inventories 3.4","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Varer Inventories 3.4","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum varer","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum varer","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Trade and other receivables 3.5,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Trade and other receivables 3.5,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Bankinnskudd, kontanter og lignende Cash and cash equivalents 4.2,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Bankinnskudd, kontanter og lignende Cash and cash equivalents 4.2,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum oml?psmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum oml?psmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"SUM EIENDELER","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"SUM EIENDELER","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Share capital 5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Share capital 5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other equity","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other equity","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Pensjonsforpliktelser 5.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Pensjonsforpliktelser 5.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Utsatt skatt 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Utsatt skatt 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Provisions 3.7","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Provisions 3.7","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Interest-bearing debt 4.1,5.10","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Interest-bearing debt 4.1,5.10","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other non-current liabilities","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other non-current liabilities","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Tax payable 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Tax payable 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other current liabilities 3.6,3.7,5","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other current liabilities 3.6,3.7,5","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Net financial items 4.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Resultat før skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Resultat før skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Skattekostnad 10","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Skattekostnad 10","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto estimatavvik pensjon","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Netto estimatavvik pensjon","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other non-current financial receivables 4.1,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Overføringer og disponeringer Ordinært utbytte 18","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum varer","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Overføringer og disponeringer Ordinært utbytte 18","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Udekket tap 18","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Udekket tap 18","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum overferinger og disponeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum overferinger og disponeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"SUM EIENDELER","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Utsatt skattefordel 10","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Utsatt skattefordel 10","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Immatrielle eiendeler 11","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Immatrielle eiendeler 11","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Varige driftsmidler 12","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Provisions 3.7","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Utsatt skatt 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Varige driftsmidler 12","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Interest-bearing debt 4.1,5.10","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Investering i datterselskap 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Investering i datterselskap 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other current liabilities 3.6,3.7,5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other current liabilities 3.6,3.7,5","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Derivater","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Derivater","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Øvrige finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1129,9 +1040,6 @@
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Derivater","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Leieforpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Derivater","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Leieforpliktelser Annen kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Salgsinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Salgsinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1145,9 +1053,11 @@
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Energikjøp 12","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Overferingskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Overferingskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Lennskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Lennskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Avskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Avskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Nedskrivning av varige driftsmidler og immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Nedskrivning av varige driftsmidler og immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Regulatoriske kostnader 18","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Regulatoriske kostnader 18","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1183,6 +1093,7 @@
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"resultat i selskaper innregnet etter egenkapitalmetoden 26","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"resultat i selskaper innregnet etter egenkapitalmetoden 26","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"knyttet til utenlandsk virksomhet avhendet i løpet av året","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"knyttet til utenlandsk virksomhet avhendet i løpet av året","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Valutaomregningseffekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Valutaomregningseffekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"på egenkapitalinstrumenter, etter skatt","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1196,7 +1107,6 @@
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"innregnet etter egenkapitalmetoden","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Eiendeler holdt for salg","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bctk002yvmech5ab55oo","features":{"rawLabel":"Innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1398,8 +1308,8 @@
 {"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"Annen finansinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"Annen finansinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujr90003vmvorzjg483p","features":{"rawLabel":"Sum finanskeostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1474,12 +1384,12 @@
 {"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Annen finansinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Annen finansinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujrs0007vmvos2b14yat","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1536,8 +1446,8 @@
 {"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Varekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Varekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Lennskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Lennskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Lønnskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Lønnskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Avskrivning på varige driftsmidler og immaterielle eiendeler 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Avskrivning på varige driftsmidler og immaterielle eiendeler 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Annen driftskostnad 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1601,10 +1511,6 @@
 {"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Overkurs","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Sum innekutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Sum innekutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Amen langsiktig gjeld Utsatt skatt","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujs10009vmvogmdoowt3","features":{"rawLabel":"Skyldige offentlige avgifter Annen kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Organisasjonenr:","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Salgsinntekter 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Salgsinntekter 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1612,8 +1518,8 @@
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Varekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Varekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Lennskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Lennskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Lønnskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Lønnskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Annen driftskostnad 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Annen driftskostnad 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1693,6 +1599,317 @@
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsq000fvmvo9l9qppa8","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Salgsinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre driftsinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre driftsinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum inntekter 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum inntekter 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Lønnskostnad l, 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Lønnskostnad l, 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Avskrivning på varige driftsmidler 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Avskrivning på varige driftsmidler 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av varige driftsmidler og immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av varige driftsmidler og immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre driftskostnader 1, 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre driftskostnader 1, 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Inntekt på investering i datterselskap","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Inntekt på investering i datterselskap","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"i samme konsern","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"i samme konsern","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen renteinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen renteinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av finansielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av finansielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"i samme konsern","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"i samme konsern","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen rentekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen rentekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Netto finans 7","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Netto finans 7","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other comprehensive income to be reclassified to profit or loss in subsequent periods:","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Årsresultat etter minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Property, plant and equipment 3.3,5.4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Årsresultat etter minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Tomter m.m 4 Bygninger 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Operating revenue 2.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Tomter m.m 4 Bygninger 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Payroll expenses 2.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Depreciation, amortisation and impairment 3.2,3.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre driftsmidler 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre driftsmidler 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Transportmidler 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Investeringer i tilknyttet selskap 5.5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Investeringer i aksjer og andeler 5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Transportmidler 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Varer Inventories 3.4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Maskiner, inventar o. 1. 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"SUM EIENDELER","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Maskiner, inventar o. 1. 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Pensjonsforpliktelser 5.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Investering i datterselskap 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Investering i datterselskap 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Net financial items 4.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Operating revenue 2.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Depreciation, amortisation and impairment 3.2,3.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Utsatt skattefordel 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Investeringer i aksjer og andeler 5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Varer Inventories 3.4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum varer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Trade and other receivables 3.5,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Bankinnskudd, kontanter og lignende Cash and cash equivalents 4.2,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Interest-bearing debt 4.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Share capital 5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other equity","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Utsatt skatt 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Tax payable 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Property, plant and equipment 3.3,5.4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Leverandørgjeld 5.10","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Share of profit from associates and joint ventures 5.5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Cost of goods sold 2.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Net financial items 4.3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Income tax expense 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Utsatt skattefordel 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Trade and other receivables 3.5,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Share capital 5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Interest-bearing debt 4.1,5.10","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Resultat før skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Pensjonsforpliktelser 5.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Leverandørgjeld 5.10","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other intangible assets 3.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Bankinnskudd, kontanter og lignende Cash and cash equivalents 4.2,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"konsern B","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"konsern B","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Investeringer i tilknyttet selskap 6","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Investeringer i tilknyttet selskap 6","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Lån til tilknyttet selskap og felles kontrollert virksomhet l4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Lån til tilknyttet selskap og felles kontrollert virksomhet l4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Investeringer i aksjer og andeler 10","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Investeringer i aksjer og andeler 10","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Fordringer på selskap i samme konsern 9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Fordringer på selskap i samme konsern 9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre kortsiktige fordringer 9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre kortsiktige fordringer 9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Markedsbaserte aksjer 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Markedsbaserte aksjer 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum investeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum investeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Bankinnskudd, kontanter og lignende Bankinnskudd, kontanter o.1 14","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Bankinnskudd, kontanter og lignende Bankinnskudd, kontanter o.1 14","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"SUM EIENDELER","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"SUM EIENDELER","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Aksjekapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Overkurs","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Overkurs","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Pensjonsforpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Pensjonsforpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen langsiktig gjeld Obligasjonslån","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen langsiktig gjeld Obligasjonslån","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Off .avgifter, skattetrekk m.m.","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Off .avgifter, skattetrekk m.m.","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Leieinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Leieinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Salgsinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Salgsinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen driftsinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen driftsinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum inntekter 14","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum inntekter 14","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Varekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Varekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Lønnskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Lønnskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Avskrivning av driftsmidler og immaterielle eiendeler 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Avskrivning av driftsmidler og immaterielle eiendeler 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av varige driftsmidler og immaterielle eiendeler 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av varige driftsmidler og immaterielle eiendeler 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen driftskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen driftskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Inntekt på investering i tilknyttet selskap 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Inntekt på investering i tilknyttet selskap 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen renteinntekt 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen renteinntekt 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen finansinntekt 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen finansinntekt 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Verdireduksjon markedsbaserte omløpsmidler 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Verdireduksjon markedsbaserte omløpsmidler 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av andre finansielle anleggsmidler 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Nedskrivning av andre finansielle anleggsmidler 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"i samme konsern 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"i samme konsern 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen rentekostnad 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen rentekostnad 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen finanskostnad 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen finanskostnad 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Skattekostnad på ordinært resultat 6","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Skattekostnad på ordinært resultat 6","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Årsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Arsresultat etter minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Arsresultat etter minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"disponeringer Avsatt til annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"disponeringer Avsatt til annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Overført fra annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Overført fra annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum overføringer og disponeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum overføringer og disponeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre Immaterielle eiendeler Komplett 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre Immaterielle eiendeler Komplett 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Software Komplett 1 Goodwill 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Software Komplett 1 Goodwill 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Forretningsbygg","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Forretningsbygg","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Driftslesere, inventar o. a. utstyr","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Driftslesere, inventar o. a. utstyr","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum varige driftsmidler 1, 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum varige driftsmidler 1, 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"konsern 8 Investeringer i tilknyttet selskap 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"konsern 8 Investeringer i tilknyttet selskap 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Lån til tilknyttet selskap og felles kontrollert virksomhet 8 l4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Lån til tilknyttet selskap og felles kontrollert virksomhet 8 l4","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Investeringer i aksjer og andeler 7","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Investeringer i aksjer og andeler 7","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"sikrede ytelser 16 Andre langsiktige fordringer 9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"sikrede ytelser 16 Andre langsiktige fordringer 9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Varer Sum varer 13, 20","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Varer Sum varer 13, 20","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Kundefordringer 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Kundefordringer 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Andre fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Markedsbaserte aksjer 12","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Markedsbaserte aksjer 12","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum investeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum investeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Utsatt skatt","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Betalbar skatt","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Annen kortsiktig gjeld Sum kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmpf7rzqi0007vmusbke18kad","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Driftsinntekter 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Driftsinntekter 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1703,6 +1920,7 @@
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Lønn og personalkostnader 2,3","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Avskrivninger 9, 17","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Avskrivninger 9, 17","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Nedskrivning av varige driftsmidler og immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Nedskrivning av varige driftsmidler og immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Andre driftskostnader 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Andre driftskostnader 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1733,7 +1951,6 @@
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Estimatavvik pensjon 3,7","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Estimatavvik pensjon 3,7","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Kontantstrømsikring","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Kontantstrømsikring","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1741,7 +1958,6 @@
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Utsatt skattefordel","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"og lignende Likvide midler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum bankinnskudd,","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Organisasjonsnr","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1769,12 +1985,12 @@
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Finansinntekter 7","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Finansinntekter 7","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Finanskostnader 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Finanskostnader 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1815,6 +2031,7 @@
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Investeringer i aksjer og andeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Investeringer i aksjer og andeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentebærende langsiktige fordringe","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentebærende langsiktige fordringe","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Andre finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Andre finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum finansielle anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1822,6 +2039,8 @@
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentefrie kortsiktige fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentefrie kortsiktige fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentebærende kortsiktige fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentebærende kortsiktige fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum fordringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1856,6 +2075,7 @@
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentebærende langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentebærende langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentefri langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentefri langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1866,6 +2086,7 @@
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Kortsiktige leieforpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentebærende kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentebærende kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentefri kortsiktig gjeld l","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Rentefri kortsiktig gjeld l","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdf5004wvmeckncizu3g","features":{"rawLabel":"Sum kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1881,6 +2102,7 @@
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Varekostnad 4,5","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Varekostnad 4,5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Av- og nedskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Av- og nedskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1972,11 +2194,8 @@
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum investeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Annen egenkapital Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Pensjonsforpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Salgsinntekter 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1987,6 +2206,7 @@
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Varekostnad 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Varekostnad 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Av- og nedskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Av- og nedskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2005,8 +2225,8 @@
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Andre finansinntekter 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Andre finansinntekter 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Verdiendring av markedsbaserte finansielle omløpsmidler 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Verdiendring markedsbaserte finansielle omløpsmidler 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Annen rentekostnad 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Annen rentekostnad 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2014,8 +2234,8 @@
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Valutatap 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Andre finanskostnader 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Andre finanskostnader 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2081,10 +2301,7 @@
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum bankinnskudd, kontanter og lignende","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Annen egenkapital Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Pensjonsforpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum avsetninger for","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4z003yvmecsgn9hhcd","features":{"rawLabel":"Annen kortsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Salgsinntekter 3,4","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2095,6 +2312,7 @@
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Varekostnad 4,5","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Varekostnad 4,5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Av- og nedskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Av- og nedskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2116,8 +2334,8 @@
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Andre finansinntekter 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Verdiendring av markedsbaserte finansielle omløpsmidler 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Verdiendring av markedsbaserte finansielle omløpsmidler 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"i samme konsern 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"i samme konsern 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Annen rentekostnad 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2126,8 +2344,8 @@
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Valutatap 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Andre finanskostnader 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Andre finanskostnader 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Regultat før skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2192,11 +2410,8 @@
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum innskutt egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Pensjonsforpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Annen langsiktig gjeld Gjeld til","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"kredittinstitusjoner","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Skyldig offentlige avgifter","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2209,6 +2424,7 @@
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Varekostnad 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Varekostnad 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Lønnskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Av- og nedskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Av- og nedskrivninger","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2228,8 +2444,8 @@
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Andre finansinntekter 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Verdiendring av markedsbaserte finansielle omløpsmidler 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Verdiendring av markedsbaserte finansielle omløpsmidler 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Annen rentekostnad 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Annen rentekostnad 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Valutatap 13","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2304,9 +2520,7 @@
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Pensjonsforpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum avsetninger for forpliktelser","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Langsiktige innskudd Sum annen langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Sum langsiktig gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bd4j003wvmec2h2ha1mt","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2330,6 +2544,7 @@
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"i samme konsern","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"i samme konsern","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Annen renteinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Annen renteinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Annen finansinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2340,7 +2555,6 @@
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"i samme konsern 1","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Annen rentekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Annen rentekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Sum finanskeostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Sum finanskeostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2354,6 +2568,7 @@
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Arsresultat etter minoritetsinteresser","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"disponeringer Avsatt til annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"disponeringer Avsatt til annen egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2393,7 +2608,6 @@
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Annen langsiktig gjeld Langsiktig konserngjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Annen langsiktig gjeld Langsiktig konserngjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Leverandørgjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Skyldig offentlige avgifter Kortsiktig konserngjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdyz0063vmec99uck14n","features":{"rawLabel":"Sum gjeld","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Salgsinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Salgsinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2404,7 +2618,6 @@
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Lønnskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Lønnskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen driftskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen driftskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2412,19 +2625,16 @@
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Driftsresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"datterselskap","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"datterselskap","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen renteinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen renteinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen finansinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen finansinntekt","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"sun finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum finansinntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen rentekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen rentekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Annen finanskostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"sun finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum finanskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Netto finans","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2440,12 +2650,8 @@
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Ordinært utbytte","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Ordinært utbytte","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Utsatt skattefordel","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum varer","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2470,7 +2676,6 @@
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum opptjent egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum egenkapital","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Utsatt skatt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Gjeld til kredittinstitusjoner","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -2494,4 +2699,20 @@
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"Sum eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bdmr005qvmecezqk2wet","features":{"rawLabel":"CLAIRE KIDS AS SIDE","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Investeringer i tilknyttet selskap 5.5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other intangible assets 3.2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Interest-bearing debt 4.1","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other non-current liabilities","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"SUM EGENKAPITAL OG GJELD","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Share of profit from associates and joint ventures 5.5","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Sum kostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Resultat før skattekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other non-current financial receivables 4.1,5.9","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other equity","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Provisions 3.7","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Other non-current liabilities","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bbxo0008vmecm33zomyz","features":{"rawLabel":"Tax payable 5.1","proposedUnitScale":null},"label":1,"proposedLabel":null}

@@ -1673,8 +1673,8 @@
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Energikjøp 12","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Overferingskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Overferingskostnader","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Lennskostnader 16, 17","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Lennskostnader 16, 17","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Lønnskostnader 16, 17","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Lønnskostnader 16, 17","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Avskrivninger 23, 24, 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Avskrivninger 23, 24, 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Nedskrivning av varige driftsmidler og immaterielle eiendeler 15, 23, 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1721,8 +1721,6 @@
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"knyttet til utenlandsk virksomhet avhendet i løpet av året","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Valutaomregningseffekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Valutaomregningseffekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Endring","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"på egenkapitalinstrumenter, etter skatt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"på egenkapitalinstrumenter, etter skatt","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Estimatavvik pensjoner i selskaper innregnet etter egenkapitalmetoden","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Estimatavvik pensjoner i selskaper innregnet etter egenkapitalmetoden","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -1732,7 +1730,7 @@
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Sum resultatkomponenter for IFRS-foretak","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Totalresultat","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"sun immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Sum varige driftsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Sum anleggsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmq28bcu00030vmecprys6r9o","features":{"rawLabel":"Sum omløpsmidler","proposedUnitScale":null},"label":1,"proposedLabel":null}

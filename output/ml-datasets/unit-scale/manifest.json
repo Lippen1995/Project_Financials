@@ -1,12 +1,14 @@
 {
   "taskType": "UNIT_SCALE_CLASSIFIER",
-  "generatedAt": "2026-06-23T08:44:04.844Z",
-  "totalExamples": 4405,
-  "labelDistribution": {
-    "1": 3808,
-    "1000": 597
+  "generatedAt": "2026-06-23T15:17:00.473Z",
+  "totalExamples": 4622,
+  "splits": {
+    "train": 2718,
+    "validation": 1739,
+    "test": 165
   },
-  "trainSize": 2497,
-  "validationSize": 1741,
-  "testSize": 167
+  "labelDistribution": {
+    "1": 4025,
+    "1000": 597
+  }
 }

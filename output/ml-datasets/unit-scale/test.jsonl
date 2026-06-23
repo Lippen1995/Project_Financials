@@ -89,8 +89,8 @@
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Sum inntekter","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Varekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Varekostnad","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Lennskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Lennskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Lønnskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
+{"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Lønnskostnad 2","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Avskrivning pa varige driftsmidler og immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Avskrivning pa varige driftsmidler og immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Annen driftskostnad 4","proposedUnitScale":null},"label":1,"proposedLabel":null}
@@ -124,8 +124,6 @@
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Sum overføringer og disponeringer","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Organisasjonenr:","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Utsatt skattefordel 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Utsatt skattefordel 5","proposedUnitScale":null},"label":1,"proposedLabel":null}
-{"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Sum immaterielle eiendeler","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Driftslesere, inventar, verktøy, kontormaskiner og lignende 3","proposedUnitScale":null},"label":1,"proposedLabel":null}
 {"filingId":"cmobtujsb000bvmvoasemqhzr","features":{"rawLabel":"Driftslesere, inventar, verktøy, kontormaskiner og lignende 3","proposedUnitScale":null},"label":1,"proposedLabel":null}

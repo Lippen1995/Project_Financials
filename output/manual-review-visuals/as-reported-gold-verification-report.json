@@ -1,0 +1,256 @@
+{
+  "generatedAt": "2026-06-23T15:19:31.498Z",
+  "evidenceSource": "PDF_VISUALLY_VERIFIED_AS_REPORTED_GOLD_SET_2026_06_23",
+  "passed": true,
+  "iterations": [
+    {
+      "name": "1. label/fact parity and Som rapportert flags",
+      "passed": true,
+      "errorCount": 0,
+      "warningCount": 0,
+      "issues": []
+    },
+    {
+      "name": "2. fact value and training-label consistency",
+      "passed": true,
+      "errorCount": 0,
+      "warningCount": 0,
+      "issues": []
+    },
+    {
+      "name": "3. annual-report row value and note alignment",
+      "passed": true,
+      "errorCount": 0,
+      "warningCount": 0,
+      "issues": []
+    },
+    {
+      "name": "4. konsern/selskap scope consistency",
+      "passed": true,
+      "errorCount": 0,
+      "warningCount": 0,
+      "issues": []
+    },
+    {
+      "name": "5. reconciliation and anomaly scan",
+      "passed": true,
+      "errorCount": 0,
+      "warningCount": 0,
+      "issues": []
+    }
+  ],
+  "totals": {
+    "documents": 15,
+    "labels": 2039,
+    "reviewedFacts": 2039,
+    "errors": 0,
+    "warnings": 0
+  },
+  "documents": [
+    {
+      "filingId": "cmobtujr90003vmvorzjg483p",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2023,
+      "labels": 76,
+      "facts": 76,
+      "manifestPages": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "filingId": "cmobtujrs0007vmvos2b14yat",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2021,
+      "labels": 73,
+      "facts": 73,
+      "manifestPages": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "filingId": "cmobtujs10009vmvogmdoowt3",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2020,
+      "labels": 72,
+      "facts": 72,
+      "manifestPages": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "filingId": "cmobtujsb000bvmvoasemqhzr",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2019,
+      "labels": 81,
+      "facts": 81,
+      "manifestPages": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "filingId": "cmobtujsq000fvmvo9l9qppa8",
+      "companyName": "PROFF AS",
+      "fiscalYear": 2017,
+      "labels": 88,
+      "facts": 88,
+      "manifestPages": [
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "filingId": "cmpf7rzqi0007vmusbke18kad",
+      "companyName": "CANICA AS",
+      "fiscalYear": 2023,
+      "labels": 237,
+      "facts": 237,
+      "manifestPages": [
+        2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "filingId": "cmq28bbxo0008vmecm33zomyz",
+      "companyName": "JOTUN A/S",
+      "fiscalYear": 2024,
+      "labels": 114,
+      "facts": 114,
+      "manifestPages": null
+    },
+    {
+      "filingId": "cmq28bcjn0024vmecn1ob6usc",
+      "companyName": "REITAN AS",
+      "fiscalYear": 2024,
+      "labels": 128,
+      "facts": 128,
+      "manifestPages": [
+        8,
+        9,
+        24,
+        25,
+        27,
+        31
+      ]
+    },
+    {
+      "filingId": "cmq28bctk002yvmech5ab55oo",
+      "companyName": "STATKRAFT AS",
+      "fiscalYear": 2024,
+      "labels": 212,
+      "facts": 212,
+      "manifestPages": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "filingId": "cmq28bcu00030vmecprys6r9o",
+      "companyName": "STATKRAFT AS",
+      "fiscalYear": 2023,
+      "labels": 169,
+      "facts": 169,
+      "manifestPages": [
+        2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "filingId": "cmq28bd4j003wvmec2h2ha1mt",
+      "companyName": "COOP NORGE SA",
+      "fiscalYear": 2024,
+      "labels": 223,
+      "facts": 223,
+      "manifestPages": [
+        2,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "filingId": "cmq28bd4z003yvmecsgn9hhcd",
+      "companyName": "COOP NORGE SA",
+      "fiscalYear": 2023,
+      "labels": 210,
+      "facts": 210,
+      "manifestPages": [
+        2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        12,
+        13
+      ]
+    },
+    {
+      "filingId": "cmq28bdf5004wvmeckncizu3g",
+      "companyName": "POSTEN BRING AS",
+      "fiscalYear": 2023,
+      "labels": 184,
+      "facts": 184,
+      "manifestPages": [
+        2,
+        3,
+        4,
+        5,
+        7,
+        8
+      ]
+    },
+    {
+      "filingId": "cmq28bdmr005qvmecezqk2wet",
+      "companyName": "CLAIRE KIDS AS",
+      "fiscalYear": 2023,
+      "labels": 90,
+      "facts": 90,
+      "manifestPages": [
+        2,
+        4,
+        5,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "filingId": "cmq28bdyz0063vmec99uck14n",
+      "companyName": "SANITY AS",
+      "fiscalYear": 2025,
+      "labels": 82,
+      "facts": 82,
+      "manifestPages": [
+        2,
+        4,
+        5
+      ]
+    }
+  ]
+}

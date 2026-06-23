@@ -110,6 +110,27 @@ function normalizeMetricKey(metricKey: string | null | undefined, rawLabel: stri
   return `as_reported_${slug(rawLabel) || "line"}`;
 }
 
+function cleanRawLabel(rawLabel: string) {
+  return rawLabel
+    .replace(/\bLenn/g, "Lønn")
+    .replace(/\blenn/g, "lønn")
+    .replace(/^sun\b/i, "Sum")
+    .trim();
+}
+
+function canonicalOverrideForLabel(rawLabel: string) {
+  const label = rawLabel.toLowerCase();
+  if (label.startsWith("sum finansinntekter")) return "total_financial_income";
+  if (label.startsWith("sum finanskostnader")) return "total_financial_expense";
+  if (label === "totalresultat" || label === "årets totalresultat") {
+    return `as_reported_${slug(rawLabel) || "totalresultat"}`;
+  }
+  if (label.startsWith("lønnskostnad")) return "payroll_expense";
+  if (label.startsWith("lønnskostnader")) return "payroll_expense";
+  if (label.startsWith("sum immaterielle eiendeler")) return "intangible_assets";
+  return null;
+}
+
 function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, "utf8")) as T;
 }
@@ -218,6 +239,9 @@ function lookupKey(input: {
   mappedFacts: ExtractionFact[];
   rawLabel: string;
 }) {
+  const override = canonicalOverrideForLabel(input.rawLabel);
+  if (override) return override;
+
   const normalized = input.row.normalizedLabel?.trim();
   const pageFacts = input.mappedFacts.filter(
     (fact) =>
@@ -294,6 +318,237 @@ function valuesWithoutNoteColumn(row: ExtractionRow) {
   return values.slice(0, 2);
 }
 
+function numericToken(token: string) {
+  const cleaned = token.replace(/[^\d()-]/g, "");
+  if (!cleaned) return null;
+  const negative = cleaned.startsWith("-") || (cleaned.startsWith("(") && cleaned.endsWith(")"));
+  const digits = cleaned.replace(/[^\d]/g, "");
+  if (!digits) return null;
+  return { digits, negative, hasSeparator: /[,.]/.test(token) };
+}
+
+function bigintFromRaw(value: number | string | bigint | null | undefined) {
+  if (value === null || value === undefined || value === "") return null;
+  return typeof value === "bigint" ? value : BigInt(String(value));
+}
+
+function chooseAmountCandidate(input: { withoutLead: bigint; withLead?: bigint; reference?: bigint }) {
+  if (input.withLead === undefined || input.reference === undefined || input.reference === 0n) {
+    return input.withLead ?? input.withoutLead;
+  }
+  const referenceAbs = input.reference < 0n ? -input.reference : input.reference;
+  const withoutAbs = input.withoutLead < 0n ? -input.withoutLead : input.withoutLead;
+  const withAbs = input.withLead < 0n ? -input.withLead : input.withLead;
+  const withoutDistance = withoutAbs > referenceAbs ? withoutAbs - referenceAbs : referenceAbs - withoutAbs;
+  const withDistance = withAbs > referenceAbs ? withAbs - referenceAbs : referenceAbs - withAbs;
+  return withDistance < withoutDistance ? input.withLead : input.withoutLead;
+}
+
+function consumeAmountEndingAt(tokens: string[], index: number, reference?: bigint) {
+  const last = numericToken(tokens[index]);
+  if (!last) return null;
+
+  const groups: string[] = [last.digits.padStart(last.digits.length === 0 ? 1 : last.digits.length, "0")];
+  let negative = last.negative;
+  let cursor = index - 1;
+
+  while (cursor >= 0) {
+    const part = numericToken(tokens[cursor]);
+    if (!part || !/^\d{3}$/.test(part.digits)) break;
+    groups.unshift(part.digits);
+    negative = negative || part.negative;
+    cursor -= 1;
+  }
+
+  let nextIndex = cursor;
+  const withoutLead = BigInt(groups.join(""));
+  let withLead: bigint | undefined;
+  if (groups.length > 1 && cursor >= 0) {
+    const lead = numericToken(tokens[cursor]);
+    if (lead && /^\d{1,3}$/.test(lead.digits)) {
+      withLead = BigInt(`${lead.digits}${groups.join("")}`);
+      if (chooseAmountCandidate({ withoutLead, withLead, reference }) === withLead) {
+        groups.unshift(lead.digits);
+        negative = negative || lead.negative;
+        nextIndex = cursor - 1;
+      }
+    }
+  }
+
+  const value = BigInt(groups.join(""));
+  return {
+    value: negative ? -value : value,
+    nextIndex,
+  };
+}
+
+function groupedDigits(value: bigint) {
+  const digits = String(value < 0n ? -value : value);
+  const groups: string[] = [];
+  let cursor = digits.length;
+  while (cursor > 3) {
+    groups.unshift(digits.slice(cursor - 3, cursor));
+    cursor -= 3;
+  }
+  groups.unshift(digits.slice(0, cursor));
+  return groups;
+}
+
+function findAmountSequence(tokens: string[], value: bigint) {
+  const sequence = groupedDigits(value);
+  const digits = tokens.map((token) => numericToken(token)?.digits ?? null);
+  for (let end = digits.length - 1; end >= 0; end -= 1) {
+    if (digits[end] === null) continue;
+    const start = end - sequence.length + 1;
+    if (start < 0) continue;
+    let matches = true;
+    for (let offset = 0; offset < sequence.length; offset += 1) {
+      if (digits[start + offset] !== sequence[offset]) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) return { start, end };
+  }
+  return null;
+}
+
+function previousNumericTokenIndex(tokens: string[], beforeIndex: number) {
+  for (let index = beforeIndex; index >= 0; index -= 1) {
+    if (numericToken(tokens[index])) return index;
+  }
+  return null;
+}
+
+type RowNumberToken = {
+  digits: string;
+  negative: boolean;
+  hasSeparator: boolean;
+};
+
+function amountFromTokenSlice(tokens: RowNumberToken[]) {
+  if (tokens.length === 0) return null;
+  if (tokens.some((token) => token.hasSeparator)) return null;
+  if (tokens.length === 1) {
+    const value = BigInt(tokens[0].digits);
+    return tokens[0].negative ? -value : value;
+  }
+  if (!/^\d{1,3}$/.test(tokens[0].digits)) return null;
+  if (!tokens.slice(1).every((token) => /^\d{3}$/.test(token.digits))) return null;
+  const value = BigInt(tokens.map((token) => token.digits).join(""));
+  return tokens[0].negative ? -value : value;
+}
+
+function amountAbs(value: bigint) {
+  return value < 0n ? -value : value;
+}
+
+function plausibilityDistance(left: bigint, right: bigint) {
+  const leftNumber = Number(amountAbs(left));
+  const rightNumber = Number(amountAbs(right));
+  if (leftNumber === 0 || rightNumber === 0) return 3;
+  return Math.abs(Math.log10(leftNumber / rightNumber));
+}
+
+function valuesFromNumericSuffix(rowText: string) {
+  const numericTokens = rowText
+    .trim()
+    .split(/\s+/)
+    .map((token) => numericToken(token))
+    .filter((token): token is RowNumberToken => token !== null);
+  if (numericTokens.length === 0) return [];
+
+  let bestPair: { values: [bigint, bigint]; score: number } | null = null;
+  for (let secondStart = 1; secondStart < numericTokens.length; secondStart += 1) {
+    const second = amountFromTokenSlice(numericTokens.slice(secondStart));
+    if (second === null) continue;
+    for (let firstStart = 0; firstStart < secondStart; firstStart += 1) {
+      const first = amountFromTokenSlice(numericTokens.slice(firstStart, secondStart));
+      if (first === null) continue;
+      if (amountAbs(first) < 1000n && amountAbs(second) < 1000n) continue;
+      const distance = plausibilityDistance(first, second);
+      const ignoredPrefix = firstStart;
+      const score = -distance * 10 + ignoredPrefix;
+      if (!bestPair || score > bestPair.score) {
+        bestPair = { values: [first, second], score };
+      }
+    }
+  }
+  if (bestPair && bestPair.score > -18) {
+    return bestPair.values.map((value, index) => ({
+      value,
+      columnIndex: index,
+      source: "rowText" as const,
+    }));
+  }
+
+  let bestSingle: { value: bigint; score: bigint } | null = null;
+  for (let start = 0; start < numericTokens.length; start += 1) {
+    const value = amountFromTokenSlice(numericTokens.slice(start));
+    if (value === null) continue;
+    const score = amountAbs(value);
+    if (!bestSingle || score > bestSingle.score) {
+      bestSingle = { value, score };
+    }
+  }
+  if (bestSingle && amountAbs(bestSingle.value) >= 1000n) {
+    return [{ value: bestSingle.value, columnIndex: 0, source: "rowText" as const }];
+  }
+  return [];
+}
+
+function valuesFromRowText(row: ExtractionRow, structuredValues: ReturnType<typeof valuesWithoutNoteColumn>) {
+  if (!row.rowText?.trim()) return [];
+  const suffixValues = valuesFromNumericSuffix(row.rowText);
+  if (suffixValues.length > 0) return suffixValues;
+
+  const tokens = row.rowText.trim().split(/\s+/);
+  const lastStructured = structuredValues.at(-1);
+  const lastValue = bigintFromRaw(lastStructured?.value);
+  if (lastValue === null) return [];
+
+  const lastMatch = findAmountSequence(tokens, lastValue);
+  if (!lastMatch) return [];
+
+  const previousIndex = previousNumericTokenIndex(tokens, lastMatch.start - 1);
+  if (previousIndex === null) {
+    if (amountAbs(lastValue) < 1000n) return [];
+    return [{ value: lastValue, columnIndex: 0, source: "rowText" as const }];
+  }
+
+  const current = consumeAmountEndingAt(tokens, previousIndex, lastValue);
+  if (!current) {
+    return [{ value: lastValue, columnIndex: 0, source: "rowText" as const }];
+  }
+  const currentAbs = current.value < 0n ? -current.value : current.value;
+  const lastAbs = amountAbs(lastValue);
+  if (currentAbs < 1000n && lastAbs < 1000n) return [];
+  if (structuredValues.length === 1 && currentAbs < 1000n) {
+    return [{ value: lastValue, columnIndex: 0, source: "rowText" as const }];
+  }
+
+  return [
+    { value: current.value, columnIndex: 0, source: "rowText" as const },
+    { value: lastValue, columnIndex: 1, source: "rowText" as const },
+  ];
+}
+
+function reportedValuesForRow(row: ExtractionRow) {
+  const structuredValues = valuesWithoutNoteColumn(row);
+  const textValues = valuesFromRowText(row, structuredValues);
+  if (textValues.length > 0) return textValues;
+  const likelyOnlyNotes = structuredValues.every((value) => {
+    const numeric = bigintFromRaw(value.value);
+    return numeric !== null && amountAbs(numeric) > 0n && amountAbs(numeric) <= 99n;
+  });
+  if (likelyOnlyNotes) return [];
+  return structuredValues.map((value, index) => ({
+    value: value.value,
+    columnIndex: value.columnIndex ?? index,
+    source: "structuredValues" as const,
+  }));
+}
+
 function factsFromExtraction(
   entry: ManifestEntry,
   extraction: { rows?: ExtractionRow[]; mappedFacts?: ExtractionFact[] },
@@ -304,11 +559,11 @@ function factsFromExtraction(
   for (const row of extraction.rows ?? []) {
     if (!verifiedPages.has(row.pageNumber)) continue;
     if (!statementSection(row.sectionType)) continue;
-    const rawLabel = lookupRawLabel({ row, mappedFacts });
+    const rawLabel = cleanRawLabel(lookupRawLabel({ row, mappedFacts }));
     if (!rawLabel) continue;
     const statementType = statementTypeForPageSection(row.sectionType);
     if (statementType === "CASH_FLOW") continue;
-    const values = valuesWithoutNoteColumn(row);
+    const values = reportedValuesForRow(row);
     if (values.length === 0) continue;
     const metricKey = lookupKey({ row, mappedFacts, rawLabel });
     const statementScope = lookupScope({ row, mappedFacts });
@@ -331,7 +586,8 @@ function factsFromExtraction(
         confidenceScore: row.confidence ?? null,
         rawPayload: {
           columnIndex: value.columnIndex,
-          rawValue: value.value,
+          rawValue: String(value.value),
+          valueSource: value.source,
           yearOrder: fiscalYears,
           sectionType: row.sectionType ?? null,
         },
