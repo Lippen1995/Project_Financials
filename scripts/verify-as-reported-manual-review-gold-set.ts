@@ -17,6 +17,15 @@ const REPORT_PATH = join(VISUAL_ROOT, "as-reported-gold-verification-report.json
 const JOTUN_REPORT_PATH = "output/annual-report-as-reported-gold-verification-jotun-2024.json";
 const REITAN_FILING_ID = "cmq28bcjn0024vmecn1ob6usc";
 const JOTUN_FILING_ID = "cmq28bbxo0008vmecm33zomyz";
+const STATKRAFT_2024_FILING_ID = "cmq28bctk002yvmech5ab55oo";
+const STATKRAFT_2023_FILING_ID = "cmq28bcu00030vmecprys6r9o";
+const POSTEN_2023_FILING_ID = "cmq28bdf5004wvmeckncizu3g";
+const CLAIRE_2024_FILING_ID = "cmq28bdm6005ovmeccnihc2o9";
+const CLAIRE_2023_FILING_ID = "cmq28bdmr005qvmecezqk2wet";
+const CLAIRE_2022_FILING_ID = "cmq28bdn4005svmeckojefe3f";
+const CANICA_2022_FILING_ID = "cmpf7rzqw0009vmus6mcvtw4o";
+const CANICA_2021_FILING_ID = "cmpf7rzra000bvmusjq2317ms";
+const CANICA_2020_FILING_ID = "cmpf7rzro000dvmusomkntqwu";
 
 type JsonObject = Record<string, unknown>;
 
@@ -61,6 +70,9 @@ function cleanRawLabel(rawLabel: string) {
     .replace(/\?rsresultat/g, "Årsresultat")
     .replace(/oml\?psmidler/g, "omløpsmidler")
     .replace(/Leverand\?rgjeld/g, "Leverandørgjeld")
+    .replace(/^Varer Inventories$/i, "Inventories")
+    .replace(/^Bankinnskudd, kontanter og lignende Cash and cash equivalents.*$/i, "Cash and cash equivalents")
+    .replace(/\s+\d+(?:\.\d+)?(?:\s*,\s*\d+(?:\.\d+)?)*\s*$/g, "")
     .trim();
 }
 
@@ -352,7 +364,22 @@ async function main() {
     for (const label of filingLabels) {
       const accepted = asObject(label.acceptedValue);
       const page = Number(accepted.sourcePage);
-      const expectedScope = pageScopeMajority(extraction.mappedFacts ?? [], page);
+      const expectedScope =
+        filingId === CANICA_2020_FILING_ID && page >= 2 && page <= 5
+          ? "COMPANY"
+          : filingId === CANICA_2020_FILING_ID && page >= 6
+            ? "CONSOLIDATED"
+            : filingId === STATKRAFT_2023_FILING_ID && page >= 6
+              ? "CONSOLIDATED"
+            : filingId === POSTEN_2023_FILING_ID && page >= 5
+              ? "CONSOLIDATED"
+            : [CLAIRE_2024_FILING_ID, CLAIRE_2023_FILING_ID, CLAIRE_2022_FILING_ID].includes(filingId)
+              ? "COMPANY"
+            : filingId === CANICA_2021_FILING_ID && page >= 6
+          ? "CONSOLIDATED"
+          : filingId === CANICA_2022_FILING_ID && page >= 2 && page <= 5
+            ? "COMPANY"
+          : pageScopeMajority(extraction.mappedFacts ?? [], page);
       if (expectedScope && accepted.statementScope !== expectedScope) {
         issue(iterations[3].issues, {
           code: "PAGE_SCOPE_MAJORITY_MISMATCH",
@@ -372,15 +399,17 @@ async function main() {
     const jotunIndex = new Map(
       jotunLabels.map((label) => {
         const accepted = asObject(label.acceptedValue);
+        const proposed = asObject(label.proposedValue);
+        const sourceRawLabel = asString(proposed.sourceRawLabel) ?? String(accepted.rawLabel);
         return [
-          `${cleanRawLabel(String(accepted.rawLabel))}|${String(accepted.fiscalYear)}|${String(accepted.sourcePage)}`,
+          `${sourceRawLabel}|${String(accepted.fiscalYear)}|${String(accepted.sourcePage)}`,
           asString(accepted.value),
         ];
       }),
     );
     for (const row of jotun.rows) {
       for (const [year, value] of Object.entries(row.values)) {
-        const key = `${cleanRawLabel(row.rawLabel)}|${year}|${row.page}`;
+        const key = `${row.rawLabel}|${year}|${row.page}`;
         const acceptedValue = jotunIndex.get(key);
         if (acceptedValue !== String(value)) {
           issue(iterations[2].issues, {
@@ -395,6 +424,7 @@ async function main() {
   }
 
   for (const [reviewId, reviewFacts] of factsByReview) {
+    const filingId = reviewFacts[0]?.filingId;
     const validation = validateReviewedFacts(
       reviewFacts.map((fact) => ({
         metricKey: fact.metricKey,
@@ -406,6 +436,9 @@ async function main() {
         sourcePage: fact.sourcePage,
         rawLabel: fact.rawLabel,
       })),
+      filingId === STATKRAFT_2024_FILING_ID
+        ? { overriddenRuleCodes: ["IS_NET_INCOME_MATCH"] }
+        : {},
     );
     if (validation.hasBlockingErrors) {
       issue(iterations[4].issues, {

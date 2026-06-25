@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-23T15:19:31.498Z",
+  "generatedAt": "2026-06-25T19:06:03.409Z",
   "evidenceSource": "PDF_VISUALLY_VERIFIED_AS_REPORTED_GOLD_SET_2026_06_23",
   "passed": true,
   "iterations": [
@@ -40,9 +40,9 @@
     }
   ],
   "totals": {
-    "documents": 15,
-    "labels": 2039,
-    "reviewedFacts": 2039,
+    "documents": 21,
+    "labels": 3496,
+    "reviewedFacts": 3496,
     "errors": 0,
     "warnings": 0
   },
@@ -51,8 +51,8 @@
       "filingId": "cmobtujr90003vmvorzjg483p",
       "companyName": "PROFF AS",
       "fiscalYear": 2023,
-      "labels": 76,
-      "facts": 76,
+      "labels": 86,
+      "facts": 86,
       "manifestPages": [
         2,
         3,
@@ -63,8 +63,8 @@
       "filingId": "cmobtujrs0007vmvos2b14yat",
       "companyName": "PROFF AS",
       "fiscalYear": 2021,
-      "labels": 73,
-      "facts": 73,
+      "labels": 84,
+      "facts": 84,
       "manifestPages": [
         2,
         3,
@@ -75,8 +75,8 @@
       "filingId": "cmobtujs10009vmvogmdoowt3",
       "companyName": "PROFF AS",
       "fiscalYear": 2020,
-      "labels": 72,
-      "facts": 72,
+      "labels": 94,
+      "facts": 94,
       "manifestPages": [
         2,
         3,
@@ -87,8 +87,8 @@
       "filingId": "cmobtujsb000bvmvoasemqhzr",
       "companyName": "PROFF AS",
       "fiscalYear": 2019,
-      "labels": 81,
-      "facts": 81,
+      "labels": 105,
+      "facts": 105,
       "manifestPages": [
         2,
         3,
@@ -99,8 +99,8 @@
       "filingId": "cmobtujsq000fvmvo9l9qppa8",
       "companyName": "PROFF AS",
       "fiscalYear": 2017,
-      "labels": 88,
-      "facts": 88,
+      "labels": 86,
+      "facts": 86,
       "manifestPages": [
         2,
         3,
@@ -111,8 +111,8 @@
       "filingId": "cmpf7rzqi0007vmusbke18kad",
       "companyName": "CANICA AS",
       "fiscalYear": 2023,
-      "labels": 237,
-      "facts": 237,
+      "labels": 217,
+      "facts": 217,
       "manifestPages": [
         2,
         4,
@@ -124,6 +124,60 @@
       ]
     },
     {
+      "filingId": "cmpf7rzqw0009vmus6mcvtw4o",
+      "companyName": "CANICA AS",
+      "fiscalYear": 2022,
+      "labels": 226,
+      "facts": 226,
+      "manifestPages": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        22,
+        23
+      ]
+    },
+    {
+      "filingId": "cmpf7rzra000bvmusjq2317ms",
+      "companyName": "CANICA AS",
+      "fiscalYear": 2021,
+      "labels": 224,
+      "facts": 224,
+      "manifestPages": [
+        2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "filingId": "cmpf7rzro000dvmusomkntqwu",
+      "companyName": "CANICA AS",
+      "fiscalYear": 2020,
+      "labels": 221,
+      "facts": 221,
+      "manifestPages": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        23,
+        24
+      ]
+    },
+    {
       "filingId": "cmq28bbxo0008vmecm33zomyz",
       "companyName": "JOTUN A/S",
       "fiscalYear": 2024,
@@ -132,11 +186,26 @@
       "manifestPages": null
     },
     {
+      "filingId": "cmq28bc7e0016vmec173ukkpi",
+      "companyName": "NORGESGRUPPEN ASA",
+      "fiscalYear": 2024,
+      "labels": 251,
+      "facts": 251,
+      "manifestPages": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
       "filingId": "cmq28bcjn0024vmecn1ob6usc",
       "companyName": "REITAN AS",
       "fiscalYear": 2024,
-      "labels": 128,
-      "facts": 128,
+      "labels": 156,
+      "facts": 156,
       "manifestPages": [
         8,
         9,
@@ -150,8 +219,8 @@
       "filingId": "cmq28bctk002yvmech5ab55oo",
       "companyName": "STATKRAFT AS",
       "fiscalYear": 2024,
-      "labels": 212,
-      "facts": 212,
+      "labels": 206,
+      "facts": 206,
       "manifestPages": [
         2,
         3,
@@ -166,8 +235,8 @@
       "filingId": "cmq28bcu00030vmecprys6r9o",
       "companyName": "STATKRAFT AS",
       "fiscalYear": 2023,
-      "labels": 169,
-      "facts": 169,
+      "labels": 158,
+      "facts": 158,
       "manifestPages": [
         2,
         4,
@@ -182,8 +251,8 @@
       "filingId": "cmq28bd4j003wvmec2h2ha1mt",
       "companyName": "COOP NORGE SA",
       "fiscalYear": 2024,
-      "labels": 223,
-      "facts": 223,
+      "labels": 310,
+      "facts": 310,
       "manifestPages": [
         2,
         4,
@@ -197,8 +266,8 @@
       "filingId": "cmq28bd4z003yvmecsgn9hhcd",
       "companyName": "COOP NORGE SA",
       "fiscalYear": 2023,
-      "labels": 210,
-      "facts": 210,
+      "labels": 307,
+      "facts": 307,
       "manifestPages": [
         2,
         4,
@@ -214,8 +283,8 @@
       "filingId": "cmq28bdf5004wvmeckncizu3g",
       "companyName": "POSTEN BRING AS",
       "fiscalYear": 2023,
-      "labels": 184,
-      "facts": 184,
+      "labels": 178,
+      "facts": 178,
       "manifestPages": [
         2,
         3,
@@ -226,11 +295,26 @@
       ]
     },
     {
+      "filingId": "cmq28bdm6005ovmeccnihc2o9",
+      "companyName": "CLAIRE KIDS AS",
+      "fiscalYear": 2024,
+      "labels": 150,
+      "facts": 150,
+      "manifestPages": [
+        2,
+        3,
+        4,
+        7,
+        8,
+        9
+      ]
+    },
+    {
       "filingId": "cmq28bdmr005qvmecezqk2wet",
       "companyName": "CLAIRE KIDS AS",
       "fiscalYear": 2023,
-      "labels": 90,
-      "facts": 90,
+      "labels": 83,
+      "facts": 83,
       "manifestPages": [
         2,
         4,
@@ -241,11 +325,27 @@
       ]
     },
     {
+      "filingId": "cmq28bdn4005svmeckojefe3f",
+      "companyName": "CLAIRE KIDS AS",
+      "fiscalYear": 2022,
+      "labels": 137,
+      "facts": 137,
+      "manifestPages": [
+        2,
+        4,
+        5,
+        8,
+        9,
+        10,
+        12
+      ]
+    },
+    {
       "filingId": "cmq28bdyz0063vmec99uck14n",
       "companyName": "SANITY AS",
       "fiscalYear": 2025,
-      "labels": 82,
-      "facts": 82,
+      "labels": 103,
+      "facts": 103,
       "manifestPages": [
         2,
         4,
