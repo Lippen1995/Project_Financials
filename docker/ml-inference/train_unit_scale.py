@@ -94,9 +94,14 @@ def load_jsonl(path: Path) -> List[dict]:
 
 
 def extract_text_and_label(example: dict) -> Tuple[str, int] | None:
-    """Pull the feature text + integer label from one JSONL row."""
+    """Pull the feature text + integer label from one JSONL row.
+
+    New unit-scale exports are page-level examples and provide
+    features.pageContextText. Older exports only have features.rawLabel, so we
+    keep that as a backwards-compatible fallback.
+    """
     features = example.get("features") or {}
-    raw_label = features.get("rawLabel")
+    raw_label = features.get("pageContextText") or features.get("rawLabel")
     label = example.get("label")
     if not isinstance(raw_label, str) or not isinstance(label, int):
         return None
@@ -236,10 +241,11 @@ def main() -> None:
             "totalTrainExamples": len(texts),
             "validationExamples": len(val_texts),
             "testExamples": len(test_texts),
+            "featureText": "features.pageContextText fallback features.rawLabel",
         },
         "summary": (
-            f"TF-IDF + logistic regression, trent på {len(texts)} eksempler "
-            f"({reviewer_examples} fra reviewere, {len(BOOTSTRAP_EXAMPLES)} bootstrap)."
+            f"TF-IDF + logistic regression trained on {len(texts)} examples "
+            f"({reviewer_examples} reviewer examples, {len(BOOTSTRAP_EXAMPLES)} bootstrap)."
         ),
     }
     metadata_path = args.out.with_suffix(".metadata.json")

@@ -55,51 +55,194 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function firstString(...values: unknown[]) {
+  for (const value of values) {
+    const parsed = asString(value);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function firstNumber(...values: unknown[]) {
+  for (const value of values) {
+    const parsed = asNumber(value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+type UnitScaleLabelInput = {
+  id: string;
+  filingId: string;
+  proposedValue: unknown;
+  acceptedValue: unknown;
+  sourcePayload: unknown;
+};
+
+type UnitScalePageGroup = {
+  filingId: string;
+  sourcePage: number;
+  statementScope: string | null;
+  sourceSection: string | null;
+  proposedUnitScales: Set<number>;
+  acceptedUnitScales: Set<number>;
+  rowLabels: string[];
+  contextSnippets: string[];
+};
+
+function readLabelFields(label: UnitScaleLabelInput) {
+  if (!isObject(label.acceptedValue)) return null;
+  const source = isObject(label.sourcePayload) ? label.sourcePayload : {};
+  const proposed = isObject(label.proposedValue) ? label.proposedValue : {};
+
+  const acceptedUnitScale = firstNumber(label.acceptedValue.unitScale, source.unitScale);
+  const sourcePage = firstNumber(label.acceptedValue.sourcePage, source.sourcePage);
+  if (acceptedUnitScale === null || sourcePage === null) return null;
+
+  const rawLabel = firstString(label.acceptedValue.rawLabel, source.rawLabel);
+  const rowText = firstString(source.sourceRowText, source.rowText);
+  const statementScope = firstString(label.acceptedValue.statementScope, source.statementScope);
+  const sourceSection = firstString(label.acceptedValue.sourceSection, source.sourceSection);
+  const proposedUnitScale = firstNumber(proposed.unitScale, source.sourceUnitScale);
+  const unitDeclarationText = firstString(
+    source.unitDeclarationText,
+    source.pageHeaderText,
+    source.headerText,
+  );
+
+  return {
+    acceptedUnitScale,
+    sourcePage,
+    rawLabel,
+    rowText,
+    statementScope,
+    sourceSection,
+    proposedUnitScale,
+    unitDeclarationText,
+  };
+}
+
+function unitScalePageGroupKey(input: {
+  filingId: string;
+  sourcePage: number;
+  statementScope: string | null;
+  sourceSection: string | null;
+}) {
+  return [
+    input.filingId,
+    input.sourcePage,
+    input.statementScope ?? "UNKNOWN_SCOPE",
+    input.sourceSection ?? "UNKNOWN_SECTION",
+  ].join("::");
+}
+
+function pushUniqueCapped(values: string[], candidate: string | null, max: number) {
+  if (!candidate || values.length >= max) return;
+  const normalized = normalizeWhitespace(candidate);
+  if (!normalized || values.includes(normalized)) return;
+  values.push(normalized);
+}
+
+function buildPageContextText(group: UnitScalePageGroup) {
+  const parts = [
+    `page=${group.sourcePage}`,
+    group.statementScope ? `scope=${group.statementScope}` : null,
+    group.sourceSection ? `section=${group.sourceSection}` : null,
+    ...group.contextSnippets,
+    ...group.rowLabels,
+  ].filter((item): item is string => Boolean(item));
+
+  return normalizeWhitespace(parts.join(" | ")).slice(0, 1200);
+}
+
 /**
  * Unit-scale task: predicts whether values on a page are denominated in
  *   1 (kroner), 1000 (tusen kroner), or 1_000_000 (millioner kroner).
  *
- * Feature surface (minimal first version):
- *   - `rawLabel` from the corrected fact (the surrounding header text)
+ * Feature surface:
+ *   - one example per reviewed statement page/scope, not one per row
+ *   - page context assembled from persisted section/scope/page metadata and
+ *     reviewed row labels
+ *   - `rawLabel` is kept as a compatibility alias for older trainers
  *   - `proposedUnitScale` if the machine had one
  *
  * Label: the reviewer's chosen `unitScale`.
  */
-function buildUnitScaleExample(
-  filingId: string,
-  proposedValue: unknown,
-  acceptedValue: unknown,
-  sourcePayload: unknown,
-): TrainingExample | null {
-  if (!isObject(acceptedValue)) return null;
+function buildUnitScalePageExamples(labels: UnitScaleLabelInput[]): TrainingExample[] {
+  const groups = new Map<string, UnitScalePageGroup>();
 
-  const acceptedUnitScale = acceptedValue.unitScale;
-  if (typeof acceptedUnitScale !== "number") return null;
+  for (const label of labels) {
+    const fields = readLabelFields(label);
+    if (!fields) continue;
 
-  const rawLabel =
-    (isObject(acceptedValue) && typeof acceptedValue.rawLabel === "string"
-      ? acceptedValue.rawLabel
-      : null) ??
-    (isObject(sourcePayload) && typeof sourcePayload.rawLabel === "string"
-      ? sourcePayload.rawLabel
-      : null);
+    const key = unitScalePageGroupKey({
+      filingId: label.filingId,
+      sourcePage: fields.sourcePage,
+      statementScope: fields.statementScope,
+      sourceSection: fields.sourceSection,
+    });
 
-  if (!rawLabel) return null;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        filingId: label.filingId,
+        sourcePage: fields.sourcePage,
+        statementScope: fields.statementScope,
+        sourceSection: fields.sourceSection,
+        proposedUnitScales: new Set(),
+        acceptedUnitScales: new Set(),
+        rowLabels: [],
+        contextSnippets: [],
+      };
+      groups.set(key, group);
+    }
 
-  const proposedUnitScale =
-    isObject(proposedValue) && typeof proposedValue.unitScale === "number"
-      ? proposedValue.unitScale
-      : null;
+    group.acceptedUnitScales.add(fields.acceptedUnitScale);
+    if (fields.proposedUnitScale !== null) group.proposedUnitScales.add(fields.proposedUnitScale);
+    pushUniqueCapped(group.contextSnippets, fields.unitDeclarationText, 4);
+    pushUniqueCapped(group.rowLabels, fields.rawLabel, 24);
+    pushUniqueCapped(group.rowLabels, fields.rowText, 24);
+  }
 
-  return {
-    filingId,
-    features: {
-      rawLabel,
-      proposedUnitScale,
-    },
-    label: acceptedUnitScale,
-    proposedLabel: proposedUnitScale,
-  };
+  const examples: TrainingExample[] = [];
+
+  for (const group of groups.values()) {
+    if (group.acceptedUnitScales.size !== 1) continue;
+    const acceptedUnitScale = [...group.acceptedUnitScales][0]!;
+    const proposedUnitScale =
+      group.proposedUnitScales.size === 1 ? [...group.proposedUnitScales][0]! : null;
+    const pageContextText = buildPageContextText(group);
+    if (!pageContextText) continue;
+
+    examples.push({
+      filingId: group.filingId,
+      features: {
+        pageContextText,
+        rawLabel: pageContextText,
+        sourcePage: group.sourcePage,
+        sourceSection: group.sourceSection,
+        statementScope: group.statementScope,
+        rowLabels: group.rowLabels,
+        proposedUnitScale,
+      },
+      label: acceptedUnitScale,
+      proposedLabel: proposedUnitScale,
+    });
+  }
+
+  return examples;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -166,14 +309,7 @@ export async function exportUnitScaleDataset(
   const examples: TrainingExample[] = [];
   const labelDistribution: Record<string, number> = {};
 
-  for (const label of labels) {
-    const example = buildUnitScaleExample(
-      label.filingId,
-      label.proposedValue,
-      label.acceptedValue,
-      label.sourcePayload,
-    );
-    if (!example) continue;
+  for (const example of buildUnitScalePageExamples(labels)) {
     examples.push(example);
     const key = String(example.label);
     labelDistribution[key] = (labelDistribution[key] ?? 0) + 1;
@@ -186,7 +322,7 @@ export async function exportUnitScaleDataset(
   };
 
   for (const example of examples) {
-    const splitKey = `${example.filingId}::${String(example.label)}`;
+    const splitKey = example.filingId;
     const bucket = assignSplit(splitKey, validationFraction, testFraction);
     buckets[bucket].push(example);
   }

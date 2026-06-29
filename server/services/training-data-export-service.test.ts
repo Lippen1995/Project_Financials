@@ -43,28 +43,78 @@ describe("training-data-export-service", () => {
     prismaMock.pdfTrainingLabel.findMany.mockClear();
   });
 
-  it("extracts examples with rawLabel + unitScale", async () => {
+  it("extracts one page-context example with unitScale", async () => {
     store.add({
       filingId: "f1",
       proposedValue: { value: 100, unitScale: 1 },
-      acceptedValue: { value: 100000, rawLabel: "Beløp i NOK 1000", unitScale: 1000 },
-      sourcePayload: null,
+      acceptedValue: {
+        value: 100000,
+        rawLabel: "Salgsinntekter",
+        unitScale: 1000,
+        sourcePage: 3,
+        sourceSection: "SUPPLEMENTARY_INCOME",
+        statementScope: "COMPANY",
+      },
+      sourcePayload: { unitDeclarationText: "Belop i NOK 1000" },
     });
 
     const dataset = await exportUnitScaleDataset();
 
     expect(dataset.totalExamples).toBe(1);
     const example = [...dataset.train, ...dataset.validation, ...dataset.test][0]!;
-    expect(example.features.rawLabel).toBe("Beløp i NOK 1000");
+    expect(example.features.pageContextText).toContain("Belop i NOK 1000");
+    expect(example.features.pageContextText).toContain("Salgsinntekter");
+    expect(example.features.rawLabel).toBe(example.features.pageContextText);
+    expect(example.features.sourcePage).toBe(3);
     expect(example.label).toBe(1000);
     expect(example.proposedLabel).toBe(1);
   });
 
-  it("skips labels that lack a usable rawLabel", async () => {
+  it("deduplicates multiple reviewed rows into one page example", async () => {
+    store.add({
+      filingId: "f1",
+      proposedValue: null,
+      acceptedValue: { value: 100, rawLabel: "Operating revenue", unitScale: 1, sourcePage: 5 },
+      sourcePayload: null,
+    });
+    store.add({
+      filingId: "f1",
+      proposedValue: null,
+      acceptedValue: { value: 50, rawLabel: "Driftsresultat", unitScale: 1, sourcePage: 5 },
+      sourcePayload: null,
+    });
+
+    const dataset = await exportUnitScaleDataset();
+    const example = [...dataset.train, ...dataset.validation, ...dataset.test][0]!;
+
+    expect(dataset.totalExamples).toBe(1);
+    expect(example.features.pageContextText).toContain("Operating revenue");
+    expect(example.features.pageContextText).toContain("Driftsresultat");
+  });
+
+  it("skips labels that lack a usable source page", async () => {
     store.add({
       filingId: "f1",
       proposedValue: { value: 100 },
-      acceptedValue: { value: 100, unitScale: 1 }, // no rawLabel
+      acceptedValue: { value: 100, rawLabel: "Belop i NOK", unitScale: 1 },
+      sourcePayload: null,
+    });
+
+    const dataset = await exportUnitScaleDataset();
+    expect(dataset.totalExamples).toBe(0);
+  });
+
+  it("skips page groups with conflicting accepted unit scales", async () => {
+    store.add({
+      filingId: "f1",
+      proposedValue: null,
+      acceptedValue: { value: 100, rawLabel: "Operating revenue", unitScale: 1, sourcePage: 5 },
+      sourcePayload: null,
+    });
+    store.add({
+      filingId: "f1",
+      proposedValue: null,
+      acceptedValue: { value: 100, rawLabel: "Driftsresultat", unitScale: 1000, sourcePage: 5 },
       sourcePayload: null,
     });
 
@@ -77,7 +127,7 @@ describe("training-data-export-service", () => {
       store.add({
         filingId: `f${i}`,
         proposedValue: null,
-        acceptedValue: { value: 0, rawLabel: "Beløp i NOK", unitScale: 1 },
+        acceptedValue: { value: 0, rawLabel: "Belop i NOK", unitScale: 1, sourcePage: 1 },
         sourcePayload: null,
       });
     }
@@ -85,7 +135,7 @@ describe("training-data-export-service", () => {
       store.add({
         filingId: `f${i}`,
         proposedValue: null,
-        acceptedValue: { value: 0, rawLabel: "Beløp i NOK 1000", unitScale: 1000 },
+        acceptedValue: { value: 0, rawLabel: "Belop i NOK 1000", unitScale: 1000, sourcePage: 1 },
         sourcePayload: null,
       });
     }
@@ -94,15 +144,28 @@ describe("training-data-export-service", () => {
     expect(dataset.labelDistribution).toEqual({ "1": 5, "1000": 3 });
   });
 
-  it("splits deterministically — same filing always lands in the same bucket", async () => {
+  it("splits deterministically and keeps all pages for one filing in one bucket", async () => {
     for (let i = 0; i < 20; i++) {
       store.add({
         filingId: `filing-${i}`,
         proposedValue: null,
-        acceptedValue: { value: 0, rawLabel: "Beløp i NOK", unitScale: 1 },
+        acceptedValue: { value: 0, rawLabel: "Belop i NOK", unitScale: 1, sourcePage: 1 },
         sourcePayload: null,
       });
     }
+    store.add({
+      filingId: "one-filing-many-pages",
+      proposedValue: null,
+      acceptedValue: { value: 0, rawLabel: "Belop i NOK", unitScale: 1, sourcePage: 1 },
+      sourcePayload: null,
+    });
+    store.add({
+      filingId: "one-filing-many-pages",
+      proposedValue: null,
+      acceptedValue: { value: 0, rawLabel: "Belop i NOK", unitScale: 1, sourcePage: 2 },
+      sourcePayload: null,
+    });
+
     const a = await exportUnitScaleDataset();
     const b = await exportUnitScaleDataset();
 
@@ -111,13 +174,18 @@ describe("training-data-export-service", () => {
       b.validation.map((e) => e.filingId).sort(),
     );
     expect(a.test.map((e) => e.filingId).sort()).toEqual(b.test.map((e) => e.filingId).sort());
+
+    const buckets = [a.train, a.validation, a.test].filter((bucket) =>
+      bucket.some((example) => example.filingId === "one-filing-many-pages"),
+    );
+    expect(buckets).toHaveLength(1);
   });
 
   it("serialises as JSONL with one object per line", async () => {
     store.add({
       filingId: "f1",
       proposedValue: null,
-      acceptedValue: { value: 0, rawLabel: "Beløp i NOK", unitScale: 1 },
+      acceptedValue: { value: 0, rawLabel: "Belop i NOK", unitScale: 1, sourcePage: 1 },
       sourcePayload: null,
     });
 
@@ -132,7 +200,8 @@ describe("training-data-export-service", () => {
     expect(total).toBe(1);
     const allLines = [trainJsonl, validationJsonl, testJsonl].join("\n").trim();
     const parsed = JSON.parse(allLines);
-    expect(parsed.features.rawLabel).toBe("Beløp i NOK");
+    expect(parsed.features.rawLabel).toContain("Belop i NOK");
+    expect(parsed.features.pageContextText).toContain("Belop i NOK");
     expect(parsed.label).toBe(1);
   });
 });
