@@ -107,6 +107,10 @@ import {
 } from "@/server/services/annual-report-unified-shadow-extraction-service";
 import { createAdminNotificationIfMissing } from "@/server/services/admin-notification-service";
 import { runUnitScaleShadowComparison } from "@/server/ml/unit-scale-shadow-service";
+import {
+  resolveUnitScaleClassifications,
+  type UnitScaleResolutionMode,
+} from "@/server/ml/unit-scale-resolution-service";
 import env from "@/lib/env";
 
 const provider = new BrregFinancialsProvider();
@@ -537,7 +541,13 @@ function applyEngineConsensus(
   };
 }
 
-function runFinancialPipeline(input: {
+function getUnitScaleResolutionMode(): UnitScaleResolutionMode {
+  return env.mlInferenceUnitScaleMode === "off" || env.mlInferenceUnitScaleMode === "shadow"
+    ? env.mlInferenceUnitScaleMode
+    : "apply";
+}
+
+async function runFinancialPipeline(input: {
   filingId: string;
   extractionRunId: string;
   fiscalYear: number;
@@ -551,10 +561,31 @@ function runFinancialPipeline(input: {
 }) {
   const startedAt = Date.now();
   const allClassifications = classifyPages(input.parsedPages);
-  const classifications =
+  const baseClassifications =
     input.excludePageNumbers && input.excludePageNumbers.size > 0
       ? allClassifications.filter((c) => !input.excludePageNumbers!.has(c.pageNumber))
       : allClassifications;
+  const { classifications, summary: unitScaleResolution } =
+    await resolveUnitScaleClassifications({
+      pages: input.parsedPages,
+      classifications: baseClassifications,
+      mode: getUnitScaleResolutionMode(),
+    });
+  if (
+    unitScaleResolution.attemptedPages > 0 &&
+    (unitScaleResolution.appliedPages > 0 || unitScaleResolution.conflictPages > 0)
+  ) {
+    logPipelineEvent("ml_unit_scale.resolved", {
+      filingId: input.filingId,
+      extractionRunId: input.extractionRunId,
+      engine: input.engine,
+      mode: input.mode,
+      serviceAvailable: unitScaleResolution.serviceAvailable,
+      attemptedPages: unitScaleResolution.attemptedPages,
+      appliedPages: unitScaleResolution.appliedPages,
+      conflictPages: unitScaleResolution.conflictPages,
+    });
+  }
   // Geometry-first is now the PRIMARY reconstruction on statement pages where it
   // produces rows (scanned/OCR); the legacy partition reconstruction is the
   // fallback for digital/embedded-text pages where geometry-first has no word
@@ -1428,7 +1459,7 @@ export async function processAnnualReportFiling(
       loadNodeEvaluationConfig(),
     ]);
 
-    let primaryComputation = runFinancialPipeline({
+    let primaryComputation = await runFinancialPipeline({
       filingId: filing.id,
       extractionRunId: extractionRun.id,
       fiscalYear: filing.fiscalYear,
@@ -1469,7 +1500,7 @@ export async function processAnnualReportFiling(
     }
 
     if (openDataLoaderResult && openDataLoaderConfig.dualRun) {
-      const shadowComputation = runFinancialPipeline({
+      const shadowComputation = await runFinancialPipeline({
         filingId: filing.id,
         extractionRunId: extractionRun.id,
         fiscalYear: filing.fiscalYear,
