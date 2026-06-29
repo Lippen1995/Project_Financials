@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
@@ -104,12 +104,19 @@ function event(partial: Partial<{
 
 describe("dashboard insights service", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
     vi.clearAllMocks();
     clearDashboardInsightsCachesForTest();
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => "" })));
     prismaMock.company.findMany.mockResolvedValue([]);
     prismaMock.companyEventExposure.findMany.mockResolvedValue([]);
     prismaMock.sourceDocument.findMany.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("returns presentation-ready insights from the personal workspace universe", async () => {

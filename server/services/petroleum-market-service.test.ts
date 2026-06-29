@@ -583,7 +583,7 @@ describe("petroleum market read path", () => {
       },
     ]);
 
-    const events = await getPetroleumEvents({ eventWindowDays: 120 }, 10);
+    const events = await getPetroleumEvents({ eventWindowDays: 10_000 }, 10);
 
     expect(events[0]?.title).toBe("Inspection event");
     expect(providerMocks.fetchHavtilPetroleumEvents).not.toHaveBeenCalled();
