@@ -21,7 +21,10 @@ export async function GET(
   const year = yearParam ? parseInt(yearParam, 10) : null;
   const yearFilter = year !== null && !isNaN(year) ? { fiscalYear: year } : {};
 
-  const company = await prisma.company.findUnique({ where: { slug }, select: { id: true } });
+  const company = await prisma.company.findFirst({
+    where: { OR: [{ slug }, { orgNumber: slug }] },
+    select: { id: true },
+  });
   if (!company) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
