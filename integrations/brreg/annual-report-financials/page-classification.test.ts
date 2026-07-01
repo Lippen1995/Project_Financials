@@ -54,6 +54,20 @@ describe("classifyPages", () => {
     expect(result[0]?.unitScale).toBe(1000);
   });
 
+  it("keeps NOK million result pages as statutory statements with million scale", () => {
+    const result = classifyPages([
+      buildPage(23, [
+        "Totalresultat",
+        "Belop i NOK mill. Note 2024 2023",
+        "Driftsinntekter 111 274 106 069",
+        "Arets resultat 3 893 523",
+      ]),
+    ]);
+
+    expect(result[0]?.type).toBe("STATUTORY_INCOME");
+    expect(result[0]?.unitScale).toBe(1_000_000);
+  });
+
   it("does not parse auditor reports as financial statements", () => {
     const result = classifyPages([
       buildPage(7, ["Uavhengig revisors beretning", "Konklusjon", "Grunnlag for konklusjon", "Vi har revidert årsregnskapet"]),

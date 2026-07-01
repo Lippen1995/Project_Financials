@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
+import { findCanonicalMetricKey, MetricDefinition } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import { PageClassification, ReconstructedRow } from "@/integrations/brreg/annual-report-financials/types";
 
 function buildClassification(overrides: Partial<PageClassification>): PageClassification {
@@ -25,6 +26,83 @@ function buildClassification(overrides: Partial<PageClassification>): PageClassi
 }
 
 describe("mapRowsToCanonicalFacts", () => {
+  it("prefers a specific line alias over a broad section alias prefix", () => {
+    const definitions: MetricDefinition[] = [
+      {
+        key: "long_term_liabilities",
+        statementFamily: "BALANCE_SHEET",
+        aliases: ["sum langsiktig gjeld", "langsiktig gjeld"],
+      },
+      {
+        key: "bond_loans" as MetricDefinition["key"],
+        statementFamily: "BALANCE_SHEET",
+        aliases: ["Obligasjonslån"],
+      },
+    ];
+
+    expect(
+      findCanonicalMetricKey(
+        "Langsiktig gjeld Obligasjonslån",
+        "BALANCE_SHEET",
+        null,
+        definitions,
+      ),
+    ).toBe("bond_loans");
+  });
+
+  it("does not let a goodwill row fall through to the longer intangible-assets alias", () => {
+    const definitions: MetricDefinition[] = [
+      {
+        key: "intangible_assets",
+        statementFamily: "BALANCE_SHEET",
+        aliases: ["immaterielle eiendeler"],
+      },
+      {
+        key: "goodwill" as MetricDefinition["key"],
+        statementFamily: "BALANCE_SHEET",
+        aliases: ["goodwill"],
+      },
+    ];
+
+    expect(
+      findCanonicalMetricKey(
+        "Goodwill og andre immaterielle eiendeler",
+        "BALANCE_SHEET",
+        null,
+        definitions,
+      ),
+    ).toBe("goodwill");
+  });
+
+  it("does not map after-tax ordinary result to profit-before-tax", () => {
+    const definitions: MetricDefinition[] = [
+      {
+        key: "profit_before_tax",
+        statementFamily: "INCOME_STATEMENT",
+        aliases: ["ordinaert resultat", "resultat for skattekostnad"],
+      },
+      {
+        key: "net_income",
+        statementFamily: "INCOME_STATEMENT",
+        aliases: ["arsresultat", "resultat etter skatt"],
+      },
+      {
+        key: "tax_expense",
+        statementFamily: "INCOME_STATEMENT",
+        aliases: ["skattekostnad"],
+      },
+    ];
+
+    expect(
+      findCanonicalMetricKey(
+        "Ordinært resultat etter skattekostnad",
+        "INCOME_STATEMENT",
+        null,
+        definitions,
+      ),
+    ).toBeNull();
+  });
+
   it("normalizes OCR rows into canonical metrics without 1000x mistakes", () => {
     const classifications: PageClassification[] = [
       buildClassification({

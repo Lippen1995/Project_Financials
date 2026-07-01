@@ -6,6 +6,7 @@ vi.mock("@/lib/env", () => ({
 
 import {
   pingInferenceService,
+  predictFinancialFactMetric,
   predictUnitScale,
 } from "@/server/ml/ml-inference-client";
 
@@ -67,6 +68,44 @@ describe("ml-inference-client", () => {
       );
 
       const result = await predictUnitScale({ rawLabel: "Beløp i NOK" });
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("predictFinancialFactMetric", () => {
+    it("returns a metric-key prediction on a 200 response", async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            metric_key: "total_equity",
+            confidence: 0.81,
+            model_version: "2026-06-29",
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const result = await predictFinancialFactMetric({
+        rowContext: "label=Sum egenkapital | value=21661000000",
+        proposedMetricKey: "total_equity",
+      });
+
+      expect(result).toEqual({
+        metricKey: "total_equity",
+        confidence: 0.81,
+        modelVersion: "2026-06-29",
+      });
+    });
+
+    it("returns null when the financial-fact response shape is unexpected", async () => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        new Response(JSON.stringify({ metric: "total_equity" }), { status: 200 }),
+      );
+
+      const result = await predictFinancialFactMetric({
+        rowContext: "label=Sum egenkapital",
+      });
+
       expect(result).toBeNull();
     });
   });

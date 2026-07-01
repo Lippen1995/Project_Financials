@@ -7,7 +7,7 @@ import {
 } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import { AnnualReportDocument, AnnualReportDocumentDiagnostics } from "@/integrations/brreg/annual-report-financials/document-model";
 
-export type AnnualReportUnitScale = 1 | 1000;
+export type AnnualReportUnitScale = 1 | 1000 | 1_000_000;
 
 export type UnitScaleSignal = {
   unitScale: AnnualReportUnitScale;
