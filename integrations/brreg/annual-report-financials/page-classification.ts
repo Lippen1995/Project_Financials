@@ -317,6 +317,20 @@ function extractDeclaredYears(page: AnnualReportParsedPage) {
   ).slice(0, 6);
 }
 
+function extractYearFromHeaderToken(token: string): number | null {
+  const fullYear = token.match(/\b20\d{2}\b/)?.[0];
+  if (fullYear) return Number(fullYear);
+
+  const periodYear = token.match(/\b31[./-]12[./-]?(\d{2})\b/)?.[1];
+  if (periodYear) return 2000 + Number(periodYear);
+
+  if (/^0\d{2}$/.test(token)) {
+    return 2000 + Number(token.slice(1));
+  }
+
+  return null;
+}
+
 function extractYearHeaderYears(page: AnnualReportParsedPage) {
   for (const table of page.tables) {
     const headerRow = table.rows.find((row) => {
@@ -340,8 +354,16 @@ function extractYearHeaderYears(page: AnnualReportParsedPage) {
   }
 
   for (const line of page.lines.slice(0, 12)) {
+    const tokens =
+      line.words.length > 0
+        ? line.words.map((word) => word.text)
+        : line.text.split(/\s+/);
     const years = Array.from(
-      new Set((line.text.match(/\b20\d{2}\b/g) ?? []).map((year) => Number(year))),
+      new Set(
+        tokens
+          .map(extractYearFromHeaderToken)
+          .filter((year): year is number => year !== null && year >= 2000 && year <= 2099),
+      ),
     );
 
     if (years.length >= 2) {

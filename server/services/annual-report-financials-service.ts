@@ -11,6 +11,7 @@ import {
 } from "@/integrations/brreg/annual-report-financials/publish-gate";
 import { buildNormalizedFinancialPayload } from "@/integrations/brreg/annual-report-financials/normalized-payload";
 import { extractOcrPagesBatched, extractOcrPagesWithDiagnostics } from "@/integrations/brreg/annual-report-financials/ocr";
+import { selectivelyMergeOcrScaleFacts } from "@/integrations/brreg/annual-report-financials/ocr-scale-fact-merge";
 import { isPageReliable, preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
 import { reconstructStatementRows } from "@/integrations/brreg/annual-report-financials/table-reconstruction";
 import { computePageConfidences, PageConfidence } from "@/integrations/brreg/annual-report-financials/page-confidence";
@@ -21,6 +22,9 @@ import {
   ConstraintCause,
   EngineConsensus,
 } from "@/integrations/brreg/annual-report-financials/engine-consensus";
+import {
+  reconcileStatementRowsAcrossOcrScales,
+} from "@/integrations/brreg/annual-report-financials/geometry-first-reconstruction";
 import {
   buildAlternativeRowsForRecovery,
   buildStatementRowsPreferGeometryFirst,
@@ -107,6 +111,8 @@ import {
 } from "@/server/services/annual-report-unified-shadow-extraction-service";
 import { createAdminNotificationIfMissing } from "@/server/services/admin-notification-service";
 import { runUnitScaleShadowComparison } from "@/server/ml/unit-scale-shadow-service";
+import { runFinancialFactShadowComparison } from "@/server/ml/financial-fact-shadow-service";
+import { rankCanonicalAccuracyFacts } from "@/server/services/extraction-accuracy-fact-ranker";
 import {
   resolveUnitScaleClassifications,
   type UnitScaleResolutionMode,
@@ -116,6 +122,13 @@ import env from "@/lib/env";
 const provider = new BrregFinancialsProvider();
 const artifactStorage = new LocalAnnualReportArtifactStorage();
 export const ANNUAL_REPORT_PARSER_VERSION = "annual-report-pipeline-v4-opendataloader";
+const OCR_HIGH_SCALE_RECOVERY_SCALE = 4;
+const OCR_HIGH_SCALE_RECOVERY_MAX_PAGES = 12;
+const STATUTORY_SECTION_TYPES = new Set([
+  "STATUTORY_INCOME",
+  "STATUTORY_BALANCE",
+  "STATUTORY_BALANCE_CONTINUATION",
+]);
 
 const computeSha256 = (buffer: Buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
 const nextCheckDate = (hours: number) => new Date(Date.now() + hours * 60 * 60 * 1000);
@@ -686,11 +699,15 @@ function assembleComputation(input: {
     // confidence, scope selection or the published snapshot.
     emitComparativeYears: true,
   });
+  const rankedMapped = {
+    ...mapped,
+    facts: rankCanonicalAccuracyFacts(mapped.facts),
+  };
   // The validation / confidence / snapshot all reason about a single statement
   // year — the filing's year. Restrict the gate to current-year facts so the
   // prior-year column (suggestions only) can never pick a wrong-year value
   // through chooseCanonicalFacts' per-key dedup.
-  const currentYearFacts = mapped.facts.filter((fact) => fact.fiscalYear === input.fiscalYear);
+  const currentYearFacts = rankedMapped.facts.filter((fact) => fact.fiscalYear === input.fiscalYear);
   // Pick the primary scope to validate, score and publish. Consolidated
   // (konsernregnskap) is the headline for a group; a standalone company has
   // only COMPANY facts so it falls through to COMPANY. Facts of BOTH scopes
@@ -766,7 +783,7 @@ function assembleComputation(input: {
     classifications: input.classifications,
     rows: input.rows,
     pageConfidences,
-    mapped,
+    mapped: rankedMapped,
     validation,
     issues,
     selectedFacts,
@@ -781,6 +798,102 @@ function assembleComputation(input: {
     reviewRuleCodes,
     primaryScope,
     durationMs: Date.now() - input.startedAt,
+  } satisfies FinancialPipelineComputation;
+}
+
+function recomputeComputationWithFacts(input: {
+  computation: FinancialPipelineComputation;
+  fiscalYear: number;
+  facts: CanonicalFactCandidate[];
+  requiredKeys: string[];
+  nodeRules: NodeEvalConfig[];
+}): FinancialPipelineComputation {
+  const mapped = {
+    ...input.computation.mapped,
+    facts: rankCanonicalAccuracyFacts(input.facts),
+  };
+  const currentYearFacts = mapped.facts.filter((fact) => fact.fiscalYear === input.fiscalYear);
+  const primaryScope: "COMPANY" | "CONSOLIDATED" = currentYearFacts.some(
+    (fact) => fact.statementScope === "CONSOLIDATED",
+  )
+    ? "CONSOLIDATED"
+    : "COMPANY";
+  const validation = validateCanonicalFacts(currentYearFacts, primaryScope);
+  const classificationIssues = buildClassificationIssues(
+    input.fiscalYear,
+    input.computation.classifications,
+  );
+  const selectedFacts = validation.selectedFacts;
+  const nodeMatchIssues = buildNodeMatchIssues(input.nodeRules, selectedFacts);
+  const issues = [
+    ...classificationIssues,
+    ...mapped.issues,
+    ...validation.issues,
+    ...nodeMatchIssues,
+  ];
+  const duplicateSupport =
+    validation.stats.duplicateComparisons > 0
+      ? validation.stats.duplicateMatches / validation.stats.duplicateComparisons
+      : 0;
+  const noteSupport =
+    validation.stats.noteComparisons > 0
+      ? validation.stats.noteMatches / validation.stats.noteComparisons
+      : 0;
+  const confidenceScore = calculateConfidenceScore({
+    classifications: input.computation.classifications,
+    selectedFactCount: selectedFacts.size,
+    validationScore: validation.validationScore,
+    duplicateSupport,
+    noteSupport,
+    issueCount: issues.length,
+    requiredKeys: input.requiredKeys,
+  });
+  const canPublishSnapshot = canPublishProvisionally({
+    filingFiscalYear: input.fiscalYear,
+    classifications: input.computation.classifications,
+    selectedFacts,
+    validationIssues: issues,
+    confidenceScore,
+  });
+  const canSkipManualReview = canPublishAutomatically({
+    filingFiscalYear: input.fiscalYear,
+    classifications: input.computation.classifications,
+    selectedFacts,
+    validationIssues: issues,
+    confidenceScore,
+    requiredKeys: input.requiredKeys,
+  });
+  const sourcePrecedence =
+    selectedFacts.get("revenue")?.precedence ??
+    selectedFacts.get("total_assets")?.precedence ??
+    "NOTE_DERIVED";
+  const normalizedPayload = buildNormalizedFinancialPayload(input.fiscalYear, selectedFacts);
+  const blockingRuleCodes = Array.from(
+    new Set(issues.filter((issue) => issue.severity === "ERROR").map((issue) => issue.ruleCode)),
+  );
+  const reviewRuleCodes = buildReviewRuleCodes({
+    selectedFacts,
+    issues,
+    confidenceScore,
+    canSkipManualReview,
+  });
+
+  return {
+    ...input.computation,
+    mapped,
+    validation,
+    issues,
+    selectedFacts,
+    duplicateSupport,
+    noteSupport,
+    confidenceScore,
+    canPublishSnapshot,
+    canSkipManualReview,
+    sourcePrecedence,
+    normalizedPayload,
+    blockingRuleCodes,
+    reviewRuleCodes,
+    primaryScope,
   } satisfies FinancialPipelineComputation;
 }
 
@@ -1499,6 +1612,31 @@ export async function processAnnualReportFiling(
       }
     }
 
+    if (env.mlInferenceFinancialFactShadowEnabled) {
+      try {
+        const shadowComparison = await runFinancialFactShadowComparison({
+          facts: primaryComputation.mapped.facts,
+          classifications: primaryComputation.classifications,
+          rows: primaryComputation.rows,
+        });
+        logPipelineEvent("ml_shadow.financial_fact_comparison", {
+          filingId: filing.id,
+          extractionRunId: extractionRun.id,
+          serviceAvailable: shadowComparison.serviceAvailable,
+          comparedFacts: shadowComparison.comparedFacts,
+          agreements: shadowComparison.agreements,
+          disagreements: shadowComparison.disagreements,
+          skippedAsReported: shadowComparison.skippedAsReported,
+          agreementRate: shadowComparison.agreementRate,
+        });
+      } catch (shadowError) {
+        logRecoverableError("ml-shadow", shadowError, {
+          operation: "financial_fact_comparison",
+          filingId: filing.id,
+        });
+      }
+    }
+
     if (openDataLoaderResult && openDataLoaderConfig.dualRun) {
       const shadowComputation = await runFinancialPipeline({
         filingId: filing.id,
@@ -1741,6 +1879,109 @@ export async function processAnnualReportFiling(
     // ── Unified extractor shadow run (never affects production output) ────────
     // Errors in this block are caught internally by runAnnualReportUnifiedShadowExtraction
     // and must not propagate to the primary pipeline.
+    if (primaryEngine === "LEGACY" && legacyOcrResult) {
+      const highScalePageNumbers = primaryComputation.classifications
+        .filter((classification) => STATUTORY_SECTION_TYPES.has(classification.type))
+        .map((classification) => classification.pageNumber)
+        .filter((pageNumber, index, pageNumbers) => pageNumbers.indexOf(pageNumber) === index)
+        .sort((left, right) => left - right)
+        .slice(0, OCR_HIGH_SCALE_RECOVERY_MAX_PAGES);
+
+      if (highScalePageNumbers.length > 0) {
+        try {
+          const highScaleOcrResult = await extractOcrPagesBatched(
+            pdfBuffer,
+            highScalePageNumbers,
+            undefined,
+            { renderScale: OCR_HIGH_SCALE_RECOVERY_SCALE },
+          );
+          const highScalePagesByNumber = new Map(
+            highScaleOcrResult.pages.map((page) => [page.pageNumber, page]),
+          );
+          const highScalePages = legacyPages.map(
+            (page) => highScalePagesByNumber.get(page.pageNumber) ?? page,
+          );
+          const highScaleComputation = await runFinancialPipeline({
+            filingId: filing.id,
+            extractionRunId: extractionRun.id,
+            fiscalYear: filing.fiscalYear,
+            parsedPages: highScalePages,
+            engine: "LEGACY",
+            mode: "legacy",
+            excludePageNumbers: pageHints?.hasReliableHints ? pageHints.excludePages : undefined,
+            definitions: metricDefinitions,
+            requiredKeys,
+            nodeRules,
+          });
+          const reconciledRows = reconcileStatementRowsAcrossOcrScales(
+            primaryComputation.rows,
+            highScaleComputation.rows,
+          );
+          let reconciledComputation = assembleComputation({
+            fiscalYear: filing.fiscalYear,
+            parsedPages: highScalePages,
+            classifications: primaryComputation.classifications,
+            rows: reconciledRows,
+            engine: "LEGACY",
+            mode: "legacy",
+            startedAt: Date.now(),
+            definitions: metricDefinitions,
+            requiredKeys,
+            nodeRules,
+          });
+          if (engineConsensus) {
+            reconciledComputation = applyEngineConsensus(
+              reconciledComputation,
+              engineConsensus,
+              filing.fiscalYear,
+              requiredKeys,
+            );
+          }
+          const merged = selectivelyMergeOcrScaleFacts(
+            primaryComputation.mapped.facts,
+            highScaleComputation.mapped.facts,
+          );
+          const acceptedRepairCount =
+            merged.stats.replacedTruncatedSlots + merged.stats.addedSiblingYearSlots;
+          const rowRecoveryWins = loopCandidateWins(reconciledComputation, primaryComputation);
+          logPipelineEvent("ocr_high_scale_recovery.completed", {
+            filingId: filing.id,
+            extractionRunId: extractionRun.id,
+            renderScale: OCR_HIGH_SCALE_RECOVERY_SCALE,
+            pageNumbers: highScalePageNumbers,
+            diagnostics: highScaleOcrResult.diagnostics,
+            mergeStats: merged.stats,
+            acceptedRepairCount,
+            primaryRowCount: primaryComputation.rows.length,
+            highScaleRowCount: highScaleComputation.rows.length,
+            reconciledRowCount: reconciledRows.length,
+            rowRecoveryWins,
+          });
+          if (rowRecoveryWins) {
+            primaryComputation = reconciledComputation;
+          } else if (acceptedRepairCount > 0) {
+            primaryComputation = recomputeComputationWithFacts({
+              computation: primaryComputation,
+              fiscalYear: filing.fiscalYear,
+              facts: merged.facts,
+              requiredKeys,
+              nodeRules,
+            });
+          }
+        } catch (highScaleRecoveryError) {
+          logRecoverableError(
+            "annual-report-financials.ocrHighScaleRecovery",
+            highScaleRecoveryError,
+            {
+              filingId: filing.id,
+              fiscalYear: filing.fiscalYear,
+              pageNumbers: highScalePageNumbers,
+            },
+          );
+        }
+      }
+    }
+
     try {
       const unifiedShadowConfig = getAnnualReportUnifiedShadowConfigFromEnv();
       const shadowConfigErrors = validateAnnualReportUnifiedShadowConfig(unifiedShadowConfig);

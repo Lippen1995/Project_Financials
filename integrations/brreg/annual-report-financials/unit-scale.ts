@@ -7,7 +7,7 @@ import {
 import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
 
 type ScalePattern = {
-  unitScale: 1 | 1000;
+  unitScale: 1 | 1000 | 1_000_000;
   regex: RegExp;
   confidence: number;
   source: UnitScaleSignal["source"];
@@ -82,10 +82,31 @@ const THOUSAND_PATTERNS: ScalePattern[] = [
   },
 ];
 
+const MILLION_PATTERNS: ScalePattern[] = [
+  {
+    unitScale: 1_000_000,
+    regex: /bel[o0]p [i1l](?:\s*[:.\-])?\s*nok\s*mill\.?\b/,
+    confidence: 0.99,
+    source: "PAGE_HEADER",
+  },
+  {
+    unitScale: 1_000_000,
+    regex: /bel[o0]p [i1l](?:\s*[:.\-])?\s*(?:millioner|mill\.?)\s*(?:nok|kroner|kr)?\b/,
+    confidence: 0.98,
+    source: "PAGE_HEADER",
+  },
+  {
+    unitScale: 1_000_000,
+    regex: /(?:alle|samtlige)\s+tall(?:ene)?\s+(?:er\s+)?(?:oppgitt\s+)?i\s+(?:millioner|mill\.?)\s+(?:nok|kroner|kr)\b/,
+    confidence: 0.94,
+    source: "PAGE_BODY",
+  },
+];
+
 const WHOLE_NOK_PATTERNS: ScalePattern[] = [
   {
     unitScale: 1,
-    regex: /bel[o0]p [i1l]\d*\s*(?:\s*[:.\-])?\s*nok\b(?!\s*(?:1[\s.]?000|1000))/,
+    regex: /bel[o0]p [i1l]\d*\s*(?:\s*[:.\-])?\s*nok\b(?!\s*(?:1[\s.]?000|1000|mill\.?|millioner))/,
     confidence: 0.95,
     source: "PAGE_HEADER",
   },
@@ -107,7 +128,7 @@ function collectSignals(text: string) {
   const normalized = normalizeNorwegianText(text);
   const signals: UnitScaleSignal[] = [];
 
-  for (const pattern of [...THOUSAND_PATTERNS, ...WHOLE_NOK_PATTERNS]) {
+  for (const pattern of [...MILLION_PATTERNS, ...THOUSAND_PATTERNS, ...WHOLE_NOK_PATTERNS]) {
     const match = normalized.match(pattern.regex);
     if (!match) {
       continue;
@@ -135,9 +156,10 @@ function summarizeSignals(signals: UnitScaleSignal[]): UnitScaleDetectionResult 
     };
   }
 
-  const scoreByScale = new Map<1 | 1000, number>([
+  const scoreByScale = new Map<1 | 1000 | 1_000_000, number>([
     [1, 0],
     [1000, 0],
+    [1_000_000, 0],
   ]);
 
   for (const signal of signals) {
@@ -146,7 +168,9 @@ function summarizeSignals(signals: UnitScaleSignal[]): UnitScaleDetectionResult 
 
   const wholeNokScore = scoreByScale.get(1) ?? 0;
   const thousandScore = scoreByScale.get(1000) ?? 0;
-  const conflictingSignals = wholeNokScore > 0 && thousandScore > 0;
+  const millionScore = scoreByScale.get(1_000_000) ?? 0;
+  const nonZeroScaleCount = [wholeNokScore, thousandScore, millionScore].filter((score) => score > 0).length;
+  const conflictingSignals = nonZeroScaleCount > 1;
 
   if (conflictingSignals) {
     return {
@@ -158,14 +182,23 @@ function summarizeSignals(signals: UnitScaleSignal[]): UnitScaleDetectionResult 
     };
   }
 
-  const unitScale = thousandScore > wholeNokScore ? 1000 : 1;
-  const confidence = Math.max(wholeNokScore, thousandScore) / signals.length;
+  const unitScale =
+    millionScore > thousandScore && millionScore > wholeNokScore
+      ? 1_000_000
+      : thousandScore > wholeNokScore
+        ? 1000
+        : 1;
+  const confidence = Math.max(wholeNokScore, thousandScore, millionScore) / signals.length;
 
   return {
     unitScale,
     confidence: Number(Math.min(0.995, confidence).toFixed(3)),
     reason:
-      unitScale === 1000
+      unitScale === 1_000_000
+        ? conflictingSignals
+          ? "Primary unit declaration indicates NOK millions, but conflicting signals were also found"
+          : "Declared NOK millions on page"
+        : unitScale === 1000
         ? conflictingSignals
           ? "Primary unit declaration indicates NOK 1000, but conflicting signals were also found"
           : "Declared NOK 1000 on page"

@@ -1,4 +1,7 @@
-import type { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
+import type {
+  AnnualReportUnitScale,
+  CanonicalFactCandidate,
+} from "@/integrations/brreg/annual-report-financials/types";
 import type {
   UnifiedFinancialLineItem,
   UnifiedFinancialStatementExtractionResult,
@@ -125,7 +128,7 @@ const NORWEGIAN_LABEL_SYNONYMS: Record<string, string> = {
   "annen kortsiktig gjeld": "current_liabilities_other",
 };
 
-function legacyScaleToMultiplier(scale: 1 | 1000): bigint {
+function legacyScaleToMultiplier(scale: AnnualReportUnitScale): bigint {
   return BigInt(scale);
 }
 
@@ -343,7 +346,7 @@ function compareFinancials(
     if (delta === 0n) {
       if (unified.matchedViaLabel) {
         match = "LABEL_MAPPED";
-      } else if (labelMatchedLegacy.unitScale !== (unifiedMultiplier === 1n ? 1 : 1000)) {
+      } else if (BigInt(labelMatchedLegacy.unitScale) !== unifiedMultiplier) {
         match = "UNIT_SCALE_ADJUSTED";
       } else {
         match = "EXACT";

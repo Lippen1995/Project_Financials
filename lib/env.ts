@@ -62,6 +62,8 @@ const env = {
     (process.env.ML_INFERENCE_UNIT_SCALE_MODE ?? "apply").trim().toLowerCase(),
   mlInferenceShadowEnabled:
     (process.env.ML_INFERENCE_SHADOW ?? "").trim().toLowerCase() === "true",
+  mlInferenceFinancialFactShadowEnabled:
+    (process.env.ML_INFERENCE_FINANCIAL_FACT_SHADOW ?? "").trim().toLowerCase() === "true",
   financialsSyncSecret:
     process.env.FINANCIALS_SYNC_SECRET ?? process.env.WORKSPACE_SYNC_SECRET ?? "",
   workspaceSyncSecret: process.env.WORKSPACE_SYNC_SECRET ?? "",

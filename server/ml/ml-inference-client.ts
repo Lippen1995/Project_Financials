@@ -32,6 +32,12 @@ export type UnitScalePrediction = {
   modelVersion: string | null;
 };
 
+export type FinancialFactMetricPrediction = {
+  metricKey: string;
+  confidence: number;
+  modelVersion: string | null;
+};
+
 async function postWithTimeout(
   path: string,
   body: unknown,
@@ -86,6 +92,39 @@ export async function predictUnitScale(input: {
   } catch (error) {
     logRecoverableError("ml-inference-client", error, {
       operation: "predict-unit-scale",
+      message: "non-JSON response",
+    });
+    return null;
+  }
+}
+
+export async function predictFinancialFactMetric(input: {
+  rowContext: string;
+  proposedMetricKey?: string | null;
+}): Promise<FinancialFactMetricPrediction | null> {
+  const response = await postWithTimeout("/predict/financial-fact", {
+    row_context: input.rowContext,
+    proposed_metric_key: input.proposedMetricKey ?? null,
+  });
+  if (!response || !response.ok) return null;
+
+  try {
+    const data = (await response.json()) as {
+      metric_key?: unknown;
+      confidence?: unknown;
+      model_version?: unknown;
+    };
+    if (typeof data.metric_key !== "string" || typeof data.confidence !== "number") {
+      return null;
+    }
+    return {
+      metricKey: data.metric_key,
+      confidence: data.confidence,
+      modelVersion: typeof data.model_version === "string" ? data.model_version : null,
+    };
+  } catch (error) {
+    logRecoverableError("ml-inference-client", error, {
+      operation: "predict-financial-fact",
       message: "non-JSON response",
     });
     return null;

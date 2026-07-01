@@ -12,12 +12,14 @@
  * Usage: npx tsx scripts/eval-extraction-accuracy.ts
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { PDFParse } from "pdf-parse";
 
 import { prisma } from "@/lib/prisma";
-import { extractOcrPages } from "@/integrations/brreg/annual-report-financials/ocr";
+import { extractOcrPagesBatched } from "@/integrations/brreg/annual-report-financials/ocr";
+import { selectivelyMergeOcrScaleFacts } from "@/integrations/brreg/annual-report-financials/ocr-scale-fact-merge";
 import { classifyPages } from "@/integrations/brreg/annual-report-financials/page-classification";
 import {
   detectYearColumnAnchorsForPage,
@@ -25,7 +27,12 @@ import {
   type ColumnAnchor,
 } from "@/integrations/brreg/annual-report-financials/geometry-first-reconstruction";
 import { mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
-import type { ReconstructedRow } from "@/integrations/brreg/annual-report-financials/types";
+import { convertNormalizedDocumentToAnnualReportPages } from "@/server/document-understanding/opendataloader-normalizer";
+import type {
+  AnnualReportParsedInputPage,
+  ReconstructedRow,
+} from "@/integrations/brreg/annual-report-financials/types";
+import type { NormalizedDocument } from "@/server/document-understanding/opendataloader-types";
 import { loadMetricDefinitions } from "@/server/services/metric-mapping-service";
 import { loadRequiredPublishMetricKeys } from "@/server/services/canonical-registry-service";
 import {
@@ -33,9 +40,21 @@ import {
   type AccuracyFact,
   type AccuracyResult,
 } from "@/server/services/extraction-accuracy-service";
+import {
+  rankCanonicalAccuracyFacts,
+} from "@/server/services/extraction-accuracy-fact-ranker";
+
+type RankableEvalFact = AccuracyFact & {
+  rawLabel?: string | null;
+  sourceRowText?: string | null;
+};
 
 const ARTIFACTS_DIR = "C:/Users/simen/Project_Financials/output/annual-report-artifacts";
 const OUT_DIR = path.join(process.cwd(), "output", "benchmarks", "annual-report-extraction-accuracy");
+const CACHE_DIR = path.join(
+  os.tmpdir(),
+  "fjord-insight-annual-report-extraction-accuracy-ocr-cache",
+);
 const DEL1_MAX_PAGE = 15; // Brønnøysund Del 1 statutory forms sit in the first pages.
 const STATUTORY_TYPES = new Set([
   "STATUTORY_INCOME",
@@ -50,6 +69,158 @@ function pdfPathFor(filingId: string): string | null {
   return name ? path.join(dir, name) : null;
 }
 
+function normalizedDocumentPathFor(filingId: string): string | null {
+  const file = path.join(
+    ARTIFACTS_DIR,
+    filingId,
+    "document_normalized_json",
+    "opendataloader-normalized-document.json",
+  );
+  return fs.existsSync(file) ? file : null;
+}
+
+function readArtifactParsedPages(filingId: string): AnnualReportParsedInputPage[] | null {
+  const file = normalizedDocumentPathFor(filingId);
+  if (!file) return null;
+  const payload = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    normalizedDocument?: NormalizedDocument;
+  };
+  if (!payload.normalizedDocument) return null;
+  return convertNormalizedDocumentToAnnualReportPages(payload.normalizedDocument);
+}
+
+function readFlag(name: string) {
+  const prefix = `--${name}=`;
+  const match = process.argv.find((arg) => arg.startsWith(prefix));
+  return match ? match.slice(prefix.length) : null;
+}
+
+function hasFlag(name: string) {
+  return process.argv.includes(`--${name}`);
+}
+
+function cachePathFor(input: {
+  filingId: string;
+  fiscalYear: number;
+  pageNumbers: number[];
+  renderScale?: number;
+}) {
+  const scale = input.renderScale !== undefined
+    ? String(input.renderScale)
+    : process.env.ANNUAL_REPORT_OCR_RENDER_SCALE ?? "default";
+  return cachePathForScale(input, scale);
+}
+
+function cachePathForScale(
+  input: { filingId: string; fiscalYear: number; pageNumbers: number[] },
+  scale: string,
+) {
+  return path.join(
+    CACHE_DIR,
+    `${input.filingId}-${input.fiscalYear}-scale-${scale}-pages-${input.pageNumbers[0] ?? "none"}-${input.pageNumbers.at(-1) ?? "none"}.json`,
+  );
+}
+
+function legacyCachePathFor(input: { filingId: string; fiscalYear: number; pageNumbers: number[] }) {
+  return path.join(
+    CACHE_DIR,
+    `${input.filingId}-${input.fiscalYear}-pages-${input.pageNumbers[0] ?? "none"}-${input.pageNumbers.at(-1) ?? "none"}.json`,
+  );
+}
+
+async function readOrExtractOcrPages(input: {
+  filingId: string;
+  fiscalYear: number;
+  pdfBuffer: Buffer;
+  pageNumbers: number[];
+  useCache: boolean;
+  renderScale?: number;
+}): Promise<AnnualReportParsedInputPage[]> {
+  const cachePath = cachePathFor(input);
+  if (input.useCache && fs.existsSync(cachePath)) {
+    return JSON.parse(fs.readFileSync(cachePath, "utf8")) as AnnualReportParsedInputPage[];
+  }
+  const legacyCachePath = legacyCachePathFor(input);
+  if (
+    input.useCache &&
+    input.renderScale === undefined &&
+    !process.env.ANNUAL_REPORT_OCR_RENDER_SCALE &&
+    fs.existsSync(legacyCachePath)
+  ) {
+    return JSON.parse(fs.readFileSync(legacyCachePath, "utf8")) as AnnualReportParsedInputPage[];
+  }
+
+  const result = await extractOcrPagesBatched(
+    input.pdfBuffer,
+    input.pageNumbers,
+    undefined,
+    input.renderScale === undefined ? undefined : { renderScale: input.renderScale },
+  );
+  if (input.useCache) {
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    fs.writeFileSync(cachePath, JSON.stringify(result.pages), "utf8");
+  }
+  return result.pages;
+}
+
+function readCachedOcrPagesForScale(input: {
+  filingId: string;
+  fiscalYear: number;
+  pageNumbers: number[];
+  scale: string;
+}): AnnualReportParsedInputPage[] | null {
+  const cachePath = cachePathForScale(input, input.scale);
+  if (!fs.existsSync(cachePath)) return null;
+  return JSON.parse(fs.readFileSync(cachePath, "utf8")) as AnnualReportParsedInputPage[];
+}
+
+function asReportedSlug(input: string) {
+  return input
+    .replace(/\bsun\b/gi, "sum")
+    .replace(/\bregultat\b/gi, "resultat")
+    .replace(/[Ææ]/g, "ae")
+    .replace(/[Øø]/g, "o")
+    .replace(/[Åå]/g, "a")
+    .replace(/ÃƒÂ¦/g, "ae")
+    .replace(/ÃƒÂ¸/g, "o")
+    .replace(/ÃƒÂ¥/g, "a")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+}
+
+function asReportedKeyForLabel(label: string) {
+  const normalized = asReportedSlug(label).replace(/_\d{1,2}$/, "");
+  if (normalized.endsWith("ordinaert_utbytte")) {
+    return "as_reported_ordinaert_utbytte";
+  }
+  if (normalized.includes("obligasjonslan")) {
+    return "as_reported_obligasjonslan";
+  }
+  if (normalized === "utbytte_l2" || normalized.endsWith("_utbytte_l2")) {
+    return "as_reported_utbytte";
+  }
+  const overrides: Record<string, string> = {
+    arsresultat_etter_minoritetsinteresser: "as_reported_arsresultat_etter_minoritetsinteresser",
+    minoritetsinteresser: "as_reported_minoritetsinteresser",
+    sum_anleggsmidler: "as_reported_sum_anleggsmidler",
+    sum_bankinnskudd_kontanter_og_lignende:
+      "as_reported_sum_bankinnskudd_kontanter_og_lignende",
+    sum_finansielle_anleggsmidler: "as_reported_sum_finansielle_anleggsmidler",
+    sum_fordringer: "as_reported_sum_fordringer",
+    sum_immaterielle_eiendeler: "as_reported_sum_immaterielle_eiendeler",
+    sum_innskutt_egenkapital: "as_reported_sum_innskutt_egenkapital",
+    sum_opptjent_egenkapital: "as_reported_sum_opptjent_egenkapital",
+    sum_overforinger_og_disponeringer: "as_reported_sum_overforinger_og_disponeringer",
+    sum_varer: "as_reported_sum_varer",
+    sum_varige_driftsmidler: "as_reported_sum_varige_driftsmidler",
+  };
+  return overrides[normalized] ?? `as_reported_${normalized || "line"}`;
+}
+
 async function getPageCount(buf: Buffer): Promise<number> {
   const parser = new PDFParse({ data: buf });
   try {
@@ -60,16 +231,14 @@ async function getPageCount(buf: Buffer): Promise<number> {
   }
 }
 
-async function extractStatutoryFacts(
-  buf: Buffer,
-  filingFiscalYear: number,
-  definitions: Awaited<ReturnType<typeof loadMetricDefinitions>>,
-  requiredKeys: string[],
-): Promise<{ facts: AccuracyFact[]; statutoryPages: Set<number> }> {
-  const total = await getPageCount(buf);
-  const pages = Array.from({ length: Math.min(total, DEL1_MAX_PAGE) }, (_, i) => i + 1);
-  const ocrPages = await extractOcrPages(buf, pages);
-  const classifications = classifyPages(ocrPages);
+function mapParsedPagesToStatutoryFacts(input: {
+  parsedPages: AnnualReportParsedInputPage[];
+  filingFiscalYear: number;
+  definitions: Awaited<ReturnType<typeof loadMetricDefinitions>>;
+  requiredKeys: string[];
+}): { facts: AccuracyFact[]; statutoryPages: Set<number> } {
+  const { parsedPages, filingFiscalYear, definitions, requiredKeys } = input;
+  const classifications = classifyPages(parsedPages);
   const classByPage = new Map(classifications.map((c) => [c.pageNumber, c]));
 
   const statutoryPages = new Set(
@@ -80,7 +249,7 @@ async function extractStatutoryFacts(
   // primary `reconstructStatementRows` truncates badly on scans — measured at
   // ~0.9% canonical recall). Inherit year anchors into continuation pages that
   // lack their own header, mirroring extraction-loop.
-  const sortedOcr = [...ocrPages].sort((a, b) => a.pageNumber - b.pageNumber);
+  const sortedOcr = [...parsedPages].sort((a, b) => a.pageNumber - b.pageNumber);
   let lastAnchors: ColumnAnchor[] | undefined;
   const rows: ReconstructedRow[] = [];
   for (const page of sortedOcr) {
@@ -104,16 +273,146 @@ async function extractStatutoryFacts(
     emitComparativeYears: true,
   });
 
-  const facts: AccuracyFact[] = mapped.facts
+  const facts: RankableEvalFact[] = mapped.facts
     .filter((f) => statutoryPages.has(f.sourcePage))
     .map((f) => ({
       metricKey: f.metricKey,
       statementScope: f.statementScope,
       fiscalYear: f.fiscalYear,
       value: String(Math.round(f.value)),
+      rawLabel: f.rawLabel,
+      sourceRowText: f.sourceRowText,
     }));
 
-  return { facts, statutoryPages };
+  const asReportedOccurrences = new Map<string, number>();
+  for (const row of rows) {
+    const classification = classByPage.get(row.pageNumber);
+    if (!classification || !statutoryPages.has(row.pageNumber)) continue;
+    const yearOrder =
+      classification.yearHeaderYears.length >= 2
+        ? classification.yearHeaderYears
+        : [input.filingFiscalYear, input.filingFiscalYear - 1];
+    const baseKey = asReportedKeyForLabel(row.label);
+    const occurrenceKey = `${classification.statementScope}|${baseKey}`;
+    const occurrence = (asReportedOccurrences.get(occurrenceKey) ?? 0) + 1;
+    asReportedOccurrences.set(occurrenceKey, occurrence);
+    const metricKey = occurrence > 1 ? `${baseKey}_page_${row.pageNumber}_${occurrence}` : baseKey;
+    for (const valueCell of row.values) {
+      const fiscalYear = yearOrder[valueCell.columnIndex] ?? yearOrder[0] ?? input.filingFiscalYear;
+      facts.push({
+        metricKey,
+        statementScope: classification.statementScope,
+        fiscalYear,
+        value: String(Math.round(row.unitScale * valueCell.value)),
+        rawLabel: row.label,
+        sourceRowText: row.rowText,
+      });
+    }
+  }
+
+  return { facts: rankCanonicalAccuracyFacts(facts), statutoryPages };
+}
+
+async function extractStatutoryFacts(
+  filingId: string,
+  buf: Buffer,
+  filingFiscalYear: number,
+  definitions: Awaited<ReturnType<typeof loadMetricDefinitions>>,
+  requiredKeys: string[],
+  useCache: boolean,
+  forceFreshOcr: boolean,
+  mergeOcrScaleCache: string | null,
+  mergeOnlyAsReported: boolean,
+  selectiveMergeOcrScale: string | null,
+  selectiveMergeOcrScaleCache: string | null,
+): Promise<{ facts: AccuracyFact[]; statutoryPages: Set<number> }> {
+  const total = await getPageCount(buf);
+  const pageNumbers = Array.from({ length: Math.min(total, DEL1_MAX_PAGE) }, (_, i) => i + 1);
+  console.log(`  pages considered: ${pageNumbers.length}/${total}`);
+  const artifactPages = readArtifactParsedPages(filingId);
+  const parsedPages =
+    artifactPages !== null && !forceFreshOcr
+      ? artifactPages.filter((page) => pageNumbers.includes(page.pageNumber))
+      : await readOrExtractOcrPages({
+          filingId,
+          fiscalYear: filingFiscalYear,
+          pdfBuffer: buf,
+          pageNumbers,
+          useCache,
+        });
+  console.log(
+    `  parsed pages source: ${artifactPages !== null && !forceFreshOcr ? "opendataloader artifact" : "fresh OCR/cache"} (${parsedPages.length} pages)`,
+  );
+
+  const primary = mapParsedPagesToStatutoryFacts({
+    parsedPages,
+    filingFiscalYear,
+    definitions,
+    requiredKeys,
+  });
+
+  if (!mergeOcrScaleCache) {
+    if (!selectiveMergeOcrScale && !selectiveMergeOcrScaleCache) {
+      return primary;
+    }
+  }
+
+  const secondaryScale = mergeOcrScaleCache ?? selectiveMergeOcrScale ?? selectiveMergeOcrScaleCache!;
+  const parsedSecondaryScale = Number(secondaryScale);
+  const cachedSecondaryPages = readCachedOcrPagesForScale({
+    filingId,
+    fiscalYear: filingFiscalYear,
+    pageNumbers,
+    scale: secondaryScale,
+  });
+  const secondaryPages =
+    cachedSecondaryPages ??
+    (selectiveMergeOcrScaleCache
+      ? null
+      : Number.isFinite(parsedSecondaryScale) && parsedSecondaryScale >= 1
+        ? await readOrExtractOcrPages({
+            filingId,
+            fiscalYear: filingFiscalYear,
+            pdfBuffer: buf,
+            pageNumbers,
+            useCache,
+            renderScale: parsedSecondaryScale,
+          })
+        : null);
+  if (!secondaryPages) {
+    console.log(`  merge OCR scale cache: ${secondaryScale} not found`);
+    return primary;
+  }
+
+  const secondary = mapParsedPagesToStatutoryFacts({
+    parsedPages: secondaryPages,
+    filingFiscalYear,
+    definitions,
+    requiredKeys,
+  });
+  const secondaryFacts = mergeOnlyAsReported
+    ? secondary.facts.filter((fact) => fact.metricKey.startsWith("as_reported_"))
+    : secondary.facts;
+  if ((selectiveMergeOcrScale || selectiveMergeOcrScaleCache) && !mergeOcrScaleCache) {
+    const merged = selectivelyMergeOcrScaleFacts(primary.facts, secondaryFacts);
+    const statutoryPages = new Set([...primary.statutoryPages, ...secondary.statutoryPages]);
+    console.log(
+      `  selectively merged OCR scale: ${secondaryScale} ` +
+        `(considered=${merged.stats.secondaryFactsConsidered}, ` +
+        `replaced=${merged.stats.replacedTruncatedSlots}, ` +
+        `addedSiblingYears=${merged.stats.addedSiblingYearSlots}, ` +
+        `skippedConflicts=${merged.stats.skippedConflictingSlots}, ` +
+        `skippedUnanchored=${merged.stats.skippedUnanchoredSlots})`,
+    );
+    return { facts: rankCanonicalAccuracyFacts(merged.facts), statutoryPages };
+  }
+  const byKey = new Map<string, AccuracyFact>();
+  for (const fact of [...primary.facts, ...secondaryFacts]) {
+    byKey.set(`${fact.metricKey}|${fact.statementScope}|${fact.fiscalYear}|${fact.value}`, fact);
+  }
+  const statutoryPages = new Set([...primary.statutoryPages, ...secondary.statutoryPages]);
+  console.log(`  merged OCR scale cache: ${secondaryScale} (+${secondaryFacts.length} facts)`);
+  return { facts: rankCanonicalAccuracyFacts([...byKey.values()]), statutoryPages };
 }
 
 function pct(n: number): string {
@@ -122,8 +421,23 @@ function pct(n: number): string {
 
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
   const definitions = await loadMetricDefinitions();
   const requiredKeys = [...(await loadRequiredPublishMetricKeys())];
+  const requestedFilingId = readFlag("filing-id");
+  const requestedFilingIds = new Set(
+    (readFlag("filing-ids") ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean),
+  );
+  const limit = Number(readFlag("limit") ?? "0");
+  const useCache = !hasFlag("no-cache");
+  const allowFreshOcr = hasFlag("fresh-ocr");
+  const mergeOcrScaleCache = readFlag("merge-ocr-scale-cache");
+  const selectiveMergeOcrScale = readFlag("selective-merge-ocr-scale");
+  const selectiveMergeOcrScaleCache = readFlag("selective-merge-ocr-scale-cache");
+  const mergeOnlyAsReported = hasFlag("merge-as-reported-only");
 
   // Filings that have published fasit.
   const published = await prisma.publishedFinancialLineItem.groupBy({
@@ -138,7 +452,11 @@ async function main() {
     result: AccuracyResult;
   }> = [];
 
+  let processed = 0;
   for (const grp of published) {
+    if (requestedFilingId && grp.filingId !== requestedFilingId) continue;
+    if (requestedFilingIds.size > 0 && !requestedFilingIds.has(grp.filingId)) continue;
+    if (limit > 0 && processed >= limit) break;
     const filing = await prisma.annualReportFiling.findUnique({
       where: { id: grp.filingId },
       select: { id: true, fiscalYear: true, company: { select: { name: true, orgNumber: true } } },
@@ -149,15 +467,27 @@ async function main() {
       console.log(`SKIP ${filing.company?.name ?? filing.id}: no local PDF artifact`);
       continue;
     }
+    if (!allowFreshOcr && !normalizedDocumentPathFor(filing.id)) {
+      console.log(`SKIP ${filing.company?.name ?? filing.id}: no normalized document artifact`);
+      continue;
+    }
 
     console.log(`\n=== ${filing.company?.name ?? filing.id} FY${filing.fiscalYear} ===`);
     const buf = fs.readFileSync(pdf);
     const { facts: extracted, statutoryPages } = await extractStatutoryFacts(
+      filing.id,
       buf,
       filing.fiscalYear,
       definitions,
       requiredKeys,
+      useCache,
+      allowFreshOcr,
+      mergeOcrScaleCache,
+      mergeOnlyAsReported,
+      selectiveMergeOcrScale,
+      selectiveMergeOcrScaleCache,
     );
+    processed++;
 
     const fasitRows = await prisma.publishedFinancialLineItem.findMany({
       where: { filingId: filing.id, value: { not: null }, sourcePage: { in: [...statutoryPages] } },
@@ -230,9 +560,26 @@ async function main() {
     filings: perFiling,
   };
   const stamp = report.generatedAt.replace(/[:.]/g, "-");
-  fs.writeFileSync(path.join(OUT_DIR, "latest.json"), JSON.stringify(report, null, 2));
-  fs.writeFileSync(path.join(OUT_DIR, `${stamp}.json`), JSON.stringify(report, null, 2));
-  console.log(`\nReport written to ${path.join(OUT_DIR, "latest.json")}`);
+  let stampedPath = path.join(OUT_DIR, `${stamp}.json`);
+  try {
+    fs.writeFileSync(stampedPath, JSON.stringify(report, null, 2));
+  } catch (error) {
+    const fallbackDir = path.join(os.tmpdir(), "fjord-insight-annual-report-extraction-accuracy");
+    fs.mkdirSync(fallbackDir, { recursive: true });
+    stampedPath = path.join(fallbackDir, `${stamp}.json`);
+    fs.writeFileSync(stampedPath, JSON.stringify(report, null, 2));
+    console.warn(
+      `Could not write report under ${OUT_DIR}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (hasFlag("write-latest")) {
+    try {
+      fs.writeFileSync(path.join(OUT_DIR, "latest.json"), JSON.stringify(report, null, 2));
+    } catch (error) {
+      console.warn(`Could not update latest.json: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  console.log(`\nReport written to ${stampedPath}`);
 }
 
 main().then(() => prisma.$disconnect()).catch(async (e) => { console.error(e); await prisma.$disconnect(); process.exit(1); });

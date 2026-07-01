@@ -204,6 +204,7 @@ function detectUnitScaleFromText(text: string): UnifiedUnitScale {
   }
   try {
     const result = detectUnitScale(text);
+    if (result.unitScale === 1_000_000) return "MILLIONS";
     if (result.unitScale === 1000) return "THOUSANDS";
     if (result.unitScale === 1) return "ONES";
     return "UNKNOWN";
