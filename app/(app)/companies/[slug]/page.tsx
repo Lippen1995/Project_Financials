@@ -594,34 +594,19 @@ export default async function CompanyPage({
 
       {activeTab === "regnskap" ? (
         <div className="space-y-6">
-          <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-            <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
-              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-                Regnskap
-              </div>
-              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
-                Resultat og balanse over tid
-              </h2>
-              <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                Vises som tidsserie med eldste år først. Bare verifiserte tall fylles inn.
-              </p>
-            </div>
-            <div className="mt-6">
-              <FinancialTimeSeriesTable
-                statements={
-                  financialStatementsAllScopes.length > 0
-                    ? financialStatementsAllScopes
-                    : financialStatements
-                }
-                documents={financialDocuments}
-                companySlug={slug}
-                discussionRoomId={discussionContext?.selectedRoomId ?? null}
-                discussionRoomName={discussionContext?.selectedRoomName ?? null}
-                discussionStatements={financialDiscussions}
-                discussionThreads={financialMetricDiscussions}
-              />
-            </div>
-          </Card>
+          <FinancialTimeSeriesTable
+            statements={
+              financialStatementsAllScopes.length > 0
+                ? financialStatementsAllScopes
+                : financialStatements
+            }
+            documents={financialDocuments}
+            companySlug={slug}
+            discussionRoomId={discussionContext?.selectedRoomId ?? null}
+            discussionRoomName={discussionContext?.selectedRoomName ?? null}
+            discussionStatements={financialDiscussions}
+            discussionThreads={financialMetricDiscussions}
+          />
 
           <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
             <h3 className="text-xl font-semibold text-slate-950">Dokumentasjon og dekning</h3>
