@@ -7,6 +7,27 @@ export type FinancialStatementType = "income" | "balance";
 export type FinancialValueMode = "amount" | "margin" | "growth";
 export type FinancialDensityMode = "main" | "all";
 export type FinancialRowType = "normal" | "subtotal" | "key_metric" | "total";
+export type FinancialUnit = "NOK" | "kNOK" | "MNOK";
+
+export const FINANCIAL_UNIT_DIVISORS: Record<FinancialUnit, number> = {
+  NOK: 1,
+  kNOK: 1_000,
+  MNOK: 1_000_000,
+};
+
+export const FINANCIAL_UNIT_LABELS: Record<FinancialUnit, string> = {
+  NOK: "NOK",
+  kNOK: "1 000 NOK",
+  MNOK: "MNOK",
+};
+
+// Compact suffix appended directly after a value (e.g. a KPI number), where the
+// spelled-out "1 000 NOK" label would read like a second number.
+export const FINANCIAL_UNIT_SUFFIXES: Record<FinancialUnit, string> = {
+  NOK: "NOK",
+  kNOK: "tNOK",
+  MNOK: "MNOK",
+};
 
 export type FinancialReportRow = {
   label: string;
@@ -804,6 +825,40 @@ export function formatCompactCurrency(value: number | null | undefined) {
   })
     .format(value / 1_000_000)
     .replace(/\u00A0/g, " ")} MNOK`;
+}
+
+const REPORT_MINUS = "−";
+
+/**
+ * Amount formatter for the report/document-style tables. Divides by the chosen
+ * unit's divisor and formats with nb-NO grouping. In `report` mode negatives are
+ * wrapped in parentheses (annual-report convention) and null becomes an empty
+ * string; otherwise null renders as an em dash and negatives use a real minus.
+ */
+export function formatUnitAmount(
+  value: number | null | undefined,
+  unit: FinancialUnit,
+  options: { report?: boolean } = {},
+) {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return options.report ? "" : EMPTY;
+  }
+
+  const scaled = value / FINANCIAL_UNIT_DIVISORS[unit];
+  const fractionDigits = unit === "MNOK" ? 1 : 0;
+  const magnitude = new Intl.NumberFormat("nb-NO", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+    useGrouping: true,
+  })
+    .format(Math.abs(scaled))
+    .replace(/ /g, " ");
+
+  if (scaled < 0) {
+    return options.report ? `(${magnitude})` : `${REPORT_MINUS}${magnitude}`;
+  }
+
+  return magnitude;
 }
 
 export function formatPercent(value: number | null | undefined) {
