@@ -484,6 +484,11 @@ enum FinancialStatementSourcePrecedence {
   NOTE_DERIVED
 }
 
+enum PublishedFinancialLineItemSource {
+  MACHINE_EXTRACTION
+  MANUAL_REVIEW
+}
+
 model User {
   id                              String                            @id @default(cuid())
   name                            String?
@@ -882,12 +887,9 @@ model FinancialStatement {
   @@index([sourceExtractionRunId])
 }
 
-// Canonical, human-reviewed financial statement line items published for
-// display on company pages and search. This is the authoritative, full
-// "as reported" line-item store (entire income statement + balance sheet,
-// both fiscal years, both scopes). It is written ONLY by the review-publish
-// flow and is NEVER touched by the extraction pipeline, so a reprocess run
-// can never overwrite published manual-review data.
+// Public "as reported" financial statement line items. Machine extraction may
+// publish here after document-level gates pass; manual review rows have
+// precedence and are not overwritten by later machine reprocesses.
 model PublishedFinancialLineItem {
   id             String                     @id @default(cuid())
   companyId      String
@@ -895,8 +897,11 @@ model PublishedFinancialLineItem {
   fiscalYear     Int
   statementType  FinancialFactStatementType
   statementScope StatementScope             @default(COMPANY)
-  metricKey      String
+  metricKey      String?
   rawLabel       String?
+  originalLabel  String?
+  originalValue  String?
+  parsedValue    BigInt?
   value          BigInt?
   // The authoritative published number: the reviewer's on-screen "Endelig"
   // (manual ?? machine), persisted verbatim from the review grid. `value`
@@ -908,6 +913,15 @@ model PublishedFinancialLineItem {
   sortOrder      Int                        @default(0)
   reviewId       String?
   reviewerUserId String?
+  publicationSource PublishedFinancialLineItemSource @default(MANUAL_REVIEW)
+  sourceSystem    String?
+  sourceEntityType String?
+  sourceId        String?
+  sourceExtractionRunId String?
+  extractionRoute String?
+  confidence      Float?
+  fetchedAt       DateTime?
+  normalizedAt    DateTime?
   publishedAt    DateTime                   @default(now())
   createdAt      DateTime                   @default(now())
   updatedAt      DateTime                   @updatedAt

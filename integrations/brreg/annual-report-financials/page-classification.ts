@@ -504,6 +504,7 @@ function scoreFeatures(features: PageFeatures) {
   if (features.tableLike) {
     add("STATUTORY_INCOME", 0.6, "Table-like financial layout");
     add("STATUTORY_BALANCE", 0.6, "Table-like financial layout");
+    add("STATUTORY_BALANCE_CONTINUATION", 0.6, "Table-like financial layout");
     add("SUPPLEMENTARY_INCOME", 0.5, "Table-like financial layout");
     add("SUPPLEMENTARY_BALANCE", 0.5, "Table-like financial layout");
   }
@@ -511,6 +512,7 @@ function scoreFeatures(features: PageFeatures) {
   if (features.yearHeaderYears.length >= 2) {
     add("STATUTORY_INCOME", 0.4, "Detected year header");
     add("STATUTORY_BALANCE", 0.4, "Detected year header");
+    add("STATUTORY_BALANCE_CONTINUATION", 0.4, "Detected year header");
     add("SUPPLEMENTARY_INCOME", 0.3, "Detected year header");
     add("SUPPLEMENTARY_BALANCE", 0.3, "Detected year header");
   }
@@ -518,6 +520,14 @@ function scoreFeatures(features: PageFeatures) {
   if (features.cues.income > 0) {
     add("STATUTORY_INCOME", 0.8 + features.cues.income * 0.3, "Income statement keywords");
   }
+
+  if (
+    features.headingText.includes("resultatregnskap") ||
+    features.scopeHeadText.includes("resultatregnskap")
+  ) {
+    add("STATUTORY_INCOME", 0.2, "Explicit income statement heading");
+  }
+
   if (features.cues.balance > 0) {
     add("STATUTORY_BALANCE", 0.8 + features.cues.balance * 0.3, "Balance sheet keywords");
   }
@@ -531,6 +541,13 @@ function scoreFeatures(features: PageFeatures) {
       "Equity/liability continuation keywords",
     );
     add("STATUTORY_BALANCE", 0.3, "Equity/liability balance keywords");
+  }
+
+  if (
+    features.headingText.includes("egenkapital og gjeld") ||
+    features.scopeHeadText.includes("egenkapital og gjeld")
+  ) {
+    add("STATUTORY_BALANCE_CONTINUATION", 0.2, "Explicit equity/liabilities heading");
   }
 
   if (features.cues.supplementary > 0 || features.unitScale.unitScale === 1000) {
@@ -607,6 +624,42 @@ function selectType(
   }
 
   if (
+    top.type === "BOARD_REPORT" &&
+    features.tableLike &&
+    features.numericRowCount >= 8 &&
+    features.cues.income > 0 &&
+    !features.headingText.includes("note") &&
+    (
+      features.headingText.includes("resultatregnskap") ||
+      features.scopeHeadText.includes("resultatregnskap")
+    )
+  ) {
+    top = {
+      ...top,
+      type: "STATUTORY_INCOME",
+    };
+  }
+
+  if (
+    top.type === "BOARD_REPORT" &&
+    features.tableLike &&
+    features.numericRowCount >= 8 &&
+    features.cues.equityLiabilities > 0 &&
+    !features.headingText.includes("note") &&
+    (
+      features.headingText.includes("balanse") ||
+      features.headingText.includes("egenkapital og gjeld") ||
+      features.scopeHeadText.includes("balanse") ||
+      features.scopeHeadText.includes("egenkapital og gjeld")
+    )
+  ) {
+    top = {
+      ...top,
+      type: "STATUTORY_BALANCE_CONTINUATION",
+    };
+  }
+
+  if (
     previous &&
     ["STATUTORY_BALANCE", "STATUTORY_BALANCE_CONTINUATION", "SUPPLEMENTARY_BALANCE"].includes(previous.type) &&
     features.tableLike &&
@@ -629,6 +682,7 @@ function selectType(
     top = {
       ...top,
       type: "SUPPLEMENTARY_INCOME",
+      score: top.score + 0.35,
     };
   }
 
@@ -639,6 +693,7 @@ function selectType(
     top = {
       ...top,
       type: "SUPPLEMENTARY_BALANCE",
+      score: top.score + 0.35,
     };
   }
 

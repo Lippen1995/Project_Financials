@@ -1,0 +1,13 @@
+{
+  "version": "annual-report-extraction-accuracy-v1",
+  "generatedAt": "2026-07-01T06:48:41.316Z",
+  "overall": {
+    "recallNonZero": 1,
+    "precision": 1,
+    "matchedNonZero": 0,
+    "nonZeroFasitTotal": 0,
+    "correct": 0,
+    "extractedOnFasitSlots": 0
+  },
+  "filings": []
+}

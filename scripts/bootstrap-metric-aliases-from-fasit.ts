@@ -42,6 +42,7 @@ async function main() {
   type Cand = { metricKey: string; statementFamily: string; alias: string; normalizedAlias: string };
   const candByKey = new Map<string, Cand>();
   for (const f of facts) {
+    if (!f.metricKey) continue;
     const family = statementFamilyOf(f.statementType);
     if (!family) continue;
     const alias = cleanAlias(f.rawLabel!);

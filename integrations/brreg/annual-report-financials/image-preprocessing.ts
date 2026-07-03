@@ -38,11 +38,15 @@ export const OCR_PREPROCESSING_PIPELINE_VERSION =
  */
 export async function preprocessOcrImage(
   input: Buffer,
-  options?: { invert?: boolean },
+  options?: { invert?: boolean; rotationDegrees?: 0 | 90 | 180 | 270 },
 ): Promise<Buffer> {
   let pipeline = sharp(input)
     .greyscale()
     .normalise();
+
+  if (options?.rotationDegrees !== undefined && options.rotationDegrees !== 0) {
+    pipeline = pipeline.rotate(options.rotationDegrees);
+  }
 
   if (options?.invert) {
     pipeline = pipeline.negate({ alpha: false });

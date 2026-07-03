@@ -41,6 +41,7 @@ const OCR_MIN_AREA_PX = 8_192;
 export type OcrExtractionOptions = {
   renderScale?: number;
   invert?: boolean;
+  rotationDegrees?: 0 | 90 | 180 | 270;
 };
 
 function configuredOcrRenderScale() {
@@ -53,8 +54,18 @@ function resolveOcrRenderScale(options?: OcrExtractionOptions) {
   return Number.isFinite(requested) && requested! >= 1 ? requested! : configuredOcrRenderScale();
 }
 
-function preprocessingModeForScale(renderScale: number) {
-  return `page_png_scale${renderScale}_${OCR_PREPROCESSING_PIPELINE_VERSION}`;
+function preprocessingModeForOptions(renderScale: number, options?: OcrExtractionOptions) {
+  const parts = [
+    `page_png_scale${renderScale}`,
+    OCR_PREPROCESSING_PIPELINE_VERSION,
+  ];
+  if (options?.rotationDegrees !== undefined && options.rotationDegrees !== 0) {
+    parts.push(`rotate${options.rotationDegrees}`);
+  }
+  if (options?.invert) {
+    parts.push("invert");
+  }
+  return parts.join("_");
 }
 const OCR_RECOGNITION_MODES = [
   {
@@ -843,13 +854,17 @@ function readImageDimensions(buffer: Buffer) {
   return readPngDimensions(buffer) ?? readJpegDimensions(buffer);
 }
 
-function createEmptyDiagnostics(pageCount: number, renderScale: number): AnnualReportOcrDiagnostics {
+function createEmptyDiagnostics(
+  pageCount: number,
+  renderScale: number,
+  options?: OcrExtractionOptions,
+): AnnualReportOcrDiagnostics {
   return {
     minWidthPx: OCR_MIN_WIDTH_PX,
     minHeightPx: OCR_MIN_HEIGHT_PX,
     minAreaPx: OCR_MIN_AREA_PX,
     renderScale,
-    preprocessingMode: preprocessingModeForScale(renderScale),
+    preprocessingMode: preprocessingModeForOptions(renderScale, options),
     pageCount,
     imageRegionCount: 0,
     tinyCropSkippedCount: 0,
@@ -971,6 +986,7 @@ export async function extractOcrPagesWithDiagnostics(
   const diagnostics = createEmptyDiagnostics(
     pageNumbers?.length ?? screenshots.pages.length,
     renderScale,
+    options,
   );
   diagnostics.imageRegionCount = screenshots.pages.length;
   diagnostics.pageLevelOcrFallbackCount = screenshots.pages.length;
@@ -1018,7 +1034,10 @@ export async function extractOcrPagesWithDiagnostics(
       try {
         // Greyscale + contrast normalisation + median denoise + sharpen.
         // Moves marginal characters off Tesseract's failure boundary.
-        imageBuffer = await preprocessOcrImage(rawBuffer, { invert: options?.invert });
+        imageBuffer = await preprocessOcrImage(rawBuffer, {
+          invert: options?.invert,
+          rotationDegrees: options?.rotationDegrees,
+        });
       } catch (preprocessError) {
         // Preprocessing must never drop a page. If sharp cannot decode the
         // input, fall back to the raw image and let Tesseract try.

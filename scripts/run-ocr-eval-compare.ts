@@ -56,8 +56,11 @@ async function main() {
     orderBy: { sortOrder: "asc" },
   });
   const groundTruth: GroundTruthFact[] = facts
-    .filter((f) => f.value !== null)
-    .map((f) => ({ metricKey: f.metricKey, value: f.value!.toString(), sourcePage: f.sourcePage, rawLabel: f.rawLabel }));
+    .flatMap((f) =>
+      f.metricKey && f.value !== null
+        ? [{ metricKey: f.metricKey, value: f.value.toString(), sourcePage: f.sourcePage, rawLabel: f.rawLabel }]
+        : [],
+    );
 
   const pages = [...new Set(groundTruth.map((f) => f.sourcePage).filter((p): p is number => p != null))].sort((a, b) => a - b);
   console.log(`Ground truth: ${groundTruth.length} facts on pages ${pages.join(", ")}\n`);

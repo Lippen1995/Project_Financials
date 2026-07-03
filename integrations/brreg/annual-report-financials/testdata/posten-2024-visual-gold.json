@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "filingId": "cmq28bdeo004uvmecvmlo0cgc",
+  "companyName": "Posten Bring AS",
+  "fiscalYear": 2024,
+  "source": {
+    "sourceSystem": "BRREG",
+    "artifactPath": "output/annual-report-artifacts/cmq28bdeo004uvmecvmlo0cgc/pdf/984661185-2024-cec08b246a17.pdf",
+    "visualReviewPages": [
+      "output/manual-review-visuals/cmq28bdeo004uvmecvmlo0cgc/extra-pages-100-180/page-139.png",
+      "output/manual-review-visuals/cmq28bdeo004uvmecvmlo0cgc/extra-pages-100-180/page-140.png"
+    ],
+    "reviewMethod": "visual_page_review"
+  },
+  "unitScale": 1000000,
+  "currency": "NOK",
+  "notes": [
+    "Initial visual gold fixture for the rotated Posten 2024 financial statement pages.",
+    "Only high-confidence visually readable rows are included; expand before using as full-document total accuracy."
+  ],
+  "facts": [
+    {
+      "pageNumber": 139,
+      "statementType": "INCOME_STATEMENT",
+      "statementScope": "CONSOLIDATED",
+      "label": "Driftsinntekter",
+      "values": {
+        "2024": 24977000000,
+        "2023": 24394000000
+      }
+    },
+    {
+      "pageNumber": 139,
+      "statementType": "INCOME_STATEMENT",
+      "statementScope": "CONSOLIDATED",
+      "label": "Arsresultat",
+      "values": {
+        "2024": 30000000,
+        "2023": 256000000
+      }
+    },
+    {
+      "pageNumber": 140,
+      "statementType": "BALANCE_SHEET",
+      "statementScope": "CONSOLIDATED",
+      "label": "Immaterielle eiendeler",
+      "values": {
+        "2024": 1841000000,
+        "2023": 1986000000
+      }
+    },
+    {
+      "pageNumber": 140,
+      "statementType": "BALANCE_SHEET",
+      "statementScope": "CONSOLIDATED",
+      "label": "Varige driftsmidler",
+      "values": {
+        "2024": 7466000000,
+        "2023": 7071000000
+      }
+    },
+    {
+      "pageNumber": 140,
+      "statementType": "BALANCE_SHEET",
+      "statementScope": "CONSOLIDATED",
+      "label": "Anleggsmidler",
+      "values": {
+        "2024": 13276000000,
+        "2023": 13437000000
+      }
+    },
+    {
+      "pageNumber": 140,
+      "statementType": "BALANCE_SHEET",
+      "statementScope": "CONSOLIDATED",
+      "label": "Omlopsmidler",
+      "values": {
+        "2024": 6517000000,
+        "2023": 6179000000
+      }
+    },
+    {
+      "pageNumber": 140,
+      "statementType": "BALANCE_SHEET",
+      "statementScope": "CONSOLIDATED",
+      "label": "Eiendeler",
+      "values": {
+        "2024": 20943000000,
+        "2023": 19625000000
+      }
+    },
+    {
+      "pageNumber": 140,
+      "statementType": "BALANCE_SHEET",
+      "statementScope": "CONSOLIDATED",
+      "label": "Egenkapital",
+      "values": {
+        "2024": 6101000000,
+        "2023": 5876000000
+      }
+    },
+    {
+      "pageNumber": 140,
+      "statementType": "BALANCE_SHEET",
+      "statementScope": "CONSOLIDATED",
+      "label": "Langsiktig gjeld",
+      "values": {
+        "2024": 2991000000,
+        "2023": 3140000000
+      }
+    },
+    {
+      "pageNumber": 140,
+      "statementType": "BALANCE_SHEET",
+      "statementScope": "CONSOLIDATED",
+      "label": "Kortsiktig gjeld",
+      "values": {
+        "2024": 7659000000,
+        "2023": 6546000000
+      }
+    },
+    {
+      "pageNumber": 140,
+      "statementType": "BALANCE_SHEET",
+      "statementScope": "CONSOLIDATED",
+      "label": "Egenkapital og gjeld",
+      "values": {
+        "2024": 20943000000,
+        "2023": 19625000000
+      }
+    }
+  ]
+}
