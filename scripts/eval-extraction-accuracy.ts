@@ -517,9 +517,12 @@ async function main() {
   const ocrRotationDegrees = parseOcrRotation(readFlag("ocr-rotation"));
   const ocrInvert = hasFlag("ocr-invert");
 
-  // Filings that have published fasit.
+  // Filings that have published fasit. Machine extraction now also publishes
+  // line items (publicationSource=MACHINE_EXTRACTION); only reviewer-verified
+  // rows count as ground truth, otherwise the eval compares machine to itself.
   const published = await prisma.publishedFinancialLineItem.groupBy({
     by: ["filingId", "companyId"],
+    where: { publicationSource: "MANUAL_REVIEW" },
     _count: { _all: true },
   });
 
@@ -571,7 +574,12 @@ async function main() {
     processed++;
 
     const fasitRows = await prisma.publishedFinancialLineItem.findMany({
-      where: { filingId: filing.id, value: { not: null }, sourcePage: { in: [...statutoryPages] } },
+      where: {
+        filingId: filing.id,
+        publicationSource: "MANUAL_REVIEW",
+        value: { not: null },
+        sourcePage: { in: [...statutoryPages] },
+      },
       select: { metricKey: true, statementScope: true, fiscalYear: true, value: true },
     });
     const fasit: AccuracyFact[] = fasitRows.flatMap((r) =>
