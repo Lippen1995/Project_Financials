@@ -29,7 +29,14 @@ function getPrecedenceForSection(sectionType: ReconstructedRow["sectionType"]) {
   }
 }
 
-function getMetricKeyForRow(row: ReconstructedRow, definitions: MetricDefinition[]) {
+function isAsReportedKey(key: string) {
+  return key.startsWith("as_reported_");
+}
+
+function getMetricKeyForRowFromDefinitions(
+  row: ReconstructedRow,
+  definitions: MetricDefinition[],
+) {
   const statementFamily = getStatementFamilyFromSection(row.sectionType);
   const liabilitySection = row.liabilitySection ?? null;
 
@@ -43,6 +50,27 @@ function getMetricKeyForRow(row: ReconstructedRow, definitions: MetricDefinition
   return statementFamily
     ? findCanonicalMetricKey(row.normalizedLabel, statementFamily, liabilitySection, definitions)
     : null;
+}
+
+// The same label frequently carries BOTH a canonical alias ("Bygninger" →
+// property_plant_and_equipment) and a reviewer-created as-reported alias
+// ("Bygninger" → as_reported_bygninger). They serve different consumers —
+// standardized statements vs the verbatim as-reported view — so the row maps
+// in both namespaces independently instead of letting one steal the other's
+// slot on an alias tie.
+function getMetricKeysForRow(row: ReconstructedRow, definitions: MetricDefinition[]) {
+  const canonicalKey = getMetricKeyForRowFromDefinitions(
+    row,
+    definitions.filter((definition) => !isAsReportedKey(definition.key)),
+  );
+  const asReportedKey = getMetricKeyForRowFromDefinitions(
+    row,
+    definitions.filter((definition) => isAsReportedKey(definition.key)),
+  );
+  const keys: NonNullable<typeof canonicalKey>[] = [];
+  if (canonicalKey) keys.push(canonicalKey);
+  if (asReportedKey && asReportedKey !== canonicalKey) keys.push(asReportedKey);
+  return keys;
 }
 
 function inferYearOrderForClassification(
@@ -200,8 +228,8 @@ export function mapRowsToCanonicalFacts(input: {
 
   for (const row of input.rows) {
     const classification = classificationByPage.get(row.pageNumber);
-    const metricKey = getMetricKeyForRow(row, definitions);
-    if (!metricKey) {
+    const metricKeys = getMetricKeysForRow(row, definitions);
+    if (metricKeys.length === 0) {
       continue;
     }
 
@@ -224,37 +252,39 @@ export function mapRowsToCanonicalFacts(input: {
         continue;
       }
 
-      facts.push({
-        fiscalYear,
-        statementType:
-          row.sectionType === "NOTE"
-            ? "NOTE"
-            : getStatementFamilyFromSection(row.sectionType) ?? "NOTE",
-        // Inherit the scope of the page this row came from. Pages with no
-        // classification default to COMPANY (the safe single-statement case).
-        statementScope: classification?.statementScope ?? "COMPANY",
-        metricKey,
-        rawLabel: row.label,
-        normalizedLabel: row.normalizedLabel,
-        value: row.unitScale * valueCell.value,
-        currency: classification?.reportingCurrency ?? "NOK",
-        unitScale: row.unitScale,
-        sourcePage: row.pageNumber,
-        sourceSection: row.sectionType,
-        sourceRowText: row.rowText,
-        noteReference: row.noteReference,
-        confidenceScore: classification
-          ? Number(((row.confidence + classification.confidence) / 2).toFixed(3))
-          : row.confidence,
-        precedence: getPrecedenceForSection(row.sectionType),
-        isDerived: row.sectionType === "NOTE",
-        rawPayload: {
-          columnIndex: valueCell.columnIndex,
-          rawValue: valueCell.value,
-          yearOrder,
-          classificationType: classification?.type ?? null,
-        },
-      });
+      for (const metricKey of metricKeys) {
+        facts.push({
+          fiscalYear,
+          statementType:
+            row.sectionType === "NOTE"
+              ? "NOTE"
+              : getStatementFamilyFromSection(row.sectionType) ?? "NOTE",
+          // Inherit the scope of the page this row came from. Pages with no
+          // classification default to COMPANY (the safe single-statement case).
+          statementScope: classification?.statementScope ?? "COMPANY",
+          metricKey,
+          rawLabel: row.label,
+          normalizedLabel: row.normalizedLabel,
+          value: row.unitScale * valueCell.value,
+          currency: classification?.reportingCurrency ?? "NOK",
+          unitScale: row.unitScale,
+          sourcePage: row.pageNumber,
+          sourceSection: row.sectionType,
+          sourceRowText: row.rowText,
+          noteReference: row.noteReference,
+          confidenceScore: classification
+            ? Number(((row.confidence + classification.confidence) / 2).toFixed(3))
+            : row.confidence,
+          precedence: getPrecedenceForSection(row.sectionType),
+          isDerived: row.sectionType === "NOTE",
+          rawPayload: {
+            columnIndex: valueCell.columnIndex,
+            rawValue: valueCell.value,
+            yearOrder,
+            classificationType: classification?.type ?? null,
+          },
+        });
+      }
     }
   }
 
