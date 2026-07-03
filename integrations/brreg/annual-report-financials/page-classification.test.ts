@@ -54,6 +54,20 @@ describe("classifyPages", () => {
     expect(result[0]?.unitScale).toBe(1000);
   });
 
+  it("keeps NOK million result pages as statutory statements with million scale", () => {
+    const result = classifyPages([
+      buildPage(23, [
+        "Totalresultat",
+        "Belop i NOK mill. Note 2024 2023",
+        "Driftsinntekter 111 274 106 069",
+        "Arets resultat 3 893 523",
+      ]),
+    ]);
+
+    expect(result[0]?.type).toBe("STATUTORY_INCOME");
+    expect(result[0]?.unitScale).toBe(1_000_000);
+  });
+
   it("does not parse auditor reports as financial statements", () => {
     const result = classifyPages([
       buildPage(7, ["Uavhengig revisors beretning", "Konklusjon", "Grunnlag for konklusjon", "Vi har revidert årsregnskapet"]),
@@ -68,6 +82,54 @@ describe("classifyPages", () => {
     ]);
     expect(result[0]?.type).toBe("STATUTORY_BALANCE");
     expect(result[1]?.type).toBe("STATUTORY_BALANCE_CONTINUATION");
+  });
+
+  it("keeps a balance page as balance even when signature text adds board-report cues", () => {
+    const result = classifyPages([
+      buildPage(140, [
+        "BALANSE",
+        "Belop i mill kroner 31.12.2024 31.12.2023",
+        "EIENDELER",
+        "Immaterielle eiendeler 1 841 1 986",
+        "Varige driftsmidler 7 466 7 071",
+        "Anleggsmidler 13 276 13 437",
+        "Omlopsmidler 6 517 6 179",
+        "Eiendeler 20 943 19 625",
+        "EGENKAPITAL OG GJELD",
+        "Egenkapital 6 101 5 876",
+        "Langsiktig gjeld 2 991 3 140",
+        "Kortsiktig gjeld 7 659 6 546",
+        "Egenkapital og gjeld 20 943 19 625",
+        "Styret og konsernsjef",
+        "Oslo 8 april 2025",
+      ]),
+    ]);
+
+    expect(["STATUTORY_BALANCE", "STATUTORY_BALANCE_CONTINUATION"]).toContain(result[0]?.type);
+  });
+
+  it("keeps an income page as income even when signature text adds board-report cues", () => {
+    const result = classifyPages([
+      buildPage(139, [
+        "RESULTATREGNSKAP",
+        "Belop i mill kroner 2024 2023",
+        "Driftsinntekter 24 977 24 497",
+        "Vare- og trafikkostnader 9 887 9 977",
+        "Lonn og personalkostnader 9 653 9 062",
+        "Avskrivninger 1 797 1 600",
+        "Andre driftskostnader 3 044 3 039",
+        "Driftskostnader 24 381 23 818",
+        "Driftsresultat 604 598",
+        "Finansinntekter 309 346",
+        "Finanskostnader 827 551",
+        "Resultat for skattekostnad 86 393",
+        "Arsresultat 30 256",
+        "Styret og konsernsjef",
+        "Oslo 8 april 2025",
+      ]),
+    ]);
+
+    expect(result[0]?.type).toBe("STATUTORY_INCOME");
   });
 
   it("treats OCR-style 'Belop 1: NOK' as whole-NOK unit declaration", () => {

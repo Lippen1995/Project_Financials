@@ -18,6 +18,13 @@ describe("detectUnitScale", () => {
     expect(result.confidence).toBeGreaterThan(0.9);
   });
 
+  it("detects NOK million declarations", () => {
+    const result = detectUnitScale("Totalresultat Belop i NOK mill. Note 2024 2023");
+
+    expect(result.unitScale).toBe(1_000_000);
+    expect(result.confidence).toBeGreaterThan(0.9);
+  });
+
   it("detects TNOK shorthand declarations", () => {
     const result = detectUnitScale("Resultatregnskap for 2024 TNOK");
 

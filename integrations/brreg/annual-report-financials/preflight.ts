@@ -152,6 +152,7 @@ function groupItemsIntoLines(items: PositionedFragment[]): ExtractedLine[] {
 
 async function extractPositionedPages(
   pdfBuffer: Buffer,
+  pageNumbers?: number[],
 ): Promise<{ pages: PageTextLayer[]; pageCount: number }> {
   const { getDocument } = await loadPdfjs();
   const doc = await getDocument({
@@ -164,7 +165,13 @@ async function extractPositionedPages(
 
   try {
     const pages: PageTextLayer[] = [];
-    for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
+    const requestedPages =
+      pageNumbers && pageNumbers.length > 0
+        ? [...new Set(pageNumbers)]
+            .filter((pageNumber) => pageNumber >= 1 && pageNumber <= doc.numPages)
+            .sort((a, b) => a - b)
+        : Array.from({ length: doc.numPages }, (_, index) => index + 1);
+    for (const pageNumber of requestedPages) {
       const page = await doc.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1 });
       const pageHeight = viewport.height;
@@ -216,8 +223,12 @@ async function extractPositionedPages(
 
 export async function preflightAnnualReportDocument(
   pdfBuffer: Buffer,
+  options: { pageNumbers?: number[] } = {},
 ): Promise<PreflightResult> {
-  const { pages: parsedPages, pageCount } = await extractPositionedPages(pdfBuffer);
+  const { pages: parsedPages, pageCount } = await extractPositionedPages(
+    pdfBuffer,
+    options.pageNumbers,
+  );
 
   const reliablePages = parsedPages.filter(isPageReliable);
   // Document-level reliability is a majority summary of the per-page signal,

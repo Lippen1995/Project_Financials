@@ -14,6 +14,7 @@ import {
   ReconstructedRow,
   ReconstructedValueCell,
 } from "@/integrations/brreg/annual-report-financials/types";
+import type { LiabilitySection } from "@/integrations/brreg/annual-report-financials/taxonomy";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Geometry-first reconstruction
@@ -62,6 +63,8 @@ export function detectYearColumnAnchorsForPage(
 const NUMERIC_TOKEN_RE = /^[(\-]?\d[\d\s.,)]*-?$/;
 const YEAR_TOKEN_RE = /^20\d{2}$/;
 const YEAR_IN_TEXT_RE = /\b20\d{2}\b/;
+const PERIOD_YEAR_IN_TEXT_RE = /\b(?:31[./-]12[./-]?)(\d{2})\b/;
+const TRUNCATED_20XX_YEAR_RE = /^0(\d{2})$/;
 
 function isNumericToken(token: string): boolean {
   return NUMERIC_TOKEN_RE.test(token.trim());
@@ -69,6 +72,19 @@ function isNumericToken(token: string): boolean {
 
 type PositionedToken = { token: string; x: number; rightX: number };
 type NumberCluster = { tokens: PositionedToken[]; rightX: number };
+
+function extractYearFromHeaderToken(token: string): number | null {
+  const fullYear = token.match(YEAR_IN_TEXT_RE)?.[0];
+  if (fullYear) return Number(fullYear);
+
+  const periodYear = token.match(PERIOD_YEAR_IN_TEXT_RE)?.[1];
+  if (periodYear) return 2000 + Number(periodYear);
+
+  const truncated = token.match(TRUNCATED_20XX_YEAR_RE)?.[1];
+  if (truncated) return 2000 + Number(truncated);
+
+  return null;
+}
 
 function tokensWithPositions(line: ExtractedLine): PositionedToken[] {
   if (line.words.length === 0) {
@@ -108,9 +124,9 @@ function findYearColumnAnchors(page: AnnualReportParsedPage): ColumnAnchor[] {
   for (const line of topLines) {
     const anchors: ColumnAnchor[] = [];
     for (const word of line.words) {
-      const match = word.text.match(YEAR_IN_TEXT_RE);
-      if (match) {
-        anchors.push({ year: Number(match[0]), x: word.x });
+      const year = extractYearFromHeaderToken(word.text);
+      if (year) {
+        anchors.push({ year, x: word.x });
       }
     }
     if (anchors.length >= 2) {
@@ -131,9 +147,9 @@ function findYearColumnAnchors(page: AnnualReportParsedPage): ColumnAnchor[] {
   const candidates: YearWord[] = [];
   for (const line of topLines) {
     for (const word of line.words) {
-      const match = word.text.match(YEAR_IN_TEXT_RE);
-      if (match) {
-        candidates.push({ year: Number(match[0]), x: word.x, y: line.y });
+      const year = extractYearFromHeaderToken(word.text);
+      if (year) {
+        candidates.push({ year, x: word.x, y: line.y });
       }
     }
   }
@@ -296,6 +312,280 @@ function rejoinSplitNumberClusters(
   return repaired;
 }
 
+type TextParsedValue = ReconstructedValueCell & { score: number };
+
+function numericRunToken(token: string): boolean {
+  return /^[(\-]?\d[\d.,)]*-?$/.test(token.trim());
+}
+
+function groupDigitCounts(tokens: string[]): number[] {
+  return tokens.map((token) => token.replace(/\D/g, "").length);
+}
+
+function isWellFormedNorwegianGroupedNumber(tokens: string[]): boolean {
+  const digitCounts = groupDigitCounts(tokens);
+  if (digitCounts.length === 0) return false;
+  if (digitCounts[0]! < 1 || digitCounts[0]! > 3) return false;
+  return digitCounts.slice(1).every((digits) => digits === 3);
+}
+
+function partitionGroupedTail(
+  tokens: string[],
+  slots: number,
+): Array<{ groups: string[][]; score: number }> {
+  if (slots <= 0 || tokens.length < slots) return [];
+
+  const results: Array<{ groups: string[][]; score: number }> = [];
+
+  function visit(start: number, slot: number, groups: string[][]) {
+    if (slot === slots) {
+      if (start === tokens.length) {
+        let score = 0;
+        for (const group of groups) {
+          const parsed = parseFinancialInteger(group.join(" "));
+          if (parsed === null) return;
+          const digits = group.join("").replace(/\D/g, "").length;
+          if (digits === 0) return;
+          if (isWellFormedNorwegianGroupedNumber(group)) score += group.length > 1 ? 8 : 3;
+          if (group.length === 1 && digits <= 2) score -= 4;
+          score += Math.min(digits, 12) / 3;
+        }
+        const digitCounts = groups.map((group) => group.join("").replace(/\D/g, "").length);
+        const imbalance = Math.max(...digitCounts) - Math.min(...digitCounts);
+        score -= imbalance * 0.15;
+        results.push({ groups, score });
+      }
+      return;
+    }
+
+    const remainingSlots = slots - slot - 1;
+    const maxEnd = tokens.length - remainingSlots;
+    for (let end = start + 1; end <= maxEnd; end++) {
+      const group = tokens.slice(start, end);
+      if (!isWellFormedNorwegianGroupedNumber(group)) continue;
+      visit(end, slot + 1, [...groups, group]);
+    }
+  }
+
+  visit(0, 0, []);
+  return results;
+}
+
+function digitCountForGroup(group: string[]): number {
+  return group.join("").replace(/\D/g, "").length;
+}
+
+function looksLikeInferredLeadingNoteSkip(groups: string[][]): boolean {
+  if (groups.length < 2) return false;
+  const firstGroupFirstDigits = groups[0]?.[0]?.replace(/\D/g, "") ?? "";
+  if (firstGroupFirstDigits.startsWith("0")) return false;
+  const digitCounts = groups.map(digitCountForGroup);
+  const first = digitCounts[0] ?? 0;
+  const rest = digitCounts.slice(1);
+  if (first < 3 || rest.length === 0) return false;
+  const maxRest = Math.max(...rest);
+  const minRest = Math.min(...rest);
+
+  // A skipped note reference should leave current/prior-year values with
+  // the same magnitude. If skipping would make the first year smaller than the
+  // comparative year, the skipped token was probably a genuine leading
+  // thousands group (e.g. "7 345 508 000").
+  return first === minRest && first === maxRest;
+}
+
+function repairMissingLeadingOneAfterNote(
+  skippedTokens: string[],
+  groups: string[][],
+): string[][] | null {
+  const skippedLooksLikeTwoDigitNote =
+    skippedTokens.length > 0 &&
+    skippedTokens.every((token) => token.replace(/\D/g, "").length === 2);
+  if (!skippedLooksLikeTwoDigitNote || groups.length < 2) return null;
+  const allGroupsStartWithZero = groups.every((group) => {
+    const firstDigits = group[0]?.replace(/\D/g, "") ?? "";
+    return firstDigits.length === 3 && firstDigits.startsWith("0");
+  });
+  if (!allGroupsStartWithZero) return null;
+  return groups.map((group) => ["1", ...group]);
+}
+
+function parseSingleGroupedValueTail(tokens: string[]): TextParsedValue | null {
+  if (tokens.length !== 3) return null;
+  if (!isWellFormedNorwegianGroupedNumber(tokens)) return null;
+  const value = parseFinancialInteger(tokens.join(" "));
+  if (value === null) return null;
+  return { value, columnIndex: 0, x: 0, score: 40 };
+}
+
+function scoreGroupedValues(groups: string[][]) {
+  let score = 0;
+  for (const group of groups) {
+    const parsed = parseFinancialInteger(group.join(" "));
+    if (parsed === null) return null;
+    const digits = digitCountForGroup(group);
+    if (digits === 0) return null;
+    if (isWellFormedNorwegianGroupedNumber(group)) score += group.length > 1 ? 8 : 3;
+    if (group.length === 1 && digits <= 2) score -= 4;
+    score += Math.min(digits, 12) / 3;
+  }
+  const digitCounts = groups.map(digitCountForGroup);
+  const imbalance = Math.max(...digitCounts) - Math.min(...digitCounts);
+  score -= imbalance * 0.15;
+  return score;
+}
+
+function reparseGroupedValuesFromRowText(
+  rowText: string,
+  valueSlots: number,
+  preferredLeadingSkip = 0,
+  allowMissingLeadingOneAfterNote = false,
+): TextParsedValue[] {
+  const rawTokens = repairOcrTokenBoundaries(rowText).split(/\s+/).filter(Boolean);
+  const tail: string[] = [];
+  for (let i = rawTokens.length - 1; i >= 0; i--) {
+    const token = rawTokens[i]!;
+    if (numericRunToken(token)) {
+      tail.unshift(token);
+      continue;
+    }
+    if (tail.length > 0) break;
+  }
+  if (tail.length < valueSlots) return [];
+
+  let best: { groups: string[][]; score: number } | null = null;
+  const maxSkip = Math.min(2, Math.max(0, tail.length - valueSlots));
+  for (let skip = 0; skip <= maxSkip; skip++) {
+    const skipped = tail.slice(0, skip);
+    const skipLooksLikeNote = skipped.every((token) => token.replace(/\D/g, "").length <= 2);
+    if (skip > 0 && !skipLooksLikeNote) continue;
+
+    for (const candidate of partitionGroupedTail(tail.slice(skip), valueSlots)) {
+      const preferredSkipBonus =
+        preferredLeadingSkip > 0 ? (skip === preferredLeadingSkip ? 10 : -10) : 0;
+      const inferredSkippedTokenLengths = skipped.map((token) => token.replace(/\D/g, "").length);
+      const repairedMissingOneGroups = allowMissingLeadingOneAfterNote
+        ? repairMissingLeadingOneAfterNote(skipped, candidate.groups)
+        : null;
+      const repairedMissingOneScore =
+        repairedMissingOneGroups === null ? null : scoreGroupedValues(repairedMissingOneGroups);
+      const groups =
+        repairedMissingOneGroups !== null && repairedMissingOneScore !== null
+          ? repairedMissingOneGroups
+          : candidate.groups;
+      const inferredNoteSkipBonus =
+        preferredLeadingSkip === 0 &&
+        skip > 0 &&
+        skipLooksLikeNote &&
+        inferredSkippedTokenLengths.every((length) => length === 2) &&
+        looksLikeInferredLeadingNoteSkip(candidate.groups)
+          ? 18
+          : 0;
+      const repairedMissingOneBonus =
+        repairedMissingOneGroups !== null && repairedMissingOneScore !== null ? 24 : 0;
+      const score =
+        (repairedMissingOneScore ?? candidate.score) -
+        skip * 1.25 +
+        preferredSkipBonus +
+        inferredNoteSkipBonus +
+        repairedMissingOneBonus;
+      if (best === null || score > best.score) {
+        best = { groups, score };
+      }
+    }
+  }
+  if (best === null) return [];
+
+  const values = best.groups
+    .map((group, columnIndex) => {
+      const value = parseFinancialInteger(group.join(" "));
+      if (value === null) return null;
+      return { value, columnIndex, x: columnIndex * 100, score: best.score };
+    })
+    .filter((cell): cell is TextParsedValue => cell !== null);
+
+  let bestSingle: TextParsedValue | null = null;
+  for (let skip = 0; skip <= Math.min(2, Math.max(0, tail.length - 3)); skip++) {
+    const skipped = tail.slice(0, skip);
+    const skipLooksLikeNote = skipped.every((token) => token.replace(/\D/g, "").length <= 2);
+    if (skip > 0 && !skipLooksLikeNote) continue;
+    const single = parseSingleGroupedValueTail(tail.slice(skip));
+    if (!single) continue;
+    const score = single.score - skip;
+    if (!bestSingle || score > bestSingle.score) {
+      bestSingle = { ...single, score };
+    }
+  }
+
+  if (bestSingle && bestSingle.score > best.score) {
+    return [bestSingle];
+  }
+
+  return values;
+}
+
+function shouldPreferTextParsedValues(
+  geometryValues: ReconstructedValueCell[],
+  textValues: TextParsedValue[],
+): boolean {
+  if (geometryValues.length === 0 && textValues.length > 0) return true;
+  if (textValues.length === 1 && geometryValues.length >= 2) {
+    const textDigits = Math.abs(textValues[0]!.value).toString();
+    const geometryDigits = [...geometryValues]
+      .sort((left, right) => left.columnIndex - right.columnIndex)
+      .map((value, index) => {
+        const digits = Math.abs(value.value).toString();
+        return index === 0 && value.value < 0 ? `-${digits}` : digits;
+      })
+      .join("")
+      .replace(/^-/, "");
+    return geometryDigits === textDigits;
+  }
+  if (textValues.length < 2) return false;
+  if (geometryValues.length !== textValues.length) return true;
+
+  let restoredMagnitude = false;
+  let removedLeadingNoteReference = false;
+  for (const textValue of textValues) {
+    const geometryValue = geometryValues.find((value) => value.columnIndex === textValue.columnIndex);
+    if (!geometryValue) return true;
+    const geometryDigits = Math.abs(geometryValue.value).toString().length;
+    const textDigits = Math.abs(textValue.value).toString().length;
+    if (textDigits >= geometryDigits + 2) {
+      restoredMagnitude = true;
+    }
+    const geometryDigitText = Math.abs(geometryValue.value).toString();
+    const textDigitText = Math.abs(textValue.value).toString();
+    const leadingDigits = geometryDigitText.slice(0, geometryDigitText.length - textDigitText.length);
+    if (
+      geometryDigits > textDigits &&
+      geometryDigits <= textDigits + 2 &&
+      geometryDigitText.endsWith(textDigitText) &&
+      /^[1-9]\d?$/.test(leadingDigits)
+    ) {
+      removedLeadingNoteReference = true;
+    }
+  }
+
+  return restoredMagnitude || removedLeadingNoteReference;
+}
+
+function countStrictLeadingNoteReferences(
+  numericTokensIncludingNotes: PositionedToken[],
+  noteColumnX: number | null,
+): number {
+  if (noteColumnX === null) return 0;
+  let count = 0;
+  for (const token of [...numericTokensIncludingNotes].sort((a, b) => a.x - b.x)) {
+    const digits = token.token.replace(/\D/g, "");
+    if (digits.length > 0 && digits.length <= 2 && Math.abs(token.x - noteColumnX) <= 35) {
+      count++;
+      continue;
+    }
+    break;
+  }
+  return count;
+}
+
 // Bare statement section headers (normalized). These sit above their rows as
 // label-only lines but are NOT part of any row's label, so they must never be
 // merged into a wrapped-label fragment. A genuine wrap fragment ("Sum
@@ -398,6 +688,407 @@ function isNoiseLine(text: string): boolean {
   return false;
 }
 
+function detectLiabilitySection(text: string): LiabilitySection | null {
+  const normalized = normalizeRowLabel(text);
+  if (!normalized) return null;
+  if (normalized.includes("langsiktig gjeld")) return "LONG_TERM";
+  if (normalized.includes("kortsiktig gjeld")) return "CURRENT";
+  return null;
+}
+
+function valueByColumn(row: ReconstructedRow, columnIndex: number): number | null {
+  return row.values.find((value) => value.columnIndex === columnIndex)?.value ?? null;
+}
+
+function repairProvisionSubtotalRows(rows: ReconstructedRow[]): ReconstructedRow[] {
+  return rows.map((row, index) => {
+    if (!row.normalizedLabel.includes("sum avsetninger for forpliktelser")) {
+      return row;
+    }
+
+    const addends: ReconstructedRow[] = [];
+    for (let cursor = index - 1; cursor >= 0 && addends.length < 4; cursor--) {
+      const candidate = rows[cursor]!;
+      if (candidate.pageNumber !== row.pageNumber) break;
+      if (candidate.normalizedLabel.startsWith("sum ")) break;
+      if (
+        candidate.normalizedLabel.includes("egenkapital") ||
+        candidate.normalizedLabel.includes("langsiktig gjeld") ||
+        candidate.normalizedLabel.includes("kortsiktig gjeld")
+      ) {
+        break;
+      }
+      addends.unshift(candidate);
+    }
+
+    if (addends.length < 2) return row;
+
+    let changed = false;
+    const repairedValues = row.values.map((value) => {
+      const parts = addends
+        .map((addend) => valueByColumn(addend, value.columnIndex))
+        .filter((part): part is number => part !== null);
+      if (parts.length !== addends.length) return value;
+
+      const expected = parts.reduce((sum, part) => sum + part, 0);
+      const currentDigits = Math.abs(value.value).toString();
+      const expectedDigits = Math.abs(expected).toString();
+      if (
+        expected > value.value &&
+        expectedDigits.length > currentDigits.length &&
+        expectedDigits.endsWith(currentDigits)
+      ) {
+        changed = true;
+        return { ...value, value: expected };
+      }
+      return value;
+    });
+
+    return changed ? { ...row, values: repairedValues } : row;
+  });
+}
+
+function rowReconciliationKey(row: ReconstructedRow) {
+  return [
+    row.pageNumber,
+    row.sectionType,
+    row.liabilitySection ?? "",
+    row.normalizedLabel,
+  ].join("|");
+}
+
+function rowValueSignature(row: ReconstructedRow) {
+  return row.values
+    .map((value) => `${value.columnIndex}:${value.value}`)
+    .sort()
+    .join("|");
+}
+
+function hasSamePageValues(rows: ReconstructedRow[], row: ReconstructedRow) {
+  const signature = rowValueSignature(row);
+  if (!signature) return false;
+  return rows.some(
+    (candidate) =>
+      candidate.pageNumber === row.pageNumber &&
+      rowValueSignature(candidate) === signature,
+  );
+}
+
+function valueMap(row: ReconstructedRow) {
+  return new Map(row.values.map((value) => [value.columnIndex, value.value]));
+}
+
+function isPlausibleLargerRepair(current: number, candidate: number) {
+  if (candidate <= current || current <= 0) return false;
+  if (candidate > current * 25) return false;
+  const currentDigits = String(Math.abs(current));
+  const candidateDigits = String(Math.abs(candidate));
+  return (
+    candidateDigits.endsWith(currentDigits) ||
+    candidateDigits.slice(-Math.min(9, currentDigits.length)) ===
+      currentDigits.slice(-Math.min(9, currentDigits.length))
+  );
+}
+
+function digitHammingDistance(left: string, right: string) {
+  if (left.length !== right.length) return Infinity;
+  let distance = 0;
+  for (let index = 0; index < left.length; index++) {
+    if (left[index] !== right[index]) distance += 1;
+  }
+  return distance;
+}
+
+function isPlausibleSingleDigitRepair(current: number, candidate: number) {
+  if (candidate <= 0 || current <= 0) return false;
+  const currentDigits = String(Math.abs(current));
+  const candidateDigits = String(Math.abs(candidate));
+  if (currentDigits.length < 6 || currentDigits.length !== candidateDigits.length) return false;
+  return digitHammingDistance(currentDigits, candidateDigits) === 1;
+}
+
+function hasImplausibleMagnitude(row: ReconstructedRow) {
+  return row.values.some((value) => Math.abs(value.value) > 100_000_000_000_000);
+}
+
+function rowHasBetterValues(candidate: ReconstructedRow, current: ReconstructedRow) {
+  if (candidate.values.length > current.values.length) return true;
+  if (candidate.values.length < current.values.length) return false;
+
+  const candidateValues = valueMap(candidate);
+  const currentValues = valueMap(current);
+  let repairedMagnitude = false;
+  for (const [columnIndex, candidateValue] of candidateValues) {
+    const currentValue = currentValues.get(columnIndex);
+    if (currentValue === undefined) continue;
+    if (candidateValue === currentValue) continue;
+    if (isPlausibleLargerRepair(currentValue, candidateValue)) {
+      repairedMagnitude = true;
+      continue;
+    }
+    if (isPlausibleSingleDigitRepair(currentValue, candidateValue)) {
+      repairedMagnitude = true;
+      continue;
+    }
+    if (isPlausibleLargerRepair(candidateValue, currentValue)) {
+      return false;
+    }
+  }
+  return repairedMagnitude;
+}
+
+function withColumnValue(row: ReconstructedRow, columnIndex: number, value: number) {
+  const values = [...row.values];
+  const existingIndex = values.findIndex((cell) => cell.columnIndex === columnIndex);
+  if (existingIndex >= 0) {
+    values[existingIndex] = { ...values[existingIndex]!, value };
+  } else {
+    values.push({ value, columnIndex, x: columnIndex * 100 });
+  }
+  values.sort((left, right) => left.columnIndex - right.columnIndex);
+  return { ...row, values };
+}
+
+function replaceRow(rows: ReconstructedRow[], target: ReconstructedRow, replacement: ReconstructedRow) {
+  const index = rows.indexOf(target);
+  if (index === -1) return rows;
+  const copy = [...rows];
+  copy[index] = replacement;
+  return copy;
+}
+
+function normalizedIncludes(row: ReconstructedRow, needle: string) {
+  return row.normalizedLabel.includes(needle);
+}
+
+function findLiabilityRow(rows: ReconstructedRow[], predicate: (row: ReconstructedRow) => boolean) {
+  return rows.find((row) => row.values.length > 0 && predicate(row)) ?? null;
+}
+
+function repairDifferenceRow(input: {
+  rows: ReconstructedRow[];
+  target: ReconstructedRow | null;
+  minuend: ReconstructedRow | null;
+  subtrahend: ReconstructedRow | null;
+}) {
+  if (!input.target || !input.minuend || !input.subtrahend) return input.rows;
+  let target = input.target;
+  let changed = false;
+  for (const value of input.minuend.values) {
+    const subtract = valueByColumn(input.subtrahend, value.columnIndex);
+    const current = valueByColumn(target, value.columnIndex);
+    if (subtract === null || current === null) continue;
+    const expected = value.value - subtract;
+    if (expected <= 0) continue;
+    if (expected === current) continue;
+    if (
+      expected > current &&
+      (isPlausibleLargerRepair(current, expected) || expected >= current * 1.1)
+    ) {
+      target = withColumnValue(target, value.columnIndex, expected);
+      changed = true;
+    }
+  }
+  return changed ? replaceRow(input.rows, input.target, target) : input.rows;
+}
+
+function candidateRepairsForSubtotal(value: number, subtotal: number) {
+  const candidates = new Set<number>([value]);
+  if (value <= 0 || subtotal <= value) return [...candidates];
+  const digits = String(Math.abs(value));
+  const leadingGroupLength = digits.length % 3 || 3;
+
+  if (digits.length % 3 === 0) {
+    const magnitude = 10 ** digits.length;
+    for (let leading = 1; leading <= 9; leading++) {
+      const candidate = leading * magnitude + value;
+      if (candidate > value && candidate <= subtotal) candidates.add(candidate);
+    }
+  }
+
+  if (leadingGroupLength < 3) {
+    const currentLeading = Number(digits.slice(0, leadingGroupLength));
+    const rest = digits.slice(leadingGroupLength);
+    if (currentLeading === 1) {
+      for (let leading = currentLeading + 1; leading <= 9; leading++) {
+        const candidate = Number(`${leading}${rest}`);
+        if (candidate > value && candidate <= subtotal) candidates.add(candidate);
+      }
+    }
+  }
+
+  return [...candidates].sort((left, right) => left - right);
+}
+
+function repairComponentsToSubtotal(rows: ReconstructedRow[], subtotal: ReconstructedRow | null, components: ReconstructedRow[]) {
+  if (!subtotal || components.length < 2) return rows;
+  let repairedRows = rows;
+  const working = new Map<ReconstructedRow, Map<number, number>>(
+    components.map((row) => [row, valueMap(row)]),
+  );
+  const subtotalValues = valueMap(subtotal);
+  const columnIndexes = [...subtotalValues.keys()].sort((left, right) => left - right);
+
+  for (const columnIndex of columnIndexes) {
+    const subtotalValue = subtotalValues.get(columnIndex);
+    if (subtotalValue === undefined) continue;
+    const currentValues = components.map((row) => working.get(row)?.get(columnIndex) ?? null);
+    if (!currentValues.every((value): value is number => value !== null)) continue;
+    const currentSum = currentValues.reduce((sum, value) => sum + value, 0);
+    if (currentSum === subtotalValue) continue;
+    if (currentSum > subtotalValue) continue;
+
+    const candidateSets = components.map((row, index) => {
+      const current = currentValues[index]!;
+      return candidateRepairsForSubtotal(current, subtotalValue);
+    });
+    let bestValues: number[] | null = null;
+    let bestScore = Infinity;
+
+    function visit(index: number, selected: number[]) {
+      if (index === candidateSets.length) {
+        const sum = selected.reduce((acc, value) => acc + value, 0);
+        if (sum !== subtotalValue) return;
+        let score = 0;
+        for (let i = 0; i < selected.length; i++) {
+          const row = components[i]!;
+          const original = currentValues[i]!;
+          const value = selected[i]!;
+          if (value !== original) score += 1;
+          const referenceColumn = columnIndex === 0 ? 1 : 0;
+          const reference = working.get(row)?.get(referenceColumn);
+          if (reference && reference > 0 && value > 0) {
+            score += Math.abs(Math.log(value / reference));
+          }
+        }
+        if (score < bestScore) {
+          bestValues = selected;
+          bestScore = score;
+        }
+        return;
+      }
+      for (const candidate of candidateSets[index]!) {
+        visit(index + 1, [...selected, candidate]);
+      }
+    }
+
+    visit(0, []);
+    if (!bestValues) continue;
+    for (let index = 0; index < components.length; index++) {
+      working.get(components[index]!)?.set(columnIndex, bestValues[index]!);
+    }
+  }
+
+  for (const row of components) {
+    let replacement = row;
+    const values = working.get(row);
+    if (!values) continue;
+    for (const [columnIndex, value] of values) {
+      if (valueByColumn(replacement, columnIndex) !== value) {
+        replacement = withColumnValue(replacement, columnIndex, value);
+      }
+    }
+    if (replacement !== row) {
+      repairedRows = replaceRow(repairedRows, row, replacement);
+    }
+  }
+
+  return repairedRows;
+}
+
+function repairLiabilityRowsByEquations(rows: ReconstructedRow[]): ReconstructedRow[] {
+  let repaired = [...rows];
+  const pages = new Set(repaired.map((row) => row.pageNumber));
+
+  for (const pageNumber of pages) {
+    const pageRows = () => repaired.filter((row) => row.pageNumber === pageNumber);
+    const sumGjeld = () =>
+      findLiabilityRow(pageRows(), (row) => row.normalizedLabel === "sum gjeld");
+    const sumKortsiktig = () =>
+      findLiabilityRow(pageRows(), (row) => row.normalizedLabel === "sum kortsiktig gjeld");
+    const sumLangsiktig = () =>
+      findLiabilityRow(pageRows(), (row) => row.normalizedLabel === "sum langsiktig gjeld");
+    const sumAvsetninger = () =>
+      findLiabilityRow(pageRows(), (row) =>
+        normalizedIncludes(row, "sum avsetninger for forpliktelser"),
+      );
+    const sumAnnenLangsiktig = () =>
+      findLiabilityRow(pageRows(), (row) => row.normalizedLabel === "sum annen langsiktig gjeld");
+
+    repaired = repairDifferenceRow({
+      rows: repaired,
+      target: sumKortsiktig(),
+      minuend: sumGjeld(),
+      subtrahend: sumLangsiktig(),
+    });
+    repaired = repairDifferenceRow({
+      rows: repaired,
+      target: sumLangsiktig(),
+      minuend: sumGjeld(),
+      subtrahend: sumKortsiktig(),
+    });
+    repaired = repairDifferenceRow({
+      rows: repaired,
+      target: sumAnnenLangsiktig(),
+      minuend: sumLangsiktig(),
+      subtrahend: sumAvsetninger(),
+    });
+
+    const longComponents = pageRows().filter(
+      (row) =>
+        row.liabilitySection === "LONG_TERM" &&
+        !row.normalizedLabel.startsWith("sum ") &&
+        (normalizedIncludes(row, "interest-bearing debt") ||
+          normalizedIncludes(row, "other non-current liabilities")),
+    );
+    repaired = repairComponentsToSubtotal(repaired, sumAnnenLangsiktig(), longComponents);
+
+    const currentComponents = pageRows().filter(
+      (row) =>
+        row.liabilitySection === "CURRENT" &&
+        !row.normalizedLabel.startsWith("sum ") &&
+        (normalizedIncludes(row, "interest-bearing debt") ||
+          normalizedIncludes(row, "leverand") ||
+          normalizedIncludes(row, "tax payable") ||
+          normalizedIncludes(row, "tax pav") ||
+          normalizedIncludes(row, "betalbar skatt") ||
+          normalizedIncludes(row, "other current liabilities")),
+    );
+    repaired = repairComponentsToSubtotal(repaired, sumKortsiktig(), currentComponents);
+  }
+
+  return repaired;
+}
+
+export function reconcileStatementRowsAcrossOcrScales(
+  primaryRows: ReconstructedRow[],
+  secondaryRows: ReconstructedRow[],
+): ReconstructedRow[] {
+  const selected = [...secondaryRows];
+  const selectedByKey = new Map(selected.map((row) => [rowReconciliationKey(row), row]));
+
+  for (const primary of primaryRows) {
+    if (hasImplausibleMagnitude(primary)) continue;
+    if (hasSamePageValues(selected, primary)) continue;
+    const key = rowReconciliationKey(primary);
+    const current = selectedByKey.get(key);
+    if (!current) {
+      selected.push(primary);
+      selectedByKey.set(key, primary);
+      continue;
+    }
+    if (rowHasBetterValues(primary, current)) {
+      const index = selected.indexOf(current);
+      if (index >= 0) selected[index] = primary;
+      selectedByKey.set(key, primary);
+    }
+  }
+
+  return repairLiabilityRowsByEquations(
+    selected.sort((left, right) => left.pageNumber - right.pageNumber || left.y - right.y),
+  );
+}
+
 /**
  * Rebuilds the rows of a single statement page using year-column anchors and
  * x-distance assignment. Returns the empty list when geometry is unavailable
@@ -455,6 +1146,7 @@ export function reconstructStatementRowsGeometryFirst(
   // its registry alias ("sum finansielle anleggsmidler"). We remember each
   // label-only line and prepend the fragment(s) directly above a value line.
   let pendingLabel: Array<{ text: string; y: number; height: number }> = [];
+  let liabilitySection: LiabilitySection | null = null;
 
   for (let lineIndex = 0; lineIndex < page.lines.length; lineIndex++) {
     if (lineIndex === yearHeaderIndex) {
@@ -466,6 +1158,10 @@ export function reconstructStatementRowsGeometryFirst(
       pendingLabel = [];
       continue;
     }
+    const detectedLiabilitySection = detectLiabilitySection(line.text);
+    if (detectedLiabilitySection) {
+      liabilitySection = detectedLiabilitySection;
+    }
 
     const tokens = tokensWithPositions(line);
     if (tokens.length === 0) {
@@ -476,10 +1172,11 @@ export function reconstructStatementRowsGeometryFirst(
     // Drop year-shaped tokens (fiscal-year references) and note-reference
     // tokens — neither is a statement value, and both would otherwise be
     // column-assigned and fused into a value.
-    const numericTokens = tokens.filter(
+    const numericTokensIncludingNotes = tokens.filter(
+      (t) => isNumericToken(t.token) && !YEAR_TOKEN_RE.test(t.token),
+    );
+    const numericTokens = numericTokensIncludingNotes.filter(
       (t) =>
-        isNumericToken(t.token) &&
-        !YEAR_TOKEN_RE.test(t.token) &&
         !isNoteReferenceToken(t, noteColumnX, anchors),
     );
     if (numericTokens.length === 0) {
@@ -616,7 +1313,22 @@ export function reconstructStatementRowsGeometryFirst(
       if (value === null) continue;
       values.push({ value, columnIndex, x: sorted[0]!.x });
     }
-    if (values.length === 0) continue;
+    const preferredLeadingSkip = countStrictLeadingNoteReferences(
+      numericTokensIncludingNotes,
+      noteColumnX,
+    );
+    const textParsedValues = reparseGroupedValuesFromRowText(
+      line.text,
+      anchors.length,
+      preferredLeadingSkip,
+      classification.type !== "STATUTORY_INCOME" &&
+        classification.type !== "SUPPLEMENTARY_INCOME" &&
+        normalizedLabel.includes("utsatt skatt"),
+    );
+    const finalValues = shouldPreferTextParsedValues(values, textParsedValues)
+      ? textParsedValues.map(({ score: _score, ...value }) => value)
+      : values;
+    if (finalValues.length === 0) continue;
 
     rows.push({
       pageNumber: page.pageNumber,
@@ -628,9 +1340,10 @@ export function reconstructStatementRowsGeometryFirst(
       rowText: line.text,
       y: line.y,
       confidence: Math.max(0.25, Math.min(0.995, line.confidence)),
-      values,
+      values: finalValues,
+      liabilitySection,
     });
   }
 
-  return rows;
+  return repairProvisionSubtotalRows(rows);
 }

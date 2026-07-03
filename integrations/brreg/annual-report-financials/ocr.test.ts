@@ -156,6 +156,56 @@ describeRuntimeIntegration("annual-report OCR guardrails", () => {
     );
   });
 
+  it("records rotated and inverted OCR preprocessing variants in diagnostics", async () => {
+    const screenshots = {
+      pages: [
+        {
+          pageNumber: 8,
+          data: createPngBuffer(256, 256),
+        },
+      ],
+    };
+
+    vi.doMock("pdf-parse", () => ({
+      PDFParse: class {
+        async getScreenshot() {
+          return screenshots;
+        }
+        async destroy() {}
+      },
+    }));
+
+    vi.doMock("tesseract.js", () => ({
+      createWorker: vi.fn(async () => ({
+        recognize: vi.fn(async () => ({
+          data: {
+            text: [
+              "Resultatregnskap",
+              "Belop i: NOK",
+              "2024 2023",
+              "Driftsinntekter 100 90",
+              "Driftsresultat 10 9",
+              "Arsresultat 8 7",
+            ].join("\n"),
+            words: [],
+          },
+        })),
+        terminate: vi.fn(),
+      })),
+    }));
+
+    const ocrModule = await import("@/integrations/brreg/annual-report-financials/ocr");
+    const result = await ocrModule.extractOcrPagesWithDiagnostics(
+      Buffer.from("pdf"),
+      [8],
+      { rotationDegrees: 90, invert: true },
+    );
+
+    expect(result.pages).toHaveLength(1);
+    expect(result.diagnostics.preprocessingMode).toContain("rotate90");
+    expect(result.diagnostics.preprocessingMode).toContain("invert");
+  });
+
   it("recovers statement-like structure from raw OCR text when word boxes are missing", async () => {
     const screenshots = {
       pages: [

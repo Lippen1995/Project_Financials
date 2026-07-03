@@ -21,7 +21,7 @@ const STRONG_RULE_CONFIDENCE = 0.9;
 const RESOLVED_ML_CONFIDENCE_FLOOR = 0.82;
 
 function isSupportedUnitScale(value: number): value is AnnualReportUnitScale {
-  return value === 1 || value === 1000;
+  return value === 1 || value === 1000 || value === 1_000_000;
 }
 
 function clampConfidence(value: number) {

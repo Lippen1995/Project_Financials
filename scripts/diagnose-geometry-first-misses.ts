@@ -54,7 +54,7 @@ async function main() {
 
     console.log(`\n  MISSED ground-truth facts:`);
     for (const f of missed) {
-      console.log(`    ${f.metricKey.padEnd(34)} ${String(f.value).padStart(14)}   «${f.rawLabel ?? ""}»`);
+      console.log(`    ${(f.metricKey ?? "(unmapped)").padEnd(34)} ${String(f.value).padStart(14)}   «${f.rawLabel ?? ""}»`);
     }
 
     console.log(`\n  RECONSTRUCTED rows:`);

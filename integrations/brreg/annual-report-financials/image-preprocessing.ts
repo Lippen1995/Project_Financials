@@ -36,10 +36,23 @@ export const OCR_PREPROCESSING_PIPELINE_VERSION =
  * Runs the OCR preprocessing pipeline on a PNG/JPEG image buffer. Returns a
  * PNG buffer. Throws if sharp cannot decode the input.
  */
-export async function preprocessOcrImage(input: Buffer): Promise<Buffer> {
-  return sharp(input)
+export async function preprocessOcrImage(
+  input: Buffer,
+  options?: { invert?: boolean; rotationDegrees?: 0 | 90 | 180 | 270 },
+): Promise<Buffer> {
+  let pipeline = sharp(input)
     .greyscale()
-    .normalise()
+    .normalise();
+
+  if (options?.rotationDegrees !== undefined && options.rotationDegrees !== 0) {
+    pipeline = pipeline.rotate(options.rotationDegrees);
+  }
+
+  if (options?.invert) {
+    pipeline = pipeline.negate({ alpha: false });
+  }
+
+  return pipeline
     .median(1)
     .sharpen({ sigma: 1 })
     .png()

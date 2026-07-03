@@ -38,8 +38,35 @@ const OCR_MIN_AREA_PX = 8_192;
 // what is useful — so OCR was ~3-4x slower than necessary. Scale 2 lands
 // around ~425 DPI: comfortably above the ideal, with no expected accuracy
 // loss, and a large speed-up on big scanned filings.
-const OCR_RENDER_SCALE = 2;
-const OCR_PREPROCESSING_MODE = `page_png_scale2_${OCR_PREPROCESSING_PIPELINE_VERSION}`;
+export type OcrExtractionOptions = {
+  renderScale?: number;
+  invert?: boolean;
+  rotationDegrees?: 0 | 90 | 180 | 270;
+};
+
+function configuredOcrRenderScale() {
+  const configured = Number(process.env.ANNUAL_REPORT_OCR_RENDER_SCALE);
+  return Number.isFinite(configured) && configured >= 1 ? configured : 2;
+}
+
+function resolveOcrRenderScale(options?: OcrExtractionOptions) {
+  const requested = options?.renderScale;
+  return Number.isFinite(requested) && requested! >= 1 ? requested! : configuredOcrRenderScale();
+}
+
+function preprocessingModeForOptions(renderScale: number, options?: OcrExtractionOptions) {
+  const parts = [
+    `page_png_scale${renderScale}`,
+    OCR_PREPROCESSING_PIPELINE_VERSION,
+  ];
+  if (options?.rotationDegrees !== undefined && options.rotationDegrees !== 0) {
+    parts.push(`rotate${options.rotationDegrees}`);
+  }
+  if (options?.invert) {
+    parts.push("invert");
+  }
+  return parts.join("_");
+}
 const OCR_RECOGNITION_MODES = [
   {
     name: "auto",
@@ -827,13 +854,17 @@ function readImageDimensions(buffer: Buffer) {
   return readPngDimensions(buffer) ?? readJpegDimensions(buffer);
 }
 
-function createEmptyDiagnostics(pageCount: number): AnnualReportOcrDiagnostics {
+function createEmptyDiagnostics(
+  pageCount: number,
+  renderScale: number,
+  options?: OcrExtractionOptions,
+): AnnualReportOcrDiagnostics {
   return {
     minWidthPx: OCR_MIN_WIDTH_PX,
     minHeightPx: OCR_MIN_HEIGHT_PX,
     minAreaPx: OCR_MIN_AREA_PX,
-    renderScale: OCR_RENDER_SCALE,
-    preprocessingMode: OCR_PREPROCESSING_MODE,
+    renderScale,
+    preprocessingMode: preprocessingModeForOptions(renderScale, options),
     pageCount,
     imageRegionCount: 0,
     tinyCropSkippedCount: 0,
@@ -942,16 +973,20 @@ function summarizeRecognitionError(error: unknown) {
 export async function extractOcrPagesWithDiagnostics(
   pdfBuffer: Buffer,
   pageNumbers?: number[],
+  options?: OcrExtractionOptions,
 ): Promise<AnnualReportOcrExtractionResult> {
+  const renderScale = resolveOcrRenderScale(options);
   const parser = new PDFParse({ data: pdfBuffer });
   const screenshots = await parser.getScreenshot({
     partial: pageNumbers,
-    scale: OCR_RENDER_SCALE,
+    scale: renderScale,
   });
   await parser.destroy();
 
   const diagnostics = createEmptyDiagnostics(
     pageNumbers?.length ?? screenshots.pages.length,
+    renderScale,
+    options,
   );
   diagnostics.imageRegionCount = screenshots.pages.length;
   diagnostics.pageLevelOcrFallbackCount = screenshots.pages.length;
@@ -999,7 +1034,10 @@ export async function extractOcrPagesWithDiagnostics(
       try {
         // Greyscale + contrast normalisation + median denoise + sharpen.
         // Moves marginal characters off Tesseract's failure boundary.
-        imageBuffer = await preprocessOcrImage(rawBuffer);
+        imageBuffer = await preprocessOcrImage(rawBuffer, {
+          invert: options?.invert,
+          rotationDegrees: options?.rotationDegrees,
+        });
       } catch (preprocessError) {
         // Preprocessing must never drop a page. If sharp cannot decode the
         // input, fall back to the raw image and let Tesseract try.
@@ -1253,9 +1291,10 @@ export async function extractOcrPagesBatched(
   pdfBuffer: Buffer,
   pageNumbers: number[],
   batchSize: number = OCR_PAGE_BATCH_SIZE,
+  options?: OcrExtractionOptions,
 ): Promise<AnnualReportOcrExtractionResult> {
   if (pageNumbers.length <= batchSize) {
-    return extractOcrPagesWithDiagnostics(pdfBuffer, pageNumbers);
+    return extractOcrPagesWithDiagnostics(pdfBuffer, pageNumbers, options);
   }
 
   const batches: number[][] = [];
@@ -1266,7 +1305,7 @@ export async function extractOcrPagesBatched(
   const pages: AnnualReportOcrExtractionResult["pages"] = [];
   let diagnostics: AnnualReportOcrDiagnostics | null = null;
   for (const batch of batches) {
-    const result = await extractOcrPagesWithDiagnostics(pdfBuffer, batch);
+    const result = await extractOcrPagesWithDiagnostics(pdfBuffer, batch, options);
     pages.push(...result.pages);
     diagnostics = diagnostics
       ? mergeOcrDiagnostics(diagnostics, result.diagnostics)
@@ -1275,6 +1314,6 @@ export async function extractOcrPagesBatched(
 
   return {
     pages: pages.sort((left, right) => left.pageNumber - right.pageNumber),
-    diagnostics: diagnostics ?? (await extractOcrPagesWithDiagnostics(pdfBuffer, [])).diagnostics,
+    diagnostics: diagnostics ?? (await extractOcrPagesWithDiagnostics(pdfBuffer, [], options)).diagnostics,
   };
 }

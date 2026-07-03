@@ -28,6 +28,7 @@ logger = logging.getLogger("ml-inference")
 
 MODEL_DIR = Path(os.environ.get("MODEL_DIR", "/models"))
 UNIT_SCALE_MODEL_FILENAME = "unit_scale_classifier.joblib"
+FINANCIAL_FACT_MODEL_FILENAME = "financial_fact_extractor.joblib"
 
 app = FastAPI(title="Fjord Insight ML Inference", version="1.0.0")
 
@@ -52,6 +53,9 @@ class LoadedModel:
         self.labels = bundle.get("labels") if isinstance(bundle, dict) else None
         self.trained_at = bundle.get("trained_at") if isinstance(bundle, dict) else None
         self.metrics = bundle.get("metrics") if isinstance(bundle, dict) else None
+        self.feature_variant = bundle.get("feature_variant") if isinstance(bundle, dict) else None
+        self.vectorizer_variant = bundle.get("vectorizer_variant") if isinstance(bundle, dict) else None
+        self.excluded_label_prefix = bundle.get("excluded_label_prefix") if isinstance(bundle, dict) else None
 
 
 models: Dict[str, LoadedModel] = {}
@@ -78,6 +82,18 @@ async def load_all_models() -> None:
     else:
         logger.info("No unit_scale_classifier model file at %s (expected during cold-start).", unit_scale_path)
 
+    financial_fact_path = MODEL_DIR / FINANCIAL_FACT_MODEL_FILENAME
+    if financial_fact_path.exists():
+        try:
+            handle = LoadedModel(name="financial_fact_extractor", path=financial_fact_path)
+            handle.load()
+            models["financial_fact"] = handle
+            logger.info("Loaded financial_fact_extractor from %s", financial_fact_path)
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to load financial_fact_extractor at %s", financial_fact_path)
+    else:
+        logger.info("No financial_fact_extractor model file at %s (expected during cold-start).", financial_fact_path)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Health + introspection
@@ -100,6 +116,9 @@ async def list_models() -> Dict[str, Any]:
             "trained_at": handle.trained_at,
             "metrics": handle.metrics,
             "labels": handle.labels,
+            "feature_variant": getattr(handle, "feature_variant", None),
+            "vectorizer_variant": getattr(handle, "vectorizer_variant", None),
+            "excluded_label_prefix": getattr(handle, "excluded_label_prefix", None),
         }
         for name, handle in models.items()
     }
@@ -118,6 +137,45 @@ class UnitScalePredictResponse(BaseModel):
     unit_scale: int
     confidence: float
     model_version: Optional[str] = None
+
+
+class FinancialFactPredictRequest(BaseModel):
+    row_context: str = Field(..., description="Page/row context for one extracted financial fact candidate")
+    proposed_metric_key: Optional[str] = Field(None, description="Machine's prior canonical key, if any")
+
+
+class FinancialFactPredictResponse(BaseModel):
+    metric_key: str
+    confidence: float
+    model_version: Optional[str] = None
+
+
+def preprocess_financial_fact_context(row_context: str, feature_variant: Optional[str]) -> str:
+    parts = [part.strip() for part in row_context.split(" | ") if part.strip()]
+    if feature_variant in (None, "full_context"):
+        return row_context
+    if feature_variant == "no_nearby_context":
+        return " | ".join(part for part in parts if not part.startswith("nearbyRow"))
+    if feature_variant == "row_identity_context":
+        prefixes = (
+            "proposedMetricKey=",
+            "page=",
+            "fiscalYear=",
+            "statementType=",
+            "scope=",
+            "section=",
+            "note=",
+            "unitScale=",
+            "value=",
+            "label=",
+            "row=",
+        )
+        return " | ".join(part for part in parts if part.startswith(prefixes))
+    if feature_variant == "row_text_only":
+        prefixes = ("proposedMetricKey=", "label=", "row=")
+        return " | ".join(part for part in parts if part.startswith(prefixes))
+    logger.warning("Unknown financial fact feature variant %s; using full context.", feature_variant)
+    return row_context
 
 
 @app.post("/predict/unit-scale", response_model=UnitScalePredictResponse)
@@ -144,6 +202,39 @@ async def predict_unit_scale(req: UnitScalePredictRequest) -> UnitScalePredictRe
 
     return UnitScalePredictResponse(
         unit_scale=int(predicted),
+        confidence=confidence,
+        model_version=model.trained_at,
+    )
+
+
+@app.post("/predict/financial-fact", response_model=FinancialFactPredictResponse)
+async def predict_financial_fact(req: FinancialFactPredictRequest) -> FinancialFactPredictResponse:
+    model = models.get("financial_fact")
+    if model is None or model.pipeline is None:
+        raise HTTPException(
+            status_code=503,
+            detail="financial_fact_extractor not loaded — train and deploy a model first.",
+        )
+
+    row_context = req.row_context
+    if req.proposed_metric_key:
+        row_context = f"proposedMetricKey={req.proposed_metric_key} | {row_context}"
+    row_context = preprocess_financial_fact_context(
+        row_context,
+        getattr(model, "feature_variant", None),
+    )
+
+    predicted = model.pipeline.predict([row_context])[0]
+    confidence = 1.0
+    if hasattr(model.pipeline, "predict_proba"):
+        try:
+            probs = model.pipeline.predict_proba([row_context])[0]
+            confidence = float(max(probs))
+        except Exception:  # noqa: BLE001
+            confidence = 1.0
+
+    return FinancialFactPredictResponse(
+        metric_key=str(predicted),
         confidence=confidence,
         model_version=model.trained_at,
     )

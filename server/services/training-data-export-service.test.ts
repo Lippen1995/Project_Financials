@@ -33,6 +33,7 @@ const { prismaMock, store } = vi.hoisted(() => {
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 
 import {
+  exportFinancialFactDataset,
   exportUnitScaleDataset,
   serializeDatasetAsJsonl,
 } from "@/server/services/training-data-export-service";
@@ -203,5 +204,77 @@ describe("training-data-export-service", () => {
     expect(parsed.features.rawLabel).toContain("Belop i NOK");
     expect(parsed.features.pageContextText).toContain("Belop i NOK");
     expect(parsed.label).toBe(1);
+  });
+
+  it("exports supervised financial fact examples from reviewed facts", async () => {
+    store.add({
+      filingId: "jotun-2024",
+      proposedValue: { metricKey: "total_equity", value: 21661000000 },
+      acceptedValue: {
+        metricKey: "total_equity",
+        value: 21661000000,
+        rawLabel: "Sum egenkapital",
+        fiscalYear: 2024,
+        unitScale: 1,
+        sourcePage: 7,
+        sourceSection: "STATUTORY_BALANCE_CONTINUATION",
+        statementType: "BALANCE_SHEET",
+        statementScope: "CONSOLIDATED",
+      },
+      sourcePayload: {
+        sourceRowText: "Sum egenkapital 21 661 000 000 18 325 000 000",
+        noteReference: null,
+      },
+    });
+    store.add({
+      filingId: "jotun-2024",
+      proposedValue: { metricKey: "total_assets", value: 49876000000 },
+      acceptedValue: {
+        metricKey: "total_assets",
+        value: 49876000000,
+        rawLabel: "SUM EIENDELER",
+        fiscalYear: 2024,
+        unitScale: 1,
+        sourcePage: 7,
+        sourceSection: "STATUTORY_BALANCE_CONTINUATION",
+        statementType: "BALANCE_SHEET",
+        statementScope: "CONSOLIDATED",
+      },
+      sourcePayload: {
+        sourceRowText: "SUM EIENDELER 49 876 000 000 43 792 000 000",
+        noteReference: null,
+      },
+    });
+
+    const dataset = await exportFinancialFactDataset();
+    const example = [...dataset.train, ...dataset.validation, ...dataset.test].find(
+      (candidate) => candidate.label === "total_equity",
+    )!;
+
+    expect(dataset.taskType).toBe("OTHER");
+    expect(dataset.totalExamples).toBe(2);
+    expect(dataset.labelDistribution).toEqual({ total_assets: 1, total_equity: 1 });
+    expect(example.label).toBe("total_equity");
+    expect(example.proposedLabel).toBe("total_equity");
+    expect(example.features.factContextText).toContain("page=7");
+    expect(example.features.factContextText).toContain("scope=CONSOLIDATED");
+    expect(example.features.factContextText).toContain("label=Sum egenkapital");
+    expect(example.features.factContextText).toContain("value=21661000000");
+    expect(example.features.factContextText).toContain("nearbyRow1=SUM EIENDELER");
+    expect(example.features.nearbyRows).toEqual([
+      "SUM EIENDELER | SUM EIENDELER 49 876 000 000 43 792 000 000",
+    ]);
+  });
+
+  it("skips financial fact labels without a metric key or row text", async () => {
+    store.add({
+      filingId: "f1",
+      proposedValue: null,
+      acceptedValue: { value: 100 },
+      sourcePayload: null,
+    });
+
+    const dataset = await exportFinancialFactDataset();
+    expect(dataset.totalExamples).toBe(0);
   });
 });

@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
-import { CanonicalMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import {
+  CanonicalMetricKey,
+  defaultMetricDefinitions,
+  requiredPublishMetricKeys,
+} from "@/integrations/brreg/annual-report-financials/taxonomy";
 import {
   OpenDataLoaderParseResult,
   OpenDataLoaderResolvedConfig,
@@ -53,6 +57,7 @@ const repo = {
   createFinancialFacts: vi.fn(),
   createFinancialValidationIssues: vi.fn(),
   publishFinancialStatementSnapshot: vi.fn(),
+  publishMachineFinancialLineItems: vi.fn(),
   registerAnnualReportHashVersion: vi.fn(),
   createAnnualReportFilingVersion: vi.fn(),
   listLatestAnnualReportFilingsForCompany: vi.fn(),
@@ -194,6 +199,7 @@ vi.mock("@/server/persistence/annual-report-ingestion-repository", () => ({
   createFinancialFacts: repo.createFinancialFacts,
   createFinancialValidationIssues: repo.createFinancialValidationIssues,
   publishFinancialStatementSnapshot: repo.publishFinancialStatementSnapshot,
+  publishMachineFinancialLineItems: repo.publishMachineFinancialLineItems,
   registerAnnualReportHashVersion: repo.registerAnnualReportHashVersion,
   createAnnualReportFilingVersion: repo.createAnnualReportFilingVersion,
   listLatestAnnualReportFilingsForCompany: repo.listLatestAnnualReportFilingsForCompany,
@@ -211,6 +217,18 @@ vi.mock("@/server/persistence/annual-report-ingestion-repository", () => ({
 vi.mock("@/server/document-understanding/opendataloader-config", () => ({
   resolveOpenDataLoaderConfig: vi.fn(() => openDataLoaderState.config),
   chooseOpenDataLoaderRoute: vi.fn(() => openDataLoaderState.route),
+}));
+
+vi.mock("@/server/services/metric-mapping-service", () => ({
+  loadMetricDefinitions: vi.fn(async () => defaultMetricDefinitions),
+}));
+
+vi.mock("@/server/services/canonical-registry-service", () => ({
+  loadRequiredPublishMetricKeys: vi.fn(async () => requiredPublishMetricKeys),
+}));
+
+vi.mock("@/server/services/presentation-node-service", () => ({
+  loadNodeEvaluationConfig: vi.fn(async () => []),
 }));
 
 const unifiedShadowState: {
@@ -487,6 +505,7 @@ describe("annual-report-financials-service", () => {
   beforeEach(() => {
     vi.resetModules();
     Object.values(repo).forEach((mocked) => mocked.mockReset());
+    repo.publishMachineFinancialLineItems.mockResolvedValue({ publishedCount: 0 });
     providerState.downloadAnnualReportPdf.mockClear();
     artifactStorageState.putArtifact.mockClear();
     openDataLoaderState.parseAnnualReportPdfWithOpenDataLoader.mockClear();
@@ -1551,7 +1570,7 @@ describe("annual-report-financials-service", () => {
   });
 
   describe("unified extractor shadow integration", () => {
-    it("does not call runAnnualReportUnifiedShadowExtraction when shadow mode is DISABLED", async () => {
+    it("runs unified extraction in DRY_RUN when shadow mode is DISABLED so line items can be published", async () => {
       unifiedShadowState.mode = "DISABLED";
 
       const { processAnnualReportFiling } = await import(
@@ -1560,7 +1579,11 @@ describe("annual-report-financials-service", () => {
       const result = await processAnnualReportFiling("filing-1");
 
       expect(result.published).toBe(true);
-      expect(unifiedShadowState.runAnnualReportUnifiedShadowExtraction).not.toHaveBeenCalled();
+      expect(unifiedShadowState.runAnnualReportUnifiedShadowExtraction).toHaveBeenCalledTimes(1);
+      const [shadowInput] =
+        unifiedShadowState.runAnnualReportUnifiedShadowExtraction.mock.calls[0];
+      expect(shadowInput.config.mode).toBe("DRY_RUN");
+      expect(shadowInput.config.persistUnifiedFinancialExtraction).toBe(false);
     });
 
     it("calls runAnnualReportUnifiedShadowExtraction when shadow mode is DRY_RUN", async () => {
@@ -1600,6 +1623,110 @@ describe("annual-report-financials-service", () => {
       expect(shadowInput.orgNumber).toBe("928846466");
       expect(shadowInput.fiscalYear).toBe(2024);
       expect(shadowInput.config.mode).toBe("DRY_RUN");
+    });
+
+    it("publishes machine extracted line items when the document publish gate passes", async () => {
+      unifiedShadowState.runResult = {
+        canUseForProductionRouting: false,
+        skipped: false,
+        mode: "DRY_RUN",
+        totalDurationMs: 12,
+        document: null,
+        financial: {
+          version: "unified-financial-statement-extraction-v1",
+          generatedAt: "2026-07-02T10:00:00.000Z",
+          source: {
+            route: "TEXT_LAYER",
+            filingId: "filing-1",
+            extractionRunId: null,
+            orgNumber: "928846466",
+            fiscalYear: 2024,
+          },
+          safety: {
+            productionRoutingChanged: false,
+            productionFactsMutated: false,
+            publishAffected: false,
+            shadowOnly: true,
+            canUseForProductionRouting: false,
+          },
+          metrics: {
+            candidateTableCount: 1,
+            parsedLineItemCount: 1,
+            canonicalMappedCount: 0,
+            unmappedCount: 1,
+            warningCount: 0,
+            errorCount: 0,
+          },
+          statements: [
+            {
+              kind: "INCOME_STATEMENT",
+              pageNumbers: [2],
+              tableIds: ["table-1"],
+              confidence: 0.88,
+              warnings: [],
+              lineItems: [
+                {
+                  statementKind: "INCOME_STATEMENT",
+                  canonicalKey: null,
+                  originalLabel: "Andre driftsinntekter",
+                  normalizedLabel: "andre driftsinntekter",
+                  year: 2024,
+                  value: "123",
+                  unitScale: "THOUSANDS",
+                  sign: "POSITIVE",
+                  confidence: 0.91,
+                  provenance: {
+                    route: "TEXT_LAYER",
+                    pageNumber: 2,
+                    tableId: "table-1",
+                    rowIndex: 7,
+                    columnIndex: 1,
+                    blockIds: ["block-1"],
+                  },
+                  warnings: [],
+                },
+              ],
+            },
+          ],
+          warnings: [],
+          errors: [],
+        },
+        narrative: null,
+        comparison: null,
+        steps: {
+          document: { ok: true, value: true, durationMs: 5 },
+          financial: { ok: true, value: true, durationMs: 4 },
+          narrative: null,
+          comparison: null,
+        },
+        artifacts: { document: null, financial: null, narrative: null, comparison: null },
+        warnings: [],
+      };
+
+      const { processAnnualReportFiling } = await import(
+        "@/server/services/annual-report-financials-service"
+      );
+      await processAnnualReportFiling("filing-1");
+
+      expect(repo.publishMachineFinancialLineItems).toHaveBeenCalledTimes(1);
+      expect(repo.publishMachineFinancialLineItems).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filingId: "filing-1",
+          companyId: "company-1",
+          extractionRunId: "run-1",
+          items: [
+            expect.objectContaining({
+              originalLabel: "Andre driftsinntekter",
+              parsedValue: 123n,
+              canonicalKey: undefined,
+              unitScale: 1000,
+              sourcePage: 2,
+              rowIndex: 7,
+              statementScope: "COMPANY",
+            }),
+          ],
+        }),
+      );
     });
 
     it("does not propagate shadow errors to the primary pipeline", async () => {
@@ -1708,8 +1835,11 @@ describe("annual-report-financials-service", () => {
       const result = await processAnnualReportFiling("filing-1");
 
       expect(result.published).toBe(true);
-      // Shadow runner must NOT have been called when config is invalid
-      expect(unifiedShadowState.runAnnualReportUnifiedShadowExtraction).not.toHaveBeenCalled();
+      expect(unifiedShadowState.runAnnualReportUnifiedShadowExtraction).toHaveBeenCalledTimes(1);
+      const [shadowInput] =
+        unifiedShadowState.runAnnualReportUnifiedShadowExtraction.mock.calls[0];
+      expect(shadowInput.config.mode).toBe("DRY_RUN");
+      expect(shadowInput.config.persistUnifiedFinancialExtraction).toBe(false);
     });
   });
 });

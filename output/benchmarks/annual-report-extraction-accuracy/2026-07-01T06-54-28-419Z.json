@@ -1,0 +1,866 @@
+{
+  "version": "annual-report-extraction-accuracy-v1",
+  "generatedAt": "2026-07-01T06:54:28.419Z",
+  "overall": {
+    "recallNonZero": 0.6228070175438597,
+    "precision": 0.8987341772151899,
+    "matchedNonZero": 71,
+    "nonZeroFasitTotal": 114,
+    "correct": 71,
+    "extractedOnFasitSlots": 79
+  },
+  "filings": [
+    {
+      "filingId": "cmq28bbxo0008vmecm33zomyz",
+      "company": "JOTUN A/S",
+      "fiscalYear": 2024,
+      "result": {
+        "recall": 0.6228070175438597,
+        "recallNonZero": 0.6228070175438597,
+        "precision": 0.8987341772151899,
+        "fasitTotal": 114,
+        "matchedTotal": 71,
+        "nonZeroFasitTotal": 114,
+        "matchedNonZero": 71,
+        "extractedOnFasitSlots": 79,
+        "correctTotal": 71,
+        "zeroValuedFasit": 0,
+        "byMetric": [
+          {
+            "metricKey": "as_reported_deferred_tax_liability",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_interest_bearing_debt_current",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_interest_bearing_debt_non_current",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_investments_in_shares",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_minoritetsinteresser",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_net_financial_items_positive_line",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_other_comprehensive_income_reclassified_to_profit_or_loss",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_other_intangible_assets",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_other_non_current_financial_receivables",
+            "fasitValues": 2,
+            "matched": 1,
+            "extractedOnSlots": 2,
+            "correct": 1
+          },
+          {
+            "metricKey": "as_reported_other_non_current_liabilities",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_pension_obligations",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_provisions",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_share_of_profit_from_associates_and_joint_ventures",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "as_reported_sum_anleggsmidler",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_sum_bankinnskudd_kontanter_og_lignende",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_sum_finansielle_anleggsmidler",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_sum_fordringer",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_sum_immaterielle_eiendeler",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_sum_innskutt_egenkapital",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_sum_opptjent_egenkapital",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_sum_resultatkomponenter_for_ifrs_foretak",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_sum_varer",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_sum_varige_driftsmidler",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "as_reported_totalresultat",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "cash_and_cash_equivalents",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "cost_of_goods_sold",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "current_assets",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "current_liabilities",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "deferred_tax_asset",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "depreciation_amortization",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "inventory",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "investments_in_associated_companies_and_subsidiaries",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "long_term_liabilities",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "net_financial_items",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 4,
+            "correct": 2
+          },
+          {
+            "metricKey": "net_income",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 4,
+            "correct": 2
+          },
+          {
+            "metricKey": "operating_profit",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "other_current_liabilities",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 2,
+            "correct": 0
+          },
+          {
+            "metricKey": "other_operating_expense",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "payroll_expense",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "profit_before_tax",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "retained_earnings",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "revenue",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 3,
+            "correct": 2
+          },
+          {
+            "metricKey": "share_capital",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "tangible_assets",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "tax_expense",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "tax_payable",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "total_assets",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "total_equity",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "total_equity_and_liabilities",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "total_financial_expense",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "total_liabilities",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "total_non_current_liabilities_excl_provisions",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "total_operating_expenses",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "total_provisions",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "total_revenue",
+            "fasitValues": 2,
+            "matched": 2,
+            "extractedOnSlots": 2,
+            "correct": 2
+          },
+          {
+            "metricKey": "trade_payables",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          },
+          {
+            "metricKey": "trade_receivables",
+            "fasitValues": 2,
+            "matched": 0,
+            "extractedOnSlots": 0,
+            "correct": 0
+          }
+        ],
+        "missing": [
+          {
+            "metricKey": "cost_of_goods_sold",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "16646000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "depreciation_amortization",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "1038000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_net_financial_items_positive_line",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "552000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_other_comprehensive_income_reclassified_to_profit_or_loss",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "280000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "other_operating_expense",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "4693000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "payroll_expense",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "4388000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_share_of_profit_from_associates_and_joint_ventures",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "1333000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "cost_of_goods_sold",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "17466000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "depreciation_amortization",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "1160000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_net_financial_items_positive_line",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "916000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_other_comprehensive_income_reclassified_to_profit_or_loss",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "1235000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "other_operating_expense",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "5219000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "payroll_expense",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "5088000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_share_of_profit_from_associates_and_joint_ventures",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "1492000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_investments_in_shares",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "6000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_other_intangible_assets",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "877000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "trade_receivables",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "7654000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_investments_in_shares",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "7000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_other_intangible_assets",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "911000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_other_non_current_financial_receivables",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "69000000",
+            "isZero": false,
+            "producedInstead": [
+              "62000000"
+            ]
+          },
+          {
+            "metricKey": "trade_receivables",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "9191000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_interest_bearing_debt_current",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "2163000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_interest_bearing_debt_non_current",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "2149000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "trade_payables",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "3407000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "other_current_liabilities",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "2856000000",
+            "isZero": false,
+            "producedInstead": [
+              "27000000"
+            ]
+          },
+          {
+            "metricKey": "retained_earnings",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "17789000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_pension_obligations",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "279000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_provisions",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "144000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "share_capital",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "103000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "current_liabilities",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "8986000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "tax_payable",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "560000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_deferred_tax_liability",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "171000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_interest_bearing_debt_current",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "2007000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_interest_bearing_debt_non_current",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "2757000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "trade_payables",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "3955000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "other_current_liabilities",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "3181000000",
+            "isZero": false,
+            "producedInstead": [
+              "33000000"
+            ]
+          },
+          {
+            "metricKey": "retained_earnings",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "21186000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_pension_obligations",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "373000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_provisions",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "179000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "share_capital",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "103000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "current_liabilities",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "9722000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "tax_payable",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "579000000",
+            "isZero": false,
+            "producedInstead": []
+          },
+          {
+            "metricKey": "as_reported_deferred_tax_liability",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "179000000",
+            "isZero": false,
+            "producedInstead": []
+          }
+        ],
+        "wrong": [
+          {
+            "metricKey": "as_reported_other_non_current_financial_receivables",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "62000000",
+            "isZero": false,
+            "producedInstead": [
+              "69000000"
+            ]
+          },
+          {
+            "metricKey": "revenue",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "8",
+            "isZero": false,
+            "producedInstead": [
+              "34206000000"
+            ]
+          },
+          {
+            "metricKey": "net_financial_items",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "916000000",
+            "isZero": false,
+            "producedInstead": [
+              "-916000000"
+            ]
+          },
+          {
+            "metricKey": "net_financial_items",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "552000000",
+            "isZero": false,
+            "producedInstead": [
+              "-552000000"
+            ]
+          },
+          {
+            "metricKey": "net_income",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "5684000000",
+            "isZero": false,
+            "producedInstead": [
+              "4449000000"
+            ]
+          },
+          {
+            "metricKey": "net_income",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "4779000000",
+            "isZero": false,
+            "producedInstead": [
+              "4499000000"
+            ]
+          },
+          {
+            "metricKey": "other_current_liabilities",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2024,
+            "value": "33000000",
+            "isZero": false,
+            "producedInstead": [
+              "3181000000"
+            ]
+          },
+          {
+            "metricKey": "other_current_liabilities",
+            "statementScope": "CONSOLIDATED",
+            "fiscalYear": 2023,
+            "value": "27000000",
+            "isZero": false,
+            "producedInstead": [
+              "2856000000"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

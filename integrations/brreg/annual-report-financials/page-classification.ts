@@ -317,6 +317,20 @@ function extractDeclaredYears(page: AnnualReportParsedPage) {
   ).slice(0, 6);
 }
 
+function extractYearFromHeaderToken(token: string): number | null {
+  const fullYear = token.match(/\b20\d{2}\b/)?.[0];
+  if (fullYear) return Number(fullYear);
+
+  const periodYear = token.match(/\b31[./-]12[./-]?(\d{2})\b/)?.[1];
+  if (periodYear) return 2000 + Number(periodYear);
+
+  if (/^0\d{2}$/.test(token)) {
+    return 2000 + Number(token.slice(1));
+  }
+
+  return null;
+}
+
 function extractYearHeaderYears(page: AnnualReportParsedPage) {
   for (const table of page.tables) {
     const headerRow = table.rows.find((row) => {
@@ -340,8 +354,16 @@ function extractYearHeaderYears(page: AnnualReportParsedPage) {
   }
 
   for (const line of page.lines.slice(0, 12)) {
+    const tokens =
+      line.words.length > 0
+        ? line.words.map((word) => word.text)
+        : line.text.split(/\s+/);
     const years = Array.from(
-      new Set((line.text.match(/\b20\d{2}\b/g) ?? []).map((year) => Number(year))),
+      new Set(
+        tokens
+          .map(extractYearFromHeaderToken)
+          .filter((year): year is number => year !== null && year >= 2000 && year <= 2099),
+      ),
     );
 
     if (years.length >= 2) {
@@ -482,6 +504,7 @@ function scoreFeatures(features: PageFeatures) {
   if (features.tableLike) {
     add("STATUTORY_INCOME", 0.6, "Table-like financial layout");
     add("STATUTORY_BALANCE", 0.6, "Table-like financial layout");
+    add("STATUTORY_BALANCE_CONTINUATION", 0.6, "Table-like financial layout");
     add("SUPPLEMENTARY_INCOME", 0.5, "Table-like financial layout");
     add("SUPPLEMENTARY_BALANCE", 0.5, "Table-like financial layout");
   }
@@ -489,6 +512,7 @@ function scoreFeatures(features: PageFeatures) {
   if (features.yearHeaderYears.length >= 2) {
     add("STATUTORY_INCOME", 0.4, "Detected year header");
     add("STATUTORY_BALANCE", 0.4, "Detected year header");
+    add("STATUTORY_BALANCE_CONTINUATION", 0.4, "Detected year header");
     add("SUPPLEMENTARY_INCOME", 0.3, "Detected year header");
     add("SUPPLEMENTARY_BALANCE", 0.3, "Detected year header");
   }
@@ -496,6 +520,14 @@ function scoreFeatures(features: PageFeatures) {
   if (features.cues.income > 0) {
     add("STATUTORY_INCOME", 0.8 + features.cues.income * 0.3, "Income statement keywords");
   }
+
+  if (
+    features.headingText.includes("resultatregnskap") ||
+    features.scopeHeadText.includes("resultatregnskap")
+  ) {
+    add("STATUTORY_INCOME", 0.2, "Explicit income statement heading");
+  }
+
   if (features.cues.balance > 0) {
     add("STATUTORY_BALANCE", 0.8 + features.cues.balance * 0.3, "Balance sheet keywords");
   }
@@ -509,6 +541,13 @@ function scoreFeatures(features: PageFeatures) {
       "Equity/liability continuation keywords",
     );
     add("STATUTORY_BALANCE", 0.3, "Equity/liability balance keywords");
+  }
+
+  if (
+    features.headingText.includes("egenkapital og gjeld") ||
+    features.scopeHeadText.includes("egenkapital og gjeld")
+  ) {
+    add("STATUTORY_BALANCE_CONTINUATION", 0.2, "Explicit equity/liabilities heading");
   }
 
   if (features.cues.supplementary > 0 || features.unitScale.unitScale === 1000) {
@@ -585,6 +624,42 @@ function selectType(
   }
 
   if (
+    top.type === "BOARD_REPORT" &&
+    features.tableLike &&
+    features.numericRowCount >= 8 &&
+    features.cues.income > 0 &&
+    !features.headingText.includes("note") &&
+    (
+      features.headingText.includes("resultatregnskap") ||
+      features.scopeHeadText.includes("resultatregnskap")
+    )
+  ) {
+    top = {
+      ...top,
+      type: "STATUTORY_INCOME",
+    };
+  }
+
+  if (
+    top.type === "BOARD_REPORT" &&
+    features.tableLike &&
+    features.numericRowCount >= 8 &&
+    features.cues.equityLiabilities > 0 &&
+    !features.headingText.includes("note") &&
+    (
+      features.headingText.includes("balanse") ||
+      features.headingText.includes("egenkapital og gjeld") ||
+      features.scopeHeadText.includes("balanse") ||
+      features.scopeHeadText.includes("egenkapital og gjeld")
+    )
+  ) {
+    top = {
+      ...top,
+      type: "STATUTORY_BALANCE_CONTINUATION",
+    };
+  }
+
+  if (
     previous &&
     ["STATUTORY_BALANCE", "STATUTORY_BALANCE_CONTINUATION", "SUPPLEMENTARY_BALANCE"].includes(previous.type) &&
     features.tableLike &&
@@ -607,6 +682,7 @@ function selectType(
     top = {
       ...top,
       type: "SUPPLEMENTARY_INCOME",
+      score: top.score + 0.35,
     };
   }
 
@@ -617,6 +693,7 @@ function selectType(
     top = {
       ...top,
       type: "SUPPLEMENTARY_BALANCE",
+      score: top.score + 0.35,
     };
   }
 

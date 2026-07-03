@@ -91,6 +91,9 @@ type UnitScaleLabelInput = {
   sourcePayload: unknown;
 };
 
+type FinancialFactLabelInput = UnitScaleLabelInput;
+type FinancialFactFields = NonNullable<ReturnType<typeof readFinancialFactFields>>;
+
 type UnitScalePageGroup = {
   filingId: string;
   sourcePage: number;
@@ -245,6 +248,176 @@ function buildUnitScalePageExamples(labels: UnitScaleLabelInput[]): TrainingExam
   return examples;
 }
 
+function readFinancialFactFields(label: FinancialFactLabelInput) {
+  if (!isObject(label.acceptedValue)) return null;
+  const source = isObject(label.sourcePayload) ? label.sourcePayload : {};
+  const proposed = isObject(label.proposedValue) ? label.proposedValue : {};
+
+  const metricKey = firstString(
+    label.acceptedValue.metricKey,
+    label.acceptedValue.canonicalMetricKey,
+    source.metricKey,
+    source.canonicalMetricKey,
+  );
+  const rawLabel = firstString(label.acceptedValue.rawLabel, source.rawLabel);
+  const sourceRowText = firstString(
+    source.sourceRowText,
+    source.rowText,
+    label.acceptedValue.sourceRowText,
+  );
+  const value = firstNumber(label.acceptedValue.value, source.value);
+  const unitScale = firstNumber(label.acceptedValue.unitScale, source.unitScale);
+  const sourcePage = firstNumber(label.acceptedValue.sourcePage, source.sourcePage);
+  const fiscalYear = firstNumber(label.acceptedValue.fiscalYear, source.fiscalYear);
+  const statementType = firstString(label.acceptedValue.statementType, source.statementType);
+  const statementScope = firstString(label.acceptedValue.statementScope, source.statementScope);
+  const sourceSection = firstString(label.acceptedValue.sourceSection, source.sourceSection);
+  const noteReference = firstString(label.acceptedValue.noteReference, source.noteReference);
+  const proposedMetricKey = firstString(
+    proposed.metricKey,
+    proposed.canonicalMetricKey,
+    source.proposedMetricKey,
+  );
+
+  if (!metricKey || (!rawLabel && !sourceRowText)) return null;
+
+  return {
+    metricKey,
+    rawLabel,
+    sourceRowText,
+    value,
+    unitScale,
+    sourcePage,
+    fiscalYear,
+    statementType,
+    statementScope,
+    sourceSection,
+    noteReference,
+    proposedMetricKey,
+  };
+}
+
+function financialFactPageGroupKey(input: {
+  filingId: string;
+  sourcePage: number | null;
+  statementScope: string | null;
+  statementType: string | null;
+  sourceSection: string | null;
+}) {
+  return [
+    input.filingId,
+    input.sourcePage ?? "UNKNOWN_PAGE",
+    input.statementScope ?? "UNKNOWN_SCOPE",
+    input.statementType ?? "UNKNOWN_STATEMENT",
+    input.sourceSection ?? "UNKNOWN_SECTION",
+  ].join("::");
+}
+
+function compactFinancialFactRow(fields: FinancialFactFields) {
+  const parts = [fields.rawLabel, fields.sourceRowText].filter((value): value is string =>
+    Boolean(value?.trim()),
+  );
+  return normalizeWhitespace(Array.from(new Set(parts)).join(" | ")).slice(0, 240);
+}
+
+function buildFinancialFactContextText(fields: FinancialFactFields, nearbyRows: string[] = []) {
+  if (!fields) return "";
+  const parts = [
+    fields.sourcePage !== null ? `page=${fields.sourcePage}` : null,
+    fields.fiscalYear !== null ? `fiscalYear=${fields.fiscalYear}` : null,
+    fields.statementType ? `statementType=${fields.statementType}` : null,
+    fields.statementScope ? `scope=${fields.statementScope}` : null,
+    fields.sourceSection ? `section=${fields.sourceSection}` : null,
+    fields.noteReference ? `note=${fields.noteReference}` : null,
+    fields.unitScale !== null ? `unitScale=${fields.unitScale}` : null,
+    fields.value !== null ? `value=${fields.value}` : null,
+    fields.proposedMetricKey ? `proposedMetricKey=${fields.proposedMetricKey}` : null,
+    fields.rawLabel ? `label=${fields.rawLabel}` : null,
+    fields.sourceRowText ? `row=${fields.sourceRowText}` : null,
+    nearbyRows.length > 0 ? `nearbyRowCount=${nearbyRows.length}` : null,
+    ...nearbyRows.map((row, index) => `nearbyRow${index + 1}=${row}`),
+  ].filter((item): item is string => Boolean(item));
+
+  return normalizeWhitespace(parts.join(" | ")).slice(0, 2400);
+}
+
+/**
+ * Financial-fact task: predicts the canonical metric key for one extracted
+ * financial statement row/value candidate. This is the first supervised
+ * model surface for "which regnskapstall did this row contain?".
+ *
+ * The numeric value is still parsed by the PDF/text pipeline. The model learns
+ * the fact identity from page context + row text + observed value, then runs in
+ * shadow/apply modes before it is allowed to replace alias matching.
+ */
+function buildFinancialFactExamples(labels: FinancialFactLabelInput[]): TrainingExample[] {
+  const examples: TrainingExample[] = [];
+  const acceptedFacts: Array<{ label: FinancialFactLabelInput; fields: FinancialFactFields }> = [];
+  const groups = new Map<string, Array<{ label: FinancialFactLabelInput; fields: FinancialFactFields }>>();
+
+  for (const label of labels) {
+    const fields = readFinancialFactFields(label);
+    if (!fields) continue;
+    acceptedFacts.push({ label, fields });
+    const key = financialFactPageGroupKey({
+      filingId: label.filingId,
+      sourcePage: fields.sourcePage,
+      statementScope: fields.statementScope,
+      statementType: fields.statementType,
+      sourceSection: fields.sourceSection,
+    });
+    const group = groups.get(key) ?? [];
+    group.push({ label, fields });
+    groups.set(key, group);
+  }
+
+  for (const item of acceptedFacts) {
+    const key = financialFactPageGroupKey({
+      filingId: item.label.filingId,
+      sourcePage: item.fields.sourcePage,
+      statementScope: item.fields.statementScope,
+      statementType: item.fields.statementType,
+      sourceSection: item.fields.sourceSection,
+    });
+    const group = groups.get(key) ?? [];
+    const index = group.findIndex((candidate) => candidate.label.id === item.label.id);
+    const nearbyRows =
+      index === -1
+        ? []
+        : group
+            .slice(Math.max(0, index - 3), Math.min(group.length, index + 4))
+            .filter((candidate) => candidate.label.id !== item.label.id)
+            .map((candidate) => compactFinancialFactRow(candidate.fields))
+            .filter((row) => row.length > 0);
+
+    const factContextText = buildFinancialFactContextText(item.fields, nearbyRows);
+    if (!factContextText) continue;
+
+    examples.push({
+      filingId: item.label.filingId,
+      features: {
+        factContextText,
+        rawLabel: item.fields.rawLabel,
+        sourceRowText: item.fields.sourceRowText,
+        sourcePage: item.fields.sourcePage,
+        fiscalYear: item.fields.fiscalYear,
+        statementType: item.fields.statementType,
+        statementScope: item.fields.statementScope,
+        sourceSection: item.fields.sourceSection,
+        noteReference: item.fields.noteReference,
+        unitScale: item.fields.unitScale,
+        value: item.fields.value,
+        proposedMetricKey: item.fields.proposedMetricKey,
+        nearbyRows,
+      },
+      label: item.fields.metricKey,
+      proposedLabel: item.fields.proposedMetricKey,
+    });
+  }
+
+  return examples;
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Deterministic split
 // ──────────────────────────────────────────────────────────────────────────────
@@ -329,6 +502,58 @@ export async function exportUnitScaleDataset(
 
   return {
     taskType: "UNIT_SCALE_CLASSIFIER",
+    generatedAt: new Date().toISOString(),
+    totalExamples: examples.length,
+    train: buckets.train,
+    validation: buckets.validation,
+    test: buckets.test,
+    labelDistribution,
+  };
+}
+
+/**
+ * Builds an in-memory dataset for the supervised financial-fact extractor.
+ * Reads reviewer-approved FACT_VALUE labels and emits one example per reviewed
+ * fact value. Split assignment stays filing-level to avoid leaking the same
+ * annual report across train/validation/test.
+ */
+export async function exportFinancialFactDataset(
+  options: ExportOptions = {},
+): Promise<TrainingDatasetSplit> {
+  const validationFraction = options.validationFraction ?? DEFAULT_VALIDATION_FRACTION;
+  const testFraction = options.testFraction ?? DEFAULT_TEST_FRACTION;
+
+  const labels = await prisma.pdfTrainingLabel.findMany({
+    where: { labelType: PdfTrainingLabelType.FACT_VALUE },
+    select: {
+      filingId: true,
+      proposedValue: true,
+      acceptedValue: true,
+      sourcePayload: true,
+      id: true,
+    },
+  });
+
+  const examples = buildFinancialFactExamples(labels);
+  const labelDistribution: Record<string, number> = {};
+  for (const example of examples) {
+    const key = String(example.label);
+    labelDistribution[key] = (labelDistribution[key] ?? 0) + 1;
+  }
+
+  const buckets = { train: [], validation: [], test: [] } as {
+    train: TrainingExample[];
+    validation: TrainingExample[];
+    test: TrainingExample[];
+  };
+
+  for (const example of examples) {
+    const bucket = assignSplit(example.filingId, validationFraction, testFraction);
+    buckets[bucket].push(example);
+  }
+
+  return {
+    taskType: "OTHER",
     generatedAt: new Date().toISOString(),
     totalExamples: examples.length,
     train: buckets.train,

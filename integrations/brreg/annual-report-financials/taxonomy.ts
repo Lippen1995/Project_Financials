@@ -109,7 +109,7 @@ export const defaultMetricDefinitions: MetricDefinition[] = [
   { key: "cash_and_cash_equivalents", statementFamily: "BALANCE_SHEET", aliases: ["bankinnskudd kontanter o l", "bankinnskudd kontanter og lignende", "bankinnskudd kontanter og kontantekvivalenter", "kontanter og bankinnskudd", "kontanter og kontantekvivalenter", "bankinnskudd og kontanter", "cash and cash equivalents"] },
   { key: "current_assets", statementFamily: "BALANCE_SHEET", aliases: ["sum omlopsmidler", "sum omloepsmidler", "omlopsmidler"] },
   { key: "total_assets", statementFamily: "BALANCE_SHEET", aliases: ["sum eiendeler", "totale eiendeler"] },
-  { key: "share_capital", statementFamily: "BALANCE_SHEET", aliases: ["aksjekapital", "innskutt aksjekapital"] },
+  { key: "share_capital", statementFamily: "BALANCE_SHEET", aliases: ["aksjekapital", "innskutt aksjekapital", "selskapskapital"] },
   { key: "share_premium", statementFamily: "BALANCE_SHEET", aliases: ["overkurs", "share premium"] },
   { key: "retained_earnings", statementFamily: "BALANCE_SHEET", aliases: ["opptjent egenkapital", "retained earnings"] },
   { key: "total_equity", statementFamily: "BALANCE_SHEET", aliases: ["sum egenkapital", "egenkapital"] },
@@ -149,6 +149,29 @@ export const allCanonicalMetricKeys = defaultMetricDefinitions.map((definition) 
 // safe.
 function repairLabelOcr(normalizedLabel: string): string {
   return normalizedLabel.replace(/\bsun\b/g, "sum");
+}
+
+const broadSectionAliases = new Set([
+  "anleggsmidler",
+  "eiendeler",
+  "egenkapital",
+  "finansielle anleggsmidler",
+  "fordringer",
+  "gjeld",
+  "kortsiktig gjeld",
+  "langsiktig gjeld",
+  "omlopsmidler",
+]);
+
+function isBroadSectionAliasOnlyPrefix(normalizedLabel: string, normalizedAlias: string) {
+  return (
+    broadSectionAliases.has(normalizedAlias) &&
+    normalizedLabel !== normalizedAlias &&
+    (normalizedLabel.startsWith(`${normalizedAlias} `) ||
+      normalizedLabel.includes(` ${normalizedAlias} `) ||
+      normalizedLabel.endsWith(` ${normalizedAlias}`)) &&
+    !normalizedLabel.startsWith(`sum ${normalizedAlias}`)
+  );
 }
 
 /**
@@ -265,9 +288,33 @@ export function findCanonicalMetricKey(
     for (const alias of definition.aliases) {
       const normalizedAlias = normalizeNorwegianText(alias);
       if (
+        normalizedLabel.startsWith("goodwill ") &&
+        normalizedAlias === "immaterielle eiendeler"
+      ) {
+        continue;
+      }
+      if (
+        normalizedAlias === "ordinaert resultat" &&
+        (normalizedLabel.includes("etter skattekostnad") ||
+          normalizedLabel.includes("etter skatt"))
+      ) {
+        continue;
+      }
+      if (
+        normalizedAlias === "skattekostnad" &&
+        (normalizedLabel.includes("etter skattekostnad") ||
+          normalizedLabel.includes("etter skatt"))
+      ) {
+        continue;
+      }
+      if (isBroadSectionAliasOnlyPrefix(normalizedLabel, normalizedAlias)) {
+        continue;
+      }
+      if (
         normalizedLabel === normalizedAlias ||
         normalizedLabel.startsWith(`${normalizedAlias} `) ||
-        normalizedLabel.includes(` ${normalizedAlias} `)
+        normalizedLabel.includes(` ${normalizedAlias} `) ||
+        normalizedLabel.endsWith(` ${normalizedAlias}`)
       ) {
         if (!bestMatch || normalizedAlias.length > bestMatch.aliasLength) {
           bestMatch = {
