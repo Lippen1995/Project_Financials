@@ -1,3 +1,13 @@
+// Next.js loads .env automatically, but standalone tsx scripts (npm run financials:* etc.)
+// do not — without this, OPENDATALOADER_* and other config silently fall back to defaults.
+if (!process.env.DATABASE_URL) {
+  try {
+    process.loadEnvFile();
+  } catch {
+    // No .env file or unsupported runtime; fall through to process.env/defaults.
+  }
+}
+
 const env = {
   databaseUrl: process.env.DATABASE_URL ?? "",
   brregBaseUrl: process.env.BRREG_BASE_URL ?? "https://data.brreg.no/enhetsregisteret/api",

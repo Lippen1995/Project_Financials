@@ -57,20 +57,39 @@ export class BrregFinancialsProvider {
   }
 
   async downloadAnnualReportPdf(sourceUrl: string) {
-    const response = await fetch(sourceUrl, {
-      headers: {
-        Accept: "application/pdf,application/octet-stream",
-      },
-      cache: "no-store",
-    });
+    const maxAttempts = 4;
+    let lastStatus: number | null = null;
 
-    if (!response.ok) {
-      throw new Error(`Failed to download annual report PDF: ${response.status}`);
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const response = await fetch(sourceUrl, {
+        headers: {
+          Accept: "application/pdf,application/octet-stream",
+        },
+        cache: "no-store",
+      });
+
+      if (response.ok) {
+        return {
+          buffer: Buffer.from(await response.arrayBuffer()),
+          mimeType: response.headers.get("content-type") ?? "application/pdf",
+        };
+      }
+
+      lastStatus = response.status;
+      const retryable = response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === maxAttempts) {
+        break;
+      }
+
+      // Respekter Retry-After ved rate limiting; ellers eksponentiell backoff med jitter.
+      const retryAfterSeconds = Number(response.headers.get("retry-after"));
+      const backoffMs =
+        Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+          ? retryAfterSeconds * 1000
+          : 2000 * 2 ** (attempt - 1) + Math.floor(Math.random() * 1000);
+      await new Promise((resolve) => setTimeout(resolve, Math.min(backoffMs, 60_000)));
     }
 
-    return {
-      buffer: Buffer.from(await response.arrayBuffer()),
-      mimeType: response.headers.get("content-type") ?? "application/pdf",
-    };
+    throw new Error(`Failed to download annual report PDF: ${lastStatus}`);
   }
 }

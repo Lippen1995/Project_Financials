@@ -1158,7 +1158,18 @@ export async function processAnnualReportFiling(
   }
 
   logPipelineEvent("filing.claimed", { filingId, fiscalYear: claimed.fiscalYear, status: claimed.status });
-  const { filing, pdfBuffer } = await ensurePdfArtifact(filingId);
+  let ensured: Awaited<ReturnType<typeof ensurePdfArtifact>>;
+  try {
+    ensured = await ensurePdfArtifact(filingId);
+  } catch (error) {
+    // Nedlastingsfeil (typisk 429/5xx fra Brreg) skjer før extraction-run finnes og har
+    // ingen terminal-håndtering — uten denne blir filingen stående fast i PROCESSING.
+    const message = error instanceof Error ? error.message : "Unknown download error";
+    await updateAnnualReportFiling(filingId, { status: "DISCOVERED", lastError: message });
+    logPipelineEvent("filing.download_failed", { filingId, fiscalYear: claimed.fiscalYear, error: message });
+    throw error;
+  }
+  const { filing, pdfBuffer } = ensured;
   const preflight = await preflightAnnualReportDocument(pdfBuffer);
   const artifactReferences: StoredArtifactReference[] = [];
   artifactReferences.push(

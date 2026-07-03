@@ -1,3 +1,6 @@
+// env is only referenced in type positions below, so the default import alone would be
+// elided at runtime — the bare import keeps lib/env's .env bootstrap side effect.
+import "@/lib/env";
 import env from "@/lib/env";
 import { PreflightResult } from "@/integrations/brreg/annual-report-financials/types";
 import {
