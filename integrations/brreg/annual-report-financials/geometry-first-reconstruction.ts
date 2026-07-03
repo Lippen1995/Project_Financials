@@ -80,10 +80,20 @@ function extractYearFromHeaderToken(token: string): number | null {
   const periodYear = token.match(PERIOD_YEAR_IN_TEXT_RE)?.[1];
   if (periodYear) return 2000 + Number(periodYear);
 
-  const truncated = token.match(TRUNCATED_20XX_YEAR_RE)?.[1];
-  if (truncated) return 2000 + Number(truncated);
-
   return null;
+}
+
+// The bare truncated form ("025" for 2025 — the leading "2" lost by OCR) is far
+// too loose to accept on its own: 0XX tokens appear routinely inside financial
+// tables as fragments of larger numbers, and treating them as years shifts the
+// whole year-column order (facts land under the wrong fiscal year). Only accept
+// a truncated token when an unambiguous sibling year on the same line anchors it
+// to an adjacent calendar year.
+function extractTruncatedYearNearSibling(token: string, siblingYear: number): number | null {
+  const truncated = token.match(TRUNCATED_20XX_YEAR_RE)?.[1];
+  if (!truncated) return null;
+  const year = 2000 + Number(truncated);
+  return Math.abs(year - siblingYear) === 1 ? year : null;
 }
 
 function tokensWithPositions(line: ExtractedLine): PositionedToken[] {
@@ -129,6 +139,14 @@ function findYearColumnAnchors(page: AnnualReportParsedPage): ColumnAnchor[] {
         anchors.push({ year, x: word.x });
       }
     }
+    if (anchors.length === 1) {
+      for (const word of line.words) {
+        const truncated = extractTruncatedYearNearSibling(word.text, anchors[0]!.year);
+        if (truncated) {
+          anchors.push({ year: truncated, x: word.x });
+        }
+      }
+    }
     if (anchors.length >= 2) {
       return anchors.sort((a, b) => a.x - b.x);
     }
@@ -146,12 +164,22 @@ function findYearColumnAnchors(page: AnnualReportParsedPage): ColumnAnchor[] {
   type YearWord = { year: number; x: number; y: number };
   const candidates: YearWord[] = [];
   for (const line of topLines) {
+    const lineYears: YearWord[] = [];
     for (const word of line.words) {
       const year = extractYearFromHeaderToken(word.text);
       if (year) {
-        candidates.push({ year, x: word.x, y: line.y });
+        lineYears.push({ year, x: word.x, y: line.y });
       }
     }
+    if (lineYears.length === 1) {
+      for (const word of line.words) {
+        const truncated = extractTruncatedYearNearSibling(word.text, lineYears[0]!.year);
+        if (truncated) {
+          lineYears.push({ year: truncated, x: word.x, y: line.y });
+        }
+      }
+    }
+    candidates.push(...lineYears);
   }
 
   // Iterate sorted by descending y so the topmost header bucket wins —

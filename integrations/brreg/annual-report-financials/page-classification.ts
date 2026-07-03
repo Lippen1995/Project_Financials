@@ -324,11 +324,16 @@ function extractYearFromHeaderToken(token: string): number | null {
   const periodYear = token.match(/\b31[./-]12[./-]?(\d{2})\b/)?.[1];
   if (periodYear) return 2000 + Number(periodYear);
 
-  if (/^0\d{2}$/.test(token)) {
-    return 2000 + Number(token.slice(1));
-  }
-
   return null;
+}
+
+// OCR-truncated years ("025" for 2025) are only trustworthy next to a confirmed
+// sibling year on the same line — bare 0XX tokens routinely appear as fragments
+// of table numbers, and accepting them shifts the year-column order.
+function extractTruncatedYearNearSibling(token: string, siblingYear: number): number | null {
+  if (!/^0\d{2}$/.test(token)) return null;
+  const year = 2000 + Number(token.slice(1));
+  return Math.abs(year - siblingYear) === 1 ? year : null;
 }
 
 function extractYearHeaderYears(page: AnnualReportParsedPage) {
@@ -365,6 +370,14 @@ function extractYearHeaderYears(page: AnnualReportParsedPage) {
           .filter((year): year is number => year !== null && year >= 2000 && year <= 2099),
       ),
     );
+    if (years.length === 1) {
+      for (const token of tokens) {
+        const truncated = extractTruncatedYearNearSibling(token, years[0]!);
+        if (truncated !== null && !years.includes(truncated)) {
+          years.push(truncated);
+        }
+      }
+    }
 
     if (years.length >= 2) {
       return years.slice(0, 3);
