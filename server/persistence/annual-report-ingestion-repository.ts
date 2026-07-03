@@ -578,6 +578,83 @@ export async function createRawFinancialLineItems(input: {
   ]);
 }
 
+export type PublishedMachineFinancialLineItemDraft = {
+  fiscalYear: number;
+  statementType: FinancialFactStatementType;
+  statementScope: "COMPANY" | "CONSOLIDATED";
+  originalLabel: string;
+  originalValue: string;
+  parsedValue?: bigint;
+  canonicalKey?: string;
+  unitScale: number;
+  sourcePage?: number;
+  rowIndex?: number;
+  extractionRoute?: string;
+  confidence?: number;
+};
+
+export async function publishMachineFinancialLineItems(input: {
+  filingId: string;
+  companyId: string;
+  extractionRunId: string;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
+  publishedAt: Date;
+  items: PublishedMachineFinancialLineItemDraft[];
+}): Promise<{ publishedCount: number }> {
+  const items = input.items.filter(
+    (item) => item.originalLabel.trim().length > 0 && item.originalValue.trim().length > 0,
+  );
+
+  await prisma.$transaction([
+    prisma.publishedFinancialLineItem.deleteMany({
+      where: {
+        filingId: input.filingId,
+        publicationSource: "MACHINE_EXTRACTION",
+      },
+    }),
+    ...(items.length > 0
+      ? [
+          prisma.publishedFinancialLineItem.createMany({
+            data: items.map((item, index) => ({
+              filingId: input.filingId,
+              companyId: input.companyId,
+              fiscalYear: item.fiscalYear,
+              statementType: item.statementType,
+              statementScope: item.statementScope,
+              metricKey: item.canonicalKey ?? null,
+              rawLabel: item.originalLabel,
+              originalLabel: item.originalLabel,
+              originalValue: item.originalValue,
+              parsedValue: item.parsedValue ?? null,
+              value: item.parsedValue ?? null,
+              finalInput: item.parsedValue ?? null,
+              currency: "NOK",
+              unitScale: item.unitScale,
+              sourcePage: item.sourcePage ?? null,
+              sortOrder: item.rowIndex ?? index,
+              publicationSource: "MACHINE_EXTRACTION",
+              sourceSystem: input.sourceSystem,
+              sourceEntityType: input.sourceEntityType,
+              sourceId: input.sourceId,
+              sourceExtractionRunId: input.extractionRunId,
+              extractionRoute: item.extractionRoute ?? null,
+              confidence: item.confidence ?? null,
+              fetchedAt: input.fetchedAt,
+              normalizedAt: input.normalizedAt,
+              publishedAt: input.publishedAt,
+            })),
+          }),
+        ]
+      : []),
+  ]);
+
+  return { publishedCount: items.length };
+}
+
 export type AnnualReportNarrativeDraft = {
   fiscalYear: number;
   sectionKind: string;

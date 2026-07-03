@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import { buildThreadedComments, ThreadedCommentNode } from "@/lib/comment-thread";
@@ -15,7 +15,6 @@ import {
   FinancialValueMode,
   FINANCIAL_UNIT_LABELS,
   FINANCIAL_UNIT_SUFFIXES,
-  formatCurrency,
   formatPercent,
   formatUnitAmount,
   getDisplayValue,
@@ -161,8 +160,51 @@ type FinancialCellTarget = {
   rowLabel: string;
 };
 
+type PublishedReportedLineItem = {
+  id: string;
+  fiscalYear: number;
+  statementType: "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW" | "NOTE";
+  statementScope: "COMPANY" | "CONSOLIDATED";
+  originalLabel: string;
+  originalValue: string;
+  parsedValue: string | null;
+  canonicalKey: string | null;
+  unitScale: number;
+  sourcePage: number | null;
+  rowIndex: number | null;
+  extractionRoute: string | null;
+  confidence: number | null;
+  publicationSource: "MACHINE_EXTRACTION" | "MANUAL_REVIEW";
+};
+
+type PublishedReportedRow = {
+  key: string;
+  label: string;
+  statement: FinancialStatementType;
+  canonicalKey: string | null;
+  valuesByYear: Record<number, number | null>;
+  sourcePagesByYear: Record<number, number | null>;
+  publicationSourcesByYear: Record<number, PublishedReportedLineItem["publicationSource"]>;
+  firstRowIndex: number;
+};
+
 function buildCellThreadKey(financialStatementId: string, metricKey: string) {
   return `${financialStatementId}:${metricKey}`;
+}
+
+function apiStatementTypeToFinancialStatement(
+  value: PublishedReportedLineItem["statementType"],
+): FinancialStatementType | null {
+  if (value === "INCOME_STATEMENT") return "income";
+  if (value === "BALANCE_SHEET") return "balance";
+  return null;
+}
+
+function toPublishedReportedValue(item: PublishedReportedLineItem) {
+  if (item.parsedValue === null || !/^-?\d+$/.test(item.parsedValue)) return null;
+  const value = Number(item.parsedValue);
+  if (!Number.isFinite(value)) return null;
+  return value * item.unitScale;
 }
 
 function FinancialCommentList({
@@ -356,21 +398,82 @@ function FinancialCellDialog({
   );
 }
 
-type RawLineItem = {
-  id: string;
-  fiscalYear: number;
-  statementType: string;
-  statementScope?: "COMPANY" | "CONSOLIDATED" | null;
-  originalLabel: string;
-  originalValue: string;
-  parsedValue: string | null;
-  canonicalKey: string | null;
-  unitScale: number;
-  sourcePage: number | null;
-  rowIndex: number | null;
-  extractionRoute: string | null;
-  confidence: number;
-};
+// Reported ("Som rapportert") statement layout — a standard NGAAP oppstilling.
+// Structural rows (header/group/subgroup) carry no value; value rows bind a
+// canonical metric key from the standardized dataset so the figures are real.
+type ReportedSpecRow =
+  | { kind: "header"; label: string; spaceTop?: boolean }
+  | { kind: "group"; label: string }
+  | { kind: "subgroup"; label: string }
+  | { kind: "value"; variant: "line" | "subtotal" | "result" | "total"; label: string; metricKey: string; note?: string };
+
+const reportedIncomeSpec: ReportedSpecRow[] = [
+  { kind: "group", label: "Driftsinntekter og driftskostnader" },
+  { kind: "value", variant: "line", label: "Salgsinntekt", metricKey: "sales_revenue" },
+  { kind: "value", variant: "line", label: "Annen driftsinntekt", metricKey: "other_operating_revenue" },
+  { kind: "value", variant: "subtotal", label: "Sum driftsinntekter", metricKey: "total_operating_revenue" },
+  { kind: "value", variant: "line", label: "Varekostnad", metricKey: "cost_of_goods_sold" },
+  { kind: "value", variant: "line", label: "Lønnskostnad", metricKey: "salary_costs" },
+  { kind: "value", variant: "line", label: "Av- og nedskrivninger", metricKey: "depreciation" },
+  { kind: "value", variant: "line", label: "Annen driftskostnad", metricKey: "other_operating_costs" },
+  { kind: "value", variant: "subtotal", label: "Sum driftskostnader", metricKey: "total_operating_costs" },
+  { kind: "value", variant: "result", label: "Driftsresultat", metricKey: "ebit" },
+  { kind: "group", label: "Finansinntekter og finanskostnader" },
+  { kind: "value", variant: "line", label: "Renteinntekt fra tilknyttet selskap", metricKey: "interest_income_related_party" },
+  { kind: "value", variant: "line", label: "Annen renteinntekt", metricKey: "other_interest_income" },
+  { kind: "value", variant: "line", label: "Annen finansinntekt", metricKey: "other_financial_income" },
+  { kind: "value", variant: "line", label: "Sum finansinntekter", metricKey: "financial_income" },
+  { kind: "value", variant: "line", label: "Rentekostnad til tilknyttet selskap", metricKey: "interest_cost_related_party" },
+  { kind: "value", variant: "line", label: "Annen rentekostnad", metricKey: "other_interest_cost" },
+  { kind: "value", variant: "line", label: "Annen finanskostnad", metricKey: "other_financial_cost" },
+  { kind: "value", variant: "line", label: "Sum finanskostnader", metricKey: "financial_costs" },
+  { kind: "value", variant: "subtotal", label: "Netto finansposter", metricKey: "net_finance" },
+  { kind: "value", variant: "result", label: "Ordinært resultat før skattekostnad", metricKey: "profit_before_tax" },
+  { kind: "value", variant: "line", label: "Skattekostnad på ordinært resultat", metricKey: "tax_expense" },
+  { kind: "value", variant: "total", label: "Årsresultat", metricKey: "net_income" },
+];
+
+const reportedBalanceSpec: ReportedSpecRow[] = [
+  { kind: "header", label: "Eiendeler" },
+  { kind: "group", label: "Anleggsmidler" },
+  { kind: "subgroup", label: "Immaterielle eiendeler" },
+  { kind: "value", variant: "line", label: "Sum immaterielle eiendeler", metricKey: "intangible_assets" },
+  { kind: "subgroup", label: "Varige driftsmidler" },
+  { kind: "value", variant: "line", label: "Sum varige driftsmidler", metricKey: "tangible_assets" },
+  { kind: "subgroup", label: "Finansielle anleggsmidler" },
+  { kind: "value", variant: "line", label: "Sum finansielle anleggsmidler", metricKey: "financial_fixed_assets" },
+  { kind: "value", variant: "subtotal", label: "Sum anleggsmidler", metricKey: "total_fixed_assets" },
+  { kind: "group", label: "Omløpsmidler" },
+  { kind: "value", variant: "line", label: "Varer", metricKey: "inventory" },
+  { kind: "subgroup", label: "Fordringer" },
+  { kind: "value", variant: "line", label: "Kundefordringer", metricKey: "accounts_receivable" },
+  { kind: "value", variant: "line", label: "Andre fordringer", metricKey: "other_short_term_receivables" },
+  { kind: "value", variant: "line", label: "Konsernfordringer", metricKey: "intercompany_receivables" },
+  { kind: "value", variant: "line", label: "Sum fordringer", metricKey: "total_receivables" },
+  { kind: "value", variant: "line", label: "Bankinnskudd, kontanter og lignende", metricKey: "cash_and_equivalents" },
+  { kind: "value", variant: "subtotal", label: "Sum omløpsmidler", metricKey: "total_current_assets" },
+  { kind: "value", variant: "total", label: "Sum eiendeler", metricKey: "total_assets" },
+  { kind: "header", label: "Egenkapital og gjeld", spaceTop: true },
+  { kind: "group", label: "Egenkapital" },
+  { kind: "value", variant: "line", label: "Innskutt egenkapital", metricKey: "paid_in_equity" },
+  { kind: "value", variant: "line", label: "Opptjent egenkapital", metricKey: "retained_earnings" },
+  { kind: "value", variant: "subtotal", label: "Sum egenkapital", metricKey: "total_equity" },
+  { kind: "group", label: "Gjeld" },
+  { kind: "subgroup", label: "Langsiktig gjeld" },
+  { kind: "value", variant: "line", label: "Langsiktig gjeld", metricKey: "long_term_debt" },
+  { kind: "value", variant: "line", label: "Avsetning for forpliktelser", metricKey: "provisions" },
+  { kind: "value", variant: "line", label: "Sum langsiktig gjeld", metricKey: "total_long_term_debt" },
+  { kind: "subgroup", label: "Kortsiktig gjeld" },
+  { kind: "value", variant: "line", label: "Leverandørgjeld", metricKey: "supplier_debt" },
+  { kind: "value", variant: "line", label: "Betalbar skatt", metricKey: "tax_payable" },
+  { kind: "value", variant: "line", label: "Skyldige offentlige avgifter", metricKey: "public_charges" },
+  { kind: "value", variant: "line", label: "Utbytte", metricKey: "dividend_liability" },
+  { kind: "value", variant: "line", label: "Annen kortsiktig gjeld", metricKey: "other_short_term_debt" },
+  { kind: "value", variant: "line", label: "Sum kortsiktig gjeld", metricKey: "total_short_term_debt" },
+  { kind: "value", variant: "total", label: "Sum egenkapital og gjeld", metricKey: "total_equity_and_liabilities" },
+];
+
+const STRUCTURAL_RANK: Record<string, number> = { header: 3, group: 2, subgroup: 1, value: 0 };
 
 export function FinancialTimeSeriesTable({
   statements,
@@ -408,19 +511,19 @@ export function FinancialTimeSeriesTable({
         : statements,
     [statements, availableScopes, activeScope],
   );
-  const reportingCurrency = scopedStatements[0]?.currency ?? statements[0]?.currency ?? "NOK";
   const dataset = useMemo(
     () => buildFinancialReportDataset(scopedStatements, documents),
     [documents, scopedStatements],
   );
 
-  const [basis, setBasis] = useState<"standardized" | "reported">("standardized");
+  const [basis, setBasis] = useState<"standardized" | "reported">("reported");
   const [mode, setMode] = useState<FinancialValueMode>("amount");
   const [densityMode, setDensityMode] = useState<FinancialDensityMode>("all");
   const [unit, setUnit] = useState<FinancialUnit>("MNOK");
   const [offset, setOffset] = useState(0); // years shifted back from the latest-anchored window
-  const [rawItems, setRawItems] = useState<RawLineItem[] | null>(null);
-  const [rawLoading, setRawLoading] = useState(false);
+  const [publishedReportedItems, setPublishedReportedItems] = useState<PublishedReportedLineItem[]>([]);
+  const [reportedItemsLoading, setReportedItemsLoading] = useState(false);
+  const [reportedItemsError, setReportedItemsError] = useState<string | null>(null);
 
   const [hoveredCellKey, setHoveredCellKey] = useState<string | null>(null);
   const [hoverReplyDrafts, setHoverReplyDrafts] = useState<Record<string, string>>({});
@@ -451,22 +554,90 @@ export function FinancialTimeSeriesTable({
     [],
   );
 
+  useEffect(() => {
+    let cancelled = false;
+    setReportedItemsLoading(true);
+    setReportedItemsError(null);
+
+    fetch(`/api/companies/${encodeURIComponent(companySlug)}/raw-financials`, { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          data?: PublishedReportedLineItem[];
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Kunne ikke hente publiserte regnskapslinjer.");
+        }
+        if (!cancelled) {
+          setPublishedReportedItems(payload.data ?? []);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setPublishedReportedItems([]);
+          setReportedItemsError(error instanceof Error ? error.message : "Kunne ikke hente publiserte regnskapslinjer.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setReportedItemsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companySlug]);
+
+  const publishedReportedRows = useMemo(() => {
+    const byKey = new Map<string, PublishedReportedRow>();
+    for (const item of publishedReportedItems) {
+      if (item.statementScope !== activeScope) continue;
+      const statement = apiStatementTypeToFinancialStatement(item.statementType);
+      if (!statement) continue;
+      const label = item.originalLabel.trim();
+      if (!label) continue;
+      const key = `${statement}:${item.canonicalKey ?? label.toLocaleLowerCase("nb-NO")}`;
+      const existing = byKey.get(key);
+      const row =
+        existing ??
+        {
+          key,
+          label,
+          statement,
+          canonicalKey: item.canonicalKey,
+          valuesByYear: {},
+          sourcePagesByYear: {},
+          publicationSourcesByYear: {},
+          firstRowIndex: item.rowIndex ?? byKey.size,
+        };
+      row.valuesByYear[item.fiscalYear] = toPublishedReportedValue(item);
+      row.sourcePagesByYear[item.fiscalYear] = item.sourcePage;
+      row.publicationSourcesByYear[item.fiscalYear] = item.publicationSource;
+      row.firstRowIndex = Math.min(row.firstRowIndex, item.rowIndex ?? row.firstRowIndex);
+      byKey.set(key, row);
+    }
+    return [...byKey.values()].sort((left, right) => {
+      if (left.statement !== right.statement) return left.statement.localeCompare(right.statement);
+      return left.firstRowIndex - right.firstRowIndex;
+    });
+  }, [activeScope, publishedReportedItems]);
+
+  const publishedReportedYears = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          publishedReportedRows.flatMap((row) =>
+            Object.keys(row.valuesByYear).map((year) => Number(year)),
+          ),
+        ),
+      ).sort((left, right) => left - right),
+    [publishedReportedRows],
+  );
+
   const dialogThread = dialogTarget
     ? threadsByCell[buildCellThreadKey(dialogTarget.financialStatementId, dialogTarget.metricKey)] ?? null
     : null;
-
-  function loadReported() {
-    if (rawItems === null && !rawLoading) {
-      setRawLoading(true);
-      // No year filter — fetch every published year so the reported view shows
-      // the full multi-year statement, not just the latest.
-      fetch(`/api/companies/${companySlug}/raw-financials`)
-        .then((r) => r.json())
-        .then((body: { data: RawLineItem[] }) => setRawItems(body.data))
-        .catch(() => setRawItems([]))
-        .finally(() => setRawLoading(false));
-    }
-  }
 
   async function submitCellComment(target: FinancialCellTarget, content: string) {
     if (!discussionRoomId || content.trim().length < 2) {
@@ -522,15 +693,14 @@ export function FinancialTimeSeriesTable({
       ),
     [dataset],
   );
+  const activeYears =
+    basis === "reported" && publishedReportedYears.length > 0
+      ? publishedReportedYears
+      : years;
   const latestYear = years.length > 0 ? years[years.length - 1] : undefined;
   const previousYear = years.length > 1 ? years[years.length - 2] : undefined;
 
-  const reportedYears = useMemo(() => {
-    if (!rawItems) return [] as number[];
-    return Array.from(new Set(rawItems.map((item) => item.fiscalYear))).sort((a, b) => a - b);
-  }, [rawItems]);
-
-  if (years.length === 0) {
+  if (activeYears.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-7 text-slate-600">
         Regnskapstall er ikke tilgjengelige for denne virksomheten ennå.
@@ -598,7 +768,6 @@ export function FinancialTimeSeriesTable({
   ];
 
   // ---- shared year pager -------------------------------------------------
-  const activeYears = basis === "reported" && reportedYears.length > 0 ? reportedYears : years;
   const windowSize = Math.min(YEAR_WINDOW, activeYears.length);
   const maxOffset = Math.max(0, activeYears.length - windowSize);
   const off = Math.min(maxOffset, Math.max(0, offset));
@@ -611,7 +780,7 @@ export function FinancialTimeSeriesTable({
   const infoText =
     basis === "standardized"
       ? `Standardiserte poster · sammenlignbare på tvers av selskaper og år · Tall i ${unitLabel}`
-      : `Innlevert årsregnskap · resultatregnskap og balanse · beløp vist som innrapportert (${reportingCurrency})`;
+      : `Innlevert årsregnskap · resultatregnskap og balanse i oppstillingsform · Tall i ${unitLabel}`;
   const infoIcon = basis === "standardized" ? "info" : "description";
 
   // ---- standardized document cell ---------------------------------------
@@ -816,6 +985,237 @@ export function FinancialTimeSeriesTable({
     );
   }
 
+  // ---- reported ("Som rapportert") NGAAP document -----------------------
+  function hasDataForKey(key: string) {
+    return years.some((year) => dataset.valuesByYear[year]?.[key] != null);
+  }
+
+  // Drop value rows with no data anywhere, then drop structural headings that
+  // no longer have any value row beneath them (before the next same-or-higher
+  // heading), so the document never shows an empty group.
+  function buildReportedRows(statement: FinancialStatementType): ReportedSpecRow[] {
+    const spec = statement === "income" ? reportedIncomeSpec : reportedBalanceSpec;
+    const withData = spec.filter((row) => row.kind !== "value" || hasDataForKey(row.metricKey));
+    const result: ReportedSpecRow[] = [];
+    for (let i = 0; i < withData.length; i += 1) {
+      const row = withData[i];
+      if (row.kind === "value") {
+        result.push(row);
+        continue;
+      }
+      let hasChild = false;
+      for (let j = i + 1; j < withData.length; j += 1) {
+        const next = withData[j];
+        if (next.kind === "value") {
+          hasChild = true;
+          break;
+        }
+        if (STRUCTURAL_RANK[next.kind] >= STRUCTURAL_RANK[row.kind]) break;
+      }
+      if (hasChild) result.push(row);
+    }
+    return result;
+  }
+
+  function renderPublishedReportedSection(statement: FinancialStatementType) {
+    const rows = publishedReportedRows.filter((row) => row.statement === statement);
+    if (rows.length === 0) return null;
+    return (
+      <section key={statement} className="mt-12 first:mt-2">
+        <h3 className="editorial-display text-[30px] tracking-[-0.02em] text-[var(--px-text)]">
+          {statementTitles[statement]}
+        </h3>
+        <div className="mt-3.5 overflow-x-auto">
+          <table className="w-full min-w-[640px] border-collapse">
+            <thead>
+              <tr className="border-b-2 border-[var(--px-text)]">
+                <th className="data-label px-2 py-2.5 text-left text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                  BelÃ¸p i {unitLabel}
+                </th>
+                <th className="data-label w-16 px-2 py-2.5 text-center text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                  Kilde
+                </th>
+                {visibleYears.map((year) => (
+                  <th
+                    key={year}
+                    className={cn(
+                      "tabular-nums px-2 py-2.5 text-right font-mono text-xs",
+                      year === visibleYears[visibleYears.length - 1]
+                        ? "font-bold text-[var(--px-text)]"
+                        : "font-semibold text-[var(--px-muted)]",
+                    )}
+                  >
+                    {year}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>{rows.map((row, index) => renderPublishedReportedRow(row, index))}</tbody>
+          </table>
+        </div>
+      </section>
+    );
+  }
+
+  function renderPublishedReportedRow(row: PublishedReportedRow, index: number) {
+    const hasCanonicalKey = Boolean(row.canonicalKey);
+    return (
+      <tr key={row.key} className={index === 0 ? "" : "border-t border-[var(--px-border-subtle)]"}>
+        <td className="px-2 py-2.5 text-left align-middle text-sm text-[var(--px-text)]">
+          <span className={cn("block", hasCanonicalKey ? "font-medium" : "font-normal")}>{row.label}</span>
+          {!hasCanonicalKey ? (
+            <span className="data-label mt-1 block text-[9px] font-semibold uppercase text-[var(--px-muted)]">
+              Ikke standardisert
+            </span>
+          ) : null}
+        </td>
+        <td className="px-2 py-2 text-center font-mono text-[10px] text-[var(--px-muted)]">
+          {visibleYears
+            .map((year) => row.sourcePagesByYear[year])
+            .find((page): page is number => typeof page === "number")
+            ? "Side"
+            : ""}
+        </td>
+        {visibleYears.map((year) => {
+          const value = row.valuesByYear[year] ?? null;
+          const sourcePage = row.sourcePagesByYear[year];
+          return (
+            <td
+              key={year}
+              className="tabular-nums px-2 py-2.5 text-right align-middle font-mono text-[13px] text-[var(--px-text)]"
+            >
+              <div>{formatUnitAmount(value, unit, { report: true })}</div>
+              {typeof sourcePage === "number" ? (
+                <div className="mt-0.5 text-[10px] text-[var(--px-muted)]">s. {sourcePage}</div>
+              ) : null}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  }
+
+  function renderReportedSection(statement: FinancialStatementType) {
+    if (publishedReportedRows.length > 0) {
+      return renderPublishedReportedSection(statement);
+    }
+
+    const rows = buildReportedRows(statement);
+    if (!rows.some((row) => row.kind === "value")) return null;
+    const colCount = 2 + visibleYears.length;
+
+    return (
+      <section key={statement} className="mt-12 first:mt-2">
+        <h3 className="editorial-display text-[30px] tracking-[-0.02em] text-[var(--px-text)]">
+          {statementTitles[statement]}
+        </h3>
+        <div className="mt-3.5 overflow-x-auto">
+          <table className="w-full min-w-[640px] border-collapse">
+            <thead>
+              <tr className="border-b-2 border-[var(--px-text)]">
+                <th className="data-label px-2 py-2.5 text-left text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                  Beløp i {unitLabel}
+                </th>
+                <th className="data-label w-12 px-2 py-2.5 text-center text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                  Note
+                </th>
+                {visibleYears.map((year) => (
+                  <th
+                    key={year}
+                    className={cn(
+                      "tabular-nums px-2 py-2.5 text-right font-mono text-xs",
+                      year === latestYear ? "font-bold text-[var(--px-text)]" : "font-semibold text-[var(--px-muted)]",
+                    )}
+                  >
+                    {year}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => renderReportedRow(row, index, colCount))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    );
+  }
+
+  function renderReportedRow(row: ReportedSpecRow, index: number, colCount: number) {
+    if (row.kind === "header") {
+      return (
+        <tr key={index}>
+          <td
+            colSpan={colCount}
+            className="border-b border-[var(--px-text)] pb-2"
+            style={{ paddingTop: row.spaceTop ? 34 : 22, borderBottomWidth: 1.5 }}
+          >
+            <span className="data-label text-[13px] font-bold uppercase tracking-[0.12em] text-[var(--px-text)]">
+              {row.label}
+            </span>
+          </td>
+        </tr>
+      );
+    }
+    if (row.kind === "group") {
+      return (
+        <tr key={index}>
+          <td colSpan={colCount} className="px-2 pb-1 pt-[18px] text-[14px] font-bold text-[var(--px-text)]">
+            {row.label}
+          </td>
+        </tr>
+      );
+    }
+    if (row.kind === "subgroup") {
+      return (
+        <tr key={index}>
+          <td colSpan={colCount} className="px-2 pb-0.5 pl-5 pt-2.5 text-[13px] italic text-[var(--px-muted)]">
+            {row.label}
+          </td>
+        </tr>
+      );
+    }
+
+    const isTotal = row.variant === "total";
+    const isSub = row.variant === "subtotal";
+    const isResult = row.variant === "result";
+    const strong = isTotal || isSub || isResult;
+    const borderTop = isTotal
+      ? "3px double var(--px-text)"
+      : isSub || isResult
+        ? "1px solid var(--px-text)"
+        : "none";
+
+    return (
+      <tr key={index} style={{ borderTop, background: isResult ? "var(--px-accent-soft)" : "transparent" }}>
+        <td
+          className={cn(
+            "text-left align-middle text-[var(--px-text)]",
+            isTotal ? "py-3.5 text-[15px]" : "py-2.5 text-sm",
+            strong ? "font-semibold" : "font-normal",
+          )}
+          style={{ paddingLeft: strong ? 8 : 28, paddingRight: 8 }}
+        >
+          {row.label}
+        </td>
+        <td className="px-2 py-2 text-center font-mono text-[11px] text-[var(--px-muted)]">{row.note ?? ""}</td>
+        {visibleYears.map((year) => (
+          <td
+            key={year}
+            className={cn(
+              "tabular-nums px-2 text-right align-middle font-mono",
+              isTotal ? "py-3.5 text-[14.5px]" : "py-2.5 text-[13px]",
+              strong ? "font-semibold" : "font-normal",
+              year === latestYear ? "text-[var(--px-text)]" : "text-[var(--px-muted)]",
+            )}
+          >
+            {formatUnitAmount(dataset.valuesByYear[year]?.[row.metricKey] ?? null, unit, { report: true })}
+          </td>
+        ))}
+      </tr>
+    );
+  }
+
   return (
     <div className="space-y-5">
       {/* heading — floats above the document card */}
@@ -841,7 +1241,6 @@ export function FinancialTimeSeriesTable({
               onChange={(value) => {
                 setBasis(value);
                 setOffset(0);
-                if (value === "reported") loadReported();
               }}
               options={[
                 { value: "reported", label: "Som rapportert" },
@@ -946,7 +1345,7 @@ export function FinancialTimeSeriesTable({
             <div className="mb-1.5 flex flex-wrap items-end justify-between gap-4">
               <div className="data-label text-[10.5px] uppercase text-[var(--px-muted)]">
                 {availableScopes.has("CONSOLIDATED") && activeScope === "CONSOLIDATED" ? "Konsern · " : ""}
-                Tall i {basis === "standardized" ? unitLabel : reportingCurrency}
+                Tall i {unitLabel}
               </div>
               {activeYears.length > windowSize ? (
                 <div className="flex items-center gap-3">
@@ -979,14 +1378,30 @@ export function FinancialTimeSeriesTable({
                 ) : null}
               </>
             ) : (
-              <ReportedDocument
-                items={rawItems}
-                loading={rawLoading}
-                activeScope={activeScope}
-                hasScopeToggle={availableScopes.size > 1}
-                visibleYears={visibleYears}
-                latestYear={latestYear}
-              />
+              <>
+                {publishedReportedRows.length > 0 ? (
+                  <div className="mb-6 rounded-xl border border-[var(--px-border)] bg-[var(--px-subtle)] px-4 py-3 text-sm leading-6 text-[var(--px-muted)]">
+                    Maskinelt ekstrahert fra offisielt årsregnskap hos Brønnøysundregistrene.
+                    Kildeside vises der modellen har sidehenvisning. Manuelt kontrollerte linjer brukes automatisk
+                    der de finnes.
+                  </div>
+                ) : reportedItemsLoading ? (
+                  <div className="mb-6 rounded-xl border border-[var(--px-border)] bg-[var(--px-subtle)] px-4 py-3 text-sm text-[var(--px-muted)]">
+                    Henter publiserte regnskapslinjer...
+                  </div>
+                ) : reportedItemsError ? (
+                  <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Viser standardisert fallback fordi publiserte regnskapslinjer ikke kunne hentes.
+                  </div>
+                ) : null}
+                {renderReportedSection("income")}
+                {renderReportedSection("balance")}
+                <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3.5 text-[12px] leading-6 text-[var(--px-muted)]">
+                  Oppstilling etter regnskapslovens format. Linjene følger et standard NGAAP-oppsett;
+                  beløpene er hentet fra det innleverte årsregnskapet. Tall i parentes er negative. Blanke
+                  felt betyr at posten ikke er rapportert eller ikke lot seg lese ut.
+                </p>
+              </>
             )}
           </div>
         </div>
@@ -1042,138 +1457,5 @@ function FragmentSection({
       </tr>
       {children}
     </>
-  );
-}
-
-const reportedStatementLabels: Record<string, string> = {
-  INCOME_STATEMENT: "Resultatregnskap",
-  BALANCE_SHEET: "Balanse",
-  CASH_FLOW: "Kontantstrøm",
-};
-
-function ReportedDocument({
-  items,
-  loading,
-  activeScope,
-  hasScopeToggle,
-  visibleYears,
-  latestYear,
-}: {
-  items: RawLineItem[] | null;
-  loading: boolean;
-  activeScope: "COMPANY" | "CONSOLIDATED";
-  hasScopeToggle: boolean;
-  visibleYears: number[];
-  latestYear: number | undefined;
-}) {
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center px-2 py-12 text-sm text-[var(--px-muted)]">
-        Laster rådata…
-      </div>
-    );
-  }
-
-  if (items === null || items.length === 0) {
-    return (
-      <div className="px-2 py-10 text-sm text-[var(--px-muted)]">
-        <p className="font-medium text-[var(--px-text)]">Rådata ikke tilgjengelig</p>
-        <p className="mt-1">
-          Kjør unified shadow extraction for å generere «som rapportert»-data for dette selskapet.
-        </p>
-        <pre className="mt-3 rounded-xl bg-slate-100 px-4 py-3 text-xs text-slate-600">
-          npm run financials:prepare-gold-set-shadow-data
-        </pre>
-      </div>
-    );
-  }
-
-  // When the data carries scopes (reviewed/published items do), follow the
-  // konsern/selskap toggle so the reported view matches the standardized one.
-  const itemsHaveScope = items.some((i) => i.statementScope != null);
-  const scopedItems =
-    itemsHaveScope && hasScopeToggle
-      ? items.filter((i) => (i.statementScope ?? "COMPANY") === activeScope)
-      : items;
-
-  const byStatement: Record<string, RawLineItem[]> = {};
-  for (const item of scopedItems) {
-    (byStatement[item.statementType] ??= []).push(item);
-  }
-
-  type MergedRow = { key: string; label: string; valueByYear: Record<number, string> };
-  function mergeRows(rows: RawLineItem[]): MergedRow[] {
-    const order: string[] = [];
-    const map = new Map<string, MergedRow>();
-    for (const row of rows) {
-      const key = row.canonicalKey ?? `label:${row.originalLabel}`;
-      let merged = map.get(key);
-      if (!merged) {
-        merged = { key, label: row.originalLabel, valueByYear: {} };
-        map.set(key, merged);
-        order.push(key);
-      }
-      if (!merged.valueByYear[row.fiscalYear]) {
-        merged.valueByYear[row.fiscalYear] = row.originalValue;
-      }
-    }
-    return order.map((k) => map.get(k)!);
-  }
-
-  return (
-    <div className="space-y-12">
-      {Object.entries(byStatement).map(([stmtType, rows]) => {
-        const merged = mergeRows(rows);
-        return (
-          <section key={stmtType} className="first:mt-2">
-            <h3 className="editorial-display text-[30px] tracking-[-0.02em] text-[var(--px-text)]">
-              {reportedStatementLabels[stmtType] ?? stmtType}
-            </h3>
-            <div className="mt-3.5 overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-[var(--px-text)]">
-                    <th className="data-label px-2 py-2.5 text-left text-[10px] font-semibold uppercase text-[var(--px-muted)]">
-                      Innrapportert linje
-                    </th>
-                    {visibleYears.map((year) => (
-                      <th
-                        key={year}
-                        className={cn(
-                          "tabular-nums px-2 py-2.5 text-right font-mono text-xs",
-                          year === latestYear
-                            ? "font-bold text-[var(--px-text)]"
-                            : "font-semibold text-[var(--px-muted)]",
-                        )}
-                      >
-                        {year}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {merged.map((row) => (
-                    <tr key={row.key} className="border-b border-[var(--px-border-subtle)]">
-                      <td className="px-2 py-2 text-left text-sm text-[var(--px-text)]">{row.label}</td>
-                      {visibleYears.map((year) => (
-                        <td
-                          key={year}
-                          className={cn(
-                            "tabular-nums px-2 py-2 text-right font-mono text-[13px]",
-                            year === latestYear ? "text-[var(--px-text)]" : "text-[var(--px-muted)]",
-                          )}
-                        >
-                          {row.valueByYear[year] ?? ""}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        );
-      })}
-    </div>
   );
 }

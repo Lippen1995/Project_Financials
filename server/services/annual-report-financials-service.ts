@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { AnnualReportFilingStatus, AnnualReportReviewStatus, Prisma } from "@prisma/client";
+import { AnnualReportFilingStatus, AnnualReportReviewStatus, FinancialFactStatementType, Prisma } from "@prisma/client";
 import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
 import { classifyPages } from "@/integrations/brreg/annual-report-financials/page-classification";
 import {
@@ -93,6 +93,8 @@ import {
   listLatestAnnualReportFilingsForCompany,
   listPendingAnnualReportFilings,
   listAnnualReportReviews,
+  publishMachineFinancialLineItems,
+  type PublishedMachineFinancialLineItemDraft,
   publishFinancialStatementSnapshot,
   registerAnnualReportHashVersion,
   resolveAnnualReportReviewsForFiling,
@@ -108,7 +110,13 @@ import {
 } from "@/server/services/annual-report-unified-shadow-config";
 import {
   runAnnualReportUnifiedShadowExtraction,
+  type AnnualReportUnifiedShadowResult,
 } from "@/server/services/annual-report-unified-shadow-extraction-service";
+import type {
+  UnifiedFinancialStatementExtractionResult,
+  UnifiedFinancialStatementKind,
+  UnifiedUnitScale,
+} from "@/integrations/brreg/annual-report-financials/unified-financial-statement-extractor";
 import { createAdminNotificationIfMissing } from "@/server/services/admin-notification-service";
 import { runUnitScaleShadowComparison } from "@/server/ml/unit-scale-shadow-service";
 import { runFinancialFactShadowComparison } from "@/server/ml/financial-fact-shadow-service";
@@ -124,10 +132,21 @@ const artifactStorage = new LocalAnnualReportArtifactStorage();
 export const ANNUAL_REPORT_PARSER_VERSION = "annual-report-pipeline-v4-opendataloader";
 const OCR_HIGH_SCALE_RECOVERY_SCALE = 4;
 const OCR_HIGH_SCALE_RECOVERY_MAX_PAGES = 12;
+const OCR_ROTATED_DEEP_SCAN_STRIDE = 4;
+const OCR_ROTATED_DEEP_SCAN_MAX_PROBE_PAGES = 56;
+const OCR_ROTATED_DEEP_SCAN_EXPAND_RADIUS = 1;
+const OCR_ROTATED_DEEP_SCAN_MAX_EXACT_PAGES = 18;
 const STATUTORY_SECTION_TYPES = new Set([
   "STATUTORY_INCOME",
   "STATUTORY_BALANCE",
   "STATUTORY_BALANCE_CONTINUATION",
+]);
+const STATEMENT_LIKE_SECTION_TYPES = new Set([
+  "STATUTORY_INCOME",
+  "STATUTORY_BALANCE",
+  "STATUTORY_BALANCE_CONTINUATION",
+  "SUPPLEMENTARY_INCOME",
+  "SUPPLEMENTARY_BALANCE",
 ]);
 
 const computeSha256 = (buffer: Buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
@@ -170,6 +189,180 @@ function mapOpenDataLoaderExecutionModeToUnifiedRoute(
   executionMode: OpenDataLoaderParseResult["routing"]["executionMode"],
 ) {
   return executionMode === "hybrid" ? "HYBRID" : "OPENDATALOADER_LOCAL";
+}
+
+const MACHINE_LINE_ITEM_EXTRACTION_CONFIG = {
+  mode: "DRY_RUN" as const,
+  persistUnifiedParserDocument: false,
+  persistUnifiedFinancialExtraction: false,
+  persistUnifiedNarrativeExtraction: false,
+  persistLegacyVsUnifiedComparison: false,
+};
+
+function mapUnifiedStatementKind(
+  kind: UnifiedFinancialStatementKind,
+): FinancialFactStatementType | null {
+  switch (kind) {
+    case "INCOME_STATEMENT":
+      return FinancialFactStatementType.INCOME_STATEMENT;
+    case "BALANCE_SHEET":
+      return FinancialFactStatementType.BALANCE_SHEET;
+    case "CASH_FLOW_STATEMENT":
+      return FinancialFactStatementType.CASH_FLOW;
+    default:
+      return null;
+  }
+}
+
+function mapUnifiedUnitScale(scale: UnifiedUnitScale) {
+  switch (scale) {
+    case "THOUSANDS":
+      return 1_000;
+    case "MILLIONS":
+      return 1_000_000;
+    default:
+      return 1;
+  }
+}
+
+function parseUnifiedLineItemValue(value: string, sign: "POSITIVE" | "NEGATIVE" | "UNKNOWN") {
+  const normalized = value.trim().replace(/\s/g, "");
+  if (!/^\d+$/.test(normalized)) return undefined;
+  const parsed = BigInt(normalized);
+  return sign === "NEGATIVE" ? -parsed : parsed;
+}
+
+function buildPublishedMachineLineItems(input: {
+  financial: UnifiedFinancialStatementExtractionResult;
+  statementScope: "COMPANY" | "CONSOLIDATED";
+}): PublishedMachineFinancialLineItemDraft[] {
+  const drafts: PublishedMachineFinancialLineItemDraft[] = [];
+  for (const statement of input.financial.statements) {
+    const statementType = mapUnifiedStatementKind(statement.kind);
+    if (!statementType) continue;
+    for (const [index, item] of statement.lineItems.entries()) {
+      drafts.push({
+        fiscalYear: item.year,
+        statementType,
+        statementScope: input.statementScope,
+        originalLabel: item.originalLabel,
+        originalValue: item.value,
+        parsedValue: parseUnifiedLineItemValue(item.value, item.sign),
+        canonicalKey: item.canonicalKey ?? undefined,
+        unitScale: mapUnifiedUnitScale(item.unitScale),
+        sourcePage: item.provenance.pageNumber,
+        rowIndex: item.provenance.rowIndex ?? index,
+        extractionRoute: item.provenance.route,
+        confidence: item.confidence,
+      });
+    }
+  }
+  return drafts;
+}
+
+function buildRotatedDeepScanProbePages(pageCount: number, frontWindowEnd: number) {
+  const pages: number[] = [];
+  for (
+    let pageNumber = frontWindowEnd + OCR_ROTATED_DEEP_SCAN_STRIDE;
+    pageNumber <= pageCount && pages.length < OCR_ROTATED_DEEP_SCAN_MAX_PROBE_PAGES;
+    pageNumber += OCR_ROTATED_DEEP_SCAN_STRIDE
+  ) {
+    pages.push(pageNumber);
+  }
+  return pages;
+}
+
+function selectRotatedDeepScanStatementPages(input: {
+  classifications: PageClassification[];
+  pageCount: number;
+}) {
+  const seedPages = input.classifications
+    .filter(
+      (classification) =>
+        STATEMENT_LIKE_SECTION_TYPES.has(classification.type) &&
+        classification.tableLike &&
+        classification.numericRowCount >= 3,
+    )
+    .map((classification) => classification.pageNumber);
+
+  const expanded = new Set<number>();
+  for (const seedPage of seedPages) {
+    for (
+      let pageNumber = seedPage - OCR_ROTATED_DEEP_SCAN_EXPAND_RADIUS;
+      pageNumber <= seedPage + OCR_ROTATED_DEEP_SCAN_EXPAND_RADIUS;
+      pageNumber += 1
+    ) {
+      if (pageNumber >= 1 && pageNumber <= input.pageCount) {
+        expanded.add(pageNumber);
+      }
+    }
+  }
+
+  return [...expanded]
+    .sort((left, right) => left - right)
+    .slice(0, OCR_ROTATED_DEEP_SCAN_MAX_EXACT_PAGES);
+}
+
+function replaceParsedPages(
+  pages: AnnualReportParsedInputPage[],
+  replacements: AnnualReportParsedInputPage[],
+) {
+  const replacementByPage = new Map(
+    replacements.map((page) => [page.pageNumber, page]),
+  );
+  const existingPageNumbers = new Set(pages.map((page) => page.pageNumber));
+  const merged = pages.map((page) => replacementByPage.get(page.pageNumber) ?? page);
+  for (const replacement of replacements) {
+    if (!existingPageNumbers.has(replacement.pageNumber)) {
+      merged.push(replacement);
+    }
+  }
+  return merged.sort((left, right) => left.pageNumber - right.pageNumber);
+}
+
+function scoreDeepScanPageCandidate(classification: PageClassification) {
+  let score = 0;
+  if (STATEMENT_LIKE_SECTION_TYPES.has(classification.type)) score += 1_000;
+  if (classification.type === "STATUTORY_INCOME" || classification.type === "STATUTORY_BALANCE") score += 120;
+  if (classification.type === "STATUTORY_BALANCE_CONTINUATION") score += 90;
+  if (classification.tableLike) score += 80;
+  if (classification.unitScale !== null) score += 60;
+  score += Math.min(20, classification.yearHeaderYears.length) * 15;
+  score += Math.min(40, classification.numericRowCount) * 4;
+  score += Math.round(classification.confidence * 10);
+  return score;
+}
+
+function selectBestDeepScanOcrPages(
+  candidates: Array<{
+    pages: AnnualReportParsedInputPage[];
+    classifications: PageClassification[];
+  }>,
+) {
+  const bestByPage = new Map<number, {
+    page: AnnualReportParsedInputPage;
+    score: number;
+  }>();
+  for (const candidate of candidates) {
+    const classificationByPage = new Map(
+      candidate.classifications.map((classification) => [
+        classification.pageNumber,
+        classification,
+      ]),
+    );
+    for (const page of candidate.pages) {
+      const classification = classificationByPage.get(page.pageNumber);
+      if (!classification) continue;
+      const score = scoreDeepScanPageCandidate(classification);
+      const current = bestByPage.get(page.pageNumber);
+      if (!current || score > current.score) {
+        bestByPage.set(page.pageNumber, { page, score });
+      }
+    }
+  }
+  return [...bestByPage.values()]
+    .map((item) => item.page)
+    .sort((left, right) => left.pageNumber - right.pageNumber);
 }
 
 function buildAvailability(statements: NormalizedFinancialStatement[]): DataAvailability {
@@ -1585,6 +1778,187 @@ export async function processAnnualReportFiling(
       nodeRules,
     });
 
+    if (
+      primaryEngine === "LEGACY" &&
+      !preflight.hasReliableTextLayer &&
+      preflight.pageCount > DEL1_PAGE_WINDOW &&
+      !primaryComputation.canPublishSnapshot
+    ) {
+      const probePageNumbers = buildRotatedDeepScanProbePages(
+        preflight.pageCount,
+        DEL1_PAGE_WINDOW,
+      );
+      if (probePageNumbers.length > 0) {
+        try {
+          const probeResult = await extractOcrPagesBatched(
+            pdfBuffer,
+            probePageNumbers,
+            2,
+            { rotationDegrees: 90 },
+          );
+          const exactPageNumbers = selectRotatedDeepScanStatementPages({
+            classifications: classifyPages(probeResult.pages),
+            pageCount: preflight.pageCount,
+          });
+
+          if (exactPageNumbers.length > 0) {
+            const rotatedOcrResult = await extractOcrPagesBatched(
+              pdfBuffer,
+              exactPageNumbers,
+              undefined,
+              { rotationDegrees: 90 },
+            );
+            const counterRotatedOcrResult = await extractOcrPagesBatched(
+              pdfBuffer,
+              exactPageNumbers,
+              undefined,
+              { rotationDegrees: 270 },
+            );
+            const selectedRotatedPages = selectBestDeepScanOcrPages([
+              {
+                pages: rotatedOcrResult.pages,
+                classifications: classifyPages(rotatedOcrResult.pages),
+              },
+              {
+                pages: counterRotatedOcrResult.pages,
+                classifications: classifyPages(counterRotatedOcrResult.pages),
+              },
+            ]);
+            const deepScanPages = replaceParsedPages(
+              legacyPages,
+              selectedRotatedPages,
+            );
+            const rotatedComputation = await runFinancialPipeline({
+              filingId: filing.id,
+              extractionRunId: extractionRun.id,
+              fiscalYear: filing.fiscalYear,
+              parsedPages: deepScanPages,
+              engine: "LEGACY",
+              mode: "legacy",
+              excludePageNumbers: pageHints?.hasReliableHints ? pageHints.excludePages : undefined,
+              definitions: metricDefinitions,
+              requiredKeys,
+              nodeRules,
+            });
+            let candidateComputation = rotatedComputation;
+            let invertedDiagnostics: {
+              primary: Awaited<ReturnType<typeof extractOcrPagesBatched>>["diagnostics"];
+              counterRotated: Awaited<ReturnType<typeof extractOcrPagesBatched>>["diagnostics"];
+            } | null = null;
+            let invertedMergeStats: ReturnType<typeof selectivelyMergeOcrScaleFacts>["stats"] | null = null;
+            try {
+              const invertedOcrResult = await extractOcrPagesBatched(
+                pdfBuffer,
+                exactPageNumbers,
+                undefined,
+                { rotationDegrees: 90, invert: true },
+              );
+              const counterInvertedOcrResult = await extractOcrPagesBatched(
+                pdfBuffer,
+                exactPageNumbers,
+                undefined,
+                { rotationDegrees: 270, invert: true },
+              );
+              invertedDiagnostics = {
+                primary: invertedOcrResult.diagnostics,
+                counterRotated: counterInvertedOcrResult.diagnostics,
+              };
+              const selectedInvertedPages = selectBestDeepScanOcrPages([
+                {
+                  pages: invertedOcrResult.pages,
+                  classifications: classifyPages(invertedOcrResult.pages),
+                },
+                {
+                  pages: counterInvertedOcrResult.pages,
+                  classifications: classifyPages(counterInvertedOcrResult.pages),
+                },
+              ]);
+              const invertedPages = replaceParsedPages(
+                legacyPages,
+                selectedInvertedPages,
+              );
+              const invertedComputation = await runFinancialPipeline({
+                filingId: filing.id,
+                extractionRunId: extractionRun.id,
+                fiscalYear: filing.fiscalYear,
+                parsedPages: invertedPages,
+                engine: "LEGACY",
+                mode: "legacy",
+                excludePageNumbers: pageHints?.hasReliableHints ? pageHints.excludePages : undefined,
+                definitions: metricDefinitions,
+                requiredKeys,
+                nodeRules,
+              });
+              if (loopCandidateWins(invertedComputation, candidateComputation)) {
+                candidateComputation = invertedComputation;
+              } else {
+                const merged = selectivelyMergeOcrScaleFacts(
+                  candidateComputation.mapped.facts,
+                  invertedComputation.mapped.facts,
+                );
+                invertedMergeStats = merged.stats;
+                const acceptedRepairCount =
+                  merged.stats.replacedTruncatedSlots + merged.stats.addedSiblingYearSlots;
+                if (acceptedRepairCount > 0) {
+                  candidateComputation = recomputeComputationWithFacts({
+                    computation: candidateComputation,
+                    fiscalYear: filing.fiscalYear,
+                    facts: merged.facts,
+                    requiredKeys,
+                    nodeRules,
+                  });
+                }
+              }
+            } catch (invertedError) {
+              logRecoverableError("annual-report-financials.ocrInvertedColumnRecovery", invertedError, {
+                filingId: filing.id,
+                fiscalYear: filing.fiscalYear,
+                exactPageNumbers,
+              });
+            }
+
+            const recovered = loopCandidateWins(candidateComputation, primaryComputation);
+            logPipelineEvent("ocr_rotated_deep_scan.completed", {
+              filingId: filing.id,
+              extractionRunId: extractionRun.id,
+              probePageCount: probePageNumbers.length,
+              exactPageNumbers,
+              rotationDegrees: 90,
+              probeDiagnostics: probeResult.diagnostics,
+              exactDiagnostics: rotatedOcrResult.diagnostics,
+              counterRotatedDiagnostics: counterRotatedOcrResult.diagnostics,
+              invertedDiagnostics,
+              invertedMergeStats,
+              currentConfidence: primaryComputation.confidenceScore,
+              rotatedConfidence: rotatedComputation.confidenceScore,
+              candidateConfidence: candidateComputation.confidenceScore,
+              currentCanPublish: primaryComputation.canPublishSnapshot,
+              rotatedCanPublish: rotatedComputation.canPublishSnapshot,
+              candidateCanPublish: candidateComputation.canPublishSnapshot,
+              recovered,
+            });
+            if (recovered) {
+              primaryComputation = candidateComputation;
+            }
+          } else {
+            logPipelineEvent("ocr_rotated_deep_scan.skipped", {
+              filingId: filing.id,
+              extractionRunId: extractionRun.id,
+              probePageCount: probePageNumbers.length,
+              reason: "no_statement_like_probe_pages",
+              probeDiagnostics: probeResult.diagnostics,
+            });
+          }
+        } catch (deepScanError) {
+          logRecoverableError("annual-report-financials.ocrRotatedDeepScan", deepScanError, {
+            filingId: filing.id,
+            fiscalYear: filing.fiscalYear,
+            probePageCount: probePageNumbers.length,
+          });
+        }
+      }
+    }
+
     // ── ML unit-scale shadow comparison (measurement only, never affects output) ──
     // Compares the in-house ML model's unit-scale predictions against the
     // rule-based classifications. Opt-in via ML_INFERENCE_SHADOW=true. Any
@@ -1982,6 +2356,7 @@ export async function processAnnualReportFiling(
       }
     }
 
+    let unifiedExtractionResult: AnnualReportUnifiedShadowResult | null = null;
     try {
       const unifiedShadowConfig = getAnnualReportUnifiedShadowConfigFromEnv();
       const shadowConfigErrors = validateAnnualReportUnifiedShadowConfig(unifiedShadowConfig);
@@ -1990,8 +2365,13 @@ export async function processAnnualReportFiling(
           filingId: filing.id,
           errors: shadowConfigErrors,
         });
-      } else if (unifiedShadowConfig.mode !== "DISABLED") {
-        const unifiedShadowResult = await runAnnualReportUnifiedShadowExtraction({
+      }
+      const unifiedExtractionConfig =
+        shadowConfigErrors.length === 0 && unifiedShadowConfig.mode !== "DISABLED"
+          ? unifiedShadowConfig
+          : MACHINE_LINE_ITEM_EXTRACTION_CONFIG;
+
+      unifiedExtractionResult = await runAnnualReportUnifiedShadowExtraction({
           filingId: filing.id,
           companyId: filing.company.id,
           orgNumber: filing.company.orgNumber,
@@ -2004,22 +2384,22 @@ export async function processAnnualReportFiling(
               )
             : undefined,
           legacyCandidates: primaryComputation.mapped.facts,
-          config: unifiedShadowConfig,
+          config: unifiedExtractionConfig,
           sourceCommand: `annual-report-financials-service/processAnnualReportFiling`,
         });
         logPipelineEvent("unified_shadow.completed", {
           filingId: filing.id,
           fiscalYear: filing.fiscalYear,
-          mode: unifiedShadowResult.mode,
-          totalDurationMs: unifiedShadowResult.totalDurationMs,
-          documentOk: unifiedShadowResult.steps.document?.ok ?? null,
-          financialOk: unifiedShadowResult.steps.financial?.ok ?? null,
-          narrativeOk: unifiedShadowResult.steps.narrative?.ok ?? null,
-          comparisonOk: unifiedShadowResult.steps.comparison?.ok ?? null,
-          warningCount: unifiedShadowResult.warnings.length,
-          canUseForProductionRouting: unifiedShadowResult.canUseForProductionRouting,
+          mode: unifiedExtractionResult.mode,
+          totalDurationMs: unifiedExtractionResult.totalDurationMs,
+          documentOk: unifiedExtractionResult.steps.document?.ok ?? null,
+          financialOk: unifiedExtractionResult.steps.financial?.ok ?? null,
+          narrativeOk: unifiedExtractionResult.steps.narrative?.ok ?? null,
+          comparisonOk: unifiedExtractionResult.steps.comparison?.ok ?? null,
+          warningCount: unifiedExtractionResult.warnings.length,
+          canUseForProductionRouting: unifiedExtractionResult.canUseForProductionRouting,
+          usedForMachineLineItemPublishing: true,
         });
-      }
     } catch (unifiedShadowError) {
       // Shadow errors must never affect primary pipeline outcome.
       logRecoverableError(
@@ -2257,6 +2637,38 @@ export async function processAnnualReportFiling(
           qualityStatus: "MANUAL_REVIEW",
           qualityScore: primaryComputation.confidenceScore,
           publishedAt,
+        });
+      }
+      if (unifiedExtractionResult?.financial) {
+        const machineLineItems = buildPublishedMachineLineItems({
+          financial: unifiedExtractionResult.financial,
+          statementScope: primaryComputation.primaryScope,
+        });
+        const publishedLineItems = await publishMachineFinancialLineItems({
+          filingId: filing.id,
+          companyId: filing.company.id,
+          extractionRunId: extractionRun.id,
+          sourceSystem: "BRREG",
+          sourceEntityType: "annualReportMachineLineItem",
+          sourceId: `brreg:${filing.company.orgNumber}:${filing.fiscalYear}:${extractionRun.id}`,
+          fetchedAt: filing.downloadedAt ?? publishedAt,
+          normalizedAt: publishedAt,
+          publishedAt,
+          items: machineLineItems,
+        });
+        logPipelineEvent("machine_line_items.published", {
+          filingId: filing.id,
+          fiscalYear: filing.fiscalYear,
+          extractionRunId: extractionRun.id,
+          publishedCount: publishedLineItems.publishedCount,
+          statementScope: primaryComputation.primaryScope,
+        });
+      } else {
+        logPipelineEvent("machine_line_items.skipped", {
+          filingId: filing.id,
+          fiscalYear: filing.fiscalYear,
+          extractionRunId: extractionRun.id,
+          reason: "unified_financial_extraction_unavailable",
         });
       }
       await updateAnnualReportFiling(filing.id, { status: "PUBLISHED", publishedSnapshotAt: publishedAt, manualReviewAt: primaryComputation.canSkipManualReview ? null : new Date(), unitHints: { classifications: primaryComputation.classifications, hasKnownUnitScale: hasKnownUnitScale(primaryComputation.classifications), primaryEngine, primaryMode } });

@@ -1,0 +1,788 @@
+{
+  "filingId": "cmq28bcjn0024vmecn1ob6usc",
+  "companyName": "REITAN AS",
+  "fiscalYear": 2024,
+  "scope": "CONSOLIDATED",
+  "rows": [
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "total_operating_income",
+      "label": "Driftsinntekter",
+      "values": {
+        "2023": 106069000000,
+        "2024": 111274000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "other_operating_income",
+      "label": "Andre inntekter",
+      "values": {
+        "2023": 645000000,
+        "2024": 883000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_verdiendring_investeringseiendom",
+      "label": "Verdiendring investeringseiendom",
+      "values": {
+        "2023": -2029000000,
+        "2024": 355000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_resultat_fra_tilknyttede_selskap_og_felleskontrollerte_virksomheter",
+      "label": "Resultat fra tilknyttede selskap og felleskontrollerte virksomheter",
+      "values": {
+        "2023": -166000000,
+        "2024": 294000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "cost_of_goods_sold",
+      "label": "Varekostnad",
+      "values": {
+        "2023": -85105000000,
+        "2024": -88346000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "payroll_expense",
+      "label": "Lønnskostnad",
+      "values": {
+        "2023": -5399000000,
+        "2024": -5763000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "other_operating_expense",
+      "label": "Andre driftskostnader",
+      "values": {
+        "2023": -7200000000,
+        "2024": -8064000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_ebitda",
+      "label": "Driftsresultat før amort., av- og nedskr. (EBITDA)",
+      "values": {
+        "2023": 6815000000,
+        "2024": 10633000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "depreciation_amortization",
+      "label": "Amortiseringer og nedskrivninger immaterielle eiendeler",
+      "values": {
+        "2023": -271000000,
+        "2024": -285000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_av_og_nedskrivninger_varige_driftsmidler",
+      "label": "Av- og nedskrivninger varige driftsmidler",
+      "values": {
+        "2023": -2067000000,
+        "2024": -1923000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_av_og_nedskrivninger_bruksretteiendeler",
+      "label": "Av- og nedskrivninger bruksretteiendeler",
+      "values": {
+        "2023": -3142000000,
+        "2024": -3320000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "operating_profit",
+      "label": "Driftsresultat",
+      "values": {
+        "2023": 1335000000,
+        "2024": 5105000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "financial_income",
+      "label": "Renteinntekter",
+      "values": {
+        "2023": 131000000,
+        "2024": 180000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "financial_expense",
+      "label": "Rentekostnad leieforpliktelser",
+      "values": {
+        "2023": -749000000,
+        "2024": -841000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "financial_expense",
+      "label": "Andre rentekostnader",
+      "values": {
+        "2023": -1249000000,
+        "2024": -1702000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_gevinster_tap_finansielle_investeringer",
+      "label": "Gevinst (tap) finansielle investeringer",
+      "values": {
+        "2023": 1174000000,
+        "2024": 1411000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_netto_andre_finansposter",
+      "label": "Netto andre finansposter",
+      "values": {
+        "2023": -83000000,
+        "2024": 283000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "net_financial_items",
+      "label": "Netto finansposter",
+      "values": {
+        "2023": -776000000,
+        "2024": -669000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "profit_before_tax",
+      "label": "Resultat før skattekostnad",
+      "values": {
+        "2023": 559000000,
+        "2024": 4436000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_skattekostnad",
+      "label": "Skattekostnad",
+      "values": {
+        "2023": -36000000,
+        "2024": -543000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "net_income",
+      "label": "Årets resultat",
+      "values": {
+        "2023": 523000000,
+        "2024": 3893000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_remaling_av_pensjonsforpliktelse",
+      "label": "Remåling av pensjonsforpliktelse",
+      "values": {
+        "2023": -7000000,
+        "2024": -10000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_andel_utvidet_resultat_i_tilknyttede_selskap_ikke_omklassifiseres",
+      "label": "Andel utvidet resultat i tilknyttede selskap",
+      "values": {
+        "2023": 7000000,
+        "2024": -10000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_poster_som_ikke_kan_bli_omklassifisert_til_resultatet",
+      "label": "Poster som ikke kan bli omklassifisert til resultatet",
+      "values": {
+        "2023": 0,
+        "2024": -20000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_andel_utvidet_resultat_i_tilknyttede_selskap_kan_omklassifiseres",
+      "label": "Andel utvidet resultat i tilknyttede selskap",
+      "values": {
+        "2023": 9000000,
+        "2024": 10000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_kontantstromsikring",
+      "label": "Kontantstrømsikring",
+      "values": {
+        "2023": -15000000,
+        "2024": -6000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_omregningsdifferanser",
+      "label": "Omregningsdifferanser",
+      "values": {
+        "2023": 464000000,
+        "2024": 374000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_poster_som_kan_bli_omklassifisert_til_resultatet",
+      "label": "Poster som kan bli omklassifisert til resultatet",
+      "values": {
+        "2023": 458000000,
+        "2024": 378000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_utvidet_resultat_etter_skatt",
+      "label": "Utvidet resultat etter skatt",
+      "values": {
+        "2023": 458000000,
+        "2024": 358000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_arets_totalresultat",
+      "label": "Årets totalresultat",
+      "values": {
+        "2023": 981000000,
+        "2024": 4251000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_aksjonaerene_i_morselskapet_resultat",
+      "label": "Aksjonærene i morselskapet",
+      "values": {
+        "2023": 1360000000,
+        "2024": 3418000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_ikke_kontrollerende_eierinteresser_resultat",
+      "label": "Ikke-kontrollerende eierinteresser",
+      "values": {
+        "2023": -837000000,
+        "2024": 475000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_sum_tilordnet_resultat",
+      "label": "Sum tilordnet resultat",
+      "values": {
+        "2023": 523000000,
+        "2024": 3893000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_aksjonaerene_i_morselskapet_totalresultat",
+      "label": "Aksjonærene i morselskapet",
+      "values": {
+        "2023": 1779000000,
+        "2024": 3757000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_ikke_kontrollerende_eierinteresser_totalresultat",
+      "label": "Ikke-kontrollerende eierinteresser",
+      "values": {
+        "2023": -798000000,
+        "2024": 494000000
+      }
+    },
+    {
+      "page": 23,
+      "type": "INCOME_STATEMENT",
+      "key": "as_reported_sum_tilordnet_totalresultat",
+      "label": "Sum tilordnet totalresultat",
+      "values": {
+        "2023": 981000000,
+        "2024": 4251000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "deferred_tax_asset",
+      "label": "Utsatt skattefordel",
+      "values": {
+        "2023": 716000000,
+        "2024": 886000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "intangible_assets",
+      "label": "Immaterielle eiendeler",
+      "values": {
+        "2023": 5817000000,
+        "2024": 5969000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "investment_property",
+      "label": "Investeringseiendom",
+      "values": {
+        "2023": 20764000000,
+        "2024": 29956000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "property_plant_equipment",
+      "label": "Varige driftsmidler",
+      "values": {
+        "2023": 23245000000,
+        "2024": 25343000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "right_of_use_assets",
+      "label": "Bruksretteiendeler",
+      "values": {
+        "2023": 18942000000,
+        "2024": 20782000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "as_reported_investeringer_i_tilknyttede_selskap_og_felleskontrollerte_virksomheter",
+      "label": "Investeringer i tilknyttede selskap og felleskontrollerte virksomheter",
+      "values": {
+        "2023": 3174000000,
+        "2024": 4251000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "financial_investments",
+      "label": "Finansielle investeringer",
+      "values": {
+        "2023": 410000000,
+        "2024": 546000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "pension_assets",
+      "label": "Pensjonsmidler",
+      "values": {
+        "2023": 2000000,
+        "2024": 2000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "derivatives",
+      "label": "Derivater",
+      "values": {
+        "2023": 388000000,
+        "2024": 608000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "receivables",
+      "label": "Fordringer",
+      "values": {
+        "2023": 760000000,
+        "2024": 842000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "fixed_assets",
+      "label": "Sum anleggsmidler",
+      "values": {
+        "2023": 74218000000,
+        "2024": 89185000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "inventory",
+      "label": "Varer",
+      "values": {
+        "2023": 5156000000,
+        "2024": 5137000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "receivables",
+      "label": "Kundefordringer og andre fordringer",
+      "values": {
+        "2023": 11099000000,
+        "2024": 11611000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "financial_investments",
+      "label": "Finansielle investeringer",
+      "values": {
+        "2023": 8488000000,
+        "2024": 7530000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "derivatives",
+      "label": "Derivater",
+      "values": {
+        "2023": 12000000,
+        "2024": 16000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "cash_and_cash_equivalents",
+      "label": "Bankinnskudd og kontanter",
+      "values": {
+        "2023": 2710000000,
+        "2024": 1424000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "restricted_cash",
+      "label": "Bundne bankinnskudd",
+      "values": {
+        "2023": 130000000,
+        "2024": 101000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "current_assets",
+      "label": "Sum omløpsmidler",
+      "values": {
+        "2023": 27595000000,
+        "2024": 25819000000
+      }
+    },
+    {
+      "page": 24,
+      "type": "BALANCE_SHEET",
+      "key": "total_assets",
+      "label": "Sum eiendeler",
+      "values": {
+        "2023": 101813000000,
+        "2024": 115004000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "share_capital_share_premium",
+      "label": "Aksjekapital og overkurs",
+      "values": {
+        "2023": 6273000000,
+        "2024": 6273000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "as_reported_annen_egenkapital_ikke_resultatfort",
+      "label": "Annen egenkapital ikke resultatført",
+      "values": {
+        "2023": 2023000000,
+        "2024": 2382000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "retained_earnings",
+      "label": "Opptjent egenkapital",
+      "values": {
+        "2023": 25416000000,
+        "2024": 27843000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "as_reported_egenkapital_tilordnet_morselskapets_aksjonaerer",
+      "label": "Egenkapital tilordnet morselskapets aksjonærer",
+      "values": {
+        "2023": 33712000000,
+        "2024": 36498000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "non_controlling_interests",
+      "label": "Ikke-kontrollerende eierinteresser",
+      "values": {
+        "2023": 6830000000,
+        "2024": 7657000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "total_equity",
+      "label": "Sum egenkapital",
+      "values": {
+        "2023": 40542000000,
+        "2024": 44155000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "deferred_tax_liability",
+      "label": "Utsatt skatt",
+      "values": {
+        "2023": 1834000000,
+        "2024": 2358000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "pension_liabilities",
+      "label": "Pensjonsforpliktelser",
+      "values": {
+        "2023": 80000000,
+        "2024": 76000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "provisions",
+      "label": "Andre avsetninger for forpliktelser",
+      "values": {
+        "2023": 698000000,
+        "2024": 795000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "long_term_debt",
+      "label": "Lån",
+      "values": {
+        "2023": 17496000000,
+        "2024": 22082000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "lease_liabilities",
+      "label": "Leieforpliktelser",
+      "values": {
+        "2023": 16394000000,
+        "2024": 18083000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "derivatives",
+      "label": "Derivater",
+      "values": {
+        "2023": 72000000,
+        "2024": 10000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "other_liabilities",
+      "label": "Annen gjeld",
+      "values": {
+        "2023": 27000000,
+        "2024": 19000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "long_term_liabilities",
+      "label": "Sum langsiktig gjeld",
+      "values": {
+        "2023": 36601000000,
+        "2024": 43423000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "provisions",
+      "label": "Andre avsetninger for forpliktelser",
+      "values": {
+        "2023": 106000000,
+        "2024": 120000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "tax_payable",
+      "label": "Betalbar skatt",
+      "values": {
+        "2023": 279000000,
+        "2024": 253000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "short_term_debt",
+      "label": "Lån",
+      "values": {
+        "2023": 6093000000,
+        "2024": 8569000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "lease_liabilities",
+      "label": "Leieforpliktelser",
+      "values": {
+        "2023": 3735000000,
+        "2024": 3932000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "derivatives",
+      "label": "Derivater",
+      "values": {
+        "2023": 16000000,
+        "2024": 0
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "accounts_payable_other_current_liabilities",
+      "label": "Leverandørgjeld og annen gjeld",
+      "values": {
+        "2023": 14441000000,
+        "2024": 14552000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "current_liabilities",
+      "label": "Sum kortsiktig gjeld",
+      "values": {
+        "2023": 24670000000,
+        "2024": 27426000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "total_liabilities",
+      "label": "Sum gjeld",
+      "values": {
+        "2023": 61271000000,
+        "2024": 70849000000
+      }
+    },
+    {
+      "page": 25,
+      "type": "BALANCE_SHEET",
+      "key": "total_equity_and_liabilities",
+      "label": "Sum egenkapital og gjeld",
+      "values": {
+        "2023": 101813000000,
+        "2024": 115004000000
+      }
+    }
+  ]
+}

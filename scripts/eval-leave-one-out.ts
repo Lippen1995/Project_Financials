@@ -53,6 +53,7 @@ async function derivedAliasesFor(companyId: string) {
   });
   const out = new Map<string, { metricKey: string; family: string; alias: string; norm: string }>();
   for (const f of facts) {
+    if (!f.metricKey) continue;
     const family = familyOf(f.statementType);
     if (!family) continue;
     const alias = cleanAlias(f.rawLabel!);
@@ -133,7 +134,11 @@ async function main() {
     const pdf = path.join(dir, fs.readdirSync(dir).find((f) => f.toLowerCase().endsWith(".pdf"))!);
     const { facts, stat } = await extractFacts(fs.readFileSync(pdf), 2024, definitions);
     const fasitRows = await prisma.publishedFinancialLineItem.findMany({ where: { filingId: held.filingId, value: { not: null }, sourcePage: { in: [...stat] } }, select: { metricKey: true, statementScope: true, fiscalYear: true, value: true } });
-    const fasit: AccuracyFact[] = fasitRows.map((r) => ({ metricKey: r.metricKey, statementScope: r.statementScope, fiscalYear: r.fiscalYear, value: r.value!.toString() }));
+    const fasit: AccuracyFact[] = fasitRows.flatMap((r) =>
+      r.metricKey && r.value !== null
+        ? [{ metricKey: r.metricKey, statementScope: r.statementScope, fiscalYear: r.fiscalYear, value: r.value.toString() }]
+        : [],
+    );
     const res = compareFactsToFasit({ extracted: facts, fasit });
     console.log(`\n=== ${held.name} (held out; aliases from others only) ===`);
     console.log(`  recall (non-zero): ${(res.recallNonZero * 100).toFixed(1)}%  (${res.matchedNonZero}/${res.nonZeroFasitTotal})`);

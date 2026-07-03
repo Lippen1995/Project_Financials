@@ -51,7 +51,7 @@ async function main() {
       console.log(`\n── ${block}  (page-median ${medDigits} digits) ──`);
       for (const s of suspects) {
         const kind = s.value! > 1_000_000_000_000n ? "FUSED   " : "TRUNC   ";
-        console.log(`   ${kind} ${String(s.value).padStart(15)}  ${s.metricKey.padEnd(32)} «${s.rawLabel ?? ""}»`);
+        console.log(`   ${kind} ${String(s.value).padStart(15)}  ${(s.metricKey ?? "(unmapped)").padEnd(32)} «${s.rawLabel ?? ""}»`);
       }
     }
   }

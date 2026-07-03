@@ -90,6 +90,15 @@ describe("preprocessOcrImage", () => {
     expect(maxValue - minValue).toBeGreaterThan(150);
   });
 
+  it("can rotate sideways scanned pages before OCR", async () => {
+    const input = await makeRgbImage(80, 40);
+    const output = await preprocessOcrImage(input, { rotationDegrees: 90 });
+
+    const meta = await sharp(output).metadata();
+    expect(meta.width).toBe(40);
+    expect(meta.height).toBe(80);
+  });
+
   it("exposes a stable pipeline-version string for diagnostics", () => {
     expect(OCR_PREPROCESSING_PIPELINE_VERSION).toMatch(/^greyscale_normalise/);
   });

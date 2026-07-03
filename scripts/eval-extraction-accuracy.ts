@@ -104,21 +104,45 @@ function cachePathFor(input: {
   fiscalYear: number;
   pageNumbers: number[];
   renderScale?: number;
+  rotationDegrees?: 0 | 90 | 180 | 270;
+  invert?: boolean;
 }) {
   const scale = input.renderScale !== undefined
     ? String(input.renderScale)
     : process.env.ANNUAL_REPORT_OCR_RENDER_SCALE ?? "default";
-  return cachePathForScale(input, scale);
+  return cachePathForVariant(input, {
+    scale,
+    rotationDegrees: input.rotationDegrees,
+    invert: input.invert,
+  });
+}
+
+function cachePathForVariant(
+  input: { filingId: string; fiscalYear: number; pageNumbers: number[] },
+  variant: {
+    scale: string;
+    rotationDegrees?: 0 | 90 | 180 | 270;
+    invert?: boolean;
+  },
+) {
+  const variantSuffix = [
+    `scale-${variant.scale}`,
+    variant.rotationDegrees ? `rot-${variant.rotationDegrees}` : null,
+    variant.invert ? "invert" : null,
+  ]
+    .filter(Boolean)
+    .join("-");
+  return path.join(
+    CACHE_DIR,
+    `${input.filingId}-${input.fiscalYear}-${variantSuffix}-pages-${input.pageNumbers[0] ?? "none"}-${input.pageNumbers.at(-1) ?? "none"}.json`,
+  );
 }
 
 function cachePathForScale(
   input: { filingId: string; fiscalYear: number; pageNumbers: number[] },
   scale: string,
 ) {
-  return path.join(
-    CACHE_DIR,
-    `${input.filingId}-${input.fiscalYear}-scale-${scale}-pages-${input.pageNumbers[0] ?? "none"}-${input.pageNumbers.at(-1) ?? "none"}.json`,
-  );
+  return cachePathForVariant(input, { scale });
 }
 
 function legacyCachePathFor(input: { filingId: string; fiscalYear: number; pageNumbers: number[] }) {
@@ -135,6 +159,8 @@ async function readOrExtractOcrPages(input: {
   pageNumbers: number[];
   useCache: boolean;
   renderScale?: number;
+  rotationDegrees?: 0 | 90 | 180 | 270;
+  invert?: boolean;
 }): Promise<AnnualReportParsedInputPage[]> {
   const cachePath = cachePathFor(input);
   if (input.useCache && fs.existsSync(cachePath)) {
@@ -144,6 +170,8 @@ async function readOrExtractOcrPages(input: {
   if (
     input.useCache &&
     input.renderScale === undefined &&
+    !input.rotationDegrees &&
+    !input.invert &&
     !process.env.ANNUAL_REPORT_OCR_RENDER_SCALE &&
     fs.existsSync(legacyCachePath)
   ) {
@@ -154,7 +182,13 @@ async function readOrExtractOcrPages(input: {
     input.pdfBuffer,
     input.pageNumbers,
     undefined,
-    input.renderScale === undefined ? undefined : { renderScale: input.renderScale },
+    input.renderScale === undefined && !input.rotationDegrees && !input.invert
+      ? undefined
+      : {
+          renderScale: input.renderScale,
+          rotationDegrees: input.rotationDegrees,
+          invert: input.invert,
+        },
   );
   if (input.useCache) {
     fs.mkdirSync(path.dirname(cachePath), { recursive: true });
@@ -325,9 +359,12 @@ async function extractStatutoryFacts(
   mergeOnlyAsReported: boolean,
   selectiveMergeOcrScale: string | null,
   selectiveMergeOcrScaleCache: string | null,
+  explicitPageNumbers: number[] | null,
+  ocrRotationDegrees: 0 | 90 | 180 | 270 | undefined,
+  ocrInvert: boolean,
 ): Promise<{ facts: AccuracyFact[]; statutoryPages: Set<number> }> {
   const total = await getPageCount(buf);
-  const pageNumbers = Array.from({ length: Math.min(total, DEL1_MAX_PAGE) }, (_, i) => i + 1);
+  const pageNumbers = explicitPageNumbers ?? Array.from({ length: Math.min(total, DEL1_MAX_PAGE) }, (_, i) => i + 1);
   console.log(`  pages considered: ${pageNumbers.length}/${total}`);
   const artifactPages = readArtifactParsedPages(filingId);
   const parsedPages =
@@ -339,6 +376,8 @@ async function extractStatutoryFacts(
           pdfBuffer: buf,
           pageNumbers,
           useCache,
+          rotationDegrees: ocrRotationDegrees,
+          invert: ocrInvert,
         });
   console.log(
     `  parsed pages source: ${artifactPages !== null && !forceFreshOcr ? "opendataloader artifact" : "fresh OCR/cache"} (${parsedPages.length} pages)`,
@@ -377,6 +416,8 @@ async function extractStatutoryFacts(
             pageNumbers,
             useCache,
             renderScale: parsedSecondaryScale,
+            rotationDegrees: ocrRotationDegrees,
+            invert: ocrInvert,
           })
         : null);
   if (!secondaryPages) {
@@ -419,6 +460,40 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+function parsePageRange(value: string | null): number[] | null {
+  if (!value) return null;
+  const pages = new Set<number>();
+  for (const part of value.split(",")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const rangeMatch = trimmed.match(/^(\d+)-(\d+)$/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
+        throw new Error(`Invalid --page-range segment: ${trimmed}`);
+      }
+      for (let page = start; page <= end; page += 1) pages.add(page);
+      continue;
+    }
+    const page = Number(trimmed);
+    if (!Number.isInteger(page) || page < 1) {
+      throw new Error(`Invalid --page-range page: ${trimmed}`);
+    }
+    pages.add(page);
+  }
+  return [...pages].sort((a, b) => a - b);
+}
+
+function parseOcrRotation(value: string | null): 0 | 90 | 180 | 270 | undefined {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (parsed === 0 || parsed === 90 || parsed === 180 || parsed === 270) {
+    return parsed;
+  }
+  throw new Error("--ocr-rotation must be one of 0, 90, 180, 270");
+}
+
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.mkdirSync(CACHE_DIR, { recursive: true });
@@ -438,6 +513,9 @@ async function main() {
   const selectiveMergeOcrScale = readFlag("selective-merge-ocr-scale");
   const selectiveMergeOcrScaleCache = readFlag("selective-merge-ocr-scale-cache");
   const mergeOnlyAsReported = hasFlag("merge-as-reported-only");
+  const explicitPageNumbers = parsePageRange(readFlag("page-range"));
+  const ocrRotationDegrees = parseOcrRotation(readFlag("ocr-rotation"));
+  const ocrInvert = hasFlag("ocr-invert");
 
   // Filings that have published fasit.
   const published = await prisma.publishedFinancialLineItem.groupBy({
@@ -486,6 +564,9 @@ async function main() {
       mergeOnlyAsReported,
       selectiveMergeOcrScale,
       selectiveMergeOcrScaleCache,
+      explicitPageNumbers,
+      ocrRotationDegrees,
+      ocrInvert,
     );
     processed++;
 
@@ -493,12 +574,16 @@ async function main() {
       where: { filingId: filing.id, value: { not: null }, sourcePage: { in: [...statutoryPages] } },
       select: { metricKey: true, statementScope: true, fiscalYear: true, value: true },
     });
-    const fasit: AccuracyFact[] = fasitRows.map((r) => ({
-      metricKey: r.metricKey,
-      statementScope: r.statementScope,
-      fiscalYear: r.fiscalYear,
-      value: r.value!.toString(),
-    }));
+    const fasit: AccuracyFact[] = fasitRows.flatMap((r) =>
+      r.metricKey && r.value !== null
+        ? [{
+            metricKey: r.metricKey,
+            statementScope: r.statementScope,
+            fiscalYear: r.fiscalYear,
+            value: r.value.toString(),
+          }]
+        : [],
+    );
 
     // Value-level recall (ignore metricKey/scope/year): did extraction READ the
     // fasit number at all, anywhere? Decouples reading quality from mapping.

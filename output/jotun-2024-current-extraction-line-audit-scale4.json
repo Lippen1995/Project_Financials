@@ -1,0 +1,689 @@
+{
+  "summary": {
+    "filingId": "cmq28bbxo0008vmecm33zomyz",
+    "companyName": "JOTUN A/S",
+    "fiscalYear": 2024,
+    "source": "scale4-pages-5-7",
+    "goldRows": 57,
+    "extractedNumericRowsOnPages5To7": 58,
+    "rowPairsCorrect": 47,
+    "rowPairAccuracy": 0.8245614035087719,
+    "valuesCorrect": 99,
+    "valuesTotal": 114,
+    "valueAccuracy": 0.868421052631579,
+    "misses": [
+      {
+        "page": 5,
+        "goldLabel": "Other operating expenses 2.3",
+        "extractedLabel": "Other operating expenses 2.3",
+        "expected2024": 5219000000,
+        "extracted2024": null,
+        "expected2023": 4693000000,
+        "extracted2023": 4693000000,
+        "status": "VALUE_MISS"
+      },
+      {
+        "page": 6,
+        "goldLabel": "Other non-current financial receivables 4.1,5.9",
+        "extractedLabel": "Other non-current financial receivables",
+        "expected2024": 69000000,
+        "extracted2024": 62000000,
+        "expected2023": 105000000,
+        "extracted2023": 105000000,
+        "status": "VALUE_MISS"
+      },
+      {
+        "page": 6,
+        "goldLabel": "Sum bankinnskudd, kontanter og lignende",
+        "extractedLabel": "Bankinnskudd, kontanter og lignende Cash and cash equivalents",
+        "expected2024": 6177000000,
+        "extracted2024": 6177000000,
+        "expected2023": 5391000000,
+        "extracted2023": null,
+        "status": "VALUE_MISS"
+      },
+      {
+        "page": 7,
+        "goldLabel": "Interest-bearing debt 4.1,5.10",
+        "extractedLabel": "Interest-bearing debt",
+        "expected2024": 2757000000,
+        "extracted2024": 1007000000,
+        "expected2023": 2149000000,
+        "extracted2023": 163000000,
+        "status": "VALUE_MISS"
+      },
+      {
+        "page": 7,
+        "goldLabel": "Sum annen langsiktig gjeld",
+        "extractedLabel": "Sum annen langsiktig gjeld",
+        "expected2024": 2790000000,
+        "extracted2024": 790000000,
+        "expected2023": 2176000000,
+        "extracted2023": 176000000,
+        "status": "VALUE_MISS"
+      },
+      {
+        "page": 7,
+        "goldLabel": "Sum langsiktig gjeld",
+        "extractedLabel": "Sum langsiktig gjeld",
+        "expected2024": 3521000000,
+        "extracted2024": 521000000,
+        "expected2023": 2770000000,
+        "extracted2023": 770000000,
+        "status": "VALUE_MISS"
+      },
+      {
+        "page": 7,
+        "goldLabel": "Interest-bearing debt 4.1",
+        "extractedLabel": "Annen langsiktig gjeld Interest-bearing debt",
+        "expected2024": 2007000000,
+        "extracted2024": 757000000,
+        "expected2023": 2163000000,
+        "extracted2023": 149000000,
+        "status": "VALUE_MISS"
+      },
+      {
+        "page": 7,
+        "goldLabel": "Leverand?rgjeld 5.10",
+        "extractedLabel": "Leverandørgjeld",
+        "expected2024": 3955000000,
+        "extracted2024": 955000000,
+        "expected2023": 3407000000,
+        "extracted2023": 407000000,
+        "status": "VALUE_MISS"
+      },
+      {
+        "page": 7,
+        "goldLabel": "Other current liabilities 3.6,3.7,5",
+        "extractedLabel": "Other current liabilities",
+        "expected2024": 3181000000,
+        "extracted2024": 3181000000,
+        "expected2023": 2856000000,
+        "extracted2023": 856000000,
+        "status": "VALUE_MISS"
+      },
+      {
+        "page": 7,
+        "goldLabel": "Sum kortsiktig gjeld",
+        "extractedLabel": "Sum kortsiktig gjeld",
+        "expected2024": 9722000000,
+        "extracted2024": 9722000000,
+        "expected2023": 8986000000,
+        "extracted2023": 986000000,
+        "status": "VALUE_MISS"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "page": 5,
+      "goldLabel": "Operating revenue 2.1",
+      "extractedLabel": "Operating revenue 2.1",
+      "expected2024": 34206000000,
+      "extracted2024": 34206000000,
+      "expected2023": 31861000000,
+      "extracted2023": 31861000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Share of profit from associates and joint ventures 5.5",
+      "extractedLabel": "Share of profit from associates and joint ventures 5.5",
+      "expected2024": 1492000000,
+      "extracted2024": 1492000000,
+      "expected2023": 1333000000,
+      "extracted2023": 1333000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Sum inntekter",
+      "extractedLabel": "Sum inntekter",
+      "expected2024": 35698000000,
+      "extracted2024": 35698000000,
+      "expected2023": 33194000000,
+      "extracted2023": 33194000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Cost of goods sold 2.1",
+      "extractedLabel": "Cost of goods sold 2.1",
+      "expected2024": 17466000000,
+      "extracted2024": 17466000000,
+      "expected2023": 16646000000,
+      "extracted2023": 16646000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Payroll expenses 2.2",
+      "extractedLabel": "Pavroll expenses 2.2",
+      "expected2024": 5088000000,
+      "extracted2024": 5088000000,
+      "expected2023": 4388000000,
+      "extracted2023": 4388000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Depreciation, amortisation and impairment 3.2,3.3",
+      "extractedLabel": "Depreciation, amortisation and impairment",
+      "expected2024": 1160000000,
+      "extracted2024": 1160000000,
+      "expected2023": 1038000000,
+      "extracted2023": 1038000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Other operating expenses 2.3",
+      "extractedLabel": "Other operating expenses 2.3",
+      "expected2024": 5219000000,
+      "extracted2024": null,
+      "expected2023": 4693000000,
+      "extracted2023": 4693000000,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Sum kostnader",
+      "extractedLabel": "Sum kostnader",
+      "expected2024": 28933000000,
+      "extracted2024": 28933000000,
+      "expected2023": 26765000000,
+      "extracted2023": 26765000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Driftsresultat",
+      "extractedLabel": "Driftsresultat",
+      "expected2024": 6765000000,
+      "extracted2024": 6765000000,
+      "expected2023": 6429000000,
+      "extracted2023": 6429000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Net financial items 4.3",
+      "extractedLabel": "Net financial items Net financial items 4.3",
+      "expected2024": 916000000,
+      "extracted2024": 916000000,
+      "expected2023": 552000000,
+      "extracted2023": 552000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Sum finanskostnader",
+      "extractedLabel": "Sum finanskostnader",
+      "expected2024": 916000000,
+      "extracted2024": 916000000,
+      "expected2023": 552000000,
+      "extracted2023": 552000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Netto finans",
+      "extractedLabel": "Netto finans",
+      "expected2024": -916000000,
+      "extracted2024": -916000000,
+      "expected2023": -552000000,
+      "extracted2023": -552000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Resultat f?r skattekostnad",
+      "extractedLabel": "Resultat fer skattekosztnad",
+      "expected2024": 5849000000,
+      "extracted2024": 5849000000,
+      "expected2023": 5877000000,
+      "extracted2023": 5877000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Income tax expense 5.1",
+      "extractedLabel": "Income tax expense 5.1",
+      "expected2024": 1400000000,
+      "extracted2024": 1400000000,
+      "expected2023": 1378000000,
+      "extracted2023": 1378000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "?rsresultat",
+      "extractedLabel": "Årsresultat",
+      "expected2024": 4449000000,
+      "extracted2024": 4449000000,
+      "expected2023": 4499000000,
+      "extracted2023": 4499000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Other comprehensive income to be reclassified to profit or loss in subsequent periods:",
+      "extractedLabel": "income to be reclassified to profit or loss in subsequent periods:",
+      "expected2024": 1235000000,
+      "extracted2024": 1235000000,
+      "expected2023": 280000000,
+      "extracted2023": 280000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Sum resultatkomponenter for IFRS-foretak",
+      "extractedLabel": "Sum resultatkomponenter for IFRS-foretak",
+      "expected2024": 1235000000,
+      "extracted2024": 1235000000,
+      "expected2023": 280000000,
+      "extracted2023": 280000000,
+      "status": "OK"
+    },
+    {
+      "page": 5,
+      "goldLabel": "Totalresultat",
+      "extractedLabel": "Totalresultat",
+      "expected2024": 5684000000,
+      "extracted2024": 5684000000,
+      "expected2023": 4779000000,
+      "extracted2023": 4779000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Other intangible assets 3.2",
+      "extractedLabel": "Immaterielle elendeler Other intangible assets 3.2",
+      "expected2024": 911000000,
+      "extracted2024": 911000000,
+      "expected2023": 877000000,
+      "extracted2023": 877000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Utsatt skattefordel 5.1",
+      "extractedLabel": "Utsatt skattefordel 5.1",
+      "expected2024": 617000000,
+      "extracted2024": 617000000,
+      "expected2023": 483000000,
+      "extracted2023": 483000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Sum immaterielle eiendeler",
+      "extractedLabel": "Sum immaterielle eiendeler",
+      "expected2024": 1528000000,
+      "extracted2024": 1528000000,
+      "expected2023": 1360000000,
+      "extracted2023": 1360000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Property, plant and equipment 3.3,5.4",
+      "extractedLabel": "Property, plant and equipment",
+      "expected2024": 9511000000,
+      "extracted2024": 9511000000,
+      "expected2023": 8747000000,
+      "extracted2023": 8747000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Sum varige driftsmidler",
+      "extractedLabel": "Sum varige driftsmidler",
+      "expected2024": 9511000000,
+      "extracted2024": 9511000000,
+      "expected2023": 8747000000,
+      "extracted2023": 8747000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Investeringer i tilknyttet selskap 5.5",
+      "extractedLabel": "tilknyttet selskap 5.5",
+      "expected2024": 2798000000,
+      "extracted2024": 2798000000,
+      "expected2023": 2289000000,
+      "extracted2023": 2289000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Investeringer i aksjer og andeler 5.9",
+      "extractedLabel": "Investeringer 1 aksjer og andeler 5.9",
+      "expected2024": 7000000,
+      "extracted2024": 7000000,
+      "expected2023": 6000000,
+      "extracted2023": 6000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Other non-current financial receivables 4.1,5.9",
+      "extractedLabel": "Other non-current financial receivables",
+      "expected2024": 69000000,
+      "extracted2024": 62000000,
+      "expected2023": 105000000,
+      "extracted2023": 105000000,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Sum finansielle anleggsmidler",
+      "extractedLabel": "Sum finansielle anleggsmidler",
+      "expected2024": 2874000000,
+      "extracted2024": 2874000000,
+      "expected2023": 2400000000,
+      "extracted2023": 2400000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Sum anleggsmidler",
+      "extractedLabel": "Sum anleggsmidler",
+      "expected2024": 13913000000,
+      "extracted2024": 13913000000,
+      "expected2023": 12507000000,
+      "extracted2023": 12507000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Varer Inventories 3.4",
+      "extractedLabel": "Varer Inventories 3.4",
+      "expected2024": 5623000000,
+      "extracted2024": 5623000000,
+      "expected2023": 4529000000,
+      "extracted2023": 4529000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Sum varer",
+      "extractedLabel": "Sum varer",
+      "expected2024": 5623000000,
+      "extracted2024": 5623000000,
+      "expected2023": 4529000000,
+      "extracted2023": 4529000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Trade and other receivables 3.5,5.9",
+      "extractedLabel": "Trade and other receivables",
+      "expected2024": 9191000000,
+      "extracted2024": 9191000000,
+      "expected2023": 7654000000,
+      "extracted2023": 7654000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Sum fordringer",
+      "extractedLabel": "Sum fordringer",
+      "expected2024": 9191000000,
+      "extracted2024": 9191000000,
+      "expected2023": 7654000000,
+      "extracted2023": 7654000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Bankinnskudd, kontanter og lignende Cash and cash equivalents 4.2,5.9",
+      "extractedLabel": "Sum bankinnskudd, kontanter og lignende",
+      "expected2024": 6177000000,
+      "extracted2024": 6177000000,
+      "expected2023": 5391000000,
+      "extracted2023": 5391000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Sum bankinnskudd, kontanter og lignende",
+      "extractedLabel": "Bankinnskudd, kontanter og lignende Cash and cash equivalents",
+      "expected2024": 6177000000,
+      "extracted2024": 6177000000,
+      "expected2023": 5391000000,
+      "extracted2023": null,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 6,
+      "goldLabel": "Sum oml?psmidler",
+      "extractedLabel": "Sum omløpsmidler",
+      "expected2024": 20991000000,
+      "extracted2024": 20991000000,
+      "expected2023": 17574000000,
+      "extracted2023": 17574000000,
+      "status": "OK"
+    },
+    {
+      "page": 6,
+      "goldLabel": "SUM EIENDELER",
+      "extractedLabel": "SUM EIENDELER",
+      "expected2024": 34904000000,
+      "extracted2024": 34904000000,
+      "expected2023": 30081000000,
+      "extracted2023": 30081000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Share capital 5.9",
+      "extractedLabel": "Share capital",
+      "expected2024": 103000000,
+      "extracted2024": 103000000,
+      "expected2023": 103000000,
+      "extracted2023": 103000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Sum innskutt egenkapital",
+      "extractedLabel": "Sum innskutt egenkapital",
+      "expected2024": 103000000,
+      "extracted2024": 103000000,
+      "expected2023": 103000000,
+      "extracted2023": 103000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Other equity",
+      "extractedLabel": "Other equity",
+      "expected2024": 21186000000,
+      "extracted2024": 21186000000,
+      "expected2023": 17789000000,
+      "extracted2023": 17789000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Sum opptjent egenkapital",
+      "extractedLabel": "Sum opptjent egenkapital",
+      "expected2024": 21186000000,
+      "extracted2024": 21186000000,
+      "expected2023": 17789000000,
+      "extracted2023": 17789000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Minoritetsinteresser",
+      "extractedLabel": "Minoritetsinterescser",
+      "expected2024": 372000000,
+      "extracted2024": 372000000,
+      "expected2023": 433000000,
+      "extracted2023": 433000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Sum egenkapital",
+      "extractedLabel": "Sum egenkapital",
+      "expected2024": 21661000000,
+      "extracted2024": 21661000000,
+      "expected2023": 18325000000,
+      "extracted2023": 18325000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Pensjonsforpliktelser 5.2",
+      "extractedLabel": "Pensjonsforpliktelser",
+      "expected2024": 373000000,
+      "extracted2024": 373000000,
+      "expected2023": 279000000,
+      "extracted2023": 279000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Utsatt skatt 5.1",
+      "extractedLabel": "Utsatt skatt",
+      "expected2024": 179000000,
+      "extracted2024": 179000000,
+      "expected2023": 171000000,
+      "extracted2023": 171000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Provisions 3.7",
+      "extractedLabel": "Provisions",
+      "expected2024": 179000000,
+      "extracted2024": 179000000,
+      "expected2023": 144000000,
+      "extracted2023": 144000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Sum avsetninger for forpliktelser",
+      "extractedLabel": "Sum avsetninger for forpliktelser",
+      "expected2024": 731000000,
+      "extracted2024": 731000000,
+      "expected2023": 594000000,
+      "extracted2023": 594000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Interest-bearing debt 4.1,5.10",
+      "extractedLabel": "Interest-bearing debt",
+      "expected2024": 2757000000,
+      "extracted2024": 1007000000,
+      "expected2023": 2149000000,
+      "extracted2023": 163000000,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Other non-current liabilities",
+      "extractedLabel": "Other non-current liabilities",
+      "expected2024": 33000000,
+      "extracted2024": 33000000,
+      "expected2023": 27000000,
+      "extracted2023": 27000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Sum annen langsiktig gjeld",
+      "extractedLabel": "Sum annen langsiktig gjeld",
+      "expected2024": 2790000000,
+      "extracted2024": 790000000,
+      "expected2023": 2176000000,
+      "extracted2023": 176000000,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Sum langsiktig gjeld",
+      "extractedLabel": "Sum langsiktig gjeld",
+      "expected2024": 3521000000,
+      "extracted2024": 521000000,
+      "expected2023": 2770000000,
+      "extracted2023": 770000000,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Interest-bearing debt 4.1",
+      "extractedLabel": "Annen langsiktig gjeld Interest-bearing debt",
+      "expected2024": 2007000000,
+      "extracted2024": 757000000,
+      "expected2023": 2163000000,
+      "extracted2023": 149000000,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Leverand?rgjeld 5.10",
+      "extractedLabel": "Leverandørgjeld",
+      "expected2024": 3955000000,
+      "extracted2024": 955000000,
+      "expected2023": 3407000000,
+      "extracted2023": 407000000,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Tax payable 5.1",
+      "extractedLabel": "Tax pavable",
+      "expected2024": 579000000,
+      "extracted2024": 579000000,
+      "expected2023": 560000000,
+      "extracted2023": 560000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Other current liabilities 3.6,3.7,5",
+      "extractedLabel": "Other current liabilities",
+      "expected2024": 3181000000,
+      "extracted2024": 3181000000,
+      "expected2023": 2856000000,
+      "extracted2023": 856000000,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Sum kortsiktig gjeld",
+      "extractedLabel": "Sum kortsiktig gjeld",
+      "expected2024": 9722000000,
+      "extracted2024": 9722000000,
+      "expected2023": 8986000000,
+      "extracted2023": 986000000,
+      "status": "VALUE_MISS"
+    },
+    {
+      "page": 7,
+      "goldLabel": "Sum gjeld",
+      "extractedLabel": "Sum gjeld",
+      "expected2024": 13243000000,
+      "extracted2024": 13243000000,
+      "expected2023": 11756000000,
+      "extracted2023": 11756000000,
+      "status": "OK"
+    },
+    {
+      "page": 7,
+      "goldLabel": "SUM EGENKAPITAL OG GJELD",
+      "extractedLabel": "SUM EGENKAPITAL OG GJELD",
+      "expected2024": 34904000000,
+      "extracted2024": 34904000000,
+      "expected2023": 30081000000,
+      "extracted2023": 30081000000,
+      "status": "OK"
+    }
+  ]
+}

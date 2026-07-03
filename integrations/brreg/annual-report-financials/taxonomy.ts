@@ -167,7 +167,9 @@ function isBroadSectionAliasOnlyPrefix(normalizedLabel: string, normalizedAlias:
   return (
     broadSectionAliases.has(normalizedAlias) &&
     normalizedLabel !== normalizedAlias &&
-    normalizedLabel.startsWith(`${normalizedAlias} `) &&
+    (normalizedLabel.startsWith(`${normalizedAlias} `) ||
+      normalizedLabel.includes(` ${normalizedAlias} `) ||
+      normalizedLabel.endsWith(` ${normalizedAlias}`)) &&
     !normalizedLabel.startsWith(`sum ${normalizedAlias}`)
   );
 }
