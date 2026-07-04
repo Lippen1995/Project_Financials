@@ -23,6 +23,7 @@
     "financials:process-pending-filings": "tsx scripts/process-pending-financial-filings.ts",
     "financials:run-ingestion-batch": "tsx scripts/run-financial-ingestion-batch.ts",
     "financials:ingest-structured": "tsx scripts/ingest-structured-financials.ts",
+    "financials:build-anchored-gold-set": "tsx scripts/build-anchored-gold-set.ts",
     "financials:sync-new-filings": "tsx scripts/sync-new-financial-filings.ts",
     "financials:reprocess-low-confidence": "tsx scripts/reprocess-low-confidence-financials.ts",
     "financials:validate-published-financials": "tsx scripts/validate-published-financials.ts",
