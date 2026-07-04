@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
 import { CompanyFinancialDiscussions } from "@/components/company/company-financial-discussions";
+import { CompanyGridConnectionTab } from "@/components/company/company-grid-connection-tab";
 import { CompanyNarrativesTab } from "@/components/company/company-narratives-tab";
 import { CompanyNewsTab } from "@/components/company/company-news-tab";
 import { WatchButton } from "@/components/company/watch-button";
@@ -29,6 +30,7 @@ import {
   getCompanyAnnouncements,
   getCompanyProfile,
 } from "@/server/services/company-service";
+import { getCompanyGridConnectionProfile } from "@/server/services/company-grid-connection-service";
 import {
   listFinancialMetricCommentThreads,
   listFinancialStatementCommentThreads,
@@ -458,6 +460,7 @@ export default async function CompanyPage({
     { id: "kunngjoringer", label: "Kunngjøringer" },
     { id: "dokumenter", label: "Dokumenter" },
     { id: "nyheter", label: "Nyheter" },
+    { id: "nettilknytning", label: "Nettilknytning" },
   ];
   if (petroleumVisibility.available) {
     availableTabs.push({ id: "sokkeleksponering", label: "Sokkeleksponering" });
@@ -471,6 +474,7 @@ export default async function CompanyPage({
     shareholdersOverview,
     announcementsData,
     narratives,
+    gridConnectionProfile,
   ] = await Promise.all([
     activeTab === "sokkeleksponering" && petroleumVisibility.available
       ? getCompanyPetroleumProfile(company)
@@ -499,6 +503,9 @@ export default async function CompanyPage({
           },
         })
       : Promise.resolve([]),
+    activeTab === "nettilknytning"
+      ? getCompanyGridConnectionProfile({ orgNumber: company.orgNumber, companyName: company.name })
+      : Promise.resolve(null),
   ]);
 
   const [initialAnnouncementDetail, discussionContext] = await Promise.all([
@@ -744,6 +751,9 @@ export default async function CompanyPage({
             <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white">
               <CompanyNewsTab slug={slug} />
             </div>
+          ) : null}
+          {activeTab === "nettilknytning" && gridConnectionProfile ? (
+            <CompanyGridConnectionTab profile={gridConnectionProfile} />
           ) : null}
           {activeTab === "sokkeleksponering" && petroleumProfile ? (
             <CompanyPetroleumTab petroleum={petroleumProfile} />

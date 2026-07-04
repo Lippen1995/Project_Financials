@@ -20,6 +20,7 @@ Fjord Insight er et MVP for selskapsinformasjon og innsikt bygget med Next.js, T
 - Årsbundet selskapsstruktur basert på importerte aksjonærregisterdata fra Skatteetaten når snapshot er tilgjengelig
 - Faner for Oversikt, Regnskap, Nøkkeltall, Organisasjon og Kunngjøringer
 - Dynamisk fane for "Immaterielle rettigheter" (patent, varemerke, design) når selskapet har treff hos Patentstyret
+- Fane for nettilknytning, nettkø og nettreservasjon fra konfigurert offentlig Statnett-eksport når sikker selskapsmatch finnes
 - Næringskodeberiking fra SSB Klass
 - Filtrering på sentrale virksomhetsfelt
 - Innlogging, registrering og enkel feature gating
@@ -95,6 +96,14 @@ Brukes som kilde for:
 - detaljoppslag per IP-sak
 
 Fjord Insight bruker Patentstyrets Open Data-endepunkter med organisasjonsnummer som primær identifikator for portefølje.
+
+### Statnett
+
+Brukes som kilde for offentlig nettilknytning, nettkø og nettreservasjon når `STATNETT_GRID_CONNECTIONS_DATA_URL` peker på en reell Statnett-eksport.
+
+- Alle kapasiteter normaliseres og vises i MW.
+- Matching skjer med organisasjonsnummer hvis kilden inneholder det, ellers eksakt selskapsnavn.
+- Uten konfigurert kilde eller sikker match vises tom tilstand. Strømkontrakter og ikke-offentlige reservasjoner simuleres ikke.
 
 ### Nyheter og børsmeldinger
 
@@ -799,6 +808,7 @@ Dette vil:
 - `PATENTSTYRET_BASE_URL`: base-URL for Patentstyrets Open Data API
 - `PATENTSTYRET_SUBSCRIPTION_KEY`: subscription key for Patentstyret (sendes kun server-side)
 - `PATENTSTYRET_ORGNUMBER_PARAM`: query-parameter brukt i `/register/v1/IprCasesByCompany` (standard `orgNumber`)
+- `STATNETT_GRID_CONNECTIONS_DATA_URL`: offentlig Statnett-eksport for nettilknytning, nettkø og nettreservasjon. JSON og XLSX støttes, og kapasiteter vises i MW.
 - `SKATTEETATEN_SHAREHOLDING_BASE_URL`: base-URL for Skatteetatens Aksjonær i virksomhet API
 - `SKATTEETATEN_SHAREHOLDING_PACKAGE`: rettighetspakke for datasettet
 - `SKATTEETATEN_SHAREHOLDING_TOKEN`: bearer-token med scope `skatteetaten:aksjonaer`

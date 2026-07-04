@@ -268,6 +268,48 @@ export type CompanyIpTabVisibility = {
   overview?: CompanyIpOverview | null;
 };
 
+export type GridConnectionStatus = "QUEUE" | "RESERVED" | "CONNECTED";
+
+export type GridConnectionRecord = SourceMetadata & {
+  id: string;
+  companyOrgNumber: string | null;
+  companyName: string | null;
+  projectName: string | null;
+  status: GridConnectionStatus;
+  capacityMw: number;
+  area: string | null;
+  municipality: string | null;
+  county: string | null;
+  networkLevel: string | null;
+  connectionPoint: string | null;
+  queuePosition: number | null;
+  expectedConnectionDate: string | null;
+  reservedAt: string | null;
+  connectedAt: string | null;
+  specialTerms: boolean | null;
+  detailUrl: string | null;
+  sourceUrl: string;
+};
+
+export type CompanyGridConnectionOverview = {
+  totalCapacityMw: number;
+  queueCapacityMw: number;
+  reservedCapacityMw: number;
+  connectedCapacityMw: number;
+  queueCount: number;
+  reservedCount: number;
+  connectedCount: number;
+};
+
+export type CompanyGridConnectionProfile = {
+  records: GridConnectionRecord[];
+  overview: CompanyGridConnectionOverview;
+  availability: DataAvailability & {
+    reliable: boolean;
+    sourceUrl?: string | null;
+  };
+};
+
 export type CompanyPetroleumTabVisibility = {
   available: boolean;
   reason?: string | null;

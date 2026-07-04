@@ -22,6 +22,7 @@ const env = {
   patentstyretBaseUrl: process.env.PATENTSTYRET_BASE_URL ?? "https://api.patentstyret.no",
   patentstyretSubscriptionKey: process.env.PATENTSTYRET_SUBSCRIPTION_KEY ?? "",
   patentstyretOrgNumberParam: process.env.PATENTSTYRET_ORGNUMBER_PARAM ?? "orgNumber",
+  statnettGridConnectionsDataUrl: process.env.STATNETT_GRID_CONNECTIONS_DATA_URL ?? "",
   sodirFactmapsBaseUrl:
     process.env.SODIR_FACTMAPS_BASE_URL ?? "https://factmaps.sodir.no/api/rest/services",
   havtilBaseUrl: process.env.HAVTIL_BASE_URL ?? "https://www.havtil.no",
