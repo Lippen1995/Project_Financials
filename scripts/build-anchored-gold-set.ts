@@ -87,14 +87,26 @@ function isSumLabel(normalizedLabel: string): boolean {
 
 type FoldItem = { row: ArtifactRow; value: number; members: ArtifactRow[] };
 
+type ResidualSuspect = {
+  sumRow: ArtifactRow;
+  sumValue: number;
+  residual: number;
+  detailRows: { row: ArtifactRow; value: number }[];
+  /** Rows whose value corrected by the residual has the dropped-leading-digit
+   *  signature (true value's digits END WITH the read value's digits). */
+  leadingDigitCandidates: { row: ArtifactRow; readValue: number; correctedValue: number }[];
+};
+
 /**
  * Bottom-up sum folding for one page column. Returns the rows verified by
- * exact partition matches plus the folded sum values (for anchor matching).
+ * exact partition matches, the folded sum values (for anchor matching), and
+ * near-miss sums with their residuals (for suspect-cell localization).
  */
 function foldPageColumn(rows: ArtifactRow[], columnIndex: number) {
   const stack: FoldItem[] = [];
   const verified = new Set<ArtifactRow>();
   const matchedSums: { row: ArtifactRow; value: number }[] = [];
+  const residualSuspects: ResidualSuspect[] = [];
 
   for (const row of rows) {
     const cell = row.values.find((value) => value.columnIndex === columnIndex);
@@ -105,11 +117,16 @@ function foldPageColumn(rows: ArtifactRow[], columnIndex: number) {
       // Try to match a contiguous run ending at the top of the stack.
       let acc = 0;
       let matchDepth = -1;
+      let bestResidual: { residual: number; depth: number } | null = null;
       for (let depth = stack.length - 1; depth >= 0; depth -= 1) {
         acc += stack[depth]!.value;
         if (acc === scaled) {
           matchDepth = depth;
           break;
+        }
+        const residual = scaled - acc;
+        if (!bestResidual || Math.abs(residual) < Math.abs(bestResidual.residual)) {
+          bestResidual = { residual, depth };
         }
       }
       if (matchDepth >= 0) {
@@ -121,12 +138,36 @@ function foldPageColumn(rows: ArtifactRow[], columnIndex: number) {
         stack.push({ row, value: scaled, members });
         continue;
       }
+      if (bestResidual && bestResidual.residual !== 0) {
+        const detailRows = stack
+          .slice(bestResidual.depth)
+          .map((item) => ({ row: item.row, value: item.value }));
+        const leadingDigitCandidates = detailRows
+          .filter(({ value }) => value > 0 && bestResidual!.residual > 0)
+          .map(({ row: detailRow, value }) => ({
+            row: detailRow,
+            readValue: value,
+            correctedValue: value + bestResidual!.residual,
+          }))
+          .filter(
+            ({ readValue, correctedValue }) =>
+              String(correctedValue).length > String(readValue).length &&
+              String(correctedValue).endsWith(String(readValue)),
+          );
+        residualSuspects.push({
+          sumRow: row,
+          sumValue: scaled,
+          residual: bestResidual.residual,
+          detailRows,
+          leadingDigitCandidates,
+        });
+      }
     }
 
     stack.push({ row, value: scaled, members: [] });
   }
 
-  return { verified, matchedSums };
+  return { verified, matchedSums, residualSuspects };
 }
 
 async function main() {
@@ -164,6 +205,12 @@ async function main() {
   });
 
   const verifiedRows: VerifiedRow[] = [];
+  const trainingFacts: Record<string, unknown>[] = [];
+  const suspects: Record<string, unknown>[] = [];
+  const aliasCandidates = new Map<
+    string,
+    { label: string; statementFamily: string; count: number; orgNumbers: Set<string> }
+  >();
   let filingsWithAnchors = 0;
   let filingsWithArtifacts = 0;
   let pagesAccepted = 0;
@@ -194,10 +241,11 @@ async function main() {
         verified: Set<ArtifactRow>;
         anchorHits: number;
         anchorConfirmedSums: Set<ArtifactRow>;
+        residualSuspects: ResidualSuspect[];
       } | null = null;
 
       for (const columnIndex of columnIndexes) {
-        const { verified, matchedSums } = foldPageColumn(pageRows, columnIndex);
+        const { verified, matchedSums, residualSuspects } = foldPageColumn(pageRows, columnIndex);
         const anchorConfirmedSums = new Set(
           matchedSums
             .filter((sum) => anchors.values.has(Math.abs(sum.value)))
@@ -205,7 +253,7 @@ async function main() {
         );
         const anchorHits = anchorConfirmedSums.size;
         if (!best || anchorHits > best.anchorHits) {
-          best = { columnIndex, verified, anchorHits, anchorConfirmedSums };
+          best = { columnIndex, verified, anchorHits, anchorConfirmedSums, residualSuspects };
         }
       }
 
@@ -215,15 +263,62 @@ async function main() {
       }
       pagesAccepted += 1;
 
-      for (const row of best.verified) {
+      // Residual localization on the accepted column: near-miss sums point at
+      // the exact rows OCR misread — hard negatives and tier-2 repair targets.
+      for (const suspect of best.residualSuspects) {
+        suspects.push({
+          orgNumber: filing.company.orgNumber,
+          filingId: filing.id,
+          fiscalYear: filing.fiscalYear,
+          sourcePage: pageNumber,
+          sumLabel: suspect.sumRow.label,
+          sumValue: suspect.sumValue,
+          residual: suspect.residual,
+          detailRows: suspect.detailRows.map(({ row, value }) => ({
+            label: row.label,
+            value,
+          })),
+          leadingDigitCandidates: suspect.leadingDigitCandidates.map(
+            ({ row, readValue, correctedValue }) => ({
+              label: row.label,
+              readValue,
+              correctedValue,
+            }),
+          ),
+        });
+      }
+
+      for (const [rowIndex, row] of pageRows.entries()) {
+        if (!best.verified.has(row)) continue;
         const cell = row.values.find((value) => value.columnIndex === best!.columnIndex);
         if (!cell) continue;
+        const nearbyRows = pageRows
+          .slice(Math.max(0, rowIndex - 1), rowIndex + 3)
+          .filter((nearby) => nearby !== row)
+          .map((nearby) => nearby.label);
         const statementFamily = getStatementFamilyFromSection(
           row.sectionType as Parameters<typeof getStatementFamilyFromSection>[0],
         );
         const metricKey = statementFamily
           ? findCanonicalMetricKey(row.normalizedLabel, statementFamily, null, definitions)
           : null;
+        if (!metricKey && statementFamily && !isSumLabel(row.normalizedLabel)) {
+          // Value-verified but unmapped: alias candidate. Strip trailing note
+          // references so "Lønnskostnad 1" and "Lønnskostnad 4" collapse.
+          const cleanLabel = row.normalizedLabel.replace(/(\s+\d[\d.,]*)+\s*$/g, "").trim();
+          if (cleanLabel.length >= 4) {
+            const key = `${statementFamily}:${cleanLabel}`;
+            const existing = aliasCandidates.get(key) ?? {
+              label: cleanLabel,
+              statementFamily,
+              count: 0,
+              orgNumbers: new Set<string>(),
+            };
+            existing.count += 1;
+            existing.orgNumbers.add(filing.company.orgNumber);
+            aliasCandidates.set(key, existing);
+          }
+        }
         verifiedRows.push({
           orgNumber: filing.company.orgNumber,
           filingId: filing.id,
@@ -239,6 +334,43 @@ async function main() {
           anchorConfirmed: best.anchorConfirmedSums.has(row),
           verification: "anchored_partition",
         });
+
+        // Training example in the financial-facts JSONL shape consumed by
+        // docker/ml-inference/train_financial_fact.py.
+        if (metricKey) {
+          const scaledValue = cell.value * (row.unitScale || 1);
+          trainingFacts.push({
+            filingId: filing.id,
+            features: {
+              factContextText: [
+                `page=${row.pageNumber}`,
+                `fiscalYear=${filing.fiscalYear}`,
+                `scope=COMPANY`,
+                `unitScale=${row.unitScale || 1}`,
+                `label=${row.label}`,
+                `nearbyRowCount=${nearbyRows.length}`,
+                ...nearbyRows.map((label, index) => `nearbyRow${index + 1}=${label}`),
+              ].join(" | "),
+              rawLabel: row.label,
+              sourceRowText: row.rowText ?? null,
+              sourcePage: row.pageNumber,
+              fiscalYear: filing.fiscalYear,
+              statementType: getStatementFamilyFromSection(
+                row.sectionType as Parameters<typeof getStatementFamilyFromSection>[0],
+              ),
+              statementScope: "COMPANY",
+              sourceSection: row.sectionType,
+              noteReference: null,
+              unitScale: row.unitScale || 1,
+              value: scaledValue,
+              proposedMetricKey: null,
+              nearbyRows,
+            },
+            label: metricKey,
+            proposedLabel: null,
+            source: "anchored_partition",
+          });
+        }
       }
     }
   }
@@ -246,6 +378,31 @@ async function main() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   const outFile = path.join(OUTPUT_DIR, "latest.jsonl");
   fs.writeFileSync(outFile, verifiedRows.map((row) => JSON.stringify(row)).join("\n"), "utf8");
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, "training-facts.jsonl"),
+    trainingFacts.map((fact) => JSON.stringify(fact)).join("\n"),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, "residual-suspects.jsonl"),
+    suspects.map((suspect) => JSON.stringify(suspect)).join("\n"),
+    "utf8",
+  );
+  const rankedAliasCandidates = [...aliasCandidates.values()]
+    .filter((candidate) => candidate.count >= 3 && candidate.orgNumbers.size >= 2)
+    .sort((left, right) => right.count - left.count)
+    .map((candidate) => ({
+      label: candidate.label,
+      statementFamily: candidate.statementFamily,
+      proposedKey: `as_reported_${candidate.label.replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")}`,
+      count: candidate.count,
+      companies: candidate.orgNumbers.size,
+    }));
+  fs.writeFileSync(
+    path.join(OUTPUT_DIR, "alias-candidates.json"),
+    JSON.stringify(rankedAliasCandidates, null, 2),
+    "utf8",
+  );
 
   const detailRows = verifiedRows.filter((row) => !row.isSumRow);
   const byMetric: Record<string, number> = {};
@@ -261,6 +418,9 @@ async function main() {
     pagesRejected,
     verifiedRows: verifiedRows.length,
     verifiedDetailRows: detailRows.length,
+    trainingFacts: trainingFacts.length,
+    residualSuspects: suspects.length,
+    aliasCandidates: rankedAliasCandidates.length,
     detailRowsByMetricKey: Object.fromEntries(
       Object.entries(byMetric).sort((left, right) => right[1] - left[1]),
     ),

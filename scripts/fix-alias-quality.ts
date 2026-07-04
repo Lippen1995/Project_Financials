@@ -46,6 +46,11 @@ const INCOME_RE =
 // the balance regex via "share(holders)".
 const FAMILY_OVERRIDES: Record<string, "INCOME_STATEMENT" | "BALANCE_SHEET"> = {
   net_income_to_common_shareholders: "INCOME_STATEMENT",
+  // Appropriation lines (disponeringer) print at the bottom of the INCOME
+  // statement even though the name-regex reads them as equity/balance terms.
+  transfer_to_equity: "INCOME_STATEMENT",
+  other_transfers_to_equity: "INCOME_STATEMENT",
+  ordinary_dividends: "INCOME_STATEMENT",
 };
 
 function truthFamily(key: string): "INCOME_STATEMENT" | "BALANCE_SHEET" | "NOTE" | null {
