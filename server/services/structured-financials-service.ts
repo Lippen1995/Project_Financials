@@ -126,6 +126,29 @@ async function publishStructuredStatement(input: {
   });
 }
 
+/**
+ * Anchors for the extraction pipeline: exact canonical values from the
+ * structured registry statement for (company, fiscalYear), COMPANY scope.
+ */
+export async function loadStructuredAnchors(
+  companyId: string,
+  fiscalYear: number,
+): Promise<{ fiscalYear: number; values: Record<string, number> } | null> {
+  const statement = await prisma.financialStatement.findFirst({
+    where: {
+      companyId,
+      fiscalYear,
+      statementScope: "COMPANY",
+      sourceEntityType: STRUCTURED_SOURCE_ENTITY_TYPE,
+    },
+    select: { rawPayload: true },
+  });
+  const payload = statement?.rawPayload as { canonicalValues?: Record<string, number> } | null;
+  const values = payload?.canonicalValues;
+  if (!values || Object.keys(values).length === 0) return null;
+  return { fiscalYear, values };
+}
+
 export type StructuredIngestionResult = {
   orgNumber: string;
   published: number;

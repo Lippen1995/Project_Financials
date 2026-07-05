@@ -51,6 +51,13 @@ import type {
 } from "@/integrations/brreg/annual-report-financials/pdf-decision-types";
 import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
 import { chooseCanonicalFacts, mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
+import {
+  AnchorRowCorrection,
+  AnchorSet,
+  buildAnchorFactIssues,
+  repairRowsWithAnchors,
+} from "@/integrations/brreg/annual-report-financials/anchor-validation";
+import { loadStructuredAnchors } from "@/server/services/structured-financials-service";
 import type { MetricDefinition } from "@/integrations/brreg/annual-report-financials/taxonomy";
 import { loadMetricDefinitions } from "@/server/services/metric-mapping-service";
 import { loadRequiredPublishMetricKeys } from "@/server/services/canonical-registry-service";
@@ -183,6 +190,15 @@ type FinancialPipelineComputation = {
   /** Scope used for validation, scoring and the published snapshot. */
   primaryScope: "COMPANY" | "CONSOLIDATED";
   durationMs: number;
+  /** Present when structured registry anchors were available for the filing. */
+  anchorStats?: {
+    pagesAnchored: number;
+    unitScaleRepairs: number;
+    leadingDigitRepairs: number;
+    factMatches: number;
+    factMismatches: number;
+    corrections: AnchorRowCorrection[];
+  } | null;
 };
 
 function mapOpenDataLoaderExecutionModeToUnifiedRoute(
@@ -764,6 +780,7 @@ async function runFinancialPipeline(input: {
   definitions: MetricDefinition[];
   requiredKeys: string[];
   nodeRules: NodeEvalConfig[];
+  anchors?: AnchorSet | null;
 }) {
   const startedAt = Date.now();
   const allClassifications = classifyPages(input.parsedPages);
@@ -814,6 +831,7 @@ async function runFinancialPipeline(input: {
     definitions: input.definitions,
     requiredKeys: input.requiredKeys,
     nodeRules: input.nodeRules,
+    anchors: input.anchors ?? null,
   });
 }
 
@@ -872,16 +890,29 @@ function assembleComputation(input: {
   definitions: MetricDefinition[];
   requiredKeys: string[];
   nodeRules: NodeEvalConfig[];
+  anchors?: AnchorSet | null;
 }): FinancialPipelineComputation {
+  // Registry anchors (tier 0) repair deterministic OCR errors before mapping:
+  // pages printed in thousands that the scale detector under-read, and
+  // dropped leading digits proven by partition identity + anchor agreement.
+  const anchorRepair = input.anchors
+    ? repairRowsWithAnchors({
+        rows: input.rows,
+        classifications: input.classifications,
+        anchors: input.anchors,
+        filingFiscalYear: input.fiscalYear,
+      })
+    : null;
+  const rows = anchorRepair?.rows ?? input.rows;
   const pageConfidences = computePageConfidences({
     parsedPages: input.parsedPages,
     classifications: input.classifications,
-    rows: input.rows,
+    rows,
   });
   const mapped = mapRowsToCanonicalFacts({
     filingFiscalYear: input.fiscalYear,
     classifications: input.classifications,
-    rows: input.rows,
+    rows,
     definitions: input.definitions,
     requiredKeys: input.requiredKeys,
     // Also extract the comparative (prior-year) column — geometry-first already
@@ -917,11 +948,19 @@ function assembleComputation(input: {
   // with the key the reviewer flagged as MATCH (within ±1%). A confident
   // deviation is an ERROR so the filing is routed to manual review.
   const nodeMatchIssues = buildNodeMatchIssues(input.nodeRules, selectedFacts);
+  const anchorCheck = input.anchors
+    ? buildAnchorFactIssues({
+        facts: currentYearFacts,
+        anchors: input.anchors,
+        filingFiscalYear: input.fiscalYear,
+      })
+    : null;
   const issues = [
     ...classificationIssues,
     ...mapped.issues,
     ...validation.issues,
     ...nodeMatchIssues,
+    ...(anchorCheck?.issues ?? []),
   ];
   const duplicateSupport =
     validation.stats.duplicateComparisons > 0
@@ -974,7 +1013,7 @@ function assembleComputation(input: {
     engine: input.engine,
     mode: input.mode,
     classifications: input.classifications,
-    rows: input.rows,
+    rows,
     pageConfidences,
     mapped: rankedMapped,
     validation,
@@ -991,6 +1030,17 @@ function assembleComputation(input: {
     reviewRuleCodes,
     primaryScope,
     durationMs: Date.now() - input.startedAt,
+    anchorStats:
+      anchorRepair || anchorCheck
+        ? {
+            pagesAnchored: anchorRepair?.stats.pagesAnchored ?? 0,
+            unitScaleRepairs: anchorRepair?.stats.unitScaleRepairs ?? 0,
+            leadingDigitRepairs: anchorRepair?.stats.leadingDigitRepairs ?? 0,
+            factMatches: anchorCheck?.matches ?? 0,
+            factMismatches: anchorCheck?.mismatches ?? 0,
+            corrections: anchorRepair?.corrections ?? [],
+          }
+        : null,
   } satisfies FinancialPipelineComputation;
 }
 
@@ -1000,6 +1050,7 @@ function recomputeComputationWithFacts(input: {
   facts: CanonicalFactCandidate[];
   requiredKeys: string[];
   nodeRules: NodeEvalConfig[];
+  anchors?: AnchorSet | null;
 }): FinancialPipelineComputation {
   const mapped = {
     ...input.computation.mapped,
@@ -1018,11 +1069,19 @@ function recomputeComputationWithFacts(input: {
   );
   const selectedFacts = validation.selectedFacts;
   const nodeMatchIssues = buildNodeMatchIssues(input.nodeRules, selectedFacts);
+  const anchorCheck = input.anchors
+    ? buildAnchorFactIssues({
+        facts: currentYearFacts,
+        anchors: input.anchors,
+        filingFiscalYear: input.fiscalYear,
+      })
+    : null;
   const issues = [
     ...classificationIssues,
     ...mapped.issues,
     ...validation.issues,
     ...nodeMatchIssues,
+    ...(anchorCheck?.issues ?? []),
   ];
   const duplicateSupport =
     validation.stats.duplicateComparisons > 0
@@ -1087,6 +1146,16 @@ function recomputeComputationWithFacts(input: {
     blockingRuleCodes,
     reviewRuleCodes,
     primaryScope,
+    anchorStats: anchorCheck
+      ? {
+          pagesAnchored: input.computation.anchorStats?.pagesAnchored ?? 0,
+          unitScaleRepairs: input.computation.anchorStats?.unitScaleRepairs ?? 0,
+          leadingDigitRepairs: input.computation.anchorStats?.leadingDigitRepairs ?? 0,
+          factMatches: anchorCheck.matches,
+          factMismatches: anchorCheck.mismatches,
+          corrections: input.computation.anchorStats?.corrections ?? [],
+        }
+      : input.computation.anchorStats ?? null,
   } satisfies FinancialPipelineComputation;
 }
 
@@ -1770,12 +1839,21 @@ export async function processAnnualReportFiling(
     // Editable alias mapping + publish-required keys (both DB-backed, falling
     // back to built-in defaults). Loaded once and threaded through every
     // pipeline run for this extraction so a rename in the admin hub is honoured.
-    const [metricDefinitions, requiredKeys, nodeRules] = await Promise.all([
+    const [metricDefinitions, requiredKeys, nodeRules, structuredAnchors] = await Promise.all([
       loadMetricDefinitions(),
       loadRequiredPublishMetricKeys(),
       loadNodeEvaluationConfig(),
+      loadStructuredAnchors(filing.company.id, filing.fiscalYear),
     ]);
 
+    if (structuredAnchors) {
+      logPipelineEvent("anchor_validation.available", {
+        filingId: filing.id,
+        extractionRunId: extractionRun.id,
+        fiscalYear: filing.fiscalYear,
+        anchorKeyCount: Object.keys(structuredAnchors.values).length,
+      });
+    }
     let primaryComputation = await runFinancialPipeline({
       filingId: filing.id,
       extractionRunId: extractionRun.id,
@@ -1787,6 +1865,7 @@ export async function processAnnualReportFiling(
       definitions: metricDefinitions,
       requiredKeys,
       nodeRules,
+      anchors: structuredAnchors,
     });
 
     if (
@@ -1850,6 +1929,7 @@ export async function processAnnualReportFiling(
               definitions: metricDefinitions,
               requiredKeys,
               nodeRules,
+              anchors: structuredAnchors,
             });
             let candidateComputation = rotatedComputation;
             let invertedDiagnostics: {
@@ -1899,6 +1979,7 @@ export async function processAnnualReportFiling(
                 definitions: metricDefinitions,
                 requiredKeys,
                 nodeRules,
+                anchors: structuredAnchors,
               });
               if (loopCandidateWins(invertedComputation, candidateComputation)) {
                 candidateComputation = invertedComputation;
@@ -1917,6 +1998,7 @@ export async function processAnnualReportFiling(
                     facts: merged.facts,
                     requiredKeys,
                     nodeRules,
+                    anchors: structuredAnchors,
                   });
                 }
               }
@@ -2034,6 +2116,7 @@ export async function processAnnualReportFiling(
         definitions: metricDefinitions,
         requiredKeys,
         nodeRules,
+        anchors: structuredAnchors,
       });
 
       // Always compare against the Legacy result that started as primary, regardless
@@ -2226,6 +2309,7 @@ export async function processAnnualReportFiling(
             definitions: metricDefinitions,
             requiredKeys,
             nodeRules,
+            anchors: structuredAnchors,
           });
           if (engineConsensus) {
             // Compare like-for-like: apply the same consensus signal that the
@@ -2297,6 +2381,7 @@ export async function processAnnualReportFiling(
             definitions: metricDefinitions,
             requiredKeys,
             nodeRules,
+            anchors: structuredAnchors,
           });
           const reconciledRows = reconcileStatementRowsAcrossOcrScales(
             primaryComputation.rows,
@@ -2313,6 +2398,7 @@ export async function processAnnualReportFiling(
             definitions: metricDefinitions,
             requiredKeys,
             nodeRules,
+            anchors: structuredAnchors,
           });
           if (engineConsensus) {
             reconciledComputation = applyEngineConsensus(
@@ -2351,6 +2437,7 @@ export async function processAnnualReportFiling(
               facts: merged.facts,
               requiredKeys,
               nodeRules,
+              anchors: structuredAnchors,
             });
           }
         } catch (highScaleRecoveryError) {
@@ -2701,7 +2788,7 @@ export async function processAnnualReportFiling(
         });
       }
       await upsertCompanyFinancialCoverage({ companyId: filing.company.id, latestDownloadedFiscalYear: filing.fiscalYear, latestPublishedFiscalYear: filing.fiscalYear, latestDiscoveredFiscalYear: filing.fiscalYear, lastCheckedAt: new Date(), nextCheckAt: nextCheckDate(24), coverageStatus: "PUBLISHED", latestSuccessfulFilingId: filing.id });
-      logPipelineEvent("filing.published", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore: primaryComputation.confidenceScore, sourcePrecedence: primaryComputation.sourcePrecedence, canSkipManualReview: primaryComputation.canSkipManualReview, primaryEngine, primaryMode });
+      logPipelineEvent("filing.published", { filingId: filing.id, fiscalYear: filing.fiscalYear, extractionRunId: extractionRun.id, confidenceScore: primaryComputation.confidenceScore, sourcePrecedence: primaryComputation.sourcePrecedence, canSkipManualReview: primaryComputation.canSkipManualReview, primaryEngine, primaryMode, anchorStats: primaryComputation.anchorStats ?? null });
     } else {
       await updateAnnualReportFiling(filing.id, { status: "MANUAL_REVIEW", manualReviewAt: new Date(), lastError: primaryComputation.issues.map((issue) => `${issue.ruleCode}: ${issue.message}`).join(" | ").slice(0, 1_000) });
       await upsertAnnualReportReview({
