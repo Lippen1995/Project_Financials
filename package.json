@@ -24,6 +24,7 @@
     "financials:run-ingestion-batch": "tsx scripts/run-financial-ingestion-batch.ts",
     "financials:ingest-structured": "tsx scripts/ingest-structured-financials.ts",
     "financials:build-anchored-gold-set": "tsx scripts/build-anchored-gold-set.ts",
+    "financials:build-anchored-unit-scale-dataset": "tsx scripts/build-anchored-unit-scale-dataset.ts",
     "financials:sync-new-filings": "tsx scripts/sync-new-financial-filings.ts",
     "financials:reprocess-low-confidence": "tsx scripts/reprocess-low-confidence-financials.ts",
     "financials:validate-published-financials": "tsx scripts/validate-published-financials.ts",

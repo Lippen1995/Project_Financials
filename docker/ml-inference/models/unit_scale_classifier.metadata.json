@@ -2,20 +2,20 @@
   "taskType": "UNIT_SCALE_CLASSIFIER",
   "algorithm": "tfidf+logreg",
   "binaryPath": "/models/unit_scale_classifier.joblib",
-  "trainedAt": "2026-06-29T09:25:47.573697Z",
+  "trainedAt": "2026-07-05T17:56:01.734814Z",
   "evaluationMetrics": {
     "train": {
-      "precision": 0.9265951439864483,
-      "recall": 0.8701298701298701,
-      "f1": 0.8826644165627217,
-      "accuracy": 0.8701298701298701,
-      "support": 77
+      "precision": 0.9928694900605013,
+      "recall": 0.9876404494382023,
+      "f1": 0.989259347917797,
+      "accuracy": 0.9876404494382023,
+      "support": 890
     },
     "validation": {
-      "precision": 0.817629179331307,
-      "recall": 0.7551020408163265,
-      "f1": 0.681184668989547,
-      "accuracy": 0.7551020408163265,
+      "precision": 0.8412698412698413,
+      "recall": 0.7959183673469388,
+      "f1": 0.751984126984127,
+      "accuracy": 0.7959183673469388,
       "support": 49
     },
     "test": {
@@ -26,17 +26,17 @@
       "support": 20
     },
     "label_distribution_train": {
-      "1": 64,
-      "1000": 13
+      "1": 875,
+      "1000": 15
     }
   },
   "trainingDataSnapshot": {
     "bootstrapExamples": 20,
-    "reviewerExamples": 57,
-    "totalTrainExamples": 77,
+    "reviewerExamples": 870,
+    "totalTrainExamples": 890,
     "validationExamples": 49,
     "testExamples": 20,
     "featureText": "features.pageContextText fallback features.rawLabel"
   },
-  "summary": "TF-IDF + logistic regression trained on 77 examples (57 reviewer examples, 20 bootstrap)."
+  "summary": "TF-IDF + logistic regression trained on 890 examples (870 reviewer examples, 20 bootstrap)."
 }
