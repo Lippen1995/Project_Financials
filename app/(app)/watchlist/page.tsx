@@ -5,6 +5,7 @@ import { safeAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listWorkspaceWatches } from "@/server/services/workspace-collaboration-service";
 import { archiveWorkspaceWatchAction, reopenWorkspaceWatchAction } from "@/server/actions/workspace-collaboration-actions";
+import { WatchlistQuickAdd } from "@/components/watchlist/watchlist-quick-add";
 
 export const metadata = { title: "Watchlist" };
 
@@ -45,12 +46,10 @@ export default async function WatchlistPage() {
             {active.length} aktive · {archived.length} arkiverte
           </p>
         </div>
-        <Link
-          href="/search"
-          className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--px-action-hover)]"
-        >
-          + Legg til selskap
-        </Link>
+        <WatchlistQuickAdd
+          workspaceId={user.lastWorkspaceId}
+          watchedOrgNumbers={active.map((w) => w.company.orgNumber)}
+        />
       </div>
 
       {active.length === 0 && archived.length === 0 ? (

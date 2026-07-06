@@ -159,6 +159,27 @@ export async function watchCompanyAction(_prevState: unknown, formData: FormData
   }
 }
 
+export async function addToWatchlistAction(
+  formData: FormData,
+): Promise<{ ok: boolean; message?: string }> {
+  const userId = await requireAuthenticatedUserId();
+  const orgNumber = String(formData.get("orgNumber") ?? "");
+  const workspaceId = String(formData.get("workspaceId") ?? "");
+  if (!orgNumber || !workspaceId) {
+    return { ok: false, message: "Mangler selskap eller workspace." };
+  }
+  try {
+    await createWorkspaceWatch(userId, workspaceId, { companyReference: orgNumber });
+    revalidatePath("/watchlist");
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Kunne ikke legge til selskapet.",
+    };
+  }
+}
+
 export async function unwatchCompanyAction(_prevState: unknown, formData: FormData): Promise<void> {
   const userId = await requireAuthenticatedUserId();
   try {
