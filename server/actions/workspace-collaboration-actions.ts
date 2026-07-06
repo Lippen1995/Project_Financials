@@ -2,6 +2,7 @@
 
 import {
   CompanyStatus,
+  WorkspaceWatchIntensity,
   WorkspaceMonitorStatus,
   WorkspaceWatchStatus,
 } from "@prisma/client";
@@ -13,12 +14,19 @@ import { safeAuth } from "@/lib/auth";
 import { rethrowIfRedirectError } from "@/lib/redirect-error";
 import {
   createWorkspaceMonitor,
+  createWorkspaceIndustryWatch,
   createWorkspaceWatch,
+  createWorkspaceWatchGroup,
   markAllWorkspaceNotificationsRead,
   markWorkspaceNotificationRead,
+  promoteWorkspaceWatchGroupMember,
+  refreshWorkspaceWatchGroup,
   syncWorkspaceNotifications,
   updateWorkspaceMonitorStatus,
+  updateWorkspaceIndustryWatchStatus,
   updateWorkspaceWatchStatus,
+  updateWorkspaceWatchGroupStatus,
+  updateWorkspaceWatchlistItemIntensity,
 } from "@/server/services/workspace-collaboration-service";
 
 const createWatchSchema = z.object({
@@ -32,6 +40,42 @@ const createWatchSchema = z.object({
 const watchStatusSchema = z.object({
   watchId: z.string().min(1),
   workspaceId: z.string().min(1),
+});
+
+const watchlistCompanyStatusSchema = z.object({
+  watchId: z.string().min(1),
+});
+
+const industryWatchSchema = z.object({
+  workspaceId: z.string().min(1),
+  industryCodePrefix: z.string().trim().min(2),
+  intensity: z.nativeEnum(WorkspaceWatchIntensity).optional(),
+});
+
+const industryWatchStatusSchema = z.object({
+  industryWatchId: z.string().min(1),
+});
+
+const watchGroupSchema = z.object({
+  workspaceId: z.string().min(1),
+  name: z.string().trim().min(2),
+  query: z.string().trim().min(2),
+  intensity: z.nativeEnum(WorkspaceWatchIntensity).optional(),
+  matchLimit: z.string().trim().optional(),
+});
+
+const watchGroupStatusSchema = z.object({
+  groupId: z.string().min(1),
+});
+
+const promoteGroupMemberSchema = z.object({
+  memberId: z.string().min(1),
+});
+
+const watchlistIntensitySchema = z.object({
+  targetType: z.enum(["company", "industry", "group"]),
+  targetId: z.string().min(1),
+  intensity: z.nativeEnum(WorkspaceWatchIntensity),
 });
 
 const notificationSchema = z.object({
@@ -76,6 +120,18 @@ function buildDashboardUrl(workspaceId?: string | null, notice?: string, error?:
   }
   const query = params.toString();
   return query ? `/dashboard?${query}` : "/dashboard";
+}
+
+function buildWatchlistUrl(notice?: string, error?: string) {
+  const params = new URLSearchParams();
+  if (notice) {
+    params.set("notice", notice);
+  }
+  if (error) {
+    params.set("error", error);
+  }
+  const query = params.toString();
+  return query ? `/watchlist?${query}` : "/watchlist";
 }
 
 async function requireAuthenticatedUserId() {
@@ -177,6 +233,186 @@ export async function addToWatchlistAction(
       ok: false,
       message: error instanceof Error ? error.message : "Kunne ikke legge til selskapet.",
     };
+  }
+}
+
+export async function createIndustryWatchAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = industryWatchSchema.parse({
+      workspaceId: formData.get("workspaceId"),
+      industryCodePrefix: formData.get("industryCodePrefix"),
+      intensity: formData.get("intensity") || undefined,
+    });
+    await createWorkspaceIndustryWatch(userId, values.workspaceId, {
+      industryCodePrefix: values.industryCodePrefix,
+      intensity: values.intensity ?? WorkspaceWatchIntensity.BALANCED,
+    });
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Bransjen ble lagt til watchlist.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(
+      buildWatchlistUrl(
+        undefined,
+        error instanceof Error ? error.message : "Kunne ikke legge til bransjen.",
+      ) as never,
+    );
+  }
+}
+
+export async function createWatchGroupAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = watchGroupSchema.parse({
+      workspaceId: formData.get("workspaceId"),
+      name: formData.get("name"),
+      query: formData.get("query"),
+      intensity: formData.get("intensity") || undefined,
+      matchLimit: formData.get("matchLimit") ?? undefined,
+    });
+    await createWorkspaceWatchGroup(userId, values.workspaceId, {
+      name: values.name,
+      query: values.query,
+      intensity: values.intensity ?? WorkspaceWatchIntensity.BALANCED,
+      matchLimit: parseOptionalInt(values.matchLimit) ?? 50,
+    });
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Bolken ble lagt til watchlist.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(
+      buildWatchlistUrl(
+        undefined,
+        error instanceof Error ? error.message : "Kunne ikke legge til bolken.",
+      ) as never,
+    );
+  }
+}
+
+export async function updateWatchlistIntensityAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = watchlistIntensitySchema.parse({
+      targetType: formData.get("targetType"),
+      targetId: formData.get("targetId"),
+      intensity: formData.get("intensity"),
+    });
+    await updateWorkspaceWatchlistItemIntensity(userId, values);
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Watch-intensitet ble oppdatert.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(
+      buildWatchlistUrl(
+        undefined,
+        error instanceof Error ? error.message : "Kunne ikke oppdatere intensitet.",
+      ) as never,
+    );
+  }
+}
+
+export async function archiveWatchlistCompanyAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = watchlistCompanyStatusSchema.parse({ watchId: formData.get("watchId") });
+    await updateWorkspaceWatchStatus(userId, values.watchId, WorkspaceWatchStatus.ARCHIVED);
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Selskapet ble arkivert.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(buildWatchlistUrl(undefined, error instanceof Error ? error.message : "Kunne ikke arkivere selskapet.") as never);
+  }
+}
+
+export async function reopenWatchlistCompanyAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = watchlistCompanyStatusSchema.parse({ watchId: formData.get("watchId") });
+    await updateWorkspaceWatchStatus(userId, values.watchId, WorkspaceWatchStatus.ACTIVE);
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Selskapet ble gjenåpnet.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(buildWatchlistUrl(undefined, error instanceof Error ? error.message : "Kunne ikke gjenåpne selskapet.") as never);
+  }
+}
+
+export async function archiveIndustryWatchAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = industryWatchStatusSchema.parse({ industryWatchId: formData.get("industryWatchId") });
+    await updateWorkspaceIndustryWatchStatus(userId, values.industryWatchId, WorkspaceWatchStatus.ARCHIVED);
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Bransjen ble arkivert.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(buildWatchlistUrl(undefined, error instanceof Error ? error.message : "Kunne ikke arkivere bransjen.") as never);
+  }
+}
+
+export async function reopenIndustryWatchAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = industryWatchStatusSchema.parse({ industryWatchId: formData.get("industryWatchId") });
+    await updateWorkspaceIndustryWatchStatus(userId, values.industryWatchId, WorkspaceWatchStatus.ACTIVE);
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Bransjen ble gjenåpnet.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(buildWatchlistUrl(undefined, error instanceof Error ? error.message : "Kunne ikke gjenåpne bransjen.") as never);
+  }
+}
+
+export async function archiveWatchGroupAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = watchGroupStatusSchema.parse({ groupId: formData.get("groupId") });
+    await updateWorkspaceWatchGroupStatus(userId, values.groupId, WorkspaceWatchStatus.ARCHIVED);
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Bolken ble arkivert.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(buildWatchlistUrl(undefined, error instanceof Error ? error.message : "Kunne ikke arkivere bolken.") as never);
+  }
+}
+
+export async function reopenWatchGroupAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = watchGroupStatusSchema.parse({ groupId: formData.get("groupId") });
+    await updateWorkspaceWatchGroupStatus(userId, values.groupId, WorkspaceWatchStatus.ACTIVE);
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Bolken ble gjenåpnet.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(buildWatchlistUrl(undefined, error instanceof Error ? error.message : "Kunne ikke gjenåpne bolken.") as never);
+  }
+}
+
+export async function refreshWatchGroupAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = watchGroupStatusSchema.parse({ groupId: formData.get("groupId") });
+    await refreshWorkspaceWatchGroup(userId, values.groupId);
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Bolken ble oppdatert fra Brreg-søk.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(buildWatchlistUrl(undefined, error instanceof Error ? error.message : "Kunne ikke oppdatere bolken.") as never);
+  }
+}
+
+export async function promoteGroupMemberAction(formData: FormData) {
+  const userId = await requireAuthenticatedUserId();
+  try {
+    const values = promoteGroupMemberSchema.parse({ memberId: formData.get("memberId") });
+    await promoteWorkspaceWatchGroupMember(userId, values.memberId);
+    revalidatePath("/watchlist");
+    redirect(buildWatchlistUrl("Selskapet ble lagt til som egen watch.") as never);
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect(buildWatchlistUrl(undefined, error instanceof Error ? error.message : "Kunne ikke følge selskapet.") as never);
   }
 }
 

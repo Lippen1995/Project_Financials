@@ -1,5 +1,6 @@
 import {
   CompanyStatus,
+  WorkspaceWatchIntensity,
   WorkspaceMonitorStatus,
   WorkspaceNotificationType,
   WorkspaceStatus,
@@ -10,22 +11,38 @@ import {
 import {
   WorkspaceMonitorSummary,
   WorkspaceNotificationSummary,
+  WorkspaceWatchGroupSummary,
+  WorkspaceWatchIntensity as WorkspaceWatchIntensityValue,
+  WorkspaceWatchlistEventSummary,
+  WorkspaceWatchlistOverview,
+  WorkspaceIndustryWatchSummary,
   WorkspaceWatchSummary,
 } from "@/lib/types";
 import env from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
+import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
 import {
   upsertCompanySnapshot,
 } from "@/server/persistence/company-repository";
 import { syncCompanyEventNotificationsForWatches } from "@/server/news/company-event-alert-service";
 import { syncCompanyAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
-import { getCompanyProfile } from "@/server/services/company-service";
+import { getCompanyProfile, searchCompanies } from "@/server/services/company-service";
 import { getUserWorkspaceCapabilities } from "@/server/services/workspace-service";
 
 const announcementsProvider = new BrregAnnouncementsProvider();
 const companyProvider = new BrregCompanyProvider();
+const industryCodeProvider = new SsbIndustryCodeProvider();
+
+const RECENT_ACTIVITY_DAYS = 7;
+const DIGEST_LOOKBACK_HOURS = 24;
+
+const INTENSITY_THRESHOLDS: Record<WorkspaceWatchIntensityValue, { minInvestorValueScore: number; minExposureScore: number }> = {
+  HIGH_ONLY: { minInvestorValueScore: 65, minExposureScore: 0.78 },
+  BALANCED: { minInvestorValueScore: 45, minExposureScore: 0.65 },
+  BROAD: { minInvestorValueScore: 30, minExposureScore: 0.5 },
+};
 
 function toCompanySummary(company: {
   id: string;
@@ -109,6 +126,7 @@ function toWatchSummary(watch: {
   id: string;
   workspaceId: string;
   status: WorkspaceWatchStatus;
+  intensity: WorkspaceWatchIntensity;
   watchAnnouncements: boolean;
   watchFinancialStatements: boolean;
   watchStatusChanges: boolean;
@@ -129,6 +147,7 @@ function toWatchSummary(watch: {
     id: watch.id,
     workspaceId: watch.workspaceId,
     status: watch.status,
+    intensity: watch.intensity,
     watchAnnouncements: watch.watchAnnouncements,
     watchFinancialStatements: watch.watchFinancialStatements,
     watchStatusChanges: watch.watchStatusChanges,
@@ -273,6 +292,398 @@ function toMonitorSummary(
   };
 }
 
+function normalizeIndustryPrefix(value: string) {
+  return value.trim().replace(",", ".").replace(/\s+/g, "");
+}
+
+async function resolveIndustryTitle(prefix: string) {
+  const cached = await prisma.industryCode.findUnique({
+    where: { code: prefix },
+    select: { title: true },
+  });
+  if (cached?.title) {
+    return { title: cached.title, unsupportedReason: null };
+  }
+
+  try {
+    const fromSsb = await industryCodeProvider.getIndustryCode(prefix);
+    if (fromSsb?.title) {
+      return { title: fromSsb.title, unsupportedReason: null };
+    }
+  } catch {
+    // The watch can still be useful as a code-prefix watch even if SSB lookup is temporarily unavailable.
+  }
+
+  return {
+    title: null,
+    unsupportedReason: "SSB-beskrivelse er ikke funnet ennå. Overvåkningen bruker kodeprefikset.",
+  };
+}
+
+async function getIndustryWatchStats(prefix: string) {
+  const recentThreshold = new Date(Date.now() - RECENT_ACTIVITY_DAYS * 24 * 60 * 60 * 1000);
+  const [matchCount, recentEventCount] = await Promise.all([
+    prisma.company.count({
+      where: {
+        industryCode: {
+          code: {
+            startsWith: prefix,
+          },
+        },
+      },
+    }),
+    prisma.companyEvent.count({
+      where: {
+        status: "ACTIVE",
+        lastSeen: { gte: recentThreshold },
+        company: {
+          industryCode: {
+            code: {
+              startsWith: prefix,
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  return { matchCount, recentEventCount };
+}
+
+async function toIndustryWatchSummary(watch: {
+  id: string;
+  workspaceId: string;
+  industryCodePrefix: string;
+  title: string | null;
+  status: WorkspaceWatchStatus;
+  intensity: WorkspaceWatchIntensity;
+  unsupportedReason: string | null;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): Promise<WorkspaceIndustryWatchSummary> {
+  const stats = await getIndustryWatchStats(watch.industryCodePrefix);
+  return {
+    id: watch.id,
+    workspaceId: watch.workspaceId,
+    industryCodePrefix: watch.industryCodePrefix,
+    title: watch.title,
+    status: watch.status,
+    intensity: watch.intensity,
+    unsupportedReason: watch.unsupportedReason,
+    matchCount: stats.matchCount,
+    recentEventCount: stats.recentEventCount,
+    archivedAt: watch.archivedAt,
+    createdAt: watch.createdAt,
+    updatedAt: watch.updatedAt,
+  };
+}
+
+function toGroupSummary(input: {
+  group: {
+    id: string;
+    workspaceId: string;
+    name: string;
+    query: string;
+    status: WorkspaceWatchStatus;
+    intensity: WorkspaceWatchIntensity;
+    matchLimit: number;
+    unsupportedReason: string | null;
+    archivedAt: Date | null;
+    refreshedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    members: Array<{
+      id: string;
+      matchedAt: Date;
+      company: {
+        id: string;
+        orgNumber: string;
+        slug: string;
+        name: string;
+        legalForm: string | null;
+        status: CompanyStatus;
+        industryCode: { code: string; title: string } | null;
+      };
+    }>;
+  };
+  watchedCompanyIds: Set<string>;
+  recentEventCount: number;
+}): WorkspaceWatchGroupSummary {
+  return {
+    id: input.group.id,
+    workspaceId: input.group.workspaceId,
+    name: input.group.name,
+    query: input.group.query,
+    status: input.group.status,
+    intensity: input.group.intensity,
+    matchLimit: input.group.matchLimit,
+    unsupportedReason: input.group.unsupportedReason,
+    memberCount: input.group.members.length,
+    recentEventCount: input.recentEventCount,
+    archivedAt: input.group.archivedAt,
+    refreshedAt: input.group.refreshedAt,
+    createdAt: input.group.createdAt,
+    updatedAt: input.group.updatedAt,
+    members: input.group.members.map((member) => ({
+      id: member.id,
+      matchedAt: member.matchedAt,
+      company: toCompanySummary(member.company),
+      isIndividuallyWatched: input.watchedCompanyIds.has(member.company.id),
+    })),
+  };
+}
+
+function normalizeTitleForDedupe(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function intensityThreshold(intensity: WorkspaceWatchIntensityValue) {
+  return INTENSITY_THRESHOLDS[intensity] ?? INTENSITY_THRESHOLDS.BALANCED;
+}
+
+function eventContextType(eventType: string, exposureType: string) {
+  if (["macro_news", "interest_rate", "commodity_price_exposure"].includes(eventType)) return "Makro";
+  if (exposureType === "regulatory" || eventType.startsWith("regulatory")) return "Regulatorisk";
+  if (["sector", "petroleum", "commodity", "value_chain", "peer"].includes(exposureType)) return "Bransje";
+  return "Direkte";
+}
+
+async function countRecentGroupEvents(companyIds: string[]) {
+  if (companyIds.length === 0) return 0;
+  const recentThreshold = new Date(Date.now() - RECENT_ACTIVITY_DAYS * 24 * 60 * 60 * 1000);
+  return prisma.companyEventExposure.count({
+    where: {
+      companyId: { in: companyIds },
+      active: true,
+      event: {
+        status: "ACTIVE",
+        lastSeen: { gte: recentThreshold },
+      },
+    },
+  });
+}
+
+async function buildWatchlistEventFeed(input: {
+  watches: WorkspaceWatchSummary[];
+  industryWatches: WorkspaceIndustryWatchSummary[];
+  groups: WorkspaceWatchGroupSummary[];
+}): Promise<WorkspaceWatchlistEventSummary[]> {
+  const eventById = new Map<string, WorkspaceWatchlistEventSummary>();
+  const seenStories = new Set<string>();
+  const companyContexts = new Map<
+    string,
+    Array<{ label: string; intensity: WorkspaceWatchIntensityValue; kind: "company" | "group" }>
+  >();
+
+  for (const watch of input.watches) {
+    if (watch.status !== "ACTIVE") continue;
+    companyContexts.set(watch.company.id, [
+      ...(companyContexts.get(watch.company.id) ?? []),
+      { label: watch.company.name, intensity: watch.intensity, kind: "company" },
+    ]);
+  }
+
+  for (const group of input.groups) {
+    if (group.status !== "ACTIVE") continue;
+    for (const member of group.members) {
+      companyContexts.set(member.company.id, [
+        ...(companyContexts.get(member.company.id) ?? []),
+        { label: group.name, intensity: group.intensity, kind: "group" },
+      ]);
+    }
+  }
+
+  const targetCompanyIds = [...companyContexts.keys()];
+  if (targetCompanyIds.length > 0) {
+    const exposures = await prisma.companyEventExposure.findMany({
+      where: {
+        companyId: { in: targetCompanyIds },
+        active: true,
+        event: {
+          status: "ACTIVE",
+        },
+      },
+      include: {
+        company: {
+          include: {
+            industryCode: {
+              select: {
+                code: true,
+                title: true,
+              },
+            },
+          },
+        },
+        event: {
+          include: {
+            evidence: {
+              include: {
+                document: true,
+              },
+              orderBy: { relevanceScore: "desc" },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: [{ event: { lastSeen: "desc" } }, { exposureScore: "desc" }],
+      take: 120,
+    });
+
+    for (const exposure of exposures) {
+      const contexts = companyContexts.get(exposure.companyId) ?? [];
+      const passesThreshold = contexts.some((context) => {
+        const threshold = intensityThreshold(context.intensity);
+        return (
+          exposure.event.investorValueScore >= threshold.minInvestorValueScore &&
+          exposure.exposureScore >= threshold.minExposureScore
+        );
+      });
+      if (!passesThreshold) continue;
+
+      const storyKey = exposure.event.storyKey ?? normalizeTitleForDedupe(exposure.event.title);
+      if (seenStories.has(storyKey)) continue;
+      seenStories.add(storyKey);
+
+      eventById.set(exposure.eventId, {
+        id: `${exposure.eventId}:${exposure.companyId}:${exposure.exposureType}`,
+        eventId: exposure.eventId,
+        title: exposure.event.title,
+        summary: exposure.event.summary,
+        eventType: exposure.event.eventType,
+        lastSeen: exposure.event.lastSeen,
+        investorValueScore: exposure.event.investorValueScore,
+        confidenceScore: exposure.event.confidenceScore,
+        exposureType: exposure.exposureType,
+        exposureScore: exposure.exposureScore,
+        company: toCompanySummary(exposure.company),
+        contexts: Array.from(new Set([
+          eventContextType(exposure.event.eventType, exposure.exposureType),
+          ...contexts.map((context) => context.label),
+        ])).slice(0, 4),
+        watchTypes: Array.from(new Set(contexts.map((context) => context.kind))),
+        href: exposure.event.evidence[0]?.document.canonicalUrl ?? null,
+      });
+    }
+  }
+
+  for (const industryWatch of input.industryWatches.filter((watch) => watch.status === "ACTIVE")) {
+    const threshold = intensityThreshold(industryWatch.intensity);
+    const events = await prisma.companyEvent.findMany({
+      where: {
+        status: "ACTIVE",
+        investorValueScore: { gte: threshold.minInvestorValueScore },
+        company: {
+          industryCode: {
+            code: {
+              startsWith: industryWatch.industryCodePrefix,
+            },
+          },
+        },
+      },
+      include: {
+        company: {
+          include: {
+            industryCode: {
+              select: {
+                code: true,
+                title: true,
+              },
+            },
+          },
+        },
+        evidence: {
+          include: {
+            document: true,
+          },
+          orderBy: { relevanceScore: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: [{ lastSeen: "desc" }],
+      take: 40,
+    });
+
+    for (const event of events) {
+      const storyKey = event.storyKey ?? normalizeTitleForDedupe(event.title);
+      if (seenStories.has(storyKey)) continue;
+      seenStories.add(storyKey);
+      eventById.set(event.id, {
+        id: `${event.id}:industry:${industryWatch.id}`,
+        eventId: event.id,
+        title: event.title,
+        summary: event.summary,
+        eventType: event.eventType,
+        lastSeen: event.lastSeen,
+        investorValueScore: event.investorValueScore,
+        confidenceScore: event.confidenceScore,
+        exposureType: "industry",
+        exposureScore: 0.72,
+        company: toCompanySummary(event.company),
+        contexts: Array.from(new Set([
+          eventContextType(event.eventType, "industry"),
+          industryWatch.title ?? `Næringskode ${industryWatch.industryCodePrefix}`,
+        ])).slice(0, 4),
+        watchTypes: ["industry"],
+        href: event.evidence[0]?.document.canonicalUrl ?? null,
+      });
+    }
+  }
+
+  return [...eventById.values()]
+    .sort((left, right) => {
+      const scoreDiff =
+        right.investorValueScore * 0.7 +
+        right.exposureScore * 30 -
+        (left.investorValueScore * 0.7 + left.exposureScore * 30);
+      if (scoreDiff !== 0) return scoreDiff;
+      return right.lastSeen.getTime() - left.lastSeen.getTime();
+    })
+    .slice(0, 30);
+}
+
+function buildDigest(input: {
+  events: WorkspaceWatchlistEventSummary[];
+  notifications: WorkspaceNotificationSummary[];
+}): WorkspaceWatchlistOverview["digest"] {
+  const since = new Date(Date.now() - DIGEST_LOOKBACK_HOURS * 60 * 60 * 1000);
+  const newEvents = input.events.filter((event) => event.lastSeen >= since);
+  const recentNotifications = input.notifications.filter((notification) => notification.createdAt >= since);
+  const changedCompanyIds = new Set(
+    recentNotifications
+      .filter((notification) =>
+        ["ANNOUNCEMENT_NEW", "FINANCIAL_STATEMENT_NEW", "COMPANY_STATUS_CHANGED", "COMPANY_EVENT_NEW"].includes(
+          notification.type,
+        ),
+      )
+      .map((notification) => notification.company?.id)
+      .filter((value): value is string => Boolean(value)),
+  );
+  const contextCounts = new Map<string, number>();
+  for (const event of newEvents) {
+    const label = event.contexts[0] ?? "Watchlist";
+    contextCounts.set(label, (contextCounts.get(label) ?? 0) + 1);
+  }
+
+  return {
+    since,
+    newEventCount: newEvents.length,
+    unreadNotificationCount: input.notifications.filter((notification) => !notification.readAt).length,
+    changedCompanyCount: changedCompanyIds.size,
+    topContexts: [...contextCounts.entries()]
+      .map(([label, count]) => ({ label, count }))
+      .sort((left, right) => right.count - left.count)
+      .slice(0, 4),
+  };
+}
+
 export async function listWorkspaceWatches(actorUserId: string, workspaceId: string) {
   await requireWorkspaceAccess(actorUserId, workspaceId);
 
@@ -296,6 +707,78 @@ export async function listWorkspaceWatches(actorUserId: string, workspaceId: str
   });
 
   return watches.map(toWatchSummary);
+}
+
+export async function getWorkspaceWatchlistOverview(
+  actorUserId: string,
+  workspaceId: string,
+): Promise<WorkspaceWatchlistOverview> {
+  await requireWorkspaceAccess(actorUserId, workspaceId);
+
+  const [watches, industryWatchRows, groupRows, notifications] = await Promise.all([
+    listWorkspaceWatches(actorUserId, workspaceId),
+    prisma.workspaceIndustryWatch.findMany({
+      where: { workspaceId },
+      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+    }),
+    prisma.workspaceWatchGroup.findMany({
+      where: { workspaceId },
+      include: {
+        members: {
+          include: {
+            company: {
+              include: {
+                industryCode: {
+                  select: {
+                    code: true,
+                    title: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [{ matchedAt: "desc" }],
+          take: 200,
+        },
+      },
+      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+    }),
+    listWorkspaceNotifications(actorUserId, workspaceId),
+  ]);
+
+  const watchedCompanyIds = new Set(
+    watches.filter((watch) => watch.status === "ACTIVE").map((watch) => watch.company.id),
+  );
+  const industryWatches = await Promise.all(industryWatchRows.map(toIndustryWatchSummary));
+  const groups = await Promise.all(
+    groupRows.map(async (group) =>
+      toGroupSummary({
+        group,
+        watchedCompanyIds,
+        recentEventCount: await countRecentGroupEvents(group.members.map((member) => member.companyId)),
+      }),
+    ),
+  );
+  const activeWatches = watches.filter((watch) => watch.status === "ACTIVE");
+  const activeIndustryWatches = industryWatches.filter((watch) => watch.status === "ACTIVE");
+  const activeGroups = groups.filter((group) => group.status === "ACTIVE");
+  const recentEvents = await buildWatchlistEventFeed({
+    watches: activeWatches,
+    industryWatches: activeIndustryWatches,
+    groups: activeGroups,
+  });
+
+  return {
+    activeWatches,
+    archivedWatches: watches.filter((watch) => watch.status !== "ACTIVE"),
+    activeIndustryWatches,
+    archivedIndustryWatches: industryWatches.filter((watch) => watch.status !== "ACTIVE"),
+    activeGroups,
+    archivedGroups: groups.filter((group) => group.status !== "ACTIVE"),
+    recentEvents,
+    recentNotifications: notifications.slice(0, 12),
+    digest: buildDigest({ events: recentEvents, notifications }),
+  };
 }
 
 export async function listWorkspaceNotifications(actorUserId: string, workspaceId: string) {
@@ -355,6 +838,7 @@ export async function createWorkspaceWatch(
   workspaceId: string,
   input: {
     companyReference: string;
+    intensity?: WorkspaceWatchIntensity | null;
     watchAnnouncements?: boolean | null;
     watchFinancialStatements?: boolean | null;
     watchStatusChanges?: boolean | null;
@@ -384,6 +868,7 @@ export async function createWorkspaceWatch(
     update: {
       status: WorkspaceWatchStatus.ACTIVE,
       archivedAt: null,
+      intensity: input.intensity ?? WorkspaceWatchIntensity.BALANCED,
       watchAnnouncements: input.watchAnnouncements ?? true,
       watchFinancialStatements: input.watchFinancialStatements ?? true,
       watchStatusChanges: input.watchStatusChanges ?? true,
@@ -392,6 +877,7 @@ export async function createWorkspaceWatch(
       workspaceId,
       companyId: company.id,
       status: WorkspaceWatchStatus.ACTIVE,
+      intensity: input.intensity ?? WorkspaceWatchIntensity.BALANCED,
       watchAnnouncements: input.watchAnnouncements ?? true,
       watchFinancialStatements: input.watchFinancialStatements ?? true,
       watchStatusChanges: input.watchStatusChanges ?? true,
@@ -444,6 +930,382 @@ export async function updateWorkspaceWatchStatus(
   });
 
   return watch.workspaceId;
+}
+
+export async function createWorkspaceIndustryWatch(
+  actorUserId: string,
+  workspaceId: string,
+  input: {
+    industryCodePrefix: string;
+    intensity?: WorkspaceWatchIntensity | null;
+  },
+) {
+  const membership = await requireWorkspaceAccess(actorUserId, workspaceId);
+  ensureActiveWorkspace(membership.workspace);
+  const capabilities = await getUserWorkspaceCapabilities(
+    actorUserId,
+    membership.role,
+    membership.workspace.status,
+    membership.workspace.type,
+  );
+  if (!capabilities.canManageWatches) {
+    throw new Error("Watchlist krever tilgang til workspace-overvåkning.");
+  }
+
+  const industryCodePrefix = normalizeIndustryPrefix(input.industryCodePrefix);
+  if (!/^\d{2}(\.\d{1,3})?$/.test(industryCodePrefix)) {
+    throw new Error("Bruk en gyldig næringskode eller kodeprefiks, for eksempel 47 eller 47.11.");
+  }
+
+  const resolved = await resolveIndustryTitle(industryCodePrefix);
+  return prisma.workspaceIndustryWatch.upsert({
+    where: {
+      workspaceId_industryCodePrefix: {
+        workspaceId,
+        industryCodePrefix,
+      },
+    },
+    update: {
+      status: WorkspaceWatchStatus.ACTIVE,
+      archivedAt: null,
+      intensity: input.intensity ?? WorkspaceWatchIntensity.BALANCED,
+      title: resolved.title,
+      unsupportedReason: resolved.unsupportedReason,
+    },
+    create: {
+      workspaceId,
+      industryCodePrefix,
+      title: resolved.title,
+      unsupportedReason: resolved.unsupportedReason,
+      intensity: input.intensity ?? WorkspaceWatchIntensity.BALANCED,
+      status: WorkspaceWatchStatus.ACTIVE,
+    },
+    select: {
+      id: true,
+    },
+  });
+}
+
+export async function updateWorkspaceIndustryWatchStatus(
+  actorUserId: string,
+  industryWatchId: string,
+  status: WorkspaceWatchStatus,
+) {
+  const industryWatch = await prisma.workspaceIndustryWatch.findUnique({
+    where: { id: industryWatchId },
+    select: { id: true, workspaceId: true },
+  });
+  if (!industryWatch) {
+    throw new Error("Bransjeovervåkningen finnes ikke.");
+  }
+
+  const membership = await requireWorkspaceAccess(actorUserId, industryWatch.workspaceId);
+  const capabilities = await getUserWorkspaceCapabilities(
+    actorUserId,
+    membership.role,
+    membership.workspace.status,
+    membership.workspace.type,
+  );
+  if (!capabilities.canManageWatches) {
+    throw new Error("Watchlist krever tilgang til workspace-overvåkning.");
+  }
+  if (status === WorkspaceWatchStatus.ACTIVE) {
+    ensureActiveWorkspace(membership.workspace);
+  }
+
+  await prisma.workspaceIndustryWatch.update({
+    where: { id: industryWatchId },
+    data: {
+      status,
+      archivedAt: status === WorkspaceWatchStatus.ARCHIVED ? new Date() : null,
+    },
+  });
+
+  return industryWatch.workspaceId;
+}
+
+async function resolveGroupCompanies(query: string, matchLimit: number) {
+  const searchResult = await searchCompanies({
+    query,
+    status: CompanyStatus.ACTIVE,
+    size: matchLimit,
+  });
+  const orgNumbers = searchResult.results
+    .map((result) => result.company.orgNumber)
+    .filter((value, index, array) => array.indexOf(value) === index)
+    .slice(0, matchLimit);
+
+  if (orgNumbers.length === 0) {
+    return [];
+  }
+
+  return prisma.company.findMany({
+    where: {
+      orgNumber: {
+        in: orgNumbers,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+}
+
+export async function createWorkspaceWatchGroup(
+  actorUserId: string,
+  workspaceId: string,
+  input: {
+    name: string;
+    query: string;
+    intensity?: WorkspaceWatchIntensity | null;
+    matchLimit?: number | null;
+  },
+) {
+  const membership = await requireWorkspaceAccess(actorUserId, workspaceId);
+  ensureActiveWorkspace(membership.workspace);
+  const capabilities = await getUserWorkspaceCapabilities(
+    actorUserId,
+    membership.role,
+    membership.workspace.status,
+    membership.workspace.type,
+  );
+  if (!capabilities.canManageWatches) {
+    throw new Error("Watchlist krever tilgang til workspace-overvåkning.");
+  }
+
+  const name = input.name.trim();
+  const query = input.query.trim();
+  const matchLimit = Math.min(Math.max(input.matchLimit ?? 50, 1), 100);
+  if (name.length < 2) {
+    throw new Error("Bolk-navn må være minst to tegn.");
+  }
+  if (query.length < 2) {
+    throw new Error("Søket for bolken må være minst to tegn.");
+  }
+
+  const companies = await resolveGroupCompanies(query, matchLimit);
+  const unsupportedReason =
+    companies.length === 0
+      ? "Ingen selskaper matchet Brreg-søket akkurat nå. Bolken er tom til søket gir treff."
+      : null;
+
+  const group = await prisma.workspaceWatchGroup.create({
+    data: {
+      workspaceId,
+      name,
+      query,
+      matchLimit,
+      intensity: input.intensity ?? WorkspaceWatchIntensity.BALANCED,
+      status: WorkspaceWatchStatus.ACTIVE,
+      unsupportedReason,
+      refreshedAt: new Date(),
+      members: {
+        createMany: {
+          data: companies.map((company) => ({ companyId: company.id })),
+          skipDuplicates: true,
+        },
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return group;
+}
+
+export async function refreshWorkspaceWatchGroup(actorUserId: string, groupId: string) {
+  const group = await prisma.workspaceWatchGroup.findUnique({
+    where: { id: groupId },
+    select: {
+      id: true,
+      workspaceId: true,
+      query: true,
+      matchLimit: true,
+    },
+  });
+  if (!group) {
+    throw new Error("Bolken finnes ikke.");
+  }
+
+  const membership = await requireWorkspaceAccess(actorUserId, group.workspaceId);
+  ensureActiveWorkspace(membership.workspace);
+  const capabilities = await getUserWorkspaceCapabilities(
+    actorUserId,
+    membership.role,
+    membership.workspace.status,
+    membership.workspace.type,
+  );
+  if (!capabilities.canManageWatches) {
+    throw new Error("Watchlist krever tilgang til workspace-overvåkning.");
+  }
+
+  const companies = await resolveGroupCompanies(group.query, group.matchLimit);
+  await prisma.$transaction([
+    prisma.workspaceWatchGroupMember.deleteMany({ where: { groupId: group.id } }),
+    prisma.workspaceWatchGroup.update({
+      where: { id: group.id },
+      data: {
+        unsupportedReason:
+          companies.length === 0
+            ? "Ingen selskaper matchet Brreg-søket akkurat nå. Bolken er tom til søket gir treff."
+            : null,
+        refreshedAt: new Date(),
+        members: {
+          createMany: {
+            data: companies.map((company) => ({ companyId: company.id })),
+            skipDuplicates: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  return group.workspaceId;
+}
+
+export async function updateWorkspaceWatchGroupStatus(
+  actorUserId: string,
+  groupId: string,
+  status: WorkspaceWatchStatus,
+) {
+  const group = await prisma.workspaceWatchGroup.findUnique({
+    where: { id: groupId },
+    select: { id: true, workspaceId: true },
+  });
+  if (!group) {
+    throw new Error("Bolken finnes ikke.");
+  }
+
+  const membership = await requireWorkspaceAccess(actorUserId, group.workspaceId);
+  const capabilities = await getUserWorkspaceCapabilities(
+    actorUserId,
+    membership.role,
+    membership.workspace.status,
+    membership.workspace.type,
+  );
+  if (!capabilities.canManageWatches) {
+    throw new Error("Watchlist krever tilgang til workspace-overvåkning.");
+  }
+  if (status === WorkspaceWatchStatus.ACTIVE) {
+    ensureActiveWorkspace(membership.workspace);
+  }
+
+  await prisma.workspaceWatchGroup.update({
+    where: { id: groupId },
+    data: {
+      status,
+      archivedAt: status === WorkspaceWatchStatus.ARCHIVED ? new Date() : null,
+    },
+  });
+
+  return group.workspaceId;
+}
+
+export async function promoteWorkspaceWatchGroupMember(
+  actorUserId: string,
+  memberId: string,
+) {
+  const member = await prisma.workspaceWatchGroupMember.findUnique({
+    where: { id: memberId },
+    include: {
+      group: {
+        select: {
+          workspaceId: true,
+        },
+      },
+      company: {
+        select: {
+          orgNumber: true,
+        },
+      },
+    },
+  });
+  if (!member) {
+    throw new Error("Selskapet finnes ikke i bolken.");
+  }
+
+  await createWorkspaceWatch(actorUserId, member.group.workspaceId, {
+    companyReference: member.company.orgNumber,
+  });
+
+  return member.group.workspaceId;
+}
+
+export async function updateWorkspaceWatchlistItemIntensity(
+  actorUserId: string,
+  input: {
+    targetType: "company" | "industry" | "group";
+    targetId: string;
+    intensity: WorkspaceWatchIntensity;
+  },
+) {
+  if (input.targetType === "company") {
+    const watch = await prisma.workspaceWatch.findUnique({
+      where: { id: input.targetId },
+      select: { workspaceId: true },
+    });
+    if (!watch) throw new Error("Watch finnes ikke.");
+    const membership = await requireWorkspaceAccess(actorUserId, watch.workspaceId);
+    const capabilities = await getUserWorkspaceCapabilities(
+      actorUserId,
+      membership.role,
+      membership.workspace.status,
+      membership.workspace.type,
+    );
+    if (!capabilities.canManageWatches) {
+      throw new Error("Watchlist krever tilgang til workspace-overvåkning.");
+    }
+    await prisma.workspaceWatch.update({
+      where: { id: input.targetId },
+      data: { intensity: input.intensity },
+    });
+    return watch.workspaceId;
+  }
+
+  if (input.targetType === "industry") {
+    const watch = await prisma.workspaceIndustryWatch.findUnique({
+      where: { id: input.targetId },
+      select: { workspaceId: true },
+    });
+    if (!watch) throw new Error("Bransjeovervåkningen finnes ikke.");
+    const membership = await requireWorkspaceAccess(actorUserId, watch.workspaceId);
+    const capabilities = await getUserWorkspaceCapabilities(
+      actorUserId,
+      membership.role,
+      membership.workspace.status,
+      membership.workspace.type,
+    );
+    if (!capabilities.canManageWatches) {
+      throw new Error("Watchlist krever tilgang til workspace-overvåkning.");
+    }
+    await prisma.workspaceIndustryWatch.update({
+      where: { id: input.targetId },
+      data: { intensity: input.intensity },
+    });
+    return watch.workspaceId;
+  }
+
+  const group = await prisma.workspaceWatchGroup.findUnique({
+    where: { id: input.targetId },
+    select: { workspaceId: true },
+  });
+  if (!group) throw new Error("Bolken finnes ikke.");
+  const membership = await requireWorkspaceAccess(actorUserId, group.workspaceId);
+  const capabilities = await getUserWorkspaceCapabilities(
+    actorUserId,
+    membership.role,
+    membership.workspace.status,
+    membership.workspace.type,
+  );
+  if (!capabilities.canManageWatches) {
+    throw new Error("Watchlist krever tilgang til workspace-overvåkning.");
+  }
+  await prisma.workspaceWatchGroup.update({
+    where: { id: input.targetId },
+    data: { intensity: input.intensity },
+  });
+  return group.workspaceId;
 }
 
 export async function createWorkspaceMonitor(

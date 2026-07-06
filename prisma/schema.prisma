@@ -275,6 +275,12 @@ enum WorkspaceWatchStatus {
   ARCHIVED
 }
 
+enum WorkspaceWatchIntensity {
+  HIGH_ONLY
+  BALANCED
+  BROAD
+}
+
 enum WorkspaceNotificationType {
   ANNOUNCEMENT_NEW
   FINANCIAL_STATEMENT_NEW
@@ -616,6 +622,8 @@ model Workspace {
   invitations          WorkspaceInvitation[]
   ddRooms              DdRoom[]
   watches              WorkspaceWatch[]
+  industryWatches      WorkspaceIndustryWatch[]
+  watchGroups          WorkspaceWatchGroup[]
   petroleumWatches     PetroleumWorkspaceWatch[]
   notifications        WorkspaceNotification[]
   monitors             WorkspaceMonitor[]
@@ -700,6 +708,7 @@ model Company {
   ddCommentThreads          DdCommentThread[]
   ddFindingEvidence         DdFindingEvidence[]
   workspaceWatches          WorkspaceWatch[]
+  workspaceWatchGroupMembers WorkspaceWatchGroupMember[]
   petroleumWatches          PetroleumWorkspaceWatch[]
   workspaceNotifications    WorkspaceNotification[]
   distressProfile           CompanyDistressProfile?
@@ -2539,6 +2548,7 @@ model WorkspaceWatch {
   workspaceId                 String
   companyId                   String
   status                      WorkspaceWatchStatus    @default(ACTIVE)
+  intensity                   WorkspaceWatchIntensity @default(BALANCED)
   watchAnnouncements          Boolean                 @default(true)
   watchFinancialStatements    Boolean                 @default(true)
   watchStatusChanges          Boolean                 @default(true)
@@ -2555,6 +2565,55 @@ model WorkspaceWatch {
 
   @@unique([workspaceId, companyId])
   @@index([workspaceId, status])
+}
+
+model WorkspaceIndustryWatch {
+  id                 String                  @id @default(cuid())
+  workspaceId        String
+  industryCodePrefix String
+  title              String?
+  status             WorkspaceWatchStatus    @default(ACTIVE)
+  intensity          WorkspaceWatchIntensity @default(BALANCED)
+  unsupportedReason  String?
+  archivedAt         DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  workspace          Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, industryCodePrefix])
+  @@index([workspaceId, status])
+}
+
+model WorkspaceWatchGroup {
+  id                String                  @id @default(cuid())
+  workspaceId       String
+  name              String
+  query             String
+  status            WorkspaceWatchStatus    @default(ACTIVE)
+  intensity         WorkspaceWatchIntensity @default(BALANCED)
+  matchLimit        Int                     @default(50)
+  unsupportedReason String?
+  archivedAt        DateTime?
+  refreshedAt       DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  workspace         Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members           WorkspaceWatchGroupMember[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, query])
+}
+
+model WorkspaceWatchGroupMember {
+  id        String              @id @default(cuid())
+  groupId   String
+  companyId String
+  matchedAt DateTime            @default(now())
+  group     WorkspaceWatchGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  company   Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, companyId])
+  @@index([companyId])
 }
 
 model WorkspaceNotification {

@@ -171,7 +171,7 @@ export function WatchlistQuickAdd({
       </div>
 
       {error ? (
-        <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>
+        <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>
       ) : null}
 
       {showDropdown ? (

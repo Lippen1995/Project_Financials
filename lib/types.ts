@@ -236,6 +236,7 @@ export type IPRightSummary = SourceMetadata & {
   applicationDate: string | null;
   registrationOrGrantDate: string | null;
   publicationDate: string | null;
+  expiryDate: string | null;
   caseUrl: string | null;
   owners: IPRightOwner[];
   lastEventDate: string | null;
@@ -261,11 +262,39 @@ export type CompanyIpOverview = {
   latestActivityDate: string | null;
 };
 
-export type CompanyIpTabVisibility = {
-  available: boolean;
-  reason?: string | null;
-  reliable: boolean;
-  overview?: CompanyIpOverview | null;
+// Lean, serialization-safe projections passed across the server/client boundary.
+// The raw IPRightSummary/Detail carry the full source payload and Date metadata,
+// which must not be shipped to the browser.
+export type IpRightListItem = {
+  id: string;
+  type: IPRightType;
+  title: string | null;
+  status: string | null;
+  applicationNumber: string | null;
+  applicationDate: string | null;
+  registrationOrGrantDate: string | null;
+  expiryDate: string | null;
+  lastEventDate: string | null;
+  caseUrl: string | null;
+  ownerName: string | null;
+  isActive: boolean | null;
+};
+
+export type IpCaseDetailView = {
+  id: string;
+  type: IPRightType;
+  title: string | null;
+  status: string | null;
+  applicationNumber: string | null;
+  applicationDate: string | null;
+  registrationOrGrantDate: string | null;
+  expiryDate: string | null;
+  caseUrl: string | null;
+  owners: IPRightOwner[];
+  classifications: string[];
+  inventors: string[];
+  representatives: string[];
+  events: IPRightEvent[];
 };
 
 export type GridConnectionStatus = "QUEUE" | "RESERVED" | "CONNECTED";
@@ -289,6 +318,9 @@ export type GridConnectionRecord = SourceMetadata & {
   specialTerms: boolean | null;
   detailUrl: string | null;
   sourceUrl: string;
+  // Alternative names the case can be matched to a company by (e.g. end customer + grid owner).
+  // The public Statnett feed carries no organisation number, so matching is name-based.
+  matchNames?: string[];
 };
 
 export type CompanyGridConnectionOverview = {
@@ -1546,6 +1578,7 @@ export type DdCommentThreadTargetType =
   | "FINDING"
   | "TASK";
 export type WorkspaceWatchStatus = "ACTIVE" | "ARCHIVED";
+export type WorkspaceWatchIntensity = "HIGH_ONLY" | "BALANCED" | "BROAD";
 export type WorkspaceNotificationType =
   | "ANNOUNCEMENT_NEW"
   | "FINANCIAL_STATEMENT_NEW"
@@ -1935,6 +1968,7 @@ export type WorkspaceWatchSummary = {
   id: string;
   workspaceId: string;
   status: WorkspaceWatchStatus;
+  intensity: WorkspaceWatchIntensity;
   watchAnnouncements: boolean;
   watchFinancialStatements: boolean;
   watchStatusChanges: boolean;
@@ -1942,6 +1976,83 @@ export type WorkspaceWatchSummary = {
   createdAt: Date;
   updatedAt: Date;
   company: DdRoomCompanySummary;
+};
+
+export type WorkspaceIndustryWatchSummary = {
+  id: string;
+  workspaceId: string;
+  industryCodePrefix: string;
+  title?: string | null;
+  status: WorkspaceWatchStatus;
+  intensity: WorkspaceWatchIntensity;
+  unsupportedReason?: string | null;
+  matchCount: number;
+  recentEventCount: number;
+  archivedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type WorkspaceWatchGroupMemberSummary = {
+  id: string;
+  matchedAt: Date;
+  company: DdRoomCompanySummary;
+  isIndividuallyWatched: boolean;
+};
+
+export type WorkspaceWatchGroupSummary = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  query: string;
+  status: WorkspaceWatchStatus;
+  intensity: WorkspaceWatchIntensity;
+  matchLimit: number;
+  unsupportedReason?: string | null;
+  memberCount: number;
+  recentEventCount: number;
+  archivedAt?: Date | null;
+  refreshedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  members: WorkspaceWatchGroupMemberSummary[];
+};
+
+export type WorkspaceWatchlistEventSummary = {
+  id: string;
+  eventId: string;
+  title: string;
+  summary?: string | null;
+  eventType: string;
+  lastSeen: Date;
+  investorValueScore: number;
+  confidenceScore: number;
+  exposureType: string;
+  exposureScore: number;
+  company: DdRoomCompanySummary;
+  contexts: string[];
+  watchTypes: Array<"company" | "group" | "industry">;
+  href?: string | null;
+};
+
+export type WorkspaceWatchlistDigest = {
+  since: Date;
+  newEventCount: number;
+  unreadNotificationCount: number;
+  changedCompanyCount: number;
+  topContexts: Array<{ label: string; count: number }>;
+};
+
+export type WorkspaceWatchlistOverview = {
+  activeWatches: WorkspaceWatchSummary[];
+  archivedWatches: WorkspaceWatchSummary[];
+  activeIndustryWatches: WorkspaceIndustryWatchSummary[];
+  archivedIndustryWatches: WorkspaceIndustryWatchSummary[];
+  activeGroups: WorkspaceWatchGroupSummary[];
+  archivedGroups: WorkspaceWatchGroupSummary[];
+  recentEvents: WorkspaceWatchlistEventSummary[];
+  recentNotifications: WorkspaceNotificationSummary[];
+  digest: WorkspaceWatchlistDigest;
 };
 
 export type WorkspaceNotificationSummary = {
