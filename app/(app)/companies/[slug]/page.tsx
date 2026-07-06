@@ -324,9 +324,20 @@ function CompanyHeader({
               {company.legalForm}
             </div>
           ) : null}
-          <h1 className="editorial-display mt-3 text-4xl leading-none text-[var(--px-text)] sm:text-5xl">
-            {company.name}
-          </h1>
+          <div className="mt-3 flex items-center gap-2">
+            <h1 className="editorial-display text-4xl leading-none text-[var(--px-text)] sm:text-5xl">
+              {company.name}
+            </h1>
+            {watchInfo ? (
+              <WatchButton
+                isWatched={watchInfo.watchId !== null}
+                watchId={watchInfo.watchId}
+                workspaceId={watchInfo.workspaceId}
+                orgNumber={company.orgNumber}
+                slug={slug}
+              />
+            ) : null}
+          </div>
           <div className="mt-2 text-sm text-[var(--px-muted)]">
             Org.nr. {company.orgNumber}
             {company.registeredAt
@@ -369,15 +380,6 @@ function CompanyHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-4">
-          {watchInfo ? (
-            <WatchButton
-              isWatched={watchInfo.watchId !== null}
-              watchId={watchInfo.watchId}
-              workspaceId={watchInfo.workspaceId}
-              orgNumber={company.orgNumber}
-              slug={slug}
-            />
-          ) : null}
           <div className="flex items-center gap-4 rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 sm:gap-3 sm:px-5 sm:py-4">
             <HealthGauge score={healthScore} />
             <div>
@@ -443,7 +445,11 @@ export default async function CompanyPage({
           });
           if (!user?.lastWorkspaceId) return null;
           const watch = await prisma.workspaceWatch.findFirst({
-            where: { workspaceId: user.lastWorkspaceId, company: { slug }, status: "ACTIVE" },
+            where: {
+              workspaceId: user.lastWorkspaceId,
+              company: { orgNumber: company.orgNumber },
+              status: "ACTIVE",
+            },
             select: { id: true },
           });
           return { watchId: watch?.id ?? null, workspaceId: user.lastWorkspaceId };

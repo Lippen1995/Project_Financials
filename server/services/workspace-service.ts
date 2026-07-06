@@ -64,7 +64,8 @@ function getWorkspaceCapabilities(
     canInviteMembers,
     canRemoveMembers,
     canCreateDdRoom: active && entitlements.canUseDdRooms,
-    canManageWatches: active && entitlements.canUseWorkspaceWatches,
+    // Watchlist is a core feature available to every active workspace, not premium-gated.
+    canManageWatches: active,
     canManageMonitors: active && entitlements.canUseWorkspaceMonitors,
     canManageNotifications: active && entitlements.canUseWorkspaceInbox,
     canPostToDdRoom: active && entitlements.canUseDdRooms,

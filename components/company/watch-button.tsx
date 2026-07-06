@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
+import { useOptimistic, useTransition } from "react";
 import { Star } from "lucide-react";
 
 import {
@@ -9,31 +8,6 @@ import {
   watchCompanyAction,
 } from "@/server/actions/workspace-collaboration-actions";
 import { cn } from "@/lib/utils";
-
-function StarIcon({ filled, pending }: { filled: boolean; pending: boolean }) {
-  const { pending: formPending } = useFormStatus();
-  const isDisabled = pending || formPending;
-  return (
-    <button
-      type="submit"
-      disabled={isDisabled}
-      title={filled ? "Fjern fra watchlist" : "Legg til i watchlist"}
-      className={cn(
-        "rounded-full p-2 transition-colors",
-        isDisabled && "opacity-50",
-        filled
-          ? "text-amber-500 hover:text-amber-400"
-          : "text-slate-400 hover:text-amber-500",
-      )}
-    >
-      <Star
-        className={cn("h-5 w-5", filled && "fill-current")}
-        aria-hidden="true"
-      />
-      <span className="sr-only">{filled ? "Fjern fra watchlist" : "Legg til i watchlist"}</span>
-    </button>
-  );
-}
 
 export function WatchButton({
   isWatched,
@@ -48,26 +22,46 @@ export function WatchButton({
   orgNumber: string;
   slug: string;
 }) {
-  const [, watchAction, watchPending] = useActionState(watchCompanyAction, null);
-  const [, unwatchAction, unwatchPending] = useActionState(unwatchCompanyAction, null);
-  const pending = watchPending || unwatchPending;
+  const [isPending, startTransition] = useTransition();
+  const [optimisticWatched, setOptimisticWatched] = useOptimistic(isWatched);
 
-  if (isWatched && watchId) {
-    return (
-      <form action={unwatchAction}>
-        <input type="hidden" name="watchId" value={watchId} />
-        <input type="hidden" name="slug" value={slug} />
-        <StarIcon filled pending={pending} />
-      </form>
-    );
+  function handleToggle() {
+    startTransition(async () => {
+      setOptimisticWatched(!optimisticWatched);
+      const formData = new FormData();
+      formData.set("slug", slug);
+      // Decide from the confirmed server state — the unwatch action needs the real watchId.
+      if (isWatched && watchId) {
+        formData.set("watchId", watchId);
+        await unwatchCompanyAction(null, formData);
+      } else {
+        formData.set("orgNumber", orgNumber);
+        formData.set("workspaceId", workspaceId);
+        await watchCompanyAction(null, formData);
+      }
+    });
   }
 
+  const filled = optimisticWatched;
+  const label = filled ? "Fjern fra watchlist" : "Legg til i watchlist";
+
   return (
-    <form action={watchAction}>
-      <input type="hidden" name="orgNumber" value={orgNumber} />
-      <input type="hidden" name="workspaceId" value={workspaceId} />
-      <input type="hidden" name="slug" value={slug} />
-      <StarIcon filled={false} pending={pending} />
-    </form>
+    <button
+      type="button"
+      onClick={handleToggle}
+      disabled={isPending}
+      title={label}
+      aria-pressed={filled}
+      className={cn(
+        "rounded-full p-2 transition-colors",
+        isPending && "opacity-50",
+        filled
+          ? "text-amber-500 hover:text-amber-400"
+          : "text-slate-400 hover:text-amber-500",
+      )}
+    >
+      <Star className={cn("h-5 w-5", filled && "fill-current")} aria-hidden="true" />
+      <span className="sr-only">{label}</span>
+    </button>
   );
 }
