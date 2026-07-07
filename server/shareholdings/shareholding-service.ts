@@ -9,6 +9,7 @@ import {
   getShareholdingSnapshot,
 } from "@/server/shareholdings/shareholding-repository";
 import { getRegisteredOwnersForCompany } from "@/server/shareholdings/shareholder-register-repository";
+import { resolveUltimateOwners, type UltimateOwner } from "@/server/ownership/ultimate-owner-service";
 
 const skatteetatenProvider = new SkatteetatenShareholdingProvider();
 const brregCompanyProvider = new BrregCompanyProvider();
@@ -220,6 +221,26 @@ async function buildRegisterBackedSnapshot(params: {
   };
 }
 
+/**
+ * Resolve the ultimate owner behind each corporate shareholder in a snapshot,
+ * keyed by shareholder org number. Best-effort: any failure (or a year without a
+ * materialised ownership graph) yields an empty map rather than breaking the tab.
+ */
+async function buildUltimateOwners(
+  snapshot: ShareholdingGraphSnapshot,
+): Promise<Record<string, UltimateOwner>> {
+  try {
+    const orgNumbers = snapshot.shareholders
+      .filter((shareholder) => shareholder.type === "COMPANY" && shareholder.linkedCompanyOrgNumber)
+      .map((shareholder) => shareholder.linkedCompanyOrgNumber as string);
+    if (orgNumbers.length === 0) return {};
+    const resolved = await resolveUltimateOwners(orgNumbers, snapshot.taxYear);
+    return Object.fromEntries(resolved);
+  } catch {
+    return {};
+  }
+}
+
 export async function getCompanyShareholdingOverview(orgNumber: string, requestedYear?: number) {
   const company = await brregCompanyProvider.getCompany(orgNumber);
   const [snapshotYears, registerYears] = await Promise.all([
@@ -240,6 +261,7 @@ export async function getCompanyShareholdingOverview(orgNumber: string, requeste
           snapshot: liveSnapshot,
           availableYears: Array.from(new Set([liveSnapshot.taxYear, ...availableYears])).sort((a, b) => b - a),
           latestExpectedYear,
+          ultimateOwners: await buildUltimateOwners(liveSnapshot),
         };
       }
     } catch {
@@ -286,6 +308,7 @@ export async function getCompanyShareholdingOverview(orgNumber: string, requeste
       snapshot: unavailable,
       availableYears,
       latestExpectedYear,
+      ultimateOwners: {} as Record<string, UltimateOwner>,
     };
   }
 
@@ -298,5 +321,6 @@ export async function getCompanyShareholdingOverview(orgNumber: string, requeste
     snapshot,
     availableYears,
     latestExpectedYear,
+    ultimateOwners: await buildUltimateOwners(snapshot),
   };
 }

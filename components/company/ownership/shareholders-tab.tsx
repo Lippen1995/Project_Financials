@@ -9,14 +9,24 @@ type ShareholderSnapshot = Omit<ShareholdingGraphSnapshot, "sourceImportedAt"> &
   sourceImportedAt: Date | string;
 };
 
+export type UltimateOwner = {
+  name: string;
+  orgNumber: string | null;
+  type: "PERSON" | "COMPANY";
+  ownershipPercent: number | null;
+};
+
 export type ShareholdersOverview = {
   snapshot: ShareholderSnapshot;
   availableYears: number[];
   latestExpectedYear: number;
+  ultimateOwners: Record<string, UltimateOwner>;
 };
 
 const numberFormat = new Intl.NumberFormat("nb-NO");
 const percentFormat = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 2 });
+
+const TOP_SHAREHOLDERS_LIMIT = 20;
 
 function formatPercent(value?: number | null) {
   if (value === null || value === undefined) return "Ikke oppgitt";
@@ -47,10 +57,12 @@ export function ShareholdersTab({
   const [overview, setOverview] = useState<ShareholdersOverview>(initial);
   const [loading, setLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     setOverview(initial);
     setRequestError(null);
+    setExpanded(false);
   }, [initial]);
 
   async function selectYear(year: number) {
@@ -65,6 +77,7 @@ export function ShareholdersTab({
       }
       const payload = (await response.json()) as { data: ShareholdersOverview };
       setOverview(payload.data);
+      setExpanded(false);
     } finally {
       setLoading(false);
     }
@@ -78,6 +91,28 @@ export function ShareholdersTab({
     !overview.snapshot.snapshotId.startsWith("unavailable:") &&
     overview.availableYears.includes(overview.snapshot.taxYear);
 
+  const ownerships = overview.snapshot.ownerships;
+  const isCollapsible = ownerships.length > TOP_SHAREHOLDERS_LIMIT;
+  const showCollapsed = isCollapsible && !expanded;
+  const visibleOwnerships = showCollapsed
+    ? ownerships.slice(0, TOP_SHAREHOLDERS_LIMIT)
+    : ownerships;
+  const otherOwnerships = showCollapsed ? ownerships.slice(TOP_SHAREHOLDERS_LIMIT) : [];
+  const otherAggregate = otherOwnerships.reduce(
+    (acc, ownership) => {
+      try {
+        acc.shares += BigInt(ownership.numberOfShares);
+      } catch {
+        // ignore unparseable share counts in the aggregate total
+      }
+      if (ownership.ownershipPercent !== null && ownership.ownershipPercent !== undefined) {
+        acc.percent += ownership.ownershipPercent;
+      }
+      return acc;
+    },
+    { shares: 0n, percent: 0 },
+  );
+
   return (
     <div className="space-y-5">
       <section className="space-y-3">
@@ -85,10 +120,6 @@ export function ShareholdersTab({
           <h2 className="editorial-display text-3xl font-semibold text-[var(--px-text)]">
             Aksjonærer
           </h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--px-muted)]">
-            Aksjonærlisten viser et årlig snapshot fra Skatteetatens aksjonærregister. Dette er
-            direkte aksjonærer i selskapet for valgt år, ikke en rekonstruert konsernstruktur.
-          </p>
         </div>
 
         <div className="flex flex-col gap-3 border-y border-[var(--px-border)] py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -153,27 +184,44 @@ export function ShareholdersTab({
               </tr>
             </thead>
             <tbody>
-              {overview.snapshot.ownerships.map((ownership) => {
+              {visibleOwnerships.map((ownership) => {
                 const shareholder = shareholderById.get(ownership.shareholderId);
                 const orgNumber = shareholder?.linkedCompanyOrgNumber ?? null;
+                const ultimateOwner = orgNumber ? overview.ultimateOwners[orgNumber] : undefined;
                 return (
                   <tr
                     key={ownership.id}
                     className="border-b border-[rgba(15,23,42,0.06)] transition-colors hover:bg-[var(--px-subtle)]"
                   >
                     <td className="py-2 pr-4">
-                      {orgNumber ? (
-                        <Link
-                          href={`/companies/${orgNumber}?tab=konsern`}
-                          className="font-semibold text-[var(--px-text)] hover:underline"
-                        >
-                          {shareholder?.name ?? ownership.shareholderId}
-                        </Link>
-                      ) : (
-                        <span className="font-semibold text-[var(--px-text)]">
-                          {shareholder?.name ?? ownership.shareholderId}
-                        </span>
-                      )}
+                      <span className="font-semibold text-[var(--px-text)]">
+                        {orgNumber ? (
+                          <Link
+                            href={`/companies/${orgNumber}?tab=aksjonaerer`}
+                            className="hover:underline"
+                          >
+                            {shareholder?.name ?? ownership.shareholderId}
+                          </Link>
+                        ) : (
+                          <>{shareholder?.name ?? ownership.shareholderId}</>
+                        )}
+                        {ultimateOwner ? (
+                          <span className="font-normal text-[var(--px-muted)]">
+                            {" ("}
+                            {ultimateOwner.type === "COMPANY" && ultimateOwner.orgNumber ? (
+                              <Link
+                                href={`/companies/${ultimateOwner.orgNumber}?tab=aksjonaerer`}
+                                className="hover:underline"
+                              >
+                                {ultimateOwner.name}
+                              </Link>
+                            ) : (
+                              ultimateOwner.name
+                            )}
+                            {")"}
+                          </span>
+                        ) : null}
+                      </span>
                       <div className="text-xs text-[var(--px-muted)]">
                         {orgNumber ? `Org.nr. ${orgNumber}` : shareholder?.birthYear ? `Født ${shareholder.birthYear}` : ""}
                         {shareholder?.postalPlace ? ` · ${shareholder.postalPlace}` : ""}
@@ -195,8 +243,38 @@ export function ShareholdersTab({
                   </tr>
                 );
               })}
+              {showCollapsed ? (
+                <tr className="border-b border-[rgba(15,23,42,0.06)] bg-[var(--px-subtle)]">
+                  <td className="py-2 pr-4">
+                    <span className="font-semibold text-[var(--px-text)]">Andre aksjonærer</span>
+                    <div className="text-xs text-[var(--px-muted)]">
+                      {numberFormat.format(otherOwnerships.length)} aksjonærer
+                    </div>
+                  </td>
+                  <td className="py-2 pr-4 text-[var(--px-muted)]">—</td>
+                  <td className="py-2 pr-4 text-right tabular-nums text-[var(--px-text)]">
+                    {numberFormat.format(otherAggregate.shares)}
+                  </td>
+                  <td className="py-2 text-right font-semibold tabular-nums text-[var(--px-text)]">
+                    {formatPercent(otherAggregate.percent)}
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
+          {isCollapsible ? (
+            <div className="flex justify-center border-t border-[var(--px-border)] py-3">
+              <button
+                type="button"
+                onClick={() => setExpanded((value) => !value)}
+                className="data-label cursor-pointer border-b-2 border-[var(--px-accent)] pb-[3px] text-[11px] uppercase text-[var(--px-accent)] outline-none transition-colors"
+              >
+                {expanded
+                  ? "Vis færre"
+                  : `Se alle (${numberFormat.format(ownerships.length)})`}
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <p className="rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] px-4 py-3 text-sm leading-6 text-[var(--px-muted)]">
