@@ -234,6 +234,51 @@ async function enrichWithCompanyStatus(nodes: GroupStructure["nodes"]): Promise<
   }
 }
 
+/**
+ * All downstream subsidiary org numbers of a company (the companies it controls,
+ * directly or indirectly), resolved by BFS over SUBSIDIARY control edges. Excludes
+ * the company itself and merely associated (20–50 %) holdings. Bounded by depth and
+ * node count to keep very large groups tractable.
+ */
+export async function getSubsidiaryOrgNumbers(params: {
+  orgNumber: string;
+  year?: number;
+  maxDepth?: number;
+  maxNodes?: number;
+}): Promise<string[]> {
+  const year = params.year ?? (await getOwnershipAvailableYears())[0];
+  if (!year) {
+    return [];
+  }
+
+  const deps = createPrismaDeps(year);
+  const maxDepth = params.maxDepth ?? DEFAULT_MAX_DEPTH;
+  const maxNodes = params.maxNodes ?? DEFAULT_MAX_NODES;
+
+  const collected = new Set<string>();
+  const visited = new Set<string>([params.orgNumber]);
+  let frontier = [params.orgNumber];
+
+  for (let depth = 0; depth < maxDepth && frontier.length > 0 && collected.size < maxNodes; depth += 1) {
+    const edges = await deps.getChildren(frontier);
+    const next: string[] = [];
+    for (const edge of edges) {
+      if (edge.relationship !== "SUBSIDIARY" || visited.has(edge.issuerOrgNumber)) {
+        continue;
+      }
+      visited.add(edge.issuerOrgNumber);
+      collected.add(edge.issuerOrgNumber);
+      next.push(edge.issuerOrgNumber);
+      if (collected.size >= maxNodes) {
+        break;
+      }
+    }
+    frontier = next;
+  }
+
+  return [...collected];
+}
+
 /** Tax years for which a materialised ownership graph exists. */
 export async function getOwnershipAvailableYears(): Promise<number[]> {
   const rows = await prisma.$queryRaw<Array<{ taxYear: number }>>`

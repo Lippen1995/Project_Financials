@@ -1,9 +1,12 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
 import { CompanyFinancialDiscussions } from "@/components/company/company-financial-discussions";
 import { CompanyGridConnectionTab } from "@/components/company/company-grid-connection-tab";
+import { IpTab } from "@/components/company/ip/ip-tab";
+import { IpTabSkeleton } from "@/components/company/ip/ip-skeleton";
 import { CompanyNarrativesTab } from "@/components/company/company-narratives-tab";
 import { CompanyNewsTab } from "@/components/company/company-news-tab";
 import { WatchButton } from "@/components/company/watch-button";
@@ -31,6 +34,7 @@ import {
   getCompanyProfile,
 } from "@/server/services/company-service";
 import { getCompanyGridConnectionProfile } from "@/server/services/company-grid-connection-service";
+import { getGroupIpOverview } from "@/server/ip/ip-data";
 import {
   listFinancialMetricCommentThreads,
   listFinancialStatementCommentThreads,
@@ -435,8 +439,9 @@ export default async function CompanyPage({
     financialsAvailability,
   } = profile;
 
-  const [petroleumVisibility, watchInfo] = await Promise.all([
+  const [petroleumVisibility, ipOverview, watchInfo] = await Promise.all([
     getCompanyPetroleumTabVisibility(company),
+    getGroupIpOverview(company.orgNumber),
     session?.user?.id
       ? (async () => {
           const user = await prisma.user.findUnique({
@@ -471,8 +476,14 @@ export default async function CompanyPage({
   if (petroleumVisibility.available) {
     availableTabs.push({ id: "sokkeleksponering", label: "Sokkeleksponering" });
   }
+  if (ipOverview.total > 0) {
+    availableTabs.push({ id: "immaterielt", label: "Immaterielle rettigheter" });
+  }
   const activeTab =
-    parsedTab === "sokkeleksponering" && !petroleumVisibility.available ? "oversikt" : parsedTab;
+    (parsedTab === "sokkeleksponering" && !petroleumVisibility.available) ||
+    (parsedTab === "immaterielt" && ipOverview.total === 0)
+      ? "oversikt"
+      : parsedTab;
 
   const [
     petroleumProfile,
@@ -763,6 +774,11 @@ export default async function CompanyPage({
           ) : null}
           {activeTab === "sokkeleksponering" && petroleumProfile ? (
             <CompanyPetroleumTab petroleum={petroleumProfile} />
+          ) : null}
+          {activeTab === "immaterielt" ? (
+            <Suspense fallback={<IpTabSkeleton />}>
+              <IpTab orgNumber={company.orgNumber} />
+            </Suspense>
           ) : null}
         </div>
 

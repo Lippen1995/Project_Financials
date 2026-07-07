@@ -12,7 +12,8 @@ export type CompanyTabId =
   | "dokumenter"
   | "nyheter"
   | "nettilknytning"
-  | "sokkeleksponering";
+  | "sokkeleksponering"
+  | "immaterielt";
 
 export const defaultCompanyTabs: { id: CompanyTabId; label: string }[] = [
   { id: "oversikt", label: "Oversikt" },
@@ -25,6 +26,7 @@ export const defaultCompanyTabs: { id: CompanyTabId; label: string }[] = [
   { id: "nyheter", label: "Nyheter" },
   { id: "nettilknytning", label: "Nettilknytning" },
   { id: "sokkeleksponering", label: "Sokkeleksponering" },
+  { id: "immaterielt", label: "Immaterielle rettigheter" },
 ];
 
 export function isCompanyTab(value: string | undefined): value is CompanyTabId {

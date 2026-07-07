@@ -213,7 +213,7 @@ export type CompanyProfile = {
   petroleum?: CompanyPetroleumProfile | null;
 };
 
-export type IPRightType = "patent" | "trademark" | "design";
+export type IPRightType = "patent" | "trademark" | "design" | "elCertificate";
 
 export type IPRightOwner = {
   name: string;
@@ -224,6 +224,11 @@ export type IPRightEvent = {
   date?: string | null;
   label: string;
   description?: string | null;
+};
+
+export type IPRightFact = {
+  label: string;
+  value: string;
 };
 
 export type IPRightSummary = SourceMetadata & {
@@ -241,6 +246,7 @@ export type IPRightSummary = SourceMetadata & {
   owners: IPRightOwner[];
   lastEventDate: string | null;
   isActive: boolean | null;
+  supportingFacts?: IPRightFact[];
 };
 
 export type IPRightDetail = IPRightSummary & {
@@ -258,6 +264,7 @@ export type CompanyIpOverview = {
   patents: number;
   trademarks: number;
   designs: number;
+  elCertificates: number;
   active: number;
   latestActivityDate: string | null;
 };
@@ -278,6 +285,7 @@ export type IpRightListItem = {
   caseUrl: string | null;
   ownerName: string | null;
   isActive: boolean | null;
+  supportingFacts: IPRightFact[];
 };
 
 export type IpCaseDetailView = {

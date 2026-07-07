@@ -12,10 +12,15 @@ type CachedIpPortfolio = {
 };
 
 const cacheDirectory = path.join(process.cwd(), ".projectx-cache", "ip-rights");
-const cacheVersion = 1;
+const elCertificateCacheDirectory = path.join(process.cwd(), ".projectx-cache", "nve-elcert");
+// Bump when the mapped IPRightSummary shape changes so stale portfolios refetch:
+//   2 — added `expiryDate`
+//   3 — populated `registrationOrGrantDate` for active rights
+const cacheVersion = 3;
+const elCertificateCacheVersion = 1;
 
-function getCachePath(orgNumber: string) {
-  return path.join(cacheDirectory, `${orgNumber}.json`);
+function getCachePath(orgNumber: string, directory = cacheDirectory) {
+  return path.join(directory, `${orgNumber}.json`);
 }
 
 function reviveRight(
@@ -29,10 +34,22 @@ function reviveRight(
 }
 
 export async function readIpPortfolioCache(orgNumber: string): Promise<CachedIpPortfolio | null> {
+  return readPortfolioCache(orgNumber, cacheVersion, cacheDirectory);
+}
+
+export async function readElCertificatePortfolioCache(orgNumber: string): Promise<CachedIpPortfolio | null> {
+  return readPortfolioCache(orgNumber, elCertificateCacheVersion, elCertificateCacheDirectory);
+}
+
+async function readPortfolioCache(
+  orgNumber: string,
+  expectedVersion: number,
+  directory: string,
+): Promise<CachedIpPortfolio | null> {
   try {
-    const payload = await fs.readFile(getCachePath(orgNumber), "utf8");
+    const payload = await fs.readFile(getCachePath(orgNumber, directory), "utf8");
     const parsed = JSON.parse(payload) as CachedIpPortfolio;
-    if (parsed.version !== cacheVersion) {
+    if (parsed.version !== expectedVersion) {
       return null;
     }
 
@@ -47,7 +64,7 @@ export async function readIpPortfolioCache(orgNumber: string): Promise<CachedIpP
     };
   } catch (error) {
     if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
-      logRecoverableError("ip-cache.read", error, { orgNumber });
+      logRecoverableError("ip-cache.read", error, { orgNumber, directory });
     }
 
     return null;
@@ -55,12 +72,25 @@ export async function readIpPortfolioCache(orgNumber: string): Promise<CachedIpP
 }
 
 export async function writeIpPortfolioCache(orgNumber: string, rights: IPRightSummary[]) {
-  await fs.mkdir(cacheDirectory, { recursive: true });
+  await writePortfolioCache(orgNumber, rights, cacheVersion, cacheDirectory);
+}
+
+export async function writeElCertificatePortfolioCache(orgNumber: string, rights: IPRightSummary[]) {
+  await writePortfolioCache(orgNumber, rights, elCertificateCacheVersion, elCertificateCacheDirectory);
+}
+
+async function writePortfolioCache(
+  orgNumber: string,
+  rights: IPRightSummary[],
+  version: number,
+  directory: string,
+) {
+  await fs.mkdir(directory, { recursive: true });
   await fs.writeFile(
-    getCachePath(orgNumber),
+    getCachePath(orgNumber, directory),
     JSON.stringify(
       {
-        version: cacheVersion,
+        version,
         cachedAt: new Date().toISOString(),
         rights,
       },

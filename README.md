@@ -19,7 +19,7 @@ Fjord Insight er et MVP for selskapsinformasjon og innsikt bygget med Next.js, T
 - Roller og styre når de er tilgjengelige fra Brønnøysundregistrene
 - Årsbundet selskapsstruktur basert på importerte aksjonærregisterdata fra Skatteetaten når snapshot er tilgjengelig
 - Faner for Oversikt, Regnskap, Nøkkeltall, Organisasjon og Kunngjøringer
-- Dynamisk fane for "Immaterielle rettigheter" (patent, varemerke, design) når selskapet har treff hos Patentstyret
+- Dynamisk fane for "Immaterielle rettigheter" (patent, varemerke, design og elsertifikater) når selskapet har treff hos Patentstyret eller NVE
 - Fane for nettilknytning, nettkø og nettreservasjon fra konfigurert offentlig Statnett-eksport når sikker selskapsmatch finnes
 - Næringskodeberiking fra SSB Klass
 - Filtrering på sentrale virksomhetsfelt
@@ -97,13 +97,23 @@ Brukes som kilde for:
 
 Fjord Insight bruker Patentstyrets Open Data-endepunkter med organisasjonsnummer som primær identifikator for portefølje.
 
+### NVE elsertifikater
+
+Brukes som kilde for:
+
+- elsertifikatanlegg eid av selskapet eller underliggende selskaper
+- anleggstype, forventet produksjon, effekt, status og tildelingsperiode når dette finnes i NVE sitt `Elsertifikater`-API
+
+Elsertifikater vises under "Immaterielle rettigheter" fordi de er en offentlig registrert rettighet/ordningsposisjon knyttet til fornybar kraftproduksjon. Selskaper uten treff i NVE-data får ingen simulert elsertifikatseksjon.
+
 ### Statnett
 
-Brukes som kilde for offentlig nettilknytning, nettkø og nettreservasjon når `STATNETT_GRID_CONNECTIONS_DATA_URL` peker på en reell Statnett-eksport.
+Brukes som kilde for offentlig nettkø og nettreservasjon. Statnett publiserer dette kun via innebygde Power BI «publish to web»-rapporter (ingen fil/JSON-eksport), så `integrations/statnett/statnett-powerbi.ts` kjører den samme spørringen mot Power BI sitt `querydata`-endepunkt og dekoder svaret.
 
-- Alle kapasiteter normaliseres og vises i MW.
-- Matching skjer med organisasjonsnummer hvis kilden inneholder det, ellers eksakt selskapsnavn.
-- Uten konfigurert kilde eller sikker match vises tom tilstand. Strømkontrakter og ikke-offentlige reservasjoner simuleres ikke.
+- Alle kapasiteter vises i MW. Kø- og reservasjonssaker hentes fra hver sin rapport.
+- Kilden oppgir ikke organisasjonsnummer, så matching er navnebasert: identiske navnetokens (uten selskapsform) eller en kuratert alias-gruppe (`ALIAS_GROUPS` i `company-grid-connection-service.ts`) for selskaper der Statnett bruker et fyldigere navn (f.eks. «Nscale» → «Aker Nscale AS»).
+- Uten sikker match vises tom tilstand. Strømkontrakter og ikke-offentlige reservasjoner simuleres ikke.
+- Rapport-IDene (`resourceKey`/`reportId`) er fanget fra de offentlige embed-tokenene og må re-fanges hvis Statnett republiserer rapportene.
 
 ### Nyheter og børsmeldinger
 
@@ -807,8 +817,8 @@ Dette vil:
 - `BRREG_FINANCIALS_BASE_URL`: base-URL for Brreg Regnskapsregisterets åpne regnskaps-API
 - `PATENTSTYRET_BASE_URL`: base-URL for Patentstyrets Open Data API
 - `PATENTSTYRET_SUBSCRIPTION_KEY`: subscription key for Patentstyret (sendes kun server-side)
-- `PATENTSTYRET_ORGNUMBER_PARAM`: query-parameter brukt i `/register/v1/IprCasesByCompany` (standard `orgNumber`)
-- `STATNETT_GRID_CONNECTIONS_DATA_URL`: offentlig Statnett-eksport for nettilknytning, nettkø og nettreservasjon. JSON og XLSX støttes, og kapasiteter vises i MW.
+- `PATENTSTYRET_ORGNUMBER_PARAM`: query-parameter brukt i `/register/v1/IprCasesByCompany` (standard `companyNumber`)
+- `NVE_ELCERT_BASE_URL`: base-URL for NVE sitt Elsertifikater-API (standard `https://api.nve.no/web/ElCert`)
 - `SKATTEETATEN_SHAREHOLDING_BASE_URL`: base-URL for Skatteetatens Aksjonær i virksomhet API
 - `SKATTEETATEN_SHAREHOLDING_PACKAGE`: rettighetspakke for datasettet
 - `SKATTEETATEN_SHAREHOLDING_TOKEN`: bearer-token med scope `skatteetaten:aksjonaer`

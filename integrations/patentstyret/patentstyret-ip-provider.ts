@@ -1,6 +1,6 @@
 import env from "@/lib/env";
 import { fetchJson } from "@/integrations/http";
-import { IPRightDetail, IPRightSummary, IPRightType } from "@/lib/types";
+import { IPRightDetail, IPRightOwner, IPRightSummary, IPRightType } from "@/lib/types";
 
 const SOURCE_SYSTEM = "PATENTSTYRET";
 
@@ -22,14 +22,6 @@ function firstString(...values: unknown[]): string | null {
   return null;
 }
 
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map((item) => firstString(item)).filter((item): item is string => Boolean(item));
-}
-
 function asIsoDate(value: unknown): string | null {
   const raw = firstString(value);
   if (!raw) {
@@ -40,92 +32,83 @@ function asIsoDate(value: unknown): string | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
-function deriveType(item: Record<string, unknown>): IPRightType | null {
-  const rawType = firstString(item.caseType, item.iprType, item.rightType, item.type, item.domain, item.caseCategory);
-  if (!rawType) {
-    const caseUrl = firstString(item.caseUrl)?.toLowerCase();
-    if (caseUrl?.includes("/trademark/")) return "trademark";
-    if (caseUrl?.includes("/patent/")) return "patent";
-    if (caseUrl?.includes("/design/")) return "design";
-    return null;
-  }
+// Status labels are returned in both Norwegian (currentStatusNo) and English
+// (currentStatusEn). Observed English values: Registered, Pending, Granted,
+// Refused, Withdrawn, Finally shelved, Ceased, In force.
+const ACTIVE_STATUS_TOKENS = ["registered", "granted", "in force", "i kraft", "meddelt", "gyldig"];
+const INACTIVE_STATUS_TOKENS = [
+  "shelved",
+  "henlagt",
+  "withdrawn",
+  "trukket",
+  "refused",
+  "avslå",
+  "nektet",
+  "ceased",
+  "opphør",
+  "lapsed",
+  "expired",
+  "bortfal",
+  "revoked",
+  "rejected",
+];
 
-  const normalized = rawType.toLowerCase();
-  if (normalized.includes("patent")) return "patent";
-  if (normalized.includes("trade") || normalized.includes("vare")) return "trademark";
-  if (normalized.includes("design")) return "design";
+function deriveIsActive(...statuses: Array<string | null | undefined>): boolean | null {
+  const normalized = statuses.filter(Boolean).join(" ").toLowerCase();
+  if (!normalized) return null;
+  if (ACTIVE_STATUS_TOKENS.some((token) => normalized.includes(token))) return true;
+  if (INACTIVE_STATUS_TOKENS.some((token) => normalized.includes(token))) return false;
   return null;
 }
 
-function deriveIsActive(status: string | null) {
-  if (!status) return null;
-  const normalized = status.toLowerCase();
-  if (["active", "registered", "granted", "in force", "gyldig"].some((token) => normalized.includes(token))) {
-    return true;
-  }
-  if (["expired", "withdrawn", "revoked", "ceased", "lapsed", "opphørt"].some((token) => normalized.includes(token))) {
-    return false;
-  }
-  return null;
-}
-
-function mapOwner(owner: unknown) {
-  const record = asRecord(owner);
+function mapParty(value: unknown): IPRightOwner {
+  const record = asRecord(value);
   return {
-    name: firstString(record.name, record.partyName, record.ownerName, record.applicantName) ?? "Ukjent part",
-    orgNumber: firstString(record.orgNumber, record.organizationNumber, record.organisationNumber, record.idNumber),
+    name: firstString(record.name, record.ownerName, record.applicantName) ?? "Ukjent part",
+    orgNumber: firstString(record.companyNumber, record.orgNumber, record.organizationNumber),
   };
 }
 
-function mapSummaryFromRecord(record: Record<string, unknown>, companyOrgNumber: string): IPRightSummary | null {
-  const type = deriveType(record);
-  if (!type) {
-    return null;
-  }
+// The IprCasesByCompany portfolio endpoint returns one object with three typed
+// arrays (patentBag / trademarkBag / designBag). Each item carries the case's
+// summary fields directly — filing/registration dates are NOT included here and
+// only appear in the per-case detail (ST.96) endpoint.
+function mapBagItem(item: unknown, type: IPRightType, companyOrgNumber: string): IPRightSummary | null {
+  const record = asRecord(item);
 
-  const applicationNumber = firstString(record.applicationNumber, record.applicationId, record.caseNumber);
-  const caseUrl = firstString(record.caseUrl, record.detailUrl);
-  const id = firstString(record.id, record.caseId, applicationNumber, caseUrl);
+  const applicationNumber = firstString(record.applicationNumber);
+  const caseUrl = firstString(record.caseUrl);
+  const grantOrRegNumber = firstString(record.patentNumber, record.registrationNumber, record.designNumber);
+  const id = firstString(applicationNumber, caseUrl, grantOrRegNumber);
   if (!id) {
     return null;
   }
 
-  const status = firstString(record.status, record.caseStatus, record.statusLabel);
-  const owners = Array.isArray(record.owners)
-    ? record.owners.map(mapOwner)
-    : Array.isArray(record.parties)
-      ? record.parties.map(mapOwner)
-      : [];
-
-  const events = Array.isArray(record.events) ? record.events.map((item) => asRecord(item)) : [];
-  const eventDates = events
-    .map((event) => asIsoDate(event.date ?? event.eventDate ?? event.publishedAt ?? event.updatedAt))
-    .filter((value): value is string => Boolean(value));
+  const statusNo = firstString(record.currentStatusNo);
+  const statusEn = firstString(record.currentStatusEn);
+  const owners = Array.isArray(record.ownerBag) ? record.ownerBag.map(mapParty) : [];
+  const applicants = Array.isArray(record.applicantBag) ? record.applicantBag.map(mapParty) : [];
+  const isActive = deriveIsActive(statusEn, statusNo);
+  const statusDate = asIsoDate(record.currentStatusDate);
 
   return {
     id,
     companyOrgNumber,
     type,
     applicationNumber,
-    title: firstString(
-      record.title,
-      record.inventionTitle,
-      record.trademarkName,
-      record.markName,
-      record.designTitle,
-      record.designName,
-      record.label,
-    ),
-    status,
-    applicationDate: asIsoDate(record.applicationDate ?? record.filingDate),
-    registrationOrGrantDate: asIsoDate(record.registrationDate ?? record.grantDate),
-    publicationDate: asIsoDate(record.publicationDate),
+    title: firstString(record.inventionTitle, record.markVerbalElementText, record.designTitle, record.title),
+    status: statusNo ?? statusEn,
+    applicationDate: null,
+    // The bulk portfolio endpoint carries no registration/grant date. For a right
+    // whose current status IS registered/granted, the current-status date is that
+    // registration/grant date; otherwise we have no reliable registration date.
+    registrationOrGrantDate: isActive === true ? statusDate : null,
+    publicationDate: null,
+    expiryDate: asIsoDate(record.expiryDate),
     caseUrl,
-    owners,
-    lastEventDate:
-      eventDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ??
-      asIsoDate(record.lastEventDate ?? record.lastUpdatedDate ?? record.updatedAt),
-    isActive: deriveIsActive(status),
+    owners: owners.length > 0 ? owners : applicants,
+    lastEventDate: statusDate,
+    isActive,
     sourceSystem: SOURCE_SYSTEM,
     sourceEntityType: "IP_CASE",
     sourceId: id,
@@ -135,42 +118,115 @@ function mapSummaryFromRecord(record: Record<string, unknown>, companyOrgNumber:
   };
 }
 
-function mapDetail(summary: IPRightSummary, payload: Record<string, unknown>): IPRightDetail {
-  const detail = mapSummaryFromRecord(payload, summary.companyOrgNumber);
-  const eventsRaw = Array.isArray(payload.events) ? payload.events : [];
+function mapPortfolio(payload: unknown, companyOrgNumber: string): IPRightSummary[] {
+  const record = asRecord(payload);
+  const bags: Array<[unknown, IPRightType]> = [
+    [record.patentBag, "patent"],
+    [record.trademarkBag, "trademark"],
+    [record.designBag, "design"],
+  ];
+
+  const results: IPRightSummary[] = [];
+  for (const [bag, type] of bags) {
+    if (!Array.isArray(bag)) continue;
+    for (const item of bag) {
+      const mapped = mapBagItem(item, type, companyOrgNumber);
+      if (mapped) results.push(mapped);
+    }
+  }
+
+  return results;
+}
+
+// --- ST.96 detail helpers -------------------------------------------------
+// The per-case endpoints return a nested WIPO ST.96 document under
+// `bibliographicData`. Values are wrapped as { "$": "text" } and collections as
+// singular-keyed bags. These helpers read that shape defensively.
+
+function st96Value(node: unknown): string | null {
+  if (typeof node === "string") return node.trim() || null;
+  const record = asRecord(node);
+  return firstString(record.$);
+}
+
+function asBagArray(node: unknown, key: string): unknown[] {
+  const inner = asRecord(node)[key];
+  if (Array.isArray(inner)) return inner;
+  if (inner && typeof inner === "object") return [inner];
+  return [];
+}
+
+function st96PartyName(party: unknown): string | null {
+  const contact = asRecord(asRecord(party).contact);
+  const sequence = asRecord(contact.contactTypeChoiceSequence);
+  const name = asRecord(sequence.name);
+  const entity = asRecord(name.entityName);
+  const transliteration = entity.transliterationName;
+  if (Array.isArray(transliteration)) {
+    const found = transliteration.map(st96Value).find(Boolean);
+    if (found) return found;
+  }
+  return st96Value(transliteration) ?? st96Value(name.freeFormatName);
+}
+
+function mapDetail(summary: IPRightSummary, payload: unknown): IPRightDetail {
+  const bib = asRecord(asRecord(payload).bibliographicData);
+  const applicationIdentification = asRecord(bib.applicationIdentification);
+
+  const titles = asBagArray(bib.inventionTitleBag, "inventionTitle")
+    .map((title) => st96Value(asRecord(title).phraseType))
+    .filter((value): value is string => Boolean(value));
+
+  const classifications = asBagArray(
+    asRecord(bib.patentClassificationBag).ipcrClassificationBag,
+    "ipcrClassification",
+  )
+    .map((entry) => firstString(asRecord(entry).patentClassificationText))
+    .filter((value): value is string => Boolean(value));
+
+  const partyBag = asRecord(bib.partyBag);
+  const inventors = asBagArray(partyBag.inventorBag, "inventor")
+    .map(st96PartyName)
+    .filter((value): value is string => Boolean(value));
+  const applicants = asBagArray(partyBag.applicantBag, "applicant")
+    .map(st96PartyName)
+    .filter((value): value is string => Boolean(value));
+  const representatives = asBagArray(partyBag.representativeBag, "representative")
+    .map(st96PartyName)
+    .filter((value): value is string => Boolean(value));
 
   return {
-    ...(detail ?? summary),
-    events: eventsRaw
-      .map((event) => asRecord(event))
-      .map((event) => ({
-        date: asIsoDate(event.date ?? event.eventDate ?? event.publishedAt),
-        label: firstString(event.label, event.eventLabel, event.type) ?? "Hendelse",
-        description: firstString(event.description, event.text, event.summary),
-      })),
-    classifications: asStringArray(payload.classifications ?? payload.ipcClasses ?? payload.locarnoClasses),
-    inventors: asStringArray(payload.inventors),
-    representatives: asStringArray(payload.representatives ?? payload.agents),
-    trademarkClasses: asStringArray(payload.trademarkClasses ?? payload.niceClasses),
-    trademarkKind: firstString(payload.trademarkKind, payload.markKind),
-    designCount:
-      typeof payload.designCount === "number"
-        ? payload.designCount
-        : typeof payload.numberOfDesigns === "number"
-          ? payload.numberOfDesigns
-          : null,
+    ...summary,
+    title: titles[0] ?? summary.title,
+    applicationNumber:
+      firstString(asRecord(applicationIdentification.applicationNumber).applicationNumberText) ??
+      summary.applicationNumber,
+    applicationDate: asIsoDate(applicationIdentification.filingDate) ?? summary.applicationDate,
+    owners: summary.owners.length > 0 ? summary.owners : applicants.map((name) => ({ name, orgNumber: null })),
+    events: [],
+    classifications,
+    inventors,
+    representatives,
+    trademarkClasses: [],
+    trademarkKind: null,
+    designCount: null,
     sourceSystem: SOURCE_SYSTEM,
     sourceEntityType: "IP_CASE_DETAIL",
     sourceId: summary.id,
     fetchedAt: new Date(),
     normalizedAt: new Date(),
-    rawPayload: payload,
+    rawPayload: asRecord(payload),
   };
 }
 
 function getHeaders() {
   const key = env.patentstyretSubscriptionKey;
   return key ? { "Ocp-Apim-Subscription-Key": key } : undefined;
+}
+
+function apiUrl(path: string) {
+  const base = env.patentstyretBaseUrl.replace(/\/+$/, "");
+  return new URL(`${base}${path}`);
 }
 
 export class PatentstyretIpProvider {
@@ -180,21 +236,11 @@ export class PatentstyretIpProvider {
       return [];
     }
 
-    const url = new URL("/register/v1/IprCasesByCompany", env.patentstyretBaseUrl);
+    const url = apiUrl("/register/v1/IprCasesByCompany");
     url.searchParams.set(env.patentstyretOrgNumberParam, normalizedOrgNumber);
 
     const payload = await fetchJson<unknown>(url.toString(), { headers: getHeaders() });
-    const records = Array.isArray(payload)
-      ? payload
-      : Array.isArray(asRecord(payload).cases)
-        ? (asRecord(payload).cases as unknown[])
-        : Array.isArray(asRecord(payload).items)
-          ? (asRecord(payload).items as unknown[])
-          : [];
-
-    return records
-      .map((item) => mapSummaryFromRecord(asRecord(item), normalizedOrgNumber))
-      .filter((item): item is IPRightSummary => Boolean(item));
+    return mapPortfolio(payload, normalizedOrgNumber);
   }
 
   async getCaseDetail(type: IPRightType, applicationNumber: string, summary?: IPRightSummary): Promise<IPRightDetail | null> {
@@ -204,9 +250,8 @@ export class PatentstyretIpProvider {
     }
 
     const segment = type === "trademark" ? "Trademark" : type === "patent" ? "Patent" : "Design";
-    const url = new URL(`/register/${segment}/v1/${encodeURIComponent(appNo)}`, env.patentstyretBaseUrl);
+    const url = apiUrl(`/register/${segment}/v1/${encodeURIComponent(appNo)}`);
     const payload = await fetchJson<unknown>(url.toString(), { headers: getHeaders() });
-    const record = asRecord(payload);
 
     const baseSummary: IPRightSummary =
       summary ??
@@ -220,6 +265,7 @@ export class PatentstyretIpProvider {
         applicationDate: null,
         registrationOrGrantDate: null,
         publicationDate: null,
+        expiryDate: null,
         caseUrl: null,
         owners: [],
         lastEventDate: null,
@@ -231,12 +277,12 @@ export class PatentstyretIpProvider {
         normalizedAt: new Date(),
       } as IPRightSummary);
 
-    return mapDetail(baseSummary, record);
+    return mapDetail(baseSummary, payload);
   }
 }
 
 export const __testables = {
-  deriveType,
   deriveIsActive,
-  mapSummaryFromRecord,
+  mapBagItem,
+  mapPortfolio,
 };

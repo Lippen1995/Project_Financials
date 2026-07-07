@@ -19,10 +19,10 @@ const env = {
     process.env.BRREG_ANNOUNCEMENTS_BASE_URL ?? "https://w2.brreg.no/kunngjoring",
   brregFinancialsBaseUrl:
     process.env.BRREG_FINANCIALS_BASE_URL ?? "https://data.brreg.no/regnskapsregisteret/regnskap",
-  patentstyretBaseUrl: process.env.PATENTSTYRET_BASE_URL ?? "https://api.patentstyret.no",
+  patentstyretBaseUrl: process.env.PATENTSTYRET_BASE_URL ?? "https://api.patentstyret.no/external/opendata",
   patentstyretSubscriptionKey: process.env.PATENTSTYRET_SUBSCRIPTION_KEY ?? "",
-  patentstyretOrgNumberParam: process.env.PATENTSTYRET_ORGNUMBER_PARAM ?? "orgNumber",
-  statnettGridConnectionsDataUrl: process.env.STATNETT_GRID_CONNECTIONS_DATA_URL ?? "",
+  patentstyretOrgNumberParam: process.env.PATENTSTYRET_ORGNUMBER_PARAM ?? "companyNumber",
+  nveElcertBaseUrl: process.env.NVE_ELCERT_BASE_URL ?? "https://api.nve.no/web/ElCert",
   sodirFactmapsBaseUrl:
     process.env.SODIR_FACTMAPS_BASE_URL ?? "https://factmaps.sodir.no/api/rest/services",
   havtilBaseUrl: process.env.HAVTIL_BASE_URL ?? "https://www.havtil.no",
