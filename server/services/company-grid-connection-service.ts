@@ -8,8 +8,47 @@ import {
 
 const provider = new StatnettGridConnectionProvider();
 
+// The public Statnett feed carries no organisation number, so a case can only be tied to a
+// company by name. Legal forms are ignored and the distinctive tokens are compared as a set, so
+// "Nord Kraft AS" matches "Nord Kraft AS" but NOT the separate entity "Nord Kraft Holding AS".
+const LEGAL_FORM_TOKENS = new Set(["as", "asa", "ans", "ba", "da", "sa", "nuf", "kf", "iks", "sf", "fkf"]);
+
+// Curated equivalences for companies whose register name and Statnett name differ by a corporate
+// prefix/suffix (e.g. register "Nscale" appears as "Aker Nscale AS"). Each group lists distinctive
+// tokens that denote the same entity; a company and a case match when both carry a token from the
+// same group. Kept deliberately narrow to avoid false attributions.
+const ALIAS_GROUPS: string[][] = [["nscale"]];
+
 function normalizeCompanyName(value: string | null | undefined) {
   return value?.toLowerCase().replace(/\s+/g, " ").replace(/[.,]/g, "").trim() ?? "";
+}
+
+function coreTokens(value: string | null | undefined) {
+  return new Set(
+    normalizeCompanyName(value)
+      .split(" ")
+      .filter((token) => token && !LEGAL_FORM_TOKENS.has(token)),
+  );
+}
+
+function sameTokenSet(a: Set<string>, b: Set<string>) {
+  return a.size > 0 && a.size === b.size && [...a].every((token) => b.has(token));
+}
+
+function shareAliasGroup(a: Set<string>, b: Set<string>) {
+  return ALIAS_GROUPS.some((group) => group.some((token) => a.has(token)) && group.some((token) => b.has(token)));
+}
+
+function namesMatch(companyName: string, candidate: string | null) {
+  if (!candidate) return false;
+
+  const company = normalizeCompanyName(companyName);
+  const other = normalizeCompanyName(candidate);
+  if (company && company === other) return true;
+
+  const companyTokens = coreTokens(companyName);
+  const candidateTokens = coreTokens(candidate);
+  return sameTokenSet(companyTokens, candidateTokens) || shareAliasGroup(companyTokens, candidateTokens);
 }
 
 export function buildCompanyGridConnectionOverview(records: GridConnectionRecord[]): CompanyGridConnectionOverview {
@@ -51,11 +90,10 @@ export function filterGridConnectionsForCompany(input: {
   orgNumber: string;
   companyName: string;
 }) {
-  const normalizedName = normalizeCompanyName(input.companyName);
-
   return input.records.filter((record) => {
     if (record.companyOrgNumber && record.companyOrgNumber === input.orgNumber) return true;
-    return Boolean(record.companyName && normalizeCompanyName(record.companyName) === normalizedName);
+    const candidateNames = record.matchNames?.length ? record.matchNames : [record.companyName];
+    return candidateNames.some((name) => namesMatch(input.companyName, name));
   });
 }
 
@@ -81,10 +119,10 @@ export async function getCompanyGridConnectionProfile(input: {
         sourceUrl: records[0]?.sourceUrl ?? null,
         message:
           records.length > 0
-            ? "Offentlige Statnett-saker er matchet mot selskapet med organisasjonsnummer eller eksakt selskapsnavn."
+            ? "Offentlige Statnett-saker er matchet mot selskapet på navn (kilden oppgir ikke organisasjonsnummer)."
             : allRecords.length > 0
-              ? "Ingen offentlige Statnett-saker kunne matches sikkert mot selskapet."
-              : "Statnett-datakilde for nettilknytning er ikke konfigurert.",
+              ? "Ingen offentlige Statnett-saker kunne matches mot selskapet."
+              : "Fant ingen offentlige Statnett-saker for nettkø eller reservasjon akkurat nå.",
       },
     };
   } catch (error) {

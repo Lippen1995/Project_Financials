@@ -32,6 +32,7 @@ function record(partial: Partial<GridConnectionRecord>): GridConnectionRecord {
     sourceId: partial.sourceId ?? "1",
     fetchedAt: now,
     normalizedAt: now,
+    matchNames: partial.matchNames,
   };
 }
 
@@ -55,10 +56,11 @@ describe("company-grid-connection-service", () => {
     });
   });
 
-  it("matches by org number before exact company name", () => {
+  it("matches by org number and distinctive name tokens, not by shared prefixes", () => {
     const records = [
       record({ id: "org", companyOrgNumber: "123456789", companyName: "Other Name AS" }),
       record({ id: "name", companyOrgNumber: null, companyName: "Nord Kraft AS" }),
+      // A different legal entity that merely shares tokens must not be attributed.
       record({ id: "miss", companyOrgNumber: null, companyName: "Nord Kraft Holding AS" }),
     ];
 
@@ -69,5 +71,19 @@ describe("company-grid-connection-service", () => {
     });
 
     expect(matches.map((item) => item.id)).toEqual(["org", "name"]);
+  });
+
+  it("matches Statnett's fuller name via the alias group and the end-customer matchNames", () => {
+    // The register knows the company as "Nscale"; Statnett lists it as "Aker Nscale AS" and, in
+    // the reservation report, "Nscale". Both must attach to the company page.
+    const records = [
+      record({ id: "queue", companyName: "Linea AS", matchNames: ["Aker Nscale AS", "Linea AS"] }),
+      record({ id: "reserved", companyName: "Arva AS", matchNames: ["Nscale", "Arva AS"] }),
+      record({ id: "unrelated", companyName: "Tresmarka AS", matchNames: ["Tresmarka AS", "BKK AS"] }),
+    ];
+
+    const matches = filterGridConnectionsForCompany({ records, orgNumber: "999999999", companyName: "Nscale AS" });
+
+    expect(matches.map((item) => item.id)).toEqual(["queue", "reserved"]);
   });
 });
