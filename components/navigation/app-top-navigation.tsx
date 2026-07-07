@@ -17,6 +17,7 @@ import {
 import { type GlobalNavItem, isGlobalNavItemActive } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/server/actions/auth-actions";
+import { NavSearch } from "@/components/navigation/nav-search";
 
 type AppTopNavigationProps = {
   adminNotification?: React.ReactNode;
@@ -131,6 +132,10 @@ export function AppTopNavigation({
             <div className="flex min-w-max items-center gap-1 pr-2">
               {navItems.map((item) => {
                 const active = isGlobalNavItemActive(item, pathname);
+
+                if (item.href === "/search") {
+                  return <NavSearch key={item.href} item={item} active={active} />;
+                }
 
                 return (
                   <Link

@@ -1,0 +1,249 @@
+"use client";
+
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+
+import type { GlobalNavItem } from "@/lib/navigation";
+import { cn } from "@/lib/utils";
+
+type Suggestion = {
+  orgNumber: string;
+  name: string;
+  municipality: string | null;
+};
+
+const MIN_QUERY_LENGTH = 2;
+const MAX_SUGGESTIONS = 6;
+const DEBOUNCE_MS = 200;
+
+/**
+ * Toolbar search: expands into an inline input with company typeahead. Selecting a
+ * suggestion or pressing Enter navigates to the search page with that query active.
+ */
+export function NavSearch({ item, active }: { item: GlobalNavItem; active: boolean }) {
+  const router = useRouter();
+  const listId = useId();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const pillRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLUListElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [anchor, setAnchor] = useState<{ left: number; top: number; width: number } | null>(null);
+
+  // Focus the input as soon as the search expands.
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus();
+    }
+  }, [open]);
+
+  // The dropdown is portalled to the body (the toolbar's overflow container would
+  // clip an in-flow dropdown), so track the input's viewport position while open.
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    const measure = () => {
+      const rect = pillRef.current?.getBoundingClientRect();
+      if (rect) {
+        setAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+      }
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [open]);
+
+  // Close on outside click / Escape.
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (containerRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  // Debounced typeahead fetch. Stale responses are dropped via AbortController.
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!open || trimmed.length < MIN_QUERY_LENGTH) {
+      setSuggestions([]);
+      setLoading(false);
+      setHighlighted(-1);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    const handle = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/companies/search?query=${encodeURIComponent(trimmed)}`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) throw new Error("search failed");
+        const payload = (await response.json()) as {
+          data: Array<{ company: { orgNumber: string; name: string; municipality?: string | null } }>;
+        };
+        setSuggestions(
+          payload.data.slice(0, MAX_SUGGESTIONS).map((result) => ({
+            orgNumber: result.company.orgNumber,
+            name: result.company.name,
+            municipality: result.company.municipality ?? null,
+          })),
+        );
+        setHighlighted(-1);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          setSuggestions([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }, DEBOUNCE_MS);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(handle);
+    };
+  }, [query, open]);
+
+  function close() {
+    setOpen(false);
+    setQuery("");
+    setSuggestions([]);
+  }
+
+  function goToSearch(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    close();
+    router.push(`/search?query=${encodeURIComponent(trimmed)}`);
+  }
+
+  function goToCompany(orgNumber: string) {
+    close();
+    router.push(`/companies/${orgNumber}`);
+  }
+
+  function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      // Enter always searches the literal typed text — suggestions are chosen by
+      // clicking, never by Enter, so a hovered row never overrides what was typed.
+      event.preventDefault();
+      goToSearch(query);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        aria-current={active ? "page" : undefined}
+        onClick={() => setOpen(true)}
+        className={cn(
+          "flex items-center gap-2 border-b-2 px-3 py-1.5 text-sm transition-colors",
+          active
+            ? "border-[var(--px-accent)] font-semibold text-[var(--px-accent)]"
+            : "border-transparent font-medium text-[var(--px-muted)] hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]",
+        )}
+      >
+        <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+        <span>{item.label}</span>
+      </button>
+    );
+  }
+
+  const showDropdown = query.trim().length >= MIN_QUERY_LENGTH;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div
+        ref={pillRef}
+        className="flex h-9 w-[min(20rem,60vw)] items-center gap-2 rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-3 focus-within:border-[var(--px-accent)]"
+      >
+        <span className="material-symbols-outlined text-[18px] text-[var(--px-muted)]">
+          {item.icon}
+        </span>
+        <input
+          ref={inputRef}
+          type="text"
+          role="combobox"
+          aria-expanded={suggestions.length > 0}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          value={query}
+          placeholder="Søk etter selskap…"
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={onKeyDown}
+          className="min-w-0 flex-1 bg-transparent text-sm text-[var(--px-text)] outline-none placeholder:text-[var(--px-muted)]"
+        />
+      </div>
+
+      {showDropdown && anchor
+        ? createPortal(
+            <ul
+              ref={dropdownRef}
+              id={listId}
+              role="listbox"
+              style={{
+                position: "fixed",
+                left: anchor.left,
+                top: anchor.top + 6,
+                width: Math.max(anchor.width, 288),
+              }}
+              className="z-[70] max-h-[60vh] overflow-y-auto rounded-xl border border-[var(--px-border)] bg-white py-1 shadow-[0_24px_38px_rgba(15,23,42,0.10)]"
+            >
+              {loading && suggestions.length === 0 ? (
+                <li className="px-4 py-2.5 text-sm text-[var(--px-muted)]">Søker…</li>
+              ) : suggestions.length === 0 ? (
+                <li className="px-4 py-2.5 text-sm text-[var(--px-muted)]">Ingen treff</li>
+              ) : (
+                suggestions.map((suggestion, index) => (
+                  <li key={suggestion.orgNumber} role="option" aria-selected={index === highlighted}>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHighlighted(index)}
+                      onClick={() => goToCompany(suggestion.orgNumber)}
+                      className={cn(
+                        "flex w-full flex-col items-start px-4 py-2 text-left transition-colors",
+                        index === highlighted ? "bg-[var(--px-subtle)]" : "hover:bg-[var(--px-subtle)]",
+                      )}
+                    >
+                      <span className="text-sm font-semibold text-[var(--px-text)]">
+                        {suggestion.name}
+                      </span>
+                      <span className="text-xs tabular-nums text-[var(--px-muted)]">
+                        Org.nr. {suggestion.orgNumber}
+                        {suggestion.municipality ? ` · ${suggestion.municipality}` : ""}
+                      </span>
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>,
+            document.body,
+          )
+        : null}
+    </div>
+  );
+}
