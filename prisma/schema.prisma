@@ -3656,3 +3656,58 @@ model IngestionRun {
 
   @@index([status, startedAt])
 }
+
+enum RoleHolderType {
+  PERSON
+  COMPANY
+}
+
+/// Deduplicated roster of people who hold registered roles across companies, keyed by
+/// normalized name + birth date (Brreg exposes no national ID publicly). Populated from
+/// the Enhetsregister roller bulk download. Separate from the display-oriented Person
+/// model so cross-company person→companies reverse lookup has a clean identity.
+model RegistryPerson {
+  id               String    @id @default(cuid())
+  identityKey      String    @unique
+  fullName         String
+  firstName        String?
+  lastName         String?
+  birthDate        DateTime? @db.Date
+  isDeceased       Boolean   @default(false)
+  sourceSnapshotAt DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([fullName])
+  @@index([lastName, firstName])
+  @@index([birthDate])
+}
+
+/// One registered role a person or company holds in an entity, mirrored in bulk from the
+/// Enhetsregister roller download. `personIdentityKey` links to RegistryPerson by natural
+/// key (so bulk insert needs no id resolution); company role-holders (auditors, accountant
+/// firms, corporate board members) use `holderOrgNumber` instead. `deregistered` keeps
+/// avregistrert history rather than dropping it.
+model RegistryRoleAssignment {
+  id                String         @id @default(cuid())
+  companyOrgNumber  String
+  holderType        RoleHolderType
+  personIdentityKey String?
+  personName        String?
+  personBirthDate   DateTime?      @db.Date
+  holderOrgNumber   String?
+  holderName        String?
+  roleGroup         String?
+  roleType          String
+  roleTypeLabel     String?
+  isBoardRole       Boolean        @default(false)
+  deregistered      Boolean        @default(false)
+  orderIndex        Int?
+  groupLastChanged  DateTime?      @db.Date
+  sourceSnapshotAt  DateTime       @default(now())
+
+  @@index([companyOrgNumber])
+  @@index([personIdentityKey])
+  @@index([holderOrgNumber])
+  @@index([roleType])
+}
