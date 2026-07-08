@@ -1,0 +1,26 @@
+import { PeopleSearchClient } from "@/components/people/people-search-client";
+import { PERSON_ROLE_TYPES } from "@/server/registry/role-search-service";
+
+export const metadata = { title: "Personer og roller" };
+
+export default function PeoplePage() {
+  return (
+    <main className="space-y-8 pb-12">
+      <section>
+        <div className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
+          Personer og roller
+        </div>
+        <h1 className="editorial-display mt-3 text-[2.5rem] leading-tight text-[var(--px-text)]">
+          Søk etter personer og roller
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--px-muted)]">
+          Finn en person og se alle rollene vedkommende har på tvers av norske selskaper, eller
+          filtrer på rolletype for å finne daglige ledere, styreledere og styremedlemmer. Basert på
+          Enhetsregisterets rolledata.
+        </p>
+      </section>
+
+      <PeopleSearchClient roleTypes={PERSON_ROLE_TYPES} />
+    </main>
+  );
+}

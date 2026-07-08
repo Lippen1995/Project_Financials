@@ -37,10 +37,14 @@ export type CompanyRole = {
   deregistered: boolean;
 };
 
-/** Search people by name, ranked by how many active roles they hold. */
+/**
+ * Search people by name, ranked by how many active roles they hold. Optionally restrict
+ * to a role type (e.g. DAGL, LEDE, MEDL) so the search answers "who is a daglig leder /
+ * styreleder named …".
+ */
 export async function searchPersons(
   query: string,
-  options: { limit?: number; includeDeregistered?: boolean } = {},
+  options: { limit?: number; includeDeregistered?: boolean; roleType?: string } = {},
 ): Promise<PersonSearchResult[]> {
   const trimmed = query.trim();
   if (trimmed.length < MIN_QUERY_LENGTH) return [];
@@ -48,6 +52,9 @@ export async function searchPersons(
   const deregFilter = options.includeDeregistered
     ? Prisma.empty
     : Prisma.sql`AND a."deregistered" = false`;
+  const roleFilter = options.roleType
+    ? Prisma.sql`AND a."roleType" = ${options.roleType}`
+    : Prisma.empty;
 
   return prisma.$queryRaw<PersonSearchResult[]>(Prisma.sql`
     SELECT
@@ -59,12 +66,24 @@ export async function searchPersons(
       count(DISTINCT a."companyOrgNumber")::int AS "companyCount"
     FROM "RegistryPerson" p
     JOIN "RegistryRoleAssignment" a ON a."personIdentityKey" = p."identityKey"
-    WHERE p."fullName" ILIKE ${`%${trimmed}%`} ${deregFilter}
+    WHERE p."fullName" ILIKE ${`%${trimmed}%`} ${deregFilter} ${roleFilter}
     GROUP BY p."identityKey", p."fullName", p."birthDate", p."isDeceased"
     ORDER BY "roleCount" DESC, p."fullName" ASC
     LIMIT ${limit}
   `);
 }
+
+/** Person role types offered as search filters, in display order. */
+export const PERSON_ROLE_TYPES: Array<{ code: string; label: string }> = [
+  { code: "LEDE", label: "Styrets leder" },
+  { code: "NEST", label: "Nestleder" },
+  { code: "MEDL", label: "Styremedlem" },
+  { code: "VARA", label: "Varamedlem" },
+  { code: "DAGL", label: "Daglig leder" },
+  { code: "INNH", label: "Innehaver" },
+  { code: "KONT", label: "Kontaktperson" },
+  { code: "REVI", label: "Revisor" },
+];
 
 /**
  * Every company a person holds a role in (the reverse lookup / interlocking-directorate
@@ -91,6 +110,53 @@ export async function getPersonRoles(
     LEFT JOIN "Company" c ON c."orgNumber" = a."companyOrgNumber"
     WHERE a."personIdentityKey" = ${identityKey} ${deregFilter}
     ORDER BY a."isBoardRole" DESC, a."companyOrgNumber" ASC
+  `);
+}
+
+export type PersonShareholding = {
+  issuerOrgNumber: string;
+  issuerName: string;
+  shares: string;
+  ownershipPercent: number | null;
+  taxYear: number;
+};
+
+/**
+ * Shares a person owns, from the Skatteetaten aksjonærregister. The register keys people
+ * by name + birth *year* only (no full date), so this joins on the normalized name and the
+ * birth year decoded from the person's identity key — a fuzzy match that can miss people
+ * whose registered name omits a middle name, and (rarely) merge same-name/same-year
+ * namesakes. Aggregated per issuer across share classes for the latest snapshot year.
+ */
+export async function getPersonShareholdings(identityKey: string): Promise<PersonShareholding[]> {
+  const separator = identityKey.lastIndexOf("|");
+  const normalizedName = separator >= 0 ? identityKey.slice(0, separator) : identityKey;
+  const datePart = separator >= 0 ? identityKey.slice(separator + 1) : "";
+  const birthYear = /^\d{4}/.test(datePart) ? Number(datePart.slice(0, 4)) : null;
+  if (!normalizedName || birthYear === null) return [];
+
+  return prisma.$queryRaw<PersonShareholding[]>(Prisma.sql`
+    WITH latest AS (SELECT max("taxYear") AS y FROM "ShareholderRegisterHolding")
+    SELECT
+      h."issuerOrgNumber" AS "issuerOrgNumber",
+      max(h."issuerName") AS "issuerName",
+      sum(h."numberOfShares")::bigint::text AS "shares",
+      CASE
+        WHEN max(h."totalCompanyShares") IS NULL OR max(h."totalCompanyShares") = 0 THEN NULL
+        ELSE round(
+          least(sum(h."numberOfShares")::numeric * 100 / max(h."totalCompanyShares")::numeric, 100),
+          2
+        )::float8
+      END AS "ownershipPercent",
+      (SELECT y FROM latest)::int AS "taxYear"
+    FROM "ShareholderRegisterHolding" h, latest
+    WHERE h."taxYear" = latest.y
+      AND h."shareholderType" = 'PERSON'
+      AND h."shareholderBirthYear" = ${birthYear}
+      AND upper(regexp_replace(h."shareholderName", '\\s+', ' ', 'g')) = ${normalizedName}
+    GROUP BY h."issuerOrgNumber"
+    ORDER BY "ownershipPercent" DESC NULLS LAST, sum(h."numberOfShares") DESC
+    LIMIT 200
   `);
 }
 
