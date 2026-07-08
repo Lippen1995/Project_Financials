@@ -2,6 +2,9 @@ import Link from "next/link";
 
 import type { CompanyRole } from "@/server/registry/role-search-service";
 
+const numberFormat = new Intl.NumberFormat("nb-NO");
+const percentFormat = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 2 });
+
 function holderTypeLabel(type: CompanyRole["holderType"]) {
   return type === "COMPANY" ? "Selskap" : "Person";
 }
@@ -10,6 +13,22 @@ function birthYear(birthDate: string | null) {
   if (!birthDate) return null;
   const year = birthDate.slice(0, 4);
   return /^\d{4}$/.test(year) ? year : null;
+}
+
+function formatShares(value: string) {
+  try {
+    return numberFormat.format(BigInt(value));
+  } catch {
+    return value;
+  }
+}
+
+function ownershipLabel(role: CompanyRole) {
+  if (role.holderType !== "PERSON") return null;
+  if (!role.ownedShares || role.ownedShares === "0") return "Nei";
+  const percent =
+    role.ownedPercent !== null ? ` (${percentFormat.format(role.ownedPercent)} %)` : "";
+  return `${formatShares(role.ownedShares)} aksjer${percent}`;
 }
 
 /**
@@ -38,8 +57,11 @@ export function CompanyRoles({ roles }: { roles: CompanyRole[] }) {
                 <th className="data-label py-2 pr-4 text-[10px] font-semibold uppercase text-[var(--px-muted)]">
                   Navn
                 </th>
-                <th className="data-label py-2 text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                <th className="data-label py-2 pr-4 text-[10px] font-semibold uppercase text-[var(--px-muted)]">
                   Type
+                </th>
+                <th className="data-label py-2 text-right text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+                  Aksjer i selskapet
                 </th>
               </tr>
             </thead>
@@ -73,7 +95,18 @@ export function CompanyRoles({ roles }: { roles: CompanyRole[] }) {
                             : ""}
                       </div>
                     </td>
-                    <td className="py-2 text-[var(--px-muted)]">{holderTypeLabel(role.holderType)}</td>
+                    <td className="py-2 pr-4 text-[var(--px-muted)]">
+                      {holderTypeLabel(role.holderType)}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {(() => {
+                        const label = ownershipLabel(role);
+                        if (label === null) return <span className="text-[var(--px-muted)]">—</span>;
+                        if (label === "Nei")
+                          return <span className="text-[var(--px-muted)]">Nei</span>;
+                        return <span className="font-semibold text-[var(--px-text)]">{label}</span>;
+                      })()}
+                    </td>
                   </tr>
                 );
               })}

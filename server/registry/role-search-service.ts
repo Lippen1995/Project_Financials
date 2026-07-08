@@ -35,6 +35,9 @@ export type CompanyRole = {
   roleTypeLabel: string | null;
   isBoardRole: boolean;
   deregistered: boolean;
+  /** Shares this person role-holder owns in the same company (aksjonærregister), if any. */
+  ownedShares: string | null;
+  ownedPercent: number | null;
 };
 
 /**
@@ -169,6 +172,8 @@ export async function getCompanyRoleAssignments(
     ? Prisma.empty
     : Prisma.sql`AND a."deregistered" = false`;
 
+  // Person role-holders are matched to their shareholding in the same company via the
+  // aksjonærregister on normalized name + birth year (the register has no full birth date).
   return prisma.$queryRaw<CompanyRole[]>(Prisma.sql`
     SELECT
       a."holderType"::text AS "holderType",
@@ -179,8 +184,30 @@ export async function getCompanyRoleAssignments(
       a."roleType",
       a."roleTypeLabel",
       a."isBoardRole",
-      a."deregistered"
+      a."deregistered",
+      sh."shares" AS "ownedShares",
+      sh."percent" AS "ownedPercent"
     FROM "RegistryRoleAssignment" a
+    LEFT JOIN LATERAL (
+      SELECT
+        sum(h."numberOfShares")::bigint::text AS "shares",
+        CASE
+          WHEN max(h."totalCompanyShares") IS NULL OR max(h."totalCompanyShares") = 0 THEN NULL
+          ELSE round(
+            least(sum(h."numberOfShares")::numeric * 100 / max(h."totalCompanyShares")::numeric, 100),
+            2
+          )::float8
+        END AS "percent"
+      FROM "ShareholderRegisterHolding" h
+      WHERE a."holderType" = 'PERSON'
+        AND a."personBirthDate" IS NOT NULL
+        AND h."issuerOrgNumber" = a."companyOrgNumber"
+        AND h."shareholderType" = 'PERSON'
+        AND h."shareholderBirthYear" = extract(year from a."personBirthDate")::int
+        AND upper(regexp_replace(h."shareholderName", '\\s+', ' ', 'g'))
+            = upper(regexp_replace(a."personName", '\\s+', ' ', 'g'))
+        AND h."taxYear" = (SELECT max("taxYear") FROM "ShareholderRegisterHolding")
+    ) sh ON true
     WHERE a."companyOrgNumber" = ${orgNumber} ${deregFilter}
     ORDER BY a."isBoardRole" DESC, a."orderIndex" ASC NULLS LAST
   `);
