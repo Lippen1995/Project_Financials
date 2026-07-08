@@ -13,6 +13,7 @@
     "db:push": "prisma db push",
     "backfill:workspaces": "tsx scripts/backfill-workspaces.ts",
     "brreg:ingest-subunits": "tsx scripts/ingest-brreg-subunits.ts",
+    "brreg:ingest-subunit-operators": "tsx scripts/ingest-subunit-operators.ts",
     "sync:workspace-notifications": "tsx scripts/sync-workspace-notifications.ts",
     "sync:distress": "tsx scripts/sync-distress-companies.ts",
     "sync:petroleum": "tsx scripts/sync-petroleum.ts",
