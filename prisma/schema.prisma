@@ -737,6 +737,38 @@ model Company {
   @@index([status])
 }
 
+/// Local mirror of Brønnøysund underenheter (business units / physical outlets), ingested
+/// in bulk from the Enhetsregister download so store/outlet searches hit our database
+/// instead of the live Brreg API. `parentOrgNumber` is the underenhet's hovedenhet
+/// (overordnetEnhet) — the operating legal company whose accounts cover the outlet.
+model RegistrySubunit {
+  id                 String        @id @default(cuid())
+  orgNumber          String        @unique
+  name               String
+  parentOrgNumber    String?
+  organisationForm   String?
+  naceCode           String?
+  naceDescription    String?
+  status             CompanyStatus @default(ACTIVE)
+  employeeCount      Int?
+  registeredAt       DateTime?
+  addressStreet      String?
+  postalCode         String?
+  postalPlace        String?
+  municipality       String?
+  municipalityNumber String?
+  countryCode        String?
+  registerUpdatedAt  DateTime?
+  sourceSnapshotAt   DateTime      @default(now())
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([name])
+  @@index([parentOrgNumber])
+  @@index([naceCode])
+  @@index([status])
+}
+
 model CompanyDistressProfile {
   id                          String         @id @default(cuid())
   companyId                   String         @unique
