@@ -45,6 +45,8 @@ import {
   type RegisterBackedProfile,
 } from "@/server/ownership/ownership-overview-service";
 import { getCompanyShareholdingOverview } from "@/server/shareholdings/shareholding-service";
+import { getCompanyRoleAssignments } from "@/server/registry/role-search-service";
+import { CompanyRoles } from "@/components/company/ownership/company-roles";
 
 function sortStatements(statements: NormalizedFinancialStatement[]) {
   return [...statements].sort((a, b) => a.fiscalYear - b.fiscalYear);
@@ -467,7 +469,7 @@ export default async function CompanyPage({
     { id: "regnskap", label: "Regnskap" },
     { id: "nokkeltall", label: "Nøkkeltall" },
     { id: "konsern", label: "Konsern" },
-    { id: "aksjonaerer", label: "Aksjonærer" },
+    { id: "aksjonaerer", label: "Aksjonærer og roller" },
     { id: "kunngjoringer", label: "Kunngjøringer" },
     { id: "dokumenter", label: "Dokumenter" },
     { id: "nyheter", label: "Nyheter" },
@@ -492,6 +494,7 @@ export default async function CompanyPage({
     announcementsData,
     narratives,
     gridConnectionProfile,
+    companyRoles,
   ] = await Promise.all([
     activeTab === "sokkeleksponering" && petroleumVisibility.available
       ? getCompanyPetroleumProfile(company)
@@ -523,6 +526,9 @@ export default async function CompanyPage({
     activeTab === "nettilknytning"
       ? getCompanyGridConnectionProfile({ orgNumber: company.orgNumber, companyName: company.name })
       : Promise.resolve(null),
+    activeTab === "aksjonaerer"
+      ? getCompanyRoleAssignments(company.orgNumber)
+      : Promise.resolve([]),
   ]);
 
   const [initialAnnouncementDetail, discussionContext] = await Promise.all([
@@ -702,7 +708,10 @@ export default async function CompanyPage({
       ) : null}
 
       {activeTab === "aksjonaerer" && shareholdersOverview ? (
-        <ShareholdersTab slug={slug} initial={shareholdersOverview} />
+        <div className="space-y-8">
+          <ShareholdersTab slug={slug} initial={shareholdersOverview} />
+          <CompanyRoles roles={companyRoles} />
+        </div>
       ) : null}
 
       {activeTab === "kunngjoringer" ? (
