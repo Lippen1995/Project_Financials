@@ -78,7 +78,7 @@ export function WatchlistQuickAdd({
     const handle = window.setTimeout(async () => {
       try {
         const response = await fetch(
-          `/api/companies/search?query=${encodeURIComponent(trimmed)}`,
+          `/api/companies/search?mode=typeahead&query=${encodeURIComponent(trimmed)}`,
           { signal: controller.signal },
         );
         if (!response.ok) throw new Error("search failed");
