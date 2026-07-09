@@ -769,6 +769,38 @@ model RegistrySubunit {
   @@index([status])
 }
 
+/// Local mirror of every Brønnøysund main entity (enhet), ingested in bulk from the
+/// Enhetsregister download so company search hits our database instead of the live Brreg
+/// search API. Lightweight and search-focused; the rich per-company data (roles,
+/// financials, ownership) still lives in Company, populated on demand.
+model RegistryEntity {
+  id                 String        @id @default(cuid())
+  orgNumber          String        @unique
+  name               String
+  organisationForm   String?
+  naceCode           String?
+  naceDescription    String?
+  status             CompanyStatus @default(ACTIVE)
+  employeeCount      Int?
+  registeredAt       DateTime?
+  website            String?
+  addressStreet      String?
+  postalCode         String?
+  postalPlace        String?
+  municipality       String?
+  municipalityNumber String?
+  countryCode        String?
+  registerUpdatedAt  DateTime?
+  sourceSnapshotAt   DateTime      @default(now())
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([name])
+  @@index([naceCode])
+  @@index([status])
+  @@index([municipalityNumber])
+}
+
 model CompanyDistressProfile {
   id                          String         @id @default(cuid())
   companyId                   String         @unique

@@ -13,8 +13,8 @@ import {
   SearchInterpretation,
 } from "@/lib/types";
 import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
-import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
+import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { mapDbCompany, mapDbFinancialStatements, mapDbRoles } from "@/server/mappers/db-mappers";
 import {
   getCachedCompanyCore,
@@ -26,7 +26,6 @@ import {
 } from "@/server/persistence/company-repository";
 import { getPublishedAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
 
-const companyProvider = new BrregCompanyProvider();
 const announcementsProvider = new BrregAnnouncementsProvider();
 const industryCodeProvider = new SsbIndustryCodeProvider();
 
@@ -265,7 +264,7 @@ async function searchCandidates(
   geography: ResolvedSearchGeography | null,
 ): Promise<NormalizedCompany[]> {
   if (!filters.query?.trim()) {
-    return companyProvider.searchCompanies(filters);
+    return searchRegistryCompanies(filters);
   }
 
   const queryVariants = Array.from(
@@ -283,7 +282,7 @@ async function searchCandidates(
     ...matchedIndustryCodes.flatMap((industryCode) => {
       if (geography?.municipalityCodes.length) {
         return geography.municipalityCodes.slice(0, 30).map((municipalityNumber) =>
-          companyProvider.searchCompanies({
+          searchRegistryCompanies({
             ...filters,
             query: undefined,
             city: filters.city,
@@ -295,7 +294,7 @@ async function searchCandidates(
       }
 
       return [
-        companyProvider.searchCompanies({
+        searchRegistryCompanies({
           ...filters,
           query: undefined,
           municipality: filters.city ? undefined : geography?.type === "MUNICIPALITY" ? geography.label : undefined,
@@ -306,7 +305,7 @@ async function searchCandidates(
       ];
     }),
     ...queryVariants.map((queryVariant) =>
-      companyProvider.searchCompanies({
+      searchRegistryCompanies({
         ...filters,
         query: queryVariant,
         size: 25,

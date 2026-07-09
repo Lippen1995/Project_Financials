@@ -12,6 +12,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "backfill:workspaces": "tsx scripts/backfill-workspaces.ts",
+    "brreg:ingest-entities": "tsx scripts/ingest-brreg-entities.ts",
     "brreg:ingest-subunits": "tsx scripts/ingest-brreg-subunits.ts",
     "brreg:ingest-subunit-operators": "tsx scripts/ingest-subunit-operators.ts",
     "brreg:ingest-roles": "tsx scripts/ingest-brreg-roles.ts",
