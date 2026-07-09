@@ -35,9 +35,14 @@ export type CompanyRole = {
   roleTypeLabel: string | null;
   isBoardRole: boolean;
   deregistered: boolean;
-  /** Shares this person role-holder owns in the same company (aksjonærregister), if any. */
+  /** Shares this person role-holder owns directly in the same company, if any. */
   ownedShares: string | null;
   ownedPercent: number | null;
+  /** Shares held indirectly via a holding company the person controls (>50 %). */
+  indirectShares: string | null;
+  indirectPercent: number | null;
+  /** Name(s) of the controlled holding company/companies the indirect stake comes through. */
+  indirectVia: string | null;
 };
 
 /**
@@ -163,7 +168,16 @@ export async function getPersonShareholdings(identityKey: string): Promise<Perso
   `);
 }
 
-/** All role-holders (people and companies) registered in a company. */
+/**
+ * All role-holders (people and companies) registered in a company, with each person's
+ * shareholding in that same company:
+ *  - `ownedShares`/`ownedPercent`: shares the person holds directly (aksjonærregister,
+ *    matched on normalized name + birth year — the register has no full birth date).
+ *  - `indirectShares`/`indirectPercent`/`indirectVia`: shares held through a holding
+ *    company the person controls (>50 %) — i.e. a corporate shareholder of this company
+ *    that the board member majority-owns. One level deep (person → holdco → company);
+ *    chains through several holdcos are not attributed.
+ */
 export async function getCompanyRoleAssignments(
   orgNumber: string,
   options: { includeDeregistered?: boolean } = {},
@@ -172,21 +186,87 @@ export async function getCompanyRoleAssignments(
     ? Prisma.empty
     : Prisma.sql`AND a."deregistered" = false`;
 
-  // Person role-holders are matched to their shareholding in the same company via the
-  // aksjonærregister on normalized name + birth year (the register has no full birth date).
+  const [yearRow] = await prisma.$queryRaw<Array<{ year: number | null }>>(
+    Prisma.sql`SELECT max("taxYear")::int AS year FROM "ShareholderRegisterHolding"`,
+  );
+  const year = yearRow?.year ?? null;
+
+  const baseSelect = Prisma.sql`
+    a."holderType"::text AS "holderType",
+    a."personIdentityKey",
+    COALESCE(a."personName", a."holderName", 'Ukjent') AS "holderName",
+    a."holderOrgNumber",
+    to_char(a."personBirthDate", 'YYYY-MM-DD') AS "birthDate",
+    a."roleType",
+    a."roleTypeLabel",
+    a."isBoardRole",
+    a."deregistered"`;
+
+  if (year === null) {
+    return prisma.$queryRaw<CompanyRole[]>(Prisma.sql`
+      SELECT ${baseSelect},
+        NULL::text AS "ownedShares", NULL::float8 AS "ownedPercent",
+        NULL::text AS "indirectShares", NULL::float8 AS "indirectPercent", NULL::text AS "indirectVia"
+      FROM "RegistryRoleAssignment" a
+      WHERE a."companyOrgNumber" = ${orgNumber} ${deregFilter}
+      ORDER BY a."isBoardRole" DESC, a."orderIndex" ASC NULLS LAST
+    `);
+  }
+
+  const [totalRow] = await prisma.$queryRaw<Array<{ total: string | null }>>(Prisma.sql`
+    SELECT max("totalCompanyShares")::text AS total
+    FROM "ShareholderRegisterHolding"
+    WHERE "issuerOrgNumber" = ${orgNumber} AND "taxYear" = ${year}
+  `);
+  const companyTotalShares = totalRow?.total ?? null;
+
   return prisma.$queryRaw<CompanyRole[]>(Prisma.sql`
-    SELECT
-      a."holderType"::text AS "holderType",
-      a."personIdentityKey",
-      COALESCE(a."personName", a."holderName", 'Ukjent') AS "holderName",
-      a."holderOrgNumber",
-      to_char(a."personBirthDate", 'YYYY-MM-DD') AS "birthDate",
-      a."roleType",
-      a."roleTypeLabel",
-      a."isBoardRole",
-      a."deregistered",
-      sh."shares" AS "ownedShares",
-      sh."percent" AS "ownedPercent"
+    WITH corp AS (
+      -- Corporate shareholders of this company and their combined stake.
+      SELECT
+        s."shareholderOrgNumber" AS "holdco",
+        max(s."shareholderName") AS "holdcoName",
+        sum(s."numberOfShares") AS "sharesInC"
+      FROM "ShareholderRegisterHolding" s
+      WHERE s."issuerOrgNumber" = ${orgNumber} AND s."taxYear" = ${year}
+        AND s."shareholderType" = 'COMPANY' AND s."shareholderOrgNumber" IS NOT NULL
+      GROUP BY s."shareholderOrgNumber"
+    ),
+    ctrl AS (
+      -- Person controllers (>50 %) of those corporate shareholders.
+      SELECT
+        upper(regexp_replace(o."shareholderName", '\\s+', ' ', 'g')) AS "nameKey",
+        o."shareholderBirthYear" AS "birthYear",
+        o."issuerOrgNumber" AS "holdco"
+      FROM "ShareholderRegisterHolding" o
+      JOIN corp ON corp."holdco" = o."issuerOrgNumber"
+      WHERE o."taxYear" = ${year} AND o."shareholderType" = 'PERSON'
+        AND o."shareholderBirthYear" IS NOT NULL
+      GROUP BY 1, 2, 3
+      HAVING max(o."totalCompanyShares") > 0
+        AND sum(o."numberOfShares")::numeric * 100 / max(o."totalCompanyShares")::numeric > 50
+    ),
+    indirect AS (
+      -- Per controlling person: the holdcos' combined stake in this company + their names.
+      SELECT
+        ctrl."nameKey", ctrl."birthYear",
+        sum(corp."sharesInC")::bigint::text AS "shares",
+        string_agg(DISTINCT COALESCE(cc."name", corp."holdcoName", ctrl."holdco"), ', ') AS "via"
+      FROM ctrl
+      JOIN corp ON corp."holdco" = ctrl."holdco"
+      LEFT JOIN "Company" cc ON cc."orgNumber" = ctrl."holdco"
+      GROUP BY ctrl."nameKey", ctrl."birthYear"
+    )
+    SELECT ${baseSelect},
+      direct."shares" AS "ownedShares",
+      direct."percent" AS "ownedPercent",
+      ind."shares" AS "indirectShares",
+      CASE
+        WHEN ind."shares" IS NOT NULL AND ${companyTotalShares}::numeric > 0
+        THEN round(least(ind."shares"::numeric * 100 / ${companyTotalShares}::numeric, 100), 2)::float8
+        ELSE NULL
+      END AS "indirectPercent",
+      ind."via" AS "indirectVia"
     FROM "RegistryRoleAssignment" a
     LEFT JOIN LATERAL (
       SELECT
@@ -206,8 +286,13 @@ export async function getCompanyRoleAssignments(
         AND h."shareholderBirthYear" = extract(year from a."personBirthDate")::int
         AND upper(regexp_replace(h."shareholderName", '\\s+', ' ', 'g'))
             = upper(regexp_replace(a."personName", '\\s+', ' ', 'g'))
-        AND h."taxYear" = (SELECT max("taxYear") FROM "ShareholderRegisterHolding")
-    ) sh ON true
+        AND h."taxYear" = ${year}
+    ) direct ON true
+    LEFT JOIN indirect ind
+      ON a."holderType" = 'PERSON'
+      AND a."personBirthDate" IS NOT NULL
+      AND ind."nameKey" = upper(regexp_replace(a."personName", '\\s+', ' ', 'g'))
+      AND ind."birthYear" = extract(year from a."personBirthDate")::int
     WHERE a."companyOrgNumber" = ${orgNumber} ${deregFilter}
     ORDER BY a."isBoardRole" DESC, a."orderIndex" ASC NULLS LAST
   `);

@@ -23,12 +23,22 @@ function formatShares(value: string) {
   }
 }
 
-function ownershipLabel(role: CompanyRole) {
+function toBigInt(value: string | null) {
+  try {
+    return value ? BigInt(value) : 0n;
+  } catch {
+    return 0n;
+  }
+}
+
+/** Combined direct + indirect (via controlled holding company) ownership for a person. */
+function ownershipInfo(role: CompanyRole) {
   if (role.holderType !== "PERSON") return null;
-  if (!role.ownedShares || role.ownedShares === "0") return "Nei";
-  const percent =
-    role.ownedPercent !== null ? ` (${percentFormat.format(role.ownedPercent)} %)` : "";
-  return `${formatShares(role.ownedShares)} aksjer${percent}`;
+  const direct = toBigInt(role.ownedShares);
+  const indirect = toBigInt(role.indirectShares);
+  const total = direct + indirect;
+  const percent = (role.ownedPercent ?? 0) + (role.indirectPercent ?? 0);
+  return { total, indirect, via: role.indirectVia, percent: percent > 0 ? percent : null };
 }
 
 /**
@@ -100,11 +110,25 @@ export function CompanyRoles({ roles }: { roles: CompanyRole[] }) {
                     </td>
                     <td className="py-2 text-right tabular-nums">
                       {(() => {
-                        const label = ownershipLabel(role);
-                        if (label === null) return <span className="text-[var(--px-muted)]">—</span>;
-                        if (label === "Nei")
+                        const info = ownershipInfo(role);
+                        if (info === null) return <span className="text-[var(--px-muted)]">—</span>;
+                        if (info.total === 0n)
                           return <span className="text-[var(--px-muted)]">Nei</span>;
-                        return <span className="font-semibold text-[var(--px-text)]">{label}</span>;
+                        return (
+                          <div>
+                            <div className="font-semibold text-[var(--px-text)]">
+                              {formatShares(info.total.toString())} aksjer
+                              {info.percent !== null
+                                ? ` (${percentFormat.format(info.percent)} %)`
+                                : ""}
+                            </div>
+                            {info.indirect > 0n && info.via ? (
+                              <div className="text-xs font-normal text-[var(--px-muted)]">
+                                herav {formatShares(info.indirect.toString())} via {info.via}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
                       })()}
                     </td>
                   </tr>
