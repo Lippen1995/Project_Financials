@@ -3,7 +3,10 @@ import Link from "next/link";
 import type { CompanyRole } from "@/server/registry/role-search-service";
 
 const numberFormat = new Intl.NumberFormat("nb-NO");
-const percentFormat = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 2 });
+const percentFormat = new Intl.NumberFormat("nb-NO", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
 
 function holderTypeLabel(type: CompanyRole["holderType"]) {
   return type === "COMPANY" ? "Selskap" : "Person";
@@ -15,30 +18,13 @@ function birthYear(birthDate: string | null) {
   return /^\d{4}$/.test(year) ? year : null;
 }
 
-function formatShares(value: string) {
-  try {
-    return numberFormat.format(BigInt(value));
-  } catch {
-    return value;
-  }
-}
-
-function toBigInt(value: string | null) {
-  try {
-    return value ? BigInt(value) : 0n;
-  } catch {
-    return 0n;
-  }
-}
-
-/** Combined direct + indirect (via controlled holding company) ownership for a person. */
+/** Effective (weighted look-through) ownership of a person role-holder in the company. */
 function ownershipInfo(role: CompanyRole) {
-  if (role.holderType !== "PERSON") return null;
-  const direct = toBigInt(role.ownedShares);
-  const indirect = toBigInt(role.indirectShares);
-  const total = direct + indirect;
-  const percent = (role.ownedPercent ?? 0) + (role.indirectPercent ?? 0);
-  return { total, indirect, via: role.indirectVia, percent: percent > 0 ? percent : null };
+  if (role.holderType !== "PERSON" || role.effectiveShares === null) return null;
+  const total = role.effectiveShares;
+  const direct = role.directShares ?? 0;
+  const indirect = Math.max(total - direct, 0);
+  return { total, direct, indirect, percent: role.effectivePercent, via: role.heldVia };
 }
 
 /**
@@ -112,19 +98,19 @@ export function CompanyRoles({ roles }: { roles: CompanyRole[] }) {
                       {(() => {
                         const info = ownershipInfo(role);
                         if (info === null) return <span className="text-[var(--px-muted)]">—</span>;
-                        if (info.total === 0n)
+                        if (info.total === 0)
                           return <span className="text-[var(--px-muted)]">Nei</span>;
                         return (
                           <div>
                             <div className="font-semibold text-[var(--px-text)]">
-                              {formatShares(info.total.toString())} aksjer
+                              {numberFormat.format(info.total)} aksjer
                               {info.percent !== null
                                 ? ` (${percentFormat.format(info.percent)} %)`
                                 : ""}
                             </div>
-                            {info.indirect > 0n && info.via ? (
+                            {info.indirect > 0 && info.via ? (
                               <div className="text-xs font-normal text-[var(--px-muted)]">
-                                herav {formatShares(info.indirect.toString())} via {info.via}
+                                herav {numberFormat.format(info.indirect)} indirekte via {info.via}
                               </div>
                             ) : null}
                           </div>

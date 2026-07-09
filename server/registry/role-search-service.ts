@@ -35,14 +35,18 @@ export type CompanyRole = {
   roleTypeLabel: string | null;
   isBoardRole: boolean;
   deregistered: boolean;
-  /** Shares this person role-holder owns directly in the same company, if any. */
-  ownedShares: string | null;
-  ownedPercent: number | null;
-  /** Shares held indirectly via a holding company the person controls (>50 %). */
-  indirectShares: string | null;
-  indirectPercent: number | null;
-  /** Name(s) of the controlled holding company/companies the indirect stake comes through. */
-  indirectVia: string | null;
+  /**
+   * Effective (weighted look-through) ownership of this person role-holder in the company:
+   * direct shares plus each holding company's stake weighted by the person's ownership
+   * fraction of that company, traversed through multiple levels. `effectiveShares` is the
+   * nominal weighted count (rounded to whole shares); `effectivePercent` the weighted share
+   * of the company. `directShares` is the directly-registered portion; `heldVia` names the
+   * holding companies the indirect portion flows through.
+   */
+  effectiveShares: number | null;
+  effectivePercent: number | null;
+  directShares: number | null;
+  heldVia: string | null;
 };
 
 /**
@@ -168,15 +172,203 @@ export async function getPersonShareholdings(identityKey: string): Promise<Perso
   `);
 }
 
+type RawCompanyRole = {
+  holderType: "PERSON" | "COMPANY";
+  personIdentityKey: string | null;
+  holderName: string;
+  holderOrgNumber: string | null;
+  birthDate: string | null;
+  roleType: string;
+  roleTypeLabel: string | null;
+  isBoardRole: boolean;
+  deregistered: boolean;
+  personName: string | null;
+  birthYear: number | null;
+};
+
+function personKey(name: string, birthYear: number | null): string | null {
+  if (birthYear === null) return null;
+  return `${name.toUpperCase().replace(/\s+/g, " ").trim()}|${birthYear}`;
+}
+
+type ShareholderRow = {
+  issuer: string;
+  type: "PERSON" | "COMPANY";
+  shOrg: string | null;
+  shName: string;
+  shYear: number | null;
+  fraction: number;
+};
+
+/**
+ * Effective (weighted look-through) ownership of `companyOrgNumber` for the given person
+ * keys. Walks up the shareholder graph level by level: at each hop a company's shareholders
+ * contribute their stake weighted by the fraction of the company that has flowed in so far.
+ * Person edges terminate and accumulate; corporate edges expand further, tagged with the
+ * top-level holding company the flow entered through (for the "via" breakdown). Bounded by
+ * depth, per-level breadth, total nodes, and a minimum flow so cycles and huge public
+ * cap tables stay tractable.
+ */
+type OwnershipEntry = { directFraction: number; indirectFraction: number; via: Map<string, string> };
+
+async function computeEffectiveOwnership(
+  companyOrgNumber: string,
+  year: number,
+  totalShares: number,
+  personKeys: Set<string>,
+): Promise<Map<string, OwnershipEntry>> {
+  const MAX_DEPTH = 10;
+  const MAX_FRONTIER = 800;
+  const MAX_TOTAL_NODES = 4000;
+  const MIN_FLOW = 1e-5;
+  // Only seed/expand corporate holders whose stake is meaningful — this keeps widely-held
+  // public cap tables (tens of thousands of retail holders) tractable while still capturing
+  // any board member who holds through a real holding company.
+  const SEED_MIN_FRACTION = 0.001; // 0.1 % of the company
+
+  const result = new Map<string, OwnershipEntry>();
+  const ensure = (key: string): OwnershipEntry => {
+    let entry = result.get(key);
+    if (!entry) {
+      entry = { directFraction: 0, indirectFraction: 0, via: new Map() };
+      result.set(key, entry);
+    }
+    return entry;
+  };
+
+  // Direct holdings: only the role-holders' own registered shares in the company (filtered
+  // by name, so we never scan the company's full retail shareholder list).
+  const names = [...new Set([...personKeys].map((key) => key.slice(0, key.lastIndexOf("|"))))];
+  if (names.length > 0) {
+    const directRows = await prisma.$queryRaw<Array<{ nameKey: string; yr: number | null; shares: number }>>(
+      Prisma.sql`
+        SELECT
+          upper(regexp_replace(h."shareholderName", '\\s+', ' ', 'g')) AS "nameKey",
+          h."shareholderBirthYear" AS "yr",
+          sum(h."numberOfShares")::float8 AS "shares"
+        FROM "ShareholderRegisterHolding" h
+        WHERE h."issuerOrgNumber" = ${companyOrgNumber} AND h."taxYear" = ${year}
+          AND h."shareholderType" = 'PERSON'
+          AND upper(regexp_replace(h."shareholderName", '\\s+', ' ', 'g')) IN (${Prisma.join(names)})
+        GROUP BY 1, 2
+      `,
+    );
+    for (const row of directRows) {
+      const key = `${row.nameKey}|${row.yr}`;
+      if (personKeys.has(key)) ensure(key).directFraction += row.shares / totalShares;
+    }
+  }
+
+  // Only corporate shareholders (to keep walking up) and person shareholders who are
+  // role-holders (to accumulate) are fetched — a widely-held intermediate's thousands of
+  // retail owners are dropped in SQL. Dust edges below MIN_FLOW are dropped too.
+  const personFilter =
+    names.length > 0
+      ? Prisma.sql`OR t."shName" IN (${Prisma.join(names)})`
+      : Prisma.empty;
+
+  async function fetchShareholders(orgs: string[]): Promise<Map<string, ShareholderRow[]>> {
+    const rows = await prisma.$queryRaw<ShareholderRow[]>(Prisma.sql`
+      SELECT t."issuer", t."type", t."shOrg", t."shName", t."shYear", t."fraction"
+      FROM (
+        SELECT
+          h."issuerOrgNumber" AS "issuer",
+          h."shareholderType"::text AS "type",
+          h."shareholderOrgNumber" AS "shOrg",
+          upper(regexp_replace(h."shareholderName", '\\s+', ' ', 'g')) AS "shName",
+          h."shareholderBirthYear" AS "shYear",
+          least(sum(h."numberOfShares")::numeric / NULLIF(max(h."totalCompanyShares"), 0), 1)::float8 AS "fraction"
+        FROM "ShareholderRegisterHolding" h
+        WHERE h."taxYear" = ${year} AND h."issuerOrgNumber" IN (${Prisma.join(orgs)})
+        GROUP BY 1, 2, 3, 4, 5
+      ) t
+      WHERE t."fraction" >= ${MIN_FLOW}
+        AND (t."type" = 'COMPANY' ${personFilter})
+    `);
+    const byIssuer = new Map<string, ShareholderRow[]>();
+    for (const row of rows) {
+      if (!row.fraction || row.fraction <= 0) continue;
+      const list = byIssuer.get(row.issuer);
+      if (list) list.push(row);
+      else byIssuer.set(row.issuer, [row]);
+    }
+    return byIssuer;
+  }
+
+  // Indirect: seed from the company's corporate shareholders above the floor, then walk up.
+  // Each flow is tagged with the top-level holding company it entered through (for "via").
+  type FrontierNode = { org: string; source: { org: string; name: string }; flow: number };
+  let frontier = new Map<string, FrontierNode>();
+
+  const seedRows = await prisma.$queryRaw<Array<{ holdco: string; name: string; fraction: number }>>(Prisma.sql`
+    SELECT
+      s."shareholderOrgNumber" AS "holdco",
+      max(s."shareholderName") AS "name",
+      least(sum(s."numberOfShares")::numeric / NULLIF(max(s."totalCompanyShares"), 0), 1)::float8 AS "fraction"
+    FROM "ShareholderRegisterHolding" s
+    WHERE s."issuerOrgNumber" = ${companyOrgNumber} AND s."taxYear" = ${year}
+      AND s."shareholderType" = 'COMPANY' AND s."shareholderOrgNumber" IS NOT NULL
+      AND s."shareholderOrgNumber" <> ${companyOrgNumber}
+    GROUP BY s."shareholderOrgNumber"
+    HAVING least(sum(s."numberOfShares")::numeric / NULLIF(max(s."totalCompanyShares"), 0), 1) >= ${SEED_MIN_FRACTION}
+  `);
+  for (const row of seedRows) {
+    frontier.set(`${row.holdco}|${row.holdco}`, {
+      org: row.holdco,
+      source: { org: row.holdco, name: row.name },
+      flow: row.fraction,
+    });
+  }
+
+  const startedAt = Date.now();
+  const BUDGET_MS = 3000;
+  let depth = 0;
+  let nodesProcessed = 0;
+  while (
+    frontier.size > 0 &&
+    depth < MAX_DEPTH &&
+    nodesProcessed < MAX_TOTAL_NODES &&
+    Date.now() - startedAt < BUDGET_MS
+  ) {
+    let nodes = [...frontier.values()].filter((n) => n.flow >= MIN_FLOW);
+    nodes.sort((a, b) => b.flow - a.flow);
+    if (nodes.length > MAX_FRONTIER) nodes = nodes.slice(0, MAX_FRONTIER);
+    frontier = new Map();
+    if (nodes.length === 0) break;
+    nodesProcessed += nodes.length;
+
+    const byIssuer = await fetchShareholders([...new Set(nodes.map((n) => n.org))]);
+
+    for (const node of nodes) {
+      for (const row of byIssuer.get(node.org) ?? []) {
+        const flow = node.flow * row.fraction;
+        if (row.type === "PERSON") {
+          const key = personKey(row.shName, row.shYear);
+          if (key && personKeys.has(key)) {
+            const entry = ensure(key);
+            entry.indirectFraction += flow;
+            entry.via.set(node.source.org, node.source.name);
+          }
+        } else if (row.shOrg && row.shOrg !== node.org && flow >= MIN_FLOW) {
+          const k = `${row.shOrg}|${node.source.org}`;
+          const existing = frontier.get(k);
+          if (existing) existing.flow += flow;
+          else frontier.set(k, { org: row.shOrg, source: node.source, flow });
+        }
+      }
+    }
+    depth += 1;
+  }
+
+  return result;
+}
+
 /**
  * All role-holders (people and companies) registered in a company, with each person's
- * shareholding in that same company:
- *  - `ownedShares`/`ownedPercent`: shares the person holds directly (aksjonærregister,
- *    matched on normalized name + birth year — the register has no full birth date).
- *  - `indirectShares`/`indirectPercent`/`indirectVia`: shares held through a holding
- *    company the person controls (>50 %) — i.e. a corporate shareholder of this company
- *    that the board member majority-owns. One level deep (person → holdco → company);
- *    chains through several holdcos are not attributed.
+ * effective (weighted look-through) ownership of that same company — direct shares plus
+ * each controlled/part-owned holding company's stake weighted by the person's ownership
+ * fraction, traversed through multiple levels. Matching is on normalized name + birth year
+ * (the aksjonærregister has no full birth date).
  */
 export async function getCompanyRoleAssignments(
   orgNumber: string,
@@ -186,114 +378,84 @@ export async function getCompanyRoleAssignments(
     ? Prisma.empty
     : Prisma.sql`AND a."deregistered" = false`;
 
+  const rawRoles = await prisma.$queryRaw<RawCompanyRole[]>(Prisma.sql`
+    SELECT
+      a."holderType"::text AS "holderType",
+      a."personIdentityKey",
+      COALESCE(a."personName", a."holderName", 'Ukjent') AS "holderName",
+      a."holderOrgNumber",
+      to_char(a."personBirthDate", 'YYYY-MM-DD') AS "birthDate",
+      a."roleType",
+      a."roleTypeLabel",
+      a."isBoardRole",
+      a."deregistered",
+      a."personName",
+      extract(year from a."personBirthDate")::int AS "birthYear"
+    FROM "RegistryRoleAssignment" a
+    WHERE a."companyOrgNumber" = ${orgNumber} ${deregFilter}
+    ORDER BY a."isBoardRole" DESC, a."orderIndex" ASC NULLS LAST
+  `);
+
   const [yearRow] = await prisma.$queryRaw<Array<{ year: number | null }>>(
     Prisma.sql`SELECT max("taxYear")::int AS year FROM "ShareholderRegisterHolding"`,
   );
   const year = yearRow?.year ?? null;
 
-  const baseSelect = Prisma.sql`
-    a."holderType"::text AS "holderType",
-    a."personIdentityKey",
-    COALESCE(a."personName", a."holderName", 'Ukjent') AS "holderName",
-    a."holderOrgNumber",
-    to_char(a."personBirthDate", 'YYYY-MM-DD') AS "birthDate",
-    a."roleType",
-    a."roleTypeLabel",
-    a."isBoardRole",
-    a."deregistered"`;
+  let ownership = new Map<string, OwnershipEntry>();
+  let totalShares = 0;
 
-  if (year === null) {
-    return prisma.$queryRaw<CompanyRole[]>(Prisma.sql`
-      SELECT ${baseSelect},
-        NULL::text AS "ownedShares", NULL::float8 AS "ownedPercent",
-        NULL::text AS "indirectShares", NULL::float8 AS "indirectPercent", NULL::text AS "indirectVia"
-      FROM "RegistryRoleAssignment" a
-      WHERE a."companyOrgNumber" = ${orgNumber} ${deregFilter}
-      ORDER BY a."isBoardRole" DESC, a."orderIndex" ASC NULLS LAST
+  if (year !== null) {
+    const [totalRow] = await prisma.$queryRaw<Array<{ total: string | null }>>(Prisma.sql`
+      SELECT max("totalCompanyShares")::text AS total
+      FROM "ShareholderRegisterHolding"
+      WHERE "issuerOrgNumber" = ${orgNumber} AND "taxYear" = ${year}
     `);
+    totalShares = totalRow?.total ? Number(totalRow.total) : 0;
+
+    const personKeys = new Set<string>();
+    for (const role of rawRoles) {
+      if (role.holderType !== "PERSON") continue;
+      const key = personKey(role.personName ?? "", role.birthYear);
+      if (key) personKeys.add(key);
+    }
+    if (personKeys.size > 0 && totalShares > 0) {
+      ownership = await computeEffectiveOwnership(orgNumber, year, totalShares, personKeys);
+    }
   }
 
-  const [totalRow] = await prisma.$queryRaw<Array<{ total: string | null }>>(Prisma.sql`
-    SELECT max("totalCompanyShares")::text AS total
-    FROM "ShareholderRegisterHolding"
-    WHERE "issuerOrgNumber" = ${orgNumber} AND "taxYear" = ${year}
-  `);
-  const companyTotalShares = totalRow?.total ?? null;
+  return rawRoles.map((role) => {
+    const key =
+      role.holderType === "PERSON" ? personKey(role.personName ?? "", role.birthYear) : null;
+    const own = key ? ownership.get(key) : undefined;
 
-  return prisma.$queryRaw<CompanyRole[]>(Prisma.sql`
-    WITH corp AS (
-      -- Corporate shareholders of this company and their combined stake.
-      SELECT
-        s."shareholderOrgNumber" AS "holdco",
-        max(s."shareholderName") AS "holdcoName",
-        sum(s."numberOfShares") AS "sharesInC"
-      FROM "ShareholderRegisterHolding" s
-      WHERE s."issuerOrgNumber" = ${orgNumber} AND s."taxYear" = ${year}
-        AND s."shareholderType" = 'COMPANY' AND s."shareholderOrgNumber" IS NOT NULL
-      GROUP BY s."shareholderOrgNumber"
-    ),
-    ctrl AS (
-      -- Person controllers (>50 %) of those corporate shareholders.
-      SELECT
-        upper(regexp_replace(o."shareholderName", '\\s+', ' ', 'g')) AS "nameKey",
-        o."shareholderBirthYear" AS "birthYear",
-        o."issuerOrgNumber" AS "holdco"
-      FROM "ShareholderRegisterHolding" o
-      JOIN corp ON corp."holdco" = o."issuerOrgNumber"
-      WHERE o."taxYear" = ${year} AND o."shareholderType" = 'PERSON'
-        AND o."shareholderBirthYear" IS NOT NULL
-      GROUP BY 1, 2, 3
-      HAVING max(o."totalCompanyShares") > 0
-        AND sum(o."numberOfShares")::numeric * 100 / max(o."totalCompanyShares")::numeric > 50
-    ),
-    indirect AS (
-      -- Per controlling person: the holdcos' combined stake in this company + their names.
-      SELECT
-        ctrl."nameKey", ctrl."birthYear",
-        sum(corp."sharesInC")::bigint::text AS "shares",
-        string_agg(DISTINCT COALESCE(cc."name", corp."holdcoName", ctrl."holdco"), ', ') AS "via"
-      FROM ctrl
-      JOIN corp ON corp."holdco" = ctrl."holdco"
-      LEFT JOIN "Company" cc ON cc."orgNumber" = ctrl."holdco"
-      GROUP BY ctrl."nameKey", ctrl."birthYear"
-    )
-    SELECT ${baseSelect},
-      direct."shares" AS "ownedShares",
-      direct."percent" AS "ownedPercent",
-      ind."shares" AS "indirectShares",
-      CASE
-        WHEN ind."shares" IS NOT NULL AND ${companyTotalShares}::numeric > 0
-        THEN round(least(ind."shares"::numeric * 100 / ${companyTotalShares}::numeric, 100), 2)::float8
-        ELSE NULL
-      END AS "indirectPercent",
-      ind."via" AS "indirectVia"
-    FROM "RegistryRoleAssignment" a
-    LEFT JOIN LATERAL (
-      SELECT
-        sum(h."numberOfShares")::bigint::text AS "shares",
-        CASE
-          WHEN max(h."totalCompanyShares") IS NULL OR max(h."totalCompanyShares") = 0 THEN NULL
-          ELSE round(
-            least(sum(h."numberOfShares")::numeric * 100 / max(h."totalCompanyShares")::numeric, 100),
-            2
-          )::float8
-        END AS "percent"
-      FROM "ShareholderRegisterHolding" h
-      WHERE a."holderType" = 'PERSON'
-        AND a."personBirthDate" IS NOT NULL
-        AND h."issuerOrgNumber" = a."companyOrgNumber"
-        AND h."shareholderType" = 'PERSON'
-        AND h."shareholderBirthYear" = extract(year from a."personBirthDate")::int
-        AND upper(regexp_replace(h."shareholderName", '\\s+', ' ', 'g'))
-            = upper(regexp_replace(a."personName", '\\s+', ' ', 'g'))
-        AND h."taxYear" = ${year}
-    ) direct ON true
-    LEFT JOIN indirect ind
-      ON a."holderType" = 'PERSON'
-      AND a."personBirthDate" IS NOT NULL
-      AND ind."nameKey" = upper(regexp_replace(a."personName", '\\s+', ' ', 'g'))
-      AND ind."birthYear" = extract(year from a."personBirthDate")::int
-    WHERE a."companyOrgNumber" = ${orgNumber} ${deregFilter}
-    ORDER BY a."isBoardRole" DESC, a."orderIndex" ASC NULLS LAST
-  `);
+    let effectiveShares: number | null = null;
+    let effectivePercent: number | null = null;
+    let directShares: number | null = null;
+    let heldVia: string | null = null;
+
+    if (role.holderType === "PERSON") {
+      // Person with no ownership found still reads as an explicit "no shares".
+      const effectiveFraction = own ? own.directFraction + own.indirectFraction : 0;
+      effectiveShares = Math.round(effectiveFraction * totalShares);
+      effectivePercent = effectiveFraction * 100;
+      directShares = own ? Math.round(own.directFraction * totalShares) : 0;
+      heldVia = own && own.via.size > 0 ? [...own.via.values()].join(", ") : null;
+    }
+
+    return {
+      holderType: role.holderType,
+      personIdentityKey: role.personIdentityKey,
+      holderName: role.holderName,
+      holderOrgNumber: role.holderOrgNumber,
+      birthDate: role.birthDate,
+      roleType: role.roleType,
+      roleTypeLabel: role.roleTypeLabel,
+      isBoardRole: role.isBoardRole,
+      deregistered: role.deregistered,
+      effectiveShares,
+      effectivePercent,
+      directShares,
+      heldVia,
+    };
+  });
 }
