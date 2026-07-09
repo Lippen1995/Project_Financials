@@ -2892,6 +2892,9 @@ model ShareholderRegisterHolding {
   @@index([issuerOrgNumber])
   @@index([shareholderOrgNumber])
   @@index([taxYear, ownershipPercent])
+  // Serves the "top N holders of a company" query (ORDER BY ownershipPercent DESC,
+  // numberOfShares DESC) as an index range scan instead of sorting the full register.
+  @@index([taxYear, issuerOrgNumber, ownershipPercent(sort: Desc), numberOfShares(sort: Desc)], map: "shr_top_holders")
 }
 
 /// Materialised company-to-company ownership graph, aggregated per tax year from

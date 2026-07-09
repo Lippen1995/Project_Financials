@@ -3,7 +3,6 @@ import crypto from "node:crypto";
 import { ShareholdingGraphSnapshot, ShareholderType } from "@/lib/types";
 import { prisma } from "@/lib/prisma";
 import { SkatteetatenShareholdingProvider } from "@/integrations/skatteetaten/aksjonaer-i-virksomhet-provider";
-import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import {
   getShareholdingAvailableYears,
   getShareholdingSnapshot,
@@ -12,7 +11,6 @@ import { getRegisteredOwnersForCompany } from "@/server/shareholdings/shareholde
 import { resolveUltimateOwners, type UltimateOwner } from "@/server/ownership/ultimate-owner-service";
 
 const skatteetatenProvider = new SkatteetatenShareholdingProvider();
-const brregCompanyProvider = new BrregCompanyProvider();
 
 // The shareholders tab only ever shows the largest holders; a widely-held company can have
 // hundreds of thousands of register rows that add no value and make the page slow. Cap the
@@ -100,6 +98,13 @@ async function buildRegisterBackedSnapshot(params: {
     TOP_SHAREHOLDERS_CAP,
   );
   if (rows.length === 0) return null;
+
+  // Fall back to the register's issuer name when the company is not in the local Company
+  // table (so the name is not just the org number).
+  const companyName =
+    params.companyName && params.companyName !== params.orgNumber
+      ? params.companyName
+      : rows[0]?.issuerName ?? params.orgNumber;
 
   const aggregates = new Map<string, OwnerAggregate>();
   for (const row of rows) {
@@ -191,7 +196,7 @@ async function buildRegisterBackedSnapshot(params: {
     snapshotId,
     companyId: params.orgNumber,
     companyOrgNumber: params.orgNumber,
-    companyName: params.companyName,
+    companyName,
     taxYear: params.taxYear,
     totalShares: owners.find((owner) => owner.totalShares !== null)?.totalShares?.toString() ?? null,
     shareholderCount: owners.length,
@@ -204,7 +209,7 @@ async function buildRegisterBackedSnapshot(params: {
       {
         id: companyNodeId,
         type: "COMPANY",
-        label: params.companyName,
+        label: companyName,
         metadata: { orgNumber: params.orgNumber, typeLabel: "Selskap" },
       },
       ...owners.map((owner) => ({
@@ -260,21 +265,24 @@ async function buildUltimateOwners(
 }
 
 export async function getCompanyShareholdingOverview(orgNumber: string, requestedYear?: number) {
-  const company = await brregCompanyProvider.getCompany(orgNumber);
-  const [snapshotYears, registerYears] = await Promise.all([
+  // The company name is the only thing needed here, so read it from the local Company table
+  // (a fast indexed lookup, run in parallel) instead of a synchronous Brreg API call on
+  // every shareholders page load.
+  const [companyRow, snapshotYears, registerYears] = await Promise.all([
+    prisma.company.findUnique({ where: { orgNumber }, select: { name: true } }),
     getShareholdingAvailableYears(orgNumber),
     getRegisterAvailableYearsForCompany(orgNumber),
   ]);
   const availableYears = Array.from(new Set([...snapshotYears, ...registerYears])).sort((a, b) => b - a);
   const latestExpectedYear = getLatestExpectedYear();
   const selectedYear = requestedYear ?? availableYears[0] ?? latestExpectedYear;
-  const companyName = company?.name ?? orgNumber;
+  const companyName = companyRow?.name ?? orgNumber;
 
   if (skatteetatenProvider.canFetch()) {
     try {
       const liveSnapshot = await skatteetatenProvider.getShareholdingSnapshot(orgNumber, requestedYear);
       if (liveSnapshot) {
-        liveSnapshot.companyName = company?.name ?? liveSnapshot.companyName;
+        liveSnapshot.companyName = companyRow?.name ?? liveSnapshot.companyName;
         return {
           snapshot: liveSnapshot,
           availableYears: Array.from(new Set([liveSnapshot.taxYear, ...availableYears])).sort((a, b) => b - a),
