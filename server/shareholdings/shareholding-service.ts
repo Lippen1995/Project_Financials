@@ -14,6 +14,11 @@ import { resolveUltimateOwners, type UltimateOwner } from "@/server/ownership/ul
 const skatteetatenProvider = new SkatteetatenShareholdingProvider();
 const brregCompanyProvider = new BrregCompanyProvider();
 
+// The shareholders tab only ever shows the largest holders; a widely-held company can have
+// hundreds of thousands of register rows that add no value and make the page slow. Cap the
+// list to the top holders (by ownership share).
+const TOP_SHAREHOLDERS_CAP = 100;
+
 function getLatestExpectedYear(currentDate = new Date()) {
   const year = currentDate.getUTCFullYear();
   const expectedRelease = new Date(Date.UTC(year, 4, 15));
@@ -35,12 +40,21 @@ function stableId(seed: string) {
 }
 
 async function getRegisterAvailableYearsForCompany(orgNumber: string) {
-  const rows = await prisma.shareholderRegisterHolding.findMany({
-    where: { issuerOrgNumber: orgNumber },
-    distinct: ["taxYear"],
-    orderBy: { taxYear: "desc" },
-    select: { taxYear: true },
-  });
+  // Prisma `distinct` here materializes every register row for the company (millions for a
+  // widely-held issuer — ~18s for Equinor). Instead probe each imported register year for
+  // existence via the (taxYear, issuerOrgNumber) index — ~20 index lookups, ~20ms.
+  const rows = await prisma.$queryRaw<Array<{ taxYear: number }>>`
+    SELECT y."taxYear"
+    FROM (
+      SELECT DISTINCT "taxYear" FROM "ShareholderRegisterImport"
+      WHERE status::text IN ('COMPLETED', 'PARTIAL')
+    ) y
+    WHERE EXISTS (
+      SELECT 1 FROM "ShareholderRegisterHolding" h
+      WHERE h."taxYear" = y."taxYear" AND h."issuerOrgNumber" = ${orgNumber}
+    )
+    ORDER BY y."taxYear" DESC
+  `;
 
   return rows.map((row) => row.taxYear);
 }
@@ -80,7 +94,11 @@ async function buildRegisterBackedSnapshot(params: {
   taxYear: number;
   latestExpectedYear: number;
 }): Promise<ShareholdingGraphSnapshot | null> {
-  const rows = await getRegisteredOwnersForCompany(params.orgNumber, params.taxYear, 1000);
+  const rows = await getRegisteredOwnersForCompany(
+    params.orgNumber,
+    params.taxYear,
+    TOP_SHAREHOLDERS_CAP,
+  );
   if (rows.length === 0) return null;
 
   const aggregates = new Map<string, OwnerAggregate>();
@@ -269,7 +287,11 @@ export async function getCompanyShareholdingOverview(orgNumber: string, requeste
     }
   }
 
-  const persistedSnapshot = await getShareholdingSnapshot(orgNumber, selectedYear);
+  const persistedSnapshot = await getShareholdingSnapshot(
+    orgNumber,
+    selectedYear,
+    TOP_SHAREHOLDERS_CAP,
+  );
   const registerSnapshot = persistedSnapshot
     ? null
     : await buildRegisterBackedSnapshot({

@@ -19,7 +19,16 @@ export async function getShareholdingAvailableYears(orgNumber: string) {
   return snapshots.map((snapshot) => snapshot.taxYear);
 }
 
-export async function getShareholdingSnapshot(orgNumber: string, taxYear: number): Promise<ShareholdingGraphSnapshot | null> {
+export async function getShareholdingSnapshot(
+  orgNumber: string,
+  taxYear: number,
+  limit?: number,
+): Promise<ShareholdingGraphSnapshot | null> {
+  // Graph nodes/edges are only consumed by graph views, not the shareholders overview.
+  // When a `limit` is set (the overview), take only the top N ownerships and skip the
+  // node/edge set entirely — loading a widely-held company's full cap table (hundreds of
+  // thousands of rows across three relations) is what made these pages take ~25s.
+  const includeGraph = limit === undefined;
   const snapshot = await prisma.shareholdingSnapshot.findFirst({
     where: { company: { orgNumber }, taxYear },
     include: {
@@ -33,9 +42,10 @@ export async function getShareholdingSnapshot(orgNumber: string, taxYear: number
           },
         },
         orderBy: [{ ownershipPercent: "desc" }, { numberOfShares: "desc" }],
+        take: limit,
       },
-      graphNodes: { orderBy: { sortOrder: "asc" } },
-      graphEdges: { orderBy: { sortOrder: "asc" } },
+      graphNodes: includeGraph ? { orderBy: { sortOrder: "asc" } } : false,
+      graphEdges: includeGraph ? { orderBy: { sortOrder: "asc" } } : false,
     },
   });
 
@@ -74,14 +84,14 @@ export async function getShareholdingSnapshot(orgNumber: string, taxYear: number
     isDirect: ownership.isDirect,
   }));
 
-  const nodes: ShareholdingGraphNode[] = snapshot.graphNodes.map((node) => ({
+  const nodes: ShareholdingGraphNode[] = (snapshot.graphNodes ?? []).map((node) => ({
     id: node.nodeKey,
     type: node.type,
     label: node.label,
     metadata: node.metadata as ShareholdingGraphNode["metadata"],
   }));
 
-  const edges: ShareholdingGraphEdge[] = snapshot.graphEdges.map((edge) => ({
+  const edges: ShareholdingGraphEdge[] = (snapshot.graphEdges ?? []).map((edge) => ({
     id: edge.edgeKey,
     sourceNodeId: edge.sourceNodeKey,
     targetNodeId: edge.targetNodeKey,
