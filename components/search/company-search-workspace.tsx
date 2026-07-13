@@ -20,6 +20,7 @@ type SearchParams = {
   legalForm: string;
   status: string;
   aiEnabled: boolean;
+  scope?: "companies" | "industries" | "bankruptcies";
 };
 
 type SortState = {
@@ -117,6 +118,7 @@ export function CompanySearchWorkspace({
   const resetSearchParams = new URLSearchParams();
   if (params.query) resetSearchParams.set("query", params.query);
   if (params.aiEnabled) resetSearchParams.set("ai", "1");
+  if (params.scope) resetSearchParams.set("scope", params.scope);
   const resetHref = (resetSearchParams.size > 0
     ? `/search?${resetSearchParams.toString()}`
     : "/search") as Route;
@@ -131,6 +133,7 @@ export function CompanySearchWorkspace({
       </header>
 
       <form action="/search" method="get" className="space-y-4">
+        {params.scope ? <input type="hidden" name="scope" value={params.scope} /> : null}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center">
           <input
             name="query"

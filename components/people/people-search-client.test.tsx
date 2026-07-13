@@ -8,10 +8,10 @@ describe("PeopleSearchClient", () => {
   it("hydrates the query forwarded by the dashboard search", () => {
     globalThis.React = React;
     const html = renderToStaticMarkup(
-      <PeopleSearchClient roleTypes={[]} initialQuery="Ola Nordmann" />,
+      <PeopleSearchClient roleTypes={[]} initialQuery="PERSON_QUERY" />,
     );
 
-    expect(html).toContain('value="Ola Nordmann"');
+    expect(html).toContain('value="PERSON_QUERY"');
   });
 
   it("hydrates a role filter forwarded by the dashboard search", () => {
@@ -25,5 +25,14 @@ describe("PeopleSearchClient", () => {
 
     expect(html).toContain('<option value="LEDE" selected="">Styrets leder</option>');
     expect(html).not.toContain("Skriv minst 2 tegn");
+  });
+
+  it("renders a role query without converting it to a person name", () => {
+    globalThis.React = React;
+    const html = renderToStaticMarkup(
+      <PeopleSearchClient roleTypes={[]} initialQuery="Observatør" searchScope="roles" />,
+    );
+
+    expect(html).toContain('value="Observatør"');
   });
 });

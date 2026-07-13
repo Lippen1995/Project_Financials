@@ -4,26 +4,23 @@ import { buildDashboardSearchHref, isDashboardSearchScope } from "@/lib/dashboar
 
 describe("dashboard search URLs", () => {
   it("keeps company AI searches inside the company result page", () => {
-    expect(buildDashboardSearchHref("Equinor", "companies", true)).toBe(
-      "/search?query=Equinor&scope=companies&ai=1",
+    expect(buildDashboardSearchHref("COMPANY_QUERY", "companies", true)).toBe(
+      "/search?query=COMPANY_QUERY&scope=companies&ai=1",
     );
   });
 
   it("routes people and roles to the people page", () => {
-    expect(buildDashboardSearchHref("Ola Nordmann", "persons", false)).toBe(
-      "/people?query=Ola+Nordmann&scope=persons",
+    expect(buildDashboardSearchHref("PERSON_QUERY", "persons", false)).toBe(
+      "/people?query=PERSON_QUERY&scope=persons",
     );
-    expect(buildDashboardSearchHref("Ola Nordmann", "roles", true)).toBe(
-      "/people?query=Ola+Nordmann&scope=roles&ai=1#role-filter",
+    expect(buildDashboardSearchHref("ROLE_QUERY", "roles", true)).toBe(
+      "/people?query=ROLE_QUERY&scope=roles&ai=1#role-filter",
     );
   });
 
-  it("turns a known role title into a real Brreg role filter", () => {
+  it("keeps role queries intact for provider-backed role matching", () => {
     expect(buildDashboardSearchHref("styreleder", "roles", false)).toBe(
-      "/people?query=&scope=roles&roleType=LEDE#role-filter",
-    );
-    expect(buildDashboardSearchHref("daglig leder Kari", "roles", false)).toBe(
-      "/people?query=Kari&scope=roles&roleType=DAGL#role-filter",
+      "/people?query=styreleder&scope=roles#role-filter",
     );
   });
 

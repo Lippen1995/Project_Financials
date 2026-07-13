@@ -23,6 +23,12 @@ function readParam(value: string | string[] | undefined) {
   return typeof value === "string" ? value : "";
 }
 
+function readCompanySearchScope(
+  value: string | string[] | undefined,
+): "companies" | "industries" | "bankruptcies" {
+  return value === "industries" || value === "bankruptcies" ? value : "companies";
+}
+
 export default async function SearchPage({
   searchParams,
 }: {
@@ -36,6 +42,7 @@ export default async function SearchPage({
     legalForm: readParam(rawParams.legalForm).trim(),
     status: readParam(rawParams.status).trim(),
     aiEnabled: rawParams.ai === "1",
+    scope: readCompanySearchScope(rawParams.scope),
   };
 
   let searchResult = emptySearchResult;
@@ -60,7 +67,17 @@ export default async function SearchPage({
       "Søket mot virksomhetsregisteret kunne ikke fullføres akkurat nå. Prøv igjen med selskapsnavn eller organisasjonsnummer.";
   }
 
-  const rows: CompanySearchRow[] = searchResult.results.map((result) => ({
+  const matchedIndustryCodes = searchResult.interpretation.matchedIndustryCodes.map(
+    (industry) => industry.code,
+  );
+  const scopedResults =
+    params.scope === "industries"
+      ? searchResult.results.filter((result) =>
+          matchedIndustryCodes.some((code) => result.company.industryCode?.code.startsWith(code)),
+        )
+      : searchResult.results;
+
+  const rows: CompanySearchRow[] = scopedResults.map((result) => ({
     orgNumber: result.company.orgNumber,
     name: result.company.name,
     status: result.company.status,

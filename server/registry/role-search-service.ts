@@ -15,6 +15,12 @@ export type PersonSearchResult = {
   companyCount: number;
 };
 
+export type RoleTypeSearchResult = {
+  roleType: string;
+  roleTypeLabel: string | null;
+  assignmentCount: number;
+};
+
 export type PersonRole = {
   companyOrgNumber: string;
   companyName: string | null;
@@ -56,7 +62,12 @@ export type CompanyRole = {
  */
 export async function searchPersons(
   query: string,
-  options: { limit?: number; includeDeregistered?: boolean; roleType?: string } = {},
+  options: {
+    limit?: number;
+    includeDeregistered?: boolean;
+    roleType?: string;
+    mode?: "persons" | "roles";
+  } = {},
 ): Promise<PersonSearchResult[]> {
   const trimmed = query.trim();
   if (trimmed.length < MIN_QUERY_LENGTH && !options.roleType) return [];
@@ -67,6 +78,13 @@ export async function searchPersons(
   const roleFilter = options.roleType
     ? Prisma.sql`AND a."roleType" = ${options.roleType}`
     : Prisma.empty;
+  const queryFilter =
+    options.mode === "roles"
+      ? Prisma.sql`AND (
+          a."roleTypeLabel" ILIKE ${`%${trimmed}%`}
+          OR a."roleType" ILIKE ${`%${trimmed}%`}
+        )`
+      : Prisma.sql`AND p."fullName" ILIKE ${`%${trimmed}%`}`;
 
   return prisma.$queryRaw<PersonSearchResult[]>(Prisma.sql`
     SELECT
@@ -78,24 +96,53 @@ export async function searchPersons(
       count(DISTINCT a."companyOrgNumber")::int AS "companyCount"
     FROM "RegistryPerson" p
     JOIN "RegistryRoleAssignment" a ON a."personIdentityKey" = p."identityKey"
-    WHERE p."fullName" ILIKE ${`%${trimmed}%`} ${deregFilter} ${roleFilter}
+    WHERE true ${queryFilter} ${deregFilter} ${roleFilter}
     GROUP BY p."identityKey", p."fullName", p."birthDate", p."isDeceased"
     ORDER BY "roleCount" DESC, p."fullName" ASC
     LIMIT ${limit}
   `);
 }
 
-/** Person role types offered as search filters, in display order. */
-export const PERSON_ROLE_TYPES: Array<{ code: string; label: string }> = [
-  { code: "LEDE", label: "Styrets leder" },
-  { code: "NEST", label: "Nestleder" },
-  { code: "MEDL", label: "Styremedlem" },
-  { code: "VARA", label: "Varamedlem" },
-  { code: "DAGL", label: "Daglig leder" },
-  { code: "INNH", label: "Innehaver" },
-  { code: "KONT", label: "Kontaktperson" },
-  { code: "REVI", label: "Revisor" },
-];
+/** Search the role vocabulary actually present in the normalized Brreg role assignments. */
+export async function searchRoleTypes(
+  query: string,
+  options: { limit?: number; includeDeregistered?: boolean } = {},
+): Promise<RoleTypeSearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < MIN_QUERY_LENGTH) return [];
+  const limit = Math.min(Math.max(options.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
+  const deregFilter = options.includeDeregistered
+    ? Prisma.empty
+    : Prisma.sql`AND "deregistered" = false`;
+
+  return prisma.$queryRaw<RoleTypeSearchResult[]>(Prisma.sql`
+    SELECT
+      "roleType",
+      max("roleTypeLabel") AS "roleTypeLabel",
+      count(*)::int AS "assignmentCount"
+    FROM "RegistryRoleAssignment"
+    WHERE (
+      "roleTypeLabel" ILIKE ${`%${trimmed}%`}
+      OR "roleType" ILIKE ${`%${trimmed}%`}
+    ) ${deregFilter}
+    GROUP BY "roleType"
+    ORDER BY "assignmentCount" DESC, "roleType" ASC
+    LIMIT ${limit}
+  `);
+}
+
+/** Role types offered as filters, derived from normalized Brreg role assignments. */
+export async function getAvailableRoleTypes(): Promise<Array<{ code: string; label: string }>> {
+  return prisma.$queryRaw<Array<{ code: string; label: string }>>(Prisma.sql`
+    SELECT
+      "roleType" AS code,
+      coalesce(max("roleTypeLabel"), "roleType") AS label
+    FROM "RegistryRoleAssignment"
+    WHERE "deregistered" = false
+    GROUP BY "roleType"
+    ORDER BY label ASC
+  `);
+}
 
 /**
  * Every company a person holds a role in (the reverse lookup / interlocking-directorate

@@ -1,33 +1,33 @@
-import env from "@/lib/env";
+import { OpenAiDashboardSearchScopeProvider } from "@/integrations/openai/openai-dashboard-search-scope-provider";
+import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
 import {
   buildDashboardSearchHref,
   type ResolvedDashboardSearchScope,
 } from "@/lib/dashboard-search";
-import { searchPersons } from "@/server/registry/role-search-service";
+import { searchPersons, searchRoleTypes } from "@/server/registry/role-search-service";
 import { searchCompanies } from "@/server/services/company-service";
 
-type AiScopeResponse = {
-  choices?: Array<{ message?: { content?: string | null } }>;
-};
-
 export type RoutingDependencies = {
-  searchCompanyMatches: (filters: {
-    query: string;
-    aiAssisted: boolean;
-  }) => Promise<{
-    results: Array<{ company: { name: string } }>;
-    interpretation: { matchedIndustryCodes: Array<{ code: string }> };
-  }>;
-  searchPersonMatches: (
+  searchCompanyMatches: (
     query: string,
-    options: { limit: number },
-  ) => Promise<Array<{ fullName: string }>>;
+    options?: { status?: "BANKRUPT" },
+  ) => Promise<{
+    results: Array<{ company: { name: string } }>;
+  }>;
+  searchPersonMatches: (query: string) => Promise<Array<{ fullName: string }>>;
+  searchIndustryMatches: (
+    query: string,
+  ) => Promise<Array<{ code: string; title?: string | null; score: number }>>;
+  searchRoleMatches: (
+    query: string,
+  ) => Promise<Array<{ roleType: string; roleTypeLabel: string | null }>>;
   classifyWithAi: (query: string) => Promise<ResolvedDashboardSearchScope | null>;
 };
 
-const ROLE_TERMS = /\b(styreleder|styremedlem|daglig leder|revisor|innehaver|nestleder|varamedlem|kontaktperson)\b/i;
 const BANKRUPTCY_TERMS = /\b(konkurs|konkurser|konkursrammet|tvangsavvikl(?:et|ing))\b/i;
 const INDUSTRY_CODE = /^\d{2}(?:\.\d{1,3})?$/;
+const industryCodeProvider = new SsbIndustryCodeProvider();
+const aiScopeProvider = new OpenAiDashboardSearchScopeProvider();
 
 function normalize(value: string) {
   return value
@@ -38,53 +38,23 @@ function normalize(value: string) {
     .trim();
 }
 
-async function classifyWithAi(query: string): Promise<ResolvedDashboardSearchScope | null> {
-  if (!env.openAiApiKey) return null;
-
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.openAiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: env.openAiSearchModel,
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              "Classify a Norwegian business-search query into exactly one available search scope. " +
-              "Return strict JSON with the key scope and one of: companies, industries, persons, roles, bankruptcies. " +
-              "Choose persons for a named individual, roles for queries primarily about a position, industries for an industry/activity, bankruptcies for bankruptcy-focused queries, otherwise companies. Do not invent facts.",
-          },
-          { role: "user", content: query },
-        ],
-      }),
-    });
-    if (!response.ok) return null;
-
-    const payload = (await response.json()) as AiScopeResponse;
-    const content = payload.choices?.[0]?.message?.content;
-    if (!content) return null;
-    const parsed = JSON.parse(content) as { scope?: string };
-    return ["companies", "industries", "persons", "roles", "bankruptcies"].includes(
-      parsed.scope ?? "",
-    )
-      ? (parsed.scope as ResolvedDashboardSearchScope)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 const defaultDependencies: RoutingDependencies = {
-  searchCompanyMatches: searchCompanies,
-  searchPersonMatches: searchPersons,
-  classifyWithAi,
+  searchCompanyMatches: (query, options) =>
+    searchCompanies({ query, aiAssisted: false, status: options?.status }),
+  searchPersonMatches: (query) => searchPersons(query, { limit: 5 }),
+  searchIndustryMatches: (query) => industryCodeProvider.searchIndustryCodes([query], 5),
+  searchRoleMatches: (query) => searchRoleTypes(query, { limit: 5 }),
+  classifyWithAi: (query) => aiScopeProvider.classify(query),
 };
+
+function nameScore(name: string | null | undefined, query: string, fallback: number) {
+  const normalizedName = normalize(name ?? "");
+  if (!normalizedName) return 0;
+  if (normalizedName === query) return 100;
+  if (normalizedName.startsWith(query)) return 80;
+  if (normalizedName.includes(query)) return 65;
+  return fallback;
+}
 
 async function resolveWithoutAi(
   query: string,
@@ -93,30 +63,63 @@ async function resolveWithoutAi(
   const compact = query.replace(/\s/g, "");
   if (/^\d{9}$/.test(compact)) return "companies";
   if (BANKRUPTCY_TERMS.test(query)) return "bankruptcies";
-  if (ROLE_TERMS.test(query)) return "roles";
   if (INDUSTRY_CODE.test(query.trim())) return "industries";
 
-  const [companyResult, personResult] = await Promise.allSettled([
-    dependencies.searchCompanyMatches({ query, aiAssisted: false }),
-    dependencies.searchPersonMatches(query, { limit: 5 }),
+  const [companyResult, personResult, industryResult, roleResult, bankruptcyResult] =
+    await Promise.allSettled([
+    dependencies.searchCompanyMatches(query),
+    dependencies.searchPersonMatches(query),
+    dependencies.searchIndustryMatches(query),
+    dependencies.searchRoleMatches(query),
+    dependencies.searchCompanyMatches(query, { status: "BANKRUPT" }),
   ]);
 
   const normalizedQuery = normalize(query);
-  const companies = companyResult.status === "fulfilled" ? companyResult.value : null;
+  const companies = companyResult.status === "fulfilled" ? companyResult.value.results : [];
   const persons = personResult.status === "fulfilled" ? personResult.value : [];
-  const companyName = normalize(companies?.results[0]?.company.name ?? "");
-  const personName = normalize(persons[0]?.fullName ?? "");
+  const industries = industryResult.status === "fulfilled" ? industryResult.value : [];
+  const roles = roleResult.status === "fulfilled" ? roleResult.value : [];
+  const bankruptcies =
+    bankruptcyResult.status === "fulfilled" ? bankruptcyResult.value.results : [];
 
-  if (personName === normalizedQuery && companyName !== normalizedQuery) return "persons";
-  if (companyName === normalizedQuery) return "companies";
-  if (personName.startsWith(normalizedQuery) && !companyName.startsWith(normalizedQuery)) {
-    return "persons";
-  }
+  const scores: Array<{ scope: ResolvedDashboardSearchScope; score: number }> = [
+    {
+      scope: "companies",
+      score: nameScore(companies[0]?.company.name, normalizedQuery, companies.length ? 35 : 0),
+    },
+    {
+      scope: "persons",
+      score: nameScore(persons[0]?.fullName, normalizedQuery, persons.length ? 40 : 0),
+    },
+    {
+      scope: "industries",
+      score: Math.max(
+        nameScore(industries[0]?.title, normalizedQuery, industries.length ? 30 : 0),
+        Math.min(industries[0]?.score ?? 0, 75),
+      ),
+    },
+    {
+      scope: "roles",
+      score: nameScore(
+        roles[0]?.roleTypeLabel ?? roles[0]?.roleType,
+        normalizedQuery,
+        roles.length ? 45 : 0,
+      ),
+    },
+    {
+      scope: "bankruptcies",
+      score: Math.min(
+        nameScore(
+          bankruptcies[0]?.company.name,
+          normalizedQuery,
+          bankruptcies.length ? 25 : 0,
+        ),
+        90,
+      ),
+    },
+  ];
 
-  const industryMatch = companies?.interpretation.matchedIndustryCodes[0];
-  if (industryMatch && !companyName.startsWith(normalizedQuery)) return "industries";
-  if (persons.length > 0 && !companies?.results.length) return "persons";
-  return "companies";
+  return scores.sort((left, right) => right.score - left.score)[0]?.scope ?? "companies";
 }
 
 export async function resolveDashboardSearchHref(
