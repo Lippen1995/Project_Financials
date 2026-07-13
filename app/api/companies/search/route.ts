@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
 
   const searchResult = await searchCompanies({
     query,
+    aiAssisted: searchParams.get("ai") === "1",
     industryCode: searchParams.get("industryCode") ?? undefined,
     city: searchParams.get("city") ?? undefined,
     legalForm: searchParams.get("legalForm") ?? undefined,

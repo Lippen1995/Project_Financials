@@ -13,7 +13,9 @@ import {
   SearchInterpretation,
 } from "@/lib/types";
 import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
+import { OpenAiSearchIntentProvider } from "@/integrations/openai/openai-search-intent-provider";
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
+import { classifyQueryIntent } from "@/server/ai-search/query-router";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { mapDbCompany, mapDbFinancialStatements, mapDbRoles } from "@/server/mappers/db-mappers";
 import {
@@ -28,6 +30,7 @@ import { getPublishedAnnualReportFinancials } from "@/server/services/annual-rep
 
 const announcementsProvider = new BrregAnnouncementsProvider();
 const industryCodeProvider = new SsbIndustryCodeProvider();
+const searchIntentProvider = new OpenAiSearchIntentProvider();
 
 type SearchIndustryMatch = Awaited<ReturnType<typeof buildIndustryMatches>>[number];
 type ResolvedSearchGeography = Awaited<ReturnType<typeof industryCodeProvider.resolveGeography>>;
@@ -132,6 +135,8 @@ function scoreCompanyResult(
   municipalityCodes: string[],
   revenue: number | null,
   revenueFiscalYear: number | null,
+  operatingProfit: number | null,
+  netIncome: number | null,
 ): RankedCompanySearchResult {
   const reasons: string[] = [];
   const searchableText = getSearchableText(company);
@@ -188,6 +193,8 @@ function scoreCompanyResult(
     relevanceScore,
     revenue,
     revenueFiscalYear,
+    operatingProfit,
+    netIncome,
     matchReasons: Array.from(new Set(reasons)).slice(0, 4),
   };
 }
@@ -338,18 +345,25 @@ export async function searchCompanies(filters: SearchFilters): Promise<CompanySe
     return buildFallbackResponse();
   }
 
-  const interpretation: SearchInterpretation = {
-    originalQuery: filters.query ?? "",
-    rewrittenQuery: filters.query ?? "",
-    aiAssisted: false,
-    fallbackReason: null,
-    companyTerms: filters.query?.trim() ? [filters.query.trim()] : [],
-    industryTerms: [],
-    geographicTerm: null,
-    geographicType: null,
-    intentSummary: null,
-    matchedIndustryCodes: [],
-  };
+  const shouldInterpretWithAi = Boolean(
+    filters.aiAssisted &&
+      filters.query?.trim() &&
+      classifyQueryIntent(filters.query).intent !== "DIRECT_LOOKUP",
+  );
+  const interpretation: SearchInterpretation = shouldInterpretWithAi
+    ? await searchIntentProvider.interpretQuery(filters.query ?? "")
+    : {
+        originalQuery: filters.query ?? "",
+        rewrittenQuery: filters.query ?? "",
+        aiAssisted: false,
+        fallbackReason: null,
+        companyTerms: filters.query?.trim() ? [filters.query.trim()] : [],
+        industryTerms: [],
+        geographicTerm: null,
+        geographicType: null,
+        intentSummary: null,
+        matchedIndustryCodes: [],
+      };
 
   const matchedIndustryCodes = await buildIndustryMatches(filters, interpretation);
   interpretation.matchedIndustryCodes = matchedIndustryCodes.map((item) => ({
@@ -402,6 +416,8 @@ export async function searchCompanies(filters: SearchFilters): Promise<CompanySe
         geography?.municipalityCodes ?? [],
         financials?.revenue ?? null,
         financials?.fiscalYear ?? null,
+        financials?.operatingProfit ?? null,
+        financials?.netIncome ?? null,
       );
     })
     .sort((left, right) => {
