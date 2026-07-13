@@ -59,7 +59,7 @@ export async function searchPersons(
   options: { limit?: number; includeDeregistered?: boolean; roleType?: string } = {},
 ): Promise<PersonSearchResult[]> {
   const trimmed = query.trim();
-  if (trimmed.length < MIN_QUERY_LENGTH) return [];
+  if (trimmed.length < MIN_QUERY_LENGTH && !options.roleType) return [];
   const limit = Math.min(Math.max(options.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
   const deregFilter = options.includeDeregistered
     ? Prisma.empty

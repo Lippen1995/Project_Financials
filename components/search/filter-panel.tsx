@@ -12,6 +12,7 @@ export function FilterPanel({
           {"N\u00e6ringskode"}
         </span>
         <input
+          id="industry-filter"
           name="industryCode"
           defaultValue={String(searchParams.industryCode ?? "")}
           placeholder={"F.eks. 62.010"}

@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
+import {
+  DASHBOARD_SEARCH_SCOPES,
+  type DashboardSearchScope,
+} from "@/lib/dashboard-search";
 import type {
   OversiktBankruptcyRow,
   OversiktNewsRow,
@@ -69,7 +73,6 @@ function Sparkline({ bars, baseline = false }: { bars: Bar[]; baseline?: boolean
   );
 }
 
-const SEARCH_FILTERS = ["ALLE", "SELSKAPER", "BRANSJER", "PERSONER", "ROLLER", "KONKURS"];
 const BANKRUPTCY_COLS = "2.1fr 0.9fr 1.1fr 0.85fr 1.1fr 0.85fr";
 
 function changeColor(positive: boolean) {
@@ -96,15 +99,11 @@ export function OversiktDashboard({
   const visibleNews = newsExpanded ? news : news.slice(0, 4);
   const canExpandNews = news.length > 4;
 
-  // AI search is opt-in (the UI guard). Share the preference key with the /search console's
-  // SearchForm so the choice is unified across both entry points.
+  // AI search is opt-in: off by default, and only enabled by the current button press.
   const [aiEnabled, setAiEnabled] = useState(false);
-  useEffect(() => {
-    setAiEnabled(window.localStorage.getItem("px:ai-search-enabled") === "1");
-  }, []);
+  const [searchScope, setSearchScope] = useState<DashboardSearchScope>("all");
   function toggleAi(next: boolean) {
     setAiEnabled(next);
-    window.localStorage.setItem("px:ai-search-enabled", next ? "1" : "0");
   }
 
   return (
@@ -123,7 +122,7 @@ export function OversiktDashboard({
         </p>
 
         <form
-          action="/search"
+          action="/search/resolve"
           method="GET"
           className="flex items-center gap-3.5 border-b-2 border-[var(--px-accent)] py-1.5"
         >
@@ -134,6 +133,7 @@ export function OversiktDashboard({
             className="min-w-0 flex-1 border-none bg-transparent py-3 text-[19px] text-[var(--px-text)] outline-none placeholder:text-[var(--px-muted)]"
           />
           {aiEnabled ? <input type="hidden" name="ai" value="1" /> : null}
+          <input type="hidden" name="scope" value={searchScope} />
           <button
             type="button"
             role="switch"
@@ -144,14 +144,14 @@ export function OversiktDashboard({
                 ? "AI-søk på – diskuter og finjuster søket med AI"
                 : "Slå på AI-søk for analytiske søk (konkurrenter, oppkjøp, kjeder)"
             }
-            className={`data-label flex items-center gap-1 rounded-[var(--radius-sm)] border px-[9px] py-1 text-[11px] font-semibold transition-colors ${
+            className={`data-label flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold transition-all ${
               aiEnabled
-                ? "border-[var(--px-accent)] bg-[var(--px-accent)] text-white"
-                : "border-[var(--px-accent)] text-[var(--px-accent)] hover:bg-[var(--px-accent)]/10"
+                ? "bg-[var(--px-accent)] text-[var(--px-bg)]"
+                : "text-[var(--px-accent)] opacity-50 hover:opacity-80"
             }`}
           >
             <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
-            AI PROMPT
+            AI
           </button>
           <button type="submit" aria-label="Søk" className="flex items-center">
             <span className="material-symbols-outlined text-2xl text-[var(--px-accent)]">
@@ -160,18 +160,24 @@ export function OversiktDashboard({
           </button>
         </form>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-x-[26px] gap-y-3">
-          {SEARCH_FILTERS.map((filter, i) => (
+        <div
+          role="group"
+          aria-label="Avgrens søket"
+          className="mt-6 flex flex-wrap justify-center gap-x-[26px] gap-y-3"
+        >
+          {DASHBOARD_SEARCH_SCOPES.map((scope) => (
             <button
-              key={filter}
+              key={scope.value}
               type="button"
+              aria-pressed={searchScope === scope.value}
+              onClick={() => setSearchScope(scope.value)}
               className={`data-label cursor-pointer border-b-2 pb-[3px] text-[11px] transition-colors ${
-                i === 0
+                searchScope === scope.value
                   ? "border-[var(--px-accent)] text-[var(--px-accent)]"
                   : "border-transparent text-[var(--px-muted)] hover:text-[var(--px-text)]"
               }`}
             >
-              {filter}
+              {scope.label}
             </button>
           ))}
         </div>

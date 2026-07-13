@@ -57,11 +57,17 @@ function formatPercent(value: number | null) {
 
 export function PeopleSearchClient({
   roleTypes,
+  initialQuery = "",
+  initialRoleType = "",
 }: {
   roleTypes: Array<{ code: string; label: string }>;
+  initialQuery?: string;
+  initialRoleType?: string;
 }) {
-  const [query, setQuery] = useState("");
-  const [roleType, setRoleType] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+  const [roleType, setRoleType] = useState(
+    roleTypes.some((role) => role.code === initialRoleType) ? initialRoleType : "",
+  );
   const [results, setResults] = useState<PersonResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -82,7 +88,7 @@ export function PeopleSearchClient({
   // Debounced person search; stale responses dropped via AbortController.
   useEffect(() => {
     const trimmed = query.trim();
-    if (trimmed.length < MIN_QUERY_LENGTH) {
+    if (trimmed.length < MIN_QUERY_LENGTH && !roleType) {
       setResults([]);
       setSearched(false);
       setLoading(false);
@@ -178,6 +184,7 @@ export function PeopleSearchClient({
           />
         </div>
         <select
+          id="role-filter"
           value={roleType}
           onChange={(event) => setRoleType(event.target.value)}
           className="h-11 rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-4 text-sm font-semibold text-[var(--px-text)] outline-none transition-colors hover:border-[var(--px-accent)]"
@@ -193,7 +200,7 @@ export function PeopleSearchClient({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0">
-          {query.trim().length < MIN_QUERY_LENGTH ? (
+          {query.trim().length < MIN_QUERY_LENGTH && !roleType ? (
             <p className="rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] px-4 py-8 text-center text-sm text-[var(--px-muted)]">
               Skriv minst {MIN_QUERY_LENGTH} tegn for å søke etter personer.
             </p>
