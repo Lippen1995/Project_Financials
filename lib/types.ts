@@ -157,6 +157,7 @@ export type NormalizedCompany = SourceMetadata & {
 
 export type SearchFilters = {
   query?: string;
+  aiAssisted?: boolean;
   industryCode?: string;
   city?: string;
   municipality?: string;
@@ -191,6 +192,8 @@ export type RankedCompanySearchResult = {
   relevanceScore: number;
   revenue?: number | null;
   revenueFiscalYear?: number | null;
+  operatingProfit?: number | null;
+  netIncome?: number | null;
   matchReasons: string[];
 };
 

@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
+import {
+  DEFAULT_NAV_AI_SEARCH_ENABLED,
+  buildNavSearchHref,
+  canShowNavSearchSuggestions,
+} from "@/lib/nav-search";
 import type { GlobalNavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +19,6 @@ type Suggestion = {
   municipality: string | null;
 };
 
-const MIN_QUERY_LENGTH = 2;
 const MAX_SUGGESTIONS = 6;
 const DEBOUNCE_MS = 200;
 
@@ -26,6 +31,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [aiEnabled, setAiEnabled] = useState(DEFAULT_NAV_AI_SEARCH_ENABLED);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
@@ -73,7 +79,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
       if (containerRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
         return;
       }
-      setOpen(false);
+      close();
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -82,7 +88,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
   // Debounced typeahead fetch. Stale responses are dropped via AbortController.
   useEffect(() => {
     const trimmed = query.trim();
-    if (!open || trimmed.length < MIN_QUERY_LENGTH) {
+    if (!open || !canShowNavSearchSuggestions(trimmed, aiEnabled)) {
       setSuggestions([]);
       setLoading(false);
       setHighlighted(-1);
@@ -122,19 +128,30 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
       controller.abort();
       window.clearTimeout(handle);
     };
-  }, [query, open]);
+  }, [aiEnabled, query, open]);
 
   function close() {
     setOpen(false);
     setQuery("");
     setSuggestions([]);
+    setLoading(false);
+    setHighlighted(-1);
+    setAiEnabled(DEFAULT_NAV_AI_SEARCH_ENABLED);
   }
 
   function goToSearch(value: string) {
     const trimmed = value.trim();
     if (!trimmed) return;
     close();
-    router.push(`/search?query=${encodeURIComponent(trimmed)}`);
+    router.push(buildNavSearchHref(trimmed, aiEnabled) as Route);
+  }
+
+  function toggleAi() {
+    const next = !aiEnabled;
+    setAiEnabled(next);
+    setSuggestions([]);
+    setLoading(false);
+    setHighlighted(-1);
   }
 
   function goToCompany(orgNumber: string) {
@@ -150,7 +167,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
       goToSearch(query);
     } else if (event.key === "Escape") {
       event.preventDefault();
-      setOpen(false);
+      close();
     }
   }
 
@@ -173,7 +190,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
     );
   }
 
-  const showDropdown = query.trim().length >= MIN_QUERY_LENGTH;
+  const showDropdown = canShowNavSearchSuggestions(query, aiEnabled);
 
   return (
     <div ref={containerRef} className="relative">
@@ -187,16 +204,33 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
         <input
           ref={inputRef}
           type="text"
-          role="combobox"
-          aria-expanded={suggestions.length > 0}
-          aria-controls={listId}
-          aria-autocomplete="list"
+          role={aiEnabled ? "searchbox" : "combobox"}
+          aria-label={aiEnabled ? "AI-søk etter selskaper" : "Søk etter selskap"}
+          aria-expanded={aiEnabled ? undefined : suggestions.length > 0}
+          aria-controls={aiEnabled ? undefined : listId}
+          aria-autocomplete={aiEnabled ? undefined : "list"}
           value={query}
-          placeholder="Søk etter selskap…"
+          placeholder={aiEnabled ? "Beskriv hva du vil finne…" : "Søk etter selskap…"}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKeyDown}
           className="min-w-0 flex-1 bg-transparent text-sm text-[var(--px-text)] outline-none placeholder:text-[var(--px-muted)]"
         />
+        <button
+          type="button"
+          role="switch"
+          aria-checked={aiEnabled}
+          aria-label="AI-søk"
+          title={aiEnabled ? "AI-søk er på" : "Slå på AI-søk"}
+          onClick={toggleAi}
+          className={cn(
+            "data-label inline-flex h-7 shrink-0 items-center rounded-full border px-3 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--px-accent)]",
+            aiEnabled
+              ? "border-[var(--px-accent)] bg-[var(--px-accent)] text-[var(--px-bg)]"
+              : "border-[var(--px-border)] text-[var(--px-accent)] hover:bg-[var(--px-subtle)]",
+          )}
+        >
+          AI
+        </button>
       </div>
 
       {showDropdown && anchor

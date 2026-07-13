@@ -411,7 +411,15 @@ export async function upsertFinancialStatementsSnapshot(
 
 export async function getLatestFinancialsForCompanies(orgNumbers: string[]) {
   if (orgNumbers.length === 0) {
-    return new Map<string, { revenue: number | null; fiscalYear: number | null }>();
+    return new Map<
+      string,
+      {
+        revenue: number | null;
+        operatingProfit: number | null;
+        netIncome: number | null;
+        fiscalYear: number | null;
+      }
+    >();
   }
 
   const statements = await prisma.financialStatement.findMany({
@@ -425,6 +433,8 @@ export async function getLatestFinancialsForCompanies(orgNumbers: string[]) {
     orderBy: [{ companyId: "asc" }, { fiscalYear: "desc" }],
     select: {
       revenue: true,
+      operatingProfit: true,
+      netIncome: true,
       fiscalYear: true,
       company: {
         select: {
@@ -434,13 +444,23 @@ export async function getLatestFinancialsForCompanies(orgNumbers: string[]) {
     },
   });
 
-  const lookup = new Map<string, { revenue: number | null; fiscalYear: number | null }>();
+  const lookup = new Map<
+    string,
+    {
+      revenue: number | null;
+      operatingProfit: number | null;
+      netIncome: number | null;
+      fiscalYear: number | null;
+    }
+  >();
 
   for (const statement of statements) {
     const orgNumber = statement.company.orgNumber;
     if (!lookup.has(orgNumber)) {
       lookup.set(orgNumber, {
         revenue: toSafeNumber(statement.revenue),
+        operatingProfit: toSafeNumber(statement.operatingProfit),
+        netIncome: toSafeNumber(statement.netIncome),
         fiscalYear: statement.fiscalYear,
       });
     }
