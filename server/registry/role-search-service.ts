@@ -99,7 +99,8 @@ export const PERSON_ROLE_TYPES: Array<{ code: string; label: string }> = [
 
 /**
  * Every company a person holds a role in (the reverse lookup / interlocking-directorate
- * view). Company names are resolved from the local Company table where available.
+ * view). Company names are resolved from the official Brreg registry mirror, with the
+ * richer on-demand Company snapshot taking precedence when it is available.
  */
 export async function getPersonRoles(
   identityKey: string,
@@ -112,7 +113,7 @@ export async function getPersonRoles(
   return prisma.$queryRaw<PersonRole[]>(Prisma.sql`
     SELECT
       a."companyOrgNumber",
-      c."name" AS "companyName",
+      COALESCE(c."name", re."name") AS "companyName",
       a."roleType",
       a."roleTypeLabel",
       a."isBoardRole",
@@ -120,6 +121,7 @@ export async function getPersonRoles(
       to_char(a."groupLastChanged", 'YYYY-MM-DD') AS "groupLastChanged"
     FROM "RegistryRoleAssignment" a
     LEFT JOIN "Company" c ON c."orgNumber" = a."companyOrgNumber"
+    LEFT JOIN "RegistryEntity" re ON re."orgNumber" = a."companyOrgNumber"
     WHERE a."personIdentityKey" = ${identityKey} ${deregFilter}
     ORDER BY a."isBoardRole" DESC, a."companyOrgNumber" ASC
   `);
