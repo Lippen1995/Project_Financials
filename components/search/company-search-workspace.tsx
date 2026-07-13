@@ -4,13 +4,13 @@ import { useMemo, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { AiSearchPanel } from "@/components/search/ai-search-panel";
 import {
   sortCompanySearchRows,
   type CompanySearchRow,
   type CompanySearchSortDirection,
   type CompanySearchSortKey,
 } from "@/lib/company-search-sort";
-import type { SearchInterpretation } from "@/lib/types";
 import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 
 type SearchParams = {
@@ -75,12 +75,10 @@ function FinancialMetric({ label, value }: { label: string; value: string }) {
 
 export function CompanySearchWorkspace({
   rows,
-  interpretation,
   params,
   searchError,
 }: {
   rows: CompanySearchRow[];
-  interpretation: SearchInterpretation;
   params: SearchParams;
   searchError: string | null;
 }) {
@@ -124,7 +122,7 @@ export function CompanySearchWorkspace({
     : "/search") as Route;
 
   return (
-    <main className="space-y-6 pb-12">
+    <main className={cn("space-y-6 pb-12", params.aiEnabled && "sm:pr-[400px]")}>
       <header className="grid gap-4 border-t-2 border-[var(--px-text)] pt-4">
         <div className="data-label text-[11px] font-medium uppercase text-[var(--px-muted)]">
           Søk i virksomhetsregisteret
@@ -145,7 +143,7 @@ export function CompanySearchWorkspace({
             type="submit"
             className="min-h-11 rounded-full bg-[var(--px-action)] px-5 text-sm font-semibold text-[var(--px-bg)] transition-colors hover:bg-[var(--px-action-hover)]"
           >
-            {aiEnabled ? "Søk med AI" : "Søk"}
+            {aiEnabled ? "Søk og åpne chat" : "Søk"}
           </button>
           <label className="flex min-h-11 cursor-pointer items-center gap-4 rounded-full border border-[var(--px-border)] px-4 text-sm font-medium text-[var(--px-text)]">
             <input
@@ -258,16 +256,6 @@ export function CompanySearchWorkspace({
               {filter}
             </span>
           ))}
-        </div>
-      ) : null}
-
-      {params.aiEnabled && params.query ? (
-        <div className="border-y border-[var(--px-border)] py-3 text-sm text-[var(--px-muted)]">
-          {interpretation.aiAssisted
-            ? interpretation.intentSummary || "AI gjorde søket om til strukturerte søkekriterier."
-            : interpretation.fallbackReason
-              ? "AI-tolkning er ikke tilgjengelig. Søket ble kjørt som et direkte registersøk."
-              : "Direkte oppslag – AI var ikke nødvendig."}
         </div>
       ) : null}
 
@@ -479,6 +467,8 @@ export function CompanySearchWorkspace({
           </nav>
         ) : null}
       </section>
+
+      {params.aiEnabled ? <AiSearchPanel query={params.query || null} /> : null}
     </main>
   );
 }

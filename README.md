@@ -152,8 +152,8 @@ Goldsett-eksporten rapporterer dekning separat for direkte selskapsnyheter, makr
 - Eierandeler beregnes bare når totalt antall aksjer finnes og er konsistent i den importerte leveransen.
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i Fjord Insight, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
 - Finanspanelet i virksomhetssøket viser inntekter, EBIT og årsresultat fra siste publiserte, normaliserte regnskapsår. EBITDA og antall ansatte for selve regnskapsåret er ikke normalisert i dagens kilde og vises derfor som `Ikke tilgjengelig`; ansattetallet i trefflisten er siste registrerte antall fra Brønnøysundregistrene.
-- AI-søk bruker OpenAI kun til å tolke søketeksten til strukturert intensjon. Kandidater hentes fortsatt fra Brreg, næringskoder berikes fra SSB, og sortering på størrelse bruker bare reelle inntektstall som finnes i lokal lagring/importerte regnskap.
-- Hvis `OPENAI_API_KEY` mangler, faller søket tilbake til en enklere regelbasert tolkning og UI-et markerer dette tydelig.
+- AI-søk påvirker ikke registersøket eller rangeringen. Det åpner Njord-chatpanelet ved siden av en ordinær treffliste fra Brreg.
+- Njord-chatpanelet er foreløpig kun et UI-skall. Samtalen er ikke koblet til en språkmodell ennå, og krever derfor ikke `OPENAI_API_KEY`.
 - Distress-monitorer matcher bare selskaper som allerede finnes i Fjord Insight-lageret lokalt. Fjord Insight hevder ikke full nasjonal dekning dersom selskapet ikke er hentet eller lagret ennå.
 - Distress-tidslinjen på oversiktssiden bruker `lastAnnouncementPublishedAt` (siste registrerte kunngjøringsdato per profil), ikke full historikk av alle kunngjøringer.
 - Distress-KPI for regnskapsdekning teller profiler med dataCoverage `FINANCIALS_AVAILABLE` eller `FINANCIALS_PARTIAL`.

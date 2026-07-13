@@ -12,12 +12,12 @@ type ChatMessage = {
 
 /**
  * Docked conversational panel for AI search. Opens alongside the results when a search is
- * run with AI enabled (`ai=1`), so the user can see the ranked companies AND refine them
+ * run with chat enabled (`ai=1`), so the user can see the companies AND refine them
  * in conversation at the same time — a side panel, not a modal, precisely so the results
  * stay visible while they tune.
  *
  * SHELL ONLY (Step 0.5): the composer and streaming are not wired to the agent yet. The
- * panel renders the conversation scaffold and the initial interpreted query; Step 3/4
+ * panel renders the conversation scaffold and the current query; Step 3/4
  * connect it to /api/ai-search. No LLM is called from here today.
  */
 export function AiSearchPanel({ query }: { query: string | null }) {
@@ -30,7 +30,7 @@ export function AiSearchPanel({ query }: { query: string | null }) {
           {
             id: "intro",
             role: "assistant",
-            content: `Jeg tolker søket «${query}». AI-samtalen kobles på i et senere steg – her vil du snart kunne diskutere og finjustere trefflisten sammen med meg.`,
+            content: `Chatten er åpnet for søket «${query}». AI-samtalen kobles på i et senere steg – her vil du snart kunne diskutere og finjustere trefflisten sammen med meg.`,
           },
         ]
       : [
@@ -79,8 +79,10 @@ export function AiSearchPanel({ query }: { query: string | null }) {
             auto_awesome
           </span>
           <div>
-            <div className="text-sm font-semibold text-[var(--px-text)]">{"AI-søk"}</div>
-            <div className="text-xs text-[var(--px-muted)]">Finjuster søket i dialog</div>
+            <div className="text-sm font-semibold text-[var(--px-text)]">Njord</div>
+            <div className="text-xs text-[var(--px-muted)]">
+              Spør Njord, vår AI-hjelper, for å finjustere søket ditt
+            </div>
           </div>
         </div>
         <button

@@ -3,8 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const AI_PREFERENCE_KEY = "px:ai-search-enabled";
-
 export function SearchForm({
   compact = false,
   placeholder = "Søk etter selskap, person eller organisasjonsnummer",
@@ -15,21 +13,14 @@ export function SearchForm({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // AI search is opt-in (the UI guard): off unless the user turns it on. The choice is
-  // sticky across searches via localStorage, but an explicit `ai` in the URL wins so a
-  // shared/bookmarked AI search restores correctly.
+  // AI search is opt-in: off by default, unless an explicit `ai=1` search URL was submitted.
   const [aiEnabled, setAiEnabled] = useState(false);
   useEffect(() => {
-    if (searchParams.get("ai") === "1") {
-      setAiEnabled(true);
-      return;
-    }
-    setAiEnabled(window.localStorage.getItem(AI_PREFERENCE_KEY) === "1");
+    setAiEnabled(searchParams.get("ai") === "1");
   }, [searchParams]);
 
   function toggleAi(next: boolean) {
     setAiEnabled(next);
-    window.localStorage.setItem(AI_PREFERENCE_KEY, next ? "1" : "0");
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -71,7 +62,7 @@ export function SearchForm({
           type="submit"
           className="min-h-14 border border-[var(--px-panel)] bg-[var(--px-panel)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--px-action-hover)] sm:min-w-[168px]"
         >
-          {aiEnabled ? "Søk med AI" : "Søk selskaper"}
+          {aiEnabled ? "Søk og åpne chat" : "Søk selskaper"}
         </button>
       </div>
 

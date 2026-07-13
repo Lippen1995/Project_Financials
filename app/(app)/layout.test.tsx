@@ -36,6 +36,7 @@ vi.mock("@/server/actions/auth-actions", () => ({
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 describe("app layout navigation", () => {
