@@ -247,11 +247,31 @@ export function clusterSubunits(rows: SubunitRow[], options: ClusterOptions = {}
   return clusters;
 }
 
-/** Load candidate outlets from the local mirror, optionally narrowed to a NACE prefix. */
-export async function loadCandidateSubunits(nacePrefix?: string | null): Promise<SubunitRow[]> {
-  const naceFilter = nacePrefix
-    ? Prisma.sql`WHERE "naceCode" LIKE ${`${nacePrefix}%`}`
-    : Prisma.empty;
+/**
+ * Consumer-facing sectors where "chain / franchise" is a meaningful concept — the default scope
+ * for discovery. Over the *whole* register the leading-token clustering is dominated by housing
+ * co-ownerships (SAMEIET/BORETTSLAGET), professions (TANNLEGE/LEGE) and personal names, none of
+ * which are franchises; restricting to these NACE prefixes keeps the output franchise-shaped.
+ *   45 vehicle trade · 47 retail · 55 accommodation · 56 food & beverage service ·
+ *   96.02 hairdressing/beauty · 96.04 physical wellbeing (gyms)
+ */
+export const DEFAULT_CHAIN_NACE_PREFIXES = ["45", "47", "55", "56", "96.02", "96.04"];
+
+/**
+ * Load candidate outlets from the local mirror. Pass a list of NACE prefixes to scope by sector
+ * (matched as `LIKE 'prefix%'`, OR-ed); pass null/empty to scan the whole register.
+ */
+export async function loadCandidateSubunits(
+  nacePrefixes?: string[] | null,
+): Promise<SubunitRow[]> {
+  const prefixes = (nacePrefixes ?? []).map((p) => p.trim()).filter((p) => p.length > 0);
+  const naceFilter =
+    prefixes.length > 0
+      ? Prisma.sql`WHERE (${Prisma.join(
+          prefixes.map((p) => Prisma.sql`"naceCode" LIKE ${`${p}%`}`),
+          " OR ",
+        )})`
+      : Prisma.empty;
   return prisma.$queryRaw<SubunitRow[]>(Prisma.sql`
     SELECT
       "orgNumber",
@@ -333,12 +353,18 @@ export type DiscoverResult = {
   clusters: ChainCluster[];
 };
 
-/** Full pipeline: load candidates → cluster → persist. */
+/**
+ * Full pipeline: load candidates → cluster → persist.
+ *
+ * `nacePrefixes`: a list scopes discovery to those sectors; omitting it uses
+ * DEFAULT_CHAIN_NACE_PREFIXES; passing null scans the whole register (noisy — see the constant).
+ */
 export async function discoverChains(
-  options: ClusterOptions & { nacePrefix?: string | null } = {},
+  options: ClusterOptions & { nacePrefixes?: string[] | null } = {},
 ): Promise<DiscoverResult> {
-  const { nacePrefix, ...clusterOptions } = options;
-  const rows = await loadCandidateSubunits(nacePrefix);
+  const { nacePrefixes, ...clusterOptions } = options;
+  const scope = nacePrefixes === undefined ? DEFAULT_CHAIN_NACE_PREFIXES : nacePrefixes;
+  const rows = await loadCandidateSubunits(scope);
   const clusters = clusterSubunits(rows, clusterOptions);
   await persistChains(clusters);
   return {
