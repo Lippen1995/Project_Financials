@@ -1,6 +1,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { AiSearchPanel } from "@/components/search/ai-search-panel";
 import { CompanyTable } from "@/components/company/company-table";
 import { FilterPanel } from "@/components/search/filter-panel";
 import { SearchForm } from "@/components/search/search-form";
@@ -85,6 +86,7 @@ export default async function SearchPage({
 
   const query =
     typeof params.query === "string" && params.query.trim().length > 0 ? params.query.trim() : null;
+  const aiEnabled = params.ai === "1";
   const isFullTableView = params.view === "table";
   const totalResults = searchResult.results.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / pageSize));
@@ -100,7 +102,7 @@ export default async function SearchPage({
   const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
 
   return (
-    <main className="space-y-10 pb-12">
+    <main className={`space-y-10 pb-12${aiEnabled ? " sm:pr-[400px]" : ""}`}>
       <section className="border-b border-[var(--px-border-subtle)] bg-[rgba(255,255,255,0.72)]">
         <div className="grid lg:grid-cols-[minmax(0,1.32fr),360px]">
           <div className="border-b border-[var(--px-border-subtle)] px-6 py-8 sm:px-8 sm:py-10 lg:border-b-0 lg:border-r lg:px-10 lg:py-12">
@@ -287,6 +289,8 @@ export default async function SearchPage({
           </div>
         </div>
       </section>
+
+      {aiEnabled ? <AiSearchPanel query={query} /> : null}
     </main>
   );
 }
