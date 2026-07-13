@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   OversiktBankruptcyRow,
@@ -96,6 +96,17 @@ export function OversiktDashboard({
   const visibleNews = newsExpanded ? news : news.slice(0, 4);
   const canExpandNews = news.length > 4;
 
+  // AI search is opt-in (the UI guard). Share the preference key with the /search console's
+  // SearchForm so the choice is unified across both entry points.
+  const [aiEnabled, setAiEnabled] = useState(false);
+  useEffect(() => {
+    setAiEnabled(window.localStorage.getItem("px:ai-search-enabled") === "1");
+  }, []);
+  function toggleAi(next: boolean) {
+    setAiEnabled(next);
+    window.localStorage.setItem("px:ai-search-enabled", next ? "1" : "0");
+  }
+
   return (
     <div className="pt-12 pb-10 sm:pt-16 lg:px-10 lg:pt-[72px]">
       {/* Greeting + search */}
@@ -122,9 +133,26 @@ export function OversiktDashboard({
             placeholder="Søk på selskap, org.nr, bransje…"
             className="min-w-0 flex-1 border-none bg-transparent py-3 text-[19px] text-[var(--px-text)] outline-none placeholder:text-[var(--px-muted)]"
           />
-          <span className="data-label rounded-[var(--radius-sm)] border border-[var(--px-accent)] px-[9px] py-1 text-[11px] font-semibold text-[var(--px-accent)]">
+          {aiEnabled ? <input type="hidden" name="ai" value="1" /> : null}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={aiEnabled}
+            onClick={() => toggleAi(!aiEnabled)}
+            title={
+              aiEnabled
+                ? "AI-søk på – diskuter og finjuster søket med AI"
+                : "Slå på AI-søk for analytiske søk (konkurrenter, oppkjøp, kjeder)"
+            }
+            className={`data-label flex items-center gap-1 rounded-[var(--radius-sm)] border px-[9px] py-1 text-[11px] font-semibold transition-colors ${
+              aiEnabled
+                ? "border-[var(--px-accent)] bg-[var(--px-accent)] text-white"
+                : "border-[var(--px-accent)] text-[var(--px-accent)] hover:bg-[var(--px-accent)]/10"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
             AI PROMPT
-          </span>
+          </button>
           <button type="submit" aria-label="Søk" className="flex items-center">
             <span className="material-symbols-outlined text-2xl text-[var(--px-accent)]">
               arrow_forward
