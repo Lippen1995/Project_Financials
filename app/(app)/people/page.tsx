@@ -1,5 +1,5 @@
 import { PeopleSearchClient } from "@/components/people/people-search-client";
-import { PERSON_ROLE_TYPES } from "@/server/registry/role-search-service";
+import { getAvailableRoleTypes } from "@/server/registry/role-search-service";
 
 export const metadata = { title: "Personer og roller" };
 
@@ -13,6 +13,8 @@ export default async function PeoplePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const searchScope = readParam(params.scope) === "roles" ? "roles" : "persons";
+  const roleTypes = await getAvailableRoleTypes();
   return (
     <main className="space-y-8 pb-12">
       <section>
@@ -30,9 +32,10 @@ export default async function PeoplePage({
       </section>
 
       <PeopleSearchClient
-        roleTypes={PERSON_ROLE_TYPES}
+        roleTypes={roleTypes}
         initialQuery={readParam(params.query)}
         initialRoleType={readParam(params.roleType)}
+        searchScope={searchScope}
       />
     </main>
   );

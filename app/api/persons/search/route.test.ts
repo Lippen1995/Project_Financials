@@ -1,29 +1,61 @@
-import { describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  getPersonRoles: vi.fn(),
-  getPersonShareholdings: vi.fn(),
-  searchPersons: vi.fn(),
+const { searchPersonsMock, getPersonRolesMock, getPersonShareholdingsMock } = vi.hoisted(() => ({
+  searchPersonsMock: vi.fn(),
+  getPersonRolesMock: vi.fn(),
+  getPersonShareholdingsMock: vi.fn(),
 }));
 
-vi.mock("@/server/registry/role-search-service", () => mocks);
+vi.mock("@/server/registry/role-search-service", () => ({
+  searchPersons: searchPersonsMock,
+  getPersonRoles: getPersonRolesMock,
+  getPersonShareholdings: getPersonShareholdingsMock,
+}));
 
 import { GET } from "@/app/api/persons/search/route";
 
 describe("GET /api/persons/search", () => {
+  beforeEach(() => {
+    searchPersonsMock.mockReset();
+    searchPersonsMock.mockResolvedValue([]);
+    getPersonRolesMock.mockReset();
+    getPersonShareholdingsMock.mockReset();
+  });
+
   it("returns roles without waiting for the slower shareholding lookup", async () => {
-    mocks.getPersonRoles.mockResolvedValueOnce([{ companyOrgNumber: "000000000" }]);
-    mocks.getPersonShareholdings.mockRejectedValueOnce(new Error("slow lookup unavailable"));
+    getPersonRolesMock.mockResolvedValueOnce([{ companyOrgNumber: "000000000" }]);
+    getPersonShareholdingsMock.mockRejectedValueOnce(new Error("slow lookup unavailable"));
 
     const response = await GET(
-      new Request(
+      new NextRequest(
         "http://localhost/api/persons/search?identityKey=PERSON%7C1964-01-01&section=roles",
-      ) as never,
+      ),
     );
 
     await expect(response.json()).resolves.toEqual({
       data: { roles: [{ companyOrgNumber: "000000000" }] },
     });
-    expect(mocks.getPersonShareholdings).not.toHaveBeenCalled();
+    expect(getPersonShareholdingsMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps role searches constrained to role mode", async () => {
+    await GET(
+      new NextRequest("http://localhost/api/persons/search?query=ROLE_QUERY&scope=roles"),
+    );
+
+    expect(searchPersonsMock).toHaveBeenCalledWith(
+      "ROLE_QUERY",
+      expect.objectContaining({ mode: "roles" }),
+    );
+  });
+
+  it("rejects oversized queries before searching", async () => {
+    const response = await GET(
+      new NextRequest(`http://localhost/api/persons/search?query=${"x".repeat(201)}`),
+    );
+
+    expect(response.status).toBe(400);
+    expect(searchPersonsMock).not.toHaveBeenCalled();
   });
 });

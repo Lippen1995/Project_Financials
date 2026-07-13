@@ -59,10 +59,12 @@ export function PeopleSearchClient({
   roleTypes,
   initialQuery = "",
   initialRoleType = "",
+  searchScope = "persons",
 }: {
   roleTypes: Array<{ code: string; label: string }>;
   initialQuery?: string;
   initialRoleType?: string;
+  searchScope?: "persons" | "roles";
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [roleType, setRoleType] = useState(
@@ -99,6 +101,7 @@ export function PeopleSearchClient({
     const handle = window.setTimeout(async () => {
       try {
         const params = new URLSearchParams({ query: trimmed, limit: "40" });
+        params.set("scope", searchScope);
         if (roleType) params.set("roleType", roleType);
         const response = await fetch(`/api/persons/search?${params.toString()}`, {
           signal: controller.signal,
@@ -120,7 +123,7 @@ export function PeopleSearchClient({
       controller.abort();
       window.clearTimeout(handle);
     };
-  }, [query, roleType]);
+  }, [query, roleType, searchScope]);
 
   function selectPerson(person: PersonResult) {
     detailRequestRef.current?.abort();

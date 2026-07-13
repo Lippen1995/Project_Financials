@@ -9,6 +9,9 @@ import { resolveDashboardSearchHref } from "@/server/services/dashboard-search-r
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = (url.searchParams.get("query") ?? "").trim();
+  if (!query || query.length > 200) {
+    return NextResponse.redirect(new URL("/dashboard", url));
+  }
   const rawScope = url.searchParams.get("scope");
   const scope = isDashboardSearchScope(rawScope) ? rawScope : "all";
   const aiEnabled = url.searchParams.get("ai") === "1";

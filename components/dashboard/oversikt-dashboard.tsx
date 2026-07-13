@@ -129,6 +129,8 @@ export function OversiktDashboard({
           <span className="material-symbols-outlined text-2xl text-[var(--px-muted)]">search</span>
           <input
             name="query"
+            required
+            maxLength={200}
             placeholder="Søk på selskap, org.nr, bransje…"
             className="min-w-0 flex-1 border-none bg-transparent py-3 text-[19px] text-[var(--px-text)] outline-none placeholder:text-[var(--px-muted)]"
           />
@@ -163,7 +165,7 @@ export function OversiktDashboard({
         <div
           role="group"
           aria-label="Avgrens søket"
-          className="mt-6 flex flex-wrap justify-center gap-x-[26px] gap-y-3"
+          className="mt-6 flex flex-wrap justify-center gap-6"
         >
           {DASHBOARD_SEARCH_SCOPES.map((scope) => (
             <button

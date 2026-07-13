@@ -12,9 +12,14 @@ export async function GET(request: NextRequest) {
   const identityKey = searchParams.get("identityKey");
   const section = searchParams.get("section");
   const roleType = searchParams.get("roleType") ?? undefined;
+  const mode = searchParams.get("scope") === "roles" ? "roles" : "persons";
   const includeDeregistered = searchParams.get("includeDeregistered") === "true";
   const limitParam = searchParams.get("limit");
   const limit = limitParam ? Number(limitParam) : undefined;
+
+  if (query.length > 200) {
+    return NextResponse.json({ error: "Søket er for langt." }, { status: 400 });
+  }
 
   // With identityKey: the reverse lookup — a person's roles across companies plus the
   // shares they own (from the aksjonærregister).
@@ -39,6 +44,7 @@ export async function GET(request: NextRequest) {
   const results = await searchPersons(query, {
     includeDeregistered,
     roleType,
+    mode,
     limit: Number.isNaN(limit) ? undefined : limit,
   });
   return NextResponse.json({ data: results });
