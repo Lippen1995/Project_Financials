@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("query") ?? "";
   const identityKey = searchParams.get("identityKey");
+  const section = searchParams.get("section");
   const roleType = searchParams.get("roleType") ?? undefined;
   const includeDeregistered = searchParams.get("includeDeregistered") === "true";
   const limitParam = searchParams.get("limit");
@@ -18,6 +19,16 @@ export async function GET(request: NextRequest) {
   // With identityKey: the reverse lookup — a person's roles across companies plus the
   // shares they own (from the aksjonærregister).
   if (identityKey) {
+    if (section === "roles") {
+      const roles = await getPersonRoles(identityKey, { includeDeregistered });
+      return NextResponse.json({ data: { roles } });
+    }
+
+    if (section === "shareholdings") {
+      const shareholdings = await getPersonShareholdings(identityKey);
+      return NextResponse.json({ data: { shareholdings } });
+    }
+
     const [roles, shareholdings] = await Promise.all([
       getPersonRoles(identityKey, { includeDeregistered }),
       getPersonShareholdings(identityKey),

@@ -70,10 +70,13 @@ export function PeopleSearchClient({
   const [personRoles, setPersonRoles] = useState<PersonRole[]>([]);
   const [shareholdings, setShareholdings] = useState<PersonShareholding[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
+  const [shareholdingsLoading, setShareholdingsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const detailRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+    return () => detailRequestRef.current?.abort();
   }, []);
 
   // Debounced person search; stale responses dropped via AbortController.
@@ -113,27 +116,49 @@ export function PeopleSearchClient({
     };
   }, [query, roleType]);
 
-  async function selectPerson(person: PersonResult) {
+  function selectPerson(person: PersonResult) {
+    detailRequestRef.current?.abort();
+    const controller = new AbortController();
+    detailRequestRef.current = controller;
+    const identityKey = encodeURIComponent(person.identityKey);
+
     setSelected(person);
     setRolesLoading(true);
+    setShareholdingsLoading(true);
     setPersonRoles([]);
     setShareholdings([]);
-    try {
-      const response = await fetch(
-        `/api/persons/search?identityKey=${encodeURIComponent(person.identityKey)}`,
-      );
-      if (!response.ok) throw new Error("lookup failed");
-      const payload = (await response.json()) as {
-        data: { roles: PersonRole[]; shareholdings: PersonShareholding[] };
-      };
-      setPersonRoles(payload.data.roles);
-      setShareholdings(payload.data.shareholdings);
-    } catch {
-      setPersonRoles([]);
-      setShareholdings([]);
-    } finally {
-      setRolesLoading(false);
-    }
+
+    void fetch(`/api/persons/search?identityKey=${identityKey}&section=roles`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("role lookup failed");
+        const payload = (await response.json()) as { data: { roles: PersonRole[] } };
+        setPersonRoles(payload.data.roles);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setPersonRoles([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRolesLoading(false);
+      });
+
+    void fetch(`/api/persons/search?identityKey=${identityKey}&section=shareholdings`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("shareholding lookup failed");
+        const payload = (await response.json()) as {
+          data: { shareholdings: PersonShareholding[] };
+        };
+        setShareholdings(payload.data.shareholdings);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setShareholdings([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setShareholdingsLoading(false);
+      });
   }
 
   return (
@@ -275,7 +300,7 @@ export function PeopleSearchClient({
               <div className="data-label text-[11px] font-semibold uppercase text-[var(--px-muted)]">
                 Aksjer personen eier
               </div>
-              {rolesLoading ? (
+              {shareholdingsLoading ? (
                 <p className="text-sm text-[var(--px-muted)]">Laster aksjer…</p>
               ) : shareholdings.length === 0 ? (
                 <p className="text-sm text-[var(--px-muted)]">
