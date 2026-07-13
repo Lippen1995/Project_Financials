@@ -769,6 +769,62 @@ model RegistrySubunit {
   @@index([status])
 }
 
+/// A retail chain / franchise brand (REMA 1000, Kiwi, Byggmakker …). Brreg has no franchise
+/// concept, so a chain is a *derived* grouping of underenheter that share a brand — the
+/// franchise layer on top of the RegistrySubunit "location verification" mirror. Rows with
+/// source = AUTO are discovered by clustering subunit names and are dropped and rebuilt on
+/// every discovery run; MANUAL rows are curator-authored and preserved across rebuilds.
+model RetailChain {
+  id                String      @id @default(cuid())
+  slug              String      @unique
+  name              String
+  nameKey           String
+  naceCode          String?
+  naceDescription   String?
+  storeCount        Int         @default(0)
+  activeStoreCount  Int         @default(0)
+  operatorCount     Int         @default(0)
+  municipalityCount Int         @default(0)
+  source            ChainSource @default(AUTO)
+  confidence        Decimal?    @db.Decimal(4, 3)
+  builtAt           DateTime    @default(now())
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  members           ChainMembership[]
+
+  @@index([nameKey])
+  @@index([naceCode])
+}
+
+/// Resolved membership of one underenhet (outlet) in a RetailChain. Keyed by the outlet's
+/// orgNumber — stable across the truncate-and-reload of RegistrySubunit — so the discovery
+/// job can rebuild it in place. No FK to RegistrySubunit for that same reason; retrieval
+/// joins the mirror at read time for live status/address. `operatorOrgNumber` denormalizes
+/// the outlet's hovedenhet (operating company) for franchise-wide operator rollups.
+model ChainMembership {
+  subunitOrgNumber  String           @id @db.VarChar(9)
+  chainId           String
+  operatorOrgNumber String?          @db.VarChar(9)
+  matchMethod       ChainMatchMethod @default(NAME_PREFIX)
+  builtAt           DateTime         @default(now())
+
+  chain             RetailChain      @relation(fields: [chainId], references: [id], onDelete: Cascade)
+
+  @@index([chainId])
+  @@index([operatorOrgNumber])
+}
+
+enum ChainSource {
+  AUTO
+  MANUAL
+}
+
+enum ChainMatchMethod {
+  NAME_PREFIX
+  MANUAL
+}
+
 /// Local mirror of every Brønnøysund main entity (enhet), ingested in bulk from the
 /// Enhetsregister download so company search hits our database instead of the live Brreg
 /// search API. Lightweight and search-focused; the rich per-company data (roles,
