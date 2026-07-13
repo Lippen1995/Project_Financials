@@ -3,7 +3,16 @@ import { PERSON_ROLE_TYPES } from "@/server/registry/role-search-service";
 
 export const metadata = { title: "Personer og roller" };
 
-export default function PeoplePage() {
+function readParam(value: string | string[] | undefined) {
+  return typeof value === "string" ? value : "";
+}
+
+export default async function PeoplePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
   return (
     <main className="space-y-8 pb-12">
       <section>
@@ -20,7 +29,11 @@ export default function PeoplePage() {
         </p>
       </section>
 
-      <PeopleSearchClient roleTypes={PERSON_ROLE_TYPES} />
+      <PeopleSearchClient
+        roleTypes={PERSON_ROLE_TYPES}
+        initialQuery={readParam(params.query)}
+        initialRoleType={readParam(params.roleType)}
+      />
     </main>
   );
 }

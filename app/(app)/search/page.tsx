@@ -44,7 +44,7 @@ export default async function SearchPage({
   try {
     searchResult = await searchCompanies({
       query: params.query || undefined,
-      aiAssisted: false,
+      aiAssisted: params.aiEnabled,
       industryCode: params.industryCode || undefined,
       city: params.city || undefined,
       legalForm: params.legalForm || undefined,

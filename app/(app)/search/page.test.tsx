@@ -32,7 +32,7 @@ describe("SearchPage", () => {
     });
   });
 
-  it("uses direct registry search when the AI chat panel is enabled", async () => {
+  it("enables AI interpretation inside the selected company scope", async () => {
     await SearchPage({
       searchParams: Promise.resolve({ query: "konkurrenter", ai: "1" }),
     });
@@ -40,7 +40,7 @@ describe("SearchPage", () => {
     expect(searchCompaniesMock).toHaveBeenCalledWith(
       expect.objectContaining({
         query: "konkurrenter",
-        aiAssisted: false,
+        aiAssisted: true,
       }),
     );
   });
