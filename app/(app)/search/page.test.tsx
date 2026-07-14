@@ -1,10 +1,14 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock } = vi.hoisted(() => ({
+const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock } = vi.hoisted(() => ({
   searchCompaniesMock: vi.fn(),
   safeAuthMock: vi.fn(),
   recordCompanySearchMock: vi.fn(),
+  getAiSearchUsageStatusMock: vi.fn(),
+  reserveAiSearchUsageMock: vi.fn(),
+  finalizeAiSearchUsageMock: vi.fn(),
+  releaseAiSearchUsageMock: vi.fn(),
 }));
 
 vi.mock("@/server/services/company-service", () => ({
@@ -14,6 +18,10 @@ vi.mock("@/server/services/company-service", () => ({
 vi.mock("@/lib/auth", () => ({ safeAuth: safeAuthMock }));
 vi.mock("@/server/services/search-history-service", () => ({
   recordCompanySearch: recordCompanySearchMock,
+  getAiSearchUsageStatus: getAiSearchUsageStatusMock,
+  reserveAiSearchUsage: reserveAiSearchUsageMock,
+  finalizeAiSearchUsage: finalizeAiSearchUsageMock,
+  releaseAiSearchUsage: releaseAiSearchUsageMock,
 }));
 
 import SearchPage from "@/app/(app)/search/page";
@@ -24,8 +32,23 @@ describe("SearchPage", () => {
     searchCompaniesMock.mockReset();
     safeAuthMock.mockReset();
     recordCompanySearchMock.mockReset();
+    getAiSearchUsageStatusMock.mockReset();
+    reserveAiSearchUsageMock.mockReset();
+    finalizeAiSearchUsageMock.mockReset();
+    releaseAiSearchUsageMock.mockReset();
     safeAuthMock.mockResolvedValue(null);
     recordCompanySearchMock.mockResolvedValue("event-id");
+    getAiSearchUsageStatusMock.mockResolvedValue({
+      enabled: true,
+      tokenLimit: 41_000_000,
+      usedTokens: 0,
+      remainingTokens: 41_000_000,
+      usagePercent: 0,
+      windowDays: 30,
+    });
+    reserveAiSearchUsageMock.mockResolvedValue("reservation-1");
+    finalizeAiSearchUsageMock.mockResolvedValue(1);
+    releaseAiSearchUsageMock.mockResolvedValue(1);
     searchCompaniesMock.mockResolvedValue({
       results: [],
       interpretation: {
@@ -44,6 +67,9 @@ describe("SearchPage", () => {
   });
 
   it("enables AI interpretation inside the selected company scope", async () => {
+    safeAuthMock.mockResolvedValue({
+      user: { id: "user-1", subscriptionPlan: "premium", subscriptionStatus: "ACTIVE" },
+    });
     await SearchPage({
       searchParams: Promise.resolve({ query: "konkurrenter", ai: "1" }),
     });
@@ -53,6 +79,7 @@ describe("SearchPage", () => {
         query: "konkurrenter",
         aiAssisted: true,
       }),
+      expect.any(Object),
     );
   });
 
@@ -110,16 +137,44 @@ describe("SearchPage", () => {
     expect(page.props.rows[0].name).toBe("MATCHED_COMPANY");
   });
 
+  it("runs without AI when the Premium token quota is exhausted", async () => {
+    safeAuthMock.mockResolvedValue({
+      user: { id: "user-1", subscriptionPlan: "premium", subscriptionStatus: "ACTIVE" },
+    });
+    getAiSearchUsageStatusMock.mockResolvedValue({
+      enabled: true,
+      tokenLimit: 41_000_000,
+      usedTokens: 41_000_000,
+      remainingTokens: 0,
+      usagePercent: 100,
+      windowDays: 30,
+    });
+    reserveAiSearchUsageMock.mockResolvedValue(null);
+
+    const page = await SearchPage({
+      searchParams: Promise.resolve({ query: "konkurrenter", ai: "1" }),
+    });
+
+    expect(searchCompaniesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ aiAssisted: false }),
+      expect.any(Object),
+    );
+    expect(page.props.aiAccessMessage).toContain("tokenkvoten");
+  });
+
   it("accepts the public landing page q parameter as a company query", async () => {
     await SearchPage({ searchParams: Promise.resolve({ q: "orgnummer" }) });
 
     expect(searchCompaniesMock).toHaveBeenCalledWith(
       expect.objectContaining({ query: "orgnummer" }),
+      expect.any(Object),
     );
   });
 
   it("records an authenticated search with its real filters, sectors and result count", async () => {
-    safeAuthMock.mockResolvedValue({ user: { id: "user-1" } });
+    safeAuthMock.mockResolvedValue({
+      user: { id: "user-1", subscriptionPlan: "premium", subscriptionStatus: "ACTIVE" },
+    });
     searchCompaniesMock.mockResolvedValue({
       results: [
         {

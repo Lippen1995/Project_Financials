@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 
+import { safeAuth } from "@/lib/auth";
+import { canStartAiSearch, hasPremiumAiSearchAccess } from "@/lib/ai-search-usage";
 import {
   buildDashboardSearchHref,
   isDashboardSearchScope,
 } from "@/lib/dashboard-search";
 import { resolveDashboardSearchHref } from "@/server/services/dashboard-search-routing-service";
+import { getAiSearchUsageStatus } from "@/server/services/search-history-service";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -14,15 +17,26 @@ export async function GET(request: Request) {
   }
   const rawScope = url.searchParams.get("scope");
   const scope = isDashboardSearchScope(rawScope) ? rawScope : "all";
-  const aiEnabled = url.searchParams.get("ai") === "1";
+  const aiRequested = url.searchParams.get("ai") === "1";
+  const session = aiRequested ? await safeAuth() : null;
+  const premium = hasPremiumAiSearchAccess(
+    session?.user?.subscriptionStatus,
+    session?.user?.subscriptionPlan,
+  );
+  const usage = session?.user?.id
+    ? await getAiSearchUsageStatus(session.user.id, premium)
+    : null;
+  const aiEnabled = Boolean(aiRequested && usage && canStartAiSearch(usage));
   const searchEventId = url.searchParams.get("searchEventId");
 
   const href =
     scope === "all"
-      ? await resolveDashboardSearchHref({ query, aiEnabled })
+      // Resolve scope locally so the only billable AI call is recorded by the search page.
+      ? await resolveDashboardSearchHref({ query, aiEnabled: false })
       : buildDashboardSearchHref(query, scope, aiEnabled);
 
   const destination = new URL(href, url);
+  if (aiEnabled) destination.searchParams.set("ai", "1");
   if (
     destination.pathname === "/search" &&
     searchEventId &&

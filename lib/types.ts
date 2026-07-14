@@ -180,6 +180,7 @@ export type SearchInterpretation = {
   geographicTerm?: string | null;
   geographicType?: SearchInterpretationLocationType | null;
   intentSummary?: string | null;
+  aiUsage?: import("@/lib/ai-search-usage").AiTokenUsage | null;
   matchedIndustryCodes: Array<{
     code: string;
     title?: string | null;

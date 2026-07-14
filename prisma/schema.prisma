@@ -548,6 +548,7 @@ model User {
   companyEventFeedback            CompanyEventFeedback[]
   companyEventExposureFeedback    CompanyEventExposureFeedback[]
   companySearchEvents             CompanySearchEvent[]
+  aiSearchUsageEvents             AiSearchUsageEvent[]
 }
 
 model Subscription {
@@ -3826,4 +3827,28 @@ model CompanySearchEvent {
   @@index([userId, query])
   @@index([userId, revenueClass])
   @@unique([userId, eventKey])
+}
+
+model AiSearchUsageEvent {
+  id                   String   @id @default(cuid())
+  userId               String
+  status               String   @default("RESERVED")
+  reservedTokens       Int
+  model                String?
+  inputTokens          Int      @default(0)
+  cachedInputTokens    Int      @default(0)
+  outputTokens         Int      @default(0)
+  usageTokens          Int      @default(0)
+  sourceSystem         String?
+  sourceEntityType     String?
+  sourceId             String?
+  fetchedAt            DateTime?
+  normalizedAt         DateTime?
+  occurredAt           DateTime?
+  expiresAt            DateTime
+  createdAt            DateTime @default(now())
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([status, expiresAt])
 }

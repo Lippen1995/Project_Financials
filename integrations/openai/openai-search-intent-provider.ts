@@ -1,7 +1,15 @@
 import env from "@/lib/env";
+import { calculateAiUsageTokens, type AiTokenUsage } from "@/lib/ai-search-usage";
 import { SearchInterpretation, SearchInterpretationLocationType } from "@/lib/types";
 
 type OpenAiChatCompletionResponse = {
+  id?: string;
+  model?: string;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  };
   choices?: Array<{
     message?: {
       content?: string | null;
@@ -49,7 +57,11 @@ function normalizeList(values: unknown) {
     .slice(0, 8);
 }
 
-function buildFallbackInterpretation(query: string, reason?: string): SearchInterpretation {
+function buildFallbackInterpretation(
+  query: string,
+  reason?: string,
+  aiUsage?: AiTokenUsage | null,
+): SearchInterpretation {
   const trimmed = query.trim();
   const lower = normalizeText(trimmed);
   const locationMatch = lower.match(/\b(?:i|innenfor|rundt)\s+([a-zA-ZæøåÆØÅ\-\s]+)$/);
@@ -90,6 +102,7 @@ function buildFallbackInterpretation(query: string, reason?: string): SearchInte
     geographicTerm,
     geographicType: null,
     intentSummary: null,
+    aiUsage,
     matchedIndustryCodes: [],
   };
 }
@@ -108,6 +121,7 @@ export class OpenAiSearchIntentProvider {
       return buildFallbackInterpretation(trimmed, "OPENAI_API_KEY mangler.");
     }
 
+    let observedAiUsage: AiTokenUsage | null = null;
     try {
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -118,6 +132,7 @@ export class OpenAiSearchIntentProvider {
         body: JSON.stringify({
           model: env.openAiSearchModel,
           temperature: 0,
+          max_completion_tokens: 500,
           response_format: {
             type: "json_object",
           },
@@ -145,13 +160,34 @@ export class OpenAiSearchIntentProvider {
       }
 
       const payload = (await response.json()) as OpenAiChatCompletionResponse;
+      const promptTokens = Math.max(0, payload.usage?.prompt_tokens ?? 0);
+      const cachedInputTokens = Math.min(
+        promptTokens,
+        Math.max(0, payload.usage?.prompt_tokens_details?.cached_tokens ?? 0),
+      );
+      const inputTokens = promptTokens - cachedInputTokens;
+      const outputTokens = Math.max(0, payload.usage?.completion_tokens ?? 0);
+      if (payload.id && payload.usage) {
+        const fetchedAt = new Date();
+        observedAiUsage = {
+          model: payload.model ?? env.openAiSearchModel,
+          sourceSystem: "OPENAI",
+          sourceEntityType: "chat.completion",
+          sourceId: payload.id,
+          fetchedAt,
+          normalizedAt: new Date(),
+          inputTokens,
+          cachedInputTokens,
+          outputTokens,
+          usageTokens: calculateAiUsageTokens({ inputTokens, cachedInputTokens, outputTokens }),
+        };
+      }
       const content = payload.choices?.[0]?.message?.content;
       if (!content) {
         throw new Error("OpenAI returned empty content.");
       }
 
       const parsed = JSON.parse(content) as SearchIntentPayload;
-
       return {
         originalQuery: trimmed,
         rewrittenQuery: parsed.rewrittenQuery?.trim() || trimmed,
@@ -162,11 +198,12 @@ export class OpenAiSearchIntentProvider {
         geographicTerm: typeof parsed.geographicTerm === "string" ? parsed.geographicTerm.trim() : null,
         geographicType: parsed.geographicType ?? null,
         intentSummary: typeof parsed.intentSummary === "string" ? parsed.intentSummary.trim() : null,
+        aiUsage: observedAiUsage,
         matchedIndustryCodes: [],
       };
     } catch (error) {
       const reason = error instanceof Error ? error.message : "AI-tolkning feilet.";
-      return buildFallbackInterpretation(trimmed, reason);
+      return buildFallbackInterpretation(trimmed, reason, observedAiUsage);
     }
   }
 }

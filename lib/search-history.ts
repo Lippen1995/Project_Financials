@@ -36,7 +36,6 @@ export type SearchHistoryFrequency = {
 };
 
 export type SearchHistorySummary = {
-  totalSearches: number;
   searchesLast30Days: number;
   uniqueQueries: number;
   averageResultCount: number;
@@ -102,23 +101,26 @@ export function summarizeSearchHistory(
   records: SearchHistoryRecord[],
   now = new Date(),
 ): SearchHistorySummary {
-  const totalSearches = records.length;
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+  const retainedRecords = records.filter(
+    (record) => record.searchedAt >= thirtyDaysAgo && record.searchedAt <= now,
+  );
+  const totalSearches = retainedRecords.length;
   const fourteenDaysAgo = new Date(now);
   fourteenDaysAgo.setUTCDate(fourteenDaysAgo.getUTCDate() - 13);
   fourteenDaysAgo.setUTCHours(0, 0, 0, 0);
 
-  const queries = records
+  const queries = retainedRecords
     .map((record) => record.query?.trim().toLocaleLowerCase("nb-NO") ?? "")
     .filter(Boolean);
-  const revenueLabels = records.map((record) => getRevenueClassLabel(record.revenueClass));
-  const sectors = records.flatMap((record) =>
+  const revenueLabels = retainedRecords.map((record) => getRevenueClassLabel(record.revenueClass));
+  const sectors = retainedRecords.flatMap((record) =>
     record.sectors.map((sector) => sector.title?.trim() || sector.code),
   );
 
   const activityCounts = new Map<string, number>();
-  for (const record of records) {
+  for (const record of retainedRecords) {
     if (record.searchedAt >= fourteenDaysAgo && record.searchedAt <= now) {
       const key = dateKey(record.searchedAt);
       activityCounts.set(key, (activityCounts.get(key) ?? 0) + 1);
@@ -133,30 +135,29 @@ export function summarizeSearchHistory(
   });
 
   return {
-    totalSearches,
-    searchesLast30Days: records.filter((record) => record.searchedAt >= thirtyDaysAgo).length,
+    searchesLast30Days: totalSearches,
     uniqueQueries: new Set(queries).size,
     averageResultCount:
       totalSearches > 0
-        ? Math.round(records.reduce((sum, record) => sum + record.resultCount, 0) / totalSearches)
+        ? Math.round(retainedRecords.reduce((sum, record) => sum + record.resultCount, 0) / totalSearches)
         : 0,
     aiSearchShare:
       totalSearches > 0
-        ? Math.round((records.filter((record) => record.aiAssisted).length / totalSearches) * 100)
+        ? Math.round((retainedRecords.filter((record) => record.aiAssisted).length / totalSearches) * 100)
         : 0,
     topQueries: frequency(queries, totalSearches),
     topSectors: frequency(sectors, totalSearches),
     topRevenueClasses: frequency(revenueLabels, totalSearches),
     topLocations: frequency(
-      records.map((record) => record.city ?? "").filter(Boolean),
+      retainedRecords.map((record) => record.city ?? "").filter(Boolean),
       totalSearches,
     ),
     topLegalForms: frequency(
-      records.map((record) => record.legalForm ?? "").filter(Boolean),
+      retainedRecords.map((record) => record.legalForm ?? "").filter(Boolean),
       totalSearches,
     ),
     topStatuses: frequency(
-      records.map((record) => record.status ?? "").filter(Boolean),
+      retainedRecords.map((record) => record.status ?? "").filter(Boolean),
       totalSearches,
     ),
     dailyActivity,

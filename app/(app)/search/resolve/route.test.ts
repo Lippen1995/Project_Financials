@@ -7,6 +7,10 @@ const { resolveDashboardSearchHrefMock } = vi.hoisted(() => ({
 vi.mock("@/server/services/dashboard-search-routing-service", () => ({
   resolveDashboardSearchHref: resolveDashboardSearchHrefMock,
 }));
+vi.mock("@/lib/auth", () => ({ safeAuth: vi.fn().mockResolvedValue(null) }));
+vi.mock("@/server/services/search-history-service", () => ({
+  getAiSearchUsageStatus: vi.fn(),
+}));
 
 import { GET } from "@/app/(app)/search/resolve/route";
 

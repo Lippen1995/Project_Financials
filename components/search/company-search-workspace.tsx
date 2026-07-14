@@ -80,10 +80,14 @@ export function CompanySearchWorkspace({
   rows,
   params,
   searchError,
+  aiAvailable = true,
+  aiAccessMessage = null,
 }: {
   rows: CompanySearchRow[];
   params: SearchParams;
   searchError: string | null;
+  aiAvailable?: boolean;
+  aiAccessMessage?: string | null;
 }) {
   const hasActiveFilters = Boolean(
     params.industryCode || params.city || params.legalForm || params.status || params.revenueClass,
@@ -159,6 +163,7 @@ export function CompanySearchWorkspace({
               name="ai"
               value="1"
               checked={aiEnabled}
+              disabled={!aiAvailable}
               onChange={(event) => setAiEnabled(event.target.checked)}
               className="h-4 w-4 accent-[var(--px-accent)]"
             />
@@ -174,6 +179,12 @@ export function CompanySearchWorkspace({
             {advancedOpen ? "Skjul avansert søk" : "Avansert søk"}
           </button>
         </div>
+
+        {aiAccessMessage ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {aiAccessMessage}
+          </p>
+        ) : null}
 
         <section
           id="advanced-company-search"

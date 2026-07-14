@@ -332,7 +332,10 @@ async function searchCandidates(
   return companies;
 }
 
-export async function searchCompanies(filters: SearchFilters): Promise<CompanySearchResponse> {
+export async function searchCompanies(
+  filters: SearchFilters,
+  options: { onAiUsage?: (usage: NonNullable<SearchInterpretation["aiUsage"]>) => Promise<void> } = {},
+): Promise<CompanySearchResponse> {
   if (
     !filters.query &&
     !filters.city &&
@@ -364,6 +367,10 @@ export async function searchCompanies(filters: SearchFilters): Promise<CompanySe
         intentSummary: null,
         matchedIndustryCodes: [],
       };
+
+  if (interpretation.aiUsage) {
+    await options.onAiUsage?.(interpretation.aiUsage);
+  }
 
   const matchedIndustryCodes = await buildIndustryMatches(filters, interpretation);
   interpretation.matchedIndustryCodes = matchedIndustryCodes.map((item) => ({

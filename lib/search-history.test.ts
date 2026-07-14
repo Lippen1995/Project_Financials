@@ -65,11 +65,10 @@ describe("search history", () => {
       new Date("2026-07-14T12:00:00Z"),
     );
 
-    expect(summary.totalSearches).toBe(3);
     expect(summary.searchesLast30Days).toBe(2);
-    expect(summary.uniqueQueries).toBe(2);
-    expect(summary.averageResultCount).toBe(4);
-    expect(summary.aiSearchShare).toBe(33);
+    expect(summary.uniqueQueries).toBe(1);
+    expect(summary.averageResultCount).toBe(6);
+    expect(summary.aiSearchShare).toBe(50);
     expect(summary.topQueries[0]).toMatchObject({ label: "havvind", count: 2 });
     expect(summary.topSectors[0]).toMatchObject({ label: "Produksjon av elektrisitet", count: 2 });
     expect(summary.topRevenueClasses[0]).toMatchObject({ label: "50–250 mill. kr", count: 2 });

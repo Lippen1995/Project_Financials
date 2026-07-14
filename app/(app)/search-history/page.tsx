@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { SearchHistoryDashboard } from "@/components/search/search-history-dashboard";
+import { hasPremiumAiSearchAccess } from "@/lib/ai-search-usage";
 import { safeAuth } from "@/lib/auth";
 import { getSearchHistoryDashboard } from "@/server/services/search-history-service";
 
@@ -19,7 +20,13 @@ export default async function SearchHistoryPage({
   if (!session?.user?.id) redirect("/login");
 
   const params = await searchParams;
-  const data = await getSearchHistoryDashboard(session.user.id, { page: readPage(params.page) });
+  const data = await getSearchHistoryDashboard(session.user.id, {
+    page: readPage(params.page),
+    premium: hasPremiumAiSearchAccess(
+      session.user.subscriptionStatus,
+      session.user.subscriptionPlan,
+    ),
+  });
 
   if (data.page > data.pageCount) redirect(`/search-history?page=${data.pageCount}`);
 

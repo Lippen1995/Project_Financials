@@ -146,6 +146,74 @@ function SearchActivity({ data }: { data: SearchHistoryDashboardData["summary"][
   );
 }
 
+const tokenFormatter = new Intl.NumberFormat("nb-NO");
+
+function AiUsage({ data }: { data: SearchHistoryDashboardData["aiUsage"] }) {
+  return (
+    <section
+      className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6"
+      aria-labelledby="ai-usage-heading"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="data-label text-[10px] font-semibold uppercase text-[var(--px-muted)]">
+            AI-søk · {data.enabled ? "Premium" : "Ikke aktivert"}
+          </div>
+          <h2 id="ai-usage-heading" className="mt-2 text-lg font-semibold text-[var(--px-text)]">
+            Tokenforbruk
+          </h2>
+          <p className="mt-1 text-sm text-[var(--px-muted)]">
+            {data.enabled
+              ? `Forbruk i et rullerende vindu på ${data.windowDays} dager.`
+              : "AI-søk og tokenkvote er tilgjengelig med Premium."}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="data-label text-2xl font-semibold tabular-nums text-[var(--px-text)]">
+            {tokenFormatter.format(data.usedTokens)}
+          </div>
+          <div className="data-label mt-1 text-[10px] uppercase text-[var(--px-muted)]">
+            av {tokenFormatter.format(data.tokenLimit)} tokens
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="mt-6 h-3 overflow-hidden rounded-full bg-[var(--px-subtle)]"
+        role="progressbar"
+        aria-label="Brukt AI-søkkvote"
+        aria-valuemin={0}
+        aria-valuemax={Math.max(1, data.tokenLimit)}
+        aria-valuenow={data.usedTokens}
+      >
+        <div
+          className="h-full rounded-full bg-[var(--px-accent)]"
+          style={{ width: `${data.usagePercent}%` }}
+        />
+      </div>
+
+      <dl className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["Gjenstår", `${tokenFormatter.format(data.remainingTokens)} tokens`],
+          ["AI-søk", tokenFormatter.format(data.aiSearches)],
+          ["Input", tokenFormatter.format(data.inputTokens + data.cachedInputTokens)],
+          ["Output", tokenFormatter.format(data.outputTokens)],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-xl bg-[var(--px-subtle)] p-4">
+            <dt className="data-label text-[10px] uppercase text-[var(--px-muted)]">{label}</dt>
+            <dd className="data-label mt-2 text-sm font-semibold tabular-nums text-[var(--px-text)]">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {data.enabled ? (
+        <p className="mt-4 text-xs leading-5 text-[var(--px-muted)]">
+          Forbrukstokens vektes etter modellens input-, cache- og outputbruk.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function getStatusLabel(status: string | null) {
   if (status === "ACTIVE") return "Aktiv";
   if (status === "DISSOLVED") return "Avviklet";
@@ -207,7 +275,7 @@ export function SearchHistoryDashboard({ data }: { data: SearchHistoryDashboardD
               Søk og analysehistorikk
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-[var(--px-muted)]">
-              Se alle tidligere virksomhetssøk og forstå hvilke temaer, sektorer og filtre du bruker mest.
+              Se virksomhetssøk fra de siste 30 dagene og forstå hvilke temaer, sektorer og filtre du bruker mest.
             </p>
           </div>
           <Link
@@ -219,13 +287,14 @@ export function SearchHistoryDashboard({ data }: { data: SearchHistoryDashboardD
         </div>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Nøkkeltall for søkehistorikk">
-        <MetricCard label="Alle søk" value={String(summary.totalSearches)} detail="Hele den lagrede historikken" icon={<Search className="h-5 w-5" />} />
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Nøkkeltall for søkehistorikk">
         <MetricCard label="Siste 30 dager" value={String(summary.searchesLast30Days)} detail="Nylig søkeaktivitet" icon={<CalendarDays className="h-5 w-5" />} />
         <MetricCard label="Unike søkeord" value={String(summary.uniqueQueries)} detail="Normalisert for store og små bokstaver" icon={<Target className="h-5 w-5" />} />
         <MetricCard label="Snitt treff" value={String(summary.averageResultCount)} detail="Gjennomsnitt per lagret søk" icon={<BarChart3 className="h-5 w-5" />} />
         <MetricCard label="Andel AI-søk" value={`${summary.aiSearchShare}%`} detail="Av alle lagrede søk" icon={<Sparkles className="h-5 w-5" />} />
       </section>
+
+      <AiUsage data={data.aiUsage} />
 
       <SearchActivity data={summary.dailyActivity} />
 
@@ -248,7 +317,7 @@ export function SearchHistoryDashboard({ data }: { data: SearchHistoryDashboardD
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--px-border)] pb-4">
           <div>
             <h2 id="complete-history-heading" className="text-lg font-semibold text-[var(--px-text)]">Komplett historikk</h2>
-            <p className="mt-1 text-sm text-[var(--px-muted)]">{data.totalCount} lagrede søk, nyeste først.</p>
+            <p className="mt-1 text-sm text-[var(--px-muted)]">{data.totalCount} lagrede søk fra de siste 30 dagene, nyeste først.</p>
           </div>
         </div>
 

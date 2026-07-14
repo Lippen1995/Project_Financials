@@ -3,6 +3,14 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 
 import {
+  AI_SEARCH_RESERVATION_TOKENS,
+  PREMIUM_AI_SEARCH_TOKEN_LIMIT,
+  createAiSearchUsageStatus,
+  getSearchHistoryCutoff,
+  type AiSearchUsageStatus,
+  type AiTokenUsage,
+} from "@/lib/ai-search-usage";
+import {
   isRevenueClass,
   getRevenueClassLabel,
   type CompanySearchScope,
@@ -45,6 +53,12 @@ export type SearchHistoryDashboard = {
   pageCount: number;
   totalCount: number;
   summary: SearchHistorySummary;
+  aiUsage: AiSearchUsageStatus & {
+    aiSearches: number;
+    inputTokens: number;
+    cachedInputTokens: number;
+    outputTokens: number;
+  };
 };
 
 export type RecordCompanySearchInput = {
@@ -168,28 +182,27 @@ function statusLabel(value: string) {
 }
 
 async function getSearchHistorySummary(userId: string): Promise<SearchHistorySummary> {
+  const cutoff = getSearchHistoryCutoff();
   const [metrics, queries, sectors, revenueClasses, locations, legalForms, statuses, activity] =
     await Promise.all([
       prisma.$queryRaw<Array<{
-        total: bigint;
         recent: bigint;
         uniqueQueries: bigint;
         averageResultCount: number;
         aiSearchShare: number;
       }>>(Prisma.sql`
         SELECT
-          COUNT(*)::bigint AS "total",
-          COUNT(*) FILTER (WHERE "searchedAt" >= NOW() - INTERVAL '30 days')::bigint AS "recent",
+          COUNT(*)::bigint AS "recent",
           COUNT(DISTINCT LOWER(TRIM("query"))) FILTER (WHERE NULLIF(TRIM("query"), '') IS NOT NULL)::bigint AS "uniqueQueries",
           COALESCE(ROUND(AVG("resultCount")), 0)::int AS "averageResultCount",
           COALESCE(ROUND(100 * AVG(CASE WHEN "aiAssisted" THEN 1 ELSE 0 END)), 0)::int AS "aiSearchShare"
         FROM "CompanySearchEvent"
-        WHERE "userId" = ${userId}
+        WHERE "userId" = ${userId} AND "searchedAt" >= ${cutoff}
       `),
       prisma.$queryRaw<FrequencyDbRow[]>(Prisma.sql`
         SELECT LOWER(TRIM("query")) AS "label", COUNT(*)::bigint AS "count"
         FROM "CompanySearchEvent"
-        WHERE "userId" = ${userId} AND NULLIF(TRIM("query"), '') IS NOT NULL
+        WHERE "userId" = ${userId} AND "searchedAt" >= ${cutoff} AND NULLIF(TRIM("query"), '') IS NOT NULL
         GROUP BY LOWER(TRIM("query"))
         ORDER BY "count" DESC, "label" ASC
         LIMIT 5
@@ -199,7 +212,7 @@ async function getSearchHistorySummary(userId: string): Promise<SearchHistorySum
                COUNT(*)::bigint AS "count"
         FROM "CompanySearchEvent"
         CROSS JOIN LATERAL jsonb_array_elements("sectors") AS sector
-        WHERE "userId" = ${userId} AND NULLIF(sector->>'code', '') IS NOT NULL
+        WHERE "userId" = ${userId} AND "searchedAt" >= ${cutoff} AND NULLIF(sector->>'code', '') IS NOT NULL
         GROUP BY COALESCE(NULLIF(sector->>'title', ''), sector->>'code')
         ORDER BY "count" DESC, "label" ASC
         LIMIT 5
@@ -207,7 +220,7 @@ async function getSearchHistorySummary(userId: string): Promise<SearchHistorySum
       prisma.$queryRaw<FrequencyDbRow[]>(Prisma.sql`
         SELECT "revenueClass" AS "label", COUNT(*)::bigint AS "count"
         FROM "CompanySearchEvent"
-        WHERE "userId" = ${userId} AND "revenueClass" IS NOT NULL
+        WHERE "userId" = ${userId} AND "searchedAt" >= ${cutoff} AND "revenueClass" IS NOT NULL
         GROUP BY "revenueClass"
         ORDER BY "count" DESC, "label" ASC
         LIMIT 5
@@ -215,19 +228,19 @@ async function getSearchHistorySummary(userId: string): Promise<SearchHistorySum
       prisma.$queryRaw<FrequencyDbRow[]>(Prisma.sql`
         SELECT "city" AS "label", COUNT(*)::bigint AS "count"
         FROM "CompanySearchEvent"
-        WHERE "userId" = ${userId} AND "city" IS NOT NULL
+        WHERE "userId" = ${userId} AND "searchedAt" >= ${cutoff} AND "city" IS NOT NULL
         GROUP BY "city" ORDER BY "count" DESC, "label" ASC LIMIT 5
       `),
       prisma.$queryRaw<FrequencyDbRow[]>(Prisma.sql`
         SELECT "legalForm" AS "label", COUNT(*)::bigint AS "count"
         FROM "CompanySearchEvent"
-        WHERE "userId" = ${userId} AND "legalForm" IS NOT NULL
+        WHERE "userId" = ${userId} AND "searchedAt" >= ${cutoff} AND "legalForm" IS NOT NULL
         GROUP BY "legalForm" ORDER BY "count" DESC, "label" ASC LIMIT 5
       `),
       prisma.$queryRaw<FrequencyDbRow[]>(Prisma.sql`
         SELECT "companyStatus" AS "label", COUNT(*)::bigint AS "count"
         FROM "CompanySearchEvent"
-        WHERE "userId" = ${userId} AND "companyStatus" IS NOT NULL
+        WHERE "userId" = ${userId} AND "searchedAt" >= ${cutoff} AND "companyStatus" IS NOT NULL
         GROUP BY "companyStatus" ORDER BY "count" DESC, "label" ASC LIMIT 5
       `),
       prisma.$queryRaw<Array<{ date: Date; count: bigint }>>(Prisma.sql`
@@ -239,6 +252,7 @@ async function getSearchHistorySummary(userId: string): Promise<SearchHistorySum
         ) AS days(day)
         LEFT JOIN "CompanySearchEvent" events
           ON events."userId" = ${userId}
+         AND events."searchedAt" >= ${cutoff}
          AND (events."searchedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Oslo')::date = days.day::date
         GROUP BY days.day
         ORDER BY days.day ASC
@@ -246,9 +260,8 @@ async function getSearchHistorySummary(userId: string): Promise<SearchHistorySum
     ]);
 
   const metric = metrics[0];
-  const total = Number(metric?.total ?? 0);
+  const total = Number(metric?.recent ?? 0);
   return {
-    totalSearches: total,
     searchesLast30Days: Number(metric?.recent ?? 0),
     uniqueQueries: Number(metric?.uniqueQueries ?? 0),
     averageResultCount: metric?.averageResultCount ?? 0,
@@ -268,31 +281,60 @@ async function getSearchHistorySummary(userId: string): Promise<SearchHistorySum
 
 export async function getSearchHistoryDashboard(
   userId: string,
-  options: { page?: number; pageSize?: number } = {},
+  options: { page?: number; pageSize?: number; premium?: boolean } = {},
 ): Promise<SearchHistoryDashboard> {
   const page = Math.max(1, Math.trunc(options.page ?? 1));
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? DEFAULT_PAGE_SIZE)));
   const offset = (page - 1) * pageSize;
+  const cutoff = getSearchHistoryCutoff();
 
-  const [items, countRows, summary] = await Promise.all([
+  const [items, countRows, summary, usageRows] = await Promise.all([
     prisma.$queryRaw<SearchHistoryDbRow[]>(Prisma.sql`
       SELECT "id", "query", "scope", "industryCode", "city", "legalForm",
              "companyStatus", "revenueClass", "aiAssisted", "resultCount", "succeeded",
              "sectors", "searchedAt"
       FROM "CompanySearchEvent"
-      WHERE "userId" = ${userId}
+      WHERE "userId" = ${userId} AND "searchedAt" >= ${cutoff}
       ORDER BY "searchedAt" DESC, "id" DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `),
     prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
       SELECT COUNT(*)::bigint AS "count"
       FROM "CompanySearchEvent"
-      WHERE "userId" = ${userId}
+      WHERE "userId" = ${userId} AND "searchedAt" >= ${cutoff}
     `),
     getSearchHistorySummary(userId),
+    prisma.$queryRaw<Array<{
+      aiSearches: bigint;
+      inputTokens: bigint;
+      cachedInputTokens: bigint;
+      outputTokens: bigint;
+      usageTokens: bigint;
+    }>>(Prisma.sql`
+      SELECT
+        COUNT(*) FILTER (WHERE "status" = 'RECORDED')::bigint AS "aiSearches",
+        COALESCE(SUM("inputTokens") FILTER (WHERE "status" = 'RECORDED'), 0)::bigint AS "inputTokens",
+        COALESCE(SUM("cachedInputTokens") FILTER (WHERE "status" = 'RECORDED'), 0)::bigint AS "cachedInputTokens",
+        COALESCE(SUM("outputTokens") FILTER (WHERE "status" = 'RECORDED'), 0)::bigint AS "outputTokens",
+        COALESCE(SUM(
+          CASE
+            WHEN "status" = 'RECORDED' AND "occurredAt" >= ${cutoff} THEN "usageTokens"
+            WHEN "status" = 'RESERVED' AND "expiresAt" > NOW() THEN "reservedTokens"
+            ELSE 0
+          END
+        ), 0)::bigint AS "usageTokens"
+      FROM "AiSearchUsageEvent"
+      WHERE "userId" = ${userId}
+        AND (("status" = 'RECORDED' AND "occurredAt" >= ${cutoff}) OR ("status" = 'RESERVED' AND "expiresAt" > NOW()))
+    `),
   ]);
 
   const totalCount = Number(countRows[0]?.count ?? 0);
+  const usage = usageRows[0];
+  const aiUsage = createAiSearchUsageStatus(
+    Boolean(options.premium),
+    Number(usage?.usageTokens ?? 0),
+  );
   return {
     items: items.map(toHistoryItem),
     page,
@@ -300,5 +342,112 @@ export async function getSearchHistoryDashboard(
     pageCount: Math.max(1, Math.ceil(totalCount / pageSize)),
     totalCount,
     summary,
+    aiUsage: {
+      ...aiUsage,
+      aiSearches: Number(usage?.aiSearches ?? 0),
+      inputTokens: Number(usage?.inputTokens ?? 0),
+      cachedInputTokens: Number(usage?.cachedInputTokens ?? 0),
+      outputTokens: Number(usage?.outputTokens ?? 0),
+    },
   };
+}
+
+export async function getAiSearchUsageStatus(userId: string, premium: boolean) {
+  const cutoff = getSearchHistoryCutoff();
+  const rows = await prisma.$queryRaw<Array<{ usageTokens: bigint }>>(Prisma.sql`
+    SELECT COALESCE(SUM(
+      CASE
+        WHEN "status" = 'RECORDED' AND "occurredAt" >= ${cutoff} THEN "usageTokens"
+        WHEN "status" = 'RESERVED' AND "expiresAt" > NOW() THEN "reservedTokens"
+        ELSE 0
+      END
+    ), 0)::bigint AS "usageTokens"
+    FROM "AiSearchUsageEvent"
+    WHERE "userId" = ${userId}
+  `);
+  return createAiSearchUsageStatus(premium, Number(rows[0]?.usageTokens ?? 0));
+}
+
+export async function reserveAiSearchUsage(userId: string) {
+  const now = new Date();
+  const cutoff = getSearchHistoryCutoff(now);
+  const expiresAt = new Date(now.getTime() + 5 * 60 * 1_000);
+
+  return prisma.$transaction(async (transaction) => {
+    await transaction.$queryRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))
+    `);
+    const rows = await transaction.$queryRaw<Array<{ usageTokens: bigint }>>(Prisma.sql`
+      SELECT COALESCE(SUM(
+        CASE
+          WHEN "status" = 'RECORDED' AND "occurredAt" >= ${cutoff} THEN "usageTokens"
+          WHEN "status" = 'RESERVED' AND "expiresAt" > ${now} THEN "reservedTokens"
+          ELSE 0
+        END
+      ), 0)::bigint AS "usageTokens"
+      FROM "AiSearchUsageEvent"
+      WHERE "userId" = ${userId}
+    `);
+    const usedTokens = Number(rows[0]?.usageTokens ?? 0);
+    if (usedTokens + AI_SEARCH_RESERVATION_TOKENS > PREMIUM_AI_SEARCH_TOKEN_LIMIT) {
+      return null;
+    }
+
+    const id = randomUUID();
+    await transaction.$executeRaw(Prisma.sql`
+      INSERT INTO "AiSearchUsageEvent" (
+        "id", "userId", "status", "reservedTokens", "expiresAt"
+      ) VALUES (
+        ${id}, ${userId}, 'RESERVED', ${AI_SEARCH_RESERVATION_TOKENS}, ${expiresAt}
+      )
+    `);
+    return id;
+  });
+}
+
+export async function finalizeAiSearchUsage(
+  userId: string,
+  reservationId: string,
+  usage: AiTokenUsage,
+) {
+  return prisma.$executeRaw(Prisma.sql`
+    UPDATE "AiSearchUsageEvent"
+    SET "status" = 'RECORDED',
+        "reservedTokens" = 0,
+        "model" = ${usage.model},
+        "inputTokens" = ${Math.max(0, Math.trunc(usage.inputTokens))},
+        "cachedInputTokens" = ${Math.max(0, Math.trunc(usage.cachedInputTokens))},
+        "outputTokens" = ${Math.max(0, Math.trunc(usage.outputTokens))},
+        "usageTokens" = ${Math.max(0, Math.trunc(usage.usageTokens))},
+        "sourceSystem" = ${usage.sourceSystem},
+        "sourceEntityType" = ${usage.sourceEntityType},
+        "sourceId" = ${usage.sourceId},
+        "fetchedAt" = ${usage.fetchedAt},
+        "normalizedAt" = ${usage.normalizedAt},
+        "occurredAt" = ${usage.fetchedAt}
+    WHERE "id" = ${reservationId} AND "userId" = ${userId} AND "status" = 'RESERVED'
+  `);
+}
+
+export async function releaseAiSearchUsage(userId: string, reservationId: string) {
+  return prisma.$executeRaw(Prisma.sql`
+    DELETE FROM "AiSearchUsageEvent"
+    WHERE "id" = ${reservationId} AND "userId" = ${userId} AND "status" = 'RESERVED'
+  `);
+}
+
+export async function deleteExpiredSearchHistory(now = new Date()) {
+  const cutoff = getSearchHistoryCutoff(now);
+  const [history, usage] = await prisma.$transaction([
+    prisma.$executeRaw(Prisma.sql`
+      DELETE FROM "CompanySearchEvent"
+      WHERE "searchedAt" < ${cutoff}
+    `),
+    prisma.$executeRaw(Prisma.sql`
+      DELETE FROM "AiSearchUsageEvent"
+      WHERE ("status" = 'RECORDED' AND "occurredAt" < ${cutoff})
+         OR ("status" = 'RESERVED' AND "expiresAt" <= ${now})
+    `),
+  ]);
+  return history + usage;
 }
