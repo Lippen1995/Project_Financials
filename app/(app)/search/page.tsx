@@ -1,6 +1,8 @@
 import { CompanySearchWorkspace } from "@/components/search/company-search-workspace";
+import type { AiSearchUsageSummary } from "@/components/search/ai-search-panel";
 import type { CompanySearchRow } from "@/lib/company-search-sort";
 import { safeAuth } from "@/lib/auth";
+import env from "@/lib/env";
 import {
   filterRowsByRevenueClass,
   isRevenueClass,
@@ -73,7 +75,10 @@ export default async function SearchPage({
         subscriptionContext.premium,
         subscriptionContext.billingPeriod,
       );
+      // Token reservation only runs when billing is switched on (go-live). In the zero-cost phase
+      // the AI agent consumes no tokens, so there is nothing to reserve or meter.
       if (
+        env.aiSearchBillingEnabled &&
         rawParams.ai === "1" &&
         subscriptionContext.premium &&
         subscriptionContext.billingPeriod
@@ -91,8 +96,12 @@ export default async function SearchPage({
     }
   }
   const aiRequested = rawParams.ai === "1";
+  // With billing ON, availability requires a successful token reservation (quota gate). With billing
+  // OFF (zero-cost phase), the panel is gated on premium ENTITLEMENT alone — no reservation needed.
   const aiAvailable = aiRequested
-    ? Boolean(aiReservationId)
+    ? env.aiSearchBillingEnabled
+      ? Boolean(aiReservationId)
+      : subscriptionContext.premium
     : Boolean(aiUsageStatus && canStartAiSearch(aiUsageStatus));
   const revenueClass: RevenueClass | "" = isRevenueClass(rawParams.revenueClass)
     ? rawParams.revenueClass
@@ -159,6 +168,20 @@ export default async function SearchPage({
           reservationId: aiReservationId,
         });
       }
+    }
+  }
+
+  if (session?.user?.id && aiUsageStatus) {
+    try {
+      aiUsageStatus = await getAiSearchUsageStatus(
+        session.user.id,
+        subscriptionContext.premium,
+        subscriptionContext.billingPeriod,
+      );
+    } catch (error) {
+      logRecoverableError("search-page.refreshAiSearchUsageStatus", error, {
+        userId: session.user.id,
+      });
     }
   }
 
@@ -237,6 +260,24 @@ export default async function SearchPage({
     }
   }
 
+  const aiUsage: AiSearchUsageSummary = aiUsageStatus
+    ? {
+        enabled: aiUsageStatus.enabled,
+        tokenLimit: aiUsageStatus.tokenLimit,
+        usedTokens: aiUsageStatus.usedTokens,
+        remainingTokens: aiUsageStatus.remainingTokens,
+        usagePercent: aiUsageStatus.usagePercent,
+        resetAt: aiUsageStatus.billingPeriod?.resetAt.toISOString() ?? null,
+      }
+    : {
+        enabled: false,
+        tokenLimit: 0,
+        usedTokens: 0,
+        remainingTokens: 0,
+        usagePercent: 0,
+        resetAt: null,
+      };
+
   return (
     <CompanySearchWorkspace
       rows={rows}
@@ -244,6 +285,7 @@ export default async function SearchPage({
       searchError={searchError}
       aiAvailable={aiAvailable}
       aiAccessMessage={aiAccessMessage}
+      aiUsage={aiUsage}
     />
   );
 }

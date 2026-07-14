@@ -16,6 +16,75 @@ export type AgentCompanyRef = {
   municipality: string | null;
   employeeCount: number | null;
   status: "ACTIVE" | "DISSOLVED" | "BANKRUPT";
+  /**
+   * Latest published headline figures (NOK), when the company is in our financial coverage.
+   * Attached to ranked shortlists so the agent can weigh size/health without a second call.
+   * Absent (null) means "no accounts loaded", NOT "zero" — the agent must not treat it as such.
+   */
+  latestFinancials?: FinancialSnapshot | null;
+};
+
+/** One year of headline accounts. Amounts are already unit-normalized to whole NOK. */
+export type FinancialSnapshot = {
+  fiscalYear: number;
+  currency: string;
+  revenue: number | null;
+  operatingProfit: number | null;
+  netIncome: number | null;
+  equity: number | null;
+  assets: number | null;
+};
+
+/**
+ * Who controls the company and whether it sits inside a larger group — the acquirability
+ * signals. Derived from the shareholder register (OwnershipEdge / group structure), so it is
+ * only as fresh as the latest tax-year import; `year` states which year it reflects.
+ */
+export type OwnershipSummary = {
+  year: number | null;
+  /** Largest single direct owner (person or company), i.e. the party a buyer negotiates with. */
+  controllingOwner: {
+    name: string;
+    orgNumber: string | null;
+    type: "PERSON" | "COMPANY" | "UNKNOWN";
+    ownershipPercent: number | null;
+  } | null;
+  /** Count of distinct direct shareholders — low = concentrated/easier to acquire. */
+  ownerCount: number;
+  /** True when controlled (>50%) from above: a bolt-on of an existing group, not standalone. */
+  partOfGroup: boolean;
+  ultimateParentName: string | null;
+  /** Direct subsidiaries this company itself controls (it may be bought as a mini-group). */
+  subsidiaryCount: number;
+};
+
+/**
+ * The free-text "what do they actually do" layer registry codes cannot give. `businessSummary`
+ * is an excerpt of the styrets beretning (board report) — the richest description we hold.
+ */
+export type QualitativeSummary = {
+  description: string | null;
+  website: string | null;
+  /**
+   * Reasoned prose: what the company makes/does and its value-chain position. This is the
+   * primary qualitative signal the agent reasons over for strategic fit — sourced from the
+   * offline-built CompanyWebProfile (website scrape + reasoning), falling back to the board report.
+   */
+  businessSummary: string | null;
+  businessSummarySource: "website" | "board-report" | null;
+  /** URL the website profile was scraped from (when source = "website"). */
+  sourceUrl: string | null;
+  /** Fiscal year of the board report (when source = "board-report"). */
+  businessSummaryYear: number | null;
+};
+
+/** The deep, single-company view returned by get_company_profile (drill-in, not list rows). */
+export type AgentCompanyProfile = AgentCompanyRef & {
+  legalForm: string | null;
+  /** Most-recent-first, capped to a few years so multi-year trend is visible but cheap. */
+  financials: FinancialSnapshot[];
+  ownership: OwnershipSummary | null;
+  qualitative: QualitativeSummary;
 };
 
 export function toAgentCompanyRef(company: NormalizedCompany): AgentCompanyRef {
