@@ -23,6 +23,7 @@ Fjord Insight er et MVP for selskapsinformasjon og innsikt bygget med Next.js, T
 - Fane for nettilknytning, nettkø og nettreservasjon fra konfigurert offentlig Statnett-eksport når sikker selskapsmatch finnes
 - Næringskodeberiking fra SSB Klass
 - Filtrering på sentrale virksomhetsfelt
+- Personlig søke- og analysehistorikk med komplett hendelseslogg, gjenkjøring, aktivitet og statistikk for søkeord, sektorer, omsetningsklasser, geografi, organisasjonsform og status
 - Innlogging, registrering og enkel feature gating
 - Workspace-basert kontooversikt med personlig workspace, team-workspaces og invitasjoner
 - DD-rom med mandat, workflow, funn, evidens, beslutningshistorikk og frie romposter
@@ -151,6 +152,7 @@ Goldsett-eksporten rapporterer dekning separat for direkte selskapsnyheter, makr
 - Aksjonærdata krever et reelt Skatteetaten-uttrekk for aktuelt selskap og år. Hvis snapshot mangler, viser Fjord Insight en tydelig tomtilstand i stedet for en plassholdergraf.
 - Eierandeler beregnes bare når totalt antall aksjer finnes og er konsistent i den importerte leveransen.
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i Fjord Insight, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
+- Søkehistorikken lagrer innloggede virksomhetssøk fra og med migrasjonen som oppretter `CompanySearchEvent`; eldre søk kan ikke etterregistreres fordi de ikke tidligere ble lagret. Omsetningsklasse avgrenser den provider-hentede trefflisten ved hjelp av siste reelt tilgjengelige regnskapstall.
 - Finanspanelet i virksomhetssøket viser inntekter, EBIT og årsresultat fra siste publiserte, normaliserte regnskapsår. EBITDA og antall ansatte for selve regnskapsåret er ikke normalisert i dagens kilde og vises derfor som `Ikke tilgjengelig`; ansattetallet i trefflisten er siste registrerte antall fra Brønnøysundregistrene.
 - AI-søk påvirker ikke registersøket eller rangeringen. Det åpner Njord-chatpanelet ved siden av en ordinær treffliste fra Brreg.
 - Njord-chatpanelet er foreløpig kun et UI-skall. Samtalen er ikke koblet til en språkmodell ennå, og krever derfor ikke `OPENAI_API_KEY`.

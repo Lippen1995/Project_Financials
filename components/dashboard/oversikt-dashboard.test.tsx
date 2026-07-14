@@ -19,6 +19,7 @@ describe("OversiktDashboard search scopes", () => {
     );
 
     expect(html).toContain('action="/search/resolve"');
+    expect(html).toContain('name="searchEventId"');
     expect(html).toContain('name="scope" value="all"');
     expect(html).toContain('aria-label="Avgrens søket"');
 

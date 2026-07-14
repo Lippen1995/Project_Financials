@@ -217,7 +217,7 @@ export function buildAccountMenuSections(viewer?: AppViewer | null): AccountMenu
           label: "Due diligence",
           disabled: true,
         },
-        { label: PROFILE_TABS.history.label, href: "/dashboard" },
+        { label: PROFILE_TABS.history.label, href: "/search-history" },
         { label: "Tilganger og abonnement", href: "/pricing" },
       ],
     },
