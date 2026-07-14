@@ -416,6 +416,23 @@ enum AnnualReportReviewStatus {
   RESOLVED_BY_NEW_RUN
 }
 
+enum BoardReportExtractionStatus {
+  EXTRACTED
+  NOT_FOUND
+  MANUAL_REVIEW
+  UNREADABLE
+  SOURCE_UNAVAILABLE
+  FAILED
+}
+
+enum BoardReportReviewStatus {
+  NOT_REQUIRED
+  PENDING
+  ACCEPTED
+  REJECTED
+  CORRECTED
+}
+
 enum AnnualReportArtifactType {
   PDF
   PAGE_IMAGE
@@ -433,6 +450,9 @@ enum AnnualReportArtifactType {
   EXTRACTION_COMPARISON_JSON
   STRUCTURED_DOCUMENT_JSON
   PDF_DECISION_JSON
+  BOARD_REPORT_EXTRACTION_JSON
+  BOARD_REPORT_TEXT
+  BOARD_REPORT_REVIEW_PDF
 }
 
 enum FinancialExtractionRunStatus {
@@ -537,6 +557,7 @@ model User {
   pdfModelArtifactSnapshots       PdfModelArtifactSnapshot[]
   pdfModelCandidatesCreated       PdfModelCandidate[]               @relation("PdfModelCandidateCreatedBy")
   pdfModelCandidateDecisions      PdfModelCandidateDecision[]       @relation("PdfModelCandidateDecisionUser")
+  reviewedBoardReportExtractions  BoardReportExtraction[]           @relation("BoardReportExtractionReviewer")
   adminNotifications              AdminNotification[]               @relation("AdminNotificationRecipient")
   confidenceThresholdApplied      ConfidenceThresholdVersion[]      @relation("ConfidenceThresholdAppliedBy")
   confidenceThresholdRejected     ConfidenceThresholdVersion[]      @relation("ConfidenceThresholdRejectedBy")
@@ -722,6 +743,7 @@ model Company {
   rawLineItems              RawFinancialLineItem[]
   publishedLineItems        PublishedFinancialLineItem[]
   narratives                AnnualReportNarrative[]
+  boardReportExtractions    BoardReportExtraction[]
   newsArticles              NewsArticleCompany[]
   newsRelevanceScores       NewsArticleRelevance[]
   newsFeatureSets           NewsArticleFeatureSet[]
@@ -1106,6 +1128,7 @@ model AnnualReportFiling {
   rawLineItems            RawFinancialLineItem[]
   publishedLineItems      PublishedFinancialLineItem[]
   narratives              AnnualReportNarrative[]
+  boardReportExtractions  BoardReportExtraction[]
 
   @@index([companyId, fiscalYear])
   @@index([companyId, status, discoveredAt])
@@ -3058,13 +3081,66 @@ model AnnualReportNarrative {
   pageEnd        Int?
   confidence     Float
   provenance     String
+  sourceExtractionId String?      @unique
   createdAt      DateTime       @default(now())
 
   filing  AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
   company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceExtraction BoardReportExtraction? @relation("BoardReportAcceptedProjection", fields: [sourceExtractionId], references: [id], onDelete: SetNull)
 
   @@unique([filingId, sectionKind, statementScope])
   @@index([companyId, fiscalYear])
+}
+
+model BoardReportExtraction {
+  id                       String                      @id @default(cuid())
+  filingId                 String
+  companyId                String
+  fiscalYear               Int
+  status                   BoardReportExtractionStatus
+  reviewStatus             BoardReportReviewStatus     @default(PENDING)
+  title                    String?
+  text                     String?
+  normalizedText           String?
+  textChecksum             String?
+  pageStart                Int?
+  pageEnd                  Int?
+  startBoundary            Json?
+  endBoundary              Json?
+  includedBlocks           Json
+  confidence               Float
+  quality                  Json
+  matchedStartSignals      Json
+  matchedStopSignals       Json
+  warnings                 Json
+  route                    String
+  extractorVersion         String
+  parserVersion            String?
+  sourceSystem             String
+  sourceEntityType         String
+  sourceId                 String
+  sourceUrl                String
+  sourceDocumentHash       String
+  fetchedAt                DateTime
+  normalizedAt             DateTime
+  reviewedByUserId         String?
+  reviewedAt               DateTime?
+  reviewReason             String?
+  machineProposalId        String?
+  createdAt                DateTime                    @default(now())
+
+  filing                   AnnualReportFiling          @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company                  Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reviewedBy               User?                       @relation("BoardReportExtractionReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  machineProposal          BoardReportExtraction?      @relation("BoardReportCorrection", fields: [machineProposalId], references: [id], onDelete: SetNull)
+  corrections              BoardReportExtraction[]     @relation("BoardReportCorrection")
+  publishedNarrative       AnnualReportNarrative?      @relation("BoardReportAcceptedProjection")
+
+  @@unique([filingId, sourceDocumentHash, extractorVersion])
+  @@index([companyId, fiscalYear, status])
+  @@index([filingId, createdAt])
+  @@index([reviewStatus, createdAt])
+  @@index([sourceDocumentHash, extractorVersion])
 }
 
 model NewsArticle {
