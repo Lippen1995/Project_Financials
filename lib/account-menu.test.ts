@@ -52,4 +52,14 @@ describe("account menu helpers", () => {
       href: "/onboarding/profile?mode=edit",
     });
   });
+
+  it("routes search history to its dedicated workspace", () => {
+    const sections = buildAccountMenuSections({ appRole: "USER" });
+    const workspaceSection = sections.find((section) => section.label === "ARBEIDSOMRADE");
+
+    expect(workspaceSection?.items).toContainEqual({
+      label: "Søk og analysehistorikk",
+      href: "/search-history",
+    });
+  });
 });

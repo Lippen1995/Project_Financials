@@ -143,7 +143,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
     const trimmed = value.trim();
     if (!trimmed) return;
     close();
-    router.push(buildNavSearchHref(trimmed, aiEnabled) as Route);
+    router.push(buildNavSearchHref(trimmed, aiEnabled, crypto.randomUUID()) as Route);
   }
 
   function toggleAi() {
@@ -154,9 +154,25 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
     setHighlighted(-1);
   }
 
-  function goToCompany(orgNumber: string) {
-    close();
-    router.push(`/companies/${orgNumber}`);
+  async function goToCompany(orgNumber: string) {
+    const submittedQuery = query.trim();
+    try {
+      await fetch("/api/search-history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          eventKey: crypto.randomUUID(),
+          query: submittedQuery,
+          resultCount: suggestions.length,
+        }),
+        keepalive: true,
+      });
+    } catch {
+      // History must never block navigation to a real company profile.
+    } finally {
+      close();
+      router.push(`/companies/${orgNumber}`);
+    }
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {

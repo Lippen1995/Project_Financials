@@ -102,6 +102,7 @@ export function OversiktDashboard({
   // AI search is opt-in: off by default, and only enabled by the current button press.
   const [aiEnabled, setAiEnabled] = useState(false);
   const [searchScope, setSearchScope] = useState<DashboardSearchScope>("all");
+  const [searchEventId] = useState(() => crypto.randomUUID());
   function toggleAi(next: boolean) {
     setAiEnabled(next);
   }
@@ -135,6 +136,7 @@ export function OversiktDashboard({
             className="min-w-0 flex-1 border-none bg-transparent py-3 text-[19px] text-[var(--px-text)] outline-none placeholder:text-[var(--px-muted)]"
           />
           {aiEnabled ? <input type="hidden" name="ai" value="1" /> : null}
+          <input type="hidden" name="searchEventId" value={searchEventId} />
           <input type="hidden" name="scope" value={searchScope} />
           <button
             type="button"

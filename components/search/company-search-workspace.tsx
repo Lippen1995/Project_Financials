@@ -11,6 +11,7 @@ import {
   type CompanySearchSortDirection,
   type CompanySearchSortKey,
 } from "@/lib/company-search-sort";
+import { getRevenueClassLabel, REVENUE_CLASSES, type RevenueClass } from "@/lib/search-history";
 import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 
 type SearchParams = {
@@ -19,6 +20,7 @@ type SearchParams = {
   city: string;
   legalForm: string;
   status: string;
+  revenueClass?: RevenueClass | "";
   aiEnabled: boolean;
   scope?: "companies" | "industries" | "bankruptcies";
 };
@@ -78,19 +80,24 @@ export function CompanySearchWorkspace({
   rows,
   params,
   searchError,
+  aiAvailable = true,
+  aiAccessMessage = null,
 }: {
   rows: CompanySearchRow[];
   params: SearchParams;
   searchError: string | null;
+  aiAvailable?: boolean;
+  aiAccessMessage?: string | null;
 }) {
   const hasActiveFilters = Boolean(
-    params.industryCode || params.city || params.legalForm || params.status,
+    params.industryCode || params.city || params.legalForm || params.status || params.revenueClass,
   );
   const [advancedOpen, setAdvancedOpen] = useState(hasActiveFilters);
   const [aiEnabled, setAiEnabled] = useState(params.aiEnabled);
   const [sort, setSort] = useState<SortState>(null);
   const [selectedOrgNumber, setSelectedOrgNumber] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [searchEventId] = useState(() => crypto.randomUUID());
 
   const sortedRows = useMemo(
     () => (sort ? sortCompanySearchRows(rows, sort.key, sort.direction) : rows),
@@ -114,6 +121,7 @@ export function CompanySearchWorkspace({
     params.city ? `Sted ${params.city}` : null,
     params.legalForm ? `Form ${params.legalForm}` : null,
     params.status ? `Status ${params.status}` : null,
+    params.revenueClass ? `Omsetning ${getRevenueClassLabel(params.revenueClass)}` : null,
   ].filter((value): value is string => Boolean(value));
   const resetSearchParams = new URLSearchParams();
   if (params.query) resetSearchParams.set("query", params.query);
@@ -133,6 +141,7 @@ export function CompanySearchWorkspace({
       </header>
 
       <form action="/search" method="get" className="space-y-4">
+        <input type="hidden" name="searchEventId" value={searchEventId} />
         {params.scope ? <input type="hidden" name="scope" value={params.scope} /> : null}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center">
           <input
@@ -154,6 +163,7 @@ export function CompanySearchWorkspace({
               name="ai"
               value="1"
               checked={aiEnabled}
+              disabled={!aiAvailable}
               onChange={(event) => setAiEnabled(event.target.checked)}
               className="h-4 w-4 accent-[var(--px-accent)]"
             />
@@ -170,12 +180,18 @@ export function CompanySearchWorkspace({
           </button>
         </div>
 
+        {aiAccessMessage ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {aiAccessMessage}
+          </p>
+        ) : null}
+
         <section
           id="advanced-company-search"
           hidden={!advancedOpen}
           className="border-y border-[var(--px-border)] py-5"
         >
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <label className="grid gap-4">
               <span className="data-label text-[10px] font-medium uppercase text-[var(--px-muted)]">
                 Næringskode
@@ -228,6 +244,23 @@ export function CompanySearchWorkspace({
                 <option value="BANKRUPT">Konkurs</option>
               </select>
             </label>
+            <label className="grid gap-4">
+              <span className="data-label text-[10px] font-medium uppercase text-[var(--px-muted)]">
+                Omsetningsklasse
+              </span>
+              <select
+                name="revenueClass"
+                defaultValue={params.revenueClass}
+                className="min-h-11 rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-3 text-sm outline-none focus:border-[var(--px-accent)]"
+              >
+                <option value="">Alle klasser</option>
+                {REVENUE_CLASSES.map((revenueClass) => (
+                  <option key={revenueClass.value} value={revenueClass.value}>
+                    {revenueClass.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="mt-4 flex flex-wrap gap-4">
             <button
@@ -243,6 +276,10 @@ export function CompanySearchWorkspace({
               Nullstill
             </Link>
           </div>
+          <p className="mt-4 text-xs leading-5 text-[var(--px-muted)]">
+            Omsetningsklasse avgrenser treffene som er hentet med de øvrige søkekriteriene, og
+            bruker siste reelt tilgjengelige regnskapstall.
+          </p>
         </section>
       </form>
 

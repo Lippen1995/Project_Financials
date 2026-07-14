@@ -547,6 +547,8 @@ model User {
   newsRelevanceFeedback           NewsRelevanceFeedback[]
   companyEventFeedback            CompanyEventFeedback[]
   companyEventExposureFeedback    CompanyEventExposureFeedback[]
+  companySearchEvents             CompanySearchEvent[]
+  aiSearchUsageEvents             AiSearchUsageEvent[]
 }
 
 model Subscription {
@@ -557,6 +559,7 @@ model Subscription {
   stripeCustomerId     String?
   stripeSubscriptionId String?
   currentPeriodEnd     DateTime?
+  billingAnchorAt      DateTime?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -3801,4 +3804,52 @@ model RegistryRoleAssignment {
   @@index([personIdentityKey])
   @@index([holderOrgNumber])
   @@index([roleType])
+}
+
+model CompanySearchEvent {
+  id            String   @id @default(cuid())
+  userId        String
+  eventKey      String?
+  query         String?
+  scope         String   @default("companies")
+  industryCode  String?
+  city          String?
+  legalForm     String?
+  companyStatus String?
+  revenueClass  String?
+  aiAssisted    Boolean  @default(false)
+  resultCount   Int      @default(0)
+  succeeded     Boolean  @default(true)
+  sectors       Json     @default("[]")
+  searchedAt    DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, searchedAt(sort: Desc)])
+  @@index([userId, query])
+  @@index([userId, revenueClass])
+  @@unique([userId, eventKey])
+}
+
+model AiSearchUsageEvent {
+  id                   String   @id @default(cuid())
+  userId               String
+  status               String   @default("RESERVED")
+  reservedTokens       Int
+  model                String?
+  inputTokens          Int      @default(0)
+  cachedInputTokens    Int      @default(0)
+  outputTokens         Int      @default(0)
+  usageTokens          Int      @default(0)
+  sourceSystem         String?
+  sourceEntityType     String?
+  sourceId             String?
+  fetchedAt            DateTime?
+  normalizedAt         DateTime?
+  occurredAt           DateTime?
+  expiresAt            DateTime
+  createdAt            DateTime @default(now())
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([status, expiresAt])
 }

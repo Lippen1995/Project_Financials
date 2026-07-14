@@ -23,6 +23,7 @@ Fjord Insight er et MVP for selskapsinformasjon og innsikt bygget med Next.js, T
 - Fane for nettilknytning, nettkø og nettreservasjon fra konfigurert offentlig Statnett-eksport når sikker selskapsmatch finnes
 - Næringskodeberiking fra SSB Klass
 - Filtrering på sentrale virksomhetsfelt
+- Personlig søke- og analysehistorikk med komplett hendelseslogg, gjenkjøring, aktivitet og statistikk for søkeord, sektorer, omsetningsklasser, geografi, organisasjonsform og status
 - Innlogging, registrering og enkel feature gating
 - Workspace-basert kontooversikt med personlig workspace, team-workspaces og invitasjoner
 - DD-rom med mandat, workflow, funn, evidens, beslutningshistorikk og frie romposter
@@ -151,8 +152,9 @@ Goldsett-eksporten rapporterer dekning separat for direkte selskapsnyheter, makr
 - Aksjonærdata krever et reelt Skatteetaten-uttrekk for aktuelt selskap og år. Hvis snapshot mangler, viser Fjord Insight en tydelig tomtilstand i stedet for en plassholdergraf.
 - Eierandeler beregnes bare når totalt antall aksjer finnes og er konsistent i den importerte leveransen.
 - Filtrering skjer i MVP-et gjennom åpne søkekall og etterbehandling i Fjord Insight, så presisjonen er best når filtre kombineres med navn eller organisasjonsnummer.
+- Søkehistorikken lagrer innloggede virksomhetssøk i 30 dager. En daglig, autentisert cron-jobb sletter eldre rader, og alle historikk- og statistikkspørringer håndhever det samme rullerende vinduet. Omsetningsklasse avgrenser den provider-hentede trefflisten ved hjelp av siste reelt tilgjengelige regnskapstall.
 - Finanspanelet i virksomhetssøket viser inntekter, EBIT og årsresultat fra siste publiserte, normaliserte regnskapsår. EBITDA og antall ansatte for selve regnskapsåret er ikke normalisert i dagens kilde og vises derfor som `Ikke tilgjengelig`; ansattetallet i trefflisten er siste registrerte antall fra Brønnøysundregistrene.
-- AI-søk påvirker ikke registersøket eller rangeringen. Det åpner Njord-chatpanelet ved siden av en ordinær treffliste fra Brreg.
+- AI-søk krever Premium og har en månedlig tokenkvote forankret i datoen abonnementet startet (`Subscription.billingAnchorAt`). Betalingsintegrasjonen må lagre denne autoritative datoen ved aktivering; Fjord Insight utleder den ikke fra mutable abonnementstidsstempler. Faktisk input-, cache- og outputbruk fra OpenAI lagres med søkehendelsen og vises som kostnadsvektede forbrukstokens på siden «Søk og analysehistorikk»; valuta vises ikke i produktflaten. Kvoten håndheves før AI-tolkningen, mens registersøket fortsatt henter reelle virksomheter fra Brreg.
 - Njord-chatpanelet er foreløpig kun et UI-skall. Samtalen er ikke koblet til en språkmodell ennå, og krever derfor ikke `OPENAI_API_KEY`.
 - Distress-monitorer matcher bare selskaper som allerede finnes i Fjord Insight-lageret lokalt. Fjord Insight hevder ikke full nasjonal dekning dersom selskapet ikke er hentet eller lagret ennå.
 - Distress-tidslinjen på oversiktssiden bruker `lastAnnouncementPublishedAt` (siste registrerte kunngjøringsdato per profil), ikke full historikk av alle kunngjøringer.
@@ -828,6 +830,7 @@ Dette vil:
 - `PROJECTX_CACHE_HOURS`: antall timer før cache oppfriskes
 - `OPENAI_API_KEY`: API-nøkkel brukt til å tolke fritekstsøk
 - `OPENAI_SEARCH_MODEL`: modellnavn for søketolkning, standard `gpt-5-mini`
+- `CRON_SECRET`: bearer-secret for Vercel Cron, blant annet daglig sletting av søkehistorikk eldre enn 30 dager
 - `FINANCIALS_SYNC_SECRET`: delt secret for intern annual-report cron/scheduler
 - `WORKSPACE_SYNC_SECRET`: delt secret for intern workspace-sync-endepunkt i produksjon
 

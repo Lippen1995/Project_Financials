@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { safeAuth } from "@/lib/auth";
+import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import { searchCompanies } from "@/server/services/company-service";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
+import {
+  finalizeAiSearchUsage,
+  recordCompanySearch,
+  releaseAiSearchUsage,
+  reserveAiSearchUsage,
+} from "@/server/services/search-history-service";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -25,14 +33,67 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const searchResult = await searchCompanies({
-    query,
-    aiAssisted: searchParams.get("ai") === "1",
-    industryCode: searchParams.get("industryCode") ?? undefined,
-    city: searchParams.get("city") ?? undefined,
-    legalForm: searchParams.get("legalForm") ?? undefined,
-    status,
-  });
+  const aiRequested = searchParams.get("ai") === "1";
+  const session = aiRequested ? await safeAuth() : null;
+  const subscription = session?.user?.id
+    ? await getAiSearchSubscriptionContext(session.user.id)
+    : null;
+  if (aiRequested && (!session?.user?.id || !subscription?.premium)) {
+    return NextResponse.json({ error: "AI-søk krever et aktivt Premium-abonnement." }, { status: 403 });
+  }
+  if (aiRequested && !subscription?.billingPeriod) {
+    return NextResponse.json(
+      { error: "Abonnementsperioden for AI-søk er ikke tilgjengelig." },
+      { status: 503 },
+    );
+  }
+  const reservationId = aiRequested && session?.user?.id && subscription?.billingPeriod
+    ? await reserveAiSearchUsage(session.user.id, subscription.billingPeriod)
+    : null;
+  if (aiRequested && !reservationId) {
+    return NextResponse.json({ error: "Tokenkvoten for AI-søk er brukt opp." }, { status: 429 });
+  }
+
+  const industryCode = searchParams.get("industryCode") ?? undefined;
+  const city = searchParams.get("city") ?? undefined;
+  const legalForm = searchParams.get("legalForm") ?? undefined;
+  let usageFinalized = false;
+  let searchResult: Awaited<ReturnType<typeof searchCompanies>>;
+  try {
+    searchResult = await searchCompanies(
+      { query, aiAssisted: aiRequested, industryCode, city, legalForm, status },
+      {
+        onAiUsage: async (usage) => {
+          if (session?.user?.id && reservationId) {
+            await finalizeAiSearchUsage(session.user.id, reservationId, usage);
+            usageFinalized = true;
+          }
+        },
+      },
+    );
+  } finally {
+    if (session?.user?.id && reservationId && !usageFinalized) {
+      await releaseAiSearchUsage(session.user.id, reservationId);
+    }
+  }
+
+  if (aiRequested && session?.user?.id) {
+    await recordCompanySearch({
+      userId: session.user.id,
+      query,
+      industryCode,
+      city,
+      legalForm,
+      status,
+      aiAssisted: true,
+      resultCount: searchResult.results.length,
+      succeeded: true,
+      sectors: searchResult.interpretation.matchedIndustryCodes.map((sector) => ({
+        code: sector.code,
+        title: sector.title ?? null,
+      })),
+    });
+  }
 
   return NextResponse.json({
     data: searchResult.results,
