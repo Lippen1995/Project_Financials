@@ -105,6 +105,9 @@ describe("BoardReportExtractionService", () => {
     const outcome = await service.extractForFiling("filing-1", { publish: true });
 
     expect(outcome.result.status).toBe("EXTRACTED");
+    expect(outcome.result.extractorVersion).toBe(
+      "board-report-extraction-v1:parser-v1",
+    );
     expect(outcome.result.text).not.toContain("Resultatregnskap");
     expect(outcome.extractionId).toBe("extraction-1");
     expect(persistResult).toHaveBeenCalledOnce();

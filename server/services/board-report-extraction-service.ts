@@ -364,6 +364,10 @@ export class BoardReportExtractionService {
       sourceDocumentHash: pdf.sourceDocumentHash,
       fetchedAt: pdf.fetchedAt.toISOString(),
     });
+    result = {
+      ...result,
+      extractorVersion: `${result.extractorVersion}:${built.document.source.parserVersion ?? built.document.source.route.toLowerCase()}`,
+    };
 
     if (!built.autoPublishEligible && result.status === "EXTRACTED") {
       result = {

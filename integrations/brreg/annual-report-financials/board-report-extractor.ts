@@ -78,7 +78,9 @@ export type BoardReportExtractionResult = {
   warnings: BoardReportWarning[];
   route: UnifiedParserRoute;
   parserVersion: string | null;
-  extractorVersion: typeof BOARD_REPORT_EXTRACTION_VERSION;
+  extractorVersion:
+    | typeof BOARD_REPORT_EXTRACTION_VERSION
+    | `${typeof BOARD_REPORT_EXTRACTION_VERSION}:${string}`;
   sourceSystem: "BRREG";
   sourceEntityType: "ANNUAL_REPORT_PDF";
   sourceId: string;
