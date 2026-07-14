@@ -1,7 +1,7 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock } = vi.hoisted(() => ({
+const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock, getAiSearchSubscriptionContextMock } = vi.hoisted(() => ({
   searchCompaniesMock: vi.fn(),
   safeAuthMock: vi.fn(),
   recordCompanySearchMock: vi.fn(),
@@ -9,6 +9,7 @@ const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock, getAiSearchU
   reserveAiSearchUsageMock: vi.fn(),
   finalizeAiSearchUsageMock: vi.fn(),
   releaseAiSearchUsageMock: vi.fn(),
+  getAiSearchSubscriptionContextMock: vi.fn(),
 }));
 
 vi.mock("@/server/services/company-service", () => ({
@@ -16,6 +17,9 @@ vi.mock("@/server/services/company-service", () => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: safeAuthMock }));
+vi.mock("@/server/billing/subscription", () => ({
+  getAiSearchSubscriptionContext: getAiSearchSubscriptionContextMock,
+}));
 vi.mock("@/server/services/search-history-service", () => ({
   recordCompanySearch: recordCompanySearchMock,
   getAiSearchUsageStatus: getAiSearchUsageStatusMock,
@@ -36,6 +40,7 @@ describe("SearchPage", () => {
     reserveAiSearchUsageMock.mockReset();
     finalizeAiSearchUsageMock.mockReset();
     releaseAiSearchUsageMock.mockReset();
+    getAiSearchSubscriptionContextMock.mockReset();
     safeAuthMock.mockResolvedValue(null);
     recordCompanySearchMock.mockResolvedValue("event-id");
     getAiSearchUsageStatusMock.mockResolvedValue({
@@ -44,7 +49,21 @@ describe("SearchPage", () => {
       usedTokens: 0,
       remainingTokens: 41_000_000,
       usagePercent: 0,
-      windowDays: 30,
+      billingPeriod: {
+        periodStart: new Date("2026-07-14T10:00:00Z"),
+        periodEnd: new Date("2026-08-14T10:00:00Z"),
+        resetAt: new Date("2026-08-14T10:00:00Z"),
+        daysUntilReset: 31,
+      },
+    });
+    getAiSearchSubscriptionContextMock.mockResolvedValue({
+      premium: true,
+      billingPeriod: {
+        periodStart: new Date("2026-07-14T10:00:00Z"),
+        periodEnd: new Date("2026-08-14T10:00:00Z"),
+        resetAt: new Date("2026-08-14T10:00:00Z"),
+        daysUntilReset: 31,
+      },
     });
     reserveAiSearchUsageMock.mockResolvedValue("reservation-1");
     finalizeAiSearchUsageMock.mockResolvedValue(1);
@@ -147,7 +166,12 @@ describe("SearchPage", () => {
       usedTokens: 41_000_000,
       remainingTokens: 0,
       usagePercent: 100,
-      windowDays: 30,
+      billingPeriod: {
+        periodStart: new Date("2026-07-14T10:00:00Z"),
+        periodEnd: new Date("2026-08-14T10:00:00Z"),
+        resetAt: new Date("2026-08-14T10:00:00Z"),
+        daysUntilReset: 31,
+      },
     });
     reserveAiSearchUsageMock.mockResolvedValue(null);
 

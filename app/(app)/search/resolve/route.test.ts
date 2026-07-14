@@ -11,6 +11,9 @@ vi.mock("@/lib/auth", () => ({ safeAuth: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/server/services/search-history-service", () => ({
   getAiSearchUsageStatus: vi.fn(),
 }));
+vi.mock("@/server/billing/subscription", () => ({
+  getAiSearchSubscriptionContext: vi.fn(),
+}));
 
 import { GET } from "@/app/(app)/search/resolve/route";
 

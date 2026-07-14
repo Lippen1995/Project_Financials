@@ -8,6 +8,7 @@ import {
   getRevenueClassLabel,
   type SearchHistoryFrequency,
 } from "@/lib/search-history";
+import { getAiSearchResetPresentation } from "@/lib/ai-search-usage";
 import type { SearchHistoryDashboard as SearchHistoryDashboardData } from "@/server/services/search-history-service";
 
 const dateFormatter = new Intl.DateTimeFormat("nb-NO", {
@@ -147,6 +148,23 @@ function SearchActivity({ data }: { data: SearchHistoryDashboardData["summary"][
 }
 
 const tokenFormatter = new Intl.NumberFormat("nb-NO");
+const resetDateFormatter = new Intl.DateTimeFormat("nb-NO", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "Europe/Oslo",
+});
+
+function getResetLabel(data: SearchHistoryDashboardData["aiUsage"]) {
+  if (!data.billingPeriod) return "Reset-dato er ikke tilgjengelig";
+  const presentation = getAiSearchResetPresentation(data.billingPeriod);
+  if (presentation.kind === "days") {
+    return presentation.days === 1
+      ? "Tilbakestilles om 1 dag"
+      : `Tilbakestilles om ${presentation.days} dager`;
+  }
+  return `Tilbakestilles ${resetDateFormatter.format(presentation.resetAt)}`;
+}
 
 function AiUsage({ data }: { data: SearchHistoryDashboardData["aiUsage"] }) {
   return (
@@ -164,9 +182,14 @@ function AiUsage({ data }: { data: SearchHistoryDashboardData["aiUsage"] }) {
           </h2>
           <p className="mt-1 text-sm text-[var(--px-muted)]">
             {data.enabled
-              ? `Forbruk i et rullerende vindu på ${data.windowDays} dager.`
+              ? "Kvoten følger abonnementsperioden og tilbakestilles månedlig."
               : "AI-søk og tokenkvote er tilgjengelig med Premium."}
           </p>
+          {data.enabled ? (
+            <p className="data-label mt-3 text-[10px] uppercase text-[var(--px-muted)]">
+              {getResetLabel(data)}
+            </p>
+          ) : null}
         </div>
         <div className="text-right">
           <div className="data-label text-2xl font-semibold tabular-nums text-[var(--px-text)]">

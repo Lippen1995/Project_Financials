@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { SearchHistoryDashboard } from "@/components/search/search-history-dashboard";
-import { hasPremiumAiSearchAccess } from "@/lib/ai-search-usage";
 import { safeAuth } from "@/lib/auth";
+import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import { getSearchHistoryDashboard } from "@/server/services/search-history-service";
 
 function readPage(value: string | string[] | undefined) {
@@ -20,12 +20,11 @@ export default async function SearchHistoryPage({
   if (!session?.user?.id) redirect("/login");
 
   const params = await searchParams;
+  const subscription = await getAiSearchSubscriptionContext(session.user.id);
   const data = await getSearchHistoryDashboard(session.user.id, {
     page: readPage(params.page),
-    premium: hasPremiumAiSearchAccess(
-      session.user.subscriptionStatus,
-      session.user.subscriptionPlan,
-    ),
+    premium: subscription.premium,
+    billingPeriod: subscription.billingPeriod,
   });
 
   if (data.page > data.pageCount) redirect(`/search-history?page=${data.pageCount}`);

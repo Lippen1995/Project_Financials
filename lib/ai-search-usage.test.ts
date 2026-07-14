@@ -7,10 +7,55 @@ import {
   calculateAiUsageTokens,
   createAiSearchUsageStatus,
   getSearchHistoryCutoff,
+  getAiSearchBillingPeriod,
+  getAiSearchResetPresentation,
   hasPremiumAiSearchAccess,
 } from "@/lib/ai-search-usage";
 
 describe("AI search usage", () => {
+  it("resets monthly from the subscription start date", () => {
+    expect(
+      getAiSearchBillingPeriod(
+        new Date("2026-07-14T10:00:00.000Z"),
+        new Date("2026-08-13T12:00:00.000Z"),
+      ),
+    ).toEqual({
+      periodStart: new Date("2026-07-14T10:00:00.000Z"),
+      periodEnd: new Date("2026-08-14T10:00:00.000Z"),
+      resetAt: new Date("2026-08-14T10:00:00.000Z"),
+      daysUntilReset: 1,
+    });
+  });
+
+  it("preserves a month-end anchor without drifting shorter months", () => {
+    expect(
+      getAiSearchBillingPeriod(
+        new Date("2026-01-31T10:00:00.000Z"),
+        new Date("2026-02-28T10:00:00.000Z"),
+      ),
+    ).toMatchObject({
+      periodStart: new Date("2026-02-28T10:00:00.000Z"),
+      periodEnd: new Date("2026-03-31T10:00:00.000Z"),
+    });
+  });
+
+  it("switches from reset date to remaining days below ten days", () => {
+    const resetAt = new Date("2026-08-14T10:00:00.000Z");
+    expect(getAiSearchResetPresentation(
+      { resetAt, daysUntilReset: 10 },
+      new Date("2026-08-04T10:00:00.000Z"),
+    )).toEqual({
+      kind: "date",
+      resetAt,
+    });
+    expect(getAiSearchResetPresentation(
+      { resetAt, daysUntilReset: 10 },
+      new Date("2026-08-04T11:00:00.000Z"),
+    )).toEqual({
+      kind: "days",
+      days: 10,
+    });
+  });
   it("converts model usage into weighted quota tokens", () => {
     expect(
       calculateAiUsageTokens({
@@ -33,7 +78,7 @@ describe("AI search usage", () => {
       usedTokens: PREMIUM_AI_SEARCH_TOKEN_LIMIT + 10,
       remainingTokens: 0,
       usagePercent: 100,
-      windowDays: 30,
+      billingPeriod: null,
     });
   });
 
@@ -50,7 +95,7 @@ describe("AI search usage", () => {
       usedTokens: 0,
       remainingTokens: 0,
       usagePercent: 0,
-      windowDays: 30,
+      billingPeriod: null,
     });
   });
 });

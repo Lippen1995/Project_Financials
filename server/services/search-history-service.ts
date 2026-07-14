@@ -8,6 +8,7 @@ import {
   createAiSearchUsageStatus,
   getSearchHistoryCutoff,
   type AiSearchUsageStatus,
+  type AiSearchBillingPeriod,
   type AiTokenUsage,
 } from "@/lib/ai-search-usage";
 import {
@@ -281,12 +282,19 @@ async function getSearchHistorySummary(userId: string): Promise<SearchHistorySum
 
 export async function getSearchHistoryDashboard(
   userId: string,
-  options: { page?: number; pageSize?: number; premium?: boolean } = {},
+  options: {
+    page?: number;
+    pageSize?: number;
+    premium?: boolean;
+    billingPeriod?: AiSearchBillingPeriod | null;
+  } = {},
 ): Promise<SearchHistoryDashboard> {
   const page = Math.max(1, Math.trunc(options.page ?? 1));
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? DEFAULT_PAGE_SIZE)));
   const offset = (page - 1) * pageSize;
   const cutoff = getSearchHistoryCutoff();
+  const usagePeriodStart = options.billingPeriod?.periodStart ?? new Date();
+  const usagePeriodEnd = options.billingPeriod?.periodEnd ?? new Date();
 
   const [items, countRows, summary, usageRows] = await Promise.all([
     prisma.$queryRaw<SearchHistoryDbRow[]>(Prisma.sql`
@@ -318,14 +326,14 @@ export async function getSearchHistoryDashboard(
         COALESCE(SUM("outputTokens") FILTER (WHERE "status" = 'RECORDED'), 0)::bigint AS "outputTokens",
         COALESCE(SUM(
           CASE
-            WHEN "status" = 'RECORDED' AND "occurredAt" >= ${cutoff} THEN "usageTokens"
+            WHEN "status" = 'RECORDED' AND "occurredAt" >= ${usagePeriodStart} AND "occurredAt" < ${usagePeriodEnd} THEN "usageTokens"
             WHEN "status" = 'RESERVED' AND "expiresAt" > NOW() THEN "reservedTokens"
             ELSE 0
           END
         ), 0)::bigint AS "usageTokens"
       FROM "AiSearchUsageEvent"
       WHERE "userId" = ${userId}
-        AND (("status" = 'RECORDED' AND "occurredAt" >= ${cutoff}) OR ("status" = 'RESERVED' AND "expiresAt" > NOW()))
+        AND (("status" = 'RECORDED' AND "occurredAt" >= ${usagePeriodStart} AND "occurredAt" < ${usagePeriodEnd}) OR ("status" = 'RESERVED' AND "expiresAt" > NOW()))
     `),
   ]);
 
@@ -334,6 +342,7 @@ export async function getSearchHistoryDashboard(
   const aiUsage = createAiSearchUsageStatus(
     Boolean(options.premium),
     Number(usage?.usageTokens ?? 0),
+    options.billingPeriod,
   );
   return {
     items: items.map(toHistoryItem),
@@ -352,12 +361,17 @@ export async function getSearchHistoryDashboard(
   };
 }
 
-export async function getAiSearchUsageStatus(userId: string, premium: boolean) {
-  const cutoff = getSearchHistoryCutoff();
+export async function getAiSearchUsageStatus(
+  userId: string,
+  premium: boolean,
+  billingPeriod: AiSearchBillingPeriod | null,
+) {
+  const periodStart = billingPeriod?.periodStart ?? new Date();
+  const periodEnd = billingPeriod?.periodEnd ?? new Date();
   const rows = await prisma.$queryRaw<Array<{ usageTokens: bigint }>>(Prisma.sql`
     SELECT COALESCE(SUM(
       CASE
-        WHEN "status" = 'RECORDED' AND "occurredAt" >= ${cutoff} THEN "usageTokens"
+        WHEN "status" = 'RECORDED' AND "occurredAt" >= ${periodStart} AND "occurredAt" < ${periodEnd} THEN "usageTokens"
         WHEN "status" = 'RESERVED' AND "expiresAt" > NOW() THEN "reservedTokens"
         ELSE 0
       END
@@ -365,12 +379,20 @@ export async function getAiSearchUsageStatus(userId: string, premium: boolean) {
     FROM "AiSearchUsageEvent"
     WHERE "userId" = ${userId}
   `);
-  return createAiSearchUsageStatus(premium, Number(rows[0]?.usageTokens ?? 0));
+  return createAiSearchUsageStatus(
+    premium,
+    Number(rows[0]?.usageTokens ?? 0),
+    billingPeriod,
+  );
 }
 
-export async function reserveAiSearchUsage(userId: string) {
+export async function reserveAiSearchUsage(
+  userId: string,
+  billingPeriod: AiSearchBillingPeriod,
+) {
   const now = new Date();
-  const cutoff = getSearchHistoryCutoff(now);
+  const periodStart = billingPeriod.periodStart;
+  const periodEnd = billingPeriod.periodEnd;
   const expiresAt = new Date(now.getTime() + 5 * 60 * 1_000);
 
   return prisma.$transaction(async (transaction) => {
@@ -380,7 +402,7 @@ export async function reserveAiSearchUsage(userId: string) {
     const rows = await transaction.$queryRaw<Array<{ usageTokens: bigint }>>(Prisma.sql`
       SELECT COALESCE(SUM(
         CASE
-          WHEN "status" = 'RECORDED' AND "occurredAt" >= ${cutoff} THEN "usageTokens"
+          WHEN "status" = 'RECORDED' AND "occurredAt" >= ${periodStart} AND "occurredAt" < ${periodEnd} THEN "usageTokens"
           WHEN "status" = 'RESERVED' AND "expiresAt" > ${now} THEN "reservedTokens"
           ELSE 0
         END
@@ -438,16 +460,15 @@ export async function releaseAiSearchUsage(userId: string, reservationId: string
 
 export async function deleteExpiredSearchHistory(now = new Date()) {
   const cutoff = getSearchHistoryCutoff(now);
-  const [history, usage] = await prisma.$transaction([
+  const [history, reservations] = await prisma.$transaction([
     prisma.$executeRaw(Prisma.sql`
       DELETE FROM "CompanySearchEvent"
       WHERE "searchedAt" < ${cutoff}
     `),
     prisma.$executeRaw(Prisma.sql`
       DELETE FROM "AiSearchUsageEvent"
-      WHERE ("status" = 'RECORDED' AND "occurredAt" < ${cutoff})
-         OR ("status" = 'RESERVED' AND "expiresAt" <= ${now})
+      WHERE "status" = 'RESERVED' AND "expiresAt" <= ${now}
     `),
   ]);
-  return history + usage;
+  return history + reservations;
 }

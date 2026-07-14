@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { safeAuth } from "@/lib/auth";
-import { canStartAiSearch, hasPremiumAiSearchAccess } from "@/lib/ai-search-usage";
+import { canStartAiSearch } from "@/lib/ai-search-usage";
 import {
   buildDashboardSearchHref,
   isDashboardSearchScope,
 } from "@/lib/dashboard-search";
 import { resolveDashboardSearchHref } from "@/server/services/dashboard-search-routing-service";
+import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import { getAiSearchUsageStatus } from "@/server/services/search-history-service";
 
 export async function GET(request: Request) {
@@ -19,12 +20,15 @@ export async function GET(request: Request) {
   const scope = isDashboardSearchScope(rawScope) ? rawScope : "all";
   const aiRequested = url.searchParams.get("ai") === "1";
   const session = aiRequested ? await safeAuth() : null;
-  const premium = hasPremiumAiSearchAccess(
-    session?.user?.subscriptionStatus,
-    session?.user?.subscriptionPlan,
-  );
-  const usage = session?.user?.id
-    ? await getAiSearchUsageStatus(session.user.id, premium)
+  const subscription = session?.user?.id
+    ? await getAiSearchSubscriptionContext(session.user.id)
+    : null;
+  const usage = session?.user?.id && subscription
+    ? await getAiSearchUsageStatus(
+        session.user.id,
+        subscription.premium,
+        subscription.billingPeriod,
+      )
     : null;
   const aiEnabled = Boolean(aiRequested && usage && canStartAiSearch(usage));
   const searchEventId = url.searchParams.get("searchEventId");

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { safeAuth } from "@/lib/auth";
-import { hasPremiumAiSearchAccess } from "@/lib/ai-search-usage";
+import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import { searchCompanies } from "@/server/services/company-service";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import {
@@ -35,15 +35,20 @@ export async function GET(request: NextRequest) {
 
   const aiRequested = searchParams.get("ai") === "1";
   const session = aiRequested ? await safeAuth() : null;
-  const premium = hasPremiumAiSearchAccess(
-    session?.user?.subscriptionStatus,
-    session?.user?.subscriptionPlan,
-  );
-  if (aiRequested && (!session?.user?.id || !premium)) {
+  const subscription = session?.user?.id
+    ? await getAiSearchSubscriptionContext(session.user.id)
+    : null;
+  if (aiRequested && (!session?.user?.id || !subscription?.premium)) {
     return NextResponse.json({ error: "AI-søk krever et aktivt Premium-abonnement." }, { status: 403 });
   }
-  const reservationId = aiRequested && session?.user?.id
-    ? await reserveAiSearchUsage(session.user.id)
+  if (aiRequested && !subscription?.billingPeriod) {
+    return NextResponse.json(
+      { error: "Abonnementsperioden for AI-søk er ikke tilgjengelig." },
+      { status: 503 },
+    );
+  }
+  const reservationId = aiRequested && session?.user?.id && subscription?.billingPeriod
+    ? await reserveAiSearchUsage(session.user.id, subscription.billingPeriod)
     : null;
   if (aiRequested && !reservationId) {
     return NextResponse.json({ error: "Tokenkvoten for AI-søk er brukt opp." }, { status: 429 });

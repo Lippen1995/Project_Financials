@@ -8,7 +8,8 @@ import {
 } from "@/lib/search-history";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import type { CompanySearchResponse } from "@/lib/types";
-import { canStartAiSearch, hasPremiumAiSearchAccess } from "@/lib/ai-search-usage";
+import { canStartAiSearch } from "@/lib/ai-search-usage";
+import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import { searchCompanies } from "@/server/services/company-service";
 import {
   getAiSearchUsageStatus,
@@ -58,18 +59,29 @@ export default async function SearchPage({
 }) {
   const rawParams = await searchParams;
   const session = await safeAuth();
-  const premium = hasPremiumAiSearchAccess(
-    session?.user?.subscriptionStatus,
-    session?.user?.subscriptionPlan,
-  );
+  let subscriptionContext = { premium: false, billingPeriod: null } as Awaited<
+    ReturnType<typeof getAiSearchSubscriptionContext>
+  >;
   let aiUsageStatus = null;
   let aiReservationId: string | null = null;
   let quotaLookupFailed = false;
   if (session?.user?.id) {
     try {
-      aiUsageStatus = await getAiSearchUsageStatus(session.user.id, premium);
-      if (rawParams.ai === "1" && premium) {
-        aiReservationId = await reserveAiSearchUsage(session.user.id);
+      subscriptionContext = await getAiSearchSubscriptionContext(session.user.id);
+      aiUsageStatus = await getAiSearchUsageStatus(
+        session.user.id,
+        subscriptionContext.premium,
+        subscriptionContext.billingPeriod,
+      );
+      if (
+        rawParams.ai === "1" &&
+        subscriptionContext.premium &&
+        subscriptionContext.billingPeriod
+      ) {
+        aiReservationId = await reserveAiSearchUsage(
+          session.user.id,
+          subscriptionContext.billingPeriod,
+        );
       }
     } catch (error) {
       quotaLookupFailed = true;
@@ -102,8 +114,10 @@ export default async function SearchPage({
   const aiAccessMessage = aiRequested && !aiAvailable
     ? quotaLookupFailed
       ? "Tokenstatus er midlertidig utilgjengelig. AI-søk er deaktivert til statusen kan bekreftes."
-      : premium
-      ? "AI-søk er midlertidig deaktivert fordi tokenkvoten for de siste 30 dagene er brukt opp."
+      : subscriptionContext.premium
+      ? subscriptionContext.billingPeriod
+        ? "AI-søk er midlertidig deaktivert fordi tokenkvoten for denne abonnementsperioden er brukt opp."
+        : "AI-søk er midlertidig deaktivert fordi abonnementsperioden ikke er tilgjengelig."
       : "AI-søk krever Premium-abonnement. Søket ble kjørt uten AI."
     : null;
   let aiUsageFinalized = false;

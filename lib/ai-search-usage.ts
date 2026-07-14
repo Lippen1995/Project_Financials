@@ -4,6 +4,74 @@ export const SEARCH_HISTORY_RETENTION_DAYS = 30;
 export const PREMIUM_AI_SEARCH_TOKEN_LIMIT = 41_000_000;
 export const AI_SEARCH_RESERVATION_TOKENS = 10_000;
 
+export type AiSearchBillingPeriod = {
+  periodStart: Date;
+  periodEnd: Date;
+  resetAt: Date;
+  daysUntilReset: number;
+};
+
+function addAnchoredUtcMonths(anchor: Date, months: number) {
+  const targetMonthStart = new Date(Date.UTC(
+    anchor.getUTCFullYear(),
+    anchor.getUTCMonth() + months,
+    1,
+    anchor.getUTCHours(),
+    anchor.getUTCMinutes(),
+    anchor.getUTCSeconds(),
+    anchor.getUTCMilliseconds(),
+  ));
+  const lastDay = new Date(Date.UTC(
+    targetMonthStart.getUTCFullYear(),
+    targetMonthStart.getUTCMonth() + 1,
+    0,
+  )).getUTCDate();
+  targetMonthStart.setUTCDate(Math.min(anchor.getUTCDate(), lastDay));
+  return targetMonthStart;
+}
+
+export function getAiSearchBillingPeriod(
+  subscriptionStartedAt: Date,
+  now = new Date(),
+): AiSearchBillingPeriod {
+  const anchor = new Date(subscriptionStartedAt);
+  if (now < anchor) {
+    const periodEnd = addAnchoredUtcMonths(anchor, 1);
+    return {
+      periodStart: anchor,
+      periodEnd,
+      resetAt: periodEnd,
+      daysUntilReset: Math.max(1, Math.ceil((periodEnd.getTime() - now.getTime()) / 86_400_000)),
+    };
+  }
+
+  let monthOffset =
+    (now.getUTCFullYear() - anchor.getUTCFullYear()) * 12 +
+    now.getUTCMonth() - anchor.getUTCMonth();
+  let periodStart = addAnchoredUtcMonths(anchor, monthOffset);
+  if (periodStart > now) {
+    monthOffset -= 1;
+    periodStart = addAnchoredUtcMonths(anchor, monthOffset);
+  }
+  const periodEnd = addAnchoredUtcMonths(anchor, monthOffset + 1);
+
+  return {
+    periodStart,
+    periodEnd,
+    resetAt: periodEnd,
+    daysUntilReset: Math.max(1, Math.ceil((periodEnd.getTime() - now.getTime()) / 86_400_000)),
+  };
+}
+
+export function getAiSearchResetPresentation(
+  period: Pick<AiSearchBillingPeriod, "resetAt" | "daysUntilReset">,
+  now = new Date(),
+) {
+  return period.resetAt.getTime() - now.getTime() < 10 * 86_400_000
+    ? { kind: "days" as const, days: period.daysUntilReset }
+    : { kind: "date" as const, resetAt: period.resetAt };
+}
+
 export type AiTokenUsage = {
   model: string;
   sourceSystem: "OPENAI";
@@ -31,7 +99,7 @@ export type AiSearchUsageStatus = {
   usedTokens: number;
   remainingTokens: number;
   usagePercent: number;
-  windowDays: number;
+  billingPeriod: AiSearchBillingPeriod | null;
 };
 
 function wholeNonNegative(value: number) {
@@ -56,6 +124,7 @@ export function calculateAiUsageTokens(input: {
 export function createAiSearchUsageStatus(
   premium: boolean,
   recordedUsageTokens: number,
+  billingPeriod: AiSearchBillingPeriod | null = null,
 ): AiSearchUsageStatus {
   if (!premium) {
     return {
@@ -64,7 +133,7 @@ export function createAiSearchUsageStatus(
       usedTokens: 0,
       remainingTokens: 0,
       usagePercent: 0,
-      windowDays: SEARCH_HISTORY_RETENTION_DAYS,
+      billingPeriod: null,
     };
   }
 
@@ -78,7 +147,7 @@ export function createAiSearchUsageStatus(
       100,
       Math.round((usedTokens / PREMIUM_AI_SEARCH_TOKEN_LIMIT) * 100),
     ),
-    windowDays: SEARCH_HISTORY_RETENTION_DAYS,
+    billingPeriod,
   };
 }
 
