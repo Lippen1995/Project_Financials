@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { Route } from "next";
+import type { CompanySearchRow } from "@/lib/company-search-sort";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type ChatMessage = {
@@ -141,6 +142,7 @@ export function AiSearchPanel({
   minimized,
   onWidthChange,
   onMinimizedChange,
+  onCompanies,
 }: {
   query: string | null;
   usage: AiSearchUsageSummary;
@@ -148,6 +150,8 @@ export function AiSearchPanel({
   minimized: boolean;
   onWidthChange: (width: number) => void;
   onMinimizedChange: (minimized: boolean) => void;
+  /** Hands the companies the agent surfaced up to the workspace so they can drive the result table. */
+  onCompanies?: (rows: CompanySearchRow[]) => void;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -190,12 +194,15 @@ export function AiSearchPanel({
         answer?: string;
         error?: string;
         quota?: AiSearchUsageSummary;
+        companies?: CompanySearchRow[];
       };
       const content = res.ok
         ? (data.answer ?? "Fant ikke noe svar.")
         : (data.error ?? "Noe gikk galt med AI-søket.");
       setMessages((prev) => [...prev, { id: `a-${turn}`, role: "assistant", content }]);
       if (data.quota) setUsage(data.quota);
+      // Let the agent's ranked companies take over the result table.
+      if (res.ok && data.companies) onCompanies?.(data.companies);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -204,7 +211,7 @@ export function AiSearchPanel({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [onCompanies]);
 
   useEffect(() => {
     if (!minimized) messagesEndRef.current?.scrollIntoView({ block: "nearest" });

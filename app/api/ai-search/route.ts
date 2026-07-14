@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { safeAuth } from "@/lib/auth";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import { runAgent } from "@/server/ai-search/agent/agent-loop";
+import { buildCompanySearchRows } from "@/server/ai-search/agent/company-rows";
 import { buildTargetReasoningPrompt } from "@/server/ai-search/agent/target-reasoning";
 import { HeuristicLlmClient } from "@/server/ai-search/llm/heuristic-client";
 import { retrievalTools } from "@/server/ai-search/tools";
@@ -43,6 +44,23 @@ export async function POST(request: NextRequest) {
     userQuery: query,
   });
 
+  // The companies the agent SURFACED (find_by_business matches, in its ranked order) become the
+  // result table — the agent drives the Treffliste. The resolved subject is excluded: a company is
+  // not its own acquisition candidate.
+  const subjectOrgNumber =
+    result.toolResults
+      .filter((t) => t.name === "get_company_profile")
+      .map((t) => (t.output as { profile?: { orgNumber?: string } } | null)?.profile?.orgNumber)
+      .find((org): org is string => Boolean(org)) ?? null;
+
+  const surfacedOrgNumbers = result.toolResults
+    .filter((t) => t.name === "find_by_business")
+    .flatMap((t) => (t.output as { matches?: Array<{ orgNumber: string }> } | null)?.matches ?? [])
+    .map((match) => match.orgNumber)
+    .filter((org) => org !== subjectOrgNumber);
+
+  const companies = await buildCompanySearchRows([...new Set(surfacedOrgNumbers)]);
+
   let quota = null;
   try {
     const subscription = await getAiSearchSubscriptionContext(session.user.id);
@@ -67,6 +85,8 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     answer: result.answer,
+    companies,
+    subjectOrgNumber,
     groundedOrgNumbers: result.groundedOrgNumbers,
     tools: result.invocations.map((i) => ({ name: i.name, ok: i.ok })),
     usage: result.usage,

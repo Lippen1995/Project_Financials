@@ -159,14 +159,19 @@ export function CompanySearchWorkspace({
     };
   }, [njordPanelWidth]);
 
+  // When Njord answers, its ranked companies take over the table. Null = show the registry results.
+  const [agentRows, setAgentRows] = useState<CompanySearchRow[] | null>(null);
+  const agentDriven = agentRows !== null;
+  const activeRows = agentRows ?? rows;
+
   const sortedRows = useMemo(
-    () => (sort ? sortCompanySearchRows(rows, sort.key, sort.direction) : rows),
-    [rows, sort],
+    () => (sort ? sortCompanySearchRows(activeRows, sort.key, sort.direction) : activeRows),
+    [activeRows, sort],
   );
   const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const visibleRows = sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const selectedRow = rows.find((row) => row.orgNumber === selectedOrgNumber) ?? null;
+  const selectedRow = activeRows.find((row) => row.orgNumber === selectedOrgNumber) ?? null;
 
   function toggleSort(key: CompanySearchSortKey) {
     setSort((current) => ({
@@ -382,25 +387,38 @@ export function CompanySearchWorkspace({
               Treffliste
             </h2>
             <p className="mt-1 text-xs text-[var(--px-muted)]">
-              {rows.length > 0
-                ? `${rows.length} treff lastet fra virksomhetsregisteret.`
-                : params.query || hasActiveFilters
-                  ? "Ingen virksomheter samsvarer med søket."
-                  : "Søk for å hente registrerte virksomheter."}
+              {agentDriven
+                ? `${activeRows.length} selskaper funnet av Njord, rangert etter forretningsbeskrivelse.`
+                : activeRows.length > 0
+                  ? `${activeRows.length} treff lastet fra virksomhetsregisteret.`
+                  : params.query || hasActiveFilters
+                    ? "Ingen virksomheter samsvarer med søket."
+                    : "Søk for å hente registrerte virksomheter."}
             </p>
           </div>
-          {sort ? (
-            <button
-              type="button"
-              onClick={() => setSort(null)}
-              className="rounded-full px-3 py-1 text-xs font-medium text-[var(--px-muted)] hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]"
-            >
-              Tilbakestill sortering
-            </button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {agentDriven ? (
+              <button
+                type="button"
+                onClick={() => setAgentRows(null)}
+                className="rounded-full px-3 py-1 text-xs font-medium text-[var(--px-muted)] hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]"
+              >
+                Vis registertreff
+              </button>
+            ) : null}
+            {sort ? (
+              <button
+                type="button"
+                onClick={() => setSort(null)}
+                className="rounded-full px-3 py-1 text-xs font-medium text-[var(--px-muted)] hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]"
+              >
+                Tilbakestill sortering
+              </button>
+            ) : null}
+          </div>
         </div>
 
-        {rows.length > 0 ? (
+        {activeRows.length > 0 ? (
           <div
             className={cn(
               "grid gap-6",
@@ -583,6 +601,13 @@ export function CompanySearchWorkspace({
           minimized={njordMinimized}
           onWidthChange={setNjordPanelWidth}
           onMinimizedChange={setNjordMinimized}
+          onCompanies={(companies) => {
+            // Only take over the table when the agent actually found companies.
+            if (companies.length > 0) {
+              setAgentRows(companies);
+              setPage(1);
+            }
+          }}
         />
       ) : null}
     </main>
