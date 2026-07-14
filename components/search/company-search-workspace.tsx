@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 
-import { AiSearchPanel } from "@/components/search/ai-search-panel";
+import {
+  AiSearchPanel,
+  NJORD_DEFAULT_PANEL_WIDTH,
+  type AiSearchUsageSummary,
+} from "@/components/search/ai-search-panel";
 import {
   sortCompanySearchRows,
   type CompanySearchRow,
@@ -31,6 +35,30 @@ type SortState = {
 } | null;
 
 const pageSize = 15;
+const NJORD_TABLE_GUTTER = 24;
+const unavailableAiUsage: AiSearchUsageSummary = {
+  enabled: false,
+  tokenLimit: 0,
+  usedTokens: 0,
+  remainingTokens: 0,
+  usagePercent: 0,
+  resetAt: null,
+};
+
+export function calculateNjordReservedWidth(
+  mainRight: number,
+  viewportWidth: number,
+  panelWidth: number,
+) {
+  const nonOverlayWidth = Math.min(panelWidth, NJORD_DEFAULT_PANEL_WIDTH);
+  return Math.max(
+    0,
+    Math.min(
+      nonOverlayWidth,
+      mainRight - (viewportWidth - nonOverlayWidth) + NJORD_TABLE_GUTTER,
+    ),
+  );
+}
 
 const sortColumns: Array<{
   key: CompanySearchSortKey;
@@ -82,12 +110,14 @@ export function CompanySearchWorkspace({
   searchError,
   aiAvailable = true,
   aiAccessMessage = null,
+  aiUsage = unavailableAiUsage,
 }: {
   rows: CompanySearchRow[];
   params: SearchParams;
   searchError: string | null;
   aiAvailable?: boolean;
   aiAccessMessage?: string | null;
+  aiUsage?: AiSearchUsageSummary;
 }) {
   const hasActiveFilters = Boolean(
     params.industryCode || params.city || params.legalForm || params.status || params.revenueClass,
@@ -98,6 +128,36 @@ export function CompanySearchWorkspace({
   const [selectedOrgNumber, setSelectedOrgNumber] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [searchEventId] = useState(() => crypto.randomUUID());
+  const [njordPanelWidth, setNjordPanelWidth] = useState(NJORD_DEFAULT_PANEL_WIDTH);
+  const [njordMinimized, setNjordMinimized] = useState(false);
+  const [njordReservedWidth, setNjordReservedWidth] = useState(NJORD_DEFAULT_PANEL_WIDTH);
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+
+    function updateReservedWidth() {
+      const currentMain = mainRef.current;
+      if (!currentMain) return;
+      setNjordReservedWidth(
+        calculateNjordReservedWidth(
+          currentMain.getBoundingClientRect().right,
+          window.innerWidth,
+          njordPanelWidth,
+        ),
+      );
+    }
+
+    updateReservedWidth();
+    window.addEventListener("resize", updateReservedWidth);
+    const observer = new ResizeObserver(updateReservedWidth);
+    observer.observe(main);
+    return () => {
+      window.removeEventListener("resize", updateReservedWidth);
+      observer.disconnect();
+    };
+  }, [njordPanelWidth]);
 
   const sortedRows = useMemo(
     () => (sort ? sortCompanySearchRows(rows, sort.key, sort.direction) : rows),
@@ -132,7 +192,14 @@ export function CompanySearchWorkspace({
     : "/search") as Route;
 
   return (
-    <main className={cn("space-y-6 pb-12", params.aiEnabled && "sm:pr-[400px]")}>
+    <main
+      ref={mainRef}
+      className={cn(
+        "space-y-6 pb-12",
+        params.aiEnabled && !njordMinimized && "sm:pr-[var(--njord-reserved-width)]",
+      )}
+      style={{ "--njord-reserved-width": `${njordReservedWidth}px` } as CSSProperties}
+    >
       <header className="grid gap-4 border-t-2 border-[var(--px-text)] pt-4">
         <div className="data-label text-[11px] font-medium uppercase text-[var(--px-muted)]">
           Søk i virksomhetsregisteret
@@ -508,7 +575,16 @@ export function CompanySearchWorkspace({
         ) : null}
       </section>
 
-      {params.aiEnabled ? <AiSearchPanel query={params.query || null} /> : null}
+      {params.aiEnabled ? (
+        <AiSearchPanel
+          query={params.query || null}
+          usage={aiUsage}
+          width={njordPanelWidth}
+          minimized={njordMinimized}
+          onWidthChange={setNjordPanelWidth}
+          onMinimizedChange={setNjordMinimized}
+        />
+      ) : null}
     </main>
   );
 }

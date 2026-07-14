@@ -2,16 +2,19 @@ import type { RetrievalTool } from "./types";
 import { resolveCompanyTool } from "./resolve-company";
 import { companyProfileTool } from "./company-profile";
 import { findComparablesTool } from "./find-comparables";
+import { findByBusinessTool } from "./find-by-business";
 
 /**
  * The retrieval tool registry the agent is given. v1 covers the competitors path end-to-end:
- * resolve → profile → comparables. Ownership traversal, shared-graph, and franchise-location
- * tools slot in here as they are built (Phase 2).
+ * resolve → profile → comparables. find_by_business adds product/value-chain candidate generation
+ * over the qualitative corpus (CompanyWebProfile). Ownership traversal, shared-graph, and
+ * franchise-location tools slot in here as they are built (Phase 2).
  */
 export const retrievalTools: RetrievalTool[] = [
   resolveCompanyTool as RetrievalTool,
   companyProfileTool as RetrievalTool,
   findComparablesTool as RetrievalTool,
+  findByBusinessTool as RetrievalTool,
 ];
 
 export const retrievalToolsByName: Record<string, RetrievalTool> = Object.fromEntries(
@@ -21,4 +24,5 @@ export const retrievalToolsByName: Record<string, RetrievalTool> = Object.fromEn
 export { resolveCompanyTool } from "./resolve-company";
 export { companyProfileTool } from "./company-profile";
 export { findComparablesTool } from "./find-comparables";
+export { findByBusinessTool } from "./find-by-business";
 export * from "./types";

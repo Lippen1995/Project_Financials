@@ -1,7 +1,7 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock, getAiSearchSubscriptionContextMock } = vi.hoisted(() => ({
+const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock, getAiSearchSubscriptionContextMock, envMock } = vi.hoisted(() => ({
   searchCompaniesMock: vi.fn(),
   safeAuthMock: vi.fn(),
   recordCompanySearchMock: vi.fn(),
@@ -10,6 +10,7 @@ const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock, getAiSearchU
   finalizeAiSearchUsageMock: vi.fn(),
   releaseAiSearchUsageMock: vi.fn(),
   getAiSearchSubscriptionContextMock: vi.fn(),
+  envMock: { aiSearchBillingEnabled: false },
 }));
 
 vi.mock("@/server/services/company-service", () => ({
@@ -17,6 +18,7 @@ vi.mock("@/server/services/company-service", () => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: safeAuthMock }));
+vi.mock("@/lib/env", () => ({ default: envMock }));
 vi.mock("@/server/billing/subscription", () => ({
   getAiSearchSubscriptionContext: getAiSearchSubscriptionContextMock,
 }));
@@ -41,6 +43,7 @@ describe("SearchPage", () => {
     finalizeAiSearchUsageMock.mockReset();
     releaseAiSearchUsageMock.mockReset();
     getAiSearchSubscriptionContextMock.mockReset();
+    envMock.aiSearchBillingEnabled = false;
     safeAuthMock.mockResolvedValue(null);
     recordCompanySearchMock.mockResolvedValue("event-id");
     getAiSearchUsageStatusMock.mockResolvedValue({
@@ -157,6 +160,7 @@ describe("SearchPage", () => {
   });
 
   it("runs without AI when the Premium token quota is exhausted", async () => {
+    envMock.aiSearchBillingEnabled = true;
     safeAuthMock.mockResolvedValue({
       user: { id: "user-1", subscriptionPlan: "premium", subscriptionStatus: "ACTIVE" },
     });

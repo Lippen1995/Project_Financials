@@ -396,7 +396,10 @@ export async function reserveAiSearchUsage(
   const expiresAt = new Date(now.getTime() + 5 * 60 * 1_000);
 
   return prisma.$transaction(async (transaction) => {
-    await transaction.$queryRaw(Prisma.sql`
+    // $executeRaw, not $queryRaw: pg_advisory_xact_lock returns SQL `void`, which $queryRaw cannot
+    // deserialize (it throws "Failed to deserialize column of type 'void'"). We only need the lock's
+    // side effect, so execute it without materializing a result set.
+    await transaction.$executeRaw(Prisma.sql`
       SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))
     `);
     const rows = await transaction.$queryRaw<Array<{ usageTokens: bigint }>>(Prisma.sql`

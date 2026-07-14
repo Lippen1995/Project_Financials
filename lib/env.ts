@@ -44,6 +44,12 @@ const env = {
   stripePriceId: process.env.STRIPE_PRICE_ID ?? "",
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   openAiSearchModel: process.env.OPENAI_SEARCH_MODEL ?? "gpt-5-mini",
+  // AI-search billing switch. While false (the default), AI-search runs on the zero-cost
+  // heuristic client and the panel is gated on premium ENTITLEMENT only — no token reservation,
+  // no quota metering. Flip to true at go-live (set AI_SEARCH_BILLING_ENABLED=true) once a real
+  // paid LLM adapter is wired, to re-connect the subscription/token-quota gate end-to-end.
+  aiSearchBillingEnabled:
+    (process.env.AI_SEARCH_BILLING_ENABLED ?? "").trim().toLowerCase() === "true",
   opendataloaderEnabled:
     (process.env.OPENDATALOADER_ENABLED ?? "").trim().toLowerCase() === "true",
   opendataloaderMode:

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { AgentCompanyRef, defineTool, toAgentCompanyRef } from "./types";
+import { getLatestFinancialsByOrgNumbers } from "./enrich";
 
 const inputSchema = z.object({
   naceCode: z.string().min(2, "naceCode is required"),
@@ -125,12 +126,21 @@ export const findComparablesTool = defineTool<FindComparablesInput, FindComparab
     });
 
     const criteria: ComparableCriteria = { naceCode, municipality, employeeCount };
-    const comparables = rows
+    const candidates = rows
       .map(toAgentCompanyRef)
-      .filter((ref) => !exclude.has(ref.orgNumber))
+      .filter((ref) => !exclude.has(ref.orgNumber));
+
+    // Batch-join the latest headline accounts so ranked rows carry size/health for the agent
+    // (and, when the subject's employee count is unknown, so revenue can stand in for size).
+    const financialsByOrg = await getLatestFinancialsByOrgNumbers(
+      candidates.map((ref) => ref.orgNumber),
+    );
+
+    const comparables = candidates
       .map((ref) => {
+        const latestFinancials = financialsByOrg.get(ref.orgNumber) ?? null;
         const { score, reasons } = scoreComparable(ref, criteria);
-        return { ...ref, score, reasons };
+        return { ...ref, latestFinancials, score, reasons };
       })
       .sort((a, b) => b.score - a.score)
       .slice(0, take);

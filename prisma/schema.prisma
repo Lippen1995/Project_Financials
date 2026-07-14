@@ -3806,6 +3806,27 @@ model RegistryRoleAssignment {
   @@index([roleType])
 }
 
+/// Offline-built qualitative corpus. Raw prose about what a company does, scraped from its own
+/// website and reasoned into a description. The AI-search agent reads `businessSummary` (and, when
+/// needed, `scrapedText`) at query time to reason about strategic fit and value-chain / supply-chain
+/// position — no query-time internet, no per-query LLM enrichment. Keyed by orgNumber so it attaches
+/// to any company, whether or not it is in the enriched `Company` table.
+model CompanyWebProfile {
+  orgNumber       String    @id @db.VarChar(9)
+  companyName     String?
+  sourceUrl       String
+  /// Cleaned visible text pulled from the site (several pages concatenated). The raw material.
+  scrapedText     String
+  /// Reasoned prose: what they make/do, products, customers, position in the value chain.
+  businessSummary String?
+  pagesScraped    Int       @default(0)
+  scrapedAt       DateTime  @default(now())
+  reasonedAt      DateTime?
+  provenance      String    @default("website-scrape")
+
+  @@index([companyName])
+}
+
 model CompanySearchEvent {
   id            String   @id @default(cuid())
   userId        String
