@@ -645,11 +645,6 @@ export default async function CompanyPage({
             latestYear={company.lastSubmittedAnnualReportYear}
           />
 
-          <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-            <h3 className="text-xl font-semibold text-slate-950">Tilgjengelighet</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">{financialsAvailability.message}</p>
-          </Card>
-
           {discussionContext?.selectedRoomId ? (
             <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
               <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
