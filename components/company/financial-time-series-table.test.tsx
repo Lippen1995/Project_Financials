@@ -207,4 +207,65 @@ describe("FinancialTimeSeriesTable", () => {
     expect(html.match(/data-financial-row-kind="cash-flow-total"/g)).toHaveLength(5);
     expect(html.match(/data-cash-flow-group-break="true"/g)).toHaveLength(4);
   });
+
+  it("ranks income-statement subtotals and adds space after each group", () => {
+    const statements: NormalizedFinancialStatement[] = [{
+      ...source,
+      rawPayload: null,
+      fiscalYear: 2025,
+      currency: "NOK",
+      statementScope: "CONSOLIDATED",
+      revenue: 2_674_629_000,
+      operatingProfit: 149_431_000,
+      netIncome: 108_102_000,
+      equity: 1_218_266_000,
+      assets: 3_605_794_000,
+    }];
+    const rows = [
+      ["Revenues", "revenue"],
+      ["Operating income, in total", "total_operating_income"],
+      ["Procurement expenses", "as_reported_procurement_expenses"],
+      ["Operating cost, in total", "total_operating_expenses"],
+      ["Operating results", "operating_profit"],
+      ["Interest income", "as_reported_interest_income"],
+      ["Finance items - net", "net_financial_items"],
+      ["Profit (loss) before taxes", "profit_before_tax"],
+      ["Taxes", "tax_expense"],
+      ["Profit (loss) for the year", "net_income"],
+    ];
+    const lineItems: NormalizedFinancialLineItem[] = rows.map(([label, metricKey], index) => ({
+      id: `income-${index}`,
+      filingId: "filing-1",
+      fiscalYear: 2025,
+      statementType: "INCOME_STATEMENT",
+      statementScope: "CONSOLIDATED",
+      metricKey,
+      label,
+      originalValue: "100",
+      value: 100_000,
+      currency: "NOK",
+      unitScale: 1_000,
+      sourcePage: 87,
+      sortOrder: index,
+      publicationSource: "MANUAL_REVIEW",
+      ...source,
+      sourceId: `reach-2025:p87:r${index}`,
+    }));
+
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable
+        statements={statements}
+        documents={[]}
+        lineItems={lineItems}
+        companySlug="922493626"
+      />,
+    );
+
+    expect(html.match(/data-financial-row-kind="income-section-subtotal"/g)).toHaveLength(3);
+    expect(html.match(/data-financial-row-kind="income-key-subtotal"/g)).toHaveLength(2);
+    expect(html.match(/data-financial-row-kind="income-result"/g)).toHaveLength(1);
+    expect(html).toContain('data-financial-metric-key="operating_profit"');
+    expect(html).toContain('data-financial-metric-key="total_operating_expenses"');
+    expect(html.match(/data-income-group-break="true"/g)).toHaveLength(5);
+  });
 });

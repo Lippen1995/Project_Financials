@@ -448,6 +448,58 @@ const CASH_FLOW_GROUP_BREAK_AFTER_KEYS = new Set([
   "net_change_in_cash",
 ]);
 
+type IncomeRowKind = "income-section-subtotal" | "income-key-subtotal" | "income-result" | null;
+
+const INCOME_SECTION_SUBTOTAL_KEYS = new Set([
+  "total_operating_income",
+  "total_operating_expenses",
+  "net_financial_items",
+]);
+
+const INCOME_KEY_SUBTOTAL_KEYS = new Set([
+  "operating_profit",
+  "profit_before_tax",
+]);
+
+function getIncomeRowKind(metricKey: string | null, label: string): IncomeRowKind {
+  const normalizedKey = metricKey?.toLocaleLowerCase("en") ?? "";
+  const normalizedLabel = label.toLocaleLowerCase("nb-NO").replace(/\s+/g, " ").trim();
+
+  if (
+    normalizedKey === "net_income" ||
+    normalizedLabel === "årsresultat" ||
+    normalizedLabel === "arsresultat" ||
+    normalizedLabel.includes("profit (loss) for the year")
+  ) return "income-result";
+
+  if (
+    INCOME_KEY_SUBTOTAL_KEYS.has(normalizedKey) ||
+    normalizedKey.includes("ebitda") ||
+    normalizedKey.includes("gross_profit") ||
+    normalizedLabel === "driftsresultat" ||
+    normalizedLabel.includes("operating result") ||
+    normalizedLabel.includes("profit before tax") ||
+    normalizedLabel.includes("profit (loss) before tax") ||
+    normalizedLabel.includes("resultat før skatt") ||
+    normalizedLabel.includes("resultat for skattekostnad") ||
+    normalizedLabel === "ebit" ||
+    normalizedLabel.includes("ebitda") ||
+    normalizedLabel.includes("gross profit") ||
+    normalizedLabel.includes("bruttofortjeneste")
+  ) return "income-key-subtotal";
+
+  if (
+    INCOME_SECTION_SUBTOTAL_KEYS.has(normalizedKey) ||
+    normalizedLabel.startsWith("sum ") ||
+    normalizedLabel.includes(", in total") ||
+    normalizedLabel.includes("finance items - net") ||
+    normalizedLabel.includes("net financial items") ||
+    normalizedLabel.includes("netto finans")
+  ) return "income-section-subtotal";
+
+  return null;
+}
+
 export function FinancialTimeSeriesTable({
   statements,
   documents,
@@ -1181,13 +1233,30 @@ export function FinancialTimeSeriesTable({
                   statementType === "CASH_FLOW" &&
                   row.metricKey !== null &&
                   CASH_FLOW_TOTAL_KEYS.has(row.metricKey);
+                const incomeRowKind =
+                  statementType === "INCOME_STATEMENT"
+                    ? getIncomeRowKind(row.metricKey, row.label)
+                    : null;
+                const incomeRowRank = incomeRowKind === "income-result"
+                  ? 3
+                  : incomeRowKind === "income-key-subtotal"
+                    ? 2
+                    : incomeRowKind === "income-section-subtotal"
+                      ? 1
+                      : undefined;
                 const isTotal =
                   row.label.toLocaleLowerCase("nb-NO").includes("total") ||
                   row.metricKey?.startsWith("total_") === true ||
-                  isCashFlowTotal;
-                const isStatementResult =
-                  statementType === "INCOME_STATEMENT" && row.metricKey === "net_income";
+                  isCashFlowTotal ||
+                  incomeRowKind !== null;
+                const isStatementResult = incomeRowKind === "income-result";
                 const previousMetricKey = rows[rowIndex - 1]?.metricKey;
+                const previousIncomeRowKind = statementType === "INCOME_STATEMENT" && rows[rowIndex - 1]
+                  ? getIncomeRowKind(rows[rowIndex - 1]!.metricKey, rows[rowIndex - 1]!.label)
+                  : null;
+                const startsIncomeGroup =
+                  previousIncomeRowKind === "income-section-subtotal" ||
+                  previousIncomeRowKind === "income-key-subtotal";
                 const startsCashFlowGroup =
                   statementType === "CASH_FLOW" &&
                   previousMetricKey !== null &&
@@ -1198,18 +1267,33 @@ export function FinancialTimeSeriesTable({
                   row.metricKey === "closing_cash_and_cash_equivalents";
                 return (
                   <React.Fragment key={row.key}>
-                    {startsCashFlowGroup ? (
+                    {startsIncomeGroup ? (
+                      <tr aria-hidden="true" data-income-group-break="true">
+                        <td className="h-4 p-0" colSpan={visibleYears.length + 2} />
+                      </tr>
+                    ) : startsCashFlowGroup ? (
                       <tr aria-hidden="true" data-cash-flow-group-break="true">
                         <td className="h-4 p-0" colSpan={visibleYears.length + 2} />
                       </tr>
                     ) : null}
                     <tr
-                      data-financial-row-kind={isCashFlowTotal ? "cash-flow-total" : undefined}
+                      data-financial-metric-key={row.metricKey ?? undefined}
+                      data-financial-row-kind={isCashFlowTotal ? "cash-flow-total" : incomeRowKind ?? undefined}
+                      data-financial-row-rank={incomeRowRank}
                       className={cn(
-                        isTotal || isStatementResult
+                        isTotal && incomeRowKind === null
                           ? "border-t border-[var(--px-text)] font-semibold"
                           : "",
-                        isStatementResult || row.metricKey === "net_change_in_cash"
+                        incomeRowKind === "income-section-subtotal"
+                          ? "border-t border-[var(--px-text)] font-semibold"
+                          : "",
+                        incomeRowKind === "income-key-subtotal"
+                          ? "border-t-2 border-[var(--px-text)] bg-[var(--px-subtle)] font-semibold"
+                          : "",
+                        isStatementResult
+                          ? "border-t-2 border-[var(--px-text)] bg-[var(--px-accent-soft)] font-bold"
+                          : "",
+                        row.metricKey === "net_change_in_cash"
                           ? "bg-[var(--px-accent-soft)]"
                           : "",
                         isClosingCash ? "border-b-4 border-double border-[var(--px-text)]" : "",
