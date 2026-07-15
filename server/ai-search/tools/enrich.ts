@@ -2,7 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { getPublishedAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
 import { getCompanyOwnershipOverview } from "@/server/ownership/ownership-overview-service";
 import type { NormalizedFinancialStatement } from "@/lib/types";
-import type { FinancialSnapshot, OwnershipSummary, QualitativeSummary } from "./types";
+import type {
+  CompanyEventSummary,
+  DistressSummary,
+  FeasibilitySummary,
+  FinancialSnapshot,
+  OwnershipSummary,
+  QualitativeSummary,
+} from "./types";
 
 /** How many years of accounts the deep profile carries — enough to read a trend, cheap on tokens. */
 const PROFILE_FINANCIAL_YEARS = 3;
@@ -93,17 +100,28 @@ async function getFinancialSeries(orgNumber: string): Promise<FinancialSnapshot[
   }
 }
 
-/** Collapse the full ownership overview into the acquirability signals the agent ranks on. */
-async function getOwnershipSummary(
+type OwnershipOverview = Awaited<ReturnType<typeof getCompanyOwnershipOverview>>;
+
+/** Fetch the ownership overview once — both the acquirability summary and feasibility derive from it. */
+async function fetchOwnershipOverview(
   orgNumber: string,
   companyName: string,
-): Promise<OwnershipSummary | null> {
+): Promise<OwnershipOverview | null> {
   try {
     const overview = await getCompanyOwnershipOverview({ orgNumber, companyName });
-    if (overview.year === null) {
-      return null;
-    }
+    return overview.year === null ? null : overview;
+  } catch {
+    return null;
+  }
+}
 
+/** Collapse the full ownership overview into the acquirability signals the agent ranks on. */
+function toOwnershipSummary(
+  overview: OwnershipOverview | null,
+  orgNumber: string,
+): OwnershipSummary | null {
+  if (!overview) return null;
+  {
     const controlling = overview.directShareholders.reduce<
       OwnershipSummary["controllingOwner"]
     >((best, sh) => {
@@ -132,9 +150,68 @@ async function getOwnershipSummary(
       ultimateParentName: group?.ultimateParent?.name ?? null,
       subsidiaryCount,
     };
-  } catch {
-    return null;
   }
+}
+
+/** Defence / dual-use vocabulary. Matched against the NACE line and the business description. */
+const SECURITY_SENSITIVE_TERMS =
+  /(våpen|ammunisjon|militær|forsvar|defence|defense|weapon|ammunition|missil|naval|krigsmateriell)/i;
+
+/**
+ * Grounded inputs for the feasibility judgement. This does NOT decide whether a deal is allowed —
+ * it surfaces the facts that decide it: is the sector security-critical (would ownership change be
+ * screened under sikkerhetsloven), and who owns the company today, from which countries. Clearance
+ * status is unavailable in our data and is always reported as unknown.
+ */
+function buildFeasibility(params: {
+  overview: OwnershipOverview | null;
+  naceCode: string | null;
+  naceDescription: string | null;
+  legalForm: string | null;
+  businessSummary: string | null;
+}): FeasibilitySummary {
+  const naceLine = [params.naceCode, params.naceDescription].filter(Boolean).join(" ").trim();
+
+  let securitySensitiveSector = false;
+  let sectorBasis: string | null = null;
+  if (params.naceDescription && SECURITY_SENSITIVE_TERMS.test(params.naceDescription)) {
+    securitySensitiveSector = true;
+    sectorBasis = `NACE: ${naceLine}`;
+  } else if (params.businessSummary && SECURITY_SENSITIVE_TERMS.test(params.businessSummary)) {
+    securitySensitiveSector = true;
+    sectorBasis = "Business description indicates defence / dual-use activity";
+  }
+
+  // Aggregate registered direct ownership by holder country. Holders with an unknown country are
+  // left out of the foreign total rather than silently counted as Norwegian.
+  const byCountry = new Map<string, number>();
+  let knownPercent = 0;
+  let foreignPercent = 0;
+  for (const holder of params.overview?.directShareholders ?? []) {
+    const country = holder.countryCode?.trim().toUpperCase();
+    const pct = holder.ownershipPercent ?? 0;
+    if (!country) continue;
+    byCountry.set(country, (byCountry.get(country) ?? 0) + pct);
+    knownPercent += pct;
+    if (country !== "NO") foreignPercent += pct;
+  }
+
+  const ownerCountries = [...byCountry.entries()]
+    .map(([countryCode, ownershipPercent]) => ({
+      countryCode,
+      ownershipPercent: Math.round(ownershipPercent * 100) / 100,
+    }))
+    .sort((a, b) => b.ownershipPercent - a.ownershipPercent);
+
+  return {
+    securitySensitiveSector,
+    sectorBasis,
+    foreignOwnershipPercent:
+      knownPercent > 0 ? Math.round(foreignPercent * 100) / 100 : null,
+    ownerCountries,
+    isListedAsa: (params.legalForm ?? "").toUpperCase() === "ASA",
+    clearanceStatus: null,
+  };
 }
 
 /**
@@ -193,10 +270,84 @@ async function getQualitativeSummary(
   };
 }
 
+/** Highest-value events only — enough to reason on, cheap in replayed tool-result tokens. */
+const EVENT_LIMIT = 5;
+
+/**
+ * Risk + availability signals: distress state and material events (deals, contracts, restructuring).
+ * Both hang off the enriched `Company` table, so a company that exists only in the registry mirror
+ * has NO signals tracked — we return `tracked: false` so the agent reports "unknown", not "none".
+ */
+async function getSignals(orgNumber: string): Promise<{
+  distress: DistressSummary | null;
+  events: CompanyEventSummary[];
+  tracked: boolean;
+}> {
+  const company = await prisma.company
+    .findFirst({ where: { orgNumber }, select: { id: true } })
+    .catch(() => null);
+  if (!company) {
+    return { distress: null, events: [], tracked: false };
+  }
+
+  const [distress, events] = await Promise.all([
+    prisma.companyDistressProfile
+      .findUnique({
+        where: { companyId: company.id },
+        select: {
+          distressStatus: true,
+          statusStartedAt: true,
+          daysInStatus: true,
+          bankruptcyDate: true,
+          lastAnnouncementTitle: true,
+        },
+      })
+      .catch(() => null),
+    prisma.companyEvent
+      .findMany({
+        where: { companyId: company.id, status: "ACTIVE" },
+        orderBy: [{ investorValueScore: "desc" }, { lastSeen: "desc" }],
+        take: EVENT_LIMIT,
+        select: {
+          eventType: true,
+          title: true,
+          summary: true,
+          eventDate: true,
+          investorValueScore: true,
+        },
+      })
+      .catch(() => []),
+  ]);
+
+  return {
+    tracked: true,
+    distress: distress
+      ? {
+          status: distress.distressStatus,
+          statusStartedAt: distress.statusStartedAt?.toISOString() ?? null,
+          daysInStatus: distress.daysInStatus ?? null,
+          bankruptcyDate: distress.bankruptcyDate?.toISOString() ?? null,
+          lastAnnouncementTitle: distress.lastAnnouncementTitle ?? null,
+        }
+      : null,
+    events: events.map((e) => ({
+      eventType: e.eventType,
+      title: e.title,
+      summary: e.summary ?? null,
+      eventDate: e.eventDate?.toISOString() ?? null,
+      investorValueScore: e.investorValueScore,
+    })),
+  };
+}
+
 export type ProfileEnrichment = {
   financials: FinancialSnapshot[];
   ownership: OwnershipSummary | null;
   qualitative: QualitativeSummary;
+  distress: DistressSummary | null;
+  events: CompanyEventSummary[];
+  signalsTracked: boolean;
+  feasibility: FeasibilitySummary;
 };
 
 /**
@@ -209,12 +360,39 @@ export async function buildProfileEnrichment(params: {
   companyName: string;
   description: string | null;
   website: string | null;
+  naceCode: string | null;
+  naceDescription: string | null;
+  legalForm: string | null;
 }): Promise<ProfileEnrichment> {
-  const [financials, ownership, qualitative] = await Promise.all([
+  const [financials, overview, qualitative, signals, registry] = await Promise.all([
     getFinancialSeries(params.orgNumber),
-    getOwnershipSummary(params.orgNumber, params.companyName),
+    fetchOwnershipOverview(params.orgNumber, params.companyName),
     getQualitativeSummary(params.orgNumber, params.description, params.website),
+    getSignals(params.orgNumber),
+    // The search mirror's NormalizedCompany does not carry the NACE description, so read it from the
+    // registry directly — without it the security-sector check could only ever fire off the corpus,
+    // and would silently miss every company we have not scraped a business description for.
+    prisma.registryEntity
+      .findUnique({
+        where: { orgNumber: params.orgNumber },
+        select: { naceCode: true, naceDescription: true },
+      })
+      .catch(() => null),
   ]);
 
-  return { financials, ownership, qualitative };
+  return {
+    financials,
+    ownership: toOwnershipSummary(overview, params.orgNumber),
+    qualitative,
+    distress: signals.distress,
+    events: signals.events,
+    signalsTracked: signals.tracked,
+    feasibility: buildFeasibility({
+      overview,
+      naceCode: registry?.naceCode ?? params.naceCode,
+      naceDescription: registry?.naceDescription ?? params.naceDescription,
+      legalForm: params.legalForm,
+      businessSummary: qualitative.businessSummary,
+    }),
+  };
 }

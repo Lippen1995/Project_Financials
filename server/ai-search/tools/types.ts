@@ -78,6 +78,57 @@ export type QualitativeSummary = {
   businessSummaryYear: number | null;
 };
 
+/** Financial-distress state (bankruptcy, liquidation, forced process, reconstruction). Risk signal. */
+export type DistressSummary = {
+  status: string;
+  statusStartedAt: string | null;
+  daysInStatus: number | null;
+  bankruptcyDate: string | null;
+  lastAnnouncementTitle: string | null;
+};
+
+/**
+ * A material company event (deal, contract, restructuring, leadership change…). These are what make
+ * a target actually AVAILABLE — or risky — so the agent weighs them alongside the financials.
+ */
+export type CompanyEventSummary = {
+  eventType: string;
+  title: string;
+  summary: string | null;
+  eventDate: string | null;
+  investorValueScore: number;
+};
+
+/**
+ * Deal-feasibility inputs — the gating factors a financial/strategic score ignores. These are the
+ * GROUNDED facts only; the regulatory judgement itself is the agent's reasoning. Norway screens
+ * ownership changes in security-critical undertakings (sikkerhetsloven / FDI screening), and foreign
+ * ownership is the trigger — so we surface sector sensitivity and who owns the company today.
+ */
+export type FeasibilitySummary = {
+  /** Heuristic: the sector/description indicates defence or dual-use → an acquisition would likely be screened. */
+  securitySensitiveSector: boolean;
+  /** What triggered the flag (the NACE line or the business description), so the agent can judge it. */
+  sectorBasis: string | null;
+  /**
+   * Percentage of registered DIRECT ownership held by non-Norwegian holders. Null = ownership
+   * unavailable. CAVEAT: direct holders only — ultimate foreign control can sit one level up. E.g.
+   * Nammo Raufoss reads 0% foreign because its direct owner is Norwegian, while its PARENT Nammo AS
+   * is 50% Finnish. If `ownership.partOfGroup` is true, check the parent before concluding it is
+   * domestically controlled.
+   */
+  foreignOwnershipPercent: number | null;
+  /** Ownership split by holder country, largest first. */
+  ownerCountries: Array<{ countryCode: string; ownershipPercent: number }>;
+  /** A listed ASA implies public-bid mechanics rather than a negotiated private sale. */
+  isListedAsa: boolean;
+  /**
+   * ALWAYS null: security clearances / supplier authorisations (NSM leverandørklarering) are not in
+   * our data. The agent must treat clearance eligibility as an open question, never as satisfied.
+   */
+  clearanceStatus: null;
+};
+
 /** The deep, single-company view returned by get_company_profile (drill-in, not list rows). */
 export type AgentCompanyProfile = AgentCompanyRef & {
   legalForm: string | null;
@@ -85,6 +136,18 @@ export type AgentCompanyProfile = AgentCompanyRef & {
   financials: FinancialSnapshot[];
   ownership: OwnershipSummary | null;
   qualitative: QualitativeSummary;
+  /** Null = no distress record. Only meaningful when `signalsTracked` is true. */
+  distress: DistressSummary | null;
+  /** Highest-value recent events. Only meaningful when `signalsTracked` is true. */
+  events: CompanyEventSummary[];
+  /** Grounded inputs for the deal-feasibility judgement (security screening, foreign ownership). */
+  feasibility: FeasibilitySummary;
+  /**
+   * CRITICAL for honest reasoning: false means this company is not in our enriched company table, so
+   * financials / events / distress are NOT TRACKED for it. Their absence is then "unknown", NOT
+   * "none" — the agent must say so rather than concluding the company is clean or event-free.
+   */
+  signalsTracked: boolean;
 };
 
 export function toAgentCompanyRef(company: NormalizedCompany): AgentCompanyRef {

@@ -22,10 +22,15 @@ export type AgentToolInvocation = {
 
 export type AgentStopReason = "final" | "max_turns" | "max_tool_calls";
 
+/** A tool's parsed output, kept so callers can drive UI (e.g. the result table) off what the agent found. */
+export type AgentToolResult = { name: string; output: unknown };
+
 export type AgentResult = {
   answer: string | null;
   turns: number;
   invocations: AgentToolInvocation[];
+  /** Parsed outputs of every successful tool call, in call order. */
+  toolResults: AgentToolResult[];
   /** Org numbers observed in tool results — the set the final answer is allowed to cite. */
   groundedOrgNumbers: string[];
   /** 9-digit org numbers cited in the answer that were NOT in any tool result (a grounding leak). */
@@ -56,7 +61,7 @@ async function executeCall(
   call: { id: string; name: string; arguments: string },
   toolsByName: Map<string, RetrievalTool>,
   grounded: Set<string>,
-): Promise<{ invocation: AgentToolInvocation; content: string }> {
+): Promise<{ invocation: AgentToolInvocation; content: string; output?: unknown }> {
   const tool = toolsByName.get(call.name);
   if (!tool) {
     return {
@@ -89,6 +94,7 @@ async function executeCall(
     return {
       invocation: { name: call.name, arguments: parsed.data, ok: true },
       content: JSON.stringify(output),
+      output,
     };
   } catch (error) {
     return {
@@ -107,6 +113,7 @@ function finalize(
   answer: string | null,
   turns: number,
   invocations: AgentToolInvocation[],
+  toolResults: AgentToolResult[],
   grounded: Set<string>,
   usage: { inputTokens: number; outputTokens: number },
   stopReason: AgentStopReason,
@@ -116,6 +123,7 @@ function finalize(
     answer,
     turns,
     invocations,
+    toolResults,
     groundedOrgNumbers: [...grounded],
     ungroundedOrgNumbersInAnswer: citedInAnswer.filter((org) => !grounded.has(org)),
     usage,
@@ -140,6 +148,7 @@ export async function runAgent(params: {
   ];
 
   const invocations: AgentToolInvocation[] = [];
+  const toolResults: AgentToolResult[] = [];
   const grounded = new Set<string>();
   const usage = { inputTokens: 0, outputTokens: 0 };
   let toolCallCount = 0;
@@ -160,16 +169,25 @@ export async function runAgent(params: {
     if (!forceAnswer && result.toolCalls.length > 0) {
       messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
-        const { invocation, content } = await executeCall(call, toolsByName, grounded);
+        const { invocation, content, output } = await executeCall(call, toolsByName, grounded);
         invocations.push(invocation);
+        if (invocation.ok) toolResults.push({ name: call.name, output });
         messages.push({ role: "tool", toolCallId: call.id, content });
         toolCallCount++;
       }
       continue;
     }
 
-    return finalize(result.content ?? null, turn, invocations, grounded, usage, forceAnswer ? "max_tool_calls" : "final");
+    return finalize(
+      result.content ?? null,
+      turn,
+      invocations,
+      toolResults,
+      grounded,
+      usage,
+      forceAnswer ? "max_tool_calls" : "final",
+    );
   }
 
-  return finalize(null, budget.maxTurns, invocations, grounded, usage, "max_turns");
+  return finalize(null, budget.maxTurns, invocations, toolResults, grounded, usage, "max_turns");
 }
