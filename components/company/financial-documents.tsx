@@ -60,8 +60,9 @@ export function FinancialDocuments({
   if (reportYears.length === 0) {
     return (
       <div
-        data-financial-documents-variant="compact"
-        className="flex items-center gap-4 rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-3 text-sm text-[var(--px-muted)]"
+        data-financial-documents-variant="inline"
+        data-financial-documents-surface="page"
+        className="flex items-center gap-4 px-1 py-2 text-sm text-[var(--px-muted)]"
       >
         <span className="material-symbols-outlined text-[18px]" aria-hidden="true">description</span>
         <span>Årsrapport {resolvedLatestYear} er registrert, men dokumentlenken er ikke tilgjengelig.</span>
@@ -75,10 +76,11 @@ export function FinancialDocuments({
 
   return (
     <details
-      data-financial-documents-variant="compact"
-      className="group rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)]"
+      data-financial-documents-variant="inline"
+      data-financial-documents-surface="page"
+      className="group"
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--px-accent)] [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-1 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--px-accent)] [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-4">
           <span
             className="material-symbols-outlined text-[18px] text-[var(--px-muted)]"
@@ -103,7 +105,7 @@ export function FinancialDocuments({
         </span>
       </summary>
 
-      <div className="grid gap-x-6 border-t border-[var(--px-border)] px-4 pb-3 md:grid-cols-2">
+      <div className="grid gap-x-6 border-t border-[var(--px-border)] px-1 pb-3 md:grid-cols-2">
         {reportYears.map((reportYear) => (
           <div
             key={reportYear.year}

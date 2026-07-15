@@ -54,7 +54,8 @@ describe("FinancialDocuments", () => {
       <FinancialDocuments documents={documents} latestYear={null} />,
     );
 
-    expect(html).toContain('data-financial-documents-variant="compact"');
+    expect(html).toContain('data-financial-documents-variant="inline"');
+    expect(html).toContain('data-financial-documents-surface="page"');
     expect(html).toContain("Årsrapporter");
     expect(html).toContain("Nyeste 2025");
     expect(html).toContain("2 regnskapsår");
