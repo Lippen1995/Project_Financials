@@ -432,6 +432,90 @@ function mapPublishedStatements(statements: Array<{ fiscalYear: number; currency
   }));
 }
 
+function mapPublishedLineItems(
+  items: Array<{
+    id: string;
+    filingId: string;
+    fiscalYear: number;
+    statementType: string;
+    statementScope: "COMPANY" | "CONSOLIDATED";
+    metricKey: string | null;
+    rawLabel: string | null;
+    originalLabel: string | null;
+    originalValue: string | null;
+    value: bigint | null;
+    finalInput: bigint | null;
+    currency: string;
+    unitScale: number;
+    sourcePage: number | null;
+    sortOrder: number;
+    publicationSource: "MANUAL_REVIEW" | "MACHINE_EXTRACTION";
+    sourceSystem: string | null;
+    sourceEntityType: string | null;
+    sourceId: string | null;
+  }>,
+) {
+  return items.flatMap((item) => {
+    if (!(["INCOME_STATEMENT", "BALANCE_SHEET", "CASH_FLOW"] as const).includes(
+      item.statementType as "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW",
+    )) return [];
+    const sourceValue = toSafeNumber(item.finalInput ?? item.value);
+    const scaledValue = sourceValue === null ? null : sourceValue * item.unitScale;
+    return [{
+      id: item.id,
+      filingId: item.filingId,
+      fiscalYear: item.fiscalYear,
+      statementType: item.statementType as "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW",
+      statementScope: item.statementScope,
+      metricKey: item.metricKey,
+      label: item.rawLabel ?? item.originalLabel ?? item.metricKey ?? "Uten etikett",
+      originalValue: item.originalValue,
+      value: Number.isSafeInteger(scaledValue) ? scaledValue : null,
+      currency: item.currency,
+      unitScale: item.unitScale,
+      sourcePage: item.sourcePage,
+      sortOrder: item.sortOrder,
+      publicationSource: item.publicationSource,
+      sourceSystem: item.sourceSystem,
+      sourceEntityType: item.sourceEntityType,
+      sourceId: item.sourceId,
+    }];
+  });
+}
+
+function applyAsReportedHeadlineValues(
+  statements: NormalizedFinancialStatement[],
+  lineItems: ReturnType<typeof mapPublishedLineItems>,
+) {
+  const valueFor = (
+    statement: NormalizedFinancialStatement,
+    statementType: "INCOME_STATEMENT" | "BALANCE_SHEET",
+    metricKeys: string[],
+  ) => lineItems.find(
+    (item) =>
+      item.fiscalYear === statement.fiscalYear &&
+      item.statementScope === (statement.statementScope ?? "COMPANY") &&
+      item.statementType === statementType &&
+      item.metricKey !== null &&
+      metricKeys.includes(item.metricKey) &&
+      item.value !== null,
+  )?.value;
+
+  return statements.map((statement) => ({
+    ...statement,
+    revenue: valueFor(statement, "INCOME_STATEMENT", ["revenue", "total_operating_income"])
+      ?? statement.revenue,
+    operatingProfit: valueFor(statement, "INCOME_STATEMENT", ["operating_profit"])
+      ?? statement.operatingProfit,
+    netIncome: valueFor(statement, "INCOME_STATEMENT", ["net_income"])
+      ?? statement.netIncome,
+    equity: valueFor(statement, "BALANCE_SHEET", ["total_equity"])
+      ?? statement.equity,
+    assets: valueFor(statement, "BALANCE_SHEET", ["total_assets"])
+      ?? statement.assets,
+  }));
+}
+
 function buildPublicAvailability(statements: NormalizedFinancialStatement[]): DataAvailability {
   return statements.length === 0
     ? {
@@ -3203,16 +3287,20 @@ export async function getLatestPublishedStatementProvenance(
   };
 }
 
-export async function getPublishedAnnualReportFinancials(orgNumber: string): Promise<{ statements: NormalizedFinancialStatement[]; allScopeStatements: NormalizedFinancialStatement[]; documents: NormalizedFinancialDocument[]; availability: DataAvailability }> {
+export async function getPublishedAnnualReportFinancials(orgNumber: string) {
   const record = await getPublishedFinancialsForCompany(orgNumber);
-  if (!record) return { statements: [], allScopeStatements: [], documents: [], availability: { available: false, sourceSystem: "BRREG", message: "Virksomheten finnes ikke i lokal Fjord Insight-lagring ennå." } };
+  if (!record) return { statements: [], allScopeStatements: [], lineItems: [], documents: [], availability: { available: false, sourceSystem: "BRREG", message: "Virksomheten finnes ikke i lokal Fjord Insight-lagring ennå." } };
   // allScopeStatements keeps both konsern and selskap rows (for the toggle);
   // statements is deduped to one headline statement per year so callers that
   // expect one-per-year (KPIs, distress, trends) are not double-counted.
-  const allScopeStatements = mapPublishedStatements(record.financialStatements);
+  const lineItems = mapPublishedLineItems(record.publishedLineItems ?? []);
+  const allScopeStatements = applyAsReportedHeadlineValues(
+    mapPublishedStatements(record.financialStatements),
+    lineItems,
+  );
   const statements = getHeadlineFinancialStatements(allScopeStatements);
   const documents = mapPublishedDocuments(record.annualReportFilings);
-  return { statements, allScopeStatements, documents, availability: buildPublicAvailability(statements) };
+  return { statements, allScopeStatements, lineItems, documents, availability: buildPublicAvailability(statements) };
 }
 
 export async function syncCompanyAnnualReportFinancials(orgNumber: string) {

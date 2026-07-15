@@ -26,6 +26,23 @@ function buildClassification(overrides: Partial<PageClassification>): PageClassi
 }
 
 describe("mapRowsToCanonicalFacts", () => {
+  it("does not treat comprehensive income as profit for the year", () => {
+    expect(
+      findCanonicalMetricKey(
+        "Totalresultat",
+        "INCOME_STATEMENT",
+        null,
+      ),
+    ).toBeNull();
+    expect(
+      findCanonicalMetricKey(
+        "Profit (loss) for the year",
+        "INCOME_STATEMENT",
+        null,
+      ),
+    ).toBe("net_income");
+  });
+
   it("prefers a specific line alias over a broad section alias prefix", () => {
     const definitions: MetricDefinition[] = [
       {

@@ -437,6 +437,7 @@ export default async function CompanyPage({
     rolesAvailability,
     financialStatements,
     financialStatementsAllScopes,
+    financialLineItems,
     financialDocuments,
     financialsAvailability,
   } = profile;
@@ -631,6 +632,7 @@ export default async function CompanyPage({
                 : financialStatements
             }
             documents={financialDocuments}
+            lineItems={financialLineItems}
             companySlug={slug}
             discussionRoomId={discussionContext?.selectedRoomId ?? null}
             discussionRoomName={discussionContext?.selectedRoomName ?? null}
