@@ -1039,6 +1039,85 @@ describe("annual-report-financials-service", () => {
     });
   });
 
+  it("returns every published as-reported line instead of only headline metrics", async () => {
+    repo.getPublishedFinancialsForCompany.mockResolvedValue({
+      id: "company-1",
+      orgNumber: "922493626",
+      name: "Reach Subsea ASA",
+      financialStatements: [{
+        fiscalYear: 2025,
+        statementScope: "CONSOLIDATED",
+        currency: "NOK",
+        revenue: 2_677_042n,
+        operatingProfit: null,
+        netIncome: null,
+        equity: null,
+        assets: null,
+        sourceSystem: "REACH_SUBSEA_IR",
+        sourceEntityType: "annualReportConsolidatedFinancialStatement",
+        sourceId: "reach-2025",
+        fetchedAt: new Date("2026-07-15T17:00:00.000Z"),
+        normalizedAt: new Date("2026-07-15T17:00:00.000Z"),
+        rawPayload: null,
+      }],
+      annualReportFilings: [],
+      financialCoverage: null,
+      publishedLineItems: [
+        {
+          id: "line-0",
+          filingId: "filing-1",
+          fiscalYear: 2025,
+          statementType: "INCOME_STATEMENT",
+          statementScope: "CONSOLIDATED",
+          metricKey: "revenue",
+          rawLabel: "Revenues",
+          originalLabel: "Revenues",
+          finalInput: 2_674_629n,
+          value: 2_674_629n,
+          currency: "NOK",
+          unitScale: 1_000,
+          sortOrder: 0,
+          sourcePage: 87,
+          publicationSource: "MANUAL_REVIEW",
+        },
+        {
+          id: "line-1",
+          filingId: "filing-1",
+          fiscalYear: 2025,
+          statementType: "INCOME_STATEMENT",
+          statementScope: "CONSOLIDATED",
+          metricKey: "as_reported_procurement_expenses",
+          rawLabel: "Procurement expenses",
+          originalLabel: "Procurement expenses",
+          finalInput: -750_000n,
+          value: -750_000n,
+          currency: "NOK",
+          unitScale: 1_000,
+          sortOrder: 4,
+          sourcePage: 87,
+          publicationSource: "MANUAL_REVIEW",
+        },
+      ],
+    });
+
+    const { getPublishedAnnualReportFinancials } = await import(
+      "@/server/services/annual-report-financials-service"
+    );
+    const published = await getPublishedAnnualReportFinancials("922493626");
+
+    expect((published as { lineItems?: unknown[] }).lineItems).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        fiscalYear: 2025,
+        statementType: "INCOME_STATEMENT",
+        statementScope: "CONSOLIDATED",
+        label: "Procurement expenses",
+        value: -750_000_000,
+        sortOrder: 4,
+      }),
+    ]));
+    expect(published.statements[0]?.revenue).toBe(2_674_629_000);
+  });
+
   it("returns an operator overview with metrics, pending reviews, and pending filings", async () => {
     repo.listAnnualReportReviews.mockResolvedValue([
       {

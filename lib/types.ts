@@ -112,6 +112,26 @@ export type NormalizedFinancialDocument = SourceMetadata & {
   }[];
 };
 
+export type NormalizedFinancialLineItem = {
+  id: string;
+  filingId: string;
+  fiscalYear: number;
+  statementType: "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW";
+  statementScope: "COMPANY" | "CONSOLIDATED";
+  metricKey: string | null;
+  label: string;
+  originalValue: string | null;
+  value: number | null;
+  currency: string;
+  unitScale: number;
+  sourcePage: number | null;
+  sortOrder: number;
+  publicationSource: "MANUAL_REVIEW" | "MACHINE_EXTRACTION";
+  sourceSystem: string | null;
+  sourceEntityType: string | null;
+  sourceId: string | null;
+};
+
 export type NormalizedAnnouncement = SourceMetadata & {
   id: string;
   orgNumber: string;
@@ -211,6 +231,8 @@ export type CompanyProfile = {
   financialStatements: NormalizedFinancialStatement[];
   /** Every statement including both konsern and selskap — for the scope toggle. */
   financialStatementsAllScopes: NormalizedFinancialStatement[];
+  /** Original published rows in filing order, without taxonomy compression. */
+  financialLineItems: NormalizedFinancialLineItem[];
   financialDocuments: NormalizedFinancialDocument[];
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;

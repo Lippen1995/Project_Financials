@@ -7,6 +7,7 @@ import {
   DataAvailability,
   NormalizedCompany,
   NormalizedFinancialDocument,
+  NormalizedFinancialLineItem,
   NormalizedFinancialStatement,
   RankedCompanySearchResult,
   SearchFilters,
@@ -528,11 +529,13 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
   let financials: {
     statements: NormalizedFinancialStatement[];
     allScopeStatements: NormalizedFinancialStatement[];
+    lineItems: NormalizedFinancialLineItem[];
     documents: NormalizedFinancialDocument[];
     availability: DataAvailability;
   } = {
     statements: [],
     allScopeStatements: [],
+    lineItems: [],
     documents: [],
     availability: {
       available: false,
@@ -552,6 +555,7 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
         financials = {
           statements: getHeadlineFinancialStatements(cached),
           allScopeStatements: cached,
+          lineItems: [],
           documents: [],
           availability: {
             available: true,
@@ -578,6 +582,7 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
     rolesAvailability,
     financialStatements: financials.statements,
     financialStatementsAllScopes: financials.allScopeStatements,
+    financialLineItems: financials.lineItems,
     financialDocuments: financials.documents,
     financialsAvailability: financials.availability,
     regulatoryAvailability: {

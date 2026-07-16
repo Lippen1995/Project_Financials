@@ -271,6 +271,30 @@ npm run test:financial-regression
 
 Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes selskaper som allerede finnes i Fjord Insight-databasen.
 
+### Uttrekk av styrets årsberetning
+
+Fjord Insight kan trekke ut bare styrets årsberetning fra en lagret, offisiell Brreg-filing. Uttrekket bruker blokk-/linjegrenser og stopper foran resultatregnskap, balanse, noter eller revisjonsberetning, og lagrer komplett kildeproveniens og dokumenthash. Usikre grenser publiseres ikke; de lagres som `MANUAL_REVIEW`.
+
+```bash
+npm run financials:extract-board-report -- --filing-id=<filingId>
+npm run financials:extract-board-report -- --org-number=<9 siffer> --year=2025
+npm run financials:extract-board-report -- --filing-id=<filingId> --no-persist --json
+npm run test:board-report-extraction
+```
+
+CLI-en skriver ikke selve rapportteksten til terminalen med mindre `--json` er valgt. Uttrekk publiseres ikke automatisk. `--publish` er en eksplisitt operatorhandling som bare virker for et uttrekk som allerede passerer kvalitetsporten.
+
+Interne, autentiserte reviewer-ruter:
+
+- `POST /api/internal/annual-report-board-reports/extractions`
+- `GET /api/internal/annual-report-board-reports/extractions?limit=50`
+- `GET /api/internal/annual-report-board-reports/extractions/:extractionId`
+- `POST /api/internal/annual-report-board-reports/extractions/:extractionId/review`
+
+Automatisk publisering er deaktivert frem til det eksplisitt aktiveres for et kalibrert uttrekk. OpenDataLoader local/hybrid brukes som fallback når den er aktivert, men slike OCR-/layoutresultater krever manuell godkjenning. Hvis ingen sikker start- eller stoppgrense finnes, returnerer verktøyet `NOT_FOUND`, `UNREADABLE` eller `MANUAL_REVIEW` i stedet for å fylle inn manglende innhold.
+
+Brreg tilbyr bare PDF-kopier som faktisk finnes i årslisten for organisasjonsnummeret, og det offisielle API-et oppgir en tilgjengelighetsgrense på de siste 15 årene. Verktøyet godtar ikke vilkårlige eksterne PDF-URL-er i produksjonsgrensesnittet.
+
 ### Historic backfill
 
 - `financials:backfill-filings` oppdager alle åpne årsrapporter for kjente selskaper

@@ -437,6 +437,7 @@ export default async function CompanyPage({
     rolesAvailability,
     financialStatements,
     financialStatementsAllScopes,
+    financialLineItems,
     financialDocuments,
     financialsAvailability,
   } = profile;
@@ -631,6 +632,7 @@ export default async function CompanyPage({
                 : financialStatements
             }
             documents={financialDocuments}
+            lineItems={financialLineItems}
             companySlug={slug}
             discussionRoomId={discussionContext?.selectedRoomId ?? null}
             discussionRoomName={discussionContext?.selectedRoomName ?? null}
@@ -638,23 +640,10 @@ export default async function CompanyPage({
             discussionThreads={financialMetricDiscussions}
           />
 
-          <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-            <h3 className="text-xl font-semibold text-slate-950">Dokumentasjon og dekning</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Årsregnskap og vedlegg vises når dokumentasjon er tilgjengelig.
-            </p>
-            <div className="mt-6">
-              <FinancialDocuments
-                documents={financialDocuments}
-                latestYear={company.lastSubmittedAnnualReportYear}
-              />
-            </div>
-          </Card>
-
-          <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-            <h3 className="text-xl font-semibold text-slate-950">Tilgjengelighet</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">{financialsAvailability.message}</p>
-          </Card>
+          <FinancialDocuments
+            documents={financialDocuments}
+            latestYear={company.lastSubmittedAnnualReportYear}
+          />
 
           {discussionContext?.selectedRoomId ? (
             <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">

@@ -98,7 +98,7 @@ export const defaultMetricDefinitions: MetricDefinition[] = [
   { key: "net_financial_items", statementFamily: "INCOME_STATEMENT", aliases: ["resultat av finansposter", "netto finans", "netto finansposter", "net financial items"] },
   { key: "profit_before_tax", statementFamily: "INCOME_STATEMENT", aliases: ["resultat for skattekostnad", "ordinaert resultat for skattekostnad", "resultat for skatt", "ordinaert resultat for skatt", "ordinaert resultat", "profit before tax"] },
   { key: "tax_expense", statementFamily: "INCOME_STATEMENT", aliases: ["skattekostnad pa resultat", "skattekostnad", "skatt pa ordinart resultat", "tax expense"] },
-  { key: "net_income", statementFamily: "INCOME_STATEMENT", aliases: ["arsresultat", "totalresultat", "resultat etter skatt", "net income", "profit for the year"] },
+  { key: "net_income", statementFamily: "INCOME_STATEMENT", aliases: ["arsresultat", "resultat etter skatt", "net income", "profit for the year", "profit loss for the year"] },
   { key: "intangible_assets", statementFamily: "BALANCE_SHEET", aliases: ["immaterielle eiendeler", "sum immaterielle eiendeler"] },
   { key: "tangible_assets", statementFamily: "BALANCE_SHEET", aliases: ["varige driftsmidler", "sum varige driftsmidler", "materielle eiendeler"] },
   { key: "financial_fixed_assets", statementFamily: "BALANCE_SHEET", aliases: ["finansielle anleggsmidler", "sum finansielle anleggsmidler"] },
