@@ -20,6 +20,7 @@
     "sync:distress": "tsx scripts/sync-distress-companies.ts",
     "sync:petroleum": "tsx scripts/sync-petroleum.ts",
     "backfill:distress-financials": "tsx scripts/backfill-distress-financials.ts",
+    "distress:refresh-snapshots": "tsx scripts/refresh-distress-snapshots.ts",
     "import:annual-reports": "tsx scripts/import-company-annual-reports.ts",
     "financials:discover-filings": "tsx scripts/discover-financial-filings.ts",
     "financials:discover-filings-batch": "tsx scripts/discover-financial-filings-batch.ts",

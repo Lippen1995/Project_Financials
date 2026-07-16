@@ -1119,6 +1119,11 @@ export type NormalizedDistressProfile = SourceMetadata & {
   lastAnnouncementTitle?: string | null;
 };
 
+export type DistressRevenueTrendPoint = {
+  fiscalYear: number;
+  revenue: number | null;
+};
+
 export type DistressFinancialSnapshotSummary = {
   distressStatus: DistressStatus;
   daysInStatus?: number | null;
@@ -1132,6 +1137,11 @@ export type DistressFinancialSnapshotSummary = {
   equityRatio?: number | null;
   assets?: number | null;
   interestBearingDebt?: number | null;
+  liquidityRatio?: number | null;
+  fixedAssets?: number | null;
+  inventory?: number | null;
+  cash?: number | null;
+  revenueTrend?: DistressRevenueTrendPoint[] | null;
   distressScore?: number | null;
   scoreVersion?: string | null;
   dataCoverage?: string | null;
@@ -1154,6 +1164,8 @@ export type DistressAssetSnapshot = {
   inventory?: number | null;
   receivables?: number | null;
   cash?: number | null;
+  currentAssets?: number | null;
+  currentLiabilities?: number | null;
   interestBearingDebt?: number | null;
   fiscalYear?: number | null;
 };
@@ -1223,8 +1235,15 @@ export type DistressCompanyRow = {
     equityRatio?: number | null;
     assets?: number | null;
     interestBearingDebt?: number | null;
+    liquidityRatio?: number | null;
+    fixedAssets?: number | null;
+    inventory?: number | null;
+    cash?: number | null;
+    revenueTrend?: DistressRevenueTrendPoint[] | null;
   };
   distressScore?: number | null;
+  /** 0-100, high = healthy. The inverse of `distressScore`, which is a risk score. */
+  healthScore?: number | null;
   scoreVersion?: string | null;
   dataCoverage: string;
 };
@@ -1332,6 +1351,12 @@ export type DistressSortKey =
   | "assets_asc"
   | "interestBearingDebt_desc"
   | "interestBearingDebt_asc"
+  | "healthScore_desc"
+  | "healthScore_asc"
+  | "liquidityRatio_desc"
+  | "liquidityRatio_asc"
+  | "realizableAssets_desc"
+  | "realizableAssets_asc"
   | "lastAnnouncementPublishedAt_desc"
   | "lastAnnouncementPublishedAt_asc";
 
@@ -1350,6 +1375,8 @@ export type DistressFilterOptions = {
 export type DistressViewMode = "BEST_FIT" | "ALL";
 
 export type DistressSearchFilters = {
+  /** Free-text match against company name or org number. */
+  query?: string;
   status?: DistressStatus[];
   minDaysInStatus?: number;
   maxDaysInStatus?: number;
@@ -1371,6 +1398,45 @@ export type DistressScreeningResponse = {
   page: number;
   size: number;
   view: DistressViewMode;
+};
+
+export type DistressModuleKpis = {
+  /** Bankruptcy openings announced in the last 30 days. */
+  newBankruptcies30d: number;
+  /** Reconstruction plus other creditor negotiations. */
+  underRestructuring: number;
+  /** Companies whose balance-sheet total clears the "worth bidding for" threshold. */
+  withRealizableAssets: number;
+  /** Mean health score across the scored companies, or null when none are scored. */
+  avgHealthScore: number | null;
+  /** How many companies carry a health score at all, out of the whole universe. */
+  scoredCount: number;
+  universeCount: number;
+};
+
+export type DistressModuleSectorRow = {
+  sectorCode: string;
+  sectorLabel: string | null;
+  companyCount: number;
+  bankruptcyCount: number;
+  avgHealthScore: number | null;
+  /** Sum of balance-sheet totals for the sector's companies that report one. */
+  totalAssets: number | null;
+};
+
+export type DistressModuleResponse = {
+  items: DistressCompanyRow[];
+  totalCount: number;
+  /** Rows matching the active filters, before paging. */
+  totalUniverseCount: number;
+  /** Every distress profile on record, ignoring the active filters. */
+  distressUniverseCount: number;
+  page: number;
+  size: number;
+  view: DistressViewMode;
+  kpis: DistressModuleKpis;
+  sectors: DistressModuleSectorRow[];
+  filterOptions: DistressFilterOptions;
 };
 
 export type ShareholderType = "PERSON" | "COMPANY" | "UNKNOWN";

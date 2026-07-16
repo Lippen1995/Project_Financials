@@ -925,6 +925,11 @@ model DistressFinancialSnapshot {
   equityRatio         Decimal?       @db.Decimal(8, 2)
   assets              BigInt?
   interestBearingDebt BigInt?
+  liquidityRatio      Decimal?       @db.Decimal(8, 2)
+  fixedAssets         BigInt?
+  inventory           BigInt?
+  cash                BigInt?
+  revenueTrend        Json?
   distressScore       Int?
   scoreVersion        String?
   dataCoverage        String?
@@ -937,6 +942,7 @@ model DistressFinancialSnapshot {
 
   @@index([distressStatus, daysInStatus])
   @@index([sectorCode, lastReportedYear])
+  @@index([distressScore])
 }
 
 model DistressSyncState {
