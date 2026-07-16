@@ -449,6 +449,7 @@ const CASH_FLOW_GROUP_BREAK_AFTER_KEYS = new Set([
 ]);
 
 type IncomeRowKind = "income-section-subtotal" | "income-key-subtotal" | "income-result" | null;
+type BalanceRowKind = "balance-section-subtotal" | "balance-key-subtotal" | "balance-result" | null;
 
 const INCOME_SECTION_SUBTOTAL_KEYS = new Set([
   "total_operating_income",
@@ -459,6 +460,23 @@ const INCOME_SECTION_SUBTOTAL_KEYS = new Set([
 const INCOME_KEY_SUBTOTAL_KEYS = new Set([
   "operating_profit",
   "profit_before_tax",
+]);
+
+const BALANCE_SECTION_SUBTOTAL_KEYS = new Set([
+  "total_non_current_assets",
+  "total_current_assets",
+  "long_term_liabilities",
+  "current_liabilities",
+]);
+
+const BALANCE_KEY_SUBTOTAL_KEYS = new Set([
+  "total_equity",
+  "total_liabilities",
+]);
+
+const BALANCE_RESULT_KEYS = new Set([
+  "total_assets",
+  "total_equity_and_liabilities",
 ]);
 
 function getIncomeRowKind(metricKey: string | null, label: string): IncomeRowKind {
@@ -496,6 +514,52 @@ function getIncomeRowKind(metricKey: string | null, label: string): IncomeRowKin
     normalizedLabel.includes("net financial items") ||
     normalizedLabel.includes("netto finans")
   ) return "income-section-subtotal";
+
+  return null;
+}
+
+function getBalanceRowKind(metricKey: string | null, label: string): BalanceRowKind {
+  const normalizedKey = metricKey?.toLocaleLowerCase("en") ?? "";
+  const normalizedLabel = label.toLocaleLowerCase("nb-NO").replace(/\s+/g, " ").trim();
+
+  if (
+    BALANCE_RESULT_KEYS.has(normalizedKey) ||
+    normalizedLabel === "total assets" ||
+    normalizedLabel === "sum eiendeler" ||
+    normalizedLabel.includes("total equity and liabilities") ||
+    normalizedLabel.includes("total equity and liability") ||
+    normalizedLabel.includes("sum egenkapital og gjeld")
+  ) return "balance-result";
+
+  if (
+    BALANCE_KEY_SUBTOTAL_KEYS.has(normalizedKey) ||
+    normalizedLabel === "total equity" ||
+    normalizedLabel === "equity, in total" ||
+    normalizedLabel === "sum egenkapital" ||
+    normalizedLabel === "total liabilities" ||
+    normalizedLabel === "liabilities, in total" ||
+    normalizedLabel === "sum gjeld"
+  ) return "balance-key-subtotal";
+
+  if (
+    BALANCE_SECTION_SUBTOTAL_KEYS.has(normalizedKey) ||
+    normalizedLabel.includes("non-current assets, in total") ||
+    normalizedLabel.includes("current assets, in total") ||
+    normalizedLabel.includes("non-current liabilities, in total") ||
+    normalizedLabel.includes("current liabilities, in total") ||
+    normalizedLabel === "total non-current assets" ||
+    normalizedLabel === "total current assets" ||
+    normalizedLabel === "total non-current liabilities" ||
+    normalizedLabel === "total current liabilities" ||
+    normalizedLabel === "sum anleggsmidler" ||
+    normalizedLabel === "sum omløpsmidler" ||
+    normalizedLabel === "sum langsiktig gjeld" ||
+    normalizedLabel === "sum kortsiktig gjeld" ||
+    normalizedKey.startsWith("total_") ||
+    normalizedLabel.startsWith("sum ") ||
+    normalizedLabel.includes(", in total") ||
+    normalizedLabel.startsWith("total ")
+  ) return "balance-section-subtotal";
 
   return null;
 }
@@ -1237,26 +1301,44 @@ export function FinancialTimeSeriesTable({
                   statementType === "INCOME_STATEMENT"
                     ? getIncomeRowKind(row.metricKey, row.label)
                     : null;
-                const incomeRowRank = incomeRowKind === "income-result"
+                const balanceRowKind =
+                  statementType === "BALANCE_SHEET"
+                    ? getBalanceRowKind(row.metricKey, row.label)
+                    : null;
+                const financialRowKind = incomeRowKind ?? balanceRowKind;
+                const financialRowRank =
+                  incomeRowKind === "income-result" || balanceRowKind === "balance-result"
                   ? 3
-                  : incomeRowKind === "income-key-subtotal"
+                  : incomeRowKind === "income-key-subtotal" || balanceRowKind === "balance-key-subtotal"
                     ? 2
-                    : incomeRowKind === "income-section-subtotal"
+                    : incomeRowKind === "income-section-subtotal" || balanceRowKind === "balance-section-subtotal"
                       ? 1
                       : undefined;
                 const isTotal =
                   row.label.toLocaleLowerCase("nb-NO").includes("total") ||
                   row.metricKey?.startsWith("total_") === true ||
                   isCashFlowTotal ||
-                  incomeRowKind !== null;
-                const isStatementResult = incomeRowKind === "income-result";
+                  financialRowKind !== null;
+                const isSectionSubtotal =
+                  incomeRowKind === "income-section-subtotal" ||
+                  balanceRowKind === "balance-section-subtotal";
+                const isKeySubtotal =
+                  incomeRowKind === "income-key-subtotal" ||
+                  balanceRowKind === "balance-key-subtotal";
+                const isStatementResult =
+                  incomeRowKind === "income-result" ||
+                  balanceRowKind === "balance-result";
                 const previousMetricKey = rows[rowIndex - 1]?.metricKey;
                 const previousIncomeRowKind = statementType === "INCOME_STATEMENT" && rows[rowIndex - 1]
                   ? getIncomeRowKind(rows[rowIndex - 1]!.metricKey, rows[rowIndex - 1]!.label)
                   : null;
+                const previousBalanceRowKind = statementType === "BALANCE_SHEET" && rows[rowIndex - 1]
+                  ? getBalanceRowKind(rows[rowIndex - 1]!.metricKey, rows[rowIndex - 1]!.label)
+                  : null;
                 const startsIncomeGroup =
                   previousIncomeRowKind === "income-section-subtotal" ||
                   previousIncomeRowKind === "income-key-subtotal";
+                const startsBalanceGroup = previousBalanceRowKind !== null;
                 const startsCashFlowGroup =
                   statementType === "CASH_FLOW" &&
                   previousMetricKey !== null &&
@@ -1271,6 +1353,10 @@ export function FinancialTimeSeriesTable({
                       <tr aria-hidden="true" data-income-group-break="true">
                         <td className="h-4 p-0" colSpan={visibleYears.length + 2} />
                       </tr>
+                    ) : startsBalanceGroup ? (
+                      <tr aria-hidden="true" data-balance-group-break="true">
+                        <td className="h-4 p-0" colSpan={visibleYears.length + 2} />
+                      </tr>
                     ) : startsCashFlowGroup ? (
                       <tr aria-hidden="true" data-cash-flow-group-break="true">
                         <td className="h-4 p-0" colSpan={visibleYears.length + 2} />
@@ -1278,17 +1364,17 @@ export function FinancialTimeSeriesTable({
                     ) : null}
                     <tr
                       data-financial-metric-key={row.metricKey ?? undefined}
-                      data-financial-row-kind={isCashFlowTotal ? "cash-flow-total" : incomeRowKind ?? undefined}
-                      data-financial-row-rank={incomeRowRank}
+                      data-financial-row-kind={isCashFlowTotal ? "cash-flow-total" : financialRowKind ?? undefined}
+                      data-financial-row-rank={financialRowRank}
                       className={cn(
-                        isTotal && incomeRowKind === null
+                        isTotal && financialRowKind === null
                           ? "border-t border-[var(--px-text)] font-semibold"
                           : "",
-                        incomeRowKind === "income-section-subtotal"
-                          ? "border-t border-[var(--px-text)] font-semibold"
+                        isSectionSubtotal
+                          ? "font-semibold"
                           : "",
-                        incomeRowKind === "income-key-subtotal"
-                          ? "border-t-2 border-[var(--px-text)] bg-[var(--px-subtle)] font-semibold"
+                        isKeySubtotal
+                          ? "border-t-2 border-[var(--px-text)] font-semibold"
                           : "",
                         isStatementResult
                           ? "border-t-2 border-[var(--px-text)] bg-[var(--px-accent-soft)] font-bold"
