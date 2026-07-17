@@ -108,6 +108,7 @@ export function CompanySearchWorkspace({
   rows,
   params,
   searchError,
+  groupEmployeeError = null,
   aiAvailable = true,
   aiAccessMessage = null,
   aiUsage = unavailableAiUsage,
@@ -115,6 +116,7 @@ export function CompanySearchWorkspace({
   rows: CompanySearchRow[];
   params: SearchParams;
   searchError: string | null;
+  groupEmployeeError?: string | null;
   aiAvailable?: boolean;
   aiAccessMessage?: string | null;
   aiUsage?: AiSearchUsageSummary;
@@ -377,6 +379,12 @@ export function CompanySearchWorkspace({
         </div>
       ) : null}
 
+      {groupEmployeeError ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+          {groupEmployeeError}
+        </div>
+      ) : null}
+
       <section className="space-y-4" aria-labelledby="company-search-results-heading">
         <div className="flex flex-wrap items-end justify-between gap-4 border-y border-[var(--px-border)] py-3">
           <div>
@@ -524,6 +532,8 @@ export function CompanySearchWorkspace({
                               title={
                                 row.groupEmployeeCountComplete
                                   ? `Sum av ${row.groupEmployeeCompanyCount} konsernselskaper. Eierskap ${row.groupEmployeeOwnershipYear}.`
+                                  : row.groupEmployeeTraversalTruncated
+                                    ? `Minstesum: konsernstrukturen traff en sikkerhetsgrense. Eierskap ${row.groupEmployeeOwnershipYear}.`
                                   : `Delvis sum: ${row.groupEmployeeCompanyCount} konsernselskaper, men ikke alle har registrert antall ansatte. Eierskap ${row.groupEmployeeOwnershipYear}.`
                               }
                             >

@@ -201,6 +201,7 @@ describe("SearchPage", () => {
         companyCount: 2,
         coveredCompanyCount: 2,
         complete: true,
+        traversalTruncated: false,
         ownershipYear: 2025,
       },
     ]]));
@@ -219,6 +220,45 @@ describe("SearchPage", () => {
       groupEmployeeCompanyCount: 2,
       groupEmployeeOwnershipYear: 2025,
     });
+  });
+
+  it("reports group employee lookup failures without hiding the company's own count", async () => {
+    searchCompaniesMock.mockResolvedValue({
+      results: [{
+        company: {
+          orgNumber: "922493626",
+          name: "REACH SUBSEA ASA",
+          status: "ACTIVE",
+          industryCode: null,
+          addresses: [],
+          employeeCount: 5,
+        },
+        revenue: null,
+        revenueFiscalYear: null,
+        operatingProfit: null,
+        netIncome: null,
+      }],
+      interpretation: {
+        originalQuery: "Reach Subsea",
+        rewrittenQuery: "Reach Subsea",
+        aiAssisted: false,
+        fallbackReason: null,
+        companyTerms: ["Reach Subsea"],
+        industryTerms: [],
+        geographicTerm: null,
+        geographicType: null,
+        intentSummary: null,
+        matchedIndustryCodes: [],
+      },
+    });
+    getGroupEmployeeSummariesMock.mockRejectedValue(new Error("ownership unavailable"));
+
+    const page = await SearchPage({
+      searchParams: Promise.resolve({ query: "Reach Subsea" }),
+    });
+
+    expect(page.props.rows[0].employeeCount).toBe(5);
+    expect(page.props.groupEmployeeError).toContain("midlertidig utilgjengelig");
   });
 
   it("runs without AI when the Premium token quota is exhausted", async () => {

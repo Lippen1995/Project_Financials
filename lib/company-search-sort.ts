@@ -11,6 +11,7 @@ export type CompanySearchRow = {
   employeeCount: number | null;
   groupEmployeeCount?: number | null;
   groupEmployeeCountComplete?: boolean;
+  groupEmployeeTraversalTruncated?: boolean;
   groupEmployeeCompanyCount?: number;
   groupEmployeeOwnershipYear?: number;
 };

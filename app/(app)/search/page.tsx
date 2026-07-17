@@ -202,6 +202,7 @@ export default async function SearchPage({
   const revenueFilteredResults = filterRowsByRevenueClass(scopedResults, params.revenueClass);
 
   let groupEmployeeSummaries = new Map<string, GroupEmployeeSummary>();
+  let groupEmployeeError: string | null = null;
   if (revenueFilteredResults.length > 0) {
     try {
       groupEmployeeSummaries = await getGroupEmployeeSummaries(
@@ -211,6 +212,8 @@ export default async function SearchPage({
         })),
       );
     } catch (error) {
+      groupEmployeeError =
+        "Konsernansatte er midlertidig utilgjengelig. Selskapets eget ansatte-tall vises fortsatt.";
       logRecoverableError("search-page.getGroupEmployeeSummaries", error, {
         resultCount: revenueFilteredResults.length,
       });
@@ -238,6 +241,7 @@ export default async function SearchPage({
         ? {
             groupEmployeeCount: groupEmployees.employeeCount,
             groupEmployeeCountComplete: groupEmployees.complete,
+            groupEmployeeTraversalTruncated: groupEmployees.traversalTruncated,
             groupEmployeeCompanyCount: groupEmployees.companyCount,
             groupEmployeeOwnershipYear: groupEmployees.ownershipYear,
           }
@@ -314,6 +318,7 @@ export default async function SearchPage({
       rows={rows}
       params={params}
       searchError={searchError}
+      groupEmployeeError={groupEmployeeError}
       aiAvailable={aiAvailable}
       aiAccessMessage={aiAccessMessage}
       aiUsage={aiUsage}

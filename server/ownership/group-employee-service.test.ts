@@ -8,9 +8,12 @@ describe("getGroupEmployeeSummaries", () => {
       [{ orgNumber: "922493626", employeeCount: 5 }],
       {
         getLatestOwnershipYear: vi.fn().mockResolvedValue(2025),
-        getSubsidiaryOrgNumbers: vi
+        getSubsidiaryTraversal: vi
           .fn()
-          .mockResolvedValue(["993252263", "111111111"]),
+          .mockResolvedValue({
+            orgNumbers: ["993252263", "111111111"],
+            truncated: false,
+          }),
         getEmployeeCounts: vi.fn().mockResolvedValue(
           new Map([
             ["993252263", 302],
@@ -25,6 +28,7 @@ describe("getGroupEmployeeSummaries", () => {
       companyCount: 3,
       coveredCompanyCount: 3,
       complete: true,
+      traversalTruncated: false,
       ownershipYear: 2025,
     });
   });
@@ -34,7 +38,10 @@ describe("getGroupEmployeeSummaries", () => {
       [{ orgNumber: "PARENT", employeeCount: 5 }],
       {
         getLatestOwnershipYear: vi.fn().mockResolvedValue(2025),
-        getSubsidiaryOrgNumbers: vi.fn().mockResolvedValue(["KNOWN", "MISSING"]),
+        getSubsidiaryTraversal: vi.fn().mockResolvedValue({
+          orgNumbers: ["KNOWN", "MISSING"],
+          truncated: false,
+        }),
         getEmployeeCounts: vi.fn().mockResolvedValue(new Map([["KNOWN", 302]])),
       },
     );
@@ -44,7 +51,28 @@ describe("getGroupEmployeeSummaries", () => {
       companyCount: 3,
       coveredCompanyCount: 2,
       complete: false,
+      traversalTruncated: false,
       ownershipYear: 2025,
+    });
+  });
+
+  it("never calls a bounded traversal complete", async () => {
+    const result = await getGroupEmployeeSummaries(
+      [{ orgNumber: "PARENT", employeeCount: 5 }],
+      {
+        getLatestOwnershipYear: vi.fn().mockResolvedValue(2025),
+        getSubsidiaryTraversal: vi.fn().mockResolvedValue({
+          orgNumbers: ["KNOWN"],
+          truncated: true,
+        }),
+        getEmployeeCounts: vi.fn().mockResolvedValue(new Map([["KNOWN", 302]])),
+      },
+    );
+
+    expect(result.get("PARENT")).toMatchObject({
+      employeeCount: 307,
+      complete: false,
+      traversalTruncated: true,
     });
   });
 });

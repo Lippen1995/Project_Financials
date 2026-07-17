@@ -246,9 +246,24 @@ export async function getSubsidiaryOrgNumbers(params: {
   maxDepth?: number;
   maxNodes?: number;
 }): Promise<string[]> {
+  return (await getSubsidiaryTraversal(params)).orgNumbers;
+}
+
+export type SubsidiaryTraversal = {
+  orgNumbers: string[];
+  truncated: boolean;
+};
+
+/** Resolve controlled subsidiaries and report whether a safety limit may have cut traversal short. */
+export async function getSubsidiaryTraversal(params: {
+  orgNumber: string;
+  year?: number;
+  maxDepth?: number;
+  maxNodes?: number;
+}): Promise<SubsidiaryTraversal> {
   const year = params.year ?? (await getOwnershipAvailableYears())[0];
   if (!year) {
-    return [];
+    return { orgNumbers: [], truncated: false };
   }
 
   const deps = createPrismaDeps(year);
@@ -258,6 +273,7 @@ export async function getSubsidiaryOrgNumbers(params: {
   const collected = new Set<string>();
   const visited = new Set<string>([params.orgNumber]);
   let frontier = [params.orgNumber];
+  let truncated = false;
 
   for (let depth = 0; depth < maxDepth && frontier.length > 0 && collected.size < maxNodes; depth += 1) {
     const edges = await deps.getChildren(frontier);
@@ -270,13 +286,16 @@ export async function getSubsidiaryOrgNumbers(params: {
       collected.add(edge.issuerOrgNumber);
       next.push(edge.issuerOrgNumber);
       if (collected.size >= maxNodes) {
+        truncated = true;
         break;
       }
     }
     frontier = next;
   }
 
-  return [...collected];
+  if (frontier.length > 0) truncated = true;
+
+  return { orgNumbers: [...collected], truncated };
 }
 
 /** Tax years for which a materialised ownership graph exists. */
