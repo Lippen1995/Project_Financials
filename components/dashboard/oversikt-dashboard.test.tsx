@@ -22,6 +22,9 @@ describe("OversiktDashboard search scopes", () => {
     expect(html).toContain('name="searchEventId"');
     expect(html).toContain('name="scope" value="all"');
     expect(html).toContain('aria-label="Avgrens søket"');
+    expect(html).toContain('role="combobox"');
+    expect(html).toContain('aria-autocomplete="list"');
+    expect(html).toContain('placeholder="Søk etter selskap, person eller rolle…"');
 
     for (const label of ["ALLE", "SELSKAPER", "BRANSJER", "PERSONER", "ROLLER", "KONKURS"]) {
       expect(html).toContain(`>${label}</button>`);

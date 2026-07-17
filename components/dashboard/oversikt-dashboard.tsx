@@ -1,11 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import {
   DASHBOARD_SEARCH_SCOPES,
   type DashboardSearchScope,
 } from "@/lib/dashboard-search";
+import {
+  canShowNavSearchSuggestions,
+  type NavSearchSuggestion,
+} from "@/lib/nav-search";
+import {
+  filterDashboardSearchSuggestions,
+  scheduleDashboardSuggestionSearch,
+} from "@/lib/dashboard-search-suggestions";
+import {
+  DashboardSearchSuggestionList,
+  dashboardSuggestionOptionId,
+} from "@/components/dashboard/dashboard-search-suggestion-list";
 import type {
   OversiktBankruptcyRow,
   OversiktNewsRow,
@@ -16,6 +28,9 @@ import type {
 // Each bar is positioned in a 62×22 viewBox: the most recent period renders at
 // full opacity, prior periods are dimmed.
 type Bar = { x: number; y: number; h: number; fill: string; op: number };
+
+const SEARCH_SUGGESTION_DEBOUNCE_MS = 200;
+const MAX_SEARCH_SUGGESTIONS = 8;
 
 const UP = "#10b981";
 const DOWN = "#ef4444";
@@ -103,8 +118,112 @@ export function OversiktDashboard({
   const [aiEnabled, setAiEnabled] = useState(false);
   const [searchScope, setSearchScope] = useState<DashboardSearchScope>("all");
   const [searchEventId] = useState(() => crypto.randomUUID());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchSuggestions, setSearchSuggestions] = useState<NavSearchSuggestion[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+  const [highlightedSuggestion, setHighlightedSuggestion] = useState(-1);
+  const suggestionsId = useId();
+  const searchFormRef = useRef<HTMLFormElement | null>(null);
+
+  const canSuggest = canShowNavSearchSuggestions(searchQuery, aiEnabled);
+
+  useEffect(() => {
+    if (!canSuggest) {
+      setSearchSuggestions([]);
+      setSuggestionsLoading(false);
+      setSuggestionsError(null);
+      setHighlightedSuggestion(-1);
+      return;
+    }
+
+    return scheduleDashboardSuggestionSearch({
+      query: searchQuery,
+      aiEnabled,
+      delayMs: SEARCH_SUGGESTION_DEBOUNCE_MS,
+      onStart: () => {
+        setSuggestionsLoading(true);
+        setSearchSuggestions([]);
+        setSuggestionsError(null);
+        setSuggestionsOpen(true);
+      },
+      onResult: (payload) => {
+        const scopedSuggestions = filterDashboardSearchSuggestions(payload.data, searchScope);
+        setSearchSuggestions(scopedSuggestions.slice(0, MAX_SEARCH_SUGGESTIONS));
+        setHighlightedSuggestion(-1);
+
+        const unavailableLabels = payload.meta.unavailableSources
+          .filter((source) => searchScope === "all" || source === searchScope)
+          .map((source) =>
+            source === "companies"
+              ? "Selskapsøk"
+              : source === "persons"
+                ? "Personsøk"
+                : source === "roles"
+                  ? "Rollesøk"
+                  : source === "industries"
+                    ? "Bransjesøk"
+                    : "Konkurssøk",
+          );
+        setSuggestionsError(
+          unavailableLabels.length > 0
+            ? `${unavailableLabels.join(" og ")} er midlertidig utilgjengelig.`
+            : null,
+        );
+      },
+      onError: () => {
+        setSearchSuggestions([]);
+        setSuggestionsError("Forslagssøket er midlertidig utilgjengelig.");
+      },
+      onSettled: () => setSuggestionsLoading(false),
+    });
+  }, [aiEnabled, canSuggest, searchQuery, searchScope]);
+
+  useEffect(() => {
+    if (!suggestionsOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && !searchFormRef.current?.contains(target)) setSuggestionsOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [suggestionsOpen]);
+
   function toggleAi(next: boolean) {
     setAiEnabled(next);
+    setSuggestionsOpen(false);
+    setSearchSuggestions([]);
+    setSuggestionsError(null);
+    setHighlightedSuggestion(-1);
+  }
+
+  function openSuggestion(suggestion: NavSearchSuggestion) {
+    window.location.assign(suggestion.href);
+  }
+
+  function onSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (!suggestionsOpen || searchSuggestions.length === 0) {
+      if (event.key === "Escape") setSuggestionsOpen(false);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedSuggestion((current) => (current + 1) % searchSuggestions.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedSuggestion((current) =>
+        current <= 0 ? searchSuggestions.length - 1 : current - 1,
+      );
+    } else if (event.key === "Enter" && highlightedSuggestion >= 0) {
+      event.preventDefault();
+      openSuggestion(searchSuggestions[highlightedSuggestion]);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setSuggestionsOpen(false);
+      setHighlightedSuggestion(-1);
+    }
   }
 
   return (
@@ -123,16 +242,36 @@ export function OversiktDashboard({
         </p>
 
         <form
+          ref={searchFormRef}
           action="/search/resolve"
           method="GET"
-          className="flex items-center gap-3.5 border-b-2 border-[var(--px-accent)] py-1.5"
+          className="relative flex items-center gap-3.5 border-b-2 border-[var(--px-accent)] py-1.5"
         >
           <span className="material-symbols-outlined text-2xl text-[var(--px-muted)]">search</span>
           <input
             name="query"
             required
             maxLength={200}
-            placeholder="Søk på selskap, org.nr, bransje…"
+            role={aiEnabled ? "searchbox" : "combobox"}
+            aria-label={aiEnabled ? "AI-søk" : "Søk etter selskaper, personer og roller"}
+            aria-autocomplete={aiEnabled ? undefined : "list"}
+            aria-controls={aiEnabled ? undefined : suggestionsId}
+            aria-expanded={aiEnabled ? undefined : suggestionsOpen && canSuggest}
+            aria-activedescendant={
+              !aiEnabled && highlightedSuggestion >= 0
+                ? dashboardSuggestionOptionId(suggestionsId, highlightedSuggestion)
+                : undefined
+            }
+            value={searchQuery}
+            placeholder={aiEnabled ? "Beskriv hva du vil finne…" : "Søk etter selskap, person eller rolle…"}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setSuggestionsOpen(true);
+            }}
+            onFocus={() => {
+              if (canSuggest) setSuggestionsOpen(true);
+            }}
+            onKeyDown={onSearchKeyDown}
             className="min-w-0 flex-1 border-none bg-transparent py-3 text-[19px] text-[var(--px-text)] outline-none placeholder:text-[var(--px-muted)]"
           />
           {aiEnabled ? <input type="hidden" name="ai" value="1" /> : null}
@@ -162,6 +301,16 @@ export function OversiktDashboard({
               arrow_forward
             </span>
           </button>
+
+          <DashboardSearchSuggestionList
+            id={suggestionsId}
+            visible={!aiEnabled && suggestionsOpen && canSuggest}
+            suggestions={searchSuggestions}
+            loading={suggestionsLoading}
+            error={suggestionsError}
+            highlightedIndex={highlightedSuggestion}
+            onHighlight={setHighlightedSuggestion}
+          />
         </form>
 
         <div

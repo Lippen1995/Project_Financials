@@ -9,6 +9,8 @@ import {
   DEFAULT_NAV_AI_SEARCH_ENABLED,
   buildNavSearchHref,
   canShowNavSearchSuggestions,
+  getNavSearchSuggestionIcon,
+  getNavSearchSuggestionLabel,
 } from "@/lib/nav-search";
 import type { NavSearchSuggestion as Suggestion } from "@/lib/nav-search";
 import type { GlobalNavItem } from "@/lib/navigation";
@@ -105,14 +107,25 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
           data: Suggestion[];
           meta: { unavailableSources: string[] };
         };
-        setSuggestions(payload.data.slice(0, MAX_SUGGESTIONS));
-        const unavailableLabels = payload.meta.unavailableSources.map((source) =>
-          source === "companies"
-            ? "Selskapsøk"
-            : source === "persons"
-              ? "Personsøk"
-              : "Rollesøk",
+        setSuggestions(
+          payload.data
+            .filter(
+              (suggestion) =>
+                suggestion.type === "company" ||
+                suggestion.type === "person" ||
+                suggestion.type === "role",
+            )
+            .slice(0, MAX_SUGGESTIONS),
         );
+        const unavailableLabels = payload.meta.unavailableSources
+          .filter((source) => source === "companies" || source === "persons" || source === "roles")
+          .map((source) =>
+            source === "companies"
+              ? "Selskapsøk"
+              : source === "persons"
+                ? "Personsøk"
+                : "Rollesøk",
+          );
         setSearchError(
           unavailableLabels.length > 0
             ? `${unavailableLabels.join(" og ")} er midlertidig utilgjengelig.`
@@ -294,11 +307,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
                         )}
                       >
                         <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--px-muted)]">
-                          {suggestion.type === "company"
-                            ? "apartment"
-                            : suggestion.type === "person"
-                              ? "person"
-                              : "badge"}
+                          {getNavSearchSuggestionIcon(suggestion.type)}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-4">
@@ -306,11 +315,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
                               {suggestion.title}
                             </span>
                             <span className="data-label shrink-0 text-[9px] font-semibold uppercase text-[var(--px-muted)]">
-                              {suggestion.type === "company"
-                                ? "Selskap"
-                                : suggestion.type === "person"
-                                  ? "Person"
-                                  : "Rolle"}
+                              {getNavSearchSuggestionLabel(suggestion.type)}
                             </span>
                           </span>
                           <span className="block truncate text-xs tabular-nums text-[var(--px-muted)]">

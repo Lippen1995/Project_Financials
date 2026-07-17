@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   searchRegistryCompanies: vi.fn(),
   searchPersons: vi.fn(),
   searchRoleTypes: vi.fn(),
+  searchIndustryCodes: vi.fn(),
 }));
 
 vi.mock("@/server/registry/entity-search-service", () => ({
@@ -13,6 +14,11 @@ vi.mock("@/server/registry/entity-search-service", () => ({
 vi.mock("@/server/registry/role-search-service", () => ({
   searchPersons: mocks.searchPersons,
   searchRoleTypes: mocks.searchRoleTypes,
+}));
+vi.mock("@/integrations/ssb/ssb-industry-code-provider", () => ({
+  SsbIndustryCodeProvider: class {
+    searchIndustryCodes = mocks.searchIndustryCodes;
+  },
 }));
 
 import { GET } from "@/app/api/search/suggestions/route";
@@ -23,6 +29,47 @@ describe("GET /api/search/suggestions", () => {
     mocks.searchRegistryCompanies.mockResolvedValue([]);
     mocks.searchPersons.mockResolvedValue([]);
     mocks.searchRoleTypes.mockResolvedValue([]);
+    mocks.searchIndustryCodes.mockResolvedValue([]);
+  });
+
+  it("returns official industry and bankruptcy suggestions", async () => {
+    mocks.searchIndustryCodes.mockResolvedValueOnce([
+      { code: "00.000", title: "INDUSTRY_RESULT" },
+    ]);
+    mocks.searchRegistryCompanies
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { orgNumber: "000000000", name: "BANKRUPTCY_RESULT", municipality: null },
+      ]);
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/search/suggestions?query=result"),
+    );
+
+    const payload = await response.json();
+    expect(payload.data).toEqual(
+      expect.arrayContaining([
+        {
+          type: "industry",
+          id: "00.000",
+          title: "INDUSTRY_RESULT",
+          description: "Næringskode 00.000",
+          href: "/search?query=00.000&scope=industries",
+        },
+        {
+          type: "bankruptcy",
+          id: "000000000",
+          title: "BANKRUPTCY_RESULT",
+          description: "Konkurs · Org.nr. 000000000",
+          href: "/companies/000000000",
+        },
+      ]),
+    );
+    expect(mocks.searchRegistryCompanies).toHaveBeenNthCalledWith(2, {
+      query: "result",
+      size: 3,
+      status: "BANKRUPT",
+    });
   });
 
   it("returns normalized company, person and role suggestions", async () => {
@@ -75,8 +122,10 @@ describe("GET /api/search/suggestions", () => {
 
   it("distinguishes unavailable sources from an empty result", async () => {
     mocks.searchRegistryCompanies.mockRejectedValueOnce(new Error("registry unavailable"));
+    mocks.searchRegistryCompanies.mockRejectedValueOnce(new Error("registry unavailable"));
     mocks.searchPersons.mockRejectedValueOnce(new Error("roles mirror unavailable"));
     mocks.searchRoleTypes.mockRejectedValueOnce(new Error("roles mirror unavailable"));
+    mocks.searchIndustryCodes.mockRejectedValueOnce(new Error("SSB unavailable"));
 
     const response = await GET(
       new NextRequest("http://localhost/api/search/suggestions?query=search"),
@@ -105,5 +154,6 @@ describe("GET /api/search/suggestions", () => {
     expect(mocks.searchRegistryCompanies).not.toHaveBeenCalled();
     expect(mocks.searchPersons).not.toHaveBeenCalled();
     expect(mocks.searchRoleTypes).not.toHaveBeenCalled();
+    expect(mocks.searchIndustryCodes).not.toHaveBeenCalled();
   });
 });
