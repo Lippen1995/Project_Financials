@@ -1,0 +1,323 @@
+{
+  "taskType": "OTHER",
+  "modelFamily": "FINANCIAL_FACT_EXTRACTOR",
+  "algorithm": "tfidf+sgd-logloss:financial_fact_extractor:row_text_only:char_word",
+  "binaryPath": "/models/_augmented.joblib",
+  "trainedAt": "2026-07-05T13:40:08.498347Z",
+  "evaluationMetrics": {
+    "train": {
+      "precision": 0.9966985992593737,
+      "recall": 0.9965585944575258,
+      "f1": 0.9963821684098109,
+      "accuracy": 0.9965585944575258,
+      "support": 5521
+    },
+    "validation": {
+      "precision": 0.9069377057637946,
+      "recall": 0.9040172553248854,
+      "f1": 0.8890503798284404,
+      "accuracy": 0.9040172553248854,
+      "support": 3709
+    },
+    "test": {
+      "precision": 0.850844270889829,
+      "recall": 0.8621867881548975,
+      "f1": 0.850850439479677,
+      "accuracy": 0.8621867881548975,
+      "support": 878
+    },
+    "label_distribution_train": {
+      "Investments_in_shares": 8,
+      "accounts_payable": 12,
+      "bond_loans": 1,
+      "cash_and_cash_equivalents": 206,
+      "cost_of_goods_sold": 91,
+      "current_assets": 175,
+      "current_liabilities": 159,
+      "deferred_tax_asset": 41,
+      "deferred_tax_liability": 16,
+      "depreciation_amortization": 126,
+      "financial_debt_assets": 6,
+      "financial_expense": 172,
+      "financial_fixed_assets": 74,
+      "financial_income": 145,
+      "goodwill": 2,
+      "group_trade_receivables": 4,
+      "impairments": 6,
+      "intangible_assets": 55,
+      "inventory": 46,
+      "investments_in_associated_companies_and_subsidiaries": 43,
+      "long_term_debt_credit_institutions": 35,
+      "long_term_liabilities": 74,
+      "marketable_securities": 4,
+      "net_financial_items": 56,
+      "net_income": 60,
+      "net_income_ from_associated_companies": 4,
+      "net_income_to_common_shareholders": 2,
+      "operating_profit": 68,
+      "ordinary_dividends": 9,
+      "other_current_liabilities": 111,
+      "other_equity": 93,
+      "other_non_current_liabilities": 10,
+      "other_non_current_receivables": 28,
+      "other_operating_expense": 194,
+      "other_operating_income": 6,
+      "other_receivables": 129,
+      "other_revenue": 74,
+      "other_transfers_to_equity": 23,
+      "payroll_expense": 134,
+      "pension_assets": 6,
+      "pension_liability": 3,
+      "profit_before_tax": 22,
+      "property_plant_and_equipment": 37,
+      "public_duties_payable": 72,
+      "receivables_from_group_companies": 19,
+      "retained_earnings": 46,
+      "revenue": 151,
+      "share_capital": 176,
+      "share_premium": 55,
+      "short_term_debt_credit_institutions": 1,
+      "software": 2,
+      "tangible_assets": 91,
+      "tax_expense": 38,
+      "tax_payable": 58,
+      "total_assets": 187,
+      "total_cash_and_cash_equivalents": 112,
+      "total_current_financial_assets": 48,
+      "total_equity": 171,
+      "total_equity_and_liabilities": 110,
+      "total_financial_expense": 150,
+      "total_financial_income": 124,
+      "total_liabilities": 163,
+      "total_non_current_assets": 114,
+      "total_non_current_liabilities_excl_provisions": 51,
+      "total_operating_expenses": 202,
+      "total_operating_income": 6,
+      "total_provisions": 29,
+      "total_receivables": 113,
+      "total_retained_earnings": 105,
+      "total_revenue": 177,
+      "total_share_capital": 149,
+      "trade_payables": 88,
+      "trade_receivables": 94,
+      "transfer_to_equity": 39,
+      "treasury_shares": 10
+    },
+    "model_selection": [
+      {
+        "feature_variant": "full_context",
+        "vectorizer_variant": "char",
+        "train": {
+          "precision": 0.9353261558739738,
+          "recall": 0.9239268248505705,
+          "f1": 0.9265265356467663,
+          "accuracy": 0.9239268248505705,
+          "support": 5521
+        },
+        "validation": {
+          "precision": 0.6466629439316093,
+          "recall": 0.6093286600161769,
+          "f1": 0.5734293330607427,
+          "accuracy": 0.6093286600161769,
+          "support": 3709
+        },
+        "test": {
+          "precision": 0.6851433679103043,
+          "recall": 0.6605922551252847,
+          "f1": 0.6489839064896381,
+          "accuracy": 0.6605922551252847,
+          "support": 878
+        }
+      },
+      {
+        "feature_variant": "full_context",
+        "vectorizer_variant": "char_word",
+        "train": {
+          "precision": 0.9920716587118832,
+          "recall": 0.9913059228400652,
+          "f1": 0.9914831335381264,
+          "accuracy": 0.9913059228400652,
+          "support": 5521
+        },
+        "validation": {
+          "precision": 0.7699431722892925,
+          "recall": 0.7179832839040172,
+          "f1": 0.684882445914164,
+          "accuracy": 0.7179832839040172,
+          "support": 3709
+        },
+        "test": {
+          "precision": 0.8059711289663394,
+          "recall": 0.835990888382688,
+          "f1": 0.8080533688466764,
+          "accuracy": 0.835990888382688,
+          "support": 878
+        }
+      },
+      {
+        "feature_variant": "no_nearby_context",
+        "vectorizer_variant": "char",
+        "train": {
+          "precision": 0.9827910410846951,
+          "recall": 0.9809817062126427,
+          "f1": 0.9813475499961561,
+          "accuracy": 0.9809817062126427,
+          "support": 5521
+        },
+        "validation": {
+          "precision": 0.8616656081072309,
+          "recall": 0.8557562685359935,
+          "f1": 0.8371513440855483,
+          "accuracy": 0.8557562685359935,
+          "support": 3709
+        },
+        "test": {
+          "precision": 0.7976396269408997,
+          "recall": 0.8200455580865603,
+          "f1": 0.801000452163926,
+          "accuracy": 0.8200455580865603,
+          "support": 878
+        }
+      },
+      {
+        "feature_variant": "no_nearby_context",
+        "vectorizer_variant": "char_word",
+        "train": {
+          "precision": 0.9934871015700816,
+          "recall": 0.9929360623075529,
+          "f1": 0.9930553737668294,
+          "accuracy": 0.9929360623075529,
+          "support": 5521
+        },
+        "validation": {
+          "precision": 0.8795660597113754,
+          "recall": 0.8821784847667835,
+          "f1": 0.8647606655056322,
+          "accuracy": 0.8821784847667835,
+          "support": 3709
+        },
+        "test": {
+          "precision": 0.8211280819002251,
+          "recall": 0.8382687927107062,
+          "f1": 0.8193376271576202,
+          "accuracy": 0.8382687927107062,
+          "support": 878
+        }
+      },
+      {
+        "feature_variant": "row_identity_context",
+        "vectorizer_variant": "char",
+        "train": {
+          "precision": 0.9932887599922733,
+          "recall": 0.9925738090925557,
+          "f1": 0.9926905307179871,
+          "accuracy": 0.9925738090925557,
+          "support": 5521
+        },
+        "validation": {
+          "precision": 0.8846907158772097,
+          "recall": 0.8754381234834188,
+          "f1": 0.8578152821401054,
+          "accuracy": 0.8754381234834188,
+          "support": 3709
+        },
+        "test": {
+          "precision": 0.8422170765369626,
+          "recall": 0.8587699316628702,
+          "f1": 0.8441735367695852,
+          "accuracy": 0.8587699316628702,
+          "support": 878
+        }
+      },
+      {
+        "feature_variant": "row_identity_context",
+        "vectorizer_variant": "char_word",
+        "train": {
+          "precision": 0.9985971869898641,
+          "recall": 0.9985509871400109,
+          "f1": 0.9985599459896062,
+          "accuracy": 0.9985509871400109,
+          "support": 5521
+        },
+        "validation": {
+          "precision": 0.8984853068964782,
+          "recall": 0.898355351846859,
+          "f1": 0.8823947709351578,
+          "accuracy": 0.898355351846859,
+          "support": 3709
+        },
+        "test": {
+          "precision": 0.8483305229318896,
+          "recall": 0.8735763097949886,
+          "f1": 0.855358512882297,
+          "accuracy": 0.8735763097949886,
+          "support": 878
+        }
+      },
+      {
+        "feature_variant": "row_text_only",
+        "vectorizer_variant": "char",
+        "train": {
+          "precision": 0.9876735338947669,
+          "recall": 0.9889512769425829,
+          "f1": 0.9879066719738238,
+          "accuracy": 0.9889512769425829,
+          "support": 5521
+        },
+        "validation": {
+          "precision": 0.8718842455031326,
+          "recall": 0.8700458344567269,
+          "f1": 0.8516812795219842,
+          "accuracy": 0.8700458344567269,
+          "support": 3709
+        },
+        "test": {
+          "precision": 0.8416478711506595,
+          "recall": 0.8439635535307517,
+          "f1": 0.8371547535001092,
+          "accuracy": 0.8439635535307517,
+          "support": 878
+        }
+      },
+      {
+        "feature_variant": "row_text_only",
+        "vectorizer_variant": "char_word",
+        "train": {
+          "precision": 0.9966985992593737,
+          "recall": 0.9965585944575258,
+          "f1": 0.9963821684098109,
+          "accuracy": 0.9965585944575258,
+          "support": 5521
+        },
+        "validation": {
+          "precision": 0.9069377057637946,
+          "recall": 0.9040172553248854,
+          "f1": 0.8890503798284404,
+          "accuracy": 0.9040172553248854,
+          "support": 3709
+        },
+        "test": {
+          "precision": 0.850844270889829,
+          "recall": 0.8621867881548975,
+          "f1": 0.850850439479677,
+          "accuracy": 0.8621867881548975,
+          "support": 878
+        }
+      }
+    ]
+  },
+  "trainingDataSnapshot": {
+    "reviewerExamples": 5521,
+    "validationExamples": 3709,
+    "testExamples": 878,
+    "rawReviewerExamples": 7580,
+    "rawValidationExamples": 4623,
+    "rawTestExamples": 1672,
+    "distinctMetricKeys": 75,
+    "featureText": "features.factContextText fallback sourceRowText/rawLabel",
+    "selectedFeatureVariant": "row_text_only",
+    "selectedVectorizerVariant": "char_word",
+    "excludedLabelPrefix": "as_reported_"
+  },
+  "summary": "TF-IDF + logistic regression financial fact extractor trained on 5521 reviewer examples across 75 metric keys."
+}

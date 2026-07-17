@@ -31,6 +31,18 @@
   --px-error: #be123c;
   --px-watch: #d9a300;
 
+  /* Status fills — for badges and pills that carry a status colour */
+  --px-success-soft: rgba(4, 120, 87, 0.09);
+  --px-success-border: rgba(4, 120, 87, 0.22);
+  --px-warning-soft: rgba(180, 83, 9, 0.09);
+  --px-warning-border: rgba(180, 83, 9, 0.22);
+  --px-error-soft: rgba(190, 18, 60, 0.08);
+  --px-error-border: rgba(190, 18, 60, 0.2);
+
+  /* Trend — direction of travel in sparklines */
+  --px-chart-pos: var(--px-success);
+  --px-chart-neg: var(--px-error);
+
   /* Radii — sharp by default */
   --radius-sm: 2px;
   --radius-md: 8px;

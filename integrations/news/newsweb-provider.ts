@@ -32,10 +32,25 @@ type NewswebListMessage = {
   clientAnnouncementId?: string;
 };
 
-type NewswebMessageDetail = {
-  message?: {
-    body?: string;
-  };
+export type NewswebAttachment = {
+  id: number;
+  name: string;
+};
+
+export type NewswebMessageDetail = {
+  id?: number;
+  messageId: number;
+  title: string;
+  body?: string;
+  category?: { id?: number; category_no?: string; category_en?: string };
+  issuerId: number;
+  issuerSign?: string;
+  issuerName?: string;
+  publishedTime: string;
+  correctionForMessageId?: number;
+  correctedByMessageId?: number;
+  clientAnnouncementId?: string;
+  attachments?: NewswebAttachment[];
 };
 
 export type NewswebArticle = {
@@ -49,6 +64,13 @@ export type NewswebArticle = {
   issuerId: number;
   issuerSign: string | null;
   issuerName: string | null;
+  messageId: number;
+  body: string | null;
+  categoryId: number | null;
+  attachments: NewswebAttachment[];
+  correctionForMessageId: number | null;
+  correctedByMessageId: number | null;
+  clientAnnouncementId: string | null;
 };
 
 const NEWSWEB_ORIGIN = "https://newsweb.oslobors.no";
@@ -195,22 +217,39 @@ export function findBestNewswebIssuerMatch(companyName: string, issuers: Newsweb
   })[0] ?? null;
 }
 
-async function fetchNewswebMessageSummary(messageId: number) {
+export async function fetchNewswebMessageDetail(messageId: number) {
   try {
-    const data = await postNewsweb<NewswebMessageDetail>(`/v1/newsreader/message?messageId=${messageId}`);
-    const body = data.message?.body;
-    return body ? truncateSummary(body) : null;
+    const data = await postNewsweb<{ message?: NewswebMessageDetail }>(`/v1/newsreader/message?messageId=${messageId}`);
+    return data.message ?? null;
   } catch {
     return null;
   }
+}
+
+export async function fetchNewswebAttachment(messageId: number, attachmentId: number) {
+  const apiBase = await fetchNewswebApiBase();
+  const response = await fetch(
+    `${apiBase}/v1/newsreader/attachment?messageId=${messageId}&attachmentId=${attachmentId}`,
+    {
+      headers: {
+        Accept: "application/pdf,application/octet-stream",
+        "User-Agent": "FjordInsightNewsBot/1.0 (+https://fjordinsight.local)",
+      },
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`NewsWeb attachment fetch failed: HTTP ${response.status}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
 }
 
 async function mapNewswebMessages(
   messages: NewswebListMessage[],
   includeBody: boolean,
 ) {
-  const summaries = includeBody
-    ? await Promise.all(messages.map((message) => fetchNewswebMessageSummary(message.messageId)))
+  const details = includeBody
+    ? await Promise.all(messages.map((message) => fetchNewswebMessageDetail(message.messageId)))
     : messages.map(() => null);
 
   return messages.flatMap((message, index): NewswebArticle[] => {
@@ -220,7 +259,9 @@ async function mapNewswebMessages(
     }
 
     const category = categoryLabel(message.category);
-    const summary = summaries[index] ?? category;
+    const detail = details[index];
+    const body = detail?.body ?? null;
+    const summary = body ? truncateSummary(body) : category;
 
     return [
       {
@@ -234,6 +275,13 @@ async function mapNewswebMessages(
         issuerId: message.issuerId,
         issuerSign: message.issuerSign ?? null,
         issuerName: message.issuerName ?? null,
+        messageId: message.messageId,
+        body,
+        categoryId: detail?.category?.id ?? null,
+        attachments: detail?.attachments ?? [],
+        correctionForMessageId: detail?.correctionForMessageId || null,
+        correctedByMessageId: detail?.correctedByMessageId || null,
+        clientAnnouncementId: detail?.clientAnnouncementId ?? message.clientAnnouncementId ?? null,
       },
     ];
   });
@@ -275,7 +323,7 @@ export async function fetchNewswebLatestMessages(
 
 export async function fetchNewswebIssuerMessages(
   issuerId: number,
-  options: { limit?: number; includeBody?: boolean; fromDate?: string; toDate?: string } = {},
+  options: { limit?: number; includeBody?: boolean; fromDate?: string; toDate?: string; categoryId?: number } = {},
 ) {
   const cacheKey = [
     issuerId,
@@ -283,6 +331,7 @@ export async function fetchNewswebIssuerMessages(
     options.includeBody ? "body" : "list",
     options.fromDate ?? "",
     options.toDate ?? "",
+    options.categoryId ?? "",
   ].join(":");
   const cached = issuerMessagesCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < ISSUER_MESSAGES_CACHE_TTL_MS) {
@@ -290,7 +339,7 @@ export async function fetchNewswebIssuerMessages(
   }
 
   const params = new URLSearchParams({
-    category: "",
+    category: options.categoryId ? String(options.categoryId) : "",
     issuer: String(issuerId),
     fromDate: options.fromDate ?? "",
     toDate: options.toDate ?? "",
@@ -309,7 +358,7 @@ export async function fetchNewswebIssuerMessages(
 
 export async function fetchNewswebCompanyMessages(
   companyName: string,
-  options: { limit?: number; includeBody?: boolean; fromDate?: string; toDate?: string } = {},
+  options: { limit?: number; includeBody?: boolean; fromDate?: string; toDate?: string; categoryId?: number } = {},
 ) {
   const issuers = await fetchNewswebIssuers();
   const issuer = findBestNewswebIssuerMatch(companyName, issuers);
@@ -318,4 +367,58 @@ export async function fetchNewswebCompanyMessages(
   }
 
   return fetchNewswebIssuerMessages(issuer.issuerId, options);
+}
+
+function isoDate(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+async function fetchNewswebMessageRange(input: {
+  issuerId: number;
+  fromDate: Date;
+  toDate: Date;
+  categoryId: number;
+}): Promise<NewswebListMessage[]> {
+  const params = new URLSearchParams({
+    category: String(input.categoryId),
+    issuer: String(input.issuerId),
+    fromDate: isoDate(input.fromDate),
+    toDate: isoDate(input.toDate),
+    market: "",
+    messageTitle: "",
+  });
+  const data = await postNewsweb<{ messages?: NewswebListMessage[]; overflow?: boolean }>(
+    `/v1/newsreader/list?${params.toString()}`,
+  );
+  if (!data.overflow) return data.messages ?? [];
+
+  const fromMs = input.fromDate.getTime();
+  const toMs = input.toDate.getTime();
+  if (fromMs >= toMs) {
+    throw new Error(`NewsWeb result overflow for single date ${isoDate(input.fromDate)}`);
+  }
+  const midpoint = new Date(Math.floor((fromMs + toMs) / 2));
+  midpoint.setUTCHours(0, 0, 0, 0);
+  const rightStart = new Date(midpoint);
+  rightStart.setUTCDate(rightStart.getUTCDate() + 1);
+  const [left, right] = await Promise.all([
+    fetchNewswebMessageRange({ ...input, toDate: midpoint }),
+    fetchNewswebMessageRange({ ...input, fromDate: rightStart }),
+  ]);
+  return [...left, ...right];
+}
+
+export async function fetchNewswebInsiderMessages(input: {
+  issuerId: number;
+  fromDate: Date;
+  toDate?: Date;
+}) {
+  const messages = await fetchNewswebMessageRange({
+    issuerId: input.issuerId,
+    fromDate: input.fromDate,
+    toDate: input.toDate ?? new Date(),
+    categoryId: 1102,
+  });
+  const unique = [...new Map(messages.map((message) => [message.messageId, message])).values()];
+  return mapNewswebMessages(unique, true);
 }

@@ -106,13 +106,15 @@ describe("BoardReportExtractionService", () => {
 
     expect(outcome.result.status).toBe("EXTRACTED");
     expect(outcome.result.extractorVersion).toBe(
-      "board-report-extraction-v1:parser-v1",
+      "board-report-extraction-v4:parser-v1",
     );
     expect(outcome.result.text).not.toContain("Resultatregnskap");
     expect(outcome.extractionId).toBe("extraction-1");
     expect(persistResult).toHaveBeenCalledOnce();
     expect(persistArtifacts).toHaveBeenCalledOnce();
-    expect(publish).toHaveBeenCalledWith("extraction-1");
+    expect(publish).toHaveBeenCalledWith("extraction-1", {
+      minimumConfidenceExclusive: 0,
+    });
   });
 
   it("does not publish automatically when publication is not explicitly requested", async () => {
@@ -180,6 +182,98 @@ describe("BoardReportExtractionService", () => {
     expect(outcome.result.warnings).toContainEqual(
       expect.objectContaining({ code: "UNRELIABLE_TEXT_LAYER" }),
     );
+    expect(outcome.published).toBe(false);
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it("publishes OCR only when explicitly enabled above the strict confidence threshold", async () => {
+    const publish = vi.fn(async () => undefined);
+    const document = unifiedDocument();
+    document.source.route = "OCR";
+    const service = new BoardReportExtractionService({
+      loadFiling: vi.fn(async () => ({
+        id: "filing-1",
+        companyId: "company-1",
+        fiscalYear: 2025,
+        sourceSystem: "BRREG",
+        sourceUrl: "https://data.brreg.no/report.pdf",
+        sourceDocumentType: "ANNUAL_REPORT_PDF",
+        company: { id: "company-1", orgNumber: "974760673", name: "Brreg" },
+      })),
+      loadOfficialPdf: vi.fn(async () => ({
+        buffer: Buffer.from("%PDF-test"),
+        sourceDocumentHash: "a".repeat(64),
+        fetchedAt: new Date("2026-07-14T09:00:00.000Z"),
+      })),
+      buildDocument: vi.fn(async () => ({
+        document,
+        autoPublishEligible: false,
+        warnings: ["OCR review is required."],
+      })),
+      extract: vi.fn((input, source) => ({
+        ...extractBoardReport(input, source),
+        status: "EXTRACTED" as const,
+        confidence: 0.91,
+      })),
+      persistResult: vi.fn(async () => ({ id: "extraction-1" })),
+      persistArtifacts: vi.fn(async () => undefined),
+      publish,
+    });
+
+    const outcome = await service.extractForFiling("filing-1", {
+      publish: true,
+      allowOcrAutoPublish: true,
+      publishMinConfidence: 0.9,
+    });
+
+    expect(outcome.result.status).toBe("EXTRACTED");
+    expect(outcome.published).toBe(true);
+    expect(publish).toHaveBeenCalledWith("extraction-1", {
+      minimumConfidenceExclusive: 0.9,
+    });
+  });
+
+  it("withholds OCR at exactly the strict confidence threshold", async () => {
+    const publish = vi.fn(async () => undefined);
+    const document = unifiedDocument();
+    document.source.route = "OCR";
+    const service = new BoardReportExtractionService({
+      loadFiling: vi.fn(async () => ({
+        id: "filing-1",
+        companyId: "company-1",
+        fiscalYear: 2025,
+        sourceSystem: "BRREG",
+        sourceUrl: "https://data.brreg.no/report.pdf",
+        sourceDocumentType: "ANNUAL_REPORT_PDF",
+        company: { id: "company-1", orgNumber: "974760673", name: "Brreg" },
+      })),
+      loadOfficialPdf: vi.fn(async () => ({
+        buffer: Buffer.from("%PDF-test"),
+        sourceDocumentHash: "a".repeat(64),
+        fetchedAt: new Date("2026-07-14T09:00:00.000Z"),
+      })),
+      buildDocument: vi.fn(async () => ({
+        document,
+        autoPublishEligible: false,
+        warnings: ["OCR review is required."],
+      })),
+      extract: vi.fn((input, source) => ({
+        ...extractBoardReport(input, source),
+        status: "EXTRACTED" as const,
+        confidence: 0.9,
+      })),
+      persistResult: vi.fn(async () => ({ id: "extraction-1" })),
+      persistArtifacts: vi.fn(async () => undefined),
+      publish,
+    });
+
+    const outcome = await service.extractForFiling("filing-1", {
+      publish: true,
+      allowOcrAutoPublish: true,
+      publishMinConfidence: 0.9,
+    });
+
+    expect(outcome.result.status).toBe("MANUAL_REVIEW");
     expect(outcome.published).toBe(false);
     expect(publish).not.toHaveBeenCalled();
   });

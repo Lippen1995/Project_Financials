@@ -47,6 +47,13 @@ function article(messageId: number, category: string | null = "Issuer disclosure
     issuerId: 123,
     issuerSign: "EQNR",
     issuerName: "Equinor ASA",
+    messageId,
+    body: "Primary insider purchased shares.",
+    categoryId: 1102,
+    attachments: [],
+    correctionForMessageId: null,
+    correctedByMessageId: null,
+    clientAnnouncementId: null,
   };
 }
 

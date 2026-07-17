@@ -53,6 +53,11 @@ export type CompanyRole = {
   effectivePercent: number | null;
   directShares: number | null;
   heldVia: string | null;
+  indirectHoldings: Array<{
+    orgNumber: string;
+    name: string;
+    personOwnershipFraction: number;
+  }>;
 };
 
 /**
@@ -258,7 +263,11 @@ type ShareholderRow = {
  * depth, per-level breadth, total nodes, and a minimum flow so cycles and huge public
  * cap tables stay tractable.
  */
-type OwnershipEntry = { directFraction: number; indirectFraction: number; via: Map<string, string> };
+type OwnershipEntry = {
+  directFraction: number;
+  indirectFraction: number;
+  via: Map<string, { name: string; personOwnershipFraction: number }>;
+};
 
 async function computeEffectiveOwnership(
   companyOrgNumber: string,
@@ -346,7 +355,11 @@ async function computeEffectiveOwnership(
 
   // Indirect: seed from the company's corporate shareholders above the floor, then walk up.
   // Each flow is tagged with the top-level holding company it entered through (for "via").
-  type FrontierNode = { org: string; source: { org: string; name: string }; flow: number };
+  type FrontierNode = {
+    org: string;
+    source: { org: string; name: string; issuerFraction: number };
+    flow: number;
+  };
   let frontier = new Map<string, FrontierNode>();
 
   const seedRows = await prisma.$queryRaw<Array<{ holdco: string; name: string; fraction: number }>>(Prisma.sql`
@@ -359,12 +372,25 @@ async function computeEffectiveOwnership(
       AND s."shareholderType" = 'COMPANY' AND s."shareholderOrgNumber" IS NOT NULL
       AND s."shareholderOrgNumber" <> ${companyOrgNumber}
     GROUP BY s."shareholderOrgNumber"
-    HAVING least(sum(s."numberOfShares")::numeric / NULLIF(max(s."totalCompanyShares"), 0), 1) >= ${SEED_MIN_FRACTION}
+    HAVING
+      least(sum(s."numberOfShares")::numeric / NULLIF(max(s."totalCompanyShares"), 0), 1) >= ${SEED_MIN_FRACTION}
+      OR EXISTS (
+        SELECT 1
+        FROM "ShareholderRegisterHolding" owner
+        WHERE owner."taxYear" = ${year}
+          AND owner."issuerOrgNumber" = s."shareholderOrgNumber"
+          AND owner."shareholderType" = 'PERSON'
+          AND concat(
+            upper(regexp_replace(owner."shareholderName", '\\s+', ' ', 'g')),
+            '|',
+            owner."shareholderBirthYear"::text
+          ) IN (${Prisma.join([...personKeys])})
+      )
   `);
   for (const row of seedRows) {
     frontier.set(`${row.holdco}|${row.holdco}`, {
       org: row.holdco,
-      source: { org: row.holdco, name: row.name },
+      source: { org: row.holdco, name: row.name, issuerFraction: row.fraction },
       flow: row.fraction,
     });
   }
@@ -396,7 +422,15 @@ async function computeEffectiveOwnership(
           if (key && personKeys.has(key)) {
             const entry = ensure(key);
             entry.indirectFraction += flow;
-            entry.via.set(node.source.org, node.source.name);
+            const previous = entry.via.get(node.source.org);
+            const pathFraction = node.source.issuerFraction > 0 ? flow / node.source.issuerFraction : 0;
+            entry.via.set(node.source.org, {
+              name: node.source.name,
+              personOwnershipFraction: Math.min(
+                1,
+                (previous?.personOwnershipFraction ?? 0) + pathFraction,
+              ),
+            });
           }
         } else if (row.shOrg && row.shOrg !== node.org && flow >= MIN_FLOW) {
           const k = `${row.shOrg}|${node.source.org}`;
@@ -446,7 +480,7 @@ export async function getCompanyRoleAssignments(
   `);
 
   const [yearRow] = await prisma.$queryRaw<Array<{ year: number | null }>>(
-    Prisma.sql`SELECT max("taxYear")::int AS year FROM "ShareholderRegisterHolding"`,
+    Prisma.sql`SELECT max("taxYear")::int AS year FROM "ShareholderRegisterHolding" WHERE "issuerOrgNumber" = ${orgNumber}`,
   );
   const year = yearRow?.year ?? null;
 
@@ -481,6 +515,7 @@ export async function getCompanyRoleAssignments(
     let effectivePercent: number | null = null;
     let directShares: number | null = null;
     let heldVia: string | null = null;
+    let indirectHoldings: CompanyRole["indirectHoldings"] = [];
 
     if (role.holderType === "PERSON") {
       // Person with no ownership found still reads as an explicit "no shares".
@@ -488,7 +523,12 @@ export async function getCompanyRoleAssignments(
       effectiveShares = Math.round(effectiveFraction * totalShares);
       effectivePercent = effectiveFraction * 100;
       directShares = own ? Math.round(own.directFraction * totalShares) : 0;
-      heldVia = own && own.via.size > 0 ? [...own.via.values()].join(", ") : null;
+      indirectHoldings = own
+        ? [...own.via.entries()].map(([orgNumber, value]) => ({ orgNumber, ...value }))
+        : [];
+      heldVia = indirectHoldings.length > 0
+        ? indirectHoldings.map((holding) => holding.name).join(", ")
+        : null;
     }
 
     return {
@@ -505,6 +545,7 @@ export async function getCompanyRoleAssignments(
       effectivePercent,
       directShares,
       heldVia,
+      indirectHoldings,
     };
   });
 }

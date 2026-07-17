@@ -45,7 +45,7 @@ import {
   type RegisterBackedProfile,
 } from "@/server/ownership/ownership-overview-service";
 import { getCompanyShareholdingOverview } from "@/server/shareholdings/shareholding-service";
-import { getCompanyRoleAssignments } from "@/server/registry/role-search-service";
+import { getCompanyRoleActivityOverview } from "@/server/insider-transactions/role-reported-changes-service";
 import { CompanyRoles } from "@/components/company/ownership/company-roles";
 
 function sortStatements(statements: NormalizedFinancialStatement[]) {
@@ -528,8 +528,8 @@ export default async function CompanyPage({
       ? getCompanyGridConnectionProfile({ orgNumber: company.orgNumber, companyName: company.name })
       : Promise.resolve(null),
     activeTab === "aksjonaerer"
-      ? getCompanyRoleAssignments(company.orgNumber)
-      : Promise.resolve([]),
+      ? getCompanyRoleActivityOverview(company.orgNumber)
+      : Promise.resolve({ snapshot: null, roles: [] }),
   ]);
 
   const [initialAnnouncementDetail, discussionContext] = await Promise.all([
@@ -699,7 +699,7 @@ export default async function CompanyPage({
       {activeTab === "aksjonaerer" && shareholdersOverview ? (
         <div className="space-y-8">
           <ShareholdersTab slug={slug} initial={shareholdersOverview} />
-          <CompanyRoles roles={companyRoles} />
+          <CompanyRoles overview={companyRoles} />
         </div>
       ) : null}
 

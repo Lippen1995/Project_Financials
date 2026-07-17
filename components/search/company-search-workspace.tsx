@@ -108,6 +108,7 @@ export function CompanySearchWorkspace({
   rows,
   params,
   searchError,
+  groupEmployeeError = null,
   aiAvailable = true,
   aiAccessMessage = null,
   aiUsage = unavailableAiUsage,
@@ -115,6 +116,7 @@ export function CompanySearchWorkspace({
   rows: CompanySearchRow[];
   params: SearchParams;
   searchError: string | null;
+  groupEmployeeError?: string | null;
   aiAvailable?: boolean;
   aiAccessMessage?: string | null;
   aiUsage?: AiSearchUsageSummary;
@@ -377,6 +379,12 @@ export function CompanySearchWorkspace({
         </div>
       ) : null}
 
+      {groupEmployeeError ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+          {groupEmployeeError}
+        </div>
+      ) : null}
+
       <section className="space-y-4" aria-labelledby="company-search-results-heading">
         <div className="flex flex-wrap items-end justify-between gap-4 border-y border-[var(--px-border)] py-3">
           <div>
@@ -518,6 +526,21 @@ export function CompanySearchWorkspace({
                         </td>
                         <td className="px-2 py-3 text-right tabular-nums text-[var(--px-text)]">
                           {formatNumber(row.employeeCount)}
+                          {row.groupEmployeeCount !== undefined ? (
+                            <div
+                              className="data-label mt-1 text-[9px] font-medium text-[var(--px-muted)]"
+                              title={
+                                row.groupEmployeeCountComplete
+                                  ? `Sum av ${row.groupEmployeeCompanyCount} konsernselskaper. Eierskap ${row.groupEmployeeOwnershipYear}.`
+                                  : row.groupEmployeeTraversalTruncated
+                                    ? `Minstesum: konsernstrukturen traff en sikkerhetsgrense. Eierskap ${row.groupEmployeeOwnershipYear}.`
+                                  : `Delvis sum: ${row.groupEmployeeCompanyCount} konsernselskaper, men ikke alle har registrert antall ansatte. Eierskap ${row.groupEmployeeOwnershipYear}.`
+                              }
+                            >
+                              Konsern {row.groupEmployeeCountComplete ? "" : "minst "}
+                              {formatNumber(row.groupEmployeeCount ?? null)}
+                            </div>
+                          ) : null}
                         </td>
                       </tr>
                     );
@@ -550,7 +573,16 @@ export function CompanySearchWorkspace({
                     label="Årsresultat"
                     value={formatCurrency(selectedRow.netIncome)}
                   />
-                  <FinancialMetric label="Antall ansatte" value="Ikke tilgjengelig" />
+                  <FinancialMetric
+                    label="Antall ansatte"
+                    value={formatNumber(selectedRow.employeeCount)}
+                  />
+                  {selectedRow.groupEmployeeCount !== undefined ? (
+                    <FinancialMetric
+                      label="Ansatte i konsernet"
+                      value={`${selectedRow.groupEmployeeCountComplete ? "" : "Minst "}${formatNumber(selectedRow.groupEmployeeCount ?? null)}`}
+                    />
+                  ) : null}
                 </div>
                 <p className="text-xs leading-5 text-[var(--px-muted)]">
                   Ansatte i trefflisten er siste registrerte antall fra Brønnøysundregistrene.

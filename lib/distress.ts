@@ -1,6 +1,7 @@
 import {
   DistressAssetSnapshot,
   DistressFinancialTrend,
+  DistressRevenueTrendPoint,
   DistressStatus,
   NormalizedDistressProfile,
   NormalizedFinancialStatement,
@@ -202,7 +203,61 @@ export function calculateEquityRatio(equity?: number | null, assets?: number | n
     return null;
   }
 
-  return Number((((equity / assets) * 100) || 0).toFixed(2));
+  return clampRatio(Number((((equity / assets) * 100) || 0).toFixed(2)), EQUITY_RATIO_CEILING);
+}
+
+export function extractCurrentAssets(payload: Record<string, unknown>) {
+  return firstNumber(payload, ["eiendeler.omloepsmidler.sumOmloepsmidler", "eiendeler.sumOmloepsmidler"]);
+}
+
+export function extractCurrentLiabilities(payload: Record<string, unknown>) {
+  return firstNumber(payload, [
+    "egenkapitalGjeld.gjeldOversikt.kortsiktigGjeld.sumKortsiktigGjeld",
+    "egenkapitalGjeld.gjeldOversikt.sumKortsiktigGjeld",
+  ]);
+}
+
+/**
+ * A company with almost no short-term debt produces an arbitrarily large ratio — we have seen
+ * values in the millions, which overflow the stored DECIMAL(8,2) and mean nothing to a reader.
+ * Anything at or above this ceiling says the same thing ("no meaningful short-term debt"), so the
+ * value is capped rather than carried at full precision.
+ */
+export const LIQUIDITY_RATIO_CEILING = 999.99;
+
+/**
+ * Shells being wound up routinely report a handful of kroner in assets against millions in negative
+ * equity, which yields ratios in the hundreds of millions of percent. They overflow the stored
+ * DECIMAL(8,2) and tell the reader nothing beyond "equity is wiped out", which any value past this
+ * ceiling already says. A whole number keeps the capped value printable as an exact bound
+ * ("< −9 999 %") rather than one that rounds into a claim that is not true.
+ */
+export const EQUITY_RATIO_CEILING = 9999;
+
+function clampRatio(value: number, ceiling: number) {
+  if (value > ceiling) {
+    return ceiling;
+  }
+
+  return value < -ceiling ? -ceiling : value;
+}
+
+/**
+ * Likviditetsgrad 1: current assets over current liabilities. Below 1 means the company cannot
+ * cover its short-term obligations from its short-term assets.
+ */
+export function calculateLiquidityRatio(currentAssets?: number | null, currentLiabilities?: number | null) {
+  if (
+    currentAssets === null ||
+    currentAssets === undefined ||
+    currentLiabilities === null ||
+    currentLiabilities === undefined ||
+    currentLiabilities === 0
+  ) {
+    return null;
+  }
+
+  return clampRatio(Number((currentAssets / currentLiabilities).toFixed(2)), LIQUIDITY_RATIO_CEILING);
 }
 
 export function extractAssetSnapshot(statement?: NormalizedFinancialStatement | null): DistressAssetSnapshot {
@@ -217,9 +272,117 @@ export function extractAssetSnapshot(statement?: NormalizedFinancialStatement | 
     inventory: firstNumber(payload, ["eiendeler.sumVarer", "eiendeler.omloepsmidler.varer"]),
     receivables: firstNumber(payload, ["eiendeler.sumFordringer"]),
     cash: firstNumber(payload, ["eiendeler.sumBankinnskuddOgKontanter"]),
+    currentAssets: extractCurrentAssets(payload),
+    currentLiabilities: extractCurrentLiabilities(payload),
     interestBearingDebt: extractInterestBearingDebt(payload),
     fiscalYear: statement?.fiscalYear ?? null,
   };
+}
+
+export const DISTRESS_SCORE_VERSION = "distress-score-v1";
+
+function getStatusRiskWeight(status: DistressStatus) {
+  switch (status) {
+    case "BANKRUPTCY":
+      return 45;
+    case "FORCED_PROCESS":
+      return 40;
+    case "FOREIGN_INSOLVENCY":
+      return 38;
+    case "RECONSTRUCTION":
+      return 30;
+    case "LIQUIDATION":
+      return 22;
+    case "OTHER_DISTRESS":
+    default:
+      return 20;
+  }
+}
+
+/**
+ * A transparent, rule-based risk score (0-100, high = distressed) over the signals we actually
+ * persist. It deliberately returns null when no financial signal exists at all: formal status alone
+ * says nothing about financial health, and a bar rendered from status would imply precision we do
+ * not have. Roughly half the distress universe has no usable regnskap, so the null case is common.
+ */
+export function calculateDistressScore(input: {
+  status: DistressStatus;
+  daysInStatus?: number | null;
+  equityRatio?: number | null;
+  liquidityRatio?: number | null;
+  ebit?: number | null;
+  revenueTrend?: DistressRevenueTrendPoint[] | null;
+}) {
+  const hasFinancialSignal =
+    input.equityRatio !== null && input.equityRatio !== undefined
+      ? true
+      : input.liquidityRatio !== null && input.liquidityRatio !== undefined
+        ? true
+        : input.ebit !== null && input.ebit !== undefined;
+
+  if (!hasFinancialSignal) {
+    return null;
+  }
+
+  let score = getStatusRiskWeight(input.status);
+
+  const equityRatio = input.equityRatio;
+  if (equityRatio !== null && equityRatio !== undefined) {
+    if (equityRatio < 0) {
+      score += 25;
+    } else if (equityRatio < 5) {
+      score += 18;
+    } else if (equityRatio < 15) {
+      score += 10;
+    } else if (equityRatio < 30) {
+      score += 5;
+    }
+  }
+
+  const liquidityRatio = input.liquidityRatio;
+  if (liquidityRatio !== null && liquidityRatio !== undefined) {
+    if (liquidityRatio < 0.4) {
+      score += 15;
+    } else if (liquidityRatio < 0.7) {
+      score += 11;
+    } else if (liquidityRatio < 1) {
+      score += 7;
+    } else if (liquidityRatio < 1.5) {
+      score += 3;
+    }
+  }
+
+  if (input.ebit !== null && input.ebit !== undefined && input.ebit < 0) {
+    score += 10;
+  }
+
+  const trend = (input.revenueTrend ?? []).filter(
+    (point): point is { fiscalYear: number; revenue: number } => point.revenue !== null,
+  );
+  if (trend.length >= 2) {
+    const ordered = [...trend].sort((left, right) => left.fiscalYear - right.fiscalYear);
+    const first = ordered[0].revenue;
+    const last = ordered[ordered.length - 1].revenue;
+    if (first > 0 && last < first * 0.8) {
+      score += 5;
+    }
+  }
+
+  const daysInStatus = input.daysInStatus;
+  if (daysInStatus !== null && daysInStatus !== undefined) {
+    if (daysInStatus >= 730) {
+      score += 5;
+    } else if (daysInStatus >= 365) {
+      score += 3;
+    }
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+/** Health is the reader-facing inverse of the risk score: 0 = worst, 100 = best. */
+export function toHealthScore(distressScore?: number | null) {
+  return distressScore === null || distressScore === undefined ? null : 100 - distressScore;
 }
 
 export function buildDistressFinancialTrend(statement: NormalizedFinancialStatement): DistressFinancialTrend {

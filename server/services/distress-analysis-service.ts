@@ -7,13 +7,18 @@ import { BrregDistressProvider } from "@/integrations/brreg/brreg-distress-provi
 import { mapBrregCompany } from "@/integrations/brreg/mappers";
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
 import {
+  DISTRESS_SCORE_VERSION,
   buildDistressFinancialTrend,
   buildDistressProfileFromPayload,
   buildSectorSummary,
+  calculateDaysInStatus,
+  calculateDistressScore,
   calculateEquityRatio,
+  calculateLiquidityRatio,
   extractAssetSnapshot,
   extractInterestBearingDebt,
   getDistressStatusLabel,
+  toHealthScore,
 } from "@/lib/distress";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import {
@@ -22,9 +27,14 @@ import {
   DistressCompanyRow,
   DistressFilterOptions,
   DistressFinancialSnapshotSummary,
+  DistressModuleKpis,
+  DistressModuleResponse,
+  DistressModuleSectorRow,
   DistressOverviewResponse,
+  DistressRevenueTrendPoint,
   DistressScreeningResponse,
   DistressSearchFilters,
+  NormalizedFinancialStatement,
 } from "@/lib/types";
 import { mapDbCompany, mapDbFinancialStatements } from "@/server/mappers/db-mappers";
 import {
@@ -59,6 +69,15 @@ const DISTRESS_SYNC_STALE_MS = 15 * 60 * 1000;
 const DISTRESS_DEFAULT_BOOTSTRAP_CONCURRENCY = 16;
 const DISTRESS_DEFAULT_UPDATES_CONCURRENCY = 20;
 const DISTRESS_BEST_FIT_LIMIT = 500;
+const DISTRESS_REVENUE_TREND_YEARS = 5;
+/**
+ * Balance-sheet total over which the module counts a company as one with something worth bidding
+ * for. It deliberately keys off total assets rather than anleggsmidler + varelager: those line items
+ * only exist for the ~2% of statements ingested through the structured Regnskapsregisteret path,
+ * whereas total assets is present for ~78% of the universe. A KPI computed from the line items reads
+ * as a permanent zero, which is worse than a coarser number that is actually true.
+ */
+const DISTRESS_ASSETS_THRESHOLD = 100_000_000;
 
 let distressBootstrapPromise: Promise<unknown> | null = null;
 let distressUpdatesPromise: Promise<unknown> | null = null;
@@ -94,6 +113,12 @@ function resolveSort(sort?: DistressSearchFilters["sort"] | null): SortKey | nul
     case "assets_asc":
     case "interestBearingDebt_desc":
     case "interestBearingDebt_asc":
+    case "healthScore_desc":
+    case "healthScore_asc":
+    case "liquidityRatio_desc":
+    case "liquidityRatio_asc":
+    case "realizableAssets_desc":
+    case "realizableAssets_asc":
       return sort;
     default:
       return null;
@@ -126,6 +151,30 @@ function compareNullableNumbers(left?: number | null, right?: number | null, dir
   const normalizedRight = right ?? Number.NEGATIVE_INFINITY;
 
   return direction === "desc" ? normalizedRight - normalizedLeft : normalizedLeft - normalizedRight;
+}
+
+/**
+ * Sorts unknown values last in BOTH directions. `compareNullableNumbers` maps null to -Infinity, so
+ * an ascending sort by health would open the table with every company we could not score — an
+ * absence of data presented as the worst possible score.
+ */
+function compareNullsLast(left: number | null | undefined, right: number | null | undefined, direction: "asc" | "desc") {
+  const hasLeft = left !== null && left !== undefined;
+  const hasRight = right !== null && right !== undefined;
+
+  if (!hasLeft && !hasRight) {
+    return 0;
+  }
+
+  if (!hasLeft) {
+    return 1;
+  }
+
+  if (!hasRight) {
+    return -1;
+  }
+
+  return direction === "asc" ? left - right : right - left;
 }
 
 function compareNullableDates(left?: Date | null, right?: Date | null) {
@@ -274,6 +323,40 @@ async function getSectorLabel(industryCode?: string | null) {
 
   const classification = await industryCodeProvider.getIndustryCode(industryCode);
   return classification?.title ?? classification?.description ?? null;
+}
+
+/** The five most recent fiscal years, oldest first, so the sparkline reads left-to-right in time. */
+function buildRevenueTrend(statements: NormalizedFinancialStatement[]): DistressRevenueTrendPoint[] {
+  return [...statements]
+    .sort((left, right) => right.fiscalYear - left.fiscalYear)
+    .slice(0, DISTRESS_REVENUE_TREND_YEARS)
+    .reverse()
+    .map((statement) => ({
+      fiscalYear: statement.fiscalYear,
+      revenue: statement.revenue ?? null,
+    }));
+}
+
+function parseRevenueTrend(value: unknown): DistressRevenueTrendPoint[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const points = value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return [];
+    }
+
+    const record = entry as Record<string, unknown>;
+    const fiscalYear = toNumber(record.fiscalYear);
+    if (fiscalYear === null) {
+      return [];
+    }
+
+    return [{ fiscalYear, revenue: toNumber(record.revenue) }];
+  });
+
+  return points.length > 0 ? points : null;
 }
 
 function getMargin(value?: number | null, revenue?: number | null) {
@@ -454,6 +537,18 @@ export async function refreshDistressFinancialSnapshotForCompany(orgNumber: stri
       latestStatement.assets !== null,
   );
 
+  const equityRatio = calculateEquityRatio(latestStatement?.equity ?? null, latestStatement?.assets ?? null);
+  const liquidityRatio = calculateLiquidityRatio(assetSnapshot.currentAssets, assetSnapshot.currentLiabilities);
+  const revenueTrend = buildRevenueTrend(statements);
+  const distressScore = calculateDistressScore({
+    status: record.distressProfile.distressStatus,
+    daysInStatus: record.distressProfile.daysInStatus ?? null,
+    equityRatio,
+    liquidityRatio,
+    ebit: latestStatement?.operatingProfit ?? null,
+    revenueTrend,
+  });
+
   const snapshot: DistressFinancialSnapshotSummary = {
     distressStatus: record.distressProfile.distressStatus,
     daysInStatus: record.distressProfile.daysInStatus ?? null,
@@ -464,14 +559,19 @@ export async function refreshDistressFinancialSnapshotForCompany(orgNumber: stri
     revenue: latestStatement?.revenue ?? null,
     ebit: latestStatement?.operatingProfit ?? null,
     netIncome: latestStatement?.netIncome ?? null,
-    equityRatio: calculateEquityRatio(latestStatement?.equity ?? null, latestStatement?.assets ?? null),
+    equityRatio,
     assets: latestStatement?.assets ?? null,
     interestBearingDebt:
       latestStatement && typeof latestStatement.rawPayload === "object" && latestStatement.rawPayload
         ? extractInterestBearingDebt(latestStatement.rawPayload as Record<string, unknown>)
         : assetSnapshot.interestBearingDebt ?? null,
-    distressScore: null,
-    scoreVersion: null,
+    liquidityRatio,
+    fixedAssets: assetSnapshot.fixedAssets ?? null,
+    inventory: assetSnapshot.inventory ?? null,
+    cash: assetSnapshot.cash ?? null,
+    revenueTrend,
+    distressScore,
+    scoreVersion: distressScore === null ? null : DISTRESS_SCORE_VERSION,
     dataCoverage: buildCoverageValue(Boolean(latestStatement), hasKeyMetrics),
     updatedAt: new Date(),
   };
@@ -624,6 +724,35 @@ export async function syncDistressUpdates(options?: {
   };
 }
 
+/**
+ * Recomputes every distress snapshot from the statements already in the database. Unlike
+ * `backfillDistressFinancials` this makes no network calls and imports nothing — it exists to
+ * populate columns added after the statements were ingested (liquidity, fixed assets, inventory,
+ * cash, revenue trend, score) without re-hitting Brreg for data we already hold.
+ */
+export async function refreshAllDistressSnapshots(options?: { onProgress?: (processed: number, total: number) => void }) {
+  const records = await listDistressCompanyRecords({});
+  let refreshed = 0;
+  let skipped = 0;
+
+  for (const [index, record] of records.entries()) {
+    const snapshot = await refreshDistressFinancialSnapshotForCompany(record.company.orgNumber);
+    if (snapshot) {
+      refreshed += 1;
+    } else {
+      skipped += 1;
+    }
+
+    options?.onProgress?.(index + 1, records.length);
+  }
+
+  return {
+    total: records.length,
+    refreshed,
+    skipped,
+  };
+}
+
 export async function backfillDistressFinancials(options?: {
   orgNumbers?: string[];
 }) {
@@ -745,7 +874,9 @@ function mapRow(record: Awaited<ReturnType<typeof listDistressCompanyRecords>>[n
       label: getDistressStatusLabel(record.distressStatus),
       statusStartedAt: record.statusStartedAt,
       statusObservedAt: record.statusObservedAt,
-      daysInStatus: record.daysInStatus,
+      // The stored column is frozen at sync time — a company synced the day it went bankrupt reads
+      // "0 dager i status" forever. Derive from the start date so the age is true when it is read.
+      daysInStatus: calculateDaysInStatus(record.statusStartedAt) ?? record.daysInStatus,
       lastAnnouncementPublishedAt: record.lastAnnouncementPublishedAt,
       lastAnnouncementTitle: record.lastAnnouncementTitle,
     },
@@ -763,11 +894,31 @@ function mapRow(record: Awaited<ReturnType<typeof listDistressCompanyRecords>>[n
       equityRatio: toNumber(snapshot?.equityRatio),
       assets: toNumber(snapshot?.assets),
       interestBearingDebt: toNumber(snapshot?.interestBearingDebt),
+      liquidityRatio: toNumber(snapshot?.liquidityRatio),
+      fixedAssets: toNumber(snapshot?.fixedAssets),
+      inventory: toNumber(snapshot?.inventory),
+      cash: toNumber(snapshot?.cash),
+      revenueTrend: parseRevenueTrend(snapshot?.revenueTrend),
     },
     distressScore: snapshot?.distressScore ?? null,
+    healthScore: toHealthScore(snapshot?.distressScore ?? null),
     scoreVersion: snapshot?.scoreVersion ?? null,
     dataCoverage: snapshot?.dataCoverage ?? "NO_FINANCIALS",
   };
+}
+
+function getRealizableAssets(row: DistressCompanyRow) {
+  const fixedAssets = row.financials.fixedAssets;
+  const inventory = row.financials.inventory;
+
+  if (
+    (fixedAssets === null || fixedAssets === undefined) &&
+    (inventory === null || inventory === undefined)
+  ) {
+    return null;
+  }
+
+  return (fixedAssets ?? 0) + (inventory ?? 0);
 }
 
 function sortRows(rows: DistressCompanyRow[], sort: SortKey | null) {
@@ -846,6 +997,18 @@ function sortRows(rows: DistressCompanyRow[], sort: SortKey | null) {
           compareNullableNumbers(left.financials.interestBearingDebt, right.financials.interestBearingDebt, "asc") ||
           defaultSort
         );
+      case "healthScore_desc":
+        return compareNullsLast(left.healthScore, right.healthScore, "desc") || defaultSort;
+      case "healthScore_asc":
+        return compareNullsLast(left.healthScore, right.healthScore, "asc") || defaultSort;
+      case "liquidityRatio_desc":
+        return compareNullsLast(left.financials.liquidityRatio, right.financials.liquidityRatio, "desc") || defaultSort;
+      case "liquidityRatio_asc":
+        return compareNullsLast(left.financials.liquidityRatio, right.financials.liquidityRatio, "asc") || defaultSort;
+      case "realizableAssets_desc":
+        return compareNullsLast(getRealizableAssets(left), getRealizableAssets(right), "desc") || defaultSort;
+      case "realizableAssets_asc":
+        return compareNullsLast(getRealizableAssets(left), getRealizableAssets(right), "asc") || defaultSort;
       case "daysInStatus_desc":
       default:
         return defaultSort;
@@ -902,6 +1065,153 @@ export async function listDistressCompaniesForWorkspace(
     page,
     size,
     view,
+  };
+}
+
+function buildModuleKpis(rows: DistressCompanyRow[]): DistressModuleKpis {
+  const recentCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const scored = rows.filter(
+    (row): row is DistressCompanyRow & { healthScore: number } =>
+      row.healthScore !== null && row.healthScore !== undefined,
+  );
+
+  return {
+    newBankruptcies30d: rows.filter(
+      (row) =>
+        row.distress.status === "BANKRUPTCY" &&
+        (row.distress.statusStartedAt?.getTime() ?? 0) >= recentCutoff,
+    ).length,
+    underRestructuring: rows.filter((row) => row.distress.status === "RECONSTRUCTION").length,
+    withRealizableAssets: rows.filter((row) => (row.financials.assets ?? 0) >= DISTRESS_ASSETS_THRESHOLD).length,
+    avgHealthScore:
+      scored.length > 0
+        ? Math.round(scored.reduce((total, row) => total + row.healthScore, 0) / scored.length)
+        : null,
+    scoredCount: scored.length,
+    universeCount: rows.length,
+  };
+}
+
+function buildModuleSectors(rows: DistressCompanyRow[]): DistressModuleSectorRow[] {
+  const aggregate = new Map<
+    string,
+    {
+      sectorCode: string;
+      sectorLabel: string | null;
+      companyCount: number;
+      bankruptcyCount: number;
+      healthTotal: number;
+      healthCount: number;
+      totalAssets: number | null;
+    }
+  >();
+
+  for (const row of rows) {
+    const sectorCode = row.sector?.code;
+    if (!sectorCode) {
+      continue;
+    }
+
+    const entry = aggregate.get(sectorCode) ?? {
+      sectorCode,
+      sectorLabel: row.sector?.label ?? null,
+      companyCount: 0,
+      bankruptcyCount: 0,
+      healthTotal: 0,
+      healthCount: 0,
+      totalAssets: null,
+    };
+
+    entry.companyCount += 1;
+    if (row.distress.status === "BANKRUPTCY") {
+      entry.bankruptcyCount += 1;
+    }
+
+    if (row.healthScore !== null && row.healthScore !== undefined) {
+      entry.healthTotal += row.healthScore;
+      entry.healthCount += 1;
+    }
+
+    if ((row.financials.assets ?? null) !== null) {
+      entry.totalAssets = (entry.totalAssets ?? 0) + (row.financials.assets as number);
+    }
+
+    aggregate.set(sectorCode, entry);
+  }
+
+  return [...aggregate.values()]
+    .map((entry) => ({
+      sectorCode: entry.sectorCode,
+      sectorLabel: entry.sectorLabel,
+      companyCount: entry.companyCount,
+      bankruptcyCount: entry.bankruptcyCount,
+      avgHealthScore: entry.healthCount > 0 ? Math.round(entry.healthTotal / entry.healthCount) : null,
+      totalAssets: entry.totalAssets,
+    }))
+    // Weakest sectors first — that is the question the section header asks.
+    .sort(
+      (left, right) =>
+        (left.avgHealthScore ?? Number.POSITIVE_INFINITY) - (right.avgHealthScore ?? Number.POSITIVE_INFINITY) ||
+        right.companyCount - left.companyCount ||
+        left.sectorCode.localeCompare(right.sectorCode, "nb-NO"),
+    );
+}
+
+/**
+ * The whole distress universe, unpaginated, with its sector aggregate. Njord answers over this:
+ * ranking "the five biggest" across a paginated slice would quietly rank the wrong five.
+ */
+export async function getDistressUniverseForWorkspace(
+  actorUserId: string,
+  workspaceId: string,
+): Promise<{ rows: DistressCompanyRow[]; sectors: DistressModuleSectorRow[] }> {
+  await requireWorkspaceMembership(actorUserId, workspaceId);
+  await ensureDistressCoverage();
+
+  const rows = (await listDistressCompanyRecords({})).map(mapRow);
+  return {
+    rows,
+    sectors: buildModuleSectors(rows),
+  };
+}
+
+/**
+ * Everything the distress module page renders in one round trip: the filtered + sorted table page,
+ * the KPI strip and the sector breakdown. KPIs and sectors are computed over the whole filtered
+ * universe rather than the visible page, so paging through the table does not move them.
+ */
+export async function getDistressModuleForWorkspace(
+  actorUserId: string,
+  workspaceId: string,
+  filters: DistressSearchFilters,
+): Promise<DistressModuleResponse> {
+  await requireWorkspaceMembership(actorUserId, workspaceId);
+  await ensureDistressCoverage();
+
+  const view = filters.view ?? "BEST_FIT";
+  const page = Math.max(0, filters.page ?? 0);
+  const size = Math.max(1, Math.min(filters.size ?? 50, 200));
+  const allRows = (await listDistressCompanyRecords(filters)).map(mapRow);
+  const visibleRows = view === "BEST_FIT" ? buildBestFitRows(allRows) : allRows;
+  const resolvedSort = resolveSort(filters.sort);
+  const rows = view === "BEST_FIT" && !resolvedSort ? visibleRows : sortRows(visibleRows, resolvedSort);
+  const start = page * size;
+  const [filterOptions, distressUniverseCount] = await Promise.all([
+    getDistressFilterOptionsForWorkspace(actorUserId, workspaceId),
+    countDistressProfiles(),
+  ]);
+
+  return {
+    items: rows.slice(start, start + size),
+    totalCount: rows.length,
+    totalUniverseCount: allRows.length,
+    distressUniverseCount,
+    page,
+    size,
+    view,
+    kpis: buildModuleKpis(allRows),
+    sectors: buildModuleSectors(allRows),
+    filterOptions,
   };
 }
 

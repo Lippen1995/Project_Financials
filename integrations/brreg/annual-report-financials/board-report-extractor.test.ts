@@ -112,6 +112,44 @@ describe("extractBoardReport", () => {
     expect(result.endBoundary).toMatchObject({ pageNumber: 2, blockId: "p2-b1" });
   });
 
+  it("stops an English board report at the financial-statements section cover", () => {
+    const document = documentWithPages([
+      [
+        "Board of Directors' report",
+        "The Board expects continued profitable growth and considers the company well positioned for the coming year.",
+      ],
+      ["Financial statements", "Jotun Group", "Consolidated income statement"],
+    ]);
+
+    const result = extractBoardReport(document, source);
+
+    expect(result.pageStart).toBe(1);
+    expect(result.pageEnd).toBe(1);
+    expect(result.text).toContain("continued profitable growth");
+    expect(result.text).not.toContain("Financial statements");
+    expect(result.endBoundary).toMatchObject({ pageNumber: 2, blockId: "p2-b0" });
+  });
+
+  it("prefers a bounded report over a later navigation heading", () => {
+    const document = documentWithPages([
+      [
+        "Board of Directors' report",
+        "The Board expects continued profitable growth and considers the company well positioned for the coming year.",
+      ],
+      ["Financial statements"],
+      ["Consolidated income statement"],
+      ["Board of Directors' report", "Sustainability disclosure navigation"],
+      ...Array.from({ length: 15 }, () => ["Sustainability disclosure content"]),
+      ["Independent auditor's report"],
+    ]);
+
+    const result = extractBoardReport(document, source);
+
+    expect(result.status).not.toBe("MANUAL_REVIEW");
+    expect(result.pageStart).toBe(1);
+    expect(result.pageEnd).toBe(1);
+  });
+
   it("cuts at line offsets when the board report and next section share one text block", () => {
     const document = documentWithPages([
       [

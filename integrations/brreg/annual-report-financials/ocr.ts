@@ -42,6 +42,8 @@ export type OcrExtractionOptions = {
   renderScale?: number;
   invert?: boolean;
   rotationDegrees?: 0 | 90 | 180 | 270;
+  recognitionMode?: "auto" | "sparse_text" | "best";
+  languages?: "nor" | "eng" | "nor+eng";
 };
 
 function configuredOcrRenderScale() {
@@ -992,7 +994,7 @@ export async function extractOcrPagesWithDiagnostics(
   diagnostics.pageLevelOcrFallbackCount = screenshots.pages.length;
   const suppressedFailures = new Map<string, number>();
 
-  const worker = await createWorker("nor+eng", 1, {
+  const worker = await createWorker(options?.languages ?? "nor+eng", 1, {
     cachePath: path.join(os.tmpdir(), "projectx-tesseract-cache"),
     logger: () => undefined,
     errorHandler: (error: string) => {
@@ -1056,7 +1058,11 @@ export async function extractOcrPagesWithDiagnostics(
       }> = [];
       let recognitionFailed = false;
 
-      for (const mode of OCR_RECOGNITION_MODES) {
+      const recognitionModes =
+        !options?.recognitionMode || options.recognitionMode === "best"
+          ? OCR_RECOGNITION_MODES
+          : OCR_RECOGNITION_MODES.filter((mode) => mode.name === options.recognitionMode);
+      for (const mode of recognitionModes) {
         diagnostics.ocrAttemptCount += 1;
 
         try {

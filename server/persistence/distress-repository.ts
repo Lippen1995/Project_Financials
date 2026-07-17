@@ -14,6 +14,38 @@ function toNullableDate(value?: Date | null) {
   return value ?? null;
 }
 
+function toNullableDecimal(value?: number | null) {
+  return value === null || value === undefined ? null : new Prisma.Decimal(value);
+}
+
+function buildSnapshotWriteData(companyOrgNumber: string, snapshot: DistressFinancialSnapshotSummary) {
+  return {
+    distressStatus: snapshot.distressStatus as PrismaDistressStatus,
+    daysInStatus: snapshot.daysInStatus ?? null,
+    industryCode: snapshot.industryCode ?? null,
+    sectorCode: snapshot.sectorCode ?? null,
+    sectorLabel: snapshot.sectorLabel ?? null,
+    lastReportedYear: snapshot.lastReportedYear ?? null,
+    revenue: snapshot.revenue ?? null,
+    ebit: snapshot.ebit ?? null,
+    netIncome: snapshot.netIncome ?? null,
+    equityRatio: toNullableDecimal(snapshot.equityRatio),
+    assets: snapshot.assets ?? null,
+    interestBearingDebt: snapshot.interestBearingDebt ?? null,
+    liquidityRatio: toNullableDecimal(snapshot.liquidityRatio),
+    fixedAssets: snapshot.fixedAssets ?? null,
+    inventory: snapshot.inventory ?? null,
+    cash: snapshot.cash ?? null,
+    revenueTrend: snapshot.revenueTrend ? (snapshot.revenueTrend as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+    distressScore: snapshot.distressScore ?? null,
+    scoreVersion: snapshot.scoreVersion ?? null,
+    dataCoverage: snapshot.dataCoverage ?? null,
+    sourceSystem: null,
+    sourceEntityType: "distressFinancialSnapshot",
+    sourceId: companyOrgNumber,
+  };
+}
+
 export async function upsertCompanyDistressProfile(companyOrgNumber: string, profile: NormalizedDistressProfile) {
   const company = await prisma.company.findUnique({
     where: { orgNumber: companyOrgNumber },
@@ -101,54 +133,14 @@ export async function upsertDistressFinancialSnapshot(
     throw new Error(`Virksomhet ${companyOrgNumber} finnes ikke i databasen.`);
   }
 
+  const data = buildSnapshotWriteData(companyOrgNumber, snapshot);
+
   return prisma.distressFinancialSnapshot.upsert({
     where: { companyId: company.id },
-    update: {
-      distressStatus: snapshot.distressStatus as PrismaDistressStatus,
-      daysInStatus: snapshot.daysInStatus ?? null,
-      industryCode: snapshot.industryCode ?? null,
-      sectorCode: snapshot.sectorCode ?? null,
-      sectorLabel: snapshot.sectorLabel ?? null,
-      lastReportedYear: snapshot.lastReportedYear ?? null,
-      revenue: snapshot.revenue ?? null,
-      ebit: snapshot.ebit ?? null,
-      netIncome: snapshot.netIncome ?? null,
-      equityRatio:
-        snapshot.equityRatio === null || snapshot.equityRatio === undefined
-          ? null
-          : new Prisma.Decimal(snapshot.equityRatio),
-      assets: snapshot.assets ?? null,
-      interestBearingDebt: snapshot.interestBearingDebt ?? null,
-      distressScore: snapshot.distressScore ?? null,
-      scoreVersion: snapshot.scoreVersion ?? null,
-      dataCoverage: snapshot.dataCoverage ?? null,
-      sourceSystem: null,
-      sourceEntityType: "distressFinancialSnapshot",
-      sourceId: companyOrgNumber,
-    },
+    update: data,
     create: {
       companyId: company.id,
-      distressStatus: snapshot.distressStatus as PrismaDistressStatus,
-      daysInStatus: snapshot.daysInStatus ?? null,
-      industryCode: snapshot.industryCode ?? null,
-      sectorCode: snapshot.sectorCode ?? null,
-      sectorLabel: snapshot.sectorLabel ?? null,
-      lastReportedYear: snapshot.lastReportedYear ?? null,
-      revenue: snapshot.revenue ?? null,
-      ebit: snapshot.ebit ?? null,
-      netIncome: snapshot.netIncome ?? null,
-      equityRatio:
-        snapshot.equityRatio === null || snapshot.equityRatio === undefined
-          ? null
-          : new Prisma.Decimal(snapshot.equityRatio),
-      assets: snapshot.assets ?? null,
-      interestBearingDebt: snapshot.interestBearingDebt ?? null,
-      distressScore: snapshot.distressScore ?? null,
-      scoreVersion: snapshot.scoreVersion ?? null,
-      dataCoverage: snapshot.dataCoverage ?? null,
-      sourceSystem: null,
-      sourceEntityType: "distressFinancialSnapshot",
-      sourceId: companyOrgNumber,
+      ...data,
     },
   });
 }
@@ -203,6 +195,7 @@ function buildDistressWhere(filters: DistressSearchFilters): Prisma.CompanyDistr
   const hasStatusFilter = Boolean(filters.status && filters.status.length > 0);
   const hasIndustryFilter = Boolean(filters.industryCodes && filters.industryCodes.length > 0);
   const hasSectorFilter = Boolean(filters.sectorCodes && filters.sectorCodes.length > 0);
+  const query = filters.query?.trim();
 
   return {
     distressStatus: hasStatusFilter ? { in: filters.status as PrismaDistressStatus[] } : undefined,
@@ -211,6 +204,13 @@ function buildDistressWhere(filters: DistressSearchFilters): Prisma.CompanyDistr
       lte: filters.maxDaysInStatus ?? undefined,
     },
     company: {
+      // Org numbers are stored without spaces, so a pasted "944 321 008" has to be squeezed first.
+      OR: query
+        ? [
+            { name: { contains: query, mode: "insensitive" } },
+            { orgNumber: { contains: query.replace(/\s+/g, "") } },
+          ]
+        : undefined,
       industryCode: hasIndustryFilter
         ? {
             code: {

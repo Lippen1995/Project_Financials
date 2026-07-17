@@ -1,0 +1,42 @@
+{
+  "taskType": "UNIT_SCALE_CLASSIFIER",
+  "algorithm": "tfidf+logreg",
+  "binaryPath": "/models/_us_aug.joblib",
+  "trainedAt": "2026-07-05T17:55:06.840262Z",
+  "evaluationMetrics": {
+    "train": {
+      "precision": 0.9928694900605013,
+      "recall": 0.9876404494382023,
+      "f1": 0.989259347917797,
+      "accuracy": 0.9876404494382023,
+      "support": 890
+    },
+    "validation": {
+      "precision": 0.8412698412698413,
+      "recall": 0.7959183673469388,
+      "f1": 0.751984126984127,
+      "accuracy": 0.7959183673469388,
+      "support": 49
+    },
+    "test": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "support": 20
+    },
+    "label_distribution_train": {
+      "1": 875,
+      "1000": 15
+    }
+  },
+  "trainingDataSnapshot": {
+    "bootstrapExamples": 20,
+    "reviewerExamples": 870,
+    "totalTrainExamples": 890,
+    "validationExamples": 49,
+    "testExamples": 20,
+    "featureText": "features.pageContextText fallback features.rawLabel"
+  },
+  "summary": "TF-IDF + logistic regression trained on 890 examples (870 reviewer examples, 20 bootstrap)."
+}

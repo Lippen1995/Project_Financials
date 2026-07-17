@@ -36,6 +36,7 @@ export async function persistBoardReportExtraction(input: {
       : null,
     pageStart: result.pageStart,
     pageEnd: result.pageEnd,
+    pageRanges: json(result.pageRanges),
     startBoundary: result.startBoundary ? json(result.startBoundary) : Prisma.JsonNull,
     endBoundary: result.endBoundary ? json(result.endBoundary) : Prisma.JsonNull,
     includedBlocks: json(result.includedBlocks),
@@ -107,14 +108,23 @@ export async function listPendingBoardReportExtractions(limit = 50) {
   });
 }
 
-export async function publishAcceptedBoardReportExtraction(extractionId: string) {
+export async function publishAcceptedBoardReportExtraction(
+  extractionId: string,
+  options: { minimumConfidenceExclusive?: number } = {},
+) {
+  const minimumConfidenceExclusive = options.minimumConfidenceExclusive ?? 0;
   return prisma.$transaction(async (transaction) => {
-    const extraction = await transaction.boardReportExtraction.findUnique({
+      const extraction = await transaction.boardReportExtraction.findUnique({
       where: { id: extractionId },
     });
     if (!extraction) throw new Error(`Board-report extraction not found: ${extractionId}`);
     if (extraction.status !== "EXTRACTED" || !extraction.text) {
       throw new Error("Only a complete EXTRACTED board report can be published.");
+    }
+    if (extraction.confidence <= minimumConfidenceExclusive) {
+      throw new Error(
+        `Board-report extraction confidence must be greater than ${minimumConfidenceExclusive}.`,
+      );
     }
     if (!["NOT_REQUIRED", "ACCEPTED", "CORRECTED"].includes(extraction.reviewStatus)) {
       throw new Error("Board-report extraction has not passed review policy.");
@@ -139,6 +149,7 @@ export async function publishAcceptedBoardReportExtraction(extractionId: string)
         fullText: extraction.text,
         pageStart: extraction.pageStart,
         pageEnd: extraction.pageEnd,
+        pageRanges: json(extraction.pageRanges ?? []),
         confidence: extraction.confidence,
         provenance: `BOARD_REPORT_EXTRACTION:${extraction.extractorVersion}`,
         sourceExtractionId: extraction.id,
@@ -149,6 +160,7 @@ export async function publishAcceptedBoardReportExtraction(extractionId: string)
         fullText: extraction.text,
         pageStart: extraction.pageStart,
         pageEnd: extraction.pageEnd,
+        pageRanges: json(extraction.pageRanges ?? []),
         confidence: extraction.confidence,
         provenance: `BOARD_REPORT_EXTRACTION:${extraction.extractorVersion}`,
         sourceExtractionId: extraction.id,
@@ -214,6 +226,7 @@ export async function reviewBoardReportExtraction(input: {
         ...proposal,
         startBoundary: nullableJson(current.startBoundary),
         endBoundary: nullableJson(current.endBoundary),
+        pageRanges: json(current.pageRanges ?? []),
         includedBlocks: json(current.includedBlocks),
         quality: json(current.quality),
         matchedStartSignals: json(current.matchedStartSignals),

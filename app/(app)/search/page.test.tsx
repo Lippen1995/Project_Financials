@@ -1,8 +1,9 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock, getAiSearchSubscriptionContextMock, envMock } = vi.hoisted(() => ({
+const { searchCompaniesMock, getGroupEmployeeSummariesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock, getAiSearchSubscriptionContextMock, envMock } = vi.hoisted(() => ({
   searchCompaniesMock: vi.fn(),
+  getGroupEmployeeSummariesMock: vi.fn(),
   safeAuthMock: vi.fn(),
   recordCompanySearchMock: vi.fn(),
   getAiSearchUsageStatusMock: vi.fn(),
@@ -15,6 +16,9 @@ const { searchCompaniesMock, safeAuthMock, recordCompanySearchMock, getAiSearchU
 
 vi.mock("@/server/services/company-service", () => ({
   searchCompanies: searchCompaniesMock,
+}));
+vi.mock("@/server/ownership/group-employee-service", () => ({
+  getGroupEmployeeSummaries: getGroupEmployeeSummariesMock,
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: safeAuthMock }));
@@ -36,6 +40,8 @@ describe("SearchPage", () => {
   beforeEach(() => {
     vi.stubGlobal("React", React);
     searchCompaniesMock.mockReset();
+    getGroupEmployeeSummariesMock.mockReset();
+    getGroupEmployeeSummariesMock.mockResolvedValue(new Map());
     safeAuthMock.mockReset();
     recordCompanySearchMock.mockReset();
     getAiSearchUsageStatusMock.mockReset();
@@ -157,6 +163,102 @@ describe("SearchPage", () => {
 
     expect(page.props.rows).toHaveLength(1);
     expect(page.props.rows[0].name).toBe("MATCHED_COMPANY");
+  });
+
+  it("adds the consolidated employee count for parents with controlled subsidiaries", async () => {
+    searchCompaniesMock.mockResolvedValue({
+      results: [{
+        company: {
+          orgNumber: "922493626",
+          name: "REACH SUBSEA ASA",
+          status: "ACTIVE",
+          industryCode: null,
+          addresses: [],
+          employeeCount: 5,
+        },
+        revenue: null,
+        revenueFiscalYear: null,
+        operatingProfit: null,
+        netIncome: null,
+      }],
+      interpretation: {
+        originalQuery: "Reach Subsea",
+        rewrittenQuery: "Reach Subsea",
+        aiAssisted: false,
+        fallbackReason: null,
+        companyTerms: ["Reach Subsea"],
+        industryTerms: [],
+        geographicTerm: null,
+        geographicType: null,
+        intentSummary: null,
+        matchedIndustryCodes: [],
+      },
+    });
+    getGroupEmployeeSummariesMock.mockResolvedValue(new Map([[
+      "922493626",
+      {
+        employeeCount: 307,
+        companyCount: 2,
+        coveredCompanyCount: 2,
+        complete: true,
+        traversalTruncated: false,
+        ownershipYear: 2025,
+      },
+    ]]));
+
+    const page = await SearchPage({
+      searchParams: Promise.resolve({ query: "Reach Subsea" }),
+    });
+
+    expect(getGroupEmployeeSummariesMock).toHaveBeenCalledWith([
+      { orgNumber: "922493626", employeeCount: 5 },
+    ]);
+    expect(page.props.rows[0]).toMatchObject({
+      employeeCount: 5,
+      groupEmployeeCount: 307,
+      groupEmployeeCountComplete: true,
+      groupEmployeeCompanyCount: 2,
+      groupEmployeeOwnershipYear: 2025,
+    });
+  });
+
+  it("reports group employee lookup failures without hiding the company's own count", async () => {
+    searchCompaniesMock.mockResolvedValue({
+      results: [{
+        company: {
+          orgNumber: "922493626",
+          name: "REACH SUBSEA ASA",
+          status: "ACTIVE",
+          industryCode: null,
+          addresses: [],
+          employeeCount: 5,
+        },
+        revenue: null,
+        revenueFiscalYear: null,
+        operatingProfit: null,
+        netIncome: null,
+      }],
+      interpretation: {
+        originalQuery: "Reach Subsea",
+        rewrittenQuery: "Reach Subsea",
+        aiAssisted: false,
+        fallbackReason: null,
+        companyTerms: ["Reach Subsea"],
+        industryTerms: [],
+        geographicTerm: null,
+        geographicType: null,
+        intentSummary: null,
+        matchedIndustryCodes: [],
+      },
+    });
+    getGroupEmployeeSummariesMock.mockRejectedValue(new Error("ownership unavailable"));
+
+    const page = await SearchPage({
+      searchParams: Promise.resolve({ query: "Reach Subsea" }),
+    });
+
+    expect(page.props.rows[0].employeeCount).toBe(5);
+    expect(page.props.groupEmployeeError).toContain("midlertidig utilgjengelig");
   });
 
   it("runs without AI when the Premium token quota is exhausted", async () => {

@@ -6,6 +6,16 @@ type StoredArtifact = {
   absolutePath: string;
 };
 
+export function sanitizeArtifactFilename(filename: string): string {
+  const sanitized = filename
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
+    .replace(/[. ]+$/g, "_");
+  if (!sanitized || sanitized === "." || sanitized === "..") {
+    throw new Error("Artifact filename is empty after sanitization.");
+  }
+  return sanitized;
+}
+
 export interface AnnualReportArtifactStorage {
   putArtifact(input: {
     filingId: string;
@@ -27,7 +37,7 @@ export class LocalAnnualReportArtifactStorage implements AnnualReportArtifactSto
   }) {
     const directory = path.join(this.rootDirectory, input.filingId, input.artifactType.toLowerCase());
     await fs.mkdir(directory, { recursive: true });
-    const absolutePath = path.join(directory, input.filename);
+    const absolutePath = path.join(directory, sanitizeArtifactFilename(input.filename));
     await fs.writeFile(absolutePath, input.content);
 
     return {

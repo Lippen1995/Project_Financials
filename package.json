@@ -20,6 +20,7 @@
     "sync:distress": "tsx scripts/sync-distress-companies.ts",
     "sync:petroleum": "tsx scripts/sync-petroleum.ts",
     "backfill:distress-financials": "tsx scripts/backfill-distress-financials.ts",
+    "distress:refresh-snapshots": "tsx scripts/refresh-distress-snapshots.ts",
     "import:annual-reports": "tsx scripts/import-company-annual-reports.ts",
     "financials:discover-filings": "tsx scripts/discover-financial-filings.ts",
     "financials:discover-filings-batch": "tsx scripts/discover-financial-filings-batch.ts",
@@ -40,6 +41,7 @@
     "financials:inspect-pending": "tsx scripts/inspect-pending-financial-filings.ts",
     "financials:inspect-published-provenance": "tsx scripts/inspect-published-financial-provenance.ts",
     "financials:extract-board-report": "tsx scripts/extract-board-report.ts",
+    "financials:batch-board-reports": "tsx scripts/run-board-report-batch.ts",
     "test:board-report-extraction": "vitest run integrations/brreg/annual-report-financials/board-report-extractor.test.ts server/services/board-report-extraction-service.test.ts",
     "evaluate:board-report-extraction": "tsx scripts/evaluate-board-report-extraction.ts",
     "check:board-report-regression": "tsx scripts/evaluate-board-report-extraction.ts --strict",
@@ -129,6 +131,7 @@
     "news:intelligence:build-gold-set": "tsx scripts/build-company-event-gold-set.ts",
     "news:intelligence:prepare-relevance-review": "tsx scripts/prepare-manual-news-relevance-evaluation.ts",
     "news:intelligence:prepare-macro-review": "tsx scripts/prepare-manual-macro-company-evaluation.ts",
+    "newsweb:sync-insider-transactions": "tsx scripts/sync-newsweb-insider-transactions.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
