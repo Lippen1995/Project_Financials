@@ -372,7 +372,20 @@ async function computeEffectiveOwnership(
       AND s."shareholderType" = 'COMPANY' AND s."shareholderOrgNumber" IS NOT NULL
       AND s."shareholderOrgNumber" <> ${companyOrgNumber}
     GROUP BY s."shareholderOrgNumber"
-    HAVING least(sum(s."numberOfShares")::numeric / NULLIF(max(s."totalCompanyShares"), 0), 1) >= ${SEED_MIN_FRACTION}
+    HAVING
+      least(sum(s."numberOfShares")::numeric / NULLIF(max(s."totalCompanyShares"), 0), 1) >= ${SEED_MIN_FRACTION}
+      OR EXISTS (
+        SELECT 1
+        FROM "ShareholderRegisterHolding" owner
+        WHERE owner."taxYear" = ${year}
+          AND owner."issuerOrgNumber" = s."shareholderOrgNumber"
+          AND owner."shareholderType" = 'PERSON'
+          AND concat(
+            upper(regexp_replace(owner."shareholderName", '\\s+', ' ', 'g')),
+            '|',
+            owner."shareholderBirthYear"::text
+          ) IN (${Prisma.join([...personKeys])})
+      )
   `);
   for (const row of seedRows) {
     frontier.set(`${row.holdco}|${row.holdco}`, {
