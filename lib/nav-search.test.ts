@@ -13,7 +13,7 @@ describe("nav search", () => {
 
   it("uses regular search unless AI search is explicitly enabled", () => {
     expect(buildNavSearchHref("analyse av markedet", false)).toBe(
-      "/search?query=analyse%20av%20markedet",
+      "/search/resolve?query=analyse%20av%20markedet&scope=all",
     );
   });
 

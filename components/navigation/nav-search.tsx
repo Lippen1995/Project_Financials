@@ -10,21 +10,16 @@ import {
   buildNavSearchHref,
   canShowNavSearchSuggestions,
 } from "@/lib/nav-search";
+import type { NavSearchSuggestion as Suggestion } from "@/lib/nav-search";
 import type { GlobalNavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
-type Suggestion = {
-  orgNumber: string;
-  name: string;
-  municipality: string | null;
-};
-
-const MAX_SUGGESTIONS = 6;
+const MAX_SUGGESTIONS = 8;
 const DEBOUNCE_MS = 200;
 
 /**
- * Toolbar search: expands into an inline input with company typeahead. Selecting a
- * suggestion or pressing Enter navigates to the search page with that query active.
+ * Toolbar search: expands into an inline input with company, person and role typeahead.
+ * Selecting a suggestion opens its relevant workspace; Enter resolves the query scope.
  */
 export function NavSearch({ item, active }: { item: GlobalNavItem; active: boolean }) {
   const router = useRouter();
@@ -34,6 +29,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
   const [aiEnabled, setAiEnabled] = useState(DEFAULT_NAV_AI_SEARCH_ENABLED);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState(-1);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -91,33 +87,42 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
     if (!open || !canShowNavSearchSuggestions(trimmed, aiEnabled)) {
       setSuggestions([]);
       setLoading(false);
+      setSearchError(null);
       setHighlighted(-1);
       return;
     }
 
     const controller = new AbortController();
     setLoading(true);
+    setSearchError(null);
     const handle = window.setTimeout(async () => {
       try {
-        const response = await fetch(
-          `/api/companies/search?mode=typeahead&query=${encodeURIComponent(trimmed)}`,
-          { signal: controller.signal },
-        );
+        const response = await fetch(`/api/search/suggestions?query=${encodeURIComponent(trimmed)}`, {
+          signal: controller.signal,
+        });
         if (!response.ok) throw new Error("search failed");
         const payload = (await response.json()) as {
-          data: Array<{ company: { orgNumber: string; name: string; municipality?: string | null } }>;
+          data: Suggestion[];
+          meta: { unavailableSources: string[] };
         };
-        setSuggestions(
-          payload.data.slice(0, MAX_SUGGESTIONS).map((result) => ({
-            orgNumber: result.company.orgNumber,
-            name: result.company.name,
-            municipality: result.company.municipality ?? null,
-          })),
+        setSuggestions(payload.data.slice(0, MAX_SUGGESTIONS));
+        const unavailableLabels = payload.meta.unavailableSources.map((source) =>
+          source === "companies"
+            ? "Selskapsøk"
+            : source === "persons"
+              ? "Personsøk"
+              : "Rollesøk",
+        );
+        setSearchError(
+          unavailableLabels.length > 0
+            ? `${unavailableLabels.join(" og ")} er midlertidig utilgjengelig.`
+            : null,
         );
         setHighlighted(-1);
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           setSuggestions([]);
+          setSearchError("Søket er midlertidig utilgjengelig.");
         }
       } finally {
         setLoading(false);
@@ -135,6 +140,7 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
     setQuery("");
     setSuggestions([]);
     setLoading(false);
+    setSearchError(null);
     setHighlighted(-1);
     setAiEnabled(DEFAULT_NAV_AI_SEARCH_ENABLED);
   }
@@ -151,27 +157,30 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
     setAiEnabled(next);
     setSuggestions([]);
     setLoading(false);
+    setSearchError(null);
     setHighlighted(-1);
   }
 
-  async function goToCompany(orgNumber: string) {
+  async function goToSuggestion(suggestion: Suggestion) {
     const submittedQuery = query.trim();
     try {
-      await fetch("/api/search-history", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          eventKey: crypto.randomUUID(),
-          query: submittedQuery,
-          resultCount: suggestions.length,
-        }),
-        keepalive: true,
-      });
+      if (suggestion.type === "company") {
+        await fetch("/api/search-history", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            eventKey: crypto.randomUUID(),
+            query: submittedQuery,
+            resultCount: suggestions.length,
+          }),
+          keepalive: true,
+        });
+      }
     } catch {
-      // History must never block navigation to a real company profile.
+      // History must never block navigation to a real registry result.
     } finally {
       close();
-      router.push(`/companies/${orgNumber}`);
+      router.push(suggestion.href as Route);
     }
   }
 
@@ -221,12 +230,12 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
           ref={inputRef}
           type="text"
           role={aiEnabled ? "searchbox" : "combobox"}
-          aria-label={aiEnabled ? "AI-søk etter selskaper" : "Søk etter selskap"}
+          aria-label={aiEnabled ? "AI-søk" : "Søk etter selskaper, personer og roller"}
           aria-expanded={aiEnabled ? undefined : suggestions.length > 0}
           aria-controls={aiEnabled ? undefined : listId}
           aria-autocomplete={aiEnabled ? undefined : "list"}
           value={query}
-          placeholder={aiEnabled ? "Beskriv hva du vil finne…" : "Søk etter selskap…"}
+          placeholder={aiEnabled ? "Beskriv hva du vil finne…" : "Søk etter selskap, person eller rolle…"}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKeyDown}
           className="min-w-0 flex-1 bg-transparent text-sm text-[var(--px-text)] outline-none placeholder:text-[var(--px-muted)]"
@@ -261,34 +270,62 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
                 top: anchor.top + 6,
                 width: Math.max(anchor.width, 288),
               }}
-              className="z-[70] max-h-[60vh] overflow-y-auto rounded-xl border border-[var(--px-border)] bg-white py-1 shadow-[0_24px_38px_rgba(15,23,42,0.10)]"
+              className="z-[70] max-h-[60vh] overflow-y-auto rounded-xl border border-[var(--px-border)] bg-[var(--px-surface)] py-1 shadow-[0_24px_38px_rgba(15,23,42,0.10)]"
             >
               {loading && suggestions.length === 0 ? (
                 <li className="px-4 py-2.5 text-sm text-[var(--px-muted)]">Søker…</li>
+              ) : searchError && suggestions.length === 0 ? (
+                <li role="status" className="px-4 py-2.5 text-sm text-amber-700">
+                  {searchError}
+                </li>
               ) : suggestions.length === 0 ? (
                 <li className="px-4 py-2.5 text-sm text-[var(--px-muted)]">Ingen treff</li>
               ) : (
-                suggestions.map((suggestion, index) => (
-                  <li key={suggestion.orgNumber} role="option" aria-selected={index === highlighted}>
-                    <button
-                      type="button"
-                      onMouseEnter={() => setHighlighted(index)}
-                      onClick={() => goToCompany(suggestion.orgNumber)}
-                      className={cn(
-                        "flex w-full flex-col items-start px-4 py-2 text-left transition-colors",
-                        index === highlighted ? "bg-[var(--px-subtle)]" : "hover:bg-[var(--px-subtle)]",
-                      )}
-                    >
-                      <span className="text-sm font-semibold text-[var(--px-text)]">
-                        {suggestion.name}
-                      </span>
-                      <span className="text-xs tabular-nums text-[var(--px-muted)]">
-                        Org.nr. {suggestion.orgNumber}
-                        {suggestion.municipality ? ` · ${suggestion.municipality}` : ""}
-                      </span>
-                    </button>
-                  </li>
-                ))
+                <>
+                  {suggestions.map((suggestion, index) => (
+                    <li key={`${suggestion.type}:${suggestion.id}`} role="option" aria-selected={index === highlighted}>
+                      <button
+                        type="button"
+                        onMouseEnter={() => setHighlighted(index)}
+                        onClick={() => goToSuggestion(suggestion)}
+                        className={cn(
+                          "flex w-full items-start gap-4 px-4 py-2 text-left transition-colors",
+                          index === highlighted ? "bg-[var(--px-subtle)]" : "hover:bg-[var(--px-subtle)]",
+                        )}
+                      >
+                        <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--px-muted)]">
+                          {suggestion.type === "company"
+                            ? "apartment"
+                            : suggestion.type === "person"
+                              ? "person"
+                              : "badge"}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-4">
+                            <span className="truncate text-sm font-semibold text-[var(--px-text)]">
+                              {suggestion.title}
+                            </span>
+                            <span className="data-label shrink-0 text-[9px] font-semibold uppercase text-[var(--px-muted)]">
+                              {suggestion.type === "company"
+                                ? "Selskap"
+                                : suggestion.type === "person"
+                                  ? "Person"
+                                  : "Rolle"}
+                            </span>
+                          </span>
+                          <span className="block truncate text-xs tabular-nums text-[var(--px-muted)]">
+                            {suggestion.description}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                  {searchError ? (
+                    <li role="status" className="border-t border-[var(--px-border)] px-4 py-2 text-xs text-amber-700">
+                      {searchError}
+                    </li>
+                  ) : null}
+                </>
               )}
             </ul>,
             document.body,
