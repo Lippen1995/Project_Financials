@@ -23,12 +23,23 @@ function normalizeCompanyName(value: string) {
     .trim();
 }
 
-async function resolveReportingPartyOrgNumber(name: string) {
+export async function resolveReportingPartyOrgNumber(name: string) {
   const normalized = normalizeCompanyName(name);
   if (!normalized) return null;
-  const firstToken = normalized.split(" ")[0];
+  const exactMatches = await prisma.registryEntity.findMany({
+    where: { name: { equals: name.trim(), mode: "insensitive" } },
+    select: { orgNumber: true, name: true },
+    take: 2,
+  });
+  if (exactMatches.length === 1) return exactMatches[0].orgNumber;
+
+  const tokens = normalized.split(" ").filter(Boolean);
   const candidates = await prisma.registryEntity.findMany({
-    where: { name: { contains: firstToken, mode: "insensitive" } },
+    where: {
+      AND: tokens.map((token) => ({
+        name: { contains: token, mode: "insensitive" as const },
+      })),
+    },
     select: { orgNumber: true, name: true },
     take: 100,
   });

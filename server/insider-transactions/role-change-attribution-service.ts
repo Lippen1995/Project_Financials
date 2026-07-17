@@ -40,6 +40,50 @@ export function selectUniqueRolePerson<
     : null;
 }
 
+type RegisteredReportingPartyHolding = {
+  shareholderName: string;
+  shareholderType: string;
+  shareholderBirthYear: number | null;
+  numberOfShares: bigint;
+  totalCompanyShares: bigint | null;
+  ownershipPercent: { toString(): string } | string | null;
+};
+
+export function selectRegisteredReportingPartyOwnership(
+  holdings: RegisteredReportingPartyHolding[],
+  primaryInsiderName: string,
+  expectedBirthYear: number | null = null,
+) {
+  const matches = holdings.filter(
+    (holding) =>
+      holding.shareholderType === "PERSON" &&
+      namesReferToSamePerson(holding.shareholderName, primaryInsiderName) &&
+      (expectedBirthYear === null || holding.shareholderBirthYear === expectedBirthYear),
+  );
+  if (matches.length === 0) return null;
+
+  const totalShares = matches.reduce(
+    (maximum, holding) =>
+      holding.totalCompanyShares && holding.totalCompanyShares > maximum
+        ? holding.totalCompanyShares
+        : maximum,
+    0n,
+  );
+  const heldShares = matches.reduce((sum, holding) => sum + holding.numberOfShares, 0n);
+  const fraction =
+    totalShares > 0n
+      ? Math.min(Number(heldShares) / Number(totalShares), 1)
+      : Math.min(
+          matches.reduce(
+            (sum, holding) => sum + Number(holding.ownershipPercent?.toString() ?? 0) / 100,
+            0,
+          ),
+          1,
+        );
+  if (!Number.isFinite(fraction) || fraction <= 0) return null;
+  return { fraction, shareholderName: matches[0].shareholderName };
+}
+
 function normalizedCompanyName(value: string) {
   return value
     .toLocaleUpperCase("nb-NO")
@@ -83,9 +127,33 @@ export async function rebuildRoleChangeAttributions(input: {
               holding.orgNumber === transaction.reportingPartyOrgNumber) ||
             normalizedCompanyName(holding.name) === normalizedCompanyName(transaction.reportingPartyName),
         );
-    if (!isDirect && !indirect) continue;
+    const registeredReportingPartyOwnership =
+      !isDirect && !indirect && transaction.reportingPartyOrgNumber
+        ? selectRegisteredReportingPartyOwnership(
+            await prisma.shareholderRegisterHolding.findMany({
+              where: {
+                issuerOrgNumber: transaction.reportingPartyOrgNumber,
+                taxYear: input.snapshotTaxYear,
+                shareholderType: "PERSON",
+              },
+              select: {
+                shareholderName: true,
+                shareholderType: true,
+                shareholderBirthYear: true,
+                numberOfShares: true,
+                totalCompanyShares: true,
+                ownershipPercent: true,
+              },
+            }),
+            transaction.primaryInsiderName,
+            role.birthDate ? Number(role.birthDate.slice(0, 4)) : null,
+          )
+        : null;
+    if (!isDirect && !indirect && !registeredReportingPartyOwnership) continue;
 
-    const ownershipFraction = isDirect ? 1 : indirect!.personOwnershipFraction;
+    const ownershipFraction = isDirect
+      ? 1
+      : indirect?.personOwnershipFraction ?? registeredReportingPartyOwnership!.fraction;
     replacements.push({
         transactionId: transaction.id,
         personIdentityKey: role.personIdentityKey!,
@@ -102,10 +170,18 @@ export async function rebuildRoleChangeAttributions(input: {
           ? [{ type: "DIRECT", person: role.holderName }]
           : [
               { type: "PERSON", name: role.holderName },
-              { type: "COMPANY", orgNumber: indirect!.orgNumber, name: indirect!.name },
+              {
+                type: "COMPANY",
+                orgNumber: indirect?.orgNumber ?? transaction.reportingPartyOrgNumber,
+                name: indirect?.name ?? transaction.reportingPartyName,
+              },
               { type: "ISSUER", orgNumber: input.orgNumber },
             ],
-        resolutionMethod: isDirect ? "PDMR_EXACT_NAME" : "PDMR_AND_REGISTERED_OWNERSHIP_PATH",
+        resolutionMethod: isDirect
+          ? "PDMR_EXACT_NAME"
+          : indirect
+            ? "PDMR_AND_REGISTERED_OWNERSHIP_PATH"
+            : "PDMR_AND_REPORTING_COMPANY_OWNER",
         resolutionConfidence: isDirect ? 1 : 0.95,
         normalizedAt: new Date(),
     });

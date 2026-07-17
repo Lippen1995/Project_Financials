@@ -49,6 +49,7 @@ describe("CompanyRoles", () => {
     expect(html).toContain("Aksjer per 31.12.2025");
     expect(html).toContain("+10 000 kjøpt");
     expect(html).toContain("16.07.2026");
+    expect(html).toContain("100,0 % eierbrøk");
     expect(html).toContain("30 000 aksjer");
     expect(html).toContain("Endringene er ikke innarbeidet");
   });

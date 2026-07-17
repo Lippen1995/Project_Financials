@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   namesReferToSamePerson,
+  selectRegisteredReportingPartyOwnership,
   selectUniqueRolePerson,
 } from "@/server/insider-transactions/role-change-attribution-service";
 
@@ -25,5 +26,43 @@ describe("primary-insider identity matching", () => {
     expect(selectUniqueRolePerson(roles, "BENDRISS RACHID")?.personIdentityKey).toBe(
       "person-1",
     );
+  });
+
+  it("finds the insider's ownership directly in the reporting company snapshot", () => {
+    const ownership = selectRegisteredReportingPartyOwnership(
+      [
+        {
+          shareholderName: "ARVID STÅLE PETTERSEN",
+          shareholderType: "PERSON",
+          shareholderBirthYear: 1957,
+          numberOfShares: 30_000n,
+          totalCompanyShares: 30_000n,
+          ownershipPercent: "100",
+        },
+      ],
+      "PETTERSEN ARVID STÅLE",
+      1957,
+    );
+
+    expect(ownership).toEqual({ fraction: 1, shareholderName: "ARVID STÅLE PETTERSEN" });
+  });
+
+  it("does not attribute a same-name owner with a different birth year", () => {
+    const ownership = selectRegisteredReportingPartyOwnership(
+      [
+        {
+          shareholderName: "ARVID STÅLE PETTERSEN",
+          shareholderType: "PERSON",
+          shareholderBirthYear: 1960,
+          numberOfShares: 30_000n,
+          totalCompanyShares: 30_000n,
+          ownershipPercent: "100",
+        },
+      ],
+      "PETTERSEN ARVID STÅLE",
+      1957,
+    );
+
+    expect(ownership).toBeNull();
   });
 });

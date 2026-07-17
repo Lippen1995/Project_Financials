@@ -131,7 +131,7 @@ export function CompanyRoles({ overview }: { overview: CompanyRoleActivityOvervi
                                 <div className="text-xs font-normal text-[var(--px-muted)]">
                                   {dateFormat.format(new Date(`${change.transactionDate}T00:00:00.000Z`))}{indirect ? ` · via ${change.legalPartyName}` : " · direkte"}
                                 </div>
-                                {indirect && change.reportedShares !== change.attributedShares ? (
+                                {indirect ? (
                                   <div className="text-xs font-normal text-[var(--px-muted)]">
                                     {numberFormat.format(BigInt(change.reportedShares))} rapporterte aksjer · {percentFormat.format(Number(change.ownershipFraction) * 100)} % eierbrøk
                                   </div>
