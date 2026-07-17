@@ -70,4 +70,74 @@ describe("CompanySearchWorkspace", () => {
 
     expect(html).not.toContain('aria-label="AI-søk samtale"');
   });
+
+  it("shows a parent's own employees separately from the consolidated group count", () => {
+    const rows = [{
+      orgNumber: "922493626",
+      name: "REACH SUBSEA ASA",
+      status: "ACTIVE" as const,
+      industry: "71.122 Geologiske undersøkelser",
+      city: "HAUGESUND",
+      revenue: null,
+      revenueFiscalYear: null,
+      operatingProfit: null,
+      netIncome: null,
+      employeeCount: 5,
+      groupEmployeeCount: 307,
+      groupEmployeeCountComplete: true,
+      groupEmployeeCompanyCount: 2,
+      groupEmployeeOwnershipYear: 2025,
+    }];
+    const html = renderToStaticMarkup(
+      <CompanySearchWorkspace
+        rows={rows}
+        params={{
+          query: "Reach Subsea",
+          industryCode: "",
+          city: "",
+          legalForm: "",
+          status: "",
+          aiEnabled: false,
+        }}
+        searchError={null}
+      />,
+    );
+
+    expect(html).toContain(">5<");
+    expect(html).toContain("Konsern 307");
+  });
+
+  it("labels a partially covered group employee total as a minimum", () => {
+    const html = renderToStaticMarkup(
+      <CompanySearchWorkspace
+        rows={[{
+          orgNumber: "PARENT",
+          name: "PARENT ASA",
+          status: "ACTIVE",
+          industry: null,
+          city: null,
+          revenue: null,
+          revenueFiscalYear: null,
+          operatingProfit: null,
+          netIncome: null,
+          employeeCount: 5,
+          groupEmployeeCount: 307,
+          groupEmployeeCountComplete: false,
+          groupEmployeeCompanyCount: 3,
+          groupEmployeeOwnershipYear: 2025,
+        }]}
+        params={{
+          query: "Parent",
+          industryCode: "",
+          city: "",
+          legalForm: "",
+          status: "",
+          aiEnabled: false,
+        }}
+        searchError={null}
+      />,
+    );
+
+    expect(html).toContain("Konsern minst 307");
+  });
 });

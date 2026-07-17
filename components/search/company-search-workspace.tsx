@@ -518,6 +518,19 @@ export function CompanySearchWorkspace({
                         </td>
                         <td className="px-2 py-3 text-right tabular-nums text-[var(--px-text)]">
                           {formatNumber(row.employeeCount)}
+                          {row.groupEmployeeCount !== undefined ? (
+                            <div
+                              className="data-label mt-1 text-[9px] font-medium text-[var(--px-muted)]"
+                              title={
+                                row.groupEmployeeCountComplete
+                                  ? `Sum av ${row.groupEmployeeCompanyCount} konsernselskaper. Eierskap ${row.groupEmployeeOwnershipYear}.`
+                                  : `Delvis sum: ${row.groupEmployeeCompanyCount} konsernselskaper, men ikke alle har registrert antall ansatte. Eierskap ${row.groupEmployeeOwnershipYear}.`
+                              }
+                            >
+                              Konsern {row.groupEmployeeCountComplete ? "" : "minst "}
+                              {formatNumber(row.groupEmployeeCount ?? null)}
+                            </div>
+                          ) : null}
                         </td>
                       </tr>
                     );
@@ -550,7 +563,16 @@ export function CompanySearchWorkspace({
                     label="Årsresultat"
                     value={formatCurrency(selectedRow.netIncome)}
                   />
-                  <FinancialMetric label="Antall ansatte" value="Ikke tilgjengelig" />
+                  <FinancialMetric
+                    label="Antall ansatte"
+                    value={formatNumber(selectedRow.employeeCount)}
+                  />
+                  {selectedRow.groupEmployeeCount !== undefined ? (
+                    <FinancialMetric
+                      label="Ansatte i konsernet"
+                      value={`${selectedRow.groupEmployeeCountComplete ? "" : "Minst "}${formatNumber(selectedRow.groupEmployeeCount ?? null)}`}
+                    />
+                  ) : null}
                 </div>
                 <p className="text-xs leading-5 text-[var(--px-muted)]">
                   Ansatte i trefflisten er siste registrerte antall fra Brønnøysundregistrene.

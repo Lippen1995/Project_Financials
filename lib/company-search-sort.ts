@@ -9,6 +9,10 @@ export type CompanySearchRow = {
   operatingProfit: number | null;
   netIncome: number | null;
   employeeCount: number | null;
+  groupEmployeeCount?: number | null;
+  groupEmployeeCountComplete?: boolean;
+  groupEmployeeCompanyCount?: number;
+  groupEmployeeOwnershipYear?: number;
 };
 
 export type CompanySearchSortKey =

@@ -14,6 +14,10 @@ import { canStartAiSearch } from "@/lib/ai-search-usage";
 import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import { searchCompanies } from "@/server/services/company-service";
 import {
+  getGroupEmployeeSummaries,
+  type GroupEmployeeSummary,
+} from "@/server/ownership/group-employee-service";
+import {
   getAiSearchUsageStatus,
   finalizeAiSearchUsage,
   recordCompanySearch,
@@ -197,22 +201,49 @@ export default async function SearchPage({
 
   const revenueFilteredResults = filterRowsByRevenueClass(scopedResults, params.revenueClass);
 
-  const rows: CompanySearchRow[] = revenueFilteredResults.map((result) => ({
-    orgNumber: result.company.orgNumber,
-    name: result.company.name,
-    status: result.company.status,
-    industry: result.company.industryCode
-      ? [result.company.industryCode.code, result.company.industryCode.title]
-          .filter(Boolean)
-          .join(" ")
-      : null,
-    city: result.company.addresses[0]?.city ?? null,
-    revenue: result.revenue ?? null,
-    revenueFiscalYear: result.revenueFiscalYear ?? null,
-    operatingProfit: result.operatingProfit ?? null,
-    netIncome: result.netIncome ?? null,
-    employeeCount: result.company.employeeCount ?? null,
-  }));
+  let groupEmployeeSummaries = new Map<string, GroupEmployeeSummary>();
+  if (revenueFilteredResults.length > 0) {
+    try {
+      groupEmployeeSummaries = await getGroupEmployeeSummaries(
+        revenueFilteredResults.map((result) => ({
+          orgNumber: result.company.orgNumber,
+          employeeCount: result.company.employeeCount ?? null,
+        })),
+      );
+    } catch (error) {
+      logRecoverableError("search-page.getGroupEmployeeSummaries", error, {
+        resultCount: revenueFilteredResults.length,
+      });
+    }
+  }
+
+  const rows: CompanySearchRow[] = revenueFilteredResults.map((result) => {
+    const groupEmployees = groupEmployeeSummaries.get(result.company.orgNumber);
+    return {
+      orgNumber: result.company.orgNumber,
+      name: result.company.name,
+      status: result.company.status,
+      industry: result.company.industryCode
+        ? [result.company.industryCode.code, result.company.industryCode.title]
+            .filter(Boolean)
+            .join(" ")
+        : null,
+      city: result.company.addresses[0]?.city ?? null,
+      revenue: result.revenue ?? null,
+      revenueFiscalYear: result.revenueFiscalYear ?? null,
+      operatingProfit: result.operatingProfit ?? null,
+      netIncome: result.netIncome ?? null,
+      employeeCount: result.company.employeeCount ?? null,
+      ...(groupEmployees
+        ? {
+            groupEmployeeCount: groupEmployees.employeeCount,
+            groupEmployeeCountComplete: groupEmployees.complete,
+            groupEmployeeCompanyCount: groupEmployees.companyCount,
+            groupEmployeeOwnershipYear: groupEmployees.ownershipYear,
+          }
+        : {}),
+    };
+  });
 
   const hasSearchCriteria = Boolean(
     params.query ||
