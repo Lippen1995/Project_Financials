@@ -40,6 +40,7 @@ describe("dashboard search suggestions", () => {
 
     scheduleDashboardSuggestionSearch({
       query: "result",
+      scope: "companies",
       aiEnabled: false,
       delayMs: 200,
       fetcher,
@@ -53,7 +54,7 @@ describe("dashboard search suggestions", () => {
     expect(fetcher).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(200);
     expect(fetcher).toHaveBeenCalledWith(
-      "/api/search/suggestions?query=result",
+      "/api/search/suggestions?query=result&scope=companies",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(onResult).toHaveBeenCalledWith({
@@ -66,6 +67,7 @@ describe("dashboard search suggestions", () => {
     const aiFetcher = vi.fn();
     scheduleDashboardSuggestionSearch({
       query: "result",
+      scope: "companies",
       aiEnabled: true,
       delayMs: 200,
       fetcher: aiFetcher,
@@ -76,5 +78,45 @@ describe("dashboard search suggestions", () => {
     });
     await vi.advanceTimersByTimeAsync(200);
     expect(aiFetcher).not.toHaveBeenCalled();
+  });
+
+  it("delivers fast company suggestions without waiting for slower sources", async () => {
+    vi.useFakeTimers();
+    const companyPayload = {
+      data: [suggestions[0]],
+      meta: { unavailableSources: [] },
+    };
+    const neverResolves = new Promise<Response>(() => undefined);
+    const fetcher = vi.fn((url: string) =>
+      url.includes("scope=companies")
+        ? Promise.resolve(new Response(JSON.stringify(companyPayload)))
+        : neverResolves,
+    );
+    const onResult = vi.fn();
+
+    scheduleDashboardSuggestionSearch({
+      query: "reach subsea",
+      scope: "all",
+      aiEnabled: false,
+      delayMs: 200,
+      sourceTimeoutMs: 500,
+      fetcher,
+      onStart: vi.fn(),
+      onResult,
+      onError: vi.fn(),
+      onSettled: vi.fn(),
+    });
+
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(onResult).toHaveBeenCalledWith(companyPayload);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(onResult).toHaveBeenLastCalledWith({
+      data: companyPayload.data,
+      meta: {
+        unavailableSources: ["persons", "industries", "roles", "bankruptcies"],
+      },
+    });
   });
 });

@@ -72,6 +72,36 @@ describe("GET /api/search/suggestions", () => {
     });
   });
 
+  it("queries only the requested suggestion scope", async () => {
+    mocks.searchRegistryCompanies.mockResolvedValueOnce([
+      { orgNumber: "000000000", name: "COMPANY_RESULT", municipality: null },
+    ]);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/search/suggestions?query=result&scope=companies",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.searchRegistryCompanies).toHaveBeenCalledTimes(1);
+    expect(mocks.searchPersons).not.toHaveBeenCalled();
+    expect(mocks.searchRoleTypes).not.toHaveBeenCalled();
+    expect(mocks.searchIndustryCodes).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid suggestion scope without querying sources", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/search/suggestions?query=result&scope=unknown"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.searchRegistryCompanies).not.toHaveBeenCalled();
+    expect(mocks.searchPersons).not.toHaveBeenCalled();
+    expect(mocks.searchRoleTypes).not.toHaveBeenCalled();
+    expect(mocks.searchIndustryCodes).not.toHaveBeenCalled();
+  });
+
   it("returns normalized company, person and role suggestions", async () => {
     mocks.searchRegistryCompanies.mockResolvedValueOnce([
       { orgNumber: "000000000", name: "COMPANY_RESULT", municipality: "MUNICIPALITY_RESULT" },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
-import { buildDashboardSearchHref } from "@/lib/dashboard-search";
+import { buildDashboardSearchHref, isDashboardSearchScope } from "@/lib/dashboard-search";
 import type { NavSearchSuggestion } from "@/lib/nav-search";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { searchPersons, searchRoleTypes } from "@/server/registry/role-search-service";
@@ -12,6 +12,13 @@ const industryCodeProvider = new SsbIndustryCodeProvider();
 
 export async function GET(request: NextRequest) {
   const query = (request.nextUrl.searchParams.get("query") ?? "").trim();
+  const rawScope = request.nextUrl.searchParams.get("scope");
+  if (rawScope !== null && !isDashboardSearchScope(rawScope)) {
+    return NextResponse.json({ error: "Ugyldig søkeavgrensning." }, { status: 400 });
+  }
+  const scope = isDashboardSearchScope(rawScope) ? rawScope : "all";
+  const includesScope = (candidate: Exclude<typeof scope, "all">) =>
+    scope === "all" || scope === candidate;
 
   if (query.length > MAX_QUERY_LENGTH) {
     return NextResponse.json({ error: "Søket er for langt." }, { status: 400 });
@@ -22,11 +29,17 @@ export async function GET(request: NextRequest) {
 
   const [companyResult, personResult, roleResult, industryResult, bankruptcyResult] =
     await Promise.allSettled([
-      searchRegistryCompanies({ query, size: 3 }),
-      searchPersons(query, { limit: 3 }),
-      searchRoleTypes(query, { limit: 2 }),
-      industryCodeProvider.searchIndustryCodes([query], 3),
-      searchRegistryCompanies({ query, size: 3, status: "BANKRUPT" }),
+      includesScope("companies")
+        ? searchRegistryCompanies({ query, size: 3 })
+        : Promise.resolve([]),
+      includesScope("persons") ? searchPersons(query, { limit: 3 }) : Promise.resolve([]),
+      includesScope("roles") ? searchRoleTypes(query, { limit: 2 }) : Promise.resolve([]),
+      includesScope("industries")
+        ? industryCodeProvider.searchIndustryCodes([query], 3)
+        : Promise.resolve([]),
+      includesScope("bankruptcies")
+        ? searchRegistryCompanies({ query, size: 3, status: "BANKRUPT" })
+        : Promise.resolve([]),
     ]);
 
   const companies = companyResult.status === "fulfilled" ? companyResult.value : [];
@@ -42,7 +55,8 @@ export async function GET(request: NextRequest) {
     bankruptcyResult.status === "rejected" ? "bankruptcies" : null,
   ].filter((source): source is string => source !== null);
 
-  if (unavailableSources.length === 5) {
+  const includedSourceCount = scope === "all" ? 5 : 1;
+  if (unavailableSources.length === includedSourceCount) {
     return NextResponse.json(
       { error: "Søket er midlertidig utilgjengelig." },
       { status: 503 },

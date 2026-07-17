@@ -29,7 +29,7 @@ import type {
 // full opacity, prior periods are dimmed.
 type Bar = { x: number; y: number; h: number; fill: string; op: number };
 
-const SEARCH_SUGGESTION_DEBOUNCE_MS = 200;
+const SEARCH_SUGGESTION_DEBOUNCE_MS = 120;
 const MAX_SEARCH_SUGGESTIONS = 8;
 
 const UP = "#10b981";
@@ -140,18 +140,19 @@ export function OversiktDashboard({
 
     return scheduleDashboardSuggestionSearch({
       query: searchQuery,
+      scope: searchScope,
       aiEnabled,
       delayMs: SEARCH_SUGGESTION_DEBOUNCE_MS,
       onStart: () => {
         setSuggestionsLoading(true);
         setSearchSuggestions([]);
         setSuggestionsError(null);
+        setHighlightedSuggestion(-1);
         setSuggestionsOpen(true);
       },
       onResult: (payload) => {
         const scopedSuggestions = filterDashboardSearchSuggestions(payload.data, searchScope);
         setSearchSuggestions(scopedSuggestions.slice(0, MAX_SEARCH_SUGGESTIONS));
-        setHighlightedSuggestion(-1);
 
         const unavailableLabels = payload.meta.unavailableSources
           .filter((source) => searchScope === "all" || source === searchScope)
