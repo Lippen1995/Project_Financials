@@ -1,11 +1,15 @@
 import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import {
+  resolveBoardReportPageRangesFromReferenceText,
+  type BoardReportPageRange,
+} from "@/integrations/brreg/annual-report-financials/board-report-page-range-resolver";
 import type {
   UnifiedParserDocument,
   UnifiedParserRoute,
   UnifiedParserTextBlock,
 } from "@/integrations/brreg/annual-report-financials/unified-parser-document-model";
 
-export const BOARD_REPORT_EXTRACTION_VERSION = "board-report-extraction-v1" as const;
+export const BOARD_REPORT_EXTRACTION_VERSION = "board-report-extraction-v4" as const;
 
 export type BoardReportExtractionStatus =
   | "EXTRACTED"
@@ -63,6 +67,7 @@ export type BoardReportExtractionResult = {
   title: string | null;
   pageStart: number | null;
   pageEnd: number | null;
+  pageRanges: BoardReportPageRange[];
   startBoundary: BoardReportTextBoundary | null;
   endBoundary: BoardReportTextBoundary | null;
   includedBlocks: BoardReportSourceBlockRef[];
@@ -137,6 +142,12 @@ const STOP_HEADINGS: HeadingPattern[] = [
   },
   { keyword: "revisjonsberetning", weight: 5, pattern: /^revisjonsberetning$/ },
   { keyword: "income statement", weight: 5, pattern: /^(?:statement of )?income(?: statement)?$/ },
+  { keyword: "financial statements", weight: 5, pattern: /^(?:consolidated )?financial statements$/ },
+  {
+    keyword: "consolidated income statement",
+    weight: 5,
+    pattern: /^consolidated income statement$/,
+  },
   { keyword: "balance sheet", weight: 5, pattern: /^balance sheet$/ },
   { keyword: "notes", weight: 4, pattern: /^notes to the (?:annual )?financial statements$/ },
   {
@@ -230,6 +241,7 @@ function baseResult(
     title: null,
     pageStart: null,
     pageEnd: null,
+    pageRanges: [],
     startBoundary: null,
     endBoundary: null,
     includedBlocks: [],
@@ -264,6 +276,90 @@ export function extractBoardReport(
       ...initial,
       status: "UNREADABLE",
       warnings: [{ code: "NO_USABLE_TEXT", message: "Document contains no usable text blocks." }],
+    };
+  }
+
+  for (const page of document.pages) {
+    const reference = resolveBoardReportPageRangesFromReferenceText({
+      pdfPageNumber: page.pageNumber,
+      text: page.blocks.map((block) => block.text).join("\n"),
+    });
+    if (!reference) continue;
+
+    const includedBlocks = blocks
+      .filter((block) =>
+        reference.pageRanges.some(
+          (range) =>
+            block.source.pageNumber >= range.pageStart &&
+            block.source.pageNumber <= range.pageEnd,
+        ),
+      )
+      .map((block) => ({
+        pageNumber: block.source.pageNumber,
+        blockId: block.blockId,
+        startOffset: 0,
+        endOffset: block.text.length,
+      }));
+    const selectedBlocks = includedBlocks
+      .map((item) => blocks.find((block) => block.blockId === item.blockId))
+      .filter((block): block is UnifiedParserTextBlock => Boolean(block));
+    const text = selectedBlocks
+      .map((block) => block.text.trim())
+      .filter(Boolean)
+      .join("\n\n")
+      .trim();
+    const firstBlock = selectedBlocks[0] ?? null;
+    const lastBlock = selectedBlocks.at(-1) ?? null;
+    const referenceBlock = page.blocks.find((block) =>
+      normalizeHeading(block.text).includes("styrets arsberetning er dekket"),
+    ) ?? page.blocks[0] ?? null;
+    const textQualityConfidence = textQuality(selectedBlocks);
+    const confidence = roundScore(Math.min(0.98, textQualityConfidence));
+    const status: BoardReportExtractionStatus =
+      text.length >= 80 && confidence >= 0.9 ? "EXTRACTED" : "MANUAL_REVIEW";
+
+    return {
+      ...initial,
+      status,
+      text: text || null,
+      normalizedText: text ? normalizeNorwegianText(text) : null,
+      title: "Styrets årsberetning",
+      pageStart: reference.pageRanges[0]?.pageStart ?? null,
+      pageEnd: reference.pageRanges.at(-1)?.pageEnd ?? null,
+      pageRanges: reference.pageRanges,
+      startBoundary: firstBlock
+        ? { pageNumber: firstBlock.source.pageNumber, blockId: firstBlock.blockId, charOffset: 0 }
+        : null,
+      endBoundary: lastBlock
+        ? {
+            pageNumber: lastBlock.source.pageNumber,
+            blockId: lastBlock.blockId,
+            charOffset: lastBlock.text.length,
+          }
+        : null,
+      includedBlocks,
+      confidence,
+      quality: {
+        startBoundaryConfidence: 0.98,
+        endBoundaryConfidence: 0.98,
+        textQualityConfidence,
+        contaminationRisk: 0,
+      },
+      matchedStartSignals: referenceBlock
+        ? [{
+            kind: "START",
+            keyword: "board report reference table",
+            pageNumber: page.pageNumber,
+            blockId: referenceBlock.blockId,
+            charOffset: 0,
+            weight: 5,
+          }]
+        : [],
+      matchedStopSignals: [],
+      warnings: [{
+        code: "DISTRIBUTED_BOARD_REPORT",
+        message: `The annual report defines the board report across ${reference.pageRanges.length} page ranges on source page ${reference.evidencePdfPageNumber}.`,
+      }],
     };
   }
 
@@ -304,8 +400,21 @@ export function extractBoardReport(
     );
     const normalizedContent = normalizeHeading(contentLines.map((line) => line.text).join(" "));
     const bodySignalCount = BODY_SIGNALS.filter((signal) => normalizedContent.includes(signal)).length;
-    const score = start.heading.weight * 2 + bodySignalCount * 2 + (stopHeading?.weight ?? 0);
-    return { ...start, stopLine, stopHeading, contentLines, bodySignalCount, score };
+    const spanPageCount = stopLine
+      ? Math.max(1, stopLine.pageNumber - start.line.pageNumber)
+      : Number.POSITIVE_INFINITY;
+    // Navigation chrome can repeat the report title deep inside a filing. A
+    // safely bounded conventional report normally reaches its next top-level
+    // section quickly; penalize only unusually long candidate spans.
+    const longSpanPenalty = Number.isFinite(spanPageCount)
+      ? Math.max(0, spanPageCount - 12) * 0.25
+      : 4;
+    const score =
+      start.heading.weight * 2 +
+      bodySignalCount * 2 +
+      (stopHeading?.weight ?? 0) -
+      longSpanPenalty;
+    return { ...start, stopLine, stopHeading, contentLines, bodySignalCount, spanPageCount, score };
   });
 
   candidates.sort((left, right) => right.score - left.score || left.lineIndex - right.lineIndex);
@@ -453,6 +562,10 @@ export function extractBoardReport(
     title: best.line.text,
     pageStart: best.line.pageNumber,
     pageEnd: lastIncluded?.pageNumber ?? best.line.pageNumber,
+    pageRanges: [{
+      pageStart: best.line.pageNumber,
+      pageEnd: lastIncluded?.pageNumber ?? best.line.pageNumber,
+    }],
     startBoundary: {
       pageNumber: best.line.pageNumber,
       blockId: best.line.block.blockId,

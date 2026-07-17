@@ -16,6 +16,7 @@ output/annual-report-artifacts/
 output/docling-raw-*.json
 output/manual-review-visual-audit/
 output/manual-review-visuals/
+output/board-report-batch/
 output/ml-datasets/
 tmp/
 

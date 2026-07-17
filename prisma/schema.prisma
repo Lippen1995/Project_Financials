@@ -693,70 +693,70 @@ model WorkspaceInvitation {
 }
 
 model Company {
-  id                        String                            @id @default(cuid())
-  slug                      String                            @unique
-  orgNumber                 String                            @unique
-  name                      String
-  legalForm                 String?
-  status                    CompanyStatus                     @default(ACTIVE)
-  statusObservedAt          DateTime?
-  registeredAt              DateTime?
-  foundedAt                 DateTime?
-  website                   String?
-  employeeCount             Int?
-  revenue                   Int?
-  operatingProfit           Int?
-  netIncome                 Int?
-  equity                    Int?
-  description               String?
-  sourceSystem              String
-  sourceEntityType          String
-  sourceId                  String
-  fetchedAt                 DateTime
-  normalizedAt              DateTime
-  rawPayload                Json?
-  createdAt                 DateTime                          @default(now())
-  updatedAt                 DateTime                          @updatedAt
-  addresses                 Address[]
-  roles                     Role[]
-  financialStatements       FinancialStatement[]
-  annualReportFilings       AnnualReportFiling[]
-  financialExtractionRuns   FinancialExtractionRun[]
-  financialFacts            FinancialFact[]
-  financialValidationIssues FinancialValidationIssue[]
-  annualReportReviews       AnnualReportReview[]
-  shareholdingSnapshots     ShareholdingSnapshot[]
-  linkedShareholders        Shareholder[]
-  ownerships                Ownership[]
+  id                         String                            @id @default(cuid())
+  slug                       String                            @unique
+  orgNumber                  String                            @unique
+  name                       String
+  legalForm                  String?
+  status                     CompanyStatus                     @default(ACTIVE)
+  statusObservedAt           DateTime?
+  registeredAt               DateTime?
+  foundedAt                  DateTime?
+  website                    String?
+  employeeCount              Int?
+  revenue                    Int?
+  operatingProfit            Int?
+  netIncome                  Int?
+  equity                     Int?
+  description                String?
+  sourceSystem               String
+  sourceEntityType           String
+  sourceId                   String
+  fetchedAt                  DateTime
+  normalizedAt               DateTime
+  rawPayload                 Json?
+  createdAt                  DateTime                          @default(now())
+  updatedAt                  DateTime                          @updatedAt
+  addresses                  Address[]
+  roles                      Role[]
+  financialStatements        FinancialStatement[]
+  annualReportFilings        AnnualReportFiling[]
+  financialExtractionRuns    FinancialExtractionRun[]
+  financialFacts             FinancialFact[]
+  financialValidationIssues  FinancialValidationIssue[]
+  annualReportReviews        AnnualReportReview[]
+  shareholdingSnapshots      ShareholdingSnapshot[]
+  linkedShareholders         Shareholder[]
+  ownerships                 Ownership[]
   insiderTransactions        InsiderTransaction[]
-  ddRooms                   DdRoom[]
-  ddCommentThreads          DdCommentThread[]
-  ddFindingEvidence         DdFindingEvidence[]
-  workspaceWatches          WorkspaceWatch[]
+  ddRooms                    DdRoom[]
+  ddCommentThreads           DdCommentThread[]
+  ddFindingEvidence          DdFindingEvidence[]
+  workspaceWatches           WorkspaceWatch[]
   workspaceWatchGroupMembers WorkspaceWatchGroupMember[]
-  petroleumWatches          PetroleumWorkspaceWatch[]
-  workspaceNotifications    WorkspaceNotification[]
-  distressProfile           CompanyDistressProfile?
-  distressFinancialSnapshot DistressFinancialSnapshot?
-  financialCoverage         CompanyFinancialCoverage?
-  petroleumExposureSnapshot PetroleumCompanyExposureSnapshot?
-  annualReportReviewedFacts AnnualReportReviewedFact[]
-  rawLineItems              RawFinancialLineItem[]
-  publishedLineItems        PublishedFinancialLineItem[]
-  narratives                AnnualReportNarrative[]
-  boardReportExtractions    BoardReportExtraction[]
-  newsArticles              NewsArticleCompany[]
-  newsRelevanceScores       NewsArticleRelevance[]
-  newsFeatureSets           NewsArticleFeatureSet[]
-  newsRelevanceFeedback     NewsRelevanceFeedback[]
-  newsSignals               NewsSignal[]
-  companyEvents             CompanyEvent[]
-  companyEventExposures     CompanyEventExposure[]
-  exposureGraphEdges        CompanyExposureGraphEdge[]
-  newsIssuerIdentities      NewsIssuerIdentity[]
-  matchedUserProfiles       UserProfile[]
-  industryCodeId            String?
-  industryCode              IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
+  petroleumWatches           PetroleumWorkspaceWatch[]
+  workspaceNotifications     WorkspaceNotification[]
+  distressProfile            CompanyDistressProfile?
+  distressFinancialSnapshot  DistressFinancialSnapshot?
+  financialCoverage          CompanyFinancialCoverage?
+  petroleumExposureSnapshot  PetroleumCompanyExposureSnapshot?
+  annualReportReviewedFacts  AnnualReportReviewedFact[]
+  rawLineItems               RawFinancialLineItem[]
+  publishedLineItems         PublishedFinancialLineItem[]
+  narratives                 AnnualReportNarrative[]
+  boardReportExtractions     BoardReportExtraction[]
+  newsArticles               NewsArticleCompany[]
+  newsRelevanceScores        NewsArticleRelevance[]
+  newsFeatureSets            NewsArticleFeatureSet[]
+  newsRelevanceFeedback      NewsRelevanceFeedback[]
+  newsSignals                NewsSignal[]
+  companyEvents              CompanyEvent[]
+  companyEventExposures      CompanyEventExposure[]
+  exposureGraphEdges         CompanyExposureGraphEdge[]
+  newsIssuerIdentities       NewsIssuerIdentity[]
+  matchedUserProfiles        UserProfile[]
+  industryCodeId             String?
+  industryCode               IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
 
   @@index([name])
   @@index([orgNumber])
@@ -817,7 +817,7 @@ model RetailChain {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-  members           ChainMembership[]
+  members ChainMembership[]
 
   @@index([nameKey])
   @@index([naceCode])
@@ -835,7 +835,7 @@ model ChainMembership {
   matchMethod       ChainMatchMethod @default(NAME_PREFIX)
   builtAt           DateTime         @default(now())
 
-  chain             RetailChain      @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  chain RetailChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
 
   @@index([chainId])
   @@index([operatorOrgNumber])
@@ -1052,40 +1052,40 @@ model FinancialStatement {
 // publish here after document-level gates pass; manual review rows have
 // precedence and are not overwritten by later machine reprocesses.
 model PublishedFinancialLineItem {
-  id             String                     @id @default(cuid())
-  companyId      String
-  filingId       String
-  fiscalYear     Int
-  statementType  FinancialFactStatementType
-  statementScope StatementScope             @default(COMPANY)
-  metricKey      String?
-  rawLabel       String?
-  originalLabel  String?
-  originalValue  String?
-  parsedValue    BigInt?
-  value          BigInt?
+  id                    String                           @id @default(cuid())
+  companyId             String
+  filingId              String
+  fiscalYear            Int
+  statementType         FinancialFactStatementType
+  statementScope        StatementScope                   @default(COMPANY)
+  metricKey             String?
+  rawLabel              String?
+  originalLabel         String?
+  originalValue         String?
+  parsedValue           BigInt?
+  value                 BigInt?
   // The authoritative published number: the reviewer's on-screen "Endelig"
   // (manual ?? machine), persisted verbatim from the review grid. `value`
   // mirrors it for back-compat; publishing sources the figure from finalInput.
-  finalInput     BigInt?
-  currency       String                     @default("NOK")
-  unitScale      Int                        @default(1)
-  sourcePage     Int?
-  sortOrder      Int                        @default(0)
-  reviewId       String?
-  reviewerUserId String?
-  publicationSource PublishedFinancialLineItemSource @default(MANUAL_REVIEW)
-  sourceSystem    String?
-  sourceEntityType String?
-  sourceId        String?
+  finalInput            BigInt?
+  currency              String                           @default("NOK")
+  unitScale             Int                              @default(1)
+  sourcePage            Int?
+  sortOrder             Int                              @default(0)
+  reviewId              String?
+  reviewerUserId        String?
+  publicationSource     PublishedFinancialLineItemSource @default(MANUAL_REVIEW)
+  sourceSystem          String?
+  sourceEntityType      String?
+  sourceId              String?
   sourceExtractionRunId String?
-  extractionRoute String?
-  confidence      Float?
-  fetchedAt       DateTime?
-  normalizedAt    DateTime?
-  publishedAt    DateTime                   @default(now())
-  createdAt      DateTime                   @default(now())
-  updatedAt      DateTime                   @updatedAt
+  extractionRoute       String?
+  confidence            Float?
+  fetchedAt             DateTime?
+  normalizedAt          DateTime?
+  publishedAt           DateTime                         @default(now())
+  createdAt             DateTime                         @default(now())
+  updatedAt             DateTime                         @updatedAt
 
   company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   filing  AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
@@ -2738,19 +2738,19 @@ model WorkspaceIndustryWatch {
 }
 
 model WorkspaceWatchGroup {
-  id                String                  @id @default(cuid())
+  id                String                      @id @default(cuid())
   workspaceId       String
   name              String
   query             String
-  status            WorkspaceWatchStatus    @default(ACTIVE)
-  intensity         WorkspaceWatchIntensity @default(BALANCED)
-  matchLimit        Int                     @default(50)
+  status            WorkspaceWatchStatus        @default(ACTIVE)
+  intensity         WorkspaceWatchIntensity     @default(BALANCED)
+  matchLimit        Int                         @default(50)
   unsupportedReason String?
   archivedAt        DateTime?
   refreshedAt       DateTime?
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  workspace         Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  workspace         Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members           WorkspaceWatchGroupMember[]
 
   @@index([workspaceId, status])
@@ -2950,29 +2950,29 @@ model ShareholdingGraphEdge {
 }
 
 model ShareholderRegisterImport {
-  id               String                           @id @default(cuid())
+  id               String                          @id @default(cuid())
   taxYear          Int
-  sourceSystem     ShareholdingSourceSystem         @default(SKATTEETATEN_CSV)
-  sourceEntityType String                           @default("shareholder_register_csv")
+  sourceSystem     ShareholdingSourceSystem        @default(SKATTEETATEN_CSV)
+  sourceEntityType String                          @default("shareholder_register_csv")
   sourceId         String?
   sourceFileName   String
   sourcePath       String?
   sourceChecksum   String?
   fileSizeBytes    BigInt?
   totalBytes       BigInt?
-  processedBytes   BigInt                           @default(0)
-  parsedRowCount   Int                              @default(0)
-  importedRowCount Int                              @default(0)
-  skippedRowCount  Int                              @default(0)
-  errorRowCount    Int                              @default(0)
-  status           ShareholderRegisterImportStatus  @default(UPLOADED)
+  processedBytes   BigInt                          @default(0)
+  parsedRowCount   Int                             @default(0)
+  importedRowCount Int                             @default(0)
+  skippedRowCount  Int                             @default(0)
+  errorRowCount    Int                             @default(0)
+  status           ShareholderRegisterImportStatus @default(UPLOADED)
   failureMessage   String?
   startedAt        DateTime?
   completedAt      DateTime?
   fetchedAt        DateTime
   normalizedAt     DateTime?
-  createdAt        DateTime                         @default(now())
-  updatedAt        DateTime                         @updatedAt
+  createdAt        DateTime                        @default(now())
+  updatedAt        DateTime                        @updatedAt
   holdings         ShareholderRegisterHolding[]
 
   @@index([taxYear, status])
@@ -2984,26 +2984,26 @@ model ShareholderRegisterHolding {
   importId                 String
   sourceRowNumber          Int
   taxYear                  Int
-  issuerOrgNumber          String                   @db.VarChar(9)
+  issuerOrgNumber          String                    @db.VarChar(9)
   issuerName               String
   shareClass               String?
   shareholderName          String
   shareholderIdentifierRaw String?
-  shareholderOrgNumber     String?                  @db.VarChar(9)
+  shareholderOrgNumber     String?                   @db.VarChar(9)
   shareholderBirthYear     Int?
   shareholderType          ShareholderType
-  postalCode               String?                  @db.VarChar(16)
+  postalCode               String?                   @db.VarChar(16)
   postalPlace              String?
-  countryCode              String?                  @db.VarChar(8)
+  countryCode              String?                   @db.VarChar(8)
   numberOfShares           BigInt
   totalCompanyShares       BigInt?
-  ownershipPercent         Decimal?                 @db.Decimal(20, 8)
-  sourceSystem             ShareholdingSourceSystem @default(SKATTEETATEN_CSV)
-  sourceEntityType         String                   @default("shareholder_register_row")
+  ownershipPercent         Decimal?                  @db.Decimal(20, 8)
+  sourceSystem             ShareholdingSourceSystem  @default(SKATTEETATEN_CSV)
+  sourceEntityType         String                    @default("shareholder_register_row")
   sourceId                 String
   fetchedAt                DateTime
   normalizedAt             DateTime
-  createdAt                DateTime                 @default(now())
+  createdAt                DateTime                  @default(now())
   import                   ShareholderRegisterImport @relation(fields: [importId], references: [id], onDelete: Cascade)
 
   @@id([importId, sourceRowNumber])
@@ -3075,24 +3075,25 @@ model VerificationToken {
 }
 
 model AnnualReportNarrative {
-  id             String         @id @default(cuid())
-  filingId       String
-  companyId      String
-  fiscalYear     Int
-  sectionKind    String
-  statementScope StatementScope @default(COMPANY)
-  title          String?
-  textPreview    String
-  fullText       String
-  pageStart      Int?
-  pageEnd        Int?
-  confidence     Float
-  provenance     String
-  sourceExtractionId String?      @unique
-  createdAt      DateTime       @default(now())
+  id                 String         @id @default(cuid())
+  filingId           String
+  companyId          String
+  fiscalYear         Int
+  sectionKind        String
+  statementScope     StatementScope @default(COMPANY)
+  title              String?
+  textPreview        String
+  fullText           String
+  pageStart          Int?
+  pageEnd            Int?
+  pageRanges         Json?
+  confidence         Float
+  provenance         String
+  sourceExtractionId String?        @unique
+  createdAt          DateTime       @default(now())
 
-  filing  AnnualReportFiling @relation(fields: [filingId], references: [id], onDelete: Cascade)
-  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  filing           AnnualReportFiling     @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company          Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
   sourceExtraction BoardReportExtraction? @relation("BoardReportAcceptedProjection", fields: [sourceExtractionId], references: [id], onDelete: SetNull)
 
   @@unique([filingId, sectionKind, statementScope])
@@ -3100,48 +3101,49 @@ model AnnualReportNarrative {
 }
 
 model BoardReportExtraction {
-  id                       String                      @id @default(cuid())
-  filingId                 String
-  companyId                String
-  fiscalYear               Int
-  status                   BoardReportExtractionStatus
-  reviewStatus             BoardReportReviewStatus     @default(PENDING)
-  title                    String?
-  text                     String?
-  normalizedText           String?
-  textChecksum             String?
-  pageStart                Int?
-  pageEnd                  Int?
-  startBoundary            Json?
-  endBoundary              Json?
-  includedBlocks           Json
-  confidence               Float
-  quality                  Json
-  matchedStartSignals      Json
-  matchedStopSignals       Json
-  warnings                 Json
-  route                    String
-  extractorVersion         String
-  parserVersion            String?
-  sourceSystem             String
-  sourceEntityType         String
-  sourceId                 String
-  sourceUrl                String
-  sourceDocumentHash       String
-  fetchedAt                DateTime
-  normalizedAt             DateTime
-  reviewedByUserId         String?
-  reviewedAt               DateTime?
-  reviewReason             String?
-  machineProposalId        String?
-  createdAt                DateTime                    @default(now())
+  id                  String                      @id @default(cuid())
+  filingId            String
+  companyId           String
+  fiscalYear          Int
+  status              BoardReportExtractionStatus
+  reviewStatus        BoardReportReviewStatus     @default(PENDING)
+  title               String?
+  text                String?
+  normalizedText      String?
+  textChecksum        String?
+  pageStart           Int?
+  pageEnd             Int?
+  pageRanges          Json?
+  startBoundary       Json?
+  endBoundary         Json?
+  includedBlocks      Json
+  confidence          Float
+  quality             Json
+  matchedStartSignals Json
+  matchedStopSignals  Json
+  warnings            Json
+  route               String
+  extractorVersion    String
+  parserVersion       String?
+  sourceSystem        String
+  sourceEntityType    String
+  sourceId            String
+  sourceUrl           String
+  sourceDocumentHash  String
+  fetchedAt           DateTime
+  normalizedAt        DateTime
+  reviewedByUserId    String?
+  reviewedAt          DateTime?
+  reviewReason        String?
+  machineProposalId   String?
+  createdAt           DateTime                    @default(now())
 
-  filing                   AnnualReportFiling          @relation(fields: [filingId], references: [id], onDelete: Cascade)
-  company                  Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  reviewedBy               User?                       @relation("BoardReportExtractionReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  machineProposal          BoardReportExtraction?      @relation("BoardReportCorrection", fields: [machineProposalId], references: [id], onDelete: SetNull)
-  corrections              BoardReportExtraction[]     @relation("BoardReportCorrection")
-  publishedNarrative       AnnualReportNarrative?      @relation("BoardReportAcceptedProjection")
+  filing             AnnualReportFiling      @relation(fields: [filingId], references: [id], onDelete: Cascade)
+  company            Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reviewedBy         User?                   @relation("BoardReportExtractionReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  machineProposal    BoardReportExtraction?  @relation("BoardReportCorrection", fields: [machineProposalId], references: [id], onDelete: SetNull)
+  corrections        BoardReportExtraction[] @relation("BoardReportCorrection")
+  publishedNarrative AnnualReportNarrative?  @relation("BoardReportAcceptedProjection")
 
   @@unique([filingId, sourceDocumentHash, extractorVersion])
   @@index([companyId, fiscalYear, status])
@@ -3568,8 +3570,8 @@ model CompanyEventExposure {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  event   CompanyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  company Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  event    CompanyEvent                   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  company  Company                        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   feedback CompanyEventExposureFeedback[]
 
   @@unique([eventId, companyId, exposureType])
@@ -3578,7 +3580,7 @@ model CompanyEventExposure {
 }
 
 model CompanyEventExposureFeedback {
-  id                 String   @id @default(cuid())
+  id                 String            @id @default(cuid())
   exposureId         String
   userId             String
   relevanceScore     Float
@@ -3587,9 +3589,9 @@ model CompanyEventExposureFeedback {
   previousValue      Json?
   correctedValue     Json?
   notes              String?
-  reviewedAt         DateTime @default(now())
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  reviewedAt         DateTime          @default(now())
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   exposure CompanyEventExposure @relation(fields: [exposureId], references: [id], onDelete: Cascade)
   user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -4003,31 +4005,31 @@ model CompanySearchEvent {
   searchedAt    DateTime @default(now())
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, eventKey])
   @@index([userId, searchedAt(sort: Desc)])
   @@index([userId, query])
   @@index([userId, revenueClass])
-  @@unique([userId, eventKey])
 }
 
 model AiSearchUsageEvent {
-  id                   String   @id @default(cuid())
-  userId               String
-  status               String   @default("RESERVED")
-  reservedTokens       Int
-  model                String?
-  inputTokens          Int      @default(0)
-  cachedInputTokens    Int      @default(0)
-  outputTokens         Int      @default(0)
-  usageTokens          Int      @default(0)
-  sourceSystem         String?
-  sourceEntityType     String?
-  sourceId             String?
-  fetchedAt            DateTime?
-  normalizedAt         DateTime?
-  occurredAt           DateTime?
-  expiresAt            DateTime
-  createdAt            DateTime @default(now())
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  userId            String
+  status            String    @default("RESERVED")
+  reservedTokens    Int
+  model             String?
+  inputTokens       Int       @default(0)
+  cachedInputTokens Int       @default(0)
+  outputTokens      Int       @default(0)
+  usageTokens       Int       @default(0)
+  sourceSystem      String?
+  sourceEntityType  String?
+  sourceId          String?
+  fetchedAt         DateTime?
+  normalizedAt      DateTime?
+  occurredAt        DateTime?
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, occurredAt(sort: Desc)])
   @@index([status, expiresAt])

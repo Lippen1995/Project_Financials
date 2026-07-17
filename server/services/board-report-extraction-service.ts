@@ -13,6 +13,7 @@ import {
   type BoardReportExtractionSource,
 } from "@/integrations/brreg/annual-report-financials/board-report-extractor";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
+import { buildScannedBoardReportDocument } from "@/integrations/brreg/annual-report-financials/scanned-board-report-document";
 import {
   buildUnifiedParserDocumentFromStructuredDocument,
   buildUnifiedParserDocumentFromPreflightResult,
@@ -77,12 +78,17 @@ type BoardReportExtractionDependencies = {
     filingId: string;
     result: BoardReportExtractionResult;
   }): Promise<void>;
-  publish(extractionId: string): Promise<unknown>;
+  publish(
+    extractionId: string,
+    options?: { minimumConfidenceExclusive?: number },
+  ): Promise<unknown>;
 };
 
 export type ExtractBoardReportOptions = {
   persist?: boolean;
   publish?: boolean;
+  allowOcrAutoPublish?: boolean;
+  publishMinConfidence?: number;
 };
 
 export type ExtractBoardReportOutcome = {
@@ -90,6 +96,10 @@ export type ExtractBoardReportOutcome = {
   extractionId: string | null;
   published: boolean;
 };
+
+export function boardReportPublicationPolicyTag(minimumConfidenceExclusive: number): string {
+  return `publication-policy-gt-${Math.round(minimumConfidenceExclusive * 10_000)}bp-v2`;
+}
 
 export class BoardReportExtractionError extends Error {
   constructor(
@@ -205,6 +215,29 @@ const defaultDependencies: BoardReportExtractionDependencies = {
       };
     }
 
+    const likelyImageOnlyPageCount = preflight.diagnostics?.likelyImageOnlyPages.length ?? 0;
+    const isImageOnlyScan = likelyImageOnlyPageCount >= Math.max(1, preflight.pageCount * 0.8);
+    if (isImageOnlyScan) {
+      const scanned = await buildScannedBoardReportDocument({
+        pdfBuffer,
+        pageCount: preflight.pageCount,
+        source: {
+          filingId: filing.id,
+          orgNumber: filing.company.orgNumber,
+          fiscalYear: filing.fiscalYear,
+        },
+      });
+      return {
+        document: scanned.document,
+        autoPublishEligible: false,
+        warnings: [
+          `Document is an image-only scan (${likelyImageOnlyPageCount}/${preflight.pageCount} pages); local OCR was selected directly.`,
+          ...scanned.warnings,
+          "OCR-derived board-report text must be reviewed before publication.",
+        ],
+      };
+    }
+
     const openDataLoaderConfig = resolveOpenDataLoaderConfig();
     if (openDataLoaderConfig.enabled) {
       try {
@@ -300,7 +333,7 @@ const defaultDependencies: BoardReportExtractionDependencies = {
       },
     });
 
-    if (result.status === "EXTRACTED" && result.text) {
+    if (["EXTRACTED", "MANUAL_REVIEW"].includes(result.status) && result.text) {
       const storedText = await artifactStorage.putArtifact({
         filingId,
         artifactType: "BOARD_REPORT_TEXT",
@@ -318,6 +351,7 @@ const defaultDependencies: BoardReportExtractionDependencies = {
           sourceDocumentHash: result.sourceDocumentHash,
           pageStart: result.pageStart,
           pageEnd: result.pageEnd,
+          pageRanges: result.pageRanges,
         },
       });
     }
@@ -339,6 +373,14 @@ export class BoardReportExtractionService {
   ): Promise<ExtractBoardReportOutcome> {
     const persist = options.persist ?? true;
     const publish = options.publish ?? false;
+    const publishMinConfidence = options.publishMinConfidence ?? 0;
+    if (
+      !Number.isFinite(publishMinConfidence) ||
+      publishMinConfidence < 0 ||
+      publishMinConfidence >= 1
+    ) {
+      throw new Error("Publication confidence threshold must be in the range [0, 1).");
+    }
     const filing = await this.dependencies.loadFiling(filingId);
     if (!filing) {
       throw new BoardReportExtractionError(
@@ -369,7 +411,33 @@ export class BoardReportExtractionService {
       extractorVersion: `${result.extractorVersion}:${built.document.source.parserVersion ?? built.document.source.route.toLowerCase()}`,
     };
 
-    if (!built.autoPublishEligible && result.status === "EXTRACTED") {
+    if (options.allowOcrAutoPublish === true && built.document.source.route === "OCR") {
+      result = {
+        ...result,
+        extractorVersion: `${result.extractorVersion}:${boardReportPublicationPolicyTag(publishMinConfidence)}`,
+      };
+    }
+
+    const ocrPublicationGatePassed =
+      options.allowOcrAutoPublish === true &&
+      built.document.source.route === "OCR" &&
+      result.status === "EXTRACTED" &&
+      result.confidence > publishMinConfidence;
+
+    if (ocrPublicationGatePassed && built.warnings.length > 0) {
+      result = {
+        ...result,
+        warnings: [
+          ...result.warnings,
+          ...built.warnings.map((message) => ({
+            code: "OCR_AUTO_PUBLICATION_POLICY",
+            message,
+          })),
+        ],
+      };
+    }
+
+    if (!built.autoPublishEligible && result.status === "EXTRACTED" && !ocrPublicationGatePassed) {
       result = {
         ...result,
         status: "MANUAL_REVIEW",
@@ -392,8 +460,15 @@ export class BoardReportExtractionService {
     }
     await this.dependencies.persistArtifacts({ filingId: filing.id, result });
 
-    const shouldPublish = publish && result.status === "EXTRACTED";
-    if (shouldPublish) await this.dependencies.publish(extraction.id);
+    const shouldPublish =
+      publish &&
+      result.status === "EXTRACTED" &&
+      result.confidence > publishMinConfidence;
+    if (shouldPublish) {
+      await this.dependencies.publish(extraction.id, {
+        minimumConfidenceExclusive: publishMinConfidence,
+      });
+    }
 
     return { result, extractionId: extraction.id, published: shouldPublish };
   }

@@ -18,6 +18,40 @@ describeRuntimeIntegration("annual-report OCR guardrails", () => {
     vi.clearAllMocks();
   });
 
+  it("runs only the requested automatic segmentation mode and language", async () => {
+    const recognize = vi.fn(async () => ({
+      data: { text: "Styrets årsberetning\nOrdrett innhold", blocks: [] },
+    }));
+    const setParameters = vi.fn(async () => undefined);
+    const createWorker = vi.fn(async () => ({
+      recognize,
+      setParameters,
+      terminate: vi.fn(),
+    }));
+
+    vi.doMock("pdf-parse", () => ({
+      PDFParse: class {
+        async getScreenshot() {
+          return { pages: [{ pageNumber: 1, data: createPngBuffer(512, 512) }] };
+        }
+        async destroy() {}
+      },
+    }));
+    vi.doMock("tesseract.js", () => ({ createWorker }));
+
+    const ocrModule = await import("@/integrations/brreg/annual-report-financials/ocr");
+    await ocrModule.extractOcrPagesWithDiagnostics(Buffer.from("pdf"), [1], {
+      recognitionMode: "auto",
+      languages: "nor",
+    });
+
+    expect(createWorker).toHaveBeenCalledWith("nor", 1, expect.any(Object));
+    expect(recognize).toHaveBeenCalledTimes(1);
+    expect(setParameters).toHaveBeenCalledWith(
+      expect.objectContaining({ tessedit_pageseg_mode: "3" }),
+    );
+  });
+
   it("rejects tiny OCR image regions before recognize is called", async () => {
     const screenshots = {
       pages: [

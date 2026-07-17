@@ -41,6 +41,7 @@
     "financials:inspect-pending": "tsx scripts/inspect-pending-financial-filings.ts",
     "financials:inspect-published-provenance": "tsx scripts/inspect-published-financial-provenance.ts",
     "financials:extract-board-report": "tsx scripts/extract-board-report.ts",
+    "financials:batch-board-reports": "tsx scripts/run-board-report-batch.ts",
     "test:board-report-extraction": "vitest run integrations/brreg/annual-report-financials/board-report-extractor.test.ts server/services/board-report-extraction-service.test.ts",
     "evaluate:board-report-extraction": "tsx scripts/evaluate-board-report-extraction.ts",
     "check:board-report-regression": "tsx scripts/evaluate-board-report-extraction.ts --strict",
