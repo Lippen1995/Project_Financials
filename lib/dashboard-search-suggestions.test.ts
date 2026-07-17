@@ -119,4 +119,42 @@ describe("dashboard search suggestions", () => {
       },
     });
   });
+
+  it("does not discard the primary company source during a cold start", async () => {
+    vi.useFakeTimers();
+    const companyPayload = {
+      data: [suggestions[0]],
+      meta: { unavailableSources: [] },
+    };
+    const fetcher = vi.fn((url: string) => {
+      if (!url.includes("scope=companies")) return new Promise<Response>(() => undefined);
+      return new Promise<Response>((resolve) => {
+        globalThis.setTimeout(
+          () => resolve(new Response(JSON.stringify(companyPayload))),
+          3_000,
+        );
+      });
+    });
+    const onResult = vi.fn();
+    const onError = vi.fn();
+
+    scheduleDashboardSuggestionSearch({
+      query: "reach sub",
+      scope: "all",
+      aiEnabled: false,
+      delayMs: 120,
+      fetcher,
+      onStart: vi.fn(),
+      onResult,
+      onError,
+      onSettled: vi.fn(),
+    });
+
+    await vi.advanceTimersByTimeAsync(3_120);
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(onResult).toHaveBeenCalledWith(
+      expect.objectContaining({ data: companyPayload.data }),
+    );
+  });
 });

@@ -36,6 +36,7 @@ const ALL_SUGGESTION_SCOPES: Array<Exclude<DashboardSearchScope, "all">> = [
   "bankruptcies",
 ];
 const DEFAULT_SOURCE_TIMEOUT_MS = 2_500;
+const DEFAULT_PRIMARY_SOURCE_TIMEOUT_MS = 8_000;
 
 export function scheduleDashboardSuggestionSearch({
   query,
@@ -43,6 +44,7 @@ export function scheduleDashboardSuggestionSearch({
   aiEnabled,
   delayMs,
   sourceTimeoutMs = DEFAULT_SOURCE_TIMEOUT_MS,
+  primarySourceTimeoutMs = DEFAULT_PRIMARY_SOURCE_TIMEOUT_MS,
   fetcher = fetch,
   onStart,
   onResult,
@@ -54,6 +56,7 @@ export function scheduleDashboardSuggestionSearch({
   aiEnabled: boolean;
   delayMs: number;
   sourceTimeoutMs?: number;
+  primarySourceTimeoutMs?: number;
   fetcher?: (url: string, init: { signal: AbortSignal }) => Promise<Response>;
   onStart: () => void;
   onResult: (payload: DashboardSuggestionPayload) => void;
@@ -88,7 +91,11 @@ export function scheduleDashboardSuggestionSearch({
           { once: true },
         );
       });
-      const timeoutHandle = globalThis.setTimeout(abortRequest, sourceTimeoutMs);
+      const isPrimarySource = scope === "all" ? candidate === "companies" : candidate === scope;
+      const timeoutHandle = globalThis.setTimeout(
+        abortRequest,
+        isPrimarySource ? primarySourceTimeoutMs : sourceTimeoutMs,
+      );
 
       try {
         const response = await Promise.race([
