@@ -122,6 +122,8 @@ Nyhetsfanen bruker en lokal relevansmotor uten Gemini eller ekstern LLM. Motoren
 
 For børsnoterte selskaper brukes NewsWeb som autoritativ kilde for børsmeldinger. Issuer-id løses dynamisk fra NewsWebs issuer-liste basert på selskapets juridiske navn, og meldinger hentes fra NewsWebs JSON-endepunkter.
 
+Rolletabellen kan i tillegg vise «Rapporterte endringer» fra NewsWeb-meldinger om primærinnsidehandel. Endringene vises bare når transaksjonsdatoen er senere enn datoen for siste tilgjengelige aksjonærregister-snapshot. Direkte handler vises fullt ut; handler gjennom et dokumentert holdingselskap vektes med rollepersonens eierandel i holdingselskapet. NewsWeb-endringene oppdaterer aldri beholdningen eller eierandelen fra Skatteetatens aksjonærregister. Kjør `npm run newsweb:sync-insider-transactions` for å hente, normalisere og koble slike meldinger for registrerte NewsWeb-issuere.
+
 Åpne nyhetsartikler kan berikes med fulltekst via en valgfri `news-please` sidecar. Sett `NEWS_ARTICLE_EXTRACTION_MODE=auto` og `NEWS_ARTICLE_EXTRACTION_PYTHON` til en Python-runtime der pakken `news-please` er installert. Hvis Python eller pakken mangler, fortsetter nyhetsmotoren uten fulltekstberiking.
 
 ### Nyhetsrelevans og read-across

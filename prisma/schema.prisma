@@ -728,6 +728,7 @@ model Company {
   shareholdingSnapshots     ShareholdingSnapshot[]
   linkedShareholders        Shareholder[]
   ownerships                Ownership[]
+  insiderTransactions        InsiderTransaction[]
   ddRooms                   DdRoom[]
   ddCommentThreads          DdCommentThread[]
   ddFindingEvidence         DdFindingEvidence[]
@@ -3388,15 +3389,90 @@ model SourceDocument {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  source        NewsSource             @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  signals       NewsSignal[]
-  eventEvidence CompanyEventEvidence[]
+  source              NewsSource             @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  signals             NewsSignal[]
+  eventEvidence       CompanyEventEvidence[]
+  insiderTransactions InsiderTransaction[]
 
   @@unique([sourceId, externalId])
   @@index([sourceId, publishedAt(sort: Desc)])
   @@index([canonicalUrl])
   @@index([contentHash])
   @@index([documentFingerprint])
+}
+
+/// A structured, source-traceable transaction reported for a primary insider or a
+/// closely associated legal entity. These facts never mutate annual shareholder snapshots.
+model InsiderTransaction {
+  id                      String   @id @default(cuid())
+  companyId               String
+  sourceDocumentId        String
+  sourceSystem            String   @default("NEWSWEB")
+  sourceEntityType        String   @default("primary_insider_transaction")
+  sourceId                String   @unique
+  sourceMessageId         Int
+  sourceAttachmentId      Int?
+  sourceUrl               String
+  publishedAt             DateTime
+  transactionDate         DateTime @db.Date
+  action                  String
+  instrumentType          String
+  isin                    String?
+  issuerName              String?
+  reportedShares          BigInt
+  price                   Decimal? @db.Decimal(24, 8)
+  currency                String?
+  venue                   String?
+  reportingPartyName      String
+  reportingPartyOrgNumber String?  @db.VarChar(9)
+  primaryInsiderName      String
+  primaryInsiderRole      String?
+  postTransactionShares   BigInt?
+  correctionForMessageId  Int?
+  correctedByMessageId    Int?
+  status                  String   @default("ACTIVE")
+  parseConfidence         Float    @default(1)
+  rawPayload              Json?
+  fetchedAt               DateTime
+  normalizedAt            DateTime
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  company        Company                             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceDocument SourceDocument                      @relation(fields: [sourceDocumentId], references: [id], onDelete: Cascade)
+  attributions   RoleInsiderTransactionAttribution[]
+
+  @@index([companyId, transactionDate(sort: Desc)])
+  @@index([sourceMessageId])
+  @@index([primaryInsiderName])
+  @@index([reportingPartyOrgNumber])
+  @@index([status, transactionDate(sort: Desc)])
+}
+
+/// Snapshot-specific look-through attribution of a reported legal transaction to a role person.
+/// Rows are derived and can be rebuilt when a newer shareholder-register year arrives.
+model RoleInsiderTransactionAttribution {
+  id                   String   @id @default(cuid())
+  transactionId        String
+  personIdentityKey    String
+  snapshotTaxYear      Int
+  direct               Boolean
+  legalPartyName       String
+  legalPartyOrgNumber  String?  @db.VarChar(9)
+  ownershipFraction    Decimal  @db.Decimal(20, 10)
+  attributedShares     Decimal  @db.Decimal(30, 10)
+  ownershipPath        Json?
+  resolutionMethod     String
+  resolutionConfidence Float
+  normalizedAt         DateTime
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  transaction InsiderTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId, personIdentityKey, snapshotTaxYear])
+  @@index([personIdentityKey, snapshotTaxYear])
+  @@index([snapshotTaxYear, resolutionConfidence])
 }
 
 model NewsSignal {

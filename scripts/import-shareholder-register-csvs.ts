@@ -7,6 +7,9 @@ import path from "node:path";
 import readline from "node:readline";
 import { spawn } from "node:child_process";
 
+import { prisma } from "@/lib/prisma";
+import { rebuildRoleChangeAttributions } from "@/server/insider-transactions/role-change-attribution-service";
+
 const DEFAULT_DIR = path.join(
   process.env.USERPROFILE ?? "",
   "OneDrive",
@@ -50,6 +53,30 @@ type NormalizedHolding = {
   ownershipPercent: string | null;
   sourceId: string;
 };
+
+async function rebuildCurrentInsiderAttributions(taxYear: number) {
+  const companies = await prisma.company.findMany({
+    where: {
+      insiderTransactions: {
+        some: { status: "ACTIVE", instrumentType: "SHARE" },
+      },
+    },
+    select: { id: true, orgNumber: true },
+  });
+
+  for (const company of companies) {
+    const latestSnapshot = await prisma.shareholderRegisterHolding.aggregate({
+      where: { issuerOrgNumber: company.orgNumber },
+      _max: { taxYear: true },
+    });
+    if (latestSnapshot._max.taxYear !== taxYear) continue;
+    await rebuildRoleChangeAttributions({
+      companyId: company.id,
+      orgNumber: company.orgNumber,
+      snapshotTaxYear: taxYear,
+    });
+  }
+}
 
 function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2);
@@ -598,6 +625,8 @@ async function importCsv(input: {
     });
     throw error;
   }
+
+  await rebuildCurrentInsiderAttributions(input.taxYear);
 }
 
 async function main() {

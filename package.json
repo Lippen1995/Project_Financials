@@ -130,6 +130,7 @@
     "news:intelligence:build-gold-set": "tsx scripts/build-company-event-gold-set.ts",
     "news:intelligence:prepare-relevance-review": "tsx scripts/prepare-manual-news-relevance-evaluation.ts",
     "news:intelligence:prepare-macro-review": "tsx scripts/prepare-manual-macro-company-evaluation.ts",
+    "newsweb:sync-insider-transactions": "tsx scripts/sync-newsweb-insider-transactions.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
