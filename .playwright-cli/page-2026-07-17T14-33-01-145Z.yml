@@ -1,0 +1,148 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: Fjord Insight
+        - generic [ref=e7]:
+          - link "Solutions" [ref=e8] [cursor=pointer]:
+            - /url: "#"
+          - link "Data Hub" [ref=e9] [cursor=pointer]:
+            - /url: "#"
+          - link "Network" [ref=e10] [cursor=pointer]:
+            - /url: "#"
+          - link "Pricing" [ref=e11] [cursor=pointer]:
+            - /url: "#"
+      - generic [ref=e12]:
+        - link "Login" [ref=e13] [cursor=pointer]:
+          - /url: /login
+        - link "Get Pro" [ref=e14] [cursor=pointer]:
+          - /url: /login
+  - banner [ref=e15]:
+    - generic [ref=e19]:
+      - heading "Norsk forretningsinnsikt, redefinert." [level=1] [ref=e20]
+      - paragraph [ref=e21]: Kombinerer AI-drevet analyse med 100% pålitelige data fra Brønnøysundregistrene for å gi deg et konkurransefortrinn i det nordiske markedet.
+      - link "Start din analyse arrow_forward" [ref=e23] [cursor=pointer]:
+        - /url: /login
+        - text: Start din analyse
+        - generic [ref=e24]: arrow_forward
+  - generic [ref=e26]:
+    - generic [ref=e27]:
+      - heading "Søk i 1,2 millioner norske bedrifter" [level=2] [ref=e28]
+      - generic [ref=e29]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: search
+          - textbox "Firmanavn, org.nr eller person..." [ref=e33]
+          - button "SØK NÅ" [ref=e34] [cursor=pointer]
+        - generic [ref=e35]:
+          - generic [ref=e36]: "POPULÆRE SØK:"
+          - link "Equinor ASA" [ref=e37] [cursor=pointer]:
+            - /url: /search?q=Equinor+ASA
+          - link "DNB Bank" [ref=e38] [cursor=pointer]:
+            - /url: /search?q=DNB+Bank
+          - link "Aker BP" [ref=e39] [cursor=pointer]:
+            - /url: /search?q=Aker+BP
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e42]: sync
+        - heading "Sanntidsoppdaterte data" [level=3] [ref=e44]
+        - paragraph [ref=e45]: FÅ direkte tilgang til ferske regnskapstall, styreendringer og kredittvurderinger Øyeblikket de blir registrert i offentlige registre.
+      - generic [ref=e46]:
+        - generic [ref=e47]: hub
+        - heading "Nettverksvisualisering" [level=3] [ref=e49]
+        - paragraph [ref=e50]: Se komplekse eierstrukturer og forbindelser mellom selskaper og nØkkelpersoner med vÅre interaktive relasjonskart.
+      - generic [ref=e51]:
+        - generic [ref=e52]: insights
+        - heading "AI Business Insight" [level=3] [ref=e54]
+        - paragraph [ref=e55]: VÅr AI-motor analyserer trender og markedsbevegelser for Å gi deg de mest relevante beslutningsgrunnlagene og prognosene.
+  - generic [ref=e57]:
+    - generic [ref=e58]:
+      - generic [ref=e59]:
+        - heading "Markedstrender" [level=2] [ref=e60]
+        - paragraph [ref=e61]: Selskaper med hØy aktivitet og vekst akkurat nÅ.
+      - link "SE ALLE TRENDER arrow_outward" [ref=e62] [cursor=pointer]:
+        - /url: /search
+        - text: SE ALLE TRENDER
+        - generic [ref=e63]: arrow_outward
+    - generic [ref=e64]:
+      - generic [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]: KA
+          - generic [ref=e68]: +12.4%
+        - heading "KONGSBERG GRUPPEN ASA" [level=4] [ref=e69]
+        - paragraph [ref=e70]: Forsvar og teknologi
+        - generic [ref=e71]:
+          - generic [ref=e72]: trending_up
+          - generic [ref=e73]: 40.6 MRD
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - generic [ref=e76]: SH
+          - generic [ref=e77]: +8.3%
+        - heading "STOREBRAND ASA" [level=4] [ref=e78]
+        - paragraph [ref=e79]: Finans og forsikring
+        - generic [ref=e80]:
+          - generic [ref=e81]: trending_up
+          - generic [ref=e82]: 12.2 MRD
+      - generic [ref=e83]:
+        - generic [ref=e84]:
+          - generic [ref=e85]: YA
+          - generic [ref=e86]: "-2.3%"
+        - heading "YARA INTERNATIONAL ASA" [level=4] [ref=e87]
+        - paragraph [ref=e88]: Kjemisk industri
+        - generic [ref=e89]:
+          - generic [ref=e90]: trending_down
+          - generic [ref=e91]: 155.1 MRD
+      - generic [ref=e92]:
+        - generic [ref=e93]:
+          - generic [ref=e94]: EL
+          - generic [ref=e95]: +15.7%
+        - heading "ELKEM ASA" [level=4] [ref=e96]
+        - paragraph [ref=e97]: Materialteknologi
+        - generic [ref=e98]:
+          - generic [ref=e99]: trending_up
+          - generic [ref=e100]: 35.8 MRD
+  - generic [ref=e102]:
+    - generic [ref=e103]:
+      - heading "Oppgrader til Proff Insight Pro" [level=2] [ref=e104]
+      - paragraph [ref=e105]: FÅ full tilgang til avanserte verktØy for dypere analyse og markedsforstÅelse. Perfekt for finansanalytikere og beslutningstakere.
+      - list [ref=e106]:
+        - listitem [ref=e107]:
+          - generic [ref=e108]: check_circle
+          - generic [ref=e109]: Eksport av store datasett til Excel/CSV
+        - listitem [ref=e110]:
+          - generic [ref=e111]: check_circle
+          - generic [ref=e112]: Ubegrenset tilgang til nettverkskart
+        - listitem [ref=e113]:
+          - generic [ref=e114]: check_circle
+          - generic [ref=e115]: Avansert kredittmonitorering og varsler
+      - generic [ref=e116]:
+        - link "Start din gratis prøveperiode" [ref=e117] [cursor=pointer]:
+          - /url: /login
+        - button "Se alle funksjoner" [ref=e118] [cursor=pointer]
+    - img "Analytics dashboard" [ref=e120]
+  - contentinfo [ref=e122]:
+    - generic [ref=e123]:
+      - generic [ref=e124]:
+        - generic [ref=e125]: Fjord Insight
+        - paragraph [ref=e126]: © 2024 Fjord Insight AS. All rights reserved.
+      - generic [ref=e127]:
+        - heading "RETTIGHETER" [level=5] [ref=e128]
+        - list [ref=e129]:
+          - listitem [ref=e130]:
+            - link "Privacy Policy" [ref=e131] [cursor=pointer]:
+              - /url: "#"
+          - listitem [ref=e132]:
+            - link "Terms of Service" [ref=e133] [cursor=pointer]:
+              - /url: "#"
+      - generic [ref=e134]:
+        - heading "RESSURSER" [level=5] [ref=e135]
+        - list [ref=e136]:
+          - listitem [ref=e137]:
+            - link "API Documentation" [ref=e138] [cursor=pointer]:
+              - /url: "#"
+          - listitem [ref=e139]:
+            - link "Contact Support" [ref=e140] [cursor=pointer]:
+              - /url: "#"
+      - generic [ref=e141]:
+        - heading "FØLG OSS" [level=5] [ref=e142]
+        - link "share" [ref=e144] [cursor=pointer]:
+          - /url: "#"
