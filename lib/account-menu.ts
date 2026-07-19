@@ -212,7 +212,7 @@ export function buildAccountMenuSections(viewer?: AppViewer | null): AccountMenu
     {
       label: "ARBEIDSOMRADE",
       items: [
-        { label: "Watchlist", href: "/watchlist" },
+        { label: "Overvåkning", href: "/watchlist" },
         {
           label: "Due diligence",
           disabled: true,
