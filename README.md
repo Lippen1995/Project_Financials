@@ -177,6 +177,12 @@ Goldsett-eksporten rapporterer dekning separat for direkte selskapsnyheter, makr
 
 Frontend konsumerer kun normaliserte interne objekter, aldri rå ekstern API-respons.
 
+## Go-live-styring
+
+Den aktive beta- og go-live-planen ligger i [docs/go-live-sprint-plan.md](./docs/go-live-sprint-plan.md). Sprint 0 ble startet 20. juli 2026. Status, åpne beslutninger og beviskrav føres i [Sprint 0-kontrollsenteret](./docs/go-live/README.md), med egne registre for betaomfang, risiko, datakilder, KPI-er, personvern/retensjon og kostnader.
+
+Et opprettet register betyr ikke at punktet er godkjent. K1- og K2-kostnader, produksjonsaktivering og ekte modellbruk krever de uttrykkelige portbeslutningene i go-live-planen.
+
 ## Lokal oppstart
 
 1. Kopier `.env.example` til `.env`

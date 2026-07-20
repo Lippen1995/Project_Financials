@@ -2,6 +2,8 @@
 
 **Status:** Aktiv arbeidsplan
 
+**Nåværende fase:** Sprint 0 startet 20. juli 2026. Se [Sprint 0-kontrollsenteret](./go-live/README.md).
+
 **Opprettet:** 20. juli 2026
 
 **Planansvarlig:** CEO / produkteier
@@ -65,6 +67,10 @@ Alle beløp skal verifiseres mot gjeldende leverandørpriser før bestilling. In
 | GL-009 | Bekreft at OCR ikke er produksjonsavhengighet. | Teknisk | Arkitektur og backlog viser strukturert Brreg-data som hovedløp. |
 
 **Godkjenningskriterium:** Ingen kritisk beslutning kan skyves videre uten navngitt eier og dato.
+
+### Sprint 0-status
+
+Sprinten er startet på K0-nivå. Charter og styringsregistre er opprettet, men sprinten er ikke godkjent: personnavn, formelle beslutninger, personverngrunnlag og bevis for et OCR-uavhengig betaforløp mangler fortsatt. Løpende status og bevis føres i [Sprint 0-kontrollsenteret](./go-live/README.md).
 
 ## 6. Sprint 1 – sikkerhet og release uten nye kostnader
 
