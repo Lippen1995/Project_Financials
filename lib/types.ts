@@ -7,6 +7,15 @@ export type SourceMetadata = {
   rawPayload?: unknown;
 };
 
+/** JSON-safe provenance for records crossing an API/client boundary. */
+export type SerializableSourceMetadata = {
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: string;
+  normalizedAt: string;
+};
+
 export type DataAvailability = {
   available: boolean;
   message?: string;

@@ -1,22 +1,51 @@
 import { prisma } from "@/lib/prisma";
+import { findChainProfile } from "@/server/franchise/chain-service";
 import { ingestStructuredFinancialsForCompany } from "@/server/services/structured-financials-service";
 
 type CliOptions = {
   limit: number | null;
   delayMs: number;
   orgNumbers: string[];
+  chainQuery: string | null;
   refresh: boolean;
 };
 
 function parseCliOptions(argv: string[]): CliOptions {
-  const options: CliOptions = { limit: null, delayMs: 400, orgNumbers: [], refresh: false };
+  const options: CliOptions = {
+    limit: null,
+    delayMs: 400,
+    orgNumbers: [],
+    chainQuery: null,
+    refresh: false,
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--limit") options.limit = Number(argv[++index]);
-    else if (arg === "--delay-ms") options.delayMs = Number(argv[++index]);
-    else if (arg === "--org") options.orgNumbers.push(argv[++index]);
+    const nextValue = () => {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error(`${arg} krever en verdi.`);
+      }
+      index += 1;
+      return value;
+    };
+
+    if (arg === "--limit") options.limit = Number(nextValue());
+    else if (arg === "--delay-ms") options.delayMs = Number(nextValue());
+    else if (arg === "--org") options.orgNumbers.push(nextValue());
+    else if (arg === "--chain") options.chainQuery = nextValue();
     else if (arg === "--refresh") options.refresh = true;
     else throw new Error(`Ukjent argument: ${arg}`);
+  }
+
+  if (options.limit !== null && (!Number.isInteger(options.limit) || options.limit <= 0)) {
+    throw new Error("--limit må være et positivt heltall.");
+  }
+  if (!Number.isInteger(options.delayMs) || options.delayMs < 0) {
+    throw new Error("--delay-ms må være et ikke-negativt heltall.");
+  }
+  const invalidOrgNumber = options.orgNumbers.find((orgNumber) => !/^\d{9}$/.test(orgNumber));
+  if (invalidOrgNumber) {
+    throw new Error(`Ugyldig organisasjonsnummer: ${invalidOrgNumber}.`);
   }
   return options;
 }
@@ -27,10 +56,18 @@ function sleep(ms: number) {
 
 async function main() {
   const options = parseCliOptions(process.argv.slice(2));
+  const chainProfile = options.chainQuery
+    ? await findChainProfile(options.chainQuery)
+    : null;
+  if (options.chainQuery && !chainProfile) {
+    throw new Error(`Fant ingen kjede som matcher «${options.chainQuery}».`);
+  }
+  const chainOrgNumbers = chainProfile?.operators.map((operator) => operator.orgNumber) ?? [];
+  const requestedOrgNumbers = [...new Set([...options.orgNumbers, ...chainOrgNumbers])];
 
   const companies = await prisma.company.findMany({
     where: {
-      ...(options.orgNumbers.length ? { orgNumber: { in: options.orgNumbers } } : {}),
+      ...(requestedOrgNumbers.length ? { orgNumber: { in: requestedOrgNumbers } } : {}),
       // Resume: skip companies that already carry a structured statement,
       // unless --refresh (new filings arrive continuously through the year).
       ...(options.refresh || options.orgNumbers.length
@@ -46,7 +83,9 @@ async function main() {
     ...(options.limit ? { take: options.limit } : {}),
   });
 
-  console.log(`Structured ingestion: ${companies.length} selskaper (delay ${options.delayMs}ms)`);
+  console.log(
+    `Structured ingestion: ${companies.length} selskaper${chainProfile ? ` i ${chainProfile.name}` : ""} (delay ${options.delayMs}ms)`,
+  );
 
   let published = 0;
   let skippedReviewed = 0;

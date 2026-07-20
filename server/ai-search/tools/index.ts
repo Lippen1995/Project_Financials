@@ -3,6 +3,7 @@ import { resolveCompanyTool } from "./resolve-company";
 import { companyProfileTool } from "./company-profile";
 import { findComparablesTool } from "./find-comparables";
 import { findByBusinessTool } from "./find-by-business";
+import { getChainFinancialsTool } from "./get-chain-financials";
 
 /**
  * The retrieval tool registry the agent is given. v1 covers the competitors path end-to-end:
@@ -15,6 +16,7 @@ export const retrievalTools: RetrievalTool[] = [
   companyProfileTool as RetrievalTool,
   findComparablesTool as RetrievalTool,
   findByBusinessTool as RetrievalTool,
+  getChainFinancialsTool as RetrievalTool,
 ];
 
 export const retrievalToolsByName: Record<string, RetrievalTool> = Object.fromEntries(
@@ -25,4 +27,5 @@ export { resolveCompanyTool } from "./resolve-company";
 export { companyProfileTool } from "./company-profile";
 export { findComparablesTool } from "./find-comparables";
 export { findByBusinessTool } from "./find-by-business";
+export { getChainFinancialsTool } from "./get-chain-financials";
 export * from "./types";

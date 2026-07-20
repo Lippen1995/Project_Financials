@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 export type ChainSummary = {
   slug: string;
   name: string;
+  nameKey: string;
   naceCode: string | null;
   naceDescription: string | null;
   storeCount: number;
@@ -18,6 +19,7 @@ export type ChainSummary = {
   operatorCount: number;
   municipalityCount: number;
   confidence: number | null;
+  builtAt: Date;
 };
 
 export type ChainStore = {
@@ -61,13 +63,15 @@ export async function listChains(
     SELECT
       "slug",
       "name",
+      "nameKey",
       "naceCode",
       "naceDescription",
       "storeCount",
       "activeStoreCount",
       "operatorCount",
       "municipalityCount",
-      "confidence"::float8 AS "confidence"
+      "confidence"::float8 AS "confidence",
+      "builtAt"
     FROM "RetailChain"
     WHERE TRUE
     ${naceFilter}
@@ -87,13 +91,15 @@ export async function getChainProfile(slug: string): Promise<ChainProfile | null
       "id",
       "slug",
       "name",
+      "nameKey",
       "naceCode",
       "naceDescription",
       "storeCount",
       "activeStoreCount",
       "operatorCount",
       "municipalityCount",
-      "confidence"::float8 AS "confidence"
+      "confidence"::float8 AS "confidence",
+      "builtAt"
     FROM "RetailChain"
     WHERE "slug" = ${slug}
     LIMIT 1
@@ -122,13 +128,14 @@ export async function getChainProfile(slug: string): Promise<ChainProfile | null
   const operators = await prisma.$queryRaw<ChainOperator[]>(Prisma.sql`
     SELECT
       m."operatorOrgNumber" AS "orgNumber",
-      c."name" AS "name",
+      COALESCE(re."name", c."name") AS "name",
       count(*)::int AS "storeCount"
     FROM "ChainMembership" m
+    LEFT JOIN "RegistryEntity" re ON re."orgNumber" = m."operatorOrgNumber"
     LEFT JOIN "Company" c ON c."orgNumber" = m."operatorOrgNumber"
     WHERE m."chainId" = ${chain.id} AND m."operatorOrgNumber" IS NOT NULL
-    GROUP BY m."operatorOrgNumber", c."name"
-    ORDER BY count(*) DESC, c."name" ASC
+    GROUP BY m."operatorOrgNumber", re."name", c."name"
+    ORDER BY count(*) DESC, COALESCE(re."name", c."name") ASC
   `);
 
   const { id: _id, ...summary } = chain;
@@ -141,17 +148,71 @@ export async function getChainForSubunit(orgNumber: string): Promise<ChainSummar
     SELECT
       rc."slug",
       rc."name",
+      rc."nameKey",
       rc."naceCode",
       rc."naceDescription",
       rc."storeCount",
       rc."activeStoreCount",
       rc."operatorCount",
       rc."municipalityCount",
-      rc."confidence"::float8 AS "confidence"
+      rc."confidence"::float8 AS "confidence",
+      rc."builtAt"
     FROM "ChainMembership" m
     JOIN "RetailChain" rc ON rc."id" = m."chainId"
     WHERE m."subunitOrgNumber" = ${orgNumber}
     LIMIT 1
   `);
   return rows[0] ?? null;
+}
+
+function compactChainText(value: string): string {
+  return value
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9æøå]+/g, "");
+}
+
+function chainMatchScore(query: string, chain: ChainSummary): number {
+  const compactQuery = compactChainText(query);
+  const candidates = [chain.name, chain.nameKey, chain.slug]
+    .map(compactChainText)
+    .filter(Boolean);
+  if (candidates.some((candidate) => compactQuery === candidate)) return 1_000;
+
+  const embeddedLength = candidates
+    .filter((candidate) => compactQuery.includes(candidate))
+    .reduce((best, candidate) => Math.max(best, candidate.length), 0);
+  if (embeddedLength > 0) return 800 + embeddedLength;
+
+  const queryTokens = new Set(
+    query
+      .normalize("NFKD")
+      .toLowerCase()
+      .match(/[a-z0-9æøå]+/g) ?? [],
+  );
+  const chainTokens = chain.nameKey
+    .normalize("NFKD")
+    .toLowerCase()
+    .match(/[a-z0-9æøå]+/g) ?? [];
+  const overlap = chainTokens.filter((token) => queryTokens.has(token)).length;
+  return overlap > 0 ? (overlap / chainTokens.length) * 100 : 0;
+}
+
+/** Select the most specific discovered chain mentioned in a natural-language question. */
+export function selectChainForQuery(
+  query: string,
+  chains: ChainSummary[],
+): ChainSummary | null {
+  return (
+    chains
+      .map((chain) => ({ chain, score: chainMatchScore(query, chain) }))
+      .filter((candidate) => candidate.score > 0)
+      .sort((a, b) => b.score - a.score || b.chain.storeCount - a.chain.storeCount)[0]?.chain ?? null
+  );
+}
+
+/** Resolve a natural-language chain reference and load every known operating company. */
+export async function findChainProfile(query: string): Promise<ChainProfile | null> {
+  const chain = selectChainForQuery(query, await listChains({ limit: MAX_LIST_LIMIT }));
+  return chain ? getChainProfile(chain.slug) : null;
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { NormalizedCompany } from "@/lib/types";
+import type { NormalizedCompany, SerializableSourceMetadata } from "@/lib/types";
 
 /**
  * Compact company reference the retrieval tools hand back to the agent. Deliberately small:
@@ -33,6 +33,7 @@ export type FinancialSnapshot = {
   netIncome: number | null;
   equity: number | null;
   assets: number | null;
+  provenance: SerializableSourceMetadata;
 };
 
 /**

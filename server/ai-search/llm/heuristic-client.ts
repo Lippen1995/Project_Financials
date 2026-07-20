@@ -50,6 +50,9 @@ function extractCompanyName(query: string): string {
   return (m ? m[1] : query).replace(/[?.!]+$/, "").trim();
 }
 
+const CHAIN_ANALYSIS = /\b(franchise\w*|kjede\w*|chain\w*|butikk\w*|utsalg\w*|operatør\w*)\b/i;
+const EXPLICIT_PLOT = /\b(plott|plot|tegn|visualiser|visualize|scatter|spredningsdiagram)\b|[xy][ -]?aks/i;
+
 export class HeuristicLlmClient implements LlmClient {
   readonly model = "rule-based-no-cost";
 
@@ -60,6 +63,13 @@ export class HeuristicLlmClient implements LlmClient {
 
     // Budget-forced synthesis, or all steps done → produce the final answer.
     if (options.toolChoice === "none") return this.finalAnswer(messages);
+
+    if (CHAIN_ANALYSIS.test(query)) {
+      if (!called.has("get_chain_financials")) {
+        return this.wantsTool(toolCall("get_chain_financials", { chainQuery: query }));
+      }
+      return this.finalAnswer(messages);
+    }
 
     if (!called.has("resolve_company")) {
       return this.wantsTool(toolCall("resolve_company", { nameHint: extractCompanyName(query) }));
@@ -85,6 +95,39 @@ export class HeuristicLlmClient implements LlmClient {
   }
 
   private finalAnswer(messages: LlmMessage[]): LlmRunResult {
+    const query = firstUserQuery(messages);
+    const chainResult = resultOf(messages, "get_chain_financials");
+    if (chainResult) {
+      const chain = chainResult.chain;
+      if (!chain) {
+        return {
+          content: "Jeg fant ingen utledet kjede som matcher spørsmålet i dagens Brønnøysund-grunnlag.",
+          toolCalls: [],
+          usage: { inputTokens: 0, outputTokens: 0 },
+        };
+      }
+
+      const coverage = chainResult.coverage ?? {};
+      const plotted = coverage.plottableCount ?? 0;
+      const withLatestFinancials = coverage.withLatestFinancials ?? 0;
+      const operators = coverage.operatorCount ?? 0;
+      const action = plotted === 0
+        ? "Jeg kan ikke plotte den forespurte grafen fordi ingen operatørselskaper har tilstrekkelige, sammenlignbare regnskapstall."
+        : EXPLICIT_PLOT.test(query)
+        ? "Jeg har klargjort den forespurte grafen."
+        : "Jeg foreslår å plotte nettomargin mot omsetning for å sammenligne både lønnsomhet og størrelse.";
+      return {
+        content: [
+          `${chain.name}: ${chain.storeCount} utsalgssteder er utledet som koblet til ${operators} operatørselskaper.`,
+          action,
+          `${withLatestFinancials} av ${operators} har siste regnskap. ${plotted} har sammenlignbare NOK-verdier for standardgrafen; manglende verdier er utelatt, ikke satt til null.`,
+          "Operatørtilhørigheten er utledet fra Brønnøysundregistrenes underenhetsnavn og er ikke et offisielt franchisefelt.",
+        ].join("\n\n"),
+        toolCalls: [],
+        usage: { inputTokens: 0, outputTokens: 0 },
+      };
+    }
+
     const profile = resultOf(messages, "get_company_profile")?.profile ?? null;
     const matches: Array<{ orgNumber: string; companyName: string | null; businessSummary: string | null }> =
       resultOf(messages, "find_by_business")?.matches ?? [];

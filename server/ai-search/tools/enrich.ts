@@ -26,6 +26,13 @@ function toSnapshot(s: NormalizedFinancialStatement): FinancialSnapshot {
     netIncome: s.netIncome ?? null,
     equity: s.equity ?? null,
     assets: s.assets ?? null,
+    provenance: {
+      sourceSystem: s.sourceSystem,
+      sourceEntityType: s.sourceEntityType,
+      sourceId: s.sourceId,
+      fetchedAt: s.fetchedAt.toISOString(),
+      normalizedAt: s.normalizedAt.toISOString(),
+    },
   };
 }
 
@@ -63,6 +70,11 @@ export async function getLatestFinancialsByOrgNumbers(
           netIncome: true,
           equity: true,
           assets: true,
+          sourceSystem: true,
+          sourceEntityType: true,
+          sourceId: true,
+          fetchedAt: true,
+          normalizedAt: true,
         },
       },
     },
@@ -79,6 +91,13 @@ export async function getLatestFinancialsByOrgNumbers(
       netIncome: bigIntToNumber(latest.netIncome),
       equity: bigIntToNumber(latest.equity),
       assets: bigIntToNumber(latest.assets),
+      provenance: {
+        sourceSystem: latest.sourceSystem,
+        sourceEntityType: latest.sourceEntityType,
+        sourceId: latest.sourceId,
+        fetchedAt: latest.fetchedAt.toISOString(),
+        normalizedAt: latest.normalizedAt.toISOString(),
+      },
     });
   }
 

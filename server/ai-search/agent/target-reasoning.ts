@@ -125,6 +125,12 @@ export function buildTargetReasoningPrompt(options: BuildTargetReasoningPromptOp
     "For each shortlisted target give: the strategic thesis it serves, the concrete grounded facts behind " +
       "it (with the numbers), its acquirability, any deal-feasibility flags, the key risks, and your " +
       "confidence given data coverage.",
+    "Visualization workflow: for retail-chain or franchise questions, call get_chain_financials with " +
+      "the chain reference. If the user explicitly asks to plot, graph or place metrics on axes, retrieve " +
+      "the data and explain the requested visualization. If the user asks to compare profitability without " +
+      "requesting a graph, suggest plotting net margin against revenue. Never fill missing financials with " +
+      "zero, and state that chain membership is derived from Brønnøysund subunit names rather than an " +
+      "official franchise field.",
     "Grounding and breadth rules:\n" + rules,
   ].join("\n\n");
 }

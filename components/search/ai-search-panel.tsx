@@ -11,12 +11,15 @@ import {
 } from "react";
 import type { Route } from "next";
 import type { CompanySearchRow } from "@/lib/company-search-sort";
+import type { NjordVisualization } from "@/lib/njord-visualization";
 import { useRouter, useSearchParams } from "next/navigation";
+import { NjordScatterplot } from "./njord-scatterplot";
 
 type ChatMessage = {
   id: string;
   role: "assistant" | "user";
   content: string;
+  visualization?: NjordVisualization | null;
 };
 
 export type AiSearchUsageSummary = {
@@ -195,11 +198,20 @@ export function AiSearchPanel({
         error?: string;
         quota?: AiSearchUsageSummary;
         companies?: CompanySearchRow[];
+        visualization?: NjordVisualization | null;
       };
       const content = res.ok
         ? (data.answer ?? "Fant ikke noe svar.")
         : (data.error ?? "Noe gikk galt med AI-søket.");
-      setMessages((prev) => [...prev, { id: `a-${turn}`, role: "assistant", content }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${turn}`,
+          role: "assistant",
+          content,
+          visualization: res.ok ? (data.visualization ?? null) : null,
+        },
+      ]);
       if (data.quota) setUsage(data.quota);
       // Let the agent's ranked companies take over the result table.
       if (res.ok && data.companies) onCompanies?.(data.companies);
@@ -352,7 +364,11 @@ export function AiSearchPanel({
         {messages.map((message) => (
           <div
             key={message.id}
-            className={message.role === "user" ? "flex justify-end" : "flex justify-start"}
+            className={
+              message.role === "user"
+                ? "flex justify-end"
+                : "flex w-full flex-col items-start"
+            }
           >
             <div
               className={`max-w-[85%] whitespace-pre-wrap px-3.5 py-2.5 text-sm leading-6 ${
@@ -363,6 +379,9 @@ export function AiSearchPanel({
             >
               {message.content}
             </div>
+            {message.role === "assistant" && message.visualization && (
+              <NjordScatterplot visualization={message.visualization} />
+            )}
           </div>
         ))}
         {isLoading && (
