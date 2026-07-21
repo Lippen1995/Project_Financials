@@ -8,6 +8,7 @@
 export type LlmToolDefinition = {
   name: string;
   description: string;
+  strict?: boolean;
   /** JSON Schema for the tool arguments (from each RetrievalTool's `parameters`). */
   parameters: Record<string, unknown>;
 };
@@ -30,14 +31,20 @@ export type LlmRunResult = {
   content: string | null;
   /** Tool calls the model wants executed; empty when the model produced a final answer. */
   toolCalls: LlmToolCall[];
-  usage?: { inputTokens: number; outputTokens: number };
+  usage?: {
+    inputTokens: number;
+    cachedInputTokens?: number;
+    outputTokens: number;
+    model?: string;
+    sourceId?: string;
+  };
 };
 
 export type LlmRunOptions = {
   messages: LlmMessage[];
   tools: LlmToolDefinition[];
   /** Force the model to stop calling tools and answer (final synthesis turn). */
-  toolChoice?: "auto" | "none";
+  toolChoice?: "auto" | "required" | "none";
   temperature?: number;
 };
 

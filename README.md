@@ -158,7 +158,7 @@ Goldsett-eksporten rapporterer dekning separat for direkte selskapsnyheter, makr
 - Finanspanelet i virksomhetssøket viser inntekter, EBIT og årsresultat fra siste publiserte, normaliserte regnskapsår. EBITDA og antall ansatte for selve regnskapsåret er ikke normalisert i dagens kilde og vises derfor som `Ikke tilgjengelig`; ansattetallet i trefflisten er siste registrerte antall fra Brønnøysundregistrene.
 - Konsernansatte i virksomhetssøket summerer morselskapet og kontrollerte datterselskaper (over 50 prosent eierskap) fra siste tilgjengelige, årsbundne eierskapssnapshot. Ansattetallene kommer fra Brønnøysundregistrene. Hvis et konsernselskap mangler ansattetall eller traverseringen treffer en sikkerhetsgrense, vises summen som `minst`; ved oppslagsfeil vises konserntallet som midlertidig utilgjengelig.
 - AI-søk krever Premium og har en månedlig tokenkvote forankret i datoen abonnementet startet (`Subscription.billingAnchorAt`). Betalingsintegrasjonen må lagre denne autoritative datoen ved aktivering; Fjord Insight utleder den ikke fra mutable abonnementstidsstempler. Faktisk input-, cache- og outputbruk fra OpenAI lagres med søkehendelsen og vises som kostnadsvektede forbrukstokens på siden «Søk og analysehistorikk»; valuta vises ikke i produktflaten. Kvoten håndheves før AI-tolkningen, mens registersøket fortsatt henter reelle virksomheter fra Brreg.
-- Njord-chatpanelet er foreløpig kun et UI-skall. Samtalen er ikke koblet til en språkmodell ennå, og krever derfor ikke `OPENAI_API_KEY`.
+- Njord-agenten bruker en ekte OpenAI-modell når `AI_SEARCH_BILLING_ENABLED=true`, `OPENAI_API_KEY` er satt og brukeren har Premium med tilgjengelig tokenkvote. Uten dette svarer endepunktet at Njord ikke er aktivert; det finnes ingen regelbasert svarfallback. Modellen har kun tilgang til eksplisitte interne verktøy; juridisk, regnskapsfaglig og regulatorisk kunnskap hentes fra et lokalt, versjonert korpus uten internettsøk i brukerflyten. Første aktive kildeadapter er Stortingets åpne data. Lovdata, NRS, EUR-Lex og EEA-Lex krever fortsatt avklarte kilde-/lisensvilkår og egne synkjobber før Njord kan hevde full dekning. Se [Njord offline kunnskapsgrunnlag](docs/njord-offline-knowledge.md).
 - Distress-monitorer matcher bare selskaper som allerede finnes i Fjord Insight-lageret lokalt. Fjord Insight hevder ikke full nasjonal dekning dersom selskapet ikke er hentet eller lagret ennå.
 - Distress-tidslinjen på oversiktssiden bruker `lastAnnouncementPublishedAt` (siste registrerte kunngjøringsdato per profil), ikke full historikk av alle kunngjøringer.
 - Distress-KPI for regnskapsdekning teller profiler med dataCoverage `FINANCIALS_AVAILABLE` eller `FINANCIALS_PARTIAL`.
@@ -863,6 +863,7 @@ Dette vil:
 - `PROJECTX_CACHE_HOURS`: antall timer før cache oppfriskes
 - `OPENAI_API_KEY`: API-nøkkel brukt til å tolke fritekstsøk
 - `OPENAI_SEARCH_MODEL`: modellnavn for søketolkning, standard `gpt-5-mini`
+- `AI_SEARCH_BILLING_ENABLED`: sett til `true` for å aktivere ekte Njord-modell med Premium- og tokenkvotegate; standard er `false`
 - `CRON_SECRET`: bearer-secret for Vercel Cron, blant annet daglig sletting av søkehistorikk eldre enn 30 dager
 - `FINANCIALS_SYNC_SECRET`: delt secret for intern annual-report cron/scheduler
 - `WORKSPACE_SYNC_SECRET`: delt secret for intern workspace-sync-endepunkt i produksjon

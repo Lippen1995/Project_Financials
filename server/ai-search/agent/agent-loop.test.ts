@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { defineTool, type RetrievalTool } from "@/server/ai-search/tools/types";
 import { ScriptedLlmClient, type ScriptedTurn } from "@/server/ai-search/llm/scripted-client";
+import { routeNjordRequestTool } from "@/server/ai-search/tools/route-request";
 import { runAgent } from "./agent-loop";
 
 // Stub tools — no DB, no network. They mimic the real tools' shapes just enough for the loop.
@@ -24,15 +25,35 @@ const profileStub = defineTool({
   execute: async ({ orgNumber }) => ({ profile: { orgNumber, name: "ACME", businessSummary: "does things" } }),
 });
 
+const knowledgeStub = defineTool({
+  name: "search_norwegian_law",
+  description: "law",
+  inputSchema: z.object({ query: z.string() }),
+  parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"], additionalProperties: false },
+  execute: async () => ({
+    coverage: { resultCount: 1, sufficient: true },
+    results: [{ citationId: "knowledge:law-1:chunk-1", title: "Offisiell kilde" }],
+  }),
+});
+
 const tools = [resolveStub as RetrievalTool, profileStub as RetrievalTool];
 const PROMPT = "system";
 
 describe("runAgent", () => {
   it("runs tool calls then returns a final answer, collecting grounded org numbers", async () => {
     const llm = new ScriptedLlmClient([
-      { toolCalls: [{ name: "resolve_company", arguments: { nameHint: "Fjord Defence" } }] },
-      { toolCalls: [{ name: "get_company_profile", arguments: { orgNumber: "917811288" } }] },
-      { content: "Top target: FJORD DEFENCE GROUP ASA (917811288)." },
+      {
+        toolCalls: [{ name: "resolve_company", arguments: { nameHint: "Fjord Defence" } }],
+        usage: { inputTokens: 100, cachedInputTokens: 20, outputTokens: 10, model: "test-model", sourceId: "call-1" },
+      },
+      {
+        toolCalls: [{ name: "get_company_profile", arguments: { orgNumber: "917811288" } }],
+        usage: { inputTokens: 200, cachedInputTokens: 30, outputTokens: 20, model: "test-model", sourceId: "call-2" },
+      },
+      {
+        content: "Top target: FJORD DEFENCE GROUP ASA (917811288).",
+        usage: { inputTokens: 300, cachedInputTokens: 40, outputTokens: 30, model: "test-model", sourceId: "call-3" },
+      },
     ]);
 
     const result = await runAgent({ llm, tools, systemPrompt: PROMPT, userQuery: "targets for Fjord Defence" });
@@ -43,6 +64,13 @@ describe("runAgent", () => {
     expect(result.invocations.every((i) => i.ok)).toBe(true);
     expect(result.groundedOrgNumbers).toContain("917811288");
     expect(result.ungroundedOrgNumbersInAnswer).toEqual([]);
+    expect(result.usage).toEqual({
+      inputTokens: 600,
+      cachedInputTokens: 90,
+      outputTokens: 60,
+      model: "test-model",
+      sourceIds: ["call-1", "call-2", "call-3"],
+    });
     // First turn must have carried system + user messages to the client.
     expect(llm.received[0].messages[0]).toEqual({ role: "system", content: "system" });
   });
@@ -95,5 +123,67 @@ describe("runAgent", () => {
     const result = await runAgent({ llm, tools, systemPrompt: PROMPT, userQuery: "q" });
     expect(result.invocations[0]).toMatchObject({ name: "no_such_tool", ok: false, error: "unknown tool" });
     expect(result.answer).toBe("done");
+  });
+
+  it("rejects a knowledge answer that omits the tool-provided citation", async () => {
+    const llm = new ScriptedLlmClient([
+      { toolCalls: [{ name: "search_norwegian_law", arguments: { query: "aksjeloven" } }] },
+      { content: "Dette gjelder etter aksjeloven." },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools: [knowledgeStub as RetrievalTool],
+      systemPrompt: PROMPT,
+      userQuery: "Hva gjelder?",
+    });
+
+    expect(result.answer).toMatch(/kunne ikke produsere et svar med gyldige kildehenvisninger/i);
+    expect(llm.received[0].toolChoice).toBe("required");
+  });
+
+  it("allows a knowledge answer citing an exact citationId from the tool result", async () => {
+    const llm = new ScriptedLlmClient([
+      { toolCalls: [{ name: "search_norwegian_law", arguments: { query: "aksjeloven" } }] },
+      { content: "Kilden støtter svaret (knowledge:law-1:chunk-1)." },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools: [knowledgeStub as RetrievalTool],
+      systemPrompt: PROMPT,
+      userQuery: "Hva gjelder?",
+    });
+
+    expect(result.answer).toBe("Kilden støtter svaret (knowledge:law-1:chunk-1).");
+  });
+
+  it("uses LLM routing to restrict a legal request to knowledge tools", async () => {
+    const llm = new ScriptedLlmClient([
+      {
+        toolCalls: [{
+          name: "route_njord_request",
+          arguments: { intent: "NORWEGIAN_LAW", reason: "Spørsmålet gjelder lov." },
+        }],
+      },
+      { toolCalls: [{ name: "search_norwegian_law", arguments: { query: "aksjeloven" } }] },
+      { content: "Kilden støtter svaret (knowledge:law-1:chunk-1)." },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools: [
+        routeNjordRequestTool as RetrievalTool,
+        knowledgeStub as RetrievalTool,
+        profileStub as RetrievalTool,
+      ],
+      systemPrompt: PROMPT,
+      userQuery: "Hva sier aksjeloven?",
+    });
+
+    expect(llm.received[0].tools.map((tool) => tool.name)).toEqual(["route_njord_request"]);
+    expect(llm.received[1].tools.map((tool) => tool.name)).toEqual(["search_norwegian_law"]);
+    expect(llm.received[1].toolChoice).toBe("required");
+    expect(result.answer).toContain("knowledge:law-1:chunk-1");
   });
 });

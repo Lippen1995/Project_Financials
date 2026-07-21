@@ -13,6 +13,8 @@ export type ScriptedTurn = {
   content?: string | null;
   /** Tool calls to request this turn; arguments are objects (serialized to JSON for the loop). */
   toolCalls?: Array<{ name: string; arguments: Record<string, unknown> }>;
+  /** Optional provider usage for testing multi-turn aggregation. */
+  usage?: LlmRunResult["usage"];
 };
 
 export class ScriptedLlmClient implements LlmClient {
@@ -41,7 +43,7 @@ export class ScriptedLlmClient implements LlmClient {
     return {
       content: turn.content ?? (toolCalls.length > 0 ? null : ""),
       toolCalls,
-      usage: { inputTokens: 0, outputTokens: 0 },
+      usage: turn.usage ?? { inputTokens: 0, outputTokens: 0 },
     };
   }
 }

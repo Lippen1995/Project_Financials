@@ -4034,3 +4034,128 @@ model AiSearchUsageEvent {
   @@index([userId, occurredAt(sort: Desc)])
   @@index([status, expiresAt])
 }
+
+enum KnowledgeJurisdiction {
+  NO
+  EU
+  EEA
+  INTERNATIONAL
+}
+
+enum KnowledgeDomain {
+  NORWEGIAN_LAW
+  ACCOUNTING
+  IFRS
+  EU_EEA_LAW
+  BUSINESS_POLICY
+}
+
+enum KnowledgeDocumentType {
+  LAW
+  REGULATION
+  ACCOUNTING_STANDARD
+  BOOKKEEPING_STANDARD
+  IFRS_STANDARD
+  EU_ACT
+  EEA_DECISION
+  PROPOSITION
+  HEARING
+  BUDGET_MEASURE
+  PARLIAMENT_DECISION
+  OFFICIAL_GUIDANCE
+  OTHER
+}
+
+enum KnowledgeLegalStatus {
+  DRAFT
+  PROPOSED
+  HEARING
+  ADOPTED
+  IN_FORCE
+  REPEALED
+  SUPERSEDED
+  WITHDRAWN
+  LAPSED
+  UNKNOWN
+}
+
+enum EeaIncorporationStatus {
+  NOT_ASSESSED
+  NOT_RELEVANT
+  UNDER_SCRUTINY
+  PENDING
+  INCORPORATED
+}
+
+enum NorwayImplementationStatus {
+  NOT_ASSESSED
+  NOT_REQUIRED
+  PENDING
+  IMPLEMENTED
+}
+
+/// Versioned, authoritative business knowledge mirrored for query-time offline retrieval.
+/// No user-facing answer should treat a row as current without checking the legal status and
+/// effective interval against the date in question.
+model KnowledgeDocument {
+  id               String                @id @default(cuid())
+  externalId       String
+  versionKey       String
+  title            String
+  shortTitle       String?
+  description      String?
+  authority        String
+  jurisdiction     KnowledgeJurisdiction
+  domain           KnowledgeDomain
+  documentType     KnowledgeDocumentType
+  legalStatus      KnowledgeLegalStatus  @default(UNKNOWN)
+  language         String                @default("nb")
+  sourceUrl        String
+  publishedAt      DateTime?
+  adoptedAt        DateTime?
+  effectiveFrom    DateTime?
+  effectiveTo      DateTime?
+  eeaIncorporationStatus EeaIncorporationStatus @default(NOT_ASSESSED)
+  eeaDecisionReference String?
+  eeaIncorporatedAt DateTime?
+  eeaEffectiveFrom DateTime?
+  norwayImplementationStatus NorwayImplementationStatus @default(NOT_ASSESSED)
+  norwayImplementingReference String?
+  norwayImplementedAt DateTime?
+  lastVerifiedAt   DateTime
+  checksum         String
+  sourceSystem     String
+  sourceEntityType String
+  sourceId         String
+  fetchedAt        DateTime
+  normalizedAt     DateTime
+  rawPayload       Json?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  chunks           KnowledgeChunk[]
+
+  @@unique([sourceSystem, sourceId, versionKey])
+  @@index([externalId, effectiveFrom])
+  @@index([domain, jurisdiction, legalStatus])
+  @@index([effectiveFrom, effectiveTo])
+  @@index([lastVerifiedAt])
+}
+
+/// Retrieval-sized provision/section from an official knowledge document. `searchVector` is a
+/// generated PostgreSQL tsvector maintained by the migration and therefore never written by Prisma.
+model KnowledgeChunk {
+  id             String   @id @default(cuid())
+  documentId     String
+  chunkIndex     Int
+  heading        String?
+  provisionRef   String?
+  content        String
+  tokenEstimate  Int
+  searchVector   Unsupported("tsvector")?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  document       KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId, provisionRef])
+}

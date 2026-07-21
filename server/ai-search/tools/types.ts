@@ -172,6 +172,8 @@ export function toAgentCompanyRef(company: NormalizedCompany): AgentCompanyRef {
 export type RetrievalTool<TInput = unknown, TOutput = unknown> = {
   name: string;
   description: string;
+  /** Enables provider-level strict function schemas when every property is required. */
+  strict?: boolean;
   inputSchema: z.ZodType<TInput>;
   parameters: Record<string, unknown>;
   execute: (input: TInput) => Promise<TOutput>;

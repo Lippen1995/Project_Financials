@@ -118,6 +118,7 @@
     "inspect:shareholder-register": "tsx scripts/inspect-shareholder-register-import.ts",
     "ownership:build-edges": "tsx scripts/build-ownership-edges.ts",
     "franchise:discover-chains": "tsx scripts/discover-retail-chains.ts",
+    "knowledge:sync-stortinget": "tsx scripts/sync-stortinget-business-policy.ts",
     "news:sync": "tsx scripts/sync-news.ts",
     "news:intelligence:sync-sources": "tsx scripts/sync-company-event-sources.ts",
     "news:intelligence:sync-issuers": "tsx scripts/sync-newsweb-issuer-registry.ts",

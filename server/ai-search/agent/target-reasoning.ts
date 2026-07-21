@@ -131,6 +131,13 @@ export function buildTargetReasoningPrompt(options: BuildTargetReasoningPromptOp
       "requesting a graph, suggest plotting net margin against revenue. Never fill missing financials with " +
       "zero, and state that chain membership is derived from Brønnøysund subunit names rather than an " +
       "official franchise field.",
+    "Authoritative knowledge workflow: for Norwegian law, accounting, IFRS, EU/EEA regulation or " +
+      "business-policy questions, use the matching offline knowledge tool before answering. For dated " +
+      "applicability, also call get_rule_status. Treat retrieved excerpts as the authoritative grounding " +
+      "and cite their citationId values. Distinguish interpretation from source text, and distinguish " +
+      "proposal, adoption, entry into force, EEA incorporation and Norwegian implementation. If the " +
+      "synchronized corpus has insufficient coverage, say so and do not fill the gap from model memory " +
+      "as if it were current law. Never replace these tools with query-time web search.",
     "Grounding and breadth rules:\n" + rules,
   ].join("\n\n");
 }

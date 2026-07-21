@@ -35,11 +35,42 @@ export type AgentResult = {
   groundedOrgNumbers: string[];
   /** 9-digit org numbers cited in the answer that were NOT in any tool result (a grounding leak). */
   ungroundedOrgNumbersInAnswer: string[];
-  usage: { inputTokens: number; outputTokens: number };
+  usage: {
+    inputTokens: number;
+    cachedInputTokens: number;
+    outputTokens: number;
+    model: string | null;
+    sourceIds: string[];
+  };
   stopReason: AgentStopReason;
 };
 
 const ORGNR_IN_TEXT = /\b\d{9}\b/g;
+const KNOWLEDGE_CITATION_IN_TEXT = /knowledge:[A-Za-z0-9:_-]+/g;
+const KNOWLEDGE_TOOL_NAMES = new Set([
+  "search_norwegian_law",
+  "search_accounting_guidance",
+  "search_eu_eea_law",
+  "search_business_policy",
+  "get_rule_status",
+]);
+const ROUTING_TOOL_NAME = "route_njord_request";
+const KNOWLEDGE_INTENTS = new Set([
+  "NORWEGIAN_LAW",
+  "ACCOUNTING_OR_IFRS",
+  "EU_EEA_LAW",
+  "BUSINESS_POLICY",
+  "MIXED",
+]);
+
+function allowedToolNamesForIntent(intent: string | null, allNames: Iterable<string>) {
+  if (!intent || intent === "MIXED") return new Set(allNames);
+  if (intent === "NORWEGIAN_LAW") return new Set(["search_norwegian_law", "get_rule_status"]);
+  if (intent === "ACCOUNTING_OR_IFRS") return new Set(["search_accounting_guidance", "get_rule_status"]);
+  if (intent === "EU_EEA_LAW") return new Set(["search_eu_eea_law", "get_rule_status"]);
+  if (intent === "BUSINESS_POLICY") return new Set(["search_business_policy", "get_rule_status"]);
+  return new Set([...allNames].filter((name) => !KNOWLEDGE_TOOL_NAMES.has(name) && name !== ROUTING_TOOL_NAME));
+}
 
 /** Recursively collect values under any `orgNumber` key, so grounding is shape-agnostic. */
 function collectOrgNumbers(value: unknown, into: Set<string>): void {
@@ -55,6 +86,46 @@ function collectOrgNumbers(value: unknown, into: Set<string>): void {
       collectOrgNumbers(val, into);
     }
   }
+}
+
+function collectKnowledgeCitationIds(value: unknown, into: Set<string>): void {
+  if (value == null || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectKnowledgeCitationIds(item, into);
+    return;
+  }
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+    if (key === "citationId" && typeof val === "string" && val.startsWith("knowledge:")) {
+      into.add(val);
+    } else {
+      collectKnowledgeCitationIds(val, into);
+    }
+  }
+}
+
+function enforceKnowledgeGrounding(
+  answer: string | null,
+  toolResults: AgentToolResult[],
+  knowledgeRequired: boolean,
+) {
+  const knowledgeResults = toolResults.filter((result) => KNOWLEDGE_TOOL_NAMES.has(result.name));
+  if (knowledgeResults.length === 0) {
+    return knowledgeRequired
+      ? "Jeg finner ikke tilstrekkelig dekning i Njords synkroniserte, offisielle kunnskapsgrunnlag til å svare forsvarlig."
+      : answer;
+  }
+
+  const allowedCitations = new Set<string>();
+  for (const result of knowledgeResults) collectKnowledgeCitationIds(result.output, allowedCitations);
+  if (allowedCitations.size === 0) {
+    return "Jeg finner ikke tilstrekkelig dekning i Njords synkroniserte, offisielle kunnskapsgrunnlag til å svare forsvarlig.";
+  }
+
+  const cited = answer ? [...new Set(answer.match(KNOWLEDGE_CITATION_IN_TEXT) ?? [])] : [];
+  if (cited.length === 0 || cited.some((citation) => !allowedCitations.has(citation))) {
+    return "Njord fant relevante kilder, men kunne ikke produsere et svar med gyldige kildehenvisninger. Prøv gjerne et mer presist spørsmål.";
+  }
+  return answer;
 }
 
 async function executeCall(
@@ -115,12 +186,14 @@ function finalize(
   invocations: AgentToolInvocation[],
   toolResults: AgentToolResult[],
   grounded: Set<string>,
-  usage: { inputTokens: number; outputTokens: number },
+  usage: AgentResult["usage"],
   stopReason: AgentStopReason,
+  knowledgeRequired = false,
 ): AgentResult {
-  const citedInAnswer = answer ? [...new Set(answer.match(ORGNR_IN_TEXT) ?? [])] : [];
+  const groundedAnswer = enforceKnowledgeGrounding(answer, toolResults, knowledgeRequired);
+  const citedInAnswer = groundedAnswer ? [...new Set(groundedAnswer.match(ORGNR_IN_TEXT) ?? [])] : [];
   return {
-    answer,
+    answer: groundedAnswer,
     turns,
     invocations,
     toolResults,
@@ -140,7 +213,12 @@ export async function runAgent(params: {
 }): Promise<AgentResult> {
   const budget = { ...DEFAULT_BUDGET, ...(params.budget ?? {}) };
   const toolsByName = new Map(params.tools.map((tool) => [tool.name, tool]));
-  const toolDefs = params.tools.map((t) => ({ name: t.name, description: t.description, parameters: t.parameters }));
+  const toolDefs = params.tools.map((t) => ({
+    name: t.name,
+    description: t.description,
+    strict: t.strict,
+    parameters: t.parameters,
+  }));
 
   const messages: LlmMessage[] = [
     { role: "system", content: params.systemPrompt },
@@ -150,28 +228,59 @@ export async function runAgent(params: {
   const invocations: AgentToolInvocation[] = [];
   const toolResults: AgentToolResult[] = [];
   const grounded = new Set<string>();
-  const usage = { inputTokens: 0, outputTokens: 0 };
+  const usage: AgentResult["usage"] = {
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    outputTokens: 0,
+    model: null,
+    sourceIds: [],
+  };
   let toolCallCount = 0;
+  let routedIntent: string | null = null;
+  const hasRoutingTool = toolsByName.has(ROUTING_TOOL_NAME);
 
   for (let turn = 1; turn <= budget.maxTurns; turn++) {
     // Once the tool budget is spent, force a synthesis turn instead of allowing more tool calls.
     const forceAnswer = toolCallCount >= budget.maxToolCalls;
+    const knowledgeRequired = routedIntent != null && KNOWLEDGE_INTENTS.has(routedIntent);
+    const hasKnowledgeResult = toolResults.some((item) => KNOWLEDGE_TOOL_NAMES.has(item.name));
+    const hasDataResult = toolResults.some((item) => item.name !== ROUTING_TOOL_NAME);
+    const groundingSatisfied = knowledgeRequired ? hasKnowledgeResult : hasDataResult;
+    const allowedNames = hasRoutingTool && routedIntent == null
+      ? new Set([ROUTING_TOOL_NAME])
+      : allowedToolNamesForIntent(routedIntent, toolsByName.keys());
+    const activeToolDefs = toolDefs.filter((tool) => allowedNames.has(tool.name));
+    const activeToolsByName = new Map(
+      [...toolsByName].filter(([name]) => allowedNames.has(name)),
+    );
     const result = await params.llm.run({
       messages,
-      tools: toolDefs,
-      toolChoice: forceAnswer ? "none" : "auto",
+      tools: activeToolDefs,
+      toolChoice: forceAnswer ? "none" : groundingSatisfied ? "auto" : "required",
     });
     if (result.usage) {
       usage.inputTokens += result.usage.inputTokens;
+      usage.cachedInputTokens += result.usage.cachedInputTokens ?? 0;
       usage.outputTokens += result.usage.outputTokens;
+      if (result.usage.model) usage.model = result.usage.model;
+      if (result.usage.sourceId) usage.sourceIds.push(result.usage.sourceId);
     }
 
     if (!forceAnswer && result.toolCalls.length > 0) {
       messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
-        const { invocation, content, output } = await executeCall(call, toolsByName, grounded);
+        const { invocation, content, output } = await executeCall(call, activeToolsByName, grounded);
         invocations.push(invocation);
         if (invocation.ok) toolResults.push({ name: call.name, output });
+        if (
+          invocation.ok
+          && call.name === ROUTING_TOOL_NAME
+          && output
+          && typeof output === "object"
+          && typeof (output as { intent?: unknown }).intent === "string"
+        ) {
+          routedIntent = (output as { intent: string }).intent;
+        }
         messages.push({ role: "tool", toolCallId: call.id, content });
         toolCallCount++;
       }
@@ -186,8 +295,18 @@ export async function runAgent(params: {
       grounded,
       usage,
       forceAnswer ? "max_tool_calls" : "final",
+      routedIntent != null && KNOWLEDGE_INTENTS.has(routedIntent),
     );
   }
 
-  return finalize(null, budget.maxTurns, invocations, toolResults, grounded, usage, "max_turns");
+  return finalize(
+    null,
+    budget.maxTurns,
+    invocations,
+    toolResults,
+    grounded,
+    usage,
+    "max_turns",
+    routedIntent != null && KNOWLEDGE_INTENTS.has(routedIntent),
+  );
 }
