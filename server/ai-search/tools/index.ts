@@ -4,6 +4,7 @@ import { companyProfileTool } from "./company-profile";
 import { findComparablesTool } from "./find-comparables";
 import { findByBusinessTool } from "./find-by-business";
 import { getChainFinancialsTool } from "./get-chain-financials";
+import { estimateGroupFinancialsTool } from "./estimate-group-financials";
 import {
   getRuleStatusTool,
   searchAccountingGuidanceTool,
@@ -26,6 +27,7 @@ export const retrievalTools: RetrievalTool[] = [
   findComparablesTool as RetrievalTool,
   findByBusinessTool as RetrievalTool,
   getChainFinancialsTool as RetrievalTool,
+  estimateGroupFinancialsTool as RetrievalTool,
   searchNorwegianLawTool as RetrievalTool,
   searchAccountingGuidanceTool as RetrievalTool,
   searchEuEeaLawTool as RetrievalTool,
@@ -42,6 +44,7 @@ export { companyProfileTool } from "./company-profile";
 export { findComparablesTool } from "./find-comparables";
 export { findByBusinessTool } from "./find-by-business";
 export { getChainFinancialsTool } from "./get-chain-financials";
+export { estimateGroupFinancialsTool } from "./estimate-group-financials";
 export { routeNjordRequestTool } from "./route-request";
 export {
   getRuleStatusTool,

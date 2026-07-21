@@ -51,9 +51,33 @@ databasen med demo-, seed- eller syntetisk faginnhold.
 - Manglende treff betyr manglende lokal dekning, ikke at en regel ikke finnes.
 - Juridiske og regnskapsfaglige svar må vise hvilken dato de gjelder for.
 
+## Ujustert konsern-proforma
+
+Njord har verktøyet `estimate_group_financials` for spørsmål om en morselskap/datterstruktur uten
+publisert konsernregnskap. Verktøyet kobler den versjonerte eiergrafen til publiserte
+selskapsregnskaper og kan summere EBIT, årsresultat og et EBITDA-lignende mål for inntil fem år.
+
+Resultatet er alltid merket `UNADJUSTED_PRO_FORMA`. Det er ikke et konsernregnskap: interne
+transaksjoner, mellomværender, investering mot egenkapital, urealiserte gevinster, goodwill,
+merverdier og minoritetsinteresser er ikke eliminert eller justert. Et manglende regnskap eller en
+manglende av-/nedskrivningslinje gjør totalen ukjent; Njord kan da bare vise eksplisitte delsummer og
+dekningsgrad. EBITDA-lignende betyr EBIT pluss absoluttverdien av den enhetsnormaliserte, publiserte
+kostnadslinjen for av- og nedskrivninger fra samme innsendelse, og er ikke en IFRS-definert subtotal.
+
+## Innlastet korpus per 21. juli 2026
+
+- `STORTINGET_API / BUSINESS_POLICY`: 650 dokumenter og 650 søkebiter fra sesjonen 2025–2026.
+- Lovdata: ikke lastet; API-avtale og viderebruksrett mangler.
+- NRS/NBS: ikke lastet; lokal lagrings- og viderebruksrett er ikke avklart.
+- EU-godkjent IFRS-tekst: ikke lastet; EUR-Lex opplyser om særskilte rettighetsvilkår for
+  internasjonale regnskapsstandarder.
+- EUR-Lex/EEA-Lex-regelverk: adapter og statuskobling må ferdigstilles før produksjonsinnlasting.
+
+Korpusstatusen er bevisst eksplisitt: verktøyene avstår når relevant fagdekning mangler.
+
 ## Nåværende begrensning
 
 Første versjon bruker PostgreSQL fulltekstsøk med dokument- og datofiltre. Skjemaet og verktøygrensen
 er laget slik at semantisk retrieval og reranking kan legges til senere uten å endre LLM-verktøyene.
-Det er ikke lastet inn noe kunnskapsinnhold automatisk; produksjonsdekning avhenger av godkjente
-kildeavtaler og gjennomførte synkjobber.
+Produksjonsdekningen avhenger fortsatt av godkjente kildeavtaler og gjennomførte synkjobber; bare
+Stortingets åpne data er aktivt synkronisert i denne versjonen.

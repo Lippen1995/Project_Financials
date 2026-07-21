@@ -65,6 +65,9 @@ const KNOWLEDGE_INTENTS = new Set([
 
 function allowedToolNamesForIntent(intent: string | null, allNames: Iterable<string>) {
   if (!intent || intent === "MIXED") return new Set(allNames);
+  if (intent === "GROUP_FINANCIAL_ESTIMATE") {
+    return new Set(["resolve_company", "estimate_group_financials"]);
+  }
   if (intent === "NORWEGIAN_LAW") return new Set(["search_norwegian_law", "get_rule_status"]);
   if (intent === "ACCOUNTING_OR_IFRS") return new Set(["search_accounting_guidance", "get_rule_status"]);
   if (intent === "EU_EEA_LAW") return new Set(["search_eu_eea_law", "get_rule_status"]);
@@ -245,7 +248,11 @@ export async function runAgent(params: {
     const knowledgeRequired = routedIntent != null && KNOWLEDGE_INTENTS.has(routedIntent);
     const hasKnowledgeResult = toolResults.some((item) => KNOWLEDGE_TOOL_NAMES.has(item.name));
     const hasDataResult = toolResults.some((item) => item.name !== ROUTING_TOOL_NAME);
-    const groundingSatisfied = knowledgeRequired ? hasKnowledgeResult : hasDataResult;
+    const groundingSatisfied = knowledgeRequired
+      ? hasKnowledgeResult
+      : routedIntent === "GROUP_FINANCIAL_ESTIMATE"
+        ? toolResults.some((item) => item.name === "estimate_group_financials")
+        : hasDataResult;
     const allowedNames = hasRoutingTool && routedIntent == null
       ? new Set([ROUTING_TOOL_NAME])
       : allowedToolNamesForIntent(routedIntent, toolsByName.keys());

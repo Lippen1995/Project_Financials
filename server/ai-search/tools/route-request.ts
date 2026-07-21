@@ -4,6 +4,7 @@ import { defineTool } from "./types";
 
 export const NJORD_REQUEST_INTENTS = [
   "COMPANY_ANALYSIS",
+  "GROUP_FINANCIAL_ESTIMATE",
   "NORWEGIAN_LAW",
   "ACCOUNTING_OR_IFRS",
   "EU_EEA_LAW",
@@ -25,7 +26,10 @@ const inputSchema = z.object({
 export const routeNjordRequestTool = defineTool({
   name: "route_njord_request",
   description:
-    "Classify the user's request before retrieving facts. Choose the legal/accounting/policy intent whenever any part of the answer depends on that knowledge; use MIXED when company facts and rules are both needed.",
+    "Classify the user's request before retrieving facts. Choose the legal/accounting/policy intent whenever " +
+    "the user asks for interpretation of rules or standards; use MIXED when company facts and such rule " +
+    "interpretation are both needed. A request to calculate or estimate company/group figures from stored " +
+    "financial data is GROUP_FINANCIAL_ESTIMATE unless it also asks how IFRS, accounting law or another rule applies.",
   strict: true,
   inputSchema,
   parameters: {

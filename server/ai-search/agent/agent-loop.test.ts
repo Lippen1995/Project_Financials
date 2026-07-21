@@ -36,6 +36,23 @@ const knowledgeStub = defineTool({
   }),
 });
 
+const groupEstimateStub = defineTool({
+  name: "estimate_group_financials",
+  description: "group estimate",
+  inputSchema: z.object({ parentOrgNumber: z.string(), years: z.number() }),
+  parameters: {
+    type: "object",
+    properties: { parentOrgNumber: { type: "string" }, years: { type: "integer" } },
+    required: ["parentOrgNumber", "years"],
+    additionalProperties: false,
+  },
+  execute: async ({ parentOrgNumber, years }) => ({
+    parent: { orgNumber: parentOrgNumber },
+    requestedYears: years,
+    answerStatus: "INSUFFICIENT_DATA",
+  }),
+});
+
 const tools = [resolveStub as RetrievalTool, profileStub as RetrievalTool];
 const PROMPT = "system";
 
@@ -185,5 +202,50 @@ describe("runAgent", () => {
     expect(llm.received[1].tools.map((tool) => tool.name)).toEqual(["search_norwegian_law"]);
     expect(llm.received[1].toolChoice).toBe("required");
     expect(result.answer).toContain("knowledge:law-1:chunk-1");
+  });
+
+  it("requires the group estimator after company resolution for a group-financial request", async () => {
+    const llm = new ScriptedLlmClient([
+      {
+        toolCalls: [{
+          name: "route_njord_request",
+          arguments: {
+            intent: "GROUP_FINANCIAL_ESTIMATE",
+            reason: "SpÃ¸rsmÃ¥let ber om femÃ¥rs konsernestimat.",
+          },
+        }],
+      },
+      { toolCalls: [{ name: "resolve_company", arguments: { nameHint: "SLG NORGE AS" } }] },
+      {
+        toolCalls: [{
+          name: "estimate_group_financials",
+          arguments: { parentOrgNumber: "917811288", years: 5 },
+        }],
+      },
+      { content: "Datadekningen er utilstrekkelig for en konserntotal." },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools: [
+        routeNjordRequestTool as RetrievalTool,
+        resolveStub as RetrievalTool,
+        profileStub as RetrievalTool,
+        groupEstimateStub as RetrievalTool,
+      ],
+      systemPrompt: PROMPT,
+      userQuery: "Beregn konsernets EBITDA, EBIT og Ã¥rsresultat.",
+    });
+
+    expect(llm.received[1].tools.map((tool) => tool.name)).toEqual([
+      "resolve_company",
+      "estimate_group_financials",
+    ]);
+    expect(llm.received[2].toolChoice).toBe("required");
+    expect(result.invocations.map((item) => item.name)).toEqual([
+      "route_njord_request",
+      "resolve_company",
+      "estimate_group_financials",
+    ]);
   });
 });

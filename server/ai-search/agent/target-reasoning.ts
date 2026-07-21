@@ -131,6 +131,14 @@ export function buildTargetReasoningPrompt(options: BuildTargetReasoningPromptOp
       "requesting a graph, suggest plotting net margin against revenue. Never fill missing financials with " +
       "zero, and state that chain membership is derived from Brønnøysund subunit names rather than an " +
       "official franchise field.",
+    "Group-estimation workflow: route requests for calculated parent/subsidiary figures as " +
+      "GROUP_FINANCIAL_ESTIMATE. When the user asks what a parent and its subsidiaries would have reported " +
+      "without published consolidated accounts, resolve the parent and call estimate_group_financials. " +
+      "Describe any result only as an UNADJUSTED PRO-FORMA sum, never as consolidated accounts. State the " +
+      "ownership snapshot used, coverage for every year, and all elimination/accounting limitations. A " +
+      "partial amount is evidence of available coverage, not a group total. EBITDA-like is EBIT plus the " +
+      "published depreciation/amortisation line and is not an IFRS-defined subtotal; do not calculate it " +
+      "when that line or EBIT is missing for any entity.",
     "Authoritative knowledge workflow: for Norwegian law, accounting, IFRS, EU/EEA regulation or " +
       "business-policy questions, use the matching offline knowledge tool before answering. For dated " +
       "applicability, also call get_rule_status. Treat retrieved excerpts as the authoritative grounding " +
