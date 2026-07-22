@@ -8,7 +8,7 @@
 
 **Planansvarlig:** CEO / produkteier
 
-**Teknisk ansvarlig:** Avklares
+**Teknisk ansvarlig:** CEO
 
 **Måldato for lukket beta:** 31. august 2026, dersom lanseringskriteriene er oppfylt
 
