@@ -3,7 +3,10 @@ import { z } from "zod";
 
 import { defineTool, type RetrievalTool } from "@/server/ai-search/tools/types";
 import { ScriptedLlmClient, type ScriptedTurn } from "@/server/ai-search/llm/scripted-client";
-import { routeNjordRequestTool } from "@/server/ai-search/tools/route-request";
+import {
+  createRouteNjordRequestTool,
+  routeNjordRequestTool,
+} from "@/server/ai-search/tools/route-request";
 import { runAgent } from "./agent-loop";
 
 // Stub tools — no DB, no network. They mimic the real tools' shapes just enough for the loop.
@@ -13,7 +16,10 @@ const resolveStub = defineTool({
   inputSchema: z.object({ nameHint: z.string() }),
   parameters: { type: "object", properties: { nameHint: { type: "string" } }, required: ["nameHint"], additionalProperties: false },
   execute: async ({ nameHint }) => ({
-    resolved: { orgNumber: "917811288", name: `MATCH:${nameHint}` },
+    resolved: {
+      orgNumber: nameHint === "Target" ? "999999999" : "917811288",
+      name: `MATCH:${nameHint}`,
+    },
   }),
 });
 
@@ -50,6 +56,29 @@ const groupEstimateStub = defineTool({
     parent: { orgNumber: parentOrgNumber },
     requestedYears: years,
     answerStatus: "INSUFFICIENT_DATA",
+  }),
+});
+
+const mnaProFormaStub = defineTool({
+  name: "build_mna_pro_forma",
+  description: "M&A pro forma",
+  inputSchema: z.object({
+    buyerOrgNumber: z.string(),
+    targetOrgNumber: z.string(),
+  }),
+  parameters: {
+    type: "object",
+    properties: {
+      buyerOrgNumber: { type: "string" },
+      targetOrgNumber: { type: "string" },
+    },
+    required: ["buyerOrgNumber", "targetOrgNumber"],
+    additionalProperties: false,
+  },
+  execute: async ({ buyerOrgNumber, targetOrgNumber }) => ({
+    status: "COMPLETE",
+    buyer: { orgNumber: buyerOrgNumber },
+    target: { orgNumber: targetOrgNumber },
   }),
 });
 
@@ -247,5 +276,84 @@ describe("runAgent", () => {
       "resolve_company",
       "estimate_group_financials",
     ]);
+  });
+
+  it("requires the gated M&A builder after resolving buyer and target", async () => {
+    const routedTool = createRouteNjordRequestTool({ allowMnaProForma: true });
+    const llm = new ScriptedLlmClient([
+      {
+        toolCalls: [{
+          name: "route_njord_request",
+          arguments: { intent: "MNA_PRO_FORMA", reason: "Brukeren ber om proforma." },
+        }],
+      },
+      { toolCalls: [{ name: "resolve_company", arguments: { nameHint: "Buyer" } }] },
+      { toolCalls: [{ name: "resolve_company", arguments: { nameHint: "Target" } }] },
+      {
+        toolCalls: [{
+          name: "build_mna_pro_forma",
+          arguments: { buyerOrgNumber: "917811288", targetOrgNumber: "999999999" },
+        }],
+      },
+      { content: "Ikke-revidert proforma er beregnet." },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools: [
+        routedTool as RetrievalTool,
+        resolveStub as RetrievalTool,
+        profileStub as RetrievalTool,
+        mnaProFormaStub as RetrievalTool,
+      ],
+      systemPrompt: PROMPT,
+      userQuery: "Lag proforma for Buyer og Target.",
+    });
+
+    expect(llm.received[1].tools.map((tool) => tool.name)).toEqual([
+      "resolve_company",
+      "build_mna_pro_forma",
+    ]);
+    expect(llm.received[3].toolChoice).toBe("required");
+    expect(result.invocations.map((item) => item.name)).toEqual([
+      "route_njord_request",
+      "resolve_company",
+      "resolve_company",
+      "build_mna_pro_forma",
+    ]);
+  });
+
+  it("rejects M&A calculation for org numbers that were not resolved first", async () => {
+    const routedTool = createRouteNjordRequestTool({ allowMnaProForma: true });
+    const llm = new ScriptedLlmClient([
+      {
+        toolCalls: [{
+          name: "route_njord_request",
+          arguments: { intent: "MNA_PRO_FORMA", reason: "Proforma." },
+        }],
+      },
+      {
+        toolCalls: [{
+          name: "build_mna_pro_forma",
+          arguments: { buyerOrgNumber: "917811288", targetOrgNumber: "999999999" },
+        }],
+      },
+      { content: "Jeg må først slå opp begge selskapene." },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools: [routedTool as RetrievalTool, resolveStub as RetrievalTool, mnaProFormaStub as RetrievalTool],
+      systemPrompt: PROMPT,
+      userQuery: "Lag proforma.",
+      budget: { maxTurns: 3 },
+    });
+
+    expect(result.invocations[1]).toMatchObject({
+      name: "build_mna_pro_forma",
+      ok: false,
+      error: "buyer and target must be resolved first",
+    });
+    expect(result.toolResults.map((item) => item.name)).not.toContain("build_mna_pro_forma");
   });
 });

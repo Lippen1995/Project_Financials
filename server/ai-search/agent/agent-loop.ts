@@ -68,6 +68,9 @@ function allowedToolNamesForIntent(intent: string | null, allNames: Iterable<str
   if (intent === "GROUP_FINANCIAL_ESTIMATE") {
     return new Set(["resolve_company", "estimate_group_financials"]);
   }
+  if (intent === "MNA_PRO_FORMA") {
+    return new Set(["resolve_company", "build_mna_pro_forma"]);
+  }
   if (intent === "NORWEGIAN_LAW") return new Set(["search_norwegian_law", "get_rule_status"]);
   if (intent === "ACCOUNTING_OR_IFRS") return new Set(["search_accounting_guidance", "get_rule_status"]);
   if (intent === "EU_EEA_LAW") return new Set(["search_eu_eea_law", "get_rule_status"]);
@@ -162,6 +165,28 @@ async function executeCall(
     };
   }
 
+  if (call.name === "build_mna_pro_forma") {
+    const mnaInput = parsed.data as { buyerOrgNumber?: unknown; targetOrgNumber?: unknown };
+    const transactionOrgNumbers = [mnaInput.buyerOrgNumber, mnaInput.targetOrgNumber]
+      .filter((value): value is string => typeof value === "string");
+    if (
+      transactionOrgNumbers.length !== 2 ||
+      transactionOrgNumbers.some((orgNumber) => !grounded.has(orgNumber))
+    ) {
+      return {
+        invocation: {
+          name: call.name,
+          arguments: parsed.data,
+          ok: false,
+          error: "buyer and target must be resolved first",
+        },
+        content: JSON.stringify({
+          error: "Resolve both buyer and target before building the M&A pro-forma.",
+        }),
+      };
+    }
+  }
+
   try {
     const output = await tool.execute(parsed.data);
     collectOrgNumbers(output, grounded);
@@ -252,6 +277,8 @@ export async function runAgent(params: {
       ? hasKnowledgeResult
       : routedIntent === "GROUP_FINANCIAL_ESTIMATE"
         ? toolResults.some((item) => item.name === "estimate_group_financials")
+        : routedIntent === "MNA_PRO_FORMA"
+          ? toolResults.some((item) => item.name === "build_mna_pro_forma")
         : hasDataResult;
     const allowedNames = hasRoutingTool && routedIntent == null
       ? new Set([ROUTING_TOOL_NAME])

@@ -93,6 +93,8 @@ export const GROUNDING_RULES = [
 export type BuildTargetReasoningPromptOptions = {
   /** The resolved acquirer, when the query names one (e.g. "targets for Fjord Defence"). */
   acquirerName?: string | null;
+  /** Whether the authenticated user has access to the Due Diligence module. */
+  canUseDueDiligence?: boolean;
 };
 
 /**
@@ -139,6 +141,21 @@ export function buildTargetReasoningPrompt(options: BuildTargetReasoningPromptOp
       "partial amount is evidence of available coverage, not a group total. EBITDA-like is EBIT plus the " +
       "published depreciation/amortisation line and is not an IFRS-defined subtotal; do not calculate it " +
       "when that line or EBIT is missing for any entity.",
+    options.canUseDueDiligence
+      ? "M&A pro-forma workflow (Due Diligence): route a request to combine buyer and target accounts " +
+        "with transaction assumptions as MNA_PRO_FORMA. Resolve both companies, then call " +
+        "build_mna_pro_forma. Use only assumptions explicitly stated in the current user message; copy " +
+        "an exact supporting quote into each evidenceText field. Never infer purchase price, financing, " +
+        "tax, fair-value adjustments, PPA amortisation, synergies or their timing. If a required input is " +
+        "missing, show what is missing and ask for it. Zero amounts and the transaction-cost treatment must " +
+        "also be explicitly confirmed by the user; never use zero as a default. Present the selected fiscal year and statement scope, " +
+        "separate official historical accounts from user-supplied assumptions, reproduce all assumptions, " +
+        "and label the output an unaudited scenario—not statutory accounts, a valuation, fairness opinion or " +
+        "accounting advice. Do not describe a partial result as complete. The tool currently models only a " +
+        "100 percent acquisition and a simplified closing balance and earnings bridge."
+      : "M&A pro-forma capability is unavailable in this session because it requires access to the Due " +
+        "Diligence module. If asked to build a pro-forma income statement or balance sheet, explain this " +
+        "access requirement and do not approximate the result with other tools or model memory.",
     "Authoritative knowledge workflow: for Norwegian law, accounting, IFRS, EU/EEA regulation or " +
       "business-policy questions, use the matching offline knowledge tool before answering. For dated " +
       "applicability, also call get_rule_status. Treat retrieved excerpts as the authoritative grounding " +

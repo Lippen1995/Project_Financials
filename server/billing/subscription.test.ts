@@ -26,6 +26,7 @@ describe("AI search subscription context", () => {
       ),
     ).resolves.toMatchObject({
       premium: true,
+      canUseDueDiligence: true,
       billingPeriod: {
         periodStart: new Date("2026-07-14T10:00:00.000Z"),
         resetAt: new Date("2026-08-14T10:00:00.000Z"),
@@ -43,6 +44,7 @@ describe("AI search subscription context", () => {
 
     await expect(getAiSearchSubscriptionContext("user-1")).resolves.toEqual({
       premium: true,
+      canUseDueDiligence: true,
       billingPeriod: null,
     });
   });

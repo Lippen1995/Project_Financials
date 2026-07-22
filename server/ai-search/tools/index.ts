@@ -5,6 +5,7 @@ import { findComparablesTool } from "./find-comparables";
 import { findByBusinessTool } from "./find-by-business";
 import { getChainFinancialsTool } from "./get-chain-financials";
 import { estimateGroupFinancialsTool } from "./estimate-group-financials";
+import { createBuildMnaProFormaTool } from "./build-mna-pro-forma";
 import {
   getRuleStatusTool,
   searchAccountingGuidanceTool,
@@ -12,7 +13,7 @@ import {
   searchEuEeaLawTool,
   searchNorwegianLawTool,
 } from "./search-knowledge";
-import { routeNjordRequestTool } from "./route-request";
+import { createRouteNjordRequestTool, routeNjordRequestTool } from "./route-request";
 
 /**
  * The retrieval tool registry the agent is given. v1 covers the competitors path end-to-end:
@@ -35,6 +36,20 @@ export const retrievalTools: RetrievalTool[] = [
   getRuleStatusTool as RetrievalTool,
 ];
 
+export function getRetrievalToolsForAccess(options: {
+  canUseDueDiligence: boolean;
+  userQuery: string;
+}): RetrievalTool[] {
+  const tools = [
+    createRouteNjordRequestTool({ allowMnaProForma: options.canUseDueDiligence }) as RetrievalTool,
+    ...retrievalTools.filter((tool) => tool.name !== "route_njord_request"),
+  ];
+  if (options.canUseDueDiligence) {
+    tools.push(createBuildMnaProFormaTool({ userQuery: options.userQuery }) as RetrievalTool);
+  }
+  return tools;
+}
+
 export const retrievalToolsByName: Record<string, RetrievalTool> = Object.fromEntries(
   retrievalTools.map((tool) => [tool.name, tool]),
 );
@@ -45,7 +60,8 @@ export { findComparablesTool } from "./find-comparables";
 export { findByBusinessTool } from "./find-by-business";
 export { getChainFinancialsTool } from "./get-chain-financials";
 export { estimateGroupFinancialsTool } from "./estimate-group-financials";
-export { routeNjordRequestTool } from "./route-request";
+export { createRouteNjordRequestTool, routeNjordRequestTool } from "./route-request";
+export { createBuildMnaProFormaTool } from "./build-mna-pro-forma";
 export {
   getRuleStatusTool,
   searchAccountingGuidanceTool,

@@ -30,10 +30,12 @@ export async function getUserSubscription(userId: string) {
 export async function getAiSearchSubscriptionContext(userId: string, now = new Date()) {
   const subscription = await getUserSubscription(userId);
   const premium = hasPremiumAiSearchAccess(subscription?.status, subscription?.plan);
+  const collaboration = getCollaborationEntitlements(subscription?.status, subscription?.plan);
   const billingAnchorAt = subscription?.billingAnchorAt ?? null;
 
   return {
     premium,
+    canUseDueDiligence: collaboration.canUseDdRooms,
     billingPeriod: premium && billingAnchorAt
       ? getAiSearchBillingPeriod(billingAnchorAt, now)
       : null,

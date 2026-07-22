@@ -9,7 +9,7 @@ import { buildCompanySearchRows } from "@/server/ai-search/agent/company-rows";
 import { buildTargetReasoningPrompt } from "@/server/ai-search/agent/target-reasoning";
 import { buildNjordVisualization } from "@/server/ai-search/agent/visualization";
 import { OpenAiLlmClient } from "@/server/ai-search/llm/openai-client";
-import { retrievalTools } from "@/server/ai-search/tools";
+import { getRetrievalToolsForAccess } from "@/server/ai-search/tools";
 import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import {
   finalizeAiSearchUsage,
@@ -60,12 +60,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Tokenkvoten for Njord er brukt opp." }, { status: 429 });
   }
   const llm = new OpenAiLlmClient({ apiKey: env.openAiApiKey, model: env.openAiSearchModel });
+  const tools = getRetrievalToolsForAccess({
+    canUseDueDiligence: subscription.canUseDueDiligence,
+    userQuery: query,
+  });
   let result: Awaited<ReturnType<typeof runAgent>>;
   try {
     result = await runAgent({
       llm,
-      tools: retrievalTools,
-      systemPrompt: buildTargetReasoningPrompt({}),
+      tools,
+      systemPrompt: buildTargetReasoningPrompt({
+        canUseDueDiligence: subscription.canUseDueDiligence,
+      }),
       userQuery: query,
     });
     if (reservationId) {
@@ -145,6 +151,7 @@ export async function POST(request: NextRequest) {
     usage: result.usage,
     stopReason: result.stopReason,
     mode: "llm-tools-offline-knowledge",
+    capabilities: { mnaProForma: subscription.canUseDueDiligence },
     quota,
   });
 }

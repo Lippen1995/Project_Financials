@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   runAgent: vi.fn(),
   buildCompanySearchRows: vi.fn(),
   buildNjordVisualization: vi.fn(),
+  buildTargetReasoningPrompt: vi.fn(),
+  getRetrievalToolsForAccess: vi.fn(),
   getSubscription: vi.fn(),
   reserveUsage: vi.fn(),
   finalizeUsage: vi.fn(),
@@ -26,7 +28,7 @@ vi.mock("@/server/ai-search/agent/company-rows", () => ({
   buildCompanySearchRows: mocks.buildCompanySearchRows,
 }));
 vi.mock("@/server/ai-search/agent/target-reasoning", () => ({
-  buildTargetReasoningPrompt: () => "system prompt",
+  buildTargetReasoningPrompt: mocks.buildTargetReasoningPrompt,
 }));
 vi.mock("@/server/ai-search/agent/visualization", () => ({
   buildNjordVisualization: mocks.buildNjordVisualization,
@@ -39,7 +41,9 @@ vi.mock("@/server/ai-search/llm/openai-client", () => ({
     constructor(readonly options: unknown) {}
   },
 }));
-vi.mock("@/server/ai-search/tools", () => ({ retrievalTools: [] }));
+vi.mock("@/server/ai-search/tools", () => ({
+  getRetrievalToolsForAccess: mocks.getRetrievalToolsForAccess,
+}));
 vi.mock("@/server/billing/subscription", () => ({
   getAiSearchSubscriptionContext: mocks.getSubscription,
 }));
@@ -71,7 +75,13 @@ describe("POST /api/ai-search", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.safeAuth.mockResolvedValue({ user: { id: "user-1" } });
-    mocks.getSubscription.mockResolvedValue({ premium: true, billingPeriod });
+    mocks.getSubscription.mockResolvedValue({
+      premium: true,
+      canUseDueDiligence: true,
+      billingPeriod,
+    });
+    mocks.buildTargetReasoningPrompt.mockReturnValue("system prompt");
+    mocks.getRetrievalToolsForAccess.mockReturnValue([{ name: "dd-tool" }]);
     mocks.reserveUsage.mockResolvedValue("reservation-1");
     mocks.buildCompanySearchRows.mockResolvedValue([]);
     mocks.buildNjordVisualization.mockReturnValue(null);
@@ -106,6 +116,17 @@ describe("POST /api/ai-search", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).mode).toBe("llm-tools-offline-knowledge");
     expect(mocks.reserveUsage).toHaveBeenCalledWith("user-1", billingPeriod);
+    expect(mocks.getRetrievalToolsForAccess).toHaveBeenCalledWith({
+      canUseDueDiligence: true,
+      userQuery: "Hva gjelder etter IFRS 16?",
+    });
+    expect(mocks.buildTargetReasoningPrompt).toHaveBeenCalledWith({
+      canUseDueDiligence: true,
+    });
+    expect(mocks.runAgent).toHaveBeenCalledWith(expect.objectContaining({
+      tools: [{ name: "dd-tool" }],
+      systemPrompt: "system prompt",
+    }));
     expect(mocks.finalizeUsage).toHaveBeenCalledWith(
       "user-1",
       "reservation-1",
@@ -128,5 +149,39 @@ describe("POST /api/ai-search", () => {
 
     expect(mocks.releaseUsage).toHaveBeenCalledWith("user-1", "reservation-1");
     expect(mocks.finalizeUsage).not.toHaveBeenCalled();
+  });
+
+  it("builds a tool registry without M&A access when Due Diligence is unavailable", async () => {
+    mocks.getSubscription.mockResolvedValue({
+      premium: true,
+      canUseDueDiligence: false,
+      billingPeriod,
+    });
+    mocks.runAgent.mockResolvedValue({
+      answer: "Due Diligence-modulen kreves.",
+      toolResults: [],
+      groundedOrgNumbers: [],
+      invocations: [],
+      stopReason: "final",
+      usage: {
+        inputTokens: 10,
+        cachedInputTokens: 0,
+        outputTokens: 5,
+        model: "provider-model",
+        sourceIds: ["resp-3"],
+      },
+    });
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.getRetrievalToolsForAccess).toHaveBeenCalledWith(expect.objectContaining({
+      canUseDueDiligence: false,
+    }));
+    expect(mocks.buildTargetReasoningPrompt).toHaveBeenCalledWith({
+      canUseDueDiligence: false,
+    });
+    expect(body.capabilities).toEqual({ mnaProForma: false });
   });
 });
