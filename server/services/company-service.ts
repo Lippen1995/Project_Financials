@@ -1,4 +1,3 @@
-import { getHeadlineFinancialStatements } from "@/lib/financial-statements";
 import { mergeIndustryCodeClassification } from "@/lib/industry-code";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import {
@@ -18,16 +17,15 @@ import { OpenAiSearchIntentProvider } from "@/integrations/openai/openai-search-
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
 import { classifyQueryIntent } from "@/server/ai-search/query-router";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
-import { mapDbCompany, mapDbFinancialStatements, mapDbRoles } from "@/server/mappers/db-mappers";
+import { mapDbCompany, mapDbRoles } from "@/server/mappers/db-mappers";
 import {
   getCachedCompanyCore,
-  getCachedFinancialStatements,
   getCachedRoles,
   getLatestFinancialsForCompanies,
   upsertCompanySnapshot,
   upsertIndustryCodeSnapshot,
 } from "@/server/persistence/company-repository";
-import { getPublishedAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
+import { getPublicCompanyFinancials } from "@/server/services/public-financials-service";
 
 const announcementsProvider = new BrregAnnouncementsProvider();
 const industryCodeProvider = new SsbIndustryCodeProvider();
@@ -549,30 +547,21 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
 
   if (financialsMode === "summary") {
     try {
-      const cachedStatements = await getCachedFinancialStatements(company.orgNumber, Infinity);
-      if (cachedStatements) {
-        const cached = mapDbFinancialStatements(cachedStatements);
-        financials = {
-          statements: getHeadlineFinancialStatements(cached),
-          allScopeStatements: cached,
-          lineItems: [],
-          documents: [],
-          availability: {
-            available: true,
-            sourceSystem: "BRREG",
-            message: "Regnskapstall vises fra lokal database.",
-          },
-        };
-      }
+      const publicFinancials = await getPublicCompanyFinancials(company.orgNumber);
+      financials = {
+        ...publicFinancials,
+        lineItems: [],
+        documents: [],
+      };
     } catch (error) {
-      logRecoverableError("company-service.getCachedFinancialStatements", error, {
+      logRecoverableError("company-service.getPublicCompanyFinancials", error, {
         orgNumber: company.orgNumber,
       });
     }
   }
 
   if (financialsMode === "full") {
-    financials = await getPublishedAnnualReportFinancials(company.orgNumber);
+    financials = await getPublicCompanyFinancials(company.orgNumber);
   }
 
   return {
@@ -600,7 +589,7 @@ export async function getCompanyRoles(orgNumber: string) {
 }
 
 export async function getCompanyFinancials(orgNumber: string) {
-  return getPublishedAnnualReportFinancials(orgNumber);
+  return getPublicCompanyFinancials(orgNumber);
 }
 
 export async function getCompanyAnnouncements(orgNumber: string) {

@@ -180,7 +180,7 @@ Frontend konsumerer kun normaliserte interne objekter, aldri rå ekstern API-res
 
 ## Go-live-styring
 
-Den aktive beta- og go-live-planen ligger i [docs/go-live-sprint-plan.md](./docs/go-live-sprint-plan.md). Sprint 0 ble startet 20. juli 2026. Status, åpne beslutninger og beviskrav føres i [Sprint 0-kontrollsenteret](./docs/go-live/README.md), med egne registre for betaomfang, risiko, datakilder, KPI-er, personvern/retensjon og kostnader.
+Den aktive beta- og go-live-planen ligger i [docs/go-live-sprint-plan.md](./docs/go-live-sprint-plan.md). Sprint 0 ble formelt godkjent av CEO 24. juli 2026. [Produktposisjoneringen](./docs/go-live/product-positioning.md) fastslår at betaen skal validere minst tre formålsbaserte analysearbeidsflyter med Njord som integrert digital analytiker, ikke bare søk og selskapsprofil. Beslutninger, bevis, senere porter og den formelle signeringen finnes i [Sprint 0-kontrollsenteret](./docs/go-live/README.md).
 
 Et opprettet register betyr ikke at punktet er godkjent. K1- og K2-kostnader, produksjonsaktivering og ekte modellbruk krever de uttrykkelige portbeslutningene i go-live-planen.
 
@@ -199,10 +199,10 @@ docker compose up -d
 npm install
 ```
 
-4. Push schema til databasen:
+4. Bruk de versjonerte migrasjonene:
 
 ```bash
-npm run db:push
+npm run db:migrate:deploy
 ```
 
 5. Hvis databasen allerede har brukere, backfill workspace-tilstand:

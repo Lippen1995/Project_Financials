@@ -127,6 +127,7 @@ function getExecutiveSignals(profile: CompanyProfile) {
       : null;
 
   const investigationNotes = [
+    latest ? null : "Strukturerte regnskapstall er ikke tilgjengelige for virksomheten.",
     company.status !== "ACTIVE" ? `Foretaket har status ${company.status}.` : null,
     latest?.operatingProfit !== null &&
     latest?.operatingProfit !== undefined &&
@@ -255,7 +256,7 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
           <div className="mt-2 text-sm font-semibold text-slate-900">
             {financialsAvailability.available
               ? "Regnskap er tilgjengelig."
-              : "Regnskap er delvis tilgjengelig."}
+              : "Regnskap er ikke tilgjengelig."}
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600">{financialsAvailability.message}</p>
           <div className="mt-4 border-t border-[rgba(15,23,42,0.08)] pt-4 text-sm leading-6 text-slate-600">
@@ -640,10 +641,12 @@ export default async function CompanyPage({
             discussionThreads={financialMetricDiscussions}
           />
 
-          <FinancialDocuments
-            documents={financialDocuments}
-            latestYear={company.lastSubmittedAnnualReportYear}
-          />
+          {financialDocuments.length > 0 ? (
+            <FinancialDocuments
+              documents={financialDocuments}
+              latestYear={company.lastSubmittedAnnualReportYear}
+            />
+          ) : null}
 
           {discussionContext?.selectedRoomId ? (
             <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">

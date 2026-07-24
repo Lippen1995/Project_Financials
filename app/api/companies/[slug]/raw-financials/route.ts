@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import env from "@/lib/env";
 
 /**
  * Public "as reported" line items for the company page.
@@ -13,6 +14,19 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ slug: string }> },
 ) {
+  if (env.betaStructuredFinancialsOnly) {
+    return NextResponse.json({
+      source: "structured-brreg-only",
+      data: [],
+      availability: {
+        available: false,
+        sourceSystem: "BRREG",
+        message:
+          "Detaljerte PDF- eller OCR-avledede regnskapslinjer er ikke tilgjengelige i betaen.",
+      },
+    });
+  }
+
   const { slug } = await context.params;
   const yearParam = request.nextUrl.searchParams.get("year");
   const year = yearParam ? parseInt(yearParam, 10) : null;

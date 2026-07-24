@@ -13,6 +13,7 @@ import type { Route } from "next";
 import type { CompanySearchRow } from "@/lib/company-search-sort";
 import type { NjordVisualization } from "@/lib/njord-visualization";
 import { useRouter, useSearchParams } from "next/navigation";
+import { NjordMark } from "@/components/njord/njord-mark";
 import { NjordScatterplot } from "./njord-scatterplot";
 
 type ChatMessage = {
@@ -304,7 +305,7 @@ export function AiSearchPanel({
         className="fixed bottom-5 right-5 z-[60] flex min-h-11 items-center gap-4 rounded-full border border-[var(--px-border)] bg-[var(--px-panel)] px-4 text-sm font-semibold text-[var(--px-bg)] shadow-[0_8px_24px_rgba(15,23,42,0.14)] transition-colors hover:bg-[var(--px-action-hover)]"
         aria-label={`Åpne Njord-chatten igjen. ${messages.length} meldinger er bevart.`}
       >
-        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">chat</span>
+        <NjordMark className="h-7 w-7" />
         Njord
         <span className="data-label rounded-full border border-[var(--px-border)] px-2 py-0.5 text-[9px] tabular-nums">
           {messages.length}
@@ -335,9 +336,7 @@ export function AiSearchPanel({
       />
       <header className="relative flex items-center border-b border-[var(--px-border-subtle)] px-5 py-4">
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-[20px] text-[var(--px-accent)]">
-            auto_awesome
-          </span>
+          <NjordMark className="h-9 w-9" />
           <div>
             <div className="text-sm font-semibold text-[var(--px-text)]">Njord</div>
             <div className="text-xs text-[var(--px-muted)]">

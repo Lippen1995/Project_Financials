@@ -134,7 +134,7 @@ export function OverviewAside({
         <div className="mt-1.5 text-[13px] leading-relaxed text-[var(--px-muted)]">
           {company.sourceSystem}
           {company.fetchedAt ? ` · sist oppdatert ${formatDate(company.fetchedAt)}` : ""}.{" "}
-          {financialsAvailability.available ? "Regnskap er tilgjengelig." : "Regnskap er delvis tilgjengelig."}
+          {financialsAvailability.available ? "Regnskap er tilgjengelig." : "Regnskap er ikke tilgjengelig."}
         </div>
       </div>
     </aside>

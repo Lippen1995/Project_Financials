@@ -19,6 +19,10 @@ const env = {
     process.env.BRREG_ANNOUNCEMENTS_BASE_URL ?? "https://w2.brreg.no/kunngjoring",
   brregFinancialsBaseUrl:
     process.env.BRREG_FINANCIALS_BASE_URL ?? "https://data.brreg.no/regnskapsregisteret/regnskap",
+  betaStructuredFinancialsOnly:
+    process.env.BETA_STRUCTURED_FINANCIALS_ONLY === undefined
+      ? true
+      : (process.env.BETA_STRUCTURED_FINANCIALS_ONLY ?? "").trim().toLowerCase() === "true",
   patentstyretBaseUrl: process.env.PATENTSTYRET_BASE_URL ?? "https://api.patentstyret.no/external/opendata",
   patentstyretSubscriptionKey: process.env.PATENTSTYRET_SUBSCRIPTION_KEY ?? "",
   patentstyretOrgNumberParam: process.env.PATENTSTYRET_ORGNUMBER_PARAM ?? "companyNumber",
