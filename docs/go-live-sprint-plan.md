@@ -2,26 +2,31 @@
 
 **Status:** Aktiv arbeidsplan
 
-**Nåværende fase:** Sprint 0 startet 20. juli 2026. Se [Sprint 0-kontrollsenteret](./go-live/README.md).
+**Nåværende fase:** Sprint 0 er fullført og formelt godkjent av CEO 24. juli 2026. Sprint 1 ble startet av CEO samme dag, tre dager før opprinnelig plan. Se [Sprint 1-kontrollsenteret](./go-live/sprint-1/README.md).
 
 **Opprettet:** 20. juli 2026
 
-**Planansvarlig:** CEO / produkteier
+**Planansvarlig:** Simen Lippestad (CEO / produkteier)
 
-**Teknisk ansvarlig:** CEO
+**Teknisk ansvarlig:** Simen Lippestad (CEO)
 
-**Måldato for lukket beta:** 31. august 2026, dersom lanseringskriteriene er oppfylt
+**Måldato for lukket beta:** 30. september 2026, dersom lanseringskriteriene er oppfylt
+
+**Kapasitetsbaseline:** 70 effektive utviklingstimer per uke i minst to koordinerte arbeidsstrømmer. CEO reviderer datoen dersom kapasiteten er under 60 effektive timer i to sammenhengende uker.
 
 ## 1. Formål
 
 Planen fører Fjord Insight fra dagens løsning til en liten, kontrollert beta som er tilgjengelig hele døgnet. Vi gjør først alt arbeid som ikke medfører nye eksterne kostnader. Betalte tjenester aktiveres først etter en eksplisitt budsjettbeslutning.
 
-Betaen skal gi 10–20 inviterte brukere en reell selskapsopplevelse med offisielle data og Njord som et viktig verdiforslag. Datoen er et mål, ikke en grunn til å lansere en løsning som ikke er trygg eller stabil.
+Betaen skal gi 10–20 inviterte profesjonelle brukere minst tre komplette, formålsbaserte analysearbeidsflyter med offisielle data og Njord som integrert digital analytiker. Den skal teste om produktet reduserer tid, kompleksitet og manuelt arbeid og gir et bedre dokumentert resultat enn brukerens eksisterende metode. [Produktposisjoneringen](./go-live/product-positioning.md) er styrende. Datoen er et mål, ikke en grunn til å lansere en utrygg, ustabil eller produktmessig misvisende beta.
 
 ## 2. Besluttede premisser
 
-- Njord skal være med i beta og bruke en reell språkmodell. En regelbasert demonstrasjon alene er ikke tilstrekkelig.
+- Njord er en kjernekomponent i betaen og skal bruke en reell språkmodell. En regelbasert demonstrasjon eller løs chatflate alene er ikke tilstrekkelig.
 - Njord skal svare med kontrollerte verktøy og data Fjord Insight faktisk har hentet. Den skal ikke dikte opp selskaper, personer eller regnskapstall.
+- Betaen skal minst dekke M&A-screening, kunde-/leverandørsourcing og konkurrent-/bransjeanalyse fra formål til lagret resultat.
+- Søk og selskapsprofil er nødvendige byggeklosser, men er ikke alene en validering av verdiforslaget.
+- Historikk, eierskap, konsern, person-, dokument- og markedsdata tas bare i bruk når reell kilde, datakontrakt, proveniens, dekning og mangelhåndtering er dokumentert.
 - OCR tas ut av den produksjonskritiske dataflyten. Regnskap skal hentes som strukturerte data fra Brønnøysundregistrene (Brreg).
 - Åpent Brreg-API brukes som standard så langt det gir tilstrekkelige data. Et betalt abonnement på komplette årsregnskap er en separat investeringsbeslutning.
 - Produksjon skal ikke være avhengig av en Raspberry Pi eller utstyr på et privat nettverk. Slikt utstyr kan brukes til utvikling, men ikke som et kritisk ledd i en tjeneste som skal være tilgjengelig 24/7.
@@ -32,7 +37,7 @@ Betaen skal gi 10–20 inviterte brukere en reell selskapsopplevelse med offisie
 | Nivå | Betydning | Beslutning |
 | --- | --- | --- |
 | K0 | Ingen nye eksterne kostnader. Arbeid utføres lokalt med eksisterende verktøy og åpne datakilder. | Kan startes nå. |
-| K1 | Begrenset betakostnad for skydrift og AI. Foreløpig ramme: USD 35–60 per måned for drift og normalt USD 25, maksimalt USD 50 per måned for AI. | Krever godkjenning i port G1. |
+| K1 | Begrenset betakostnad, maksimalt NOK 5 000 eks. mva. per måned: AI NOK 2 500, drift/database NOK 2 000 og e-post/overvåking NOK 500. | Rammen er godkjent 24. juli; leverandører og aktivering krever ny godkjenning i port G1. |
 | K2 | Betalt Brreg-leveranse av komplette årsregnskapsdata. Sist kjente listepris må verifiseres før kjøp; arbeidsestimat NOK 480 000 per år. | Separat CEO-/styrebeslutning. Skal ikke forsinke K0. |
 
 Alle beløp skal verifiseres mot gjeldende leverandørpriser før bestilling. Ingen skal kunne utløse K1 eller K2 som en teknisk detalj uten uttrykkelig godkjenning.
@@ -41,14 +46,14 @@ Alle beløp skal verifiseres mot gjeldende leverandørpriser før bestilling. In
 
 | Sprint | Periode | Kostnad | Forretningsresultat |
 | --- | --- | --- | --- |
-| Sprint 0 | 20.–26. juli | K0 | Omfang, ansvar og beslutninger er låst. |
-| Sprint 1 | 27. juli–2. august | K0 | Minimum sikkerhet og en repeterbar releaseprosess. |
-| Sprint 2 | 3.–9. august | K0 | Strukturert Brreg-data erstatter OCR i produksjonsplanen. |
-| Sprint 3 | 10.–16. august | K0 | Njord er teknisk og økonomisk klargjort for ekte AI. |
-| Port G1 | 16. august | Beslutning | CEO godkjenner eller avviser første eksterne kostnader. |
-| Sprint 4 | 17.–23. august | K1 ved godkjenning | Staging og produksjon aktiveres; Njord testes med ekte modell. |
-| Sprint 5 | 24.–30. august | K1 ved godkjenning | Lanseringsøvelse, feiltester og endelig go/no-go. |
-| Lukket beta | 31. august | K1 | 10–20 inviterte brukere får tilgang dersom port G2 er bestått. |
+| Sprint 0 | 20.–26. juli | K0 | Produktposisjon, arbeidsflyter, datakrav, ansvar og revidert leveranseplan er låst. |
+| Sprint 1 | 24. juli–9. august | K0 | Minimum sikkerhet, analysefundament og en repeterbar releaseprosess. |
+| Sprint 2 | 10.–23. august | K0 | Strukturert Brreg-data, datakatalog, universspørring og proveniensgrunnlag erstatter OCR-avhengighet. |
+| Sprint 3 | 24. august–6. september | K0 | Analyseobjekt, beregning, arbeidslister, verktøykontrakter og Njord-kontroller klargjør de tre arbeidsflytene. |
+| Port G1 | 6. september | Beslutning | CEO godkjenner eller avviser første eksterne kostnader. |
+| Sprint 4 | 7.–20. september | K1 ved godkjenning | De tre arbeidsflytene og ekte Njord testes ende-til-ende i staging. |
+| Sprint 5 | 21.–29. september | K1 ved godkjenning | Evaluering, bruksmålsøvelse, feiltester, OCR-bevis og endelig go/no-go. |
+| Lukket beta | 30. september | K1 | 12 primærbrukere og eventuelle reserver får tilgang dersom port G2 er bestått. |
 
 ## 5. Sprint 0 – lås omfang og styring
 
@@ -65,12 +70,15 @@ Alle beløp skal verifiseres mot gjeldende leverandørpriser før bestilling. In
 | GL-007 | Avklar personvern og datalagring. | CEO | Behandlingsgrunnlag, lagringstid og kontaktpunkt er dokumentert. |
 | GL-008 | Lag kostnadsregister. | CEO/teknisk | Leverandører, frinivåer, variabel pris og kostnadstak er synlige. |
 | GL-009 | Bekreft at OCR ikke er produksjonsavhengighet. | Teknisk | Arkitektur og backlog viser strukturert Brreg-data som hovedløp. |
+| GL-010 | Lås produktposisjon og kritisk brukerreise. | CEO/produkt | [Produktposisjoneringen](./go-live/product-positioning.md) og revidert beta-charter er formelt godkjent. |
+| GL-011 | Kartlegg arbeidsflyt mot data og eksisterende kode. | Produkt/teknisk/data | Hvert steg i de tre arbeidsflytene har støttet data, gap, eier, estimat og ærlig betaadferd. |
+| GL-012 | Rebaseliner dato og sprintomfang. | Lanseringsmyndighet | Måldatoen er bekreftet eller flyttet etter gjennomførbarhetsvurdering; omfanget reduseres ikke til et oppslag for å beholde datoen. |
 
 **Godkjenningskriterium:** Ingen kritisk beslutning kan skyves videre uten navngitt eier og dato.
 
 ### Sprint 0-status
 
-Sprinten er startet på K0-nivå. Charter og styringsregistre er opprettet, men sprinten er ikke godkjent: personnavn, formelle beslutninger, personverngrunnlag og bevis for et OCR-uavhengig betaforløp mangler fortsatt. Løpende status og bevis føres i [Sprint 0-kontrollsenteret](./go-live/README.md).
+Sprint 0 ble formelt godkjent av Simen Lippestad (CEO) 24. juli 2026. Produktretning, roller, kohort, arbeidsflyt-/datagapanalyse, måldato, personvernramme, KPI-metode, risikostyring, kostnadsramme og OCR-uavhengig offentlig betaflate er lukket som beslutninger, planleggingsgrunnlag eller Sprint 0-bevis. Implementasjon og senere bevis følges i Sprint 1–5 samt G1/G2. Se [kontrollsenteret](./go-live/README.md) og [signeringen](./go-live/sprint-0-signoff.md).
 
 ## 6. Sprint 1 – sikkerhet og release uten nye kostnader
 
@@ -109,9 +117,9 @@ Sprinten er startet på K0-nivå. Charter og styringsregistre er opprettet, men 
 
 **Godkjenningskriterium:** En bruker kan se reelle nøkkeltall med kilde og dato, eller en ærlig tomtilstand.
 
-## 8. Sprint 3 – klargjør Njord uten å kjøpe modellbruk
+## 8. Sprint 3 – analysegrunnlag og Njord uten å kjøpe modellbruk
 
-**Mål:** Bygge kontrollmekanismene før en betalt modellnøkkel aktiveres.
+**Mål:** Bygge analyseobjektet, de kontrollerte verktøyene og kontrollmekanismene som de tre arbeidsflytene trenger før en betalt modellnøkkel aktiveres.
 
 | ID | Leveranse | Ferdig når |
 | --- | --- | --- |
@@ -126,12 +134,16 @@ Sprinten er startet på K0-nivå. Charter og styringsregistre er opprettet, men 
 | GL-309 | Evaluering | Faktastøtte, kildebruk, sikkerhet og svarformat kan sammenlignes mellom modeller. |
 | GL-310 | Brukerfeedback | Betabrukeren kan markere svar som nyttig eller feil. |
 | GL-311 | Kontrollert fallback | Modellfeil tar ikke ned selskapsopplevelsen; Njord viser en ærlig feilmelding. |
+| GL-312 | Analyseobjekt | Formål, kriterier, univers, beregninger, kilder, konklusjon og oppfølging kan lagres med tilgangskontroll. |
+| GL-313 | Universbygging | Njord og UI bruker samme versjonerte filter-/screening-tjeneste og kan forklare inklusjon, eksklusjon og datagap. |
+| GL-314 | Sammenligning og rangering | Beregninger, perioder, vekting og manglende data er deterministiske og etterprøvbare uten språkmodellen. |
+| GL-315 | Arbeidslister | Longlist, shortlist og sourcing-/analyseutvalg kan lagres og videreføres. |
 
-**Godkjenningskriterium:** Njord kan kobles til en ekte modell uten ukontrollert tilgang til data eller budsjett.
+**Godkjenningskriterium:** Njord kan kobles til en ekte modell uten ukontrollert tilgang til data eller budsjett, og de tre arbeidsflytene kan gjennomføres deterministisk via de samme godkjente verktøyene.
 
 ## 9. Port G1 – godkjenning av første betalte kostnader
 
-Porten gjennomføres 16. august. Hvis den ikke godkjennes, fortsetter K0-forbedringer, men produksjon og ekte modellbruk aktiveres ikke.
+Porten gjennomføres 6. september. Hvis den ikke godkjennes, fortsetter K0-forbedringer, men produksjon og ekte modellbruk aktiveres ikke.
 
 CEO skal få:
 
@@ -156,7 +168,7 @@ CEO skal få:
 | GL-404 | Overvåking | Oppetid, feilrate, responstid og kostnad varsler navngitt ansvarlig. |
 | GL-405 | Ekte Njord | Modellen er aktiv i staging med bruksgrenser og minimale datatilganger. |
 | GL-406 | Modell-evaluering | Evalueringssettet består avtalte terskler før produksjon. |
-| GL-407 | Ende-til-ende-test | Innlogging, søk, profil, roller, regnskap, gating og Njord fungerer i staging. |
+| GL-407 | Ende-til-ende-test | Hver av de tre arbeidsflytene fungerer fra definert formål til lagret resultat med innlogging, gating og Njord i staging. |
 | GL-408 | Backupøvelse | En databasekopi er faktisk gjenopprettet og kontrollert. |
 | GL-409 | Kostnadsvarsler | Varsel ved 50, 75 og 90 prosent av månedstaket er testet. |
 | GL-410 | K2-isolasjon | Betalt Brreg-integrasjon aktiveres bare ved egen godkjenning. |
@@ -185,6 +197,8 @@ Beta kan åpnes bare når alle punktene er grønne eller har skriftlig risikoaks
 - Ingen mockdata eller konstruerte regnskapstall vises.
 - Selskapsdata og regnskap har kilde og hentetidspunkt.
 - Njord består kvalitets- og sikkerhetstester og kan slås av uten å ta ned resten av produktet.
+- M&A-screening, sourcing og konkurrent-/bransjeanalyse kan fullføres med reelle data, dokumenterte begrensninger og lagret resultat.
+- Njord er integrert i arbeidsflytene og skiller dokumenterte fakta, beregninger, antakelser og hypoteser.
 - AI- og driftskostnader har fungerende grenser og varsler.
 - Backup er gjenopprettet i en øvelse.
 - Overvåking og hendelsesansvar er aktivt.
@@ -198,8 +212,12 @@ Hvis ett absolutt kriterium ikke er oppfylt, flyttes lanseringen. Datoen er unde
 Rapporteres ukentlig:
 
 - Inviterte, aktiverte og ukentlig aktive brukere.
-- Brukere som gjennomfører søk, åpner profil og bruker Njord.
-- Andel Njord-svar merket nyttig, feil eller uten tilstrekkelig data.
+- Brukere som fullfører minst én av de tre analysearbeidsflytene.
+- Median spart tid mot brukerens dokumenterte eksisterende metode.
+- Analyser med et relevant nytt Njord-funn og korrekt faktastøtte.
+- Brukere som lagrer, eksporterer eller følger opp resultatet.
+- Relativ verdi mot Proff.no for minst ett bruksmål, ukentlig Njord-intensjon og produktavhengighet.
+- Virksomheter med konkret betalingsinteresse.
 - Datafeil fordelt på kilde og alvorlighetsgrad.
 - Oppetid, feilrate og alvorlige hendelser.
 - Faktisk hostingkostnad, AI-kostnad og kostnad per aktiv bruker.
@@ -241,7 +259,7 @@ Etter fire uker besluttes om betaen skal utvides, om Njord-budsjettet skal endre
 Arbeidet prioriteres slik:
 
 1. Sikkerhet, datakorrekthet og kostnadskontroll.
-2. Kritisk brukerreise: innlogging → søk → profil → innsikt → Njord.
+2. Kritisk brukerreise: definer formål → bygg univers med søk/Njord → analyser og sammenlign → undersøk → dokumenter → lagre eller overvåk.
 3. Drift, overvåking og gjenoppretting.
 4. Forbedringer som øker læring fra betaen.
 5. Kosmetikk og funksjoner som ikke påvirker lanseringskriteriene.
@@ -252,5 +270,8 @@ Nye ønsker legges ikke direkte inn i en aktiv sprint. De registreres og tas inn
 
 - [Overordnet plan](../PLAN.md)
 - [Arbeidsplaner og konvensjoner](../PLANS.md)
-- [Datakilder](./DATA_SOURCES.md)
-- [Regnskapsuttrekk](./ANNUAL_REPORT_EXTRACTION.md)
+- [Styrende produktposisjonering](./go-live/product-positioning.md)
+- [Beta-charter](./go-live/beta-charter.md)
+- [Beta-KPI-er](./go-live/beta-kpis.md)
+- [Datakildekart for beta](./go-live/data-source-map.md)
+- [Livsløp for finansielle data](./financial-data-lifecycle.md)

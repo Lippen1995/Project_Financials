@@ -1,30 +1,42 @@
 # Kostnadsregister for beta
 
-**Status:** Opprettet, priser og leverandører ikke godkjent
+**Status:** Sprint 0-ramme godkjent; leverandørvalg og aktivering gjenstår til G1
 
 **Regel:** Sprint 0 er K0. Ingen ny ekstern kostnad kan aktiveres før port G1.
 
 ## Rammer
 
 - K0: ingen nye eksterne kostnader; lokalt arbeid og åpne kilder.
-- K1: foreløpig ramme i go-live-planen er USD 35–60 per måned for drift og normalt USD 25, maksimalt USD 50 per måned for AI. Beløpene er ikke verifiserte tilbud.
+- K1: maksimalt NOK 5 000 eks. mva. per måned. Delrammer er NOK 2 500 for AI, NOK 2 000 for drift/database og NOK 500 for e-post/overvåking. Ubrukte delrammer kan ikke flyttes uten CEO-beslutning.
 - K2: komplett betalt Brreg-leveranse behandles separat. Arbeidsestimatet på NOK 480 000 per år er ikke en gyldig kjøpspris før det er verifisert skriftlig.
 - Et estimat uten leverandørkilde, dato, volum og avgifter kan ikke godkjennes i G1.
+- Utviklingsinnsats føres separat i timer og inngår ikke i K1.
+- Ingen K1-kostnad er aktivert gjennom Sprint 0-godkjenningen.
+
+## Kostnadskontroller
+
+- Varsler skal utløses ved 50, 75 og 90 prosent av totalrammen og relevante delrammer.
+- Leverandørens harde stopp eller Fjord Insights dokumenterte nødstopp skal tre i kraft ved 100 prosent.
+- Kontrollgrense per aktiv bruker er NOK 400 eks. mva. per måned.
+- Kontrollgrense per fullført analyse er NOK 125 eks. mva.
+- En kontrollgrense er en gjennomgangsutløser, ikke tillatelse til å overstige total- eller delrammen.
+- Kostnad per aktiv bruker og fullført analyse beregnes etter definisjonene i [KPI-registeret](./beta-kpis.md).
+- CEO må godkjenne leverandør, avtale, personvernunderlag, datert pris og teknisk kostnadskontroll ved G1 før aktivering.
 
 ## Register
 
 | ID | Kategori | Behov i beta | Leverandør | Prismodell / volumdriver | Foreløpig tak | Pris verifisert | Eier | Beslutningsport |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| C-01 | Webhosting / compute | Next.js, cron og helsecheck 24/7 | Ikke valgt | Kjøretid, requests, funksjonsvarighet | Del av USD 60/mnd drift | Nei | Teknisk | G1 |
-| C-02 | PostgreSQL | Separat staging og produksjon, backup/restore | Ikke valgt | Lagring, compute, connections og backup | Del av USD 60/mnd drift | Nei | Teknisk | G1 |
-| C-03 | Artifact-/objektlagring | Bare hvis nødvendige produksjons-artifacts godkjennes | Ikke valgt | GB lagret, requests og egress | Ikke satt | Nei | Teknisk / personvern | G1 |
-| C-04 | Overvåking og feilsporing | Uptime, feilrate, responstid og varsler | Ikke valgt | Events, hosts og retensjon | Del av USD 60/mnd drift | Nei | Teknisk | G1 |
-| C-05 | Transaksjonell e-post | Invitasjon, auth og support dersom nødvendig | Ikke valgt | Sendte e-poster | Ikke satt | Nei | Produkt / teknisk | G1 |
-| C-06 | Domene og DNS | Stabil beta-URL og TLS | Ikke valgt | Årsavgift / sone | Ikke satt | Nei | CEO | G1 |
-| C-07 | Njord / AI | Ekte modell etter bestått evaluering | Ikke valgt | Input-, cache- og outputtokens | USD 50/mnd hardt maksimum | Nei | Produkt / teknisk | G1 |
-| C-08 | Betaling | Ikke nødvendig for lukket beta | Stripe-integrasjon finnes | Transaksjoner og eventuelle tillegg | USD 0 i beta | Ikke relevant | CEO / produkt | Utsatt |
-| C-09 | Åpne Brreg-/SSB-kilder | Søk, profiler, roller, klassifikasjon og strukturert regnskap | Brreg / SSB | Åpen API-bruk innen vilkår og grenser | USD 0 i nye avgifter | API-vilkår må bekreftes | Teknisk | Sprint 0/1 |
-| C-10 | Komplett Brreg-regnskap | Ikke nødvendig for K0/K1-beta | Brreg | Årlig leveranse | Ingen fullmakt | Nei | CEO | Separat K2 |
+| C-01 | Webhosting / compute | Next.js, cron og helsecheck 24/7 | Ikke valgt | Kjøretid, requests, funksjonsvarighet | Del av NOK 2 000/mnd drift/database | Nei | Simen Lippestad | G1 |
+| C-02 | PostgreSQL | Separat staging og produksjon, backup/restore | Ikke valgt | Lagring, compute, connections og backup | Del av NOK 2 000/mnd drift/database | Nei | Simen Lippestad | G1 |
+| C-03 | Artifact-/objektlagring | Ingen PDF-/OCR-artifacts i beta-produksjon; bare andre godkjente produksjons-artifacts ved dokumentert behov | Ikke valgt | GB lagret, requests og egress | Del av NOK 2 000/mnd dersom godkjent | Nei | Simen Lippestad | G1 |
+| C-04 | Overvåking og feilsporing | Uptime, feilrate, responstid og varsler | Ikke valgt | Events, hosts og retensjon | Del av NOK 500/mnd e-post/overvåking | Nei | Simen Lippestad | G1 |
+| C-05 | Transaksjonell e-post | Invitasjon, auth og support dersom nødvendig | Ikke valgt | Sendte e-poster | Del av NOK 500/mnd e-post/overvåking | Nei | Simen Lippestad | G1 |
+| C-06 | Domene og DNS | Stabil beta-URL og TLS | Ikke valgt | Årsavgift / sone | Del av NOK 2 000/mnd drift/database, periodisert | Nei | Simen Lippestad | G1 |
+| C-07 | Njord / AI | Ekte modell etter bestått evaluering | Ikke valgt | Input-, cache- og outputtokens, verktøy, feil og retries | NOK 2 500/mnd hardt maksimum | Nei | Simen Lippestad | G1 |
+| C-08 | Betaling | Ikke nødvendig for lukket beta | Stripe-integrasjon finnes | Transaksjoner og eventuelle tillegg | NOK 0 i beta | Ikke relevant | Simen Lippestad | Utsatt |
+| C-09 | Åpne Brreg-/SSB-kilder | Søk, profiler, roller, klassifikasjon og strukturert regnskap | Brreg / SSB | Åpen API-bruk innen vilkår og grenser | NOK 0 i nye avgifter | API-vilkår må bekreftes | Simen Lippestad | Sprint 1 |
+| C-10 | Komplett Brreg-regnskap | Ikke nødvendig for K0/K1-beta | Brreg | Årlig leveranse | Ingen fullmakt | Nei | Simen Lippestad | Separat K2 |
 
 ## Krav til G1-underlaget
 
@@ -43,4 +55,6 @@ For hvert aktivt K1-element skal registeret suppleres med:
 
 | Dato | Kostnad | Beslutning | Besluttet av |
 | --- | --- | --- | --- |
-| – | Alle K1/K2 | Åpen: ingen kostnadsfullmakt er registrert | – |
+| 24. juli 2026 | K0 | Ingen nye eksterne kostnader kan aktiveres før G1. | Simen Lippestad (CEO) |
+| 24. juli 2026 | K1 | Månedstak NOK 5 000 eks. mva.: AI NOK 2 500, drift/database NOK 2 000 og e-post/overvåking NOK 500. Varsler 50/75/90 prosent og hard stopp ved 100 prosent. Kontrollgrenser NOK 400 per aktiv bruker/måned og NOK 125 per fullført analyse. Aktivering krever ny CEO-godkjenning ved G1. | Simen Lippestad (CEO) |
+| 24. juli 2026 | K2 | Ingen kjøpsfullmakt. Komplett betalt Brreg-leveranse krever separat CEO-/styrebeslutning og verifisert tilbud. | Simen Lippestad (CEO) |

@@ -1,8 +1,10 @@
 # Datakildekart for beta
 
-**Status:** Første tekniske kartlegging
+**Status:** Godkjent Sprint 0-baseline; dekningsmåling og implementasjonsbevis følges i Sprint 1–2
 
 **Krav:** Eksterne records skal ha `sourceSystem`, `sourceEntityType`, `sourceId`, `fetchedAt` og `normalizedAt`. Frontend skal bare konsumere normaliserte interne objekter.
+
+Arbeidsflyt- og dekningsfunn er samlet i [GL-011-analysen](./workflow-data-gap-analysis.md).
 
 ## Kjernefelt
 
@@ -14,7 +16,7 @@
 | Navn, beskrivelse og hierarki for næringskode | SSB Klass | `SsbIndustryCodeProvider` → normalisert industry code | Vis bare Brreg-koden dersom SSB-oppslag feiler | Implementert; cache-/versjonsstrategi må godkjennes |
 | Rolle, rolletype og registrert rolleinnehaver | Brreg Roller | `BrregRolesProvider` → `mapBrregRole` → repository/API | Tydelig tomtilstand | Implementert; dataminimering og oppdateringsfrekvens må godkjennes |
 | Signatur og prokura | Brreg | `BrregAuthorityProvider` | Skjult dersom ikke verifisert eller ikke tilgjengelig | Finnes i kode, men er ikke godkjent som nødvendig betafelt |
-| Siste strukturerte regnskapsår og hovedtall | Brreg Regnskapsregisteret, strukturert JSON | `BrregFinancialsProvider.fetchStructuredAnnualAccounts` → `structured-financials-service` → `FinancialStatement` | «Ikke tilgjengelig» for manglende filing eller ikke støttet oppstillingsplan | Provider, mapper, persistence og test finnes; betaens automatiske ingest/leseflyt må bevises |
+| Siste strukturerte regnskapsår og hovedtall | Brreg Regnskapsregisteret, strukturert JSON | `BrregFinancialsProvider.fetchStructuredAnnualAccounts` → `structured-financials-service` → `FinancialStatement` → offentlig kildeport | «Ikke tilgjengelig» for manglende filing eller ikke støttet oppstillingsplan | Provider, mapper og persistence finnes; offentlig leseflyt og anti-fallback er bevist i [GL-009](./ocr-independence-evidence.md); automatisk ingest og faktisk dekning gjenstår |
 | Historiske tall, konserntall og detaljlinjer fra årsrapport | Brreg PDF | Annual-report/PDF-ekstraksjon | Ikke del av betakravet; skjules dersom strukturert og kontrollert tall ikke finnes | Eksisterer, men er eksplisitt ikke tillatt som produksjonskritisk betaavhengighet |
 | Regulatorisk status / konsesjon | Finanstilsynet | Ingen provider funnet i kartleggingen | Seksjonen skjules eller merkes ikke tilgjengelig | Ikke implementert; utenfor betaomfanget |
 
@@ -27,19 +29,35 @@
 | Søk og søkefiltre | Brukeraktivitet | `CompanySearchEvent` | 30 dagers rullerende lagring som implementert |
 | AI-forbruk | Modellrespons / Fjord Insight | `AiSearchUsageEvent` | 30 dagers rullerende lagring; modellbruk holdes av til godkjenning |
 | Njord-svar og feedback | Godkjente interne tjenester + valgt modell | Ikke komplett kartlagt | Deaktivert til datakontrakt, lagring og evalueringsbevis finnes |
+| Analyseobjekt | Brukerens formål + versjonerte interne beregninger | Ikke identifisert som samlet modell | Beta kan ikke telle en komplett arbeidsflyt før formål, kriterier, univers, grunnlag, konklusjon og oppfølging kan lagres |
+| Longlist, shortlist og arbeidsliste | Brukerens eksplisitte valg + selskaps-ID-er fra normalisert selskapsmodell | Eksisterende listefunksjoner må auditeres | Ingen fritekst eller selskap kan konstrueres av modellen; tilgang og sletting følger brukerens analyseobjekt |
+| Rangering og sammenligning | Versjonerte deterministiske interne beregninger over normaliserte data | Må kartlegges per arbeidsflyt | Vis formel, periode, vekting og manglende data; Njord kan forklare, men ikke finne på skårgrunnlaget |
+
+## Datadomener som den reviderte betaen krever avklaring for
+
+| Domene | Relevans | Godkjent kilde / status | Sprint 0-beslutning |
+| --- | --- | --- | --- |
+| Finansiell historikk | Vekst, margintrend, robusthet og peer-analyse | Åpen strukturert Brreg-kilde ser ut til å dekke begrenset filing/oppstillingsplan; PDF/OCR kan ikke være produksjonskrav | Dokumenter faktisk dekning og avgrens kriterier/perioder; vurder K2 separat |
+| Eierskap og konsern | M&A-uavhengighet, konsernstøtte og motpartsavhengighet | Ingen komplett godkjent flyt dokumentert i dette kartet | Identifiser offisiell kilde og provider eller fjern kriteriet fra beta |
+| Geografi | Regional sourcing og bransjeanalyse | Brreg-adresser finnes; normalisert region-/landsdelmapping er ikke dokumentert | Definer deterministisk mapping og versjonert kodeverk før rangering |
+| Historiske roller og personer | Styresøk, nettverk og lederhistorikk | Brreg-roller dekker registrert tilstand; historikk og behandlingsgrunnlag er ikke dokumentert | Hold fjerde arbeidsflyt ute til kvalitet/personvernport er bestått |
+| Kunngjøringer og selskapsendringer | Overvåkning og mulighetssignaler | Ikke dokumentert som godkjent betakilde her | Overvåkning kan lagre utvalg, men skal ikke love endringssignaler før provider finnes |
+| Dokument- og markedsdata | Forklaringer, strategi og bred bransjeanalyse | Delvise kodeveier kan finnes, men kilde-/lisens- og normaliseringsstatus er ikke beta-godkjent | Skjul eller merk utilgjengelig til egen kildekontrakt er godkjent |
 
 ## Regler for konflikt og mangler
 
 1. Brreg overstyrer andre kilder for norske virksomheters kjernefelter.
 2. SSB beskriver og grupperer næringskoden, men endrer ikke virksomhetens registrerte kode.
 3. Finanstilsynet kan bare bli et regulatorisk overlay.
-4. Betaflaten skal bare lese regnskap med `sourceEntityType=structuredAnnualAccounts`. Eksisterende maskin-, OCR- eller reviewer-publiserte PDF-tall blir ikke beta-godkjent av at de finnes i `FinancialStatement`; denne avgrensningen er påkrevd, men ikke bevist ennå.
+4. Betaflaten leser bare regnskap med `sourceSystem=BRREG` og `sourceEntityType=structuredAnnualAccounts` når den sikre standarden `BETA_STRUCTURED_FINANCIALS_ONLY=true` er aktiv. Eksisterende maskin-, OCR- eller reviewer-publiserte PDF-tall blir ikke beta-godkjent av at de finnes i `FinancialStatement`.
 5. Manglende eller mislykket kilde gir tomtilstand eller kontrollert feil, aldri fallback til mock, seed eller syntetiske verdier.
 
 ## Audit som må fullføres i Sprint 0
 
 - Bekreft proveniensfeltene gjennom API-respons og UI for hvert kjerneområde.
 - Dokumenter om og når rå `rawPayload` slettes eller minimeres.
-- Bevis at betaflaten ikke leser OCR-avhengige historiske tall.
+- GL-009-beviset er fullført; gjenta kilde-, tomtilstands- og lagringskontrollen i produksjonslikt miljø før G2.
 - Avklar om signatur/prokura er nødvendig for beta; ellers skjul feltet.
 - Opprett konkret gapoppgave for Finanstilsynet først etter at regulatorisk overlay prioriteres.
+- Lag en felt-/kriteriematrise for hver av de tre beta-arbeidsflytene med kilde, dekningsgrad, periode, oppdateringsfrekvens og ærlig mangelhåndtering.
+- Auditér eksisterende modeller for analyse, lister, sammenligning og overvåkning før nye modeller opprettes.

@@ -1,62 +1,111 @@
 # Beta-charter
 
-**Status:** Forslag til godkjenning
+**Status:** Godkjent som del av Sprint 0-signeringen 24. juli 2026; implementasjon og G1/G2-porter gjenstår
 
-**Mål:** Lukket beta for 10–20 inviterte brukere
+**Mål:** Lukket beta med 12 primærbrukere og inntil 8 reservekandidater
 
-**Måldato:** 31. august 2026, bare dersom port G2 er bestått
+**Måldato:** 30. september 2026 dersom omfanget under er realisert og port G2 er bestått. Planen forutsetter 70 effektive utviklingstimer per uke i minst to koordinerte arbeidsstrømmer. Dersom kapasiteten er under 60 effektive timer i to sammenhengende uker, skal CEO revidere datoen. Datoen skal ikke brukes til å redusere betaen tilbake til et selskapsoppslag.
+
+**Styrende produktbeslutning:** [Produktposisjonering for Fjord Insight](./product-positioning.md)
 
 ## Betaløfte
 
-En invitert bruker skal kunne logge inn, finne en norsk virksomhet, åpne en selskapsprofil og se de virksomhets-, rolle- og regnskapsopplysningene Fjord Insight faktisk kan dokumentere fra offisielle kilder. Manglende data skal vises som utilgjengelig. Njord kan være med først når svarene er kildeforankret, bruken er begrenset og en ekte modell har bestått avtalte kvalitets- og sikkerhetstester.
+Fjord Insight og Njord skal hjelpe en profesjonell bruker å gjennomføre en konkret selskaps- eller markedsanalyse med mindre manuelt arbeid og et bedre dokumentert resultat enn brukerens eksisterende kombinasjon av oppslagstjenester, Brreg, regneark, nettsøk og manuell analyse.
 
-## Foreslått målgruppe
+En enkel flyt fra søk til selskapsprofil er nødvendig, men validerer ikke betaløftet alene. Betaen skal demonstrere minst tre komplette, formålsbaserte arbeidsflyter. Alle selskaps-, person- og regnskapsfakta skal komme fra reelle, godkjente kilder. Manglende data skal vises som utilgjengelig og skal aldri erstattes av antakelser eller syntetisk innhold.
 
-- 10–20 norske analytikere, rådgivere eller profesjonelle virksomhetsbrukere med et reelt behov for selskapsoppslag.
-- Brukerne må akseptere at dette er en lukket beta og være villige til å gi strukturert tilbakemelding.
-- Brukere med behov som krever komplett årsregnskapshistorikk eller regulatorisk fullstendighet tas ikke inn før dekningen er dokumentert.
+## Målgruppe og kohort
 
-**Åpen beslutning:** Navngi rekrutteringsansvarlig og dokumenter utvalgskriterier og planlagt kohortstørrelse senest 21. juli. Kandidatidentiteter skal ligge i et godkjent tilgangsstyrt system, ikke i repoet.
+- 12 primærbrukere og inntil 8 reservekandidater blant analytikere, M&A-/corporate-development-brukere, kommersielle sourcere, innkjøps-/risikobrukere og strategibrukere med et reelt analysebehov.
+- Kohorten skal samlet dekke de tre prioriterte beta-arbeidsflytene, og hver deltaker skal ha én definert analyseoppgave som kan sammenlignes med dagens metode.
+- Brukerne må bidra med strukturert før-/etter-måling, vurdering av Njord og oppfølging av analyseresultatet.
+- Behov som krever udokumentert historikk, komplett eierskap, regulatorisk fullstendighet eller andre datadomener uten godkjent kilde, tas ikke inn før dekningen er dokumentert.
 
-## Foreslått omfang
+| Arbeidsflyt / bruksmål | Primærbrukere | Merknad |
+| --- | ---: | --- |
+| M&A / corporate development | 4 | Skal gjennomføre M&A-screening på en reell oppgave |
+| Kundesourcing | 2 | Skal definere og bruke en kommersiell målprofil |
+| Leverandørvalidering | 2 | Skal sammenligne reelle leverandøralternativer |
+| Strategi / konkurrent- / bransjeanalyse | 4 | Skal definere univers og dokumentere en konklusjon |
+
+Simen Lippestad er ansvarlig for rekruttering og support. Kandidatnavn ferdigstilles før betaåpning og lagres i et godkjent tilgangsstyrt system, ikke i repoet. Inntil 8 reservekandidater kan brukes ved frafall. Baseline-metoden for spart tid besluttes i KPI-arbeidet.
+
+## Kritisk brukerreise
+
+> Definer formål → søk eller be Njord bygge universet → analyser og sammenlign → undersøk selskaper eller personer → dokumenter konklusjonen → lagre eller overvåk resultatet
+
+Arbeidsflyten må bevare kriterier, kildegrunnlag, beregninger, usikkerhet og det lagrede resultatet. Et løst chat-svar eller en profilvisning regnes ikke som en fullført analyse.
+
+## Minimumsomfang
+
+### Arbeidsflyt 1 – M&A-screening
+
+Definer støttede kriterier, bygg longlist fra reelle data, vis inklusjons-/eksklusjonsgrunnlag, ranger kandidater, åpne selskapsanalyse, sammenlign og lagre shortlist.
+
+### Arbeidsflyt 2 – kunde- eller leverandørsourcing
+
+Definer målprofil, finn og filtrer relevante selskaper, ranger etter dokumenterte signaler, gjennomfør enkel validering og lagre resultatet i en arbeidsliste.
+
+### Arbeidsflyt 3 – konkurrent- eller bransjeanalyse
+
+Definer bransjeunivers, sammenlign tilgjengelige nøkkeltall, identifiser trender og avvik, få en kildebasert Njord-analyse og lagre konklusjonen.
+
+Styre- og lederrekruttering er en mulig fjerde arbeidsflyt, men er utenfor minimumsomfanget inntil person-/rollehistorikk, datakvalitet og behandlingsgrunnlag har bestått en egen port.
+
+## Felles produktevner
 
 | Område | Betaomfang | Utgivelsesregel |
 | --- | --- | --- |
 | Tilgang | Invitasjon, registrering, innlogging og tilbakekallbar tilgang | Ikke-offentlige flater krever autentisering |
-| Virksomhetssøk | Navn, organisasjonsnummer og de filtrene Brreg faktisk støtter eller som kan etterbehandles ærlig | Tom-, feil- og loadingtilstand må fungere |
-| Selskapsprofil | Kjerneopplysninger, adresser, næringskode og kildesporbarhet | Brreg er master; SSB beriker kun kodebeskrivelse |
-| Roller og styre | Registrerte roller fra Brreg | Tomtilstand når kilden ikke gir roller |
-| Regnskap | Siste strukturerte regnskap fra Brreg når tilgjengelig | Ingen betaflate kan være avhengig av OCR; manglende eller ikke støttet oppstillingsplan gir tomtilstand |
-| Feature gating | Eksisterende abonnementsstatus og server-side tilgangskontroll | Betalingskjøp er ikke nødvendig for lukket beta |
-| Njord | Ekte modell via godkjente interne verktøy | Deaktivert til Sprint 3/4-porter, evaluering og kostnadstak er bestått |
+| Formål og kriterier | Velg arbeidsflyt, registrer mål og bruk bare kriterier med dokumentert datadekning | Ustøttede kriterier merkes før analysen kjøres |
+| Søk og universbygging | Navn, organisasjonsnummer, næring, geografi og andre filtre støttet av normaliserte reelle data | Vis kriterier, dekningsbegrensning og resultatantall |
+| Selskapsanalyse | Kjerneopplysninger, roller, tilgjengelige finanser, kilder og relevante sammenligninger | Brreg er master; SSB beriker kun kodeverk |
+| Sammenligning og rangering | Etterprøvbare beregninger for et avgrenset univers | Formler, perioder, manglende data og vekting er synlige |
+| Arbeidslister | Longlist, shortlist eller analyseutvalg med formål, kriterier og tidspunkt | Ingen syntetiske selskaper; tilgang følger brukeren |
+| Dokumentasjon | Lagret konklusjon med kilder, beregninger, antakelser og usikkerhet | Eksport kan utsettes dersom resultatet kan følges opp i beta |
+| Njord | Ekte modell integrert i de tre arbeidsflytene via godkjente interne verktøy | Må bestå kvalitets-, sikkerhets- og kostnadsporter; ikke en valgfri bonusflate |
+| Feature gating | Server-side tilgangskontroll basert på eksisterende abonnementsstatus | Betalingskjøp er ikke nødvendig for lukket beta |
+
+## Njord i beta
+
+Njord skal kunne avklare målet, velge relevante datadomener og godkjente verktøy dynamisk, foreslå støttede kriterier, bygge eller analysere et univers, forklare rangering og avvik, skille fakta fra beregning/hypotese, vise kilder og videreføre resultatet til brukerens liste eller analyseobjekt. Njord får tilgang til all normalisert Fjord Insight-data brukeren er autorisert for gjennom kontrollerte verktøy, men ikke direkte database- eller infrastrukturtillatelse. Arkitekturgrensen er låst i [ADR-0001](../adr/ADR-0001-njord-dynamic-authorized-data-access.md).
+
+Njord er beta-kritisk, men skal holdes deaktivert dersom evaluerings- eller sikkerhetsporten ikke er bestått. I så fall kan betaen ikke erklæres som validering av det reviderte verdiforslaget; den må flyttes eller eksplisitt klassifiseres som en teknisk forbeta.
 
 ## Utenfor betaomfanget
 
-- OCR-/PDF-avhengig regnskapshistorikk som produksjonskrav.
-- Komplett regnskapsdekning, konserntall eller bank-/forsikringsoppsett som det åpne strukturerte Brreg-API-et ikke leverer.
+- OCR-/PDF-avhengige tall som produksjonskrav.
+- Datadomener uten reell, lovlig kilde og dokumentert normalisering/proveniens.
+- Komplett nasjonal dekning, regnskapshistorikk eller konsern-/eierskapsdata før dekningen er bevist.
 - Finanstilsynet-overlay før provider, datakontrakt og tomtilstand er implementert.
-- Kjøp av komplett Brreg-leveranse (K2).
-- Åpen selvbetjent lansering, offentlig markedsføring eller løfte om nasjonal fullstendighet.
-- Nye produktmoduler som ikke er nødvendige for kjernereisen: innlogging → søk → profil → dokumentert innsikt → valgfri Njord.
+- Kjøp av komplett Brreg-leveranse (K2) uten separat beslutning.
+- Åpen selvbetjent lansering eller offentlig markedsføring med udokumenterte løfter.
+- Scenario-, sensitivitets-, nettverks- eller personanalyse utenfor godkjente arbeidsflyter.
 
-Eksisterende funksjoner utenfor omfanget må enten skjules i beta, merkes som ikke tilgjengelige eller risikovurderes og godkjennes eksplisitt. De blir ikke automatisk en del av betaen fordi koden finnes.
+Eksisterende funksjoner utenfor omfanget skal skjules, merkes som ikke tilgjengelige eller risikovurderes og godkjennes eksplisitt. At kode finnes gjør ikke funksjonen beta-godkjent.
 
 ## Roller og beslutningsmyndighet
 
 | Rolle | Person | Myndighet | Stedfortreder | Frist |
 | --- | --- | --- | --- | --- |
-| Lanseringsmyndighet | Ikke navngitt | Endelig go/no-go og skriftlig risikoaksept | Ikke navngitt | 21. juli |
-| Produkteier | Ikke navngitt | Omfang, målgruppe og KPI-er | Ikke navngitt | 21. juli |
-| Teknisk eier | Ikke navngitt | Arkitektur, sikkerhet, release og drift | Ikke navngitt | 21. juli |
-| Personvernansvarlig | Ikke navngitt | Behandlingsgrunnlag, lagring og rettigheter | Ikke navngitt | 21. juli |
-| Betarekruttering og support | Ikke navngitt | Invitasjoner, kontaktpunkt og feedback | Ikke navngitt | 21. juli |
+| Lanseringsmyndighet | Simen Lippestad (CEO) | Endelig go/no-go og skriftlig risikoaksept | Ikke utpekt | Navngitt 22. juli 2026 |
+| Produkteier | Simen Lippestad (CEO) | Omfang, arbeidsflyter, målgruppe og KPI-er | Ikke utpekt | Navngitt 22. juli 2026 |
+| Teknisk eier | Simen Lippestad (CEO) | Arkitektur, sikkerhet, release og drift | Ikke utpekt | Navngitt 22. juli 2026 |
+| Dataansvarlig | Simen Lippestad (CEO) | Kildedekning, normalisering og proveniens | Ikke utpekt | Navngitt 22. juli 2026 |
+| Personvernansvarlig | Simen Lippestad (CEO) | Behandlingsgrunnlag, lagring og rettigheter | Ikke utpekt | Navngitt 22. juli 2026 |
+| Betarekruttering og support | Simen Lippestad (CEO) | Kohort, invitasjoner, kontaktpunkt og feedback | Ikke utpekt | Navngitt 22. juli 2026 |
 
-Rollenavn er ikke tilstrekkelig for å lukke GL-003. Personnavn og stedfortreder skal settes før Sprint 0 kan godkjennes.
+Simen Lippestad dekker alle rollene som CEO. Ingen stedfortreder utpekes nå. CEO har 22. juli 2026 akseptert nøkkelpersonrisikoen frem til første betalende kunde eller 30. september 2026, avhengig av hva som kommer først. Før utløpet skal stedfortreder vurderes på nytt, og kritiske tilganger, deploy- og gjenopprettingsprosedyrer skal være dokumentert slik at ansvar kan overtas.
 
 ## Godkjenning
 
 | Beslutning | Besluttet av | Dato | Status |
 | --- | --- | --- | --- |
-| Betamål og målgruppe | – | – | Åpen |
-| Funksjonsomfang | – | – | Åpen |
-| Navngitte eiere og fullmakter | – | – | Åpen |
+| Produktposisjonering og betaløfte | Simen Lippestad (CEO) | 22. juli 2026 | Godkjent |
+| Tre prioriterte beta-arbeidsflyter | Simen Lippestad (CEO) | 22. juli 2026 | Retning godkjent; datadekning og gjennomførbarhet avgjøres i GL-011 |
+| Målgruppe og rekrutteringsplan | Simen Lippestad (CEO) | 22. juli 2026 | Godkjent: 12 primærbrukere, inntil 8 reserver; kandidatnavn ferdigstilles før betaåpning |
+| Funksjons- og dataomfang per arbeidsflyt | Simen Lippestad (CEO) | 22. juli 2026 | GL-011 teknisk lukket; dynamisk datatilgang godkjent, estimert backlog dokumentert |
+| Navngitte eiere og fullmakter | Simen Lippestad | 22. juli 2026 | Godkjent; ingen stedfortreder, tidsavgrenset nøkkelpersonrisiko akseptert |
+| Revidert betadato etter omfangsvurdering | Simen Lippestad (CEO) | 22. juli 2026 | Godkjent: 30. september 2026; 70 effektive timer per uke og kapasitetsutløst datorevisjon |
+| Personvern-, KPI-, OCR-, risiko- og kostnadsramme | Simen Lippestad (CEO) | 24. juli 2026 | Godkjent og inkludert i samlet Sprint 0-signering |
+| Samlet beta-charter og Sprint 0 | Simen Lippestad (CEO) | 24. juli 2026 | Godkjent; videre leveranse krever G1/G2 etter planen |
