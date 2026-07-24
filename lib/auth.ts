@@ -105,7 +105,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return true;
       }
 
-      return Boolean(profile?.email && profile.email_verified);
+      if (!profile?.email || !profile.email_verified) {
+        return false;
+      }
+
+      return consumeRateLimit(
+        "linkedin-signin",
+        profile.email.trim().toLowerCase().slice(0, 254),
+        { limit: 20, windowMs: 15 * 60_000 },
+      ).allowed;
     },
     async jwt({ token, user }) {
       if (user) {

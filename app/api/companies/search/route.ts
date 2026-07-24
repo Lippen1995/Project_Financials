@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
+import {
+  consumeRateLimit,
+  getClientAddress,
+  rateLimitHeaders,
+} from "@/lib/rate-limit";
 import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import { searchCompanies } from "@/server/services/company-service";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
@@ -11,29 +17,89 @@ import {
   reserveAiSearchUsage,
 } from "@/server/services/search-history-service";
 
+const optionalString = (max: number) =>
+  z.preprocess(
+    (value) => (typeof value === "string" && value.trim() ? value.trim() : undefined),
+    z.string().max(max).optional(),
+  );
+
+const searchParamsSchema = z.object({
+  query: optionalString(200),
+  status: z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    z.enum(["ACTIVE", "DISSOLVED", "BANKRUPT"]).optional(),
+  ),
+  mode: z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    z.literal("typeahead").optional(),
+  ),
+  limit: z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    z.coerce.number().int().min(1).max(50).optional(),
+  ),
+  ai: z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    z.enum(["0", "1"]).optional(),
+  ),
+  industryCode: optionalString(20),
+  city: optionalString(120),
+  legalForm: optionalString(20),
+});
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get("query") ?? undefined;
-  const status =
-    (searchParams.get("status") as "ACTIVE" | "DISSOLVED" | "BANKRUPT" | null) ?? undefined;
+  const requestLimit = consumeRateLimit(
+    "company-search",
+    getClientAddress(request.headers),
+    { limit: 60, windowMs: 60_000 },
+  );
+  if (!requestLimit.allowed) {
+    return NextResponse.json(
+      { error: "For mange søk. Prøv igjen om litt." },
+      { status: 429, headers: rateLimitHeaders(requestLimit) },
+    );
+  }
+
+  const parsedParams = searchParamsSchema.safeParse({
+    query: searchParams.get("query"),
+    status: searchParams.get("status"),
+    mode: searchParams.get("mode"),
+    limit: searchParams.get("limit"),
+    ai: searchParams.get("ai"),
+    industryCode: searchParams.get("industryCode"),
+    city: searchParams.get("city"),
+    legalForm: searchParams.get("legalForm"),
+  });
+  if (!parsedParams.success) {
+    return NextResponse.json({ error: "Ugyldige søkeparametere." }, { status: 400 });
+  }
+
+  const {
+    query,
+    status,
+    mode,
+    limit,
+    ai,
+    industryCode,
+    city,
+    legalForm,
+  } = parsedParams.data;
 
   // Typeahead mode: the nav search and watchlist quick-add only need name/org-number
   // matches, so hit the local entity mirror directly and skip the natural-language
   // interpretation layer (SSB industry/geography) that the full /search page uses.
-  if (searchParams.get("mode") === "typeahead") {
-    const limitParam = searchParams.get("limit");
-    const size = limitParam ? Number(limitParam) : 8;
+  if (mode === "typeahead") {
     const companies = await searchRegistryCompanies({
       query,
       status,
-      size: Number.isNaN(size) ? 8 : size,
+      size: limit ?? 8,
     });
     return NextResponse.json({
       data: companies.map((company) => ({ company, relevanceScore: 1, matchReasons: [] })),
     });
   }
 
-  const aiRequested = searchParams.get("ai") === "1";
+  const aiRequested = ai === "1";
   const session = aiRequested ? await safeAuth() : null;
   const subscription = session?.user?.id
     ? await getAiSearchSubscriptionContext(session.user.id)
@@ -54,9 +120,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Tokenkvoten for AI-søk er brukt opp." }, { status: 429 });
   }
 
-  const industryCode = searchParams.get("industryCode") ?? undefined;
-  const city = searchParams.get("city") ?? undefined;
-  const legalForm = searchParams.get("legalForm") ?? undefined;
   let usageFinalized = false;
   let searchResult: Awaited<ReturnType<typeof searchCompanies>>;
   try {

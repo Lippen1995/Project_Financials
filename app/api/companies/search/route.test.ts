@@ -86,4 +86,23 @@ describe("GET /api/companies/search", () => {
     });
     expect(mocks.reserveAiSearchUsage).not.toHaveBeenCalled();
   });
+
+  it("rejects an invalid typeahead limit before searching", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/companies/search?mode=typeahead&limit=-1"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.searchRegistryCompanies).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized search input", async () => {
+    const query = "a".repeat(201);
+    const response = await GET(
+      new NextRequest(`http://localhost/api/companies/search?query=${query}`),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.searchCompanies).not.toHaveBeenCalled();
+  });
 });

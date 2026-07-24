@@ -11,6 +11,7 @@ const requestSchema = z
     question: z.string().trim().min(1).max(2_000),
   })
   .strict();
+const paramsSchema = z.object({ workspaceId: z.string().cuid() }).strict();
 
 /**
  * Njord, the distress analyst assistant. It is answered by the deterministic rule engine in
@@ -52,7 +53,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ wo
   }
   const question = parsedBody.data.question;
 
-  const { workspaceId } = await context.params;
+  const parsedParams = paramsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
+    return NextResponse.json({ error: "Ugyldig workspaceId." }, { status: 400 });
+  }
+  const { workspaceId } = parsedParams.data;
 
   // The whole universe, not the page the user happens to be looking at: "the five biggest" has to
   // mean the five biggest overall.

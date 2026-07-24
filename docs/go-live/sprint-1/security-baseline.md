@@ -16,7 +16,7 @@
 | Adminruter | Guard fantes, men samlet bevis manglet | 56 av 56 verifisert med DB-basert rolleoppslag |
 | Interne ruter | Spredte tjenestehemmeligheter/reviewer-guard | 12 av 12 verifisert beskyttet |
 | Produksjon uten auth-hemmelighet | Avhengig av rammeverksfeil | Eksplisitt fail-closed |
-| Rate limiting | Ikke felles kontroll | Innlogging, søk og Njord dekket |
+| Rate limiting | Ikke felles kontroll | Credentials, LinkedIn, primærsøk, søkeforslag og Njord dekket |
 | Sikkerhetshoder | Ikke konfigurert samlet | Global baseline konfigurert |
 | Database i CI | `prisma db push` | `prisma migrate deploy` |
 | Automatiske porter | Type, test og lint | Hemmelighetskontroll, audit, migrasjon, type, test, lint og build |
