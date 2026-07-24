@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { PrismaClient } from "@prisma/client";
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 
 const prisma = new PrismaClient({ log: ["warn", "error"] });
 
@@ -214,7 +214,7 @@ async function buildSheets(items: AuditItem[]) {
     const rowHeight = 230;
     const width = 1500;
     const height = batch.length * rowHeight + 90;
-    const composites: sharp.OverlayOptions[] = [];
+    const composites: OverlayOptions[] = [];
 
     const header = Buffer.from(
       `<svg width="${width}" height="70"><text x="20" y="34" font-family="Arial" font-size="24" fill="#111827">As-reported visual audit ${start + 1}-${start + batch.length} of ${items.length}</text><text x="20" y="60" font-family="Arial" font-size="16" fill="#475569">Each row: saved label/value/scope/year plus cropped annual-report row evidence.</text></svg>`,

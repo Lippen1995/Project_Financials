@@ -36,8 +36,8 @@ openid profile email
 ## Local test flow
 
 1. Start PostgreSQL and the Next.js app.
-2. Sync Prisma locally:
-   `npx prisma db push`
+2. Apply the versioned Prisma migrations:
+   `npm run db:migrate:deploy`
 3. Start the app:
    `npm run dev`
 4. Visit `/login`.

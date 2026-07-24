@@ -8,15 +8,19 @@ import { z } from "zod";
 
 import { getLinkedInConfigurationStatus, LINKEDIN_OIDC_SCOPE } from "@/lib/linkedin-auth";
 import { prisma } from "@/lib/prisma";
+import { consumeRateLimit, getClientAddress } from "@/lib/rate-limit";
 import { ensureUserBaselineState } from "@/server/services/user-profile-service";
 import { getSessionWorkspaceContext } from "@/server/services/workspace-service";
 
 const credentialSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
+  email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+  password: z.string().min(6).max(256),
 });
 
 const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+if (process.env.NODE_ENV === "production" && !authSecret) {
+  throw new Error("AUTH_SECRET must be configured in production.");
+}
 const linkedIn = getLinkedInConfigurationStatus();
 
 const providers: NextAuthConfig["providers"] = [
@@ -26,7 +30,20 @@ const providers: NextAuthConfig["providers"] = [
       email: {},
       password: {},
     },
-    async authorize(credentials) {
+    async authorize(credentials, request) {
+      const rawEmail =
+        typeof credentials?.email === "string"
+          ? credentials.email.trim().toLowerCase().slice(0, 254)
+          : "invalid";
+      const loginLimit = consumeRateLimit(
+        "credentials-login",
+        `${getClientAddress(request.headers)}:${rawEmail}`,
+        { limit: 10, windowMs: 15 * 60_000 },
+      );
+      if (!loginLimit.allowed) {
+        return null;
+      }
+
       const parsed = credentialSchema.safeParse(credentials);
       if (!parsed.success) {
         return null;

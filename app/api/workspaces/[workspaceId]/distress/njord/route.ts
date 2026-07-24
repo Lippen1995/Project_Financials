@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { safeAuth } from "@/lib/auth";
+import { consumeRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { answerNjordQuestion } from "@/server/distress/njord-assistant";
 import { getDistressUniverseForWorkspace } from "@/server/services/distress-analysis-service";
+import { z } from "zod";
+
+const requestSchema = z
+  .object({
+    question: z.string().trim().min(1).max(2_000),
+  })
+  .strict();
 
 /**
  * Njord, the distress analyst assistant. It is answered by the deterministic rule engine in
@@ -17,17 +25,32 @@ export async function POST(request: NextRequest, context: { params: Promise<{ wo
     return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
   }
 
-  let body: { question?: unknown };
+  const requestLimit = consumeRateLimit("njord-distress", session.user.id, {
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!requestLimit.allowed) {
+    return NextResponse.json(
+      { error: "For mange Njord-forespørsler. Prøv igjen senere." },
+      { status: 429, headers: rateLimitHeaders(requestLimit) },
+    );
+  }
+
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
   }
 
-  const question = typeof body.question === "string" ? body.question.trim() : "";
-  if (!question) {
-    return NextResponse.json({ error: "Tomt spørsmål." }, { status: 400 });
+  const parsedBody = requestSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json(
+      { error: "Ugyldig spørsmål. Maksimal lengde er 2000 tegn." },
+      { status: 400 },
+    );
   }
+  const question = parsedBody.data.question;
 
   const { workspaceId } = await context.params;
 

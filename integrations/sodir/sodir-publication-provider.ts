@@ -1,5 +1,4 @@
 import * as cheerio from "cheerio";
-import * as XLSX from "xlsx";
 
 import { fetchText } from "@/integrations/http";
 import {
@@ -98,17 +97,6 @@ function extractLinkByText(html: string, pattern: RegExp) {
   return null;
 }
 
-async function extractWorkbookSheetNames(url?: string | null) {
-  if (!url) return [];
-  const response = await fetch(url, { next: { revalidate: 3600 } });
-  if (!response.ok) {
-    return [];
-  }
-
-  const workbook = XLSX.read(await response.arrayBuffer(), { type: "array" });
-  return workbook.SheetNames;
-}
-
 async function resolveLatestReportUrl(listUrl: string, hrefPattern: RegExp) {
   const html = await fetchText(listUrl, undefined, 60_000);
   const $ = cheerio.load(html);
@@ -184,7 +172,6 @@ async function fetchLatestMonthlyProductionPublication() {
   const title = resolvePageTitle(html, detailUrl, "Produksjonstall");
   const publishedAt = parsePublishedAtFromText(text);
   const backgroundDataUrl = extractLinkByText(html, /bakgrunnstall|excel/i);
-  const sheetNames = await extractWorkbookSheetNames(backgroundDataUrl);
   const metrics = parseMonthlyProductionMetrics(text);
 
   const publication = {
@@ -196,7 +183,9 @@ async function fetchLatestMonthlyProductionPublication() {
     detailUrl,
     backgroundDataUrl,
     pdfUrl: extractLinkByText(html, /last ned pdf/i),
-    sheetNames,
+    // Workbook metadata is intentionally unavailable until a maintained XLSX parser is selected.
+    // The official background-data URL remains available to the user.
+    sheetNames: [],
     sourceSystem: "SODIR",
     sourceEntityType: "monthly_production_publication",
     sourceId: detailUrl,
@@ -258,7 +247,6 @@ async function fetchLatestShelfYearPublication() {
   const title = resolvePageTitle(summaryHtml, reportUrl, "Sokkelåret");
   const summaryText = normalizeWhitespace(cheerio.load(summaryHtml)("main").text());
   const backgroundDataUrl = extractLinkByText(forwardHtml, /bakgrunnstall|excel/i);
-  const sheetNames = await extractWorkbookSheetNames(backgroundDataUrl);
   const publishedAt = parsePublishedAtFromText(summaryText);
   const keyPoints = extractLongTermForecastPoints([...summaryParagraphs, ...forwardParagraphs]);
 
@@ -271,7 +259,7 @@ async function fetchLatestShelfYearPublication() {
     detailUrl: reportUrl,
     backgroundDataUrl,
     pdfUrl: absolutizeUrl(`${reportUrl}?print=2&`) ?? null,
-    sheetNames,
+    sheetNames: [],
     sourceSystem: "SODIR",
     sourceEntityType: "shelf_year_publication",
     sourceId: reportUrl,
@@ -329,7 +317,6 @@ async function fetchLatestResourceReportPublication() {
   const paragraphs = extractParagraphs(reportHtml);
   const text = normalizeWhitespace(cheerio.load(reportHtml)("main").text());
   const backgroundDataUrl = extractLinkByText(reportHtml, /bakgrunnstall|excel/i);
-  const sheetNames = await extractWorkbookSheetNames(backgroundDataUrl);
   const publishedAt = parsePublishedAtFromText(text);
 
   return {
@@ -341,7 +328,7 @@ async function fetchLatestResourceReportPublication() {
     detailUrl: reportUrl,
     backgroundDataUrl,
     pdfUrl: absolutizeUrl(`${reportUrl}?print=2&`) ?? null,
-    sheetNames,
+    sheetNames: [],
     sourceSystem: "SODIR",
     sourceEntityType: "resource_report_publication",
     sourceId: reportUrl,

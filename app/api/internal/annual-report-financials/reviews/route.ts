@@ -1,10 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import env from "@/lib/env";
 import {
   listAnnualReportReviewQueue,
   updateAnnualReportReview,
 } from "@/server/services/annual-report-financials-service";
+
+const reviewStatusSchema = z.enum([
+  "PENDING_REVIEW",
+  "ACCEPTED",
+  "REJECTED",
+  "REPROCESS_REQUESTED",
+  "RESOLVED_BY_NEW_RUN",
+]);
+const listSchema = z.object({
+  statuses: z.array(reviewStatusSchema).max(10).optional(),
+  ruleCodes: z
+    .array(z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9_.:-]+$/))
+    .max(100),
+  orgNumbers: z.array(z.string().regex(/^\d{9}$/)).max(100),
+  limit: z.coerce.number().int().min(1).max(200),
+});
+const updateSchema = z
+  .object({
+    reviewId: z.string().trim().min(1).max(128),
+    status: reviewStatusSchema,
+    latestActionNote: z.string().trim().max(2_000).optional(),
+  })
+  .strict();
 
 function isAuthorized(request: NextRequest) {
   if (!env.workspaceSyncSecret) {
@@ -34,21 +58,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await listAnnualReportReviewQueue({
-      statuses:
-        readListParam(request, "status").length > 0
-          ? (readListParam(request, "status") as
-              | (
-                  | "PENDING_REVIEW"
-                  | "ACCEPTED"
-                  | "REJECTED"
-                  | "REPROCESS_REQUESTED"
-                  | "RESOLVED_BY_NEW_RUN"
-                )[])
-          : undefined,
+    const result = listSchema.safeParse({
+      statuses: readListParam(request, "status"),
       ruleCodes: readListParam(request, "rule"),
       orgNumbers: readListParam(request, "org"),
-      limit: Number(request.nextUrl.searchParams.get("limit") ?? "50"),
+      limit: request.nextUrl.searchParams.get("limit") ?? "50",
+    });
+    if (!result.success) {
+      return NextResponse.json({ error: "Ugyldige køparametere." }, { status: 400 });
+    }
+    const data = await listAnnualReportReviewQueue({
+      ...result.data,
+      statuses: result.data.statuses?.length ? result.data.statuses : undefined,
     });
 
     return NextResponse.json({ data });
@@ -71,21 +92,20 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
-    if (!body?.reviewId || !body?.status) {
-      return NextResponse.json(
-        { error: "Mangler reviewId eller status." },
-        { status: 400 },
-      );
+    const result = updateSchema.safeParse(await request.json());
+    if (!result.success) {
+      return NextResponse.json({ error: "Ugyldig review-oppdatering." }, { status: 400 });
     }
-
     const data = await updateAnnualReportReview(
-      body.reviewId,
-      body.status,
-      body.latestActionNote,
+      result.data.reviewId,
+      result.data.status,
+      result.data.latestActionNote,
     );
     return NextResponse.json({ data });
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Ugyldig JSON." }, { status: 400 });
+    }
     return NextResponse.json(
       {
         error:

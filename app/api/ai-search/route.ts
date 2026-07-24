@@ -4,6 +4,7 @@ import { safeAuth } from "@/lib/auth";
 import env from "@/lib/env";
 import { calculateAiUsageTokens } from "@/lib/ai-search-usage";
 import { logRecoverableError } from "@/lib/recoverable-error";
+import { consumeRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { runAgent } from "@/server/ai-search/agent/agent-loop";
 import { buildCompanySearchRows } from "@/server/ai-search/agent/company-rows";
 import { buildTargetReasoningPrompt } from "@/server/ai-search/agent/target-reasoning";
@@ -17,6 +18,13 @@ import {
   releaseAiSearchUsage,
   reserveAiSearchUsage,
 } from "@/server/services/search-history-service";
+import { z } from "zod";
+
+const requestSchema = z
+  .object({
+    query: z.string().trim().min(1).max(4_000),
+  })
+  .strict();
 
 /**
  * AI-search agent endpoint. Runs the guarded tool loop with the real LLM when billing and an API key
@@ -29,17 +37,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
   }
 
-  let body: { query?: unknown };
+  const requestLimit = consumeRateLimit("njord-ai-search", session.user.id, {
+    limit: 10,
+    windowMs: 5 * 60_000,
+  });
+  if (!requestLimit.allowed) {
+    return NextResponse.json(
+      { error: "For mange Njord-forespørsler. Prøv igjen senere." },
+      { status: 429, headers: rateLimitHeaders(requestLimit) },
+    );
+  }
+
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
   }
 
-  const query = typeof body.query === "string" ? body.query.trim() : "";
-  if (!query) {
-    return NextResponse.json({ error: "Tomt søk." }, { status: 400 });
+  const parsedBody = requestSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json(
+      { error: "Ugyldig søk. Maksimal lengde er 4000 tegn." },
+      { status: 400 },
+    );
   }
+  const query = parsedBody.data.query;
 
   const realLlmEnabled = env.aiSearchBillingEnabled && Boolean(env.openAiApiKey);
   if (!realLlmEnabled) {

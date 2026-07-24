@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
 import { buildDashboardSearchHref, isDashboardSearchScope } from "@/lib/dashboard-search";
 import type { NavSearchSuggestion } from "@/lib/nav-search";
+import {
+  consumeRateLimit,
+  getClientAddress,
+  rateLimitHeaders,
+} from "@/lib/rate-limit";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { searchPersons, searchRoleTypes } from "@/server/registry/role-search-service";
 
@@ -11,6 +16,18 @@ const MAX_QUERY_LENGTH = 200;
 const industryCodeProvider = new SsbIndustryCodeProvider();
 
 export async function GET(request: NextRequest) {
+  const requestLimit = consumeRateLimit(
+    "search-suggestions",
+    getClientAddress(request.headers),
+    { limit: 120, windowMs: 60_000 },
+  );
+  if (!requestLimit.allowed) {
+    return NextResponse.json(
+      { error: "For mange søk. Prøv igjen om litt." },
+      { status: 429, headers: rateLimitHeaders(requestLimit) },
+    );
+  }
+
   const query = (request.nextUrl.searchParams.get("query") ?? "").trim();
   const rawScope = request.nextUrl.searchParams.get("scope");
   if (rawScope !== null && !isDashboardSearchScope(rawScope)) {

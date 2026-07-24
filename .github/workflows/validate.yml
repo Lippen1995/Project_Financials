@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      AUTH_SECRET: ci-only-auth-secret-that-is-not-used-outside-ci
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/projectx?schema=public
 
     services:
@@ -41,8 +42,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Prepare test database
-        run: npx prisma db push --skip-generate
+      - name: Check tracked environment and secret files
+        run: npm run security:check-env-files
+
+      - name: Audit production and development dependencies
+        run: npm run security:audit
+
+      - name: Apply database migrations
+        run: npm run db:migrate:deploy
 
       - name: Typecheck
         run: npm run typecheck
@@ -52,3 +59,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Build
+        run: npm run build

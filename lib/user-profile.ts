@@ -117,7 +117,7 @@ export const userProfilePatchSchema = z.object({
   sectorsOfInterest: z.array(z.string().trim().min(1).max(80)).max(24).optional(),
   education: z.array(educationEntrySchema).max(12).optional(),
   careerHistory: z.array(careerEntrySchema).max(20).optional(),
-});
+}).strict();
 
 export type UserProfilePatchInput = z.infer<typeof userProfilePatchSchema>;
 
