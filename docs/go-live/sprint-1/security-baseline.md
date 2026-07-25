@@ -8,9 +8,9 @@
 
 ## Baseline og resultat
 
-| Kontroll | Før | Etter første leveranse |
+| Kontroll | Før | Etter Sprint 1-tiltak |
 | --- | --- | --- |
-| Dependency advisories | 23 totalt: 3 kritiske, 16 høye, 3 moderate, 1 lavt | 0 etter første leveranse; 9 høye i ESLint-verktøykjeden etter ny `brace-expansion`-advisory 25. juli |
+| Dependency advisories | 23 totalt: 3 kritiske, 16 høye, 3 moderate, 1 lavt | 0. En ny advisory 25. juli åpnet 9 høye funn i ESLint-verktøykjeden; disse er lukket med en testet legacy-adapter til offisielt patchet `brace-expansion@5.0.8` |
 | Git-sporede private miljøfiler | Ingen funnet | Automatisk blokkert i CI |
 | Kjente nøkkel-/private-key-formater i sporede filer | Ingen funnet i 1 439 filer | Automatisk blokkert i CI |
 | Adminruter | Guard fantes, men samlet bevis manglet | 56 av 56 verifisert med DB-basert rolleoppslag |
@@ -26,6 +26,7 @@
 
 - Next.js, Auth.js, Prisma, Vitest, fast-xml-parser, PostCSS og Sharp ble løftet til sikre kompatible versjoner.
 - Transitive PostCSS-, Sharp- og esbuild-versjoner er låst for å hindre at sårbare kopier installeres gjennom andre pakker.
+- Legacy-konsumenter av `brace-expansion` i ESLint 9 / Next.js 15-verktøykjeden rutes gjennom en lokal CommonJS-adapter til offisielt patchet `brace-expansion@5.0.8`. Adapteren fjernes når hele lintgrafen støtter den patchede oppstrømskontrakten direkte.
 - `xlsx@0.18.5` ble fjernet fordi advisories mangler en trygg npm-fiks. Funksjonen brukte pakken kun til å liste arkfaner i offisielle SODIR-regneark; kildelenken og resten av publikasjonen beholdes.
 
 ## Tilgangsmodell
@@ -37,7 +38,6 @@
 
 ## Kjente begrensninger
 
-- `npm audit` er på nytt rød etter at en ny `brace-expansion`-advisory ble publisert. Funnene ligger i utviklingsverktøy via ESLint/minimatch; npm foreslår ESLint 10 som en breaking change. Sprint 1-porten forblir rød til kompatibilitet er bevist eller risiko er eksplisitt akseptert.
 - API-inventaret er en filnivå, statisk regresjonsport og kan ikke alene bevise at hver konsumert verdi valideres i riktig handler når en rutefil eksporterer flere metoder. Derfor suppleres porten med atferdstester på de kritiske offentlige søke-, selskaps-, person-, profil- og underenhetsgrensene samt intern årsrapportoversikt.
 - Limiteren er prosesslokal. Den gir reelt vern på én beta-instans, men kan omgås på tvers av flere instanser. Produksjon med horisontal skalering krever delt atomisk lager.
 - Klient-IP er basert på reverse-proxy-hoder. Valgt host må dokumentere at klienten ikke kan overstyre det betrodde headerfeltet.

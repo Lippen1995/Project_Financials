@@ -15,7 +15,7 @@
 | ID | Leveranse | Status | Eier | Bevis / neste port |
 | --- | --- | --- | --- | --- |
 | GL-101 | Hemmeligheter og nøkler | Teknisk lukket | Simen Lippestad | `.env` er ignorert. Automatisk kontroll av alle Git-sporede filer blokkerer private miljøfiler og kjente nøkkelformater. Faktiske produksjonshemmeligheter opprettes først ved G1. |
-| GL-102 | Avhengighetskontroll | Gjenåpnet | Simen Lippestad | Første leveranse gikk fra 23 funn til 0. Audit 25. juli fant en ny publisert `brace-expansion`-advisory som gir 9 høye funn i ESLint-verktøykjeden. npm tilbyr kun en tvungen ESLint 10-oppgradering; kompatibel oppgradering eller eksplisitt risikoaksept gjenstår. |
+| GL-102 | Avhengighetskontroll | Teknisk lukket | Simen Lippestad | Første leveranse gikk fra 23 funn til 0. Den nye `brace-expansion`-advisoryen 25. juli ble lukket uten hovedversjonsløft: sårbare legacy-konsumenter rutes gjennom en lokal CommonJS-kompatibilitetsadapter til den offisielt patchede `brace-expansion@5.0.8`. Ren `npm ci`, kompatibilitetstest, lint og `npm audit --audit-level=high` er grønne med 0 funn. |
 | GL-103 | Tilgangskontroll | Teknisk lukket | Simen Lippestad | Alle 56 `app/api/admin`-ruter bruker `requireAdmin` eller `requireFinancialReviewer`, som verifiserer rollen i databasen. Alle 12 interne ruter bruker reviewer-rolle eller tjenestehemmelighet. Produksjon feiler lukket uten `AUTH_SECRET`. |
 | GL-104 | Inputvalidering | Teknisk lukket | Simen Lippestad | Den automatiske porten inventerer 136 API-rutefiler: 80 muterende og 91 med GET (noen filer har begge), med 60 body-, 71 path- og 51 query-flater uten manglende valideringsbevis. Direkte organisasjonsnummerfelt bruker én MOD11-kontrakt. Selskapsreferanser normaliseres og valideres gjennom en delt path-kontrakt, mens år, tidspunkt og øvrige GET-parametere har eksplisitte skjemaer. Atferdstester dekker de kritiske offentlige søke-, selskapsprofil-, nyhets-, konsernstruktur-, person-, profil- og underenhetsgrensene samt intern årsrapportoversikt. |
 | GL-105 | Misbruksvern | Beta-baseline levert | Simen Lippestad | Prosesslokal rate limiting: credentials 10/15 min per IP+e-post, LinkedIn 20/15 min per identitet, primærsøk 60/min og forslag 120/min per IP, Njord søk 10/5 min per bruker, Njord distress 30/min per bruker. Delt lager er obligatorisk før mer enn én appinstans. |
@@ -34,7 +34,6 @@
 
 ## Åpne Sprint 1-oppgaver
 
-- lukk den nye `brace-expansion`-/ESLint-advisoryen med en kompatibel oppgradering, eller innhent eksplisitt CEO-risikoaksept for den dev-only verktøykjeden;
 - velg/test CSP-policy og dokumenter auth-cookie-attributter på produksjonslik host;
 - erstatt prosesslokal limiter med delt lager dersom deploytopologien får flere instanser;
 - kjør full test-, lint- og byggport etter alle endringer;
