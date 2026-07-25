@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { declineWorkspaceInvitation } from "@/server/services/workspace-service";
 
@@ -13,7 +14,7 @@ export async function POST(
   }
 
   try {
-    const { invitationId } = await params;
+    const { invitationId } = parseRouteIds(await params, ["invitationId"] as const);
     await declineWorkspaceInvitation(session.user.id, invitationId);
     return NextResponse.json({ data: true });
   } catch (error) {

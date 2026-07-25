@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { tryParseRouteIds } from "@/lib/api-input";
 import { reprocessAnnualReportReview, ReviewConflictError } from "@/server/services/annual-report-review-service";
 
 const bodySchema = z.object({
@@ -15,7 +16,11 @@ export async function POST(
   const { user, error } = await requireFinancialReviewer();
   if (error) return error;
 
-  const { reviewId } = await params;
+  const routeIds = tryParseRouteIds(await params, ["reviewId"] as const);
+  if (!routeIds) {
+    return NextResponse.json({ error: "Invalid review identifier." }, { status: 400 });
+  }
+  const { reviewId } = routeIds;
 
   let body: unknown;
   try {

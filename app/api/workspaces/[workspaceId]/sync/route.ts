@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { syncWorkspaceNotifications } from "@/server/services/workspace-collaboration-service";
 
@@ -13,7 +14,7 @@ export async function POST(
   }
 
   try {
-    const { workspaceId } = await context.params;
+    const { workspaceId } = parseRouteIds(await context.params, ["workspaceId"] as const);
     const result = await syncWorkspaceNotifications(session.user.id, workspaceId);
     return NextResponse.json({ data: result });
   } catch (error) {

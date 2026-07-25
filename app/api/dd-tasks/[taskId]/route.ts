@@ -2,6 +2,7 @@ import { DdTaskStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { updateDdTaskStatus } from "@/server/services/dd-workflow-service";
 
@@ -19,7 +20,7 @@ export async function PATCH(
   }
 
   try {
-    const { taskId } = await params;
+    const { taskId } = parseRouteIds(await params, ["taskId"] as const);
     const body = await request.json();
     const values = taskStatusSchema.parse(body);
     const roomId = await updateDdTaskStatus(session.user.id, taskId, values.status);

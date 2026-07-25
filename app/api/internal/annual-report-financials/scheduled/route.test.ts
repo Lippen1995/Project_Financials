@@ -76,4 +76,38 @@ describe("GET /api/internal/annual-report-financials/scheduled", () => {
       },
     });
   });
+
+  it("rejects invalid retry limits before starting the scheduled sync", async () => {
+    const { GET } = await import("@/app/api/internal/annual-report-financials/scheduled/route");
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/internal/annual-report-financials/scheduled?lowConfidenceRetryLimit=-1",
+        {
+          headers: {
+            authorization: `Bearer ${env.financialsSyncSecret}`,
+          },
+        },
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    expect(scheduler.runScheduledAnnualReportFinancialSync).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-decimal retry limit notation", async () => {
+    const { GET } = await import("@/app/api/internal/annual-report-financials/scheduled/route");
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/internal/annual-report-financials/scheduled?lowConfidenceRetryLimit=1e1",
+        {
+          headers: {
+            authorization: `Bearer ${env.financialsSyncSecret}`,
+          },
+        },
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    expect(scheduler.runScheduledAnnualReportFinancialSync).not.toHaveBeenCalled();
+  });
 });

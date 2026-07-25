@@ -45,6 +45,9 @@ jobs:
       - name: Check tracked environment and secret files
         run: npm run security:check-env-files
 
+      - name: Check API input validation inventory
+        run: npm run security:check-api-inputs
+
       - name: Audit production and development dependencies
         run: npm run security:audit
 

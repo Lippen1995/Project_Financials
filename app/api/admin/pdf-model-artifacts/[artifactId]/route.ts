@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { tryParseRouteIds } from "@/lib/api-input";
 import {
   archivePersistedPdfModelArtifactSnapshot,
   getPersistedPdfModelArtifactSnapshot,
@@ -18,7 +19,11 @@ export async function GET(
   const { error } = await requireFinancialReviewer();
   if (error) return error;
 
-  const { artifactId } = await params;
+  const routeIds = tryParseRouteIds(await params, ["artifactId"] as const);
+  if (!routeIds) {
+    return NextResponse.json({ error: "Invalid artifact identifier." }, { status: 400 });
+  }
+  const { artifactId } = routeIds;
   const data = await getPersistedPdfModelArtifactSnapshot(artifactId);
   if (!data) return NextResponse.json({ error: "Not found." }, { status: 404 });
   return NextResponse.json({ data });
@@ -39,7 +44,11 @@ export async function PATCH(
     );
   }
 
-  const { artifactId } = await params;
+  const routeIds = tryParseRouteIds(await params, ["artifactId"] as const);
+  if (!routeIds) {
+    return NextResponse.json({ error: "Invalid artifact identifier." }, { status: 400 });
+  }
+  const { artifactId } = routeIds;
   try {
     const data = await archivePersistedPdfModelArtifactSnapshot(artifactId);
     return NextResponse.json({ data });

@@ -2,6 +2,7 @@ import { DdRoomStatus, DdWorkstream } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDdRoomDetail, updateDdRoomStatus } from "@/server/services/dd-room-service";
 
@@ -19,7 +20,7 @@ export async function GET(
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const workstreamParam = _.nextUrl.searchParams.get("workstream");
     const workstream = workstreamParam && Object.values(DdWorkstream).includes(workstreamParam as DdWorkstream)
       ? (workstreamParam as DdWorkstream)
@@ -48,7 +49,7 @@ export async function PATCH(
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const body = await request.json();
     const values = roomStatusSchema.parse(body);
     const workspaceId = await updateDdRoomStatus(

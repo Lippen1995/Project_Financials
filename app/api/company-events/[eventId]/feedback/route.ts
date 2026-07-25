@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import {
   COMPANY_EVENT_FEEDBACK_ACTIONS,
@@ -23,7 +24,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ev
   }
 
   try {
-    const { eventId } = await context.params;
+    const { eventId } = parseRouteIds(await context.params, ["eventId"] as const);
     const metrics = await getCompanyEventFeedbackMetrics(eventId);
     return NextResponse.json({ data: metrics });
   } catch (error) {
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ev
   }
 
   try {
-    const { eventId } = await context.params;
+    const { eventId } = parseRouteIds(await context.params, ["eventId"] as const);
     const body = feedbackSchema.parse(await request.json());
     const feedback = await recordCompanyEventFeedback({
       eventId,

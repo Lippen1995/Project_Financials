@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { parseRouteIds } from "@/lib/api-input";
 import { reviewBoardReportExtraction } from "@/server/persistence/board-report-extraction-repository";
 
 const reviewSchema = z.object({
@@ -16,7 +17,10 @@ export async function POST(
   const auth = await requireFinancialReviewer();
   if (auth.error) return auth.error;
   try {
-    const { extractionId } = await context.params;
+    const { extractionId } = parseRouteIds(
+      await context.params,
+      ["extractionId"] as const,
+    );
     const input = reviewSchema.parse(await request.json());
     const reviewed = await reviewBoardReportExtraction({
       extractionId,

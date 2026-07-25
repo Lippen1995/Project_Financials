@@ -8,6 +8,7 @@ import {
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDdRoomDetail } from "@/server/services/dd-room-service";
 import { buildFindingsSummary, createDdFinding, getRoomFindings } from "@/server/services/dd-investment-service";
@@ -34,7 +35,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     if (!(await getDdRoomDetail(session.user.id, roomId))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -60,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     if (!(await getDdRoomDetail(session.user.id, roomId))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

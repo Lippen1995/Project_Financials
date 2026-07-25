@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "security:check-env-files": "tsx scripts/check-tracked-env-files.ts",
+    "security:check-api-inputs": "tsx scripts/check-api-input-validation.ts",
     "security:audit": "npm audit --audit-level=high",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

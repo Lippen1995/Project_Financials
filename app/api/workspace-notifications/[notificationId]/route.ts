@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { markWorkspaceNotificationRead } from "@/server/services/workspace-collaboration-service";
 
@@ -13,7 +14,10 @@ export async function PATCH(
   }
 
   try {
-    const { notificationId } = await context.params;
+    const { notificationId } = parseRouteIds(
+      await context.params,
+      ["notificationId"] as const,
+    );
     const workspaceId = await markWorkspaceNotificationRead(session.user.id, notificationId);
     return NextResponse.json({ data: { workspaceId, read: true } });
   } catch (error) {

@@ -15,14 +15,14 @@
 | ID | Leveranse | Status | Eier | Bevis / neste port |
 | --- | --- | --- | --- | --- |
 | GL-101 | Hemmeligheter og nøkler | Teknisk lukket | Simen Lippestad | `.env` er ignorert. Automatisk kontroll av alle Git-sporede filer blokkerer private miljøfiler og kjente nøkkelformater. Faktiske produksjonshemmeligheter opprettes først ved G1. |
-| GL-102 | Avhengighetskontroll | Teknisk lukket | Simen Lippestad | `npm audit` gikk fra 23 funn (3 kritiske, 16 høye, 3 moderate, 1 lavt) til 0. Minimumsversjoner og transitive overrides er låst i `package.json`/lockfil. |
+| GL-102 | Avhengighetskontroll | Gjenåpnet | Simen Lippestad | Første leveranse gikk fra 23 funn til 0. Audit 25. juli fant en ny publisert `brace-expansion`-advisory som gir 9 høye funn i ESLint-verktøykjeden. npm tilbyr kun en tvungen ESLint 10-oppgradering; kompatibel oppgradering eller eksplisitt risikoaksept gjenstår. |
 | GL-103 | Tilgangskontroll | Teknisk lukket | Simen Lippestad | Alle 56 `app/api/admin`-ruter bruker `requireAdmin` eller `requireFinancialReviewer`, som verifiserer rollen i databasen. Alle 12 interne ruter bruker reviewer-rolle eller tjenestehemmelighet. Produksjon feiler lukket uten `AUTH_SECRET`. |
-| GL-104 | Inputvalidering | Pågår | Simen Lippestad | Innlogging, globalt søk og Njord har eksplisitt type-, format- og lengdevalidering. Resterende muterende API-ruter skal maskinelt inventeres før lukking. |
+| GL-104 | Inputvalidering | Pågår | Simen Lippestad | Første maskinelle delport inventerer 80 muterende API-rutefiler og krever valideringsmarkører for 60 request-body-, 50 dynamiske path- og 12 query-string-flater. 47 dynamiske flater bruker felles ID-filter, tre har lokale Zod-skjema, og scheduler-grensen er 0–100. GET-only-ruter og semantisk organisasjonsnummervalidering gjenstår før lukking. |
 | GL-105 | Misbruksvern | Beta-baseline levert | Simen Lippestad | Prosesslokal rate limiting: credentials 10/15 min per IP+e-post, LinkedIn 20/15 min per identitet, primærsøk 60/min og forslag 120/min per IP, Njord søk 10/5 min per bruker, Njord distress 30/min per bruker. Delt lager er obligatorisk før mer enn én appinstans. |
 | GL-106 | Nettlesersikkerhet | Delvis levert | Simen Lippestad | HSTS, frame-deny, nosniff, referrer-, permissions- og cross-origin-hoder er satt globalt; `X-Powered-By` er fjernet. HTTPS-verifisering, cookie-bevis og testet CSP gjenstår på valgt host. |
 | GL-107 | Databaseendringer | Teknisk lukket | Simen Lippestad | CI og dokumentert oppstart bruker `prisma migrate deploy`; `db push` er ikke del av releasebanen. |
 | GL-108 | Releaseoppskrift | Kandidat levert | Simen Lippestad | [Release- og rollbackoppskriften](./release-and-rollback.md) dekker K0-verifikasjon og den senere hostede releasebanen. Leverandørspesifikke deploy-/backupkommandoer fylles inn ved G1. |
-| GL-109 | Automatiske porter | Teknisk levert | Simen Lippestad | CI kjører låst installasjon, Git-/hemmelighetskontroll, dependency audit, migrasjoner, typekontroll, tester, lint og produksjonsbygg. Full lokal port kjøres før Sprint 1-lukking. |
+| GL-109 | Automatiske porter | Teknisk levert | Simen Lippestad | CI kjører låst installasjon, Git-/hemmelighetskontroll, API-inputinventar, dependency audit, migrasjoner, typekontroll, tester, lint og produksjonsbygg. Full lokal port kjøres før Sprint 1-lukking. |
 
 ## Beslutninger tatt ved oppstart
 
@@ -34,7 +34,8 @@
 
 ## Åpne Sprint 1-oppgaver
 
-- fullfør maskinell inputvalideringsinventering og lukk GL-104;
+- lukk den nye `brace-expansion`-/ESLint-advisoryen med en kompatibel oppgradering, eller innhent eksplisitt CEO-risikoaksept for den dev-only verktøykjeden;
+- utvid inputinventaret til GET-only-ruter, stram inn organisasjonsnummer semantisk og lukk GL-104 først når kritiske ruter har atferdstester;
 - velg/test CSP-policy og dokumenter auth-cookie-attributter på produksjonslik host;
 - erstatt prosesslokal limiter med delt lager dersom deploytopologien får flere instanser;
 - kjør full test-, lint- og byggport etter alle endringer;

@@ -2,6 +2,7 @@ import { DdFindingImpact, DdFindingSeverity, DdFindingStatus } from "@prisma/cli
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { updateDdFinding } from "@/server/services/dd-investment-service";
 
@@ -25,7 +26,7 @@ export async function PATCH(
   }
 
   try {
-    const { findingId } = await params;
+    const { findingId } = parseRouteIds(await params, ["findingId"] as const);
     const body = await request.json();
     const values = updateFindingSchema.parse(body);
     const data = await updateDdFinding(session.user.id, findingId, values);

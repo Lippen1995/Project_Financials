@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { WorkspaceStatus } from "@prisma/client";
 import { z } from "zod";
 
+import { parseRouteIds, tryParseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDashboardWorkspaceHome, switchWorkspace, updateWorkspaceStatus } from "@/server/services/workspace-service";
 
@@ -15,7 +16,11 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ worksp
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { workspaceId } = await params;
+  const routeIds = tryParseRouteIds(await params, ["workspaceId"] as const);
+  if (!routeIds) {
+    return NextResponse.json({ error: "Invalid workspace identifier." }, { status: 400 });
+  }
+  const { workspaceId } = routeIds;
   const payload = await getDashboardWorkspaceHome(session.user.id, workspaceId);
   return NextResponse.json({ data: payload.currentWorkspace });
 }
@@ -27,7 +32,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   try {
-    const { workspaceId } = await params;
+    const { workspaceId } = parseRouteIds(await params, ["workspaceId"] as const);
     const body = await request.json();
     const values = updateWorkspaceSchema.parse(body);
 

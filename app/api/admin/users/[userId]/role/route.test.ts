@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
@@ -14,6 +14,10 @@ vi.mock("@/server/services/admin-user-management-service", () => ({
 }));
 
 describe("POST /api/admin/users/[userId]/role", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("updates a user role for admins", async () => {
     mocks.requireAdmin.mockResolvedValue({
       user: { id: "admin-1", email: "admin@example.com", appRole: "ADMIN" },
@@ -59,5 +63,25 @@ describe("POST /api/admin/users/[userId]/role", () => {
     );
 
     expect(response.status).toBe(400);
+  });
+
+  it("rejects invalid user identifiers before updating a role", async () => {
+    mocks.requireAdmin.mockResolvedValue({
+      user: { id: "admin-1", email: "admin@example.com", appRole: "ADMIN" },
+      error: null,
+    });
+
+    const { POST } = await import("@/app/api/admin/users/[userId]/role/route");
+    const response = await POST(
+      new Request("http://localhost/api/admin/users/invalid/role", {
+        method: "POST",
+        body: JSON.stringify({ nextRole: "ADMIN" }),
+        headers: { "Content-Type": "application/json" },
+      }) as never,
+      { params: Promise.resolve({ userId: "../user" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.updateAdminUserRole).not.toHaveBeenCalled();
   });
 });

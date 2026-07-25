@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import {
   createAnnouncementComment,
@@ -26,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const url = new URL(request.url);
     const values = querySchema.parse({
       announcementId: url.searchParams.get("announcementId"),
@@ -52,7 +53,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const body = await request.json();
     const values = createCommentSchema.parse(body);
     const data = await createAnnouncementComment(session.user.id, roomId, {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { createDdTaskComment, getTaskCommentThread } from "@/server/services/dd-comment-service";
 
@@ -16,7 +17,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tas
   }
 
   try {
-    const { taskId } = await params;
+    const { taskId } = parseRouteIds(await params, ["taskId"] as const);
     const thread = await getTaskCommentThread(session.user.id, taskId);
     return NextResponse.json({ data: thread });
   } catch (error) {
@@ -34,7 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
   }
 
   try {
-    const { taskId } = await params;
+    const { taskId } = parseRouteIds(await params, ["taskId"] as const);
     const body = await request.json();
     const values = createCommentSchema.parse(body);
     const data = await createDdTaskComment(session.user.id, taskId, {

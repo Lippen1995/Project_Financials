@@ -2,6 +2,7 @@ import { DdCompanyProfileField, DdFindingEvidenceType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { createDdFindingEvidence } from "@/server/services/dd-investment-service";
 
@@ -26,7 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ fin
   }
 
   try {
-    const { findingId } = await params;
+    const { findingId } = parseRouteIds(await params, ["findingId"] as const);
     const body = await request.json();
     const values = evidenceSchema.parse(body);
     const data = await createDdFindingEvidence(session.user.id, findingId, {

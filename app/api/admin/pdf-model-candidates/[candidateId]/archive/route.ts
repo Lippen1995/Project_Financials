@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { parseRouteIds } from "@/lib/api-input";
 import {
   archivePdfModelCandidate,
   PdfModelCandidateError,
@@ -27,7 +28,7 @@ export async function POST(
   }
 
   try {
-    const { candidateId } = await params;
+    const { candidateId } = parseRouteIds(await params, ["candidateId"] as const);
     const data = await archivePdfModelCandidate(candidateId, user.id, parsed.data.note);
     return NextResponse.json({ data });
   } catch (err) {

@@ -2,6 +2,7 @@ import { DdTaskPriority, DdTaskStage, DdWorkstream } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDdRoomDetail } from "@/server/services/dd-room-service";
 import { createDdTask } from "@/server/services/dd-workflow-service";
@@ -23,7 +24,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ roomId: st
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const detail = await getDdRoomDetail(session.user.id, roomId);
     if (!detail) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -45,7 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const body = await request.json();
     const values = createTaskSchema.parse(body);
     const task = await createDdTask(session.user.id, roomId, {

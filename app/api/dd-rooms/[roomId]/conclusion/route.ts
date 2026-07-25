@@ -2,6 +2,7 @@ import { DdDecisionOutcome } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDdRoomDetail } from "@/server/services/dd-room-service";
 import { getDdConclusion, upsertDdConclusion } from "@/server/services/dd-investment-service";
@@ -24,7 +25,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ roomId: st
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     if (!(await getDdRoomDetail(session.user.id, roomId))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -45,7 +46,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ room
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const body = await request.json();
     const values = conclusionSchema.parse(body);
     const data = await upsertDdConclusion(session.user.id, roomId, values);

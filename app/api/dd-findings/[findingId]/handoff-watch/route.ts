@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { handoffFindingToWorkspaceWatch } from "@/server/services/dd-investment-service";
 
@@ -10,7 +11,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ findingId
   }
 
   try {
-    const { findingId } = await params;
+    const { findingId } = parseRouteIds(await params, ["findingId"] as const);
     const watchId = await handoffFindingToWorkspaceWatch(session.user.id, findingId);
     return NextResponse.json({ data: { watchId } });
   } catch (error) {

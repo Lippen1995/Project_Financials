@@ -20,6 +20,7 @@ Kjør fra repository-roten:
 ```bash
 npm ci
 npm run security:check-env-files
+npm run security:check-api-inputs
 npm run security:audit
 npm run db:generate
 npm run typecheck

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/admin-auth";
+import { tryParseRouteIds } from "@/lib/api-input";
 import { updateAdminUserRole } from "@/server/services/admin-user-management-service";
 
 const bodySchema = z.object({
@@ -17,7 +18,10 @@ export async function POST(
     return error;
   }
 
-  const params = await context.params;
+  const params = tryParseRouteIds(await context.params, ["userId"] as const);
+  if (!params) {
+    return NextResponse.json({ error: "Invalid user identifier." }, { status: 400 });
+  }
   const payload = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(payload);
 
