@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { tryParseRouteIds } from "@/lib/api-input";
 import { LocalAnnualReportArtifactStorage } from "@/server/financials/artifact-storage";
 import { getAdminReviewDetail } from "@/server/persistence/annual-report-review-repository";
 
@@ -14,7 +15,11 @@ export async function GET(
   if (error) return error;
   void user;
 
-  const { reviewId } = await params;
+  const routeIds = tryParseRouteIds(await params, ["reviewId"] as const);
+  if (!routeIds) {
+    return NextResponse.json({ error: "Ugyldig review-ID." }, { status: 400 });
+  }
+  const { reviewId } = routeIds;
 
   const review = await getAdminReviewDetail(reviewId);
   if (!review) {

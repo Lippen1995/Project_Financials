@@ -17,7 +17,7 @@
 | Interne ruter | Spredte tjenestehemmeligheter/reviewer-guard | 12 av 12 verifisert beskyttet |
 | Produksjon uten auth-hemmelighet | Avhengig av rammeverksfeil | Eksplisitt fail-closed |
 | Rate limiting | Ikke felles kontroll | Credentials, LinkedIn, primærsøk, søkeforslag og Njord dekket |
-| API-inputflater | Spredt validering uten samlet bevis | Første CI-delport inventerer 80 muterende rutefiler: 60 body-, 50 path- og 12 query-flater uten manglende markørbevis. Profilsøk, underenhetssøk og intern årsrapportoversikt har GET-atferdstestet grensevalidering. Direkte organisasjonsnummerfelt normaliseres og MOD11-valideres gjennom én felles kontrakt; øvrig GET-only-inventar gjenstår |
+| API-inputflater | Spredt validering uten samlet bevis | CI-porten inventerer 136 rutefiler: 80 muterende og 91 med GET, med 60 body-, 71 path- og 51 query-flater uten manglende valideringsbevis. Kritiske offentlige oppslagsgrenser har atferdstester; organisasjonsnummer, selskapsreferanse, år og tidspunkt bruker delte semantiske kontrakter |
 | Sikkerhetshoder | Ikke konfigurert samlet | Global baseline konfigurert |
 | Database i CI | `prisma db push` | `prisma migrate deploy` |
 | Automatiske porter | Type, test og lint | Hemmelighetskontroll, audit, migrasjon, type, test, lint og build |
@@ -38,7 +38,7 @@
 ## Kjente begrensninger
 
 - `npm audit` er på nytt rød etter at en ny `brace-expansion`-advisory ble publisert. Funnene ligger i utviklingsverktøy via ESLint/minimatch; npm foreslår ESLint 10 som en breaking change. Sprint 1-porten forblir rød til kompatibilitet er bevist eller risiko er eksplisitt akseptert.
-- API-inventaret er foreløpig en filnivå, statisk regresjonsport for muterende rutefiler. Det kan ikke alene bevise at hver konsumert verdi er semantisk validert. Profilsøk, underenhetssøk og intern årsrapportoversikt har egne GET-atferdstester, og direkte organisasjonsnummerfelt har felles MOD11-kontrakt, men samlet GET-inventar mangler fortsatt. GL-104 forblir derfor åpen mens øvrige kritiske grenser får atferdstester.
+- API-inventaret er en filnivå, statisk regresjonsport og kan ikke alene bevise at hver konsumert verdi valideres i riktig handler når en rutefil eksporterer flere metoder. Derfor suppleres porten med atferdstester på de kritiske offentlige søke-, selskaps-, person-, profil- og underenhetsgrensene samt intern årsrapportoversikt.
 - Limiteren er prosesslokal. Den gir reelt vern på én beta-instans, men kan omgås på tvers av flere instanser. Produksjon med horisontal skalering krever delt atomisk lager.
 - Klient-IP er basert på reverse-proxy-hoder. Valgt host må dokumentere at klienten ikke kan overstyre det betrodde headerfeltet.
 - CSP er ikke håndhevet ennå fordi innlogging, Next.js-inlinekode, kart og eksterne ressurser må testes samlet. De øvrige sikkerhetshodene er aktive.

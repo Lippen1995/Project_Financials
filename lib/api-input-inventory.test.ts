@@ -3,6 +3,37 @@ import { describe, expect, it } from "vitest";
 import { analyzeApiInputRoute } from "@/lib/api-input-inventory";
 
 describe("analyzeApiInputRoute", () => {
+  it("reports unvalidated query-string input on a GET route", () => {
+    const result = analyzeApiInputRoute(
+      "app/api/widgets/route.ts",
+      `
+        export async function GET(request) {
+          const query = request.nextUrl.searchParams.get("query");
+          return findWidgets(query);
+        }
+      `,
+    );
+
+    expect(result.surfaces).toEqual(["query"]);
+    expect(result.missingValidation).toEqual(["query"]);
+  });
+
+  it("recognizes the shared company-reference parser on a GET path", () => {
+    const result = analyzeApiInputRoute(
+      "app/api/companies/[slug]/route.ts",
+      `
+        export async function GET(_request, { params }) {
+          const { slug } = await params;
+          const companyReference = tryParseCompanyReference(slug);
+          return getCompany(companyReference);
+        }
+      `,
+    );
+
+    expect(result.surfaces).toEqual(["path"]);
+    expect(result.missingValidation).toEqual([]);
+  });
+
   it("reports unvalidated body and path inputs on a mutating route", () => {
     const result = analyzeApiInputRoute(
       "app/api/widgets/[widgetId]/route.ts",
@@ -29,6 +60,34 @@ describe("analyzeApiInputRoute", () => {
           const workspace = request.nextUrl.searchParams.get("workspace");
           const body = bodySchema.parse(await request.json());
           return createWidget(workspace, body);
+        }
+      `,
+    );
+
+    expect(result.missingValidation).toEqual(["query"]);
+  });
+
+  it("does not mistake parseInt coercion for query-string validation", () => {
+    const result = analyzeApiInputRoute(
+      "app/api/widgets/route.ts",
+      `
+        export async function GET(request) {
+          const limit = parseInt(request.nextUrl.searchParams.get("limit"), 10);
+          return listWidgets(limit);
+        }
+      `,
+    );
+
+    expect(result.missingValidation).toEqual(["query"]);
+  });
+
+  it("does not accept an arbitrary query parser as validation evidence", () => {
+    const result = analyzeApiInputRoute(
+      "app/api/widgets/route.ts",
+      `
+        export async function GET(request) {
+          const filters = parseWidgetFilters(request.nextUrl.searchParams);
+          return listWidgets(filters);
         }
       `,
     );

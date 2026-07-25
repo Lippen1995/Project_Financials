@@ -2,7 +2,7 @@ import { DdTaskPriority, DdTaskStage, DdWorkstream } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { parseRouteIds } from "@/lib/api-input";
+import { parseRouteIds, queryDateTimeSchema } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDdRoomDetail } from "@/server/services/dd-room-service";
 import { createDdTask } from "@/server/services/dd-workflow-service";
@@ -13,7 +13,7 @@ const createTaskSchema = z.object({
   stage: z.nativeEnum(DdTaskStage),
   workstream: z.nativeEnum(DdWorkstream),
   priority: z.nativeEnum(DdTaskPriority).optional(),
-  dueAt: z.string().optional(),
+  dueAt: queryDateTimeSchema,
   assigneeUserId: z.string().optional(),
 });
 
@@ -55,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       stage: values.stage,
       workstream: values.workstream,
       priority: values.priority,
-      dueAt: values.dueAt ? new Date(values.dueAt) : null,
+      dueAt: values.dueAt ?? null,
       assigneeUserId: values.assigneeUserId || null,
     });
 

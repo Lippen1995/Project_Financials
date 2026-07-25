@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { queryYearSchema, tryParseCompanyReference } from "@/lib/api-input";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -7,16 +8,26 @@ export async function GET(
   context: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await context.params;
-  const yearParam = request.nextUrl.searchParams.get("year");
-  const year = yearParam ? parseInt(yearParam, 10) : null;
+  const companyReference = tryParseCompanyReference(slug);
+  if (!companyReference) {
+    return NextResponse.json({ error: "Invalid company reference" }, { status: 400 });
+  }
 
-  const company = await prisma.company.findUnique({ where: { slug }, select: { id: true } });
+  const year = queryYearSchema.safeParse(request.nextUrl.searchParams.get("year"));
+  if (!year.success) {
+    return NextResponse.json({ error: "Invalid year" }, { status: 400 });
+  }
+
+  const company = await prisma.company.findFirst({
+    where: { OR: [{ slug: companyReference }, { orgNumber: companyReference }] },
+    select: { id: true },
+  });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const items = await prisma.annualReportNarrative.findMany({
     where: {
       companyId: company.id,
-      ...(year !== null && !isNaN(year) ? { fiscalYear: year } : {}),
+      ...(year.data !== undefined ? { fiscalYear: year.data } : {}),
     },
     orderBy: [{ fiscalYear: "desc" }, { sectionKind: "asc" }],
     select: {

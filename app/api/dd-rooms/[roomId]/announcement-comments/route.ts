@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { parseRouteIds } from "@/lib/api-input";
+import { parseRouteIds, queryDateTimeSchema } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import {
   createAnnouncementComment,
@@ -12,7 +12,7 @@ const querySchema = z.object({
   announcementId: z.string().min(1),
   announcementSourceId: z.string().min(1),
   announcementSourceSystem: z.string().min(1),
-  announcementPublishedAt: z.string().optional(),
+  announcementPublishedAt: queryDateTimeSchema,
 });
 
 const createCommentSchema = querySchema.extend({
@@ -60,9 +60,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       announcementId: values.announcementId,
       announcementSourceId: values.announcementSourceId,
       announcementSourceSystem: values.announcementSourceSystem,
-      announcementPublishedAt: values.announcementPublishedAt
-        ? new Date(values.announcementPublishedAt)
-        : null,
+      announcementPublishedAt: values.announcementPublishedAt ?? null,
       content: values.content,
       parentCommentId: values.parentCommentId || null,
     });

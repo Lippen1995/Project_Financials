@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { parsePetroleumFilters } from "@/lib/petroleum-market";
+import { queryPetroleumFiltersSchema } from "@/lib/petroleum-market";
 import { getPetroleumSeismicSummary } from "@/server/services/petroleum-seismic-service";
 
 export async function GET(request: NextRequest) {
-  const filters = parsePetroleumFilters(new URL(request.url).searchParams);
-  const data = await getPetroleumSeismicSummary(filters);
+  const query = queryPetroleumFiltersSchema.safeParse(new URL(request.url).searchParams);
+  if (!query.success) {
+    return NextResponse.json({ error: "Invalid petroleum filters" }, { status: 400 });
+  }
+  const data = await getPetroleumSeismicSummary(query.data);
 
   return NextResponse.json({ data });
 }

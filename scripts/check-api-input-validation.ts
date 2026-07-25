@@ -20,9 +20,11 @@ const inventory = findRouteFiles(apiRoot)
     const route = path.relative(repositoryRoot, absolutePath).replaceAll("\\", "/");
     return analyzeApiInputRoute(route, readFileSync(absolutePath, "utf8"));
   })
-  .filter((entry) => entry.mutating);
+  .filter((entry) => entry.mutating || entry.readOnly);
 
 const violations = inventory.filter((entry) => entry.missingValidation.length > 0);
+const mutatingRouteCount = inventory.filter((entry) => entry.mutating).length;
+const readOnlyRouteCount = inventory.filter((entry) => entry.readOnly).length;
 const surfaceCounts = inventory.reduce(
   (counts, entry) => {
     for (const surface of entry.surfaces) {
@@ -45,7 +47,9 @@ if (violations.length > 0) {
 
 console.log(
   [
-    `Checked ${inventory.length} mutating API route files`,
+    `Checked ${inventory.length} API route files`,
+    `${mutatingRouteCount} mutating`,
+    `${readOnlyRouteCount} GET`,
     `${surfaceCounts.body} request-body surfaces`,
     `${surfaceCounts.path} dynamic-path surfaces`,
     `${surfaceCounts.query} query-string surfaces`,

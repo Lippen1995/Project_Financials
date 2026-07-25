@@ -10,6 +10,10 @@ const roomStatusSchema = z.object({
   status: z.enum(["ACTIVE", "ARCHIVED"]),
 });
 
+const querySchema = z.object({
+  workstream: z.nativeEnum(DdWorkstream).optional(),
+});
+
 export async function GET(
   _: NextRequest,
   { params }: { params: Promise<{ roomId: string }> },
@@ -21,11 +25,17 @@ export async function GET(
 
   try {
     const { roomId } = parseRouteIds(await params, ["roomId"] as const);
-    const workstreamParam = _.nextUrl.searchParams.get("workstream");
-    const workstream = workstreamParam && Object.values(DdWorkstream).includes(workstreamParam as DdWorkstream)
-      ? (workstreamParam as DdWorkstream)
-      : null;
-    const detail = await getDdRoomDetail(session.user.id, roomId, workstream);
+    const query = querySchema.safeParse({
+      workstream: _.nextUrl.searchParams.get("workstream") ?? undefined,
+    });
+    if (!query.success) {
+      return NextResponse.json({ error: "Ugyldig workstream." }, { status: 400 });
+    }
+    const detail = await getDdRoomDetail(
+      session.user.id,
+      roomId,
+      query.data.workstream ?? null,
+    );
     if (!detail) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

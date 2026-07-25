@@ -2,7 +2,7 @@ import { DdCompanyProfileField, DdFindingEvidenceType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { parseRouteIds } from "@/lib/api-input";
+import { parseRouteIds, queryDateTimeSchema } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { createDdFindingEvidence } from "@/server/services/dd-investment-service";
 
@@ -16,7 +16,7 @@ const evidenceSchema = z.object({
   announcementId: z.string().optional(),
   announcementSourceId: z.string().optional(),
   announcementSourceSystem: z.string().trim().optional(),
-  announcementPublishedAt: z.string().optional(),
+  announcementPublishedAt: queryDateTimeSchema,
   announcementLabel: z.string().trim().optional(),
 });
 
@@ -32,7 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ fin
     const values = evidenceSchema.parse(body);
     const data = await createDdFindingEvidence(session.user.id, findingId, {
       ...values,
-      announcementPublishedAt: values.announcementPublishedAt ? new Date(values.announcementPublishedAt) : null,
+      announcementPublishedAt: values.announcementPublishedAt ?? null,
     });
     return NextResponse.json({ data });
   } catch (error) {

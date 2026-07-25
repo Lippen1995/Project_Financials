@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
+import { queryYearSchema, tryParseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { DistressSearchFilters } from "@/lib/types";
 import { listDistressCompaniesForWorkspace } from "@/server/services/distress-analysis-service";
 
-const DISTRESS_SORT_KEYS = new Set<NonNullable<DistressSearchFilters["sort"]>>([
+const DISTRESS_SORT_KEYS = [
   "name_asc",
   "name_desc",
   "distressStatus_asc",
@@ -31,50 +33,94 @@ const DISTRESS_SORT_KEYS = new Set<NonNullable<DistressSearchFilters["sort"]>>([
   "assets_asc",
   "interestBearingDebt_desc",
   "interestBearingDebt_asc",
-]);
+] as const;
 
-function toNumber(value: string | null) {
-  if (!value || !value.trim()) {
-    return undefined;
+const optionalQueryValue = (value: unknown) => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
   }
+  return value;
+};
 
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
+const optionalNonNegativeIntegerSchema = z.preprocess(
+  optionalQueryValue,
+  z.coerce.number().int().min(0).max(36_500).optional(),
+);
 
-function toArray(values: string[]) {
-  return values.map((value) => value.trim()).filter(Boolean);
-}
-
-function toSort(value: string | null) {
-  return value && DISTRESS_SORT_KEYS.has(value as NonNullable<DistressSearchFilters["sort"]>)
-    ? (value as NonNullable<DistressSearchFilters["sort"]>)
-    : undefined;
-}
-
-function toView(value: string | null) {
-  return value === "ALL" ? "ALL" : "BEST_FIT";
-}
-
-function parseFilters(request: NextRequest): DistressSearchFilters {
-  const { searchParams } = request.nextUrl;
-  const statuses = toArray(searchParams.getAll("status"));
-  const sectorCodes = toArray(searchParams.getAll("sectorCode"));
-
-  return {
-    status: statuses.length > 0 ? (statuses as DistressSearchFilters["status"]) : undefined,
-    minDaysInStatus: toNumber(searchParams.get("minDaysInStatus")),
-    maxDaysInStatus: toNumber(searchParams.get("maxDaysInStatus")),
-    industryCodePrefix: searchParams.get("industryCodePrefix") ?? undefined,
-    sectorCodes: sectorCodes.length > 0 ? sectorCodes : undefined,
-    lastReportedYearFrom: toNumber(searchParams.get("lastReportedYearFrom")),
-    lastReportedYearTo: toNumber(searchParams.get("lastReportedYearTo")),
-    page: toNumber(searchParams.get("page")) ?? 0,
-    size: toNumber(searchParams.get("size")) ?? 50,
-    sort: toSort(searchParams.get("sort")),
-    view: toView(searchParams.get("view")),
-  };
-}
+const querySchema = z
+  .object({
+    status: z
+      .array(
+        z.enum([
+          "RECONSTRUCTION",
+          "BANKRUPTCY",
+          "LIQUIDATION",
+          "FORCED_PROCESS",
+          "FOREIGN_INSOLVENCY",
+          "OTHER_DISTRESS",
+        ]),
+      )
+      .max(6),
+    minDaysInStatus: optionalNonNegativeIntegerSchema,
+    maxDaysInStatus: optionalNonNegativeIntegerSchema,
+    industryCodePrefix: z.preprocess(
+      optionalQueryValue,
+      z
+        .string()
+        .regex(/^\d{1,2}(?:\.\d{1,3})?$/)
+        .optional(),
+    ),
+    sectorCodes: z.array(z.string().regex(/^\d{2}$/)).max(100),
+    lastReportedYearFrom: queryYearSchema,
+    lastReportedYearTo: queryYearSchema,
+    page: z.preprocess(
+      optionalQueryValue,
+      z.coerce.number().int().min(0).max(100_000).default(0),
+    ),
+    size: z.preprocess(
+      optionalQueryValue,
+      z.coerce.number().int().min(1).max(200).default(50),
+    ),
+    sort: z.preprocess(optionalQueryValue, z.enum(DISTRESS_SORT_KEYS).optional()),
+    view: z.preprocess(
+      optionalQueryValue,
+      z.enum(["BEST_FIT", "ALL"]).default("BEST_FIT"),
+    ),
+  })
+  .strict()
+  .superRefine((values, ctx) => {
+    if (
+      values.minDaysInStatus !== undefined &&
+      values.maxDaysInStatus !== undefined &&
+      values.minDaysInStatus > values.maxDaysInStatus
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["maxDaysInStatus"],
+        message: "Maximum days must be greater than or equal to minimum days.",
+      });
+    }
+    if (
+      values.lastReportedYearFrom !== undefined &&
+      values.lastReportedYearTo !== undefined &&
+      values.lastReportedYearFrom > values.lastReportedYearTo
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["lastReportedYearTo"],
+        message: "Maximum year must be greater than or equal to minimum year.",
+      });
+    }
+  })
+  .transform(
+    (values): DistressSearchFilters => ({
+      ...values,
+      status: values.status.length > 0 ? values.status : undefined,
+      sectorCodes: values.sectorCodes.length > 0 ? values.sectorCodes : undefined,
+    }),
+  );
 
 export async function GET(
   request: NextRequest,
@@ -86,8 +132,33 @@ export async function GET(
   }
 
   try {
-    const { workspaceId } = await context.params;
-    const data = await listDistressCompaniesForWorkspace(session.user.id, workspaceId, parseFilters(request));
+    const routeIds = tryParseRouteIds(await context.params, ["workspaceId"] as const);
+    if (!routeIds) {
+      return NextResponse.json({ error: "Ugyldig workspace-ID." }, { status: 400 });
+    }
+    const { workspaceId } = routeIds;
+    const { searchParams } = request.nextUrl;
+    const query = querySchema.safeParse({
+      status: searchParams.getAll("status"),
+      minDaysInStatus: searchParams.get("minDaysInStatus") ?? undefined,
+      maxDaysInStatus: searchParams.get("maxDaysInStatus") ?? undefined,
+      industryCodePrefix: searchParams.get("industryCodePrefix") ?? undefined,
+      sectorCodes: searchParams.getAll("sectorCode").map((value) => value.trim()),
+      lastReportedYearFrom: searchParams.get("lastReportedYearFrom") ?? undefined,
+      lastReportedYearTo: searchParams.get("lastReportedYearTo") ?? undefined,
+      page: searchParams.get("page") ?? undefined,
+      size: searchParams.get("size") ?? undefined,
+      sort: searchParams.get("sort") ?? undefined,
+      view: searchParams.get("view") ?? undefined,
+    });
+    if (!query.success) {
+      return NextResponse.json({ error: "Ugyldige distress-filtre." }, { status: 400 });
+    }
+    const data = await listDistressCompaniesForWorkspace(
+      session.user.id,
+      workspaceId,
+      query.data,
+    );
     return NextResponse.json({ data });
   } catch (error) {
     return NextResponse.json(
