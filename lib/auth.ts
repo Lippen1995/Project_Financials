@@ -22,7 +22,10 @@ const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
 if (process.env.NODE_ENV === "production" && !authSecret) {
   throw new Error("AUTH_SECRET must be configured in production.");
 }
-const trustAuthHost = shouldTrustAuthHost();
+const trustAuthHost = shouldTrustAuthHost(
+  process.env.NODE_ENV,
+  process.env.AUTH_URL ?? process.env.NEXTAUTH_URL,
+);
 if (process.env.NODE_ENV === "production" && !trustAuthHost) {
   throw new Error(
     "AUTH_URL or NEXTAUTH_URL must be configured with a canonical HTTPS origin in production.",

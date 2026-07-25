@@ -12,8 +12,10 @@ const mutatingExportPattern =
   /export\s+(?:async\s+function|const)\s+(?:POST|PUT|PATCH|DELETE)\b/;
 const readOnlyExportPattern =
   /export\s+(?:async\s+function|const)\s+GET\b/;
-const bodyInputPattern = /await\s+[\w.]+\.json\s*\(/;
-const bodyValidationPattern = /\.(?:safeParse|parse)\s*\(/;
+const bodyInputPattern =
+  /await\s+[\w.]+\.json\s*\(|\b(?:request|req)\.body\b/;
+const bodyValidationPattern =
+  /\.(?:safeParse|parse)\s*\(|\bwriteLimitedCsvUpload\s*\(/;
 const pathValidationPattern =
   /\b(?:parseRouteIds|tryParseRouteIds|tryParseCompanyReference)\s*\(|\bparamsSchema\.(?:safeParse|parse)\s*\(/;
 const queryValidationPattern =

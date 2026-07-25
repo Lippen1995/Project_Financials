@@ -18,6 +18,7 @@ output/manual-review-visual-audit/
 output/manual-review-visuals/
 output/board-report-batch/
 output/ml-datasets/
+output/playwright/*.har
 tmp/
 
 # Local backups and scratch design notes.

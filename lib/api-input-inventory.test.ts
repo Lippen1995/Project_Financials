@@ -51,6 +51,40 @@ describe("analyzeApiInputRoute", () => {
     expect(result.missingValidation).toEqual(["body", "path"]);
   });
 
+  it("reports an unvalidated streamed request body", () => {
+    const result = analyzeApiInputRoute(
+      "app/api/admin/imports/route.ts",
+      `
+        export async function POST(request) {
+          await pipeline(Readable.fromWeb(request.body), createWriteStream("upload.csv"));
+          return Response.json({ ok: true });
+        }
+      `,
+    );
+
+    expect(result.surfaces).toEqual(["body"]);
+    expect(result.missingValidation).toEqual(["body"]);
+  });
+
+  it("recognizes the size-limited file upload module as streamed-body validation", () => {
+    const result = analyzeApiInputRoute(
+      "app/api/admin/imports/route.ts",
+      `
+        export async function POST(request) {
+          await writeLimitedCsvUpload({
+            body: request.body,
+            filePath: "upload.csv",
+            maxBytes: MAX_UPLOAD_BYTES,
+          });
+          return Response.json({ ok: true });
+        }
+      `,
+    );
+
+    expect(result.surfaces).toEqual(["body"]);
+    expect(result.missingValidation).toEqual([]);
+  });
+
   it("does not mistake body validation for query-string validation", () => {
     const result = analyzeApiInputRoute(
       "app/api/widgets/route.ts",

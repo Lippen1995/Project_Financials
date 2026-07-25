@@ -46,7 +46,7 @@ export function shouldUseSecureAuthCookies(environment = process.env.NODE_ENV) {
 
 export function shouldTrustAuthHost(
   environment = process.env.NODE_ENV,
-  canonicalAuthUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL,
+  canonicalAuthUrl?: string,
 ) {
   if (environment !== "production") {
     return true;

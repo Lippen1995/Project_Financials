@@ -84,7 +84,7 @@ export function DistressNjord({ workspaceId, universeCount }: { workspaceId: str
   return (
     <div className="fixed bottom-6 right-6 z-[55] flex h-[580px] max-h-[calc(100vh-48px)] w-[400px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface-strong)] shadow-[var(--shadow-md)]">
       <div className="flex shrink-0 items-center justify-between bg-[var(--px-panel)] p-4 text-white">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <NjordMark className="h-9 w-9" />
           <div>
             <div className="text-[14.5px] font-semibold tracking-[-0.01em]">Njord</div>

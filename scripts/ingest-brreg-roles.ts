@@ -173,15 +173,18 @@ async function main() {
     if (personBatch.length === 0) return;
     const rows = personBatch;
     personBatch = [];
+    const now = new Date();
     const tuples = rows.map(
       (r) => Prisma.sql`(
         ${randomUUID()}, ${r.identityKey}, ${r.fullName}, ${r.firstName}, ${r.lastName},
-        ${r.birthDate}::date, ${r.isDeceased}, ${new Date()}
+        ${r.birthDate}::date, ${r.isDeceased}, ${"BRREG"}, ${"rolle-person"},
+        ${r.identityKey}, ${now}, ${now}, ${now}
       )`,
     );
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO "RegistryPerson" (
-        "id", "identityKey", "fullName", "firstName", "lastName", "birthDate", "isDeceased", "updatedAt"
+        "id", "identityKey", "fullName", "firstName", "lastName", "birthDate", "isDeceased",
+        "sourceSystem", "sourceEntityType", "sourceId", "fetchedAt", "normalizedAt", "updatedAt"
       ) VALUES ${Prisma.join(tuples)}
       ON CONFLICT ("identityKey") DO NOTHING
     `);
@@ -192,19 +195,30 @@ async function main() {
     if (assignmentBatch.length === 0) return;
     const rows = assignmentBatch;
     assignmentBatch = [];
-    const tuples = rows.map(
-      (r) => Prisma.sql`(
+    const now = new Date();
+    const tuples = rows.map((r) => {
+      const sourceId = [
+        r.companyOrgNumber,
+        r.holderType,
+        r.personIdentityKey ?? r.holderOrgNumber ?? r.personName ?? r.holderName ?? "unknown",
+        r.roleGroup ?? "",
+        r.roleType,
+        r.orderIndex ?? "",
+      ].join(":");
+      return Prisma.sql`(
         ${randomUUID()}, ${r.companyOrgNumber}, ${r.holderType}::"RoleHolderType",
         ${r.personIdentityKey}, ${r.personName}, ${r.personBirthDate}::date,
         ${r.holderOrgNumber}, ${r.holderName}, ${r.roleGroup}, ${r.roleType}, ${r.roleTypeLabel},
-        ${r.isBoardRole}, ${r.deregistered}, ${r.orderIndex}, ${r.groupLastChanged}::date
-      )`,
-    );
+        ${r.isBoardRole}, ${r.deregistered}, ${r.orderIndex}, ${r.groupLastChanged}::date,
+        ${"BRREG"}, ${"rolle"}, ${sourceId}, ${now}, ${now}
+      )`;
+    });
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO "RegistryRoleAssignment" (
         "id", "companyOrgNumber", "holderType", "personIdentityKey", "personName",
         "personBirthDate", "holderOrgNumber", "holderName", "roleGroup", "roleType",
-        "roleTypeLabel", "isBoardRole", "deregistered", "orderIndex", "groupLastChanged"
+        "roleTypeLabel", "isBoardRole", "deregistered", "orderIndex", "groupLastChanged",
+        "sourceSystem", "sourceEntityType", "sourceId", "fetchedAt", "normalizedAt"
       ) VALUES ${Prisma.join(tuples)}
     `);
     assignmentsInserted += rows.length;

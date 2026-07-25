@@ -1,20 +1,25 @@
 import crypto from "node:crypto";
-import { createWriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { Readable } from "node:stream";
 import { spawn } from "node:child_process";
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAdmin } from "@/lib/admin-auth";
+import {
+  InvalidCsvUploadError,
+  UploadLimitExceededError,
+  writeLimitedCsvUpload,
+} from "@/lib/limited-file-upload";
 import { prisma } from "@/lib/prisma";
+import { parseShareholderRegisterCsvHeader } from "@/lib/shareholder-register-csv";
 import { getShareholderRegisterImportSummaries } from "@/server/shareholdings/shareholder-register-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const UPLOAD_DIR = path.join(process.cwd(), "tmp", "shareholder-register-uploads");
+const MAX_UPLOAD_BYTES = 1024 ** 3;
 
 function parseTaxYear(value: string | null) {
   const taxYear = value ? Number.parseInt(value, 10) : Number.NaN;
@@ -25,9 +30,17 @@ function parseTaxYear(value: string | null) {
 }
 
 function sanitizeFileName(value: string | null) {
-  const decoded = value ? decodeURIComponent(value) : "aksjonaerregister.csv";
+  let decoded = "aksjonaerregister.csv";
+  try {
+    decoded = value ? decodeURIComponent(value) : decoded;
+  } catch {
+    return null;
+  }
   const baseName = path.basename(decoded);
-  return baseName.replace(/[^\w.\- æøåÆØÅ]/g, "_").slice(0, 180) || "aksjonaerregister.csv";
+  const sanitized =
+    baseName.replace(/[^\w.\- æøåÆØÅ]/g, "_").slice(0, 180) ||
+    "aksjonaerregister.csv";
+  return sanitized.toLowerCase().endsWith(".csv") ? sanitized : null;
 }
 
 function parseImportId(value: string | null) {
@@ -84,9 +97,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Mangler CSV-body." }, { status: 400 });
   }
 
+  const contentLength = Number(request.headers.get("content-length"));
+  if (!Number.isSafeInteger(contentLength) || contentLength <= 0) {
+    return NextResponse.json(
+      { error: "Mangler gyldig Content-Length for CSV-opplastingen." },
+      { status: 411 },
+    );
+  }
+  if (contentLength > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: "CSV-opplastingen er større enn tillatt grense på 1 GiB." },
+      { status: 413 },
+    );
+  }
+
+  const mediaType = request.headers
+    .get("content-type")
+    ?.split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  if (mediaType !== "text/csv") {
+    return NextResponse.json(
+      { error: "Opplastingen må ha medietypen text/csv." },
+      { status: 415 },
+    );
+  }
+
   const importId = parseImportId(request.headers.get("x-import-id"));
   const sourceFileName = sanitizeFileName(request.headers.get("x-file-name"));
-  const totalBytes = BigInt(Number.parseInt(request.headers.get("content-length") ?? "0", 10) || 0);
+  if (!sourceFileName) {
+    return NextResponse.json(
+      { error: "Filnavnet må ha endelsen .csv." },
+      { status: 400 },
+    );
+  }
+  const totalBytes = BigInt(contentLength);
   const filePath = path.join(UPLOAD_DIR, `${taxYear}-${importId}-${sourceFileName}`);
   const now = new Date();
 
@@ -111,25 +156,25 @@ export async function POST(request: NextRequest) {
   let lastUpdateAt = Date.now();
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      const nodeStream = Readable.fromWeb(request.body as never);
-      const fileStream = createWriteStream(filePath, { flags: "wx" });
-
-      nodeStream.on("data", (chunk: Buffer) => {
-        uploadedBytes += BigInt(chunk.byteLength);
-        if (Date.now() - lastUpdateAt > 1000) {
-          lastUpdateAt = Date.now();
-          void prisma.shareholderRegisterImport.update({
-            where: { id: importId },
-            data: { processedBytes: uploadedBytes, updatedAt: new Date() },
-          });
-        }
-      });
-      nodeStream.on("error", reject);
-      fileStream.on("error", reject);
-      fileStream.on("finish", resolve);
-      nodeStream.pipe(fileStream);
-    });
+    uploadedBytes = BigInt(
+      await writeLimitedCsvUpload({
+        body: request.body,
+        filePath,
+        maxBytes: contentLength,
+        validateHeader: (header) =>
+          parseShareholderRegisterCsvHeader(header).missing.length === 0,
+        onProgress(bytes) {
+          uploadedBytes = BigInt(bytes);
+          if (Date.now() - lastUpdateAt > 1000) {
+            lastUpdateAt = Date.now();
+            void prisma.shareholderRegisterImport.update({
+              where: { id: importId },
+              data: { processedBytes: uploadedBytes, updatedAt: new Date() },
+            });
+          }
+        },
+      }),
+    );
 
     await prisma.shareholderRegisterImport.update({
       where: { id: importId },
@@ -154,6 +199,23 @@ export async function POST(request: NextRequest) {
         completedAt: new Date(),
       },
     });
-    return NextResponse.json({ error: "Opplasting feilet.", importId }, { status: 500 });
+    const status =
+      error instanceof UploadLimitExceededError
+        ? 413
+        : error instanceof InvalidCsvUploadError
+          ? 400
+          : 500;
+    return NextResponse.json(
+      {
+        error:
+          status === 413
+            ? "CSV-body er større enn deklarert Content-Length."
+            : status === 400
+              ? "Opplastingen inneholder ikke en gyldig CSV-header."
+              : "Opplasting feilet.",
+        importId,
+      },
+      { status },
+    );
   }
 }
