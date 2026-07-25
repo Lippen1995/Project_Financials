@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { rethrowIfRedirectError } from "@/lib/redirect-error";
 import {
   createWorkspaceMonitor,
@@ -40,6 +41,12 @@ const createWatchSchema = z.object({
 const watchStatusSchema = z.object({
   watchId: z.string().min(1),
   workspaceId: z.string().min(1),
+});
+
+const companyWatchActionSchema = z.object({
+  orgNumber: norwegianOrganizationNumberSchema,
+  workspaceId: z.string().trim().min(1).max(128),
+  slug: z.string().trim().min(1).max(200).optional(),
 });
 
 const watchlistCompanyStatusSchema = z.object({
@@ -204,12 +211,16 @@ export async function archiveWorkspaceWatchAction(formData: FormData) {
 export async function watchCompanyAction(_prevState: unknown, formData: FormData): Promise<void> {
   const userId = await requireAuthenticatedUserId();
   try {
-    const orgNumber = String(formData.get("orgNumber") ?? "");
-    const workspaceId = String(formData.get("workspaceId") ?? "");
-    const slug = String(formData.get("slug") ?? "");
-    if (!orgNumber || !workspaceId || !slug) return;
-    await createWorkspaceWatch(userId, workspaceId, { companyReference: orgNumber });
-    revalidatePath(`/companies/${slug}`);
+    const values = companyWatchActionSchema.parse({
+      orgNumber: formData.get("orgNumber"),
+      workspaceId: formData.get("workspaceId"),
+      slug: formData.get("slug"),
+    });
+    if (!values.slug) return;
+    await createWorkspaceWatch(userId, values.workspaceId, {
+      companyReference: values.orgNumber,
+    });
+    revalidatePath(`/companies/${values.slug}`);
   } catch {
     // swallow — page stays unchanged
   }
@@ -219,13 +230,17 @@ export async function addToWatchlistAction(
   formData: FormData,
 ): Promise<{ ok: boolean; message?: string }> {
   const userId = await requireAuthenticatedUserId();
-  const orgNumber = String(formData.get("orgNumber") ?? "");
-  const workspaceId = String(formData.get("workspaceId") ?? "");
-  if (!orgNumber || !workspaceId) {
+  const parsed = companyWatchActionSchema.safeParse({
+    orgNumber: formData.get("orgNumber"),
+    workspaceId: formData.get("workspaceId"),
+  });
+  if (!parsed.success) {
     return { ok: false, message: "Mangler selskap eller workspace." };
   }
   try {
-    await createWorkspaceWatch(userId, workspaceId, { companyReference: orgNumber });
+    await createWorkspaceWatch(userId, parsed.data.workspaceId, {
+      companyReference: parsed.data.orgNumber,
+    });
     revalidatePath("/watchlist");
     return { ok: true };
   } catch (error) {

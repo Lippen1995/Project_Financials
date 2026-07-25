@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { isValidNorwegianOrganizationNumber } from "@/lib/norwegian-organization-number";
 import { getCompanyAnnouncementDetail, getCompanyByReference } from "@/server/services/company-service";
 
 export async function GET(
@@ -8,7 +9,11 @@ export async function GET(
 ) {
   const { slug, announcementId } = await context.params;
   const orgNumberMatch = slug.match(/\d{9}/);
-  const orgNumber = orgNumberMatch?.[0] ?? (await getCompanyByReference(slug))?.orgNumber;
+  const embeddedOrgNumber = orgNumberMatch?.[0];
+  const orgNumber =
+    embeddedOrgNumber && isValidNorwegianOrganizationNumber(embeddedOrgNumber)
+      ? embeddedOrgNumber
+      : (await getCompanyByReference(slug))?.orgNumber;
 
   if (!orgNumber) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

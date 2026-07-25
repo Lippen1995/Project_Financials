@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { LocalAnnualReportArtifactStorage } from "@/server/financials/artifact-storage";
 import { listAnnualReportDecisionShadowRows } from "@/server/persistence/annual-report-decision-shadow-repository";
 import { listPdfDecisionGoldSetItemsByFilingIds } from "@/server/persistence/pdf-decision-gold-set-repository";
@@ -10,7 +11,7 @@ import { evaluatePdfDecisionShadow } from "@/server/services/annual-report-pdf-d
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
   fiscalYear: z.coerce.number().int().optional(),
-  orgNumber: z.string().trim().min(1).max(20).optional(),
+  orgNumber: norwegianOrganizationNumberSchema.optional(),
 });
 
 export async function GET(request: NextRequest) {

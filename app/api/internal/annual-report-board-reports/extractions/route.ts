@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { listPendingBoardReportExtractions } from "@/server/persistence/board-report-extraction-repository";
 import {
   BoardReportExtractionError,
@@ -21,7 +22,7 @@ const requestSchema = z.union([
     .strict(),
   z
     .object({
-      orgNumber: z.string().regex(/^\s*\d(?:\s*\d){8}\s*$/),
+      orgNumber: norwegianOrganizationNumberSchema,
       fiscalYear: z.number().int().min(1990).max(new Date().getFullYear()),
       ...sharedFields,
     })

@@ -1,11 +1,12 @@
 import { z } from "zod";
 
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { AgentCompanyProfile, defineTool, toAgentCompanyRef } from "./types";
 import { buildProfileEnrichment } from "./enrich";
 
 const inputSchema = z.object({
-  orgNumber: z.string().regex(/^\d{9}$/, "orgNumber must be 9 digits"),
+  orgNumber: norwegianOrganizationNumberSchema,
 });
 
 export type CompanyProfileInput = z.infer<typeof inputSchema>;

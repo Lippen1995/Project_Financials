@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { scoreComparable } from "./find-comparables";
+import { findComparablesTool, scoreComparable } from "./find-comparables";
 import type { AgentCompanyRef } from "./types";
 
 function ref(overrides: Partial<AgentCompanyRef>): AgentCompanyRef {
@@ -19,6 +19,15 @@ function ref(overrides: Partial<AgentCompanyRef>): AgentCompanyRef {
 const criteria = { naceCode: "47.710", municipality: "Bergen", employeeCount: 20 };
 
 describe("scoreComparable", () => {
+  it("rejects invalid organization numbers in the exclusion list", () => {
+    expect(
+      findComparablesTool.inputSchema.safeParse({
+        naceCode: "47.710",
+        excludeOrgNumbers: ["928846467"],
+      }).success,
+    ).toBe(false);
+  });
+
   it("ranks an exact-code, same-city, same-size active company highest", () => {
     const exact = scoreComparable(ref({}), criteria);
     // 45 (nace) + 20 (kommune) + 25 (size ratio 1.0) + 10 (active)

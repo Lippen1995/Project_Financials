@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { buildPdfParserRemediationReport } from "@/server/services/pdf-parser-remediation-report-service";
 
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
   fiscalYear: z.coerce.number().int().optional(),
-  orgNumber: z.string().trim().min(1).max(20).optional(),
+  orgNumber: norwegianOrganizationNumberSchema.optional(),
   maxExamples: z.coerce.number().int().min(1).max(20).optional(),
 });
 

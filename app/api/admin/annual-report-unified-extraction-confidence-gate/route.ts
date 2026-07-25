@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import {
   buildUnifiedExtractionConfidenceGateReport,
   DEFAULT_UNIFIED_EXTRACTION_CONFIDENCE_GATE_CONFIG,
@@ -74,7 +75,7 @@ const requestBodySchema = z.object({
   meta: z
     .object({
       filingId: z.string().nullable().optional(),
-      orgNumber: z.string().nullable().optional(),
+      orgNumber: norwegianOrganizationNumberSchema.nullable().optional(),
       fiscalYear: z.number().int().nullable().optional(),
     })
     .optional(),

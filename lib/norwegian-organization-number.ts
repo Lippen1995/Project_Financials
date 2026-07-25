@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 const MOD_11_WEIGHTS = [3, 2, 7, 6, 5, 4, 3, 2] as const;
 
 export function normalizeNorwegianOrganizationNumber(value: string): string {
@@ -15,3 +17,8 @@ export function isValidNorwegianOrganizationNumber(value: string): boolean {
   const controlDigit = remainder === 0 ? 0 : 11 - remainder;
   return controlDigit !== 10 && controlDigit === Number(normalized[8]);
 }
+
+export const norwegianOrganizationNumberSchema = z
+  .string()
+  .transform(normalizeNorwegianOrganizationNumber)
+  .refine(isValidNorwegianOrganizationNumber, "Ugyldig organisasjonsnummer.");

@@ -3,11 +3,12 @@ import { AnnualReportReviewStatus } from "@prisma/client";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { listReviewQueue } from "@/server/services/annual-report-review-service";
 
 const querySchema = z.object({
   status: z.array(z.nativeEnum(AnnualReportReviewStatus)).optional(),
-  orgNumber: z.array(z.string()).optional(),
+  orgNumber: z.array(norwegianOrganizationNumberSchema).max(100).optional(),
   fiscalYear: z.coerce.number().int().optional(),
   ruleCode: z.array(z.string()).optional(),
   minQualityScore: z.coerce.number().min(0).max(1).optional(),

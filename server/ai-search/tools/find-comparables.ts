@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { AgentCompanyRef, defineTool, toAgentCompanyRef } from "./types";
 import { getLatestFinancialsByOrgNumbers } from "./enrich";
@@ -8,7 +9,7 @@ const inputSchema = z.object({
   naceCode: z.string().min(2, "naceCode is required"),
   municipality: z.string().optional(),
   employeeCount: z.number().int().nonnegative().optional(),
-  excludeOrgNumbers: z.array(z.string()).optional(),
+  excludeOrgNumbers: z.array(norwegianOrganizationNumberSchema).max(100).optional(),
   limit: z.number().int().min(1).max(50).optional(),
 });
 
