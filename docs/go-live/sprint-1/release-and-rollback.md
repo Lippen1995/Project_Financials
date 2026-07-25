@@ -10,6 +10,8 @@
 - Release går fra en ren, gjennomgått commit; lokale ucommittede filer inngår ikke.
 - Produksjonsmiljøet har separat database og separate hemmeligheter.
 - `AUTH_SECRET`, `DATABASE_URL` og aktuelle jobbhemmeligheter er konfigurert i hostens secret store.
+- `AUTH_URL` eller `NEXTAUTH_URL` er satt til den kanoniske offentlige HTTPS-origin-en; appen feiler lukket uten denne.
+- Reverse proxy setter én kanonisk `Host`/`X-Forwarded-Host` og avviser ukjente hostnavn før trafikken når Auth.js.
 - En gjenopprettbar databasebackup er fullført og kontrollert.
 - Forrige fungerende deploy-/artifact-ID er notert som `ROLLBACK_RELEASE`.
 
@@ -65,7 +67,9 @@ Host ved G1 må fylle inn:
 ## 5. Smoke-kontroller
 
 - HTTPS videresender all HTTP-trafikk og sertifikatet er gyldig.
-- Sikkerhetshodene er til stede.
+- `Content-Security-Policy`, HSTS, nosniff, frame-deny, referrer-, permissions- og cross-origin-hodene er til stede; `X-Powered-By` mangler.
+- Auth-endepunktet setter produksjonscookies med `__Host`/`__Secure`, `HttpOnly`, `Secure`, `SameSite=Lax` og `Path=/`.
+- En request med et ukjent `Host`-navn avvises av reverse proxy.
 - Ny bruker kan åpne login og autentisere.
 - Uautentisert bruker får 401 på beskyttet API.
 - Vanlig bruker får 403 på administratorhandling.

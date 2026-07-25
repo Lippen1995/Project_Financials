@@ -6,6 +6,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
+import { shouldTrustAuthHost, shouldUseSecureAuthCookies } from "@/lib/browser-security";
 import { getLinkedInConfigurationStatus, LINKEDIN_OIDC_SCOPE } from "@/lib/linkedin-auth";
 import { prisma } from "@/lib/prisma";
 import { consumeRateLimit, getClientAddress } from "@/lib/rate-limit";
@@ -20,6 +21,12 @@ const credentialSchema = z.object({
 const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
 if (process.env.NODE_ENV === "production" && !authSecret) {
   throw new Error("AUTH_SECRET must be configured in production.");
+}
+const trustAuthHost = shouldTrustAuthHost();
+if (process.env.NODE_ENV === "production" && !trustAuthHost) {
+  throw new Error(
+    "AUTH_URL or NEXTAUTH_URL must be configured with a canonical HTTPS origin in production.",
+  );
 }
 const linkedIn = getLinkedInConfigurationStatus();
 
@@ -92,6 +99,8 @@ if (linkedIn.configured) {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   secret: authSecret,
+  trustHost: trustAuthHost,
+  useSecureCookies: shouldUseSecureAuthCookies(),
   session: {
     strategy: "jwt",
   },

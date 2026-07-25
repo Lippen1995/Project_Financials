@@ -13,6 +13,7 @@ jobs:
     env:
       AUTH_SECRET: ci-only-auth-secret-that-is-not-used-outside-ci
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/projectx?schema=public
+      NEXTAUTH_URL: http://localhost:3000
 
     services:
       postgres:
