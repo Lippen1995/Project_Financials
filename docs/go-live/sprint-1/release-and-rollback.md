@@ -45,6 +45,24 @@ npm run db:migrate:status
 
 Kontroller at alle migrasjoner er additive eller har en særskilt, skriftlig rollbackplan. `prisma db push` er forbudt i releasebanen.
 
+### Engangsadopsjon av db-push-era database
+
+En database som har den feilede migrasjonen
+`20260721123000_add_offline_business_knowledge` må repareres før vanlig deploy.
+Bekreft først at det er akkurat denne migrasjonen som står som feilet. Ta og
+verifiser backup, sett vedlikeholdsmodus og kjør deretter:
+
+```bash
+npx prisma migrate resolve --rolled-back 20260721123000_add_offline_business_knowledge
+npm run db:migrate:deploy
+npm run db:migrate:status
+```
+
+Ikke bruk `migrate resolve` for andre migrasjoner uten en separat gjennomgang.
+Fullvolum-rehearsal med 6 729 616 registry-rader tok 344,5 sekunder, bevarte alle
+rader og ga 0 manglende proveniensfelt. Sett av minst 10 minutters
+vedlikeholdsvindu med margin, og overvåk låser, WAL og ledig disk gjennom kjøringen.
+
 ## 4. Deployrekkefølge
 
 1. Sett release til vedlikeholdsmodus dersom migrasjonen ikke er bakoverkompatibel.
