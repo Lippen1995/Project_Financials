@@ -22,7 +22,7 @@
 | GL-106 | Nettlesersikkerhet | Beta-baseline levert | Simen Lippestad | En håndhevet CSP er testet mot produksjonsbygget, Next.js-runtime, login, søk/Njord-flaten og kartet med begge eksterne tilekilder. Auth.js krever sikre cookies og en eksplisitt kanonisk HTTPS-origin i produksjon; produksjonsresponsen viser `__Host`/`__Secure`, `HttpOnly`, `Secure` og `SameSite=Lax`. HSTS og øvrige globale hoder er aktive, og `X-Powered-By` er fjernet. Faktisk TLS, HTTP-redirect og trygg `Host`-header verifiseres på valgt host ved G1. |
 | GL-107 | Databaseendringer | Teknisk lukket | Simen Lippestad | CI og dokumentert oppstart bruker `prisma migrate deploy`; `db push` er ikke del av releasebanen. |
 | GL-108 | Releaseoppskrift | Kandidat levert | Simen Lippestad | [Release- og rollbackoppskriften](./release-and-rollback.md) dekker K0-verifikasjon og den senere hostede releasebanen. Leverandørspesifikke deploy-/backupkommandoer fylles inn ved G1. |
-| GL-109 | Automatiske porter | Teknisk levert | Simen Lippestad | CI kjører låst installasjon, Git-/hemmelighetskontroll, API-inputinventar, dependency audit, migrasjoner, typekontroll, tester, lint og produksjonsbygg. Full lokal port kjøres før Sprint 1-lukking. |
+| GL-109 | Automatiske porter | Teknisk lukket | Simen Lippestad | Den dokumenterte lokale K0-porten er kjørt 25. juli fra en ny `npm ci`: 544 pakker fra låsfilen, 0 advisories, miljøfilnavn kontrollert i 1 482 Git-sporede filer og credential-mønstre skannet i 1 477 av dem, 136 API-rutefiler uten manglende valideringsbevis, generert Prisma-klient, grønn typekontroll og full Vitest-suite, lint med 0 feil og grønt produksjonsbygg. Dette lukker GL-109s tekniske kriterium. CI kjører de samme kontrollene og i tillegg migrasjoner mot PostgreSQL; full CI-lik port må fortsatt passere på den eksakte release-commiten. |
 
 ## Beslutninger tatt ved oppstart
 
@@ -37,7 +37,7 @@
 
 - verifiser gyldig TLS, tvungen HTTP-til-HTTPS og at reverse proxy avviser ukjente `Host`-verdier på valgt host ved G1;
 - erstatt prosesslokal limiter med delt lager dersom deploytopologien får flere instanser;
-- kjør full test-, lint- og byggport etter alle endringer;
+- kjør full CI-lik port, inkludert migrasjoner, på den eksakte gjennomgåtte release-commiten;
 - gjennomfør kodegjennomgang og CEO-godkjenning av Sprint 1.
 
 ## Godkjenningsregel

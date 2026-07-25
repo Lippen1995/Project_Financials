@@ -20,7 +20,7 @@
 | API-inputflater | Spredt validering uten samlet bevis | CI-porten inventerer 136 rutefiler: 80 muterende og 91 med GET, med 60 body-, 71 path- og 51 query-flater uten manglende valideringsbevis. Kritiske offentlige oppslagsgrenser har atferdstester; organisasjonsnummer, selskapsreferanse, år og tidspunkt bruker delte semantiske kontrakter |
 | Sikkerhetshoder | Ikke konfigurert samlet | Global baseline med håndhevet CSP konfigurert og nettlesertestet |
 | Database i CI | `prisma db push` | `prisma migrate deploy` |
-| Automatiske porter | Type, test og lint | Hemmelighetskontroll, audit, migrasjon, type, test, lint og build |
+| Automatiske porter | Type, test og lint | Hemmelighetskontroll, audit, migrasjon, type, test, lint og build; full lokal K0-port verifisert fra ren låst installasjon 25. juli |
 
 ## Avhengighetsbeslutninger
 
@@ -54,3 +54,17 @@
 - `img-src https:` støtter dynamiske profil- og kildebilder, men kan også brukes som en utgående kanal dersom HTML eller stil kan injiseres. Før offentlig beta må denne restrisikoen enten godkjennes eksplisitt eller reduseres med en kildeallowlist/same-origin bildeproxy sammen med nonce-CSP.
 - Lokal produksjonsverifikasjon beviser policy, runtime og cookie-attributter, men ikke TLS-terminering, HTTP-redirect eller HSTS-effekt. Disse kontrollene forblir en obligatorisk G1-port på valgt host.
 - Den automatiske hemmelighetskontrollen dekker private miljøfiler og kjente credential-formater, men erstatter ikke leverandørens secret scanning eller manuell nøkkelrotasjon.
+
+## Lokal K0-port for GL-109
+
+Porten ble kjørt 25. juli 2026 fra en ren `npm ci` og passerte:
+
+- låst installasjon av 544 pakker og eksplisitt dependency audit med 0 advisories;
+- miljøfilnavn kontrollert i 1 482 Git-sporede filer og kjente credential-formater skannet i 1 477 filer. Fem sporede HAR-, PDF-, MP4- eller modellfiler over 2 MB ble ikke innholdsskannet;
+- API-inputinventar av 136 rutefiler uten manglende valideringsbevis;
+- eksplisitt Prisma-generering;
+- TypeScript-kontroll og full Vitest-suite;
+- ESLint med 0 feil. De 18 advarslene gjelder eksisterende font-/bildebruk, hvor 15 ligger i lokale hjelpe-worktrees som ikke finnes i CI-checkouten;
+- produksjonsbygg med fullført generering av 102 av 102 sider uten feil.
+
+Denne kjøringen dekker den lokale releaseporten og GL-109-kriteriet. Den er ikke bevis for den strengere Sprint 1-godkjenningen før den CI-like porten, inkludert `prisma migrate deploy` mot PostgreSQL, passerer på den eksakte gjennomgåtte release-commiten.
