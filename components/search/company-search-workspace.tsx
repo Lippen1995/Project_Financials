@@ -20,6 +20,7 @@ import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 
 type SearchParams = {
   query: string;
+  analysisId?: string | null;
   industryCode: string;
   city: string;
   legalForm: string;
@@ -628,6 +629,7 @@ export function CompanySearchWorkspace({
       {params.aiEnabled ? (
         <AiSearchPanel
           query={params.query || null}
+          analysisId={params.analysisId}
           usage={aiUsage}
           width={njordPanelWidth}
           minimized={njordMinimized}

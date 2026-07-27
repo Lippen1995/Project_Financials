@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   failUsage: vi.fn(),
   getUsageStatus: vi.fn(),
   logRecoverableError: vi.fn(),
+  getAnalysis: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: mocks.safeAuth }));
@@ -58,6 +59,9 @@ vi.mock("@/server/ai-search/tools", () => ({
 }));
 vi.mock("@/server/billing/subscription", () => ({
   getAiSearchSubscriptionContext: mocks.getSubscription,
+}));
+vi.mock("@/server/analysis/analysis-read-service", () => ({
+  analysisReadService: { get: mocks.getAnalysis },
 }));
 vi.mock("@/server/services/search-history-service", () => ({
   reserveAiSearchUsage: mocks.reserveUsage,
@@ -108,6 +112,7 @@ describe("POST /api/ai-search", () => {
       usagePercent: 10,
       billingPeriod,
     });
+    mocks.getAnalysis.mockResolvedValue(null);
   });
 
   it("uses the real LLM path and records aggregate provider usage", async () => {
@@ -218,5 +223,77 @@ describe("POST /api/ai-search", () => {
       canUseDueDiligence: false,
     });
     expect(body.capabilities).toEqual({ mnaProForma: false });
+  });
+
+  it("loads an accessible saved analysis as bounded untrusted context", async () => {
+    mocks.getAnalysis.mockResolvedValue({
+      id: "analysis-1",
+      workspaceId: "workspace-1",
+      workspaceName: "Fjord",
+      title: "Oppkjøpsscreening",
+      purpose: "Finn kandidater.",
+      workflow: "MNA_SCREENING",
+      status: "IN_PROGRESS",
+      criteriaVersion: "analysis-criteria-v1",
+      criteria: {},
+      universeQueryVersion: "company-universe-v1",
+      universeQuery: {},
+      calculationVersion: null,
+      calculationConfig: null,
+      sourceBasis: [],
+      conclusion: null,
+      followUp: null,
+      version: 1,
+      createdAt: "2026-07-27T10:00:00.000Z",
+      updatedAt: "2026-07-27T10:00:00.000Z",
+      worklists: [],
+    });
+    mocks.runAgent.mockResolvedValue({
+      answer: "Kontekstbundet svar.",
+      toolResults: [],
+      groundedOrgNumbers: [],
+      invocations: [],
+      stopReason: "final",
+      usage: {
+        inputTokens: 10,
+        cachedInputTokens: 0,
+        outputTokens: 5,
+        model: "provider-model",
+        sourceIds: ["resp-context"],
+      },
+    });
+
+    const response = await POST(new NextRequest("http://localhost/api/ai-search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        query: "Hva bør jeg undersøke videre?",
+        analysisId: "analysis-1",
+      }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.getAnalysis).toHaveBeenCalledWith("user-1", "analysis-1");
+    expect(mocks.runAgent).toHaveBeenCalledWith(expect.objectContaining({
+      userQuery: expect.stringContaining('"analysisId":"analysis-1"'),
+      systemPrompt: expect.stringContaining("untrusted"),
+    }));
+  });
+
+  it("does not reserve model usage for an inaccessible analysis", async () => {
+    mocks.getAnalysis.mockResolvedValue(null);
+
+    const response = await POST(new NextRequest("http://localhost/api/ai-search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        query: "Analyser dette.",
+        analysisId: "analysis-without-access",
+      }),
+    }));
+
+    expect(response.status).toBe(404);
+    expect(mocks.reserveUsage).not.toHaveBeenCalled();
+    expect(mocks.runAgent).not.toHaveBeenCalled();
   });
 });

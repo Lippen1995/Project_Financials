@@ -43,14 +43,14 @@ export function AnalysisList({ analyses }: { analyses: AnalysisSummary[] }) {
           Ingen analyser lagret ennå
         </h2>
         <p className="mt-2 max-w-[62ch] text-sm text-[var(--px-muted)]">
-          Opprettelse fra arbeidsflyten kommer i neste leveranse. Inntil da kan du bygge et
-          dokumentert selskapsgrunnlag i søket.
+          Start med et formål og et avgrenset registerunivers. Arbeidslisten fylles bare med
+          selskaper som finnes i det offisielle registerspeilet.
         </p>
         <Link
-          href="/search"
+          href={"/analyses/new" as never}
           className="mt-5 inline-flex rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-[var(--px-surface)] hover:bg-[var(--px-action-hover)]"
         >
-          Søk etter selskaper
+          Opprett analyse
         </Link>
       </section>
     );

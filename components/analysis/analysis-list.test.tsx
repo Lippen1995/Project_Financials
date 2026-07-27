@@ -32,6 +32,6 @@ describe("AnalysisList", () => {
     expect(analysisHtml).toContain("Fortsett analysen");
     expect(analysisHtml).toContain("1 arbeidsliste");
     expect(emptyHtml).toContain("Ingen analyser lagret ennå");
-    expect(emptyHtml).toContain("Søk etter selskaper");
+    expect(emptyHtml).toContain("Opprett analyse");
   });
 });

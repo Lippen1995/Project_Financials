@@ -3,6 +3,10 @@ import Link from "next/link";
 
 import type { AnalysisDetail } from "@/server/analysis/analysis-read-service";
 import {
+  WorklistCreateForm,
+  WorklistItemActions,
+} from "./analysis-worklist-actions";
+import {
   analysisStatusClasses,
   analysisStatusLabels,
   analysisWorkflowLabels,
@@ -124,15 +128,34 @@ function ContextPanel({
 
 export function AnalysisDetailView({ analysis }: { analysis: AnalysisDetail }) {
   const analysisSources = sourceMetadataList(analysis.sourceBasis);
+  const editable = analysis.status !== "ARCHIVED";
   return (
     <main className="flex flex-col gap-8 pb-16">
       <header>
-        <Link
-          href={"/analyses" as never}
-          className="text-sm font-medium text-[var(--px-accent)] hover:text-[var(--px-text)]"
-        >
-          ← Alle analyser
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <Link
+            href={"/analyses" as never}
+            className="text-sm font-medium text-[var(--px-accent)] hover:text-[var(--px-text)]"
+          >
+            ← Alle analyser
+          </Link>
+          {analysis.status !== "ARCHIVED" ? (
+            <div className="flex flex-wrap gap-4">
+              <Link
+                href={`/search?ai=1&analysisId=${encodeURIComponent(analysis.id)}&query=${encodeURIComponent(analysis.purpose)}` as never}
+                className="rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 text-sm font-semibold text-[var(--px-text)] hover:bg-[var(--px-subtle)]"
+              >
+                Spør Njord i kontekst
+              </Link>
+              <Link
+                href={`/analyses/${analysis.id}/edit` as never}
+                className="rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 text-sm font-semibold text-[var(--px-text)] hover:bg-[var(--px-subtle)]"
+              >
+                Rediger analyse
+              </Link>
+            </div>
+          ) : null}
+        </div>
         <div className="mt-5 flex flex-wrap items-center gap-4">
           <span className="data-label text-[11px] text-[var(--px-accent)]">
             {analysisWorkflowLabels[analysis.workflow]}
@@ -186,6 +209,16 @@ export function AnalysisDetailView({ analysis }: { analysis: AnalysisDetail }) {
           </span>
         </div>
 
+        {editable ? (
+          <div className="mb-4">
+            <WorklistCreateForm
+              analysisId={analysis.id}
+              analysisVersion={analysis.version}
+              criteriaVersion={analysis.criteriaVersion}
+            />
+          </div>
+        ) : null}
+
         {analysis.worklists.length === 0 ? (
           <div className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6 text-sm text-[var(--px-muted)]">
             Ingen arbeidslister er lagret i denne analysen ennå.
@@ -221,10 +254,11 @@ export function AnalysisDetailView({ analysis }: { analysis: AnalysisDetail }) {
                         <th className="px-4 py-3 font-medium">Inklusjonsgrunn</th>
                         <th className="px-4 py-3 font-medium">Datagap</th>
                         <th className="px-4 py-3 font-medium">Kilder</th>
+                        {editable ? <th className="px-4 py-3 font-medium">Handlinger</th> : null}
                       </tr>
                     </thead>
                     <tbody>
-                      {worklist.items.map((item) => {
+                      {worklist.items.map((item, itemIndex) => {
                         const inclusionBasis = stringArray(item.inclusionBasis);
                         const dataGaps = stringArray(item.dataGaps);
                         const sourceCount = sourceMetadataList(item.sourceBasis).length;
@@ -253,6 +287,23 @@ export function AnalysisDetailView({ analysis }: { analysis: AnalysisDetail }) {
                             <td className="px-4 py-3 tabular-nums text-[var(--px-muted)]">
                               {sourceCount} {sourceCount === 1 ? "kilde" : "kilder"}
                             </td>
+                            {editable ? (
+                              <td className="px-4 py-3">
+                                <WorklistItemActions
+                                  analysisId={analysis.id}
+                                  sourceWorklistId={worklist.id}
+                                  itemId={item.id}
+                                  itemIndex={itemIndex}
+                                  orderedItemIds={worklist.items.map((candidate) => candidate.id)}
+                                  targets={analysis.worklists
+                                    .filter((candidate) => candidate.id !== worklist.id)
+                                    .map((candidate) => ({
+                                      id: candidate.id,
+                                      name: candidate.name,
+                                    }))}
+                                />
+                              </td>
+                            ) : null}
                           </tr>
                         );
                       })}

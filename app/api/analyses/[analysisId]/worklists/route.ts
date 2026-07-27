@@ -31,6 +31,8 @@ export async function POST(
       ? 400
       : message.includes("not found")
         ? 404
+        : message.includes("changed")
+          ? 409
         : 403;
     return NextResponse.json({ error: message }, { status });
   }

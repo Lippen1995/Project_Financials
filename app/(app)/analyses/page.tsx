@@ -30,12 +30,20 @@ export default async function AnalysesPage({
             kriterier, arbeidslister og kildegrunnlag.
           </p>
         </div>
-        <Link
-          href={(includeArchived ? "/analyses" : "/analyses?arkivert=true") as never}
-          className="rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 text-sm font-semibold text-[var(--px-text)] hover:bg-[var(--px-subtle)]"
-        >
-          {includeArchived ? "Skjul arkiverte" : "Vis arkiverte"}
-        </Link>
+        <div className="flex flex-wrap gap-4">
+          <Link
+            href={(includeArchived ? "/analyses" : "/analyses?arkivert=true") as never}
+            className="rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 text-sm font-semibold text-[var(--px-text)] hover:bg-[var(--px-subtle)]"
+          >
+            {includeArchived ? "Skjul arkiverte" : "Vis arkiverte"}
+          </Link>
+          <Link
+            href={"/analyses/new" as never}
+            className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-[var(--px-surface)] hover:bg-[var(--px-action-hover)]"
+          >
+            Ny analyse
+          </Link>
+        </div>
       </header>
 
       <AnalysisList analyses={analyses} />

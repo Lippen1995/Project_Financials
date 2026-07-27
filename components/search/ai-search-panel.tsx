@@ -143,6 +143,7 @@ function ChatHeaderAction({
  */
 export function AiSearchPanel({
   query,
+  analysisId,
   usage: initialUsage,
   width,
   minimized,
@@ -151,6 +152,7 @@ export function AiSearchPanel({
   onCompanies,
 }: {
   query: string | null;
+  analysisId?: string | null;
   usage: AiSearchUsageSummary;
   width: number;
   minimized: boolean;
@@ -194,7 +196,10 @@ export function AiSearchPanel({
       const res = await fetch("/api/ai-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: trimmed }),
+        body: JSON.stringify({
+          query: trimmed,
+          ...(analysisId ? { analysisId } : {}),
+        }),
       });
       const data = (await res.json()) as {
         answerKey?: string;
@@ -229,7 +234,7 @@ export function AiSearchPanel({
     } finally {
       setIsLoading(false);
     }
-  }, [onCompanies]);
+  }, [analysisId, onCompanies]);
 
   const submitFeedback = useCallback(async (
     messageId: string,
@@ -243,7 +248,11 @@ export function AiSearchPanel({
       const response = await fetch("/api/njord/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answerKey, label }),
+        body: JSON.stringify({
+          answerKey,
+          label,
+          ...(analysisId ? { analysisId } : {}),
+        }),
       });
       if (!response.ok) throw new Error("Feedback could not be saved.");
       setMessages((current) => current.map((message) =>
@@ -254,7 +263,7 @@ export function AiSearchPanel({
         message.id === messageId ? { ...message, feedback: "ERROR" } : message
       ));
     }
-  }, []);
+  }, [analysisId]);
 
   useEffect(() => {
     if (!minimized) messagesEndRef.current?.scrollIntoView({ block: "nearest" });

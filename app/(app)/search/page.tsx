@@ -112,6 +112,10 @@ export default async function SearchPage({
     : "";
   const params = {
     query: readParam(rawParams.query ?? rawParams.q).trim(),
+    analysisId: (() => {
+      const value = readParam(rawParams.analysisId).trim();
+      return value.length > 0 && value.length <= 128 ? value : null;
+    })(),
     industryCode: readParam(rawParams.industryCode).trim(),
     city: readParam(rawParams.city).trim(),
     legalForm: readParam(rawParams.legalForm).trim(),

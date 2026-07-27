@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   safeAuth: vi.fn(),
   get: vi.fn(),
+  updateDraft: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: mocks.safeAuth }));
@@ -12,10 +13,13 @@ vi.mock("@/server/analysis/analysis-read-service", () => ({
   analysisReadService: { get: mocks.get },
 }));
 vi.mock("@/server/analysis/analysis-service", () => ({
-  analysisService: { updateConclusion: vi.fn() },
+  analysisService: {
+    updateConclusion: vi.fn(),
+    updateDraft: mocks.updateDraft,
+  },
 }));
 
-import { GET } from "./route";
+import { GET, PUT } from "./route";
 
 describe("GET /api/analyses/[analysisId]", () => {
   beforeEach(() => {
@@ -59,5 +63,41 @@ describe("GET /api/analyses/[analysisId]", () => {
 
     expect(response.status).toBe(401);
     expect(mocks.get).not.toHaveBeenCalled();
+  });
+});
+
+describe("PUT /api/analyses/[analysisId]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.safeAuth.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.updateDraft.mockResolvedValue(undefined);
+  });
+
+  it("updates editable context through the access-controlled write seam", async () => {
+    const body = {
+      expectedVersion: 2,
+      title: "Revidert analyse",
+      purpose: "Dokumentert formål.",
+      workflow: "SOURCING",
+      criteria: { industries: ["62"] },
+      universeQuery: {
+        version: "company-universe-v1",
+        workflow: "SOURCING",
+        statuses: ["ACTIVE"],
+        missingDataPolicy: "INCLUDE_WITH_GAP",
+        limit: 100,
+      },
+    };
+
+    const response = await PUT(
+      new NextRequest("http://localhost/api/analyses/analysis-1", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ analysisId: "analysis-1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateDraft).toHaveBeenCalledWith("user-1", "analysis-1", body);
   });
 });
