@@ -4150,21 +4150,47 @@ model Analysis {
 }
 
 model AnalysisWorklist {
-  id              String               @id @default(cuid())
-  analysisId      String
-  createdByUserId String
-  type            AnalysisWorklistType
-  name            String
-  purpose         String
-  criteriaVersion String
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  id                    String               @id @default(cuid())
+  analysisId            String
+  createdByUserId       String
+  type                  AnalysisWorklistType
+  name                  String
+  purpose               String
+  criteriaVersion       String
+  universeResultVersion String?
+  screeningVersion      String?
+  rankingVersion        String?
+  evaluatedCount        Int?
+  includedCount         Int?
+  excludedCount         Int?
+  truncatedCount        Int?
+  universeExecutedAt    DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 
   analysis Analysis               @relation(fields: [analysisId], references: [id], onDelete: Cascade)
   createdBy User                  @relation("AnalysisWorklistCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   items     AnalysisWorklistItem[]
+  exclusions AnalysisWorklistExclusion[]
 
   @@index([analysisId, type, updatedAt(sort: Desc)])
+}
+
+model AnalysisWorklistExclusion {
+  id          String   @id @default(cuid())
+  worklistId  String
+  orgNumber   String
+  companyName String
+  reasons     Json
+  sourceBasis Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  worklist AnalysisWorklist @relation(fields: [worklistId], references: [id], onDelete: Cascade)
+
+  @@unique([worklistId, orgNumber])
+  @@index([worklistId, orgNumber])
+  @@index([orgNumber])
 }
 
 model AnalysisWorklistItem {

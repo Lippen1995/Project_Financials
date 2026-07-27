@@ -27,7 +27,7 @@ kontrollpunkt, ikke en formell sprintlukking eller G1-godkjenning.
 | GL-310 | Implementert v1 | Innlogget bruker kan markere hvert faktisk Njord-svar som `Nyttig` eller `Feil`; beslutningen lagres idempotent |
 | GL-311 | Implementert | Modellfeil gir kontrollert 503 og ærlig melding; selskapsopplevelsen fortsetter |
 | GL-312 | Implementert v1 | Tilgangsstyrt `Analysis` kan opprettes, listes og gjenopptas; formål, kriterier, univers, beregningsoppsett, konklusjon, oppfølging, status og offisielt kildegrunnlag kan lagres med optimistisk låsing. Njord-endepunktet mottar bare eksplisitt, tilgangskontrollert og størrelsesbegrenset analysekontekst |
-| GL-313 | Delvis: felles kjøring | UI-API og Njord-verktøy bruker samme `company-universe-v1`, screening og manglende-data-policy. Inkluderte kandidater kan lagres direkte med inklusjonsgrunn og datagap; ekskluderte kandidater og eksklusjonsårsaker lagres ennå ikke i arbeidsflyt-UI |
+| GL-313 | Implementert v1 | UI-API og Njord-verktøy bruker samme `company-universe-v1`, screening og manglende-data-policy. Arbeidslister fra universmotoren lagrer kjøringsversjoner og -tellinger atomisk sammen med inkluderte kandidater, datagap og hele eksklusjonssettet; eksklusjonsårsaker og kildebevis kan inspiseres paginert i arbeidsflyt-UI |
 | GL-314 | Implementert v1 | Periode, retning, vekter, normalisering, dekningsprosent og beregningsspor er deterministiske i `company-ranking-v1`; UI lagrer den validerte rangeringskontrakten før kjøring |
 | GL-315 | Implementert v1 | Longlist, shortlist, sourcingliste og peer-sett kan opprettes direkte fra lagret univers eller batchlagres fra reelle organisasjonsnumre, vises og omrekkefølges; selskaper kan promoteres mellom lister uten å endre lagret inklusjonsgrunn, datagap eller kildebevis |
 
@@ -64,8 +64,9 @@ npm run test
 npm run njord:evaluate
 ```
 
-Migrasjonene `20260727143000_add_sprint3_analysis_foundation` og
-`20260727173000_add_njord_cost_reservations` er brukt på lokal
+Migrasjonene `20260727143000_add_sprint3_analysis_foundation`,
+`20260727173000_add_njord_cost_reservations` og
+`20260727221000_add_analysis_worklist_exclusions` er brukt på lokal
 utviklingsdatabase. En produksjonslik read-only universkjøring avdekket at et
 bredt univers kunne bli avkortet før rangering. Tjenesten avviser nå slike
 forespørsler med `REFINE_REQUIRED` og uten en misvisende delrangering.
@@ -73,18 +74,15 @@ Regresjonstesten låser denne adferden.
 
 ## Åpent før formell lukking
 
-1. Ekskluderte kandidater og de versjonerte eksklusjonsårsakene fra
-   `company-screening-v1` må kunne inspiseres eller lagres i arbeidsflyt-UI før
-   hele GL-313 er oppfylt.
-2. Evalueringssettet må kjøres mot minst to aktuelle modeller etter G1, med
+1. Evalueringssettet må kjøres mot minst to aktuelle modeller etter G1, med
    verifiserte priser og ingen svakere sikkerhetsport.
-3. Evalueringssettet må få forventede reelle fakta og påstand-til-kilde-bevis,
+2. Evalueringssettet må få forventede reelle fakta og påstand-til-kilde-bevis,
    ikke bare resultat- og sikkerhetskontrakter.
-4. Njord-konteksten må bevises ende-til-ende mot modellene som eventuelt
+3. Njord-konteksten må bevises ende-til-ende mot modellene som eventuelt
    godkjennes i G1; ingen modell ble kalt i K0-leveransen.
-5. Delt rate limiter, host-adferd og hard NOK-stopp må bevises på valgt
+4. Delt rate limiter, host-adferd og hard NOK-stopp må bevises på valgt
    plattform i G1/G2.
-6. Ende-til-ende-test må bevise formål → univers → rangering → lagret
+5. Ende-til-ende-test må bevise formål → univers → rangering → lagret
    arbeidsliste → konklusjon for alle tre arbeidsflytene.
-7. Sprinten kan først lukkes etter samlet review, full suite og eksplisitt
+6. Sprinten kan først lukkes etter samlet review, full suite og eksplisitt
    CEO-godkjenning.

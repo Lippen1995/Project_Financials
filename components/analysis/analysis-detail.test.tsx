@@ -50,6 +50,14 @@ describe("AnalysisDetailView", () => {
             name: "Longlist",
             purpose: "Første screening.",
             criteriaVersion: "analysis-criteria-v1",
+            universeResultVersion: "company-universe-result-v1",
+            screeningVersion: "company-screening-v1",
+            rankingVersion: "company-ranking-v1",
+            evaluatedCount: 2,
+            includedCount: 1,
+            excludedCount: 1,
+            truncatedCount: 0,
+            universeExecutedAt: "2026-07-27T10:29:00.000Z",
             createdAt: "2026-07-27T10:30:00.000Z",
             updatedAt: "2026-07-27T10:30:00.000Z",
             items: [{
@@ -90,5 +98,7 @@ describe("AnalysisDetailView", () => {
     expect(html).toContain("statement-1");
     expect(html).toContain("Kjør lagret univers");
     expect(html).toContain("Lagre konklusjon");
+    expect(html).toContain("1 ekskludert");
+    expect(html).toContain("Se eksklusjonsgrunnlag");
   });
 });

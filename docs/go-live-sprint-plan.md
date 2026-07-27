@@ -176,8 +176,9 @@ direkte univers-/rangeringskjøring til arbeidsliste og lagring av status,
 konklusjon, oppfølging og offisielt kildegrunnlag. Leveransen er ikke formelt
 lukket; påstand-til-kilde-bevis, reelle forventede fakta,
 modell-sammenligning etter G1, flerinstansgrenser og ende-til-ende-bevis
-gjenstår. Arbeidsflyt-UI lagrer inkluderte kandidater med inklusjonsgrunn og
-datagap, men ikke ennå det versjonerte eksklusjonssettet med årsaker. Se
+gjenstår. Arbeidslister fra universmotoren lagrer nå også kjøringsversjoner,
+tellinger og hele eksklusjonssettet atomisk; årsaker og kildebevis kan
+inspiseres paginert i arbeidsflyt-UI. Se
 [Sprint 3-kontrollpunktet](./go-live/sprint-3/README.md).
 
 ## 9. Port G1 – godkjenning av første betalte kostnader

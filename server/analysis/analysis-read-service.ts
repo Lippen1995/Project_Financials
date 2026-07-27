@@ -42,6 +42,14 @@ type AnalysisWorklistRow = {
   name: string;
   purpose: string;
   criteriaVersion: string;
+  universeResultVersion: string | null;
+  screeningVersion: string | null;
+  rankingVersion: string | null;
+  evaluatedCount: number | null;
+  includedCount: number | null;
+  excludedCount: number | null;
+  truncatedCount: number | null;
+  universeExecutedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   items: AnalysisWorklistItemRow[];
@@ -76,9 +84,13 @@ export type AnalysisDetail = Omit<
 > & {
   createdAt: string;
   updatedAt: string;
-  worklists: Array<Omit<AnalysisWorklistRow, "createdAt" | "updatedAt"> & {
+  worklists: Array<Omit<
+    AnalysisWorklistRow,
+    "createdAt" | "updatedAt" | "universeExecutedAt"
+  > & {
     createdAt: string;
     updatedAt: string;
+    universeExecutedAt: string | null;
   }>;
 };
 
@@ -163,6 +175,14 @@ const prismaRepository: AnalysisReadRepository = {
             name: true,
             purpose: true,
             criteriaVersion: true,
+            universeResultVersion: true,
+            screeningVersion: true,
+            rankingVersion: true,
+            evaluatedCount: true,
+            includedCount: true,
+            excludedCount: true,
+            truncatedCount: true,
+            universeExecutedAt: true,
             createdAt: true,
             updatedAt: true,
             items: {
@@ -208,6 +228,7 @@ function toDetail(row: AnalysisDetailRow): AnalysisDetail {
       ...worklist,
       createdAt: worklist.createdAt.toISOString(),
       updatedAt: worklist.updatedAt.toISOString(),
+      universeExecutedAt: worklist.universeExecutedAt?.toISOString() ?? null,
     })),
   };
 }

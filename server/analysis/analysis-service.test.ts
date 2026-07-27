@@ -62,6 +62,23 @@ function repository(): AnalysisRepository {
         },
       ],
     }),
+    listWorklistExclusions: vi.fn().mockResolvedValue({
+      universeResultVersion: "company-universe-result-v1",
+      screeningVersion: "company-screening-v1",
+      rankingVersion: "company-ranking-v1",
+      evaluatedCount: 3,
+      includedCount: 1,
+      excludedCount: 2,
+      truncatedCount: 0,
+      universeExecutedAt: new Date("2026-07-27T20:00:00.000Z"),
+      items: [{
+        orgNumber: "100000002",
+        companyName: "Company 100000002",
+        reasons: ["REVENUE_BELOW_MINIMUM"],
+        sourceBasis: [{ ...source, sourceId: "100000002" }],
+      }],
+      nextCursor: "100000002",
+    }),
     reorderWorklist: vi.fn().mockResolvedValue(undefined),
     addWorklistItem: vi.fn().mockResolvedValue({ id: "item-3" }),
     saveFeedback: vi.fn().mockImplementation(async (input) => ({ id: "feedback-1", ...input })),
@@ -255,8 +272,16 @@ describe("analysis service", () => {
       hasConclusion: false,
     });
     const run = vi.fn().mockResolvedValue({
+      version: "company-universe-result-v1",
       status: "COMPLETE",
+      screeningVersion: "company-screening-v1",
       rankingVersion: "company-ranking-v1",
+      counts: {
+        evaluated: 2,
+        included: 1,
+        excluded: 1,
+        truncated: 0,
+      },
       included: [{
         orgNumber: "100000001",
         inclusionReasons: ["MATCHED_VERSIONED_UNIVERSE_QUERY"],
@@ -264,6 +289,12 @@ describe("analysis service", () => {
         rank: 1,
         score: 87.5,
         coveragePercent: 100,
+      }],
+      excluded: [{
+        orgNumber: "100000002",
+        name: "Company 100000002",
+        reasons: ["REVENUE_BELOW_MINIMUM"],
+        sourceBasis: [{ ...source, sourceId: "100000002" }],
       }],
     });
     const service = createAnalysisService(repo, { run });
@@ -282,6 +313,23 @@ describe("analysis service", () => {
     expect(repo.createWorklist).toHaveBeenCalledWith(expect.objectContaining({
       expectedAnalysisVersion: 2,
       criteriaVersion: "analysis-criteria-v1",
+      universeResult: {
+        version: "company-universe-result-v1",
+        screeningVersion: "company-screening-v1",
+        rankingVersion: "company-ranking-v1",
+        counts: {
+          evaluated: 2,
+          included: 1,
+          excluded: 1,
+          truncated: 0,
+        },
+        excluded: [{
+          orgNumber: "100000002",
+          companyName: "Company 100000002",
+          reasons: ["REVENUE_BELOW_MINIMUM"],
+          sourceBasis: [{ ...source, sourceId: "100000002" }],
+        }],
+      },
       items: [expect.objectContaining({
         orgNumber: "100000001",
         inclusionBasis: [
@@ -312,6 +360,71 @@ describe("analysis service", () => {
       purpose: "Første utvalg.",
     })).rejects.toThrow(/bredt|refine/i);
     expect(repo.createWorklist).not.toHaveBeenCalled();
+  });
+
+  it("rejects a universe result whose exclusion count does not match its evidence", async () => {
+    const repo = repository();
+    const service = createAnalysisService(repo, {
+      run: vi.fn().mockResolvedValue({
+        version: "company-universe-result-v1",
+        status: "COMPLETE",
+        screeningVersion: "company-screening-v1",
+        rankingVersion: null,
+        counts: {
+          evaluated: 3,
+          included: 1,
+          excluded: 2,
+          truncated: 0,
+        },
+        included: [{
+          orgNumber: "100000001",
+          inclusionReasons: ["MATCHED_VERSIONED_UNIVERSE_QUERY"],
+          dataGaps: [],
+        }],
+        excluded: [{
+          orgNumber: "100000002",
+          name: "Company 100000002",
+          reasons: ["REVENUE_BELOW_MINIMUM"],
+          sourceBasis: [{ ...source, sourceId: "100000002" }],
+        }],
+      }),
+    });
+
+    await expect(service.createWorklistFromUniverse("user-1", "analysis-1", {
+      expectedAnalysisVersion: 2,
+      type: "LONGLIST",
+      name: "Longlist",
+      purpose: "Første utvalg.",
+    })).rejects.toThrow(/exclusion count/i);
+    expect(repo.createWorklist).not.toHaveBeenCalled();
+  });
+
+  it("pages through the stored exclusion evidence only after analysis access", async () => {
+    const repo = repository();
+    const service = createAnalysisService(repo);
+
+    const result = await service.listWorklistExclusions(
+      "user-1",
+      "analysis-1",
+      "worklist-1",
+      { limit: 1 },
+    );
+
+    expect(repo.requireWorkspaceAccess).toHaveBeenCalledWith("user-1", "workspace-1");
+    expect(repo.listWorklistExclusions).toHaveBeenCalledWith(
+      "analysis-1",
+      "worklist-1",
+      { cursor: null, limit: 1 },
+    );
+    expect(result).toMatchObject({
+      screeningVersion: "company-screening-v1",
+      excludedCount: 2,
+      items: [{
+        orgNumber: "100000002",
+        reasons: ["REVENUE_BELOW_MINIMUM"],
+      }],
+      nextCursor: "100000002",
+    });
   });
 
   it("reorders a worklist only when the complete stored item set is supplied", async () => {

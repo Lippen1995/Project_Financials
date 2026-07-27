@@ -8,6 +8,7 @@ import {
   WorklistItemActions,
 } from "./analysis-worklist-actions";
 import { AnalysisOutcomeEditor } from "./analysis-outcome-editor";
+import { WorklistExclusionPanel } from "./analysis-worklist-exclusions";
 import {
   analysisStatusClasses,
   analysisStatusLabels,
@@ -328,6 +329,18 @@ export function AnalysisDetailView({ analysis }: { analysis: AnalysisDetail }) {
                     </tbody>
                   </table>
                 </div>
+                <WorklistExclusionPanel
+                  analysisId={analysis.id}
+                  worklistId={worklist.id}
+                  universeResultVersion={worklist.universeResultVersion}
+                  screeningVersion={worklist.screeningVersion}
+                  rankingVersion={worklist.rankingVersion}
+                  evaluatedCount={worklist.evaluatedCount}
+                  includedCount={worklist.includedCount}
+                  excludedCount={worklist.excludedCount}
+                  truncatedCount={worklist.truncatedCount}
+                  universeExecutedAt={worklist.universeExecutedAt}
+                />
               </article>
             ))}
           </div>

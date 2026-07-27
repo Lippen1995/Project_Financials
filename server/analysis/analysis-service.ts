@@ -85,6 +85,32 @@ const createWorklistFromUniverseSchema = z.object({
   purpose: z.string().trim().min(1).max(2_000),
 }).strict();
 
+const universeResultEvidenceSchema = z.object({
+  version: z.literal("company-universe-result-v1"),
+  screeningVersion: z.literal("company-screening-v1"),
+  rankingVersion: z.literal("company-ranking-v1").nullable(),
+  counts: z.object({
+    evaluated: z.number().int().nonnegative().max(5_000),
+    included: z.number().int().nonnegative().max(500),
+    excluded: z.number().int().nonnegative().max(5_000),
+    truncated: z.number().int().nonnegative().max(5_000),
+  }).strict(),
+  excluded: z.array(z.object({
+    orgNumber: z.string().regex(/^\d{9}$/),
+    companyName: z.string().trim().min(1).max(500),
+    reasons: z.array(z.string().trim().min(1).max(200)).min(1).max(50),
+    sourceBasis: z.array(sourceMetadataSchema).min(1).max(10),
+  }).strict()).max(5_000),
+}).strict().superRefine((value, context) => {
+  if (value.counts.excluded !== value.excluded.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Universe exclusion count must match the stored exclusion evidence.",
+      path: ["counts", "excluded"],
+    });
+  }
+});
+
 const reorderWorklistSchema = z.object({
   itemIds: z.array(z.string().trim().min(1).max(128)).min(1).max(500),
 }).strict().superRefine((value, context) => {
@@ -96,6 +122,11 @@ const reorderWorklistSchema = z.object({
     });
   }
 });
+
+const listWorklistExclusionsSchema = z.object({
+  cursor: z.string().regex(/^\d{9}$/).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+}).strict();
 
 const promoteWorklistItemSchema = z.object({
   itemId: z.string().trim().min(1).max(128),
@@ -117,9 +148,17 @@ type FeedbackInput = z.input<typeof feedbackSchema>;
 
 type CompanyUniverseRunner = {
   run(input: unknown): Promise<{
+    version: "company-universe-result-v1";
     status: "COMPLETE" | "REFINE_REQUIRED";
+    screeningVersion: "company-screening-v1";
     rankingVersion?: "company-ranking-v1" | null;
     message?: string;
+    counts: {
+      evaluated: number;
+      included: number;
+      excluded: number;
+      truncated: number;
+    };
     included: Array<{
       orgNumber: string;
       inclusionReasons: string[];
@@ -127,6 +166,12 @@ type CompanyUniverseRunner = {
       rank?: number;
       score?: number | null;
       coveragePercent?: number;
+    }>;
+    excluded: Array<{
+      orgNumber: string;
+      name: string;
+      reasons: string[];
+      sourceBasis: Array<z.infer<typeof sourceMetadataSchema>>;
     }>;
   }>;
 };
@@ -200,6 +245,7 @@ export type AnalysisRepository = {
     name: string;
     purpose: string;
     criteriaVersion: string;
+    universeResult: z.infer<typeof universeResultEvidenceSchema> | null;
     items: Array<z.infer<typeof worklistItemSchema> & {
       sortOrder: number;
       companyName: string;
@@ -219,6 +265,27 @@ export type AnalysisRepository = {
       sourceBasis: unknown;
       notes: string | null;
     }>;
+  } | null>;
+  listWorklistExclusions(
+    analysisId: string,
+    worklistId: string,
+    input: { cursor: string | null; limit: number },
+  ): Promise<{
+    universeResultVersion: string | null;
+    screeningVersion: string | null;
+    rankingVersion: string | null;
+    evaluatedCount: number | null;
+    includedCount: number | null;
+    excludedCount: number | null;
+    truncatedCount: number | null;
+    universeExecutedAt: Date | null;
+    items: Array<{
+      orgNumber: string;
+      companyName: string;
+      reasons: unknown;
+      sourceBasis: unknown;
+    }>;
+    nextCursor: string | null;
   } | null>;
   reorderWorklist(worklistId: string, itemIds: string[]): Promise<void>;
   addWorklistItem(input: {
@@ -401,7 +468,7 @@ const prismaRepository: AnalysisRepository = {
       if (claim.count !== 1) {
         throw new Error("Analysis changed since the worklist was prepared.");
       }
-      return transaction.analysisWorklist.create({
+      const worklist = await transaction.analysisWorklist.create({
         data: {
           analysisId: input.analysisId,
           createdByUserId: input.createdByUserId,
@@ -409,6 +476,14 @@ const prismaRepository: AnalysisRepository = {
           name: input.name,
           purpose: input.purpose,
           criteriaVersion: input.criteriaVersion,
+          universeResultVersion: input.universeResult?.version ?? null,
+          screeningVersion: input.universeResult?.screeningVersion ?? null,
+          rankingVersion: input.universeResult?.rankingVersion ?? null,
+          evaluatedCount: input.universeResult?.counts.evaluated ?? null,
+          includedCount: input.universeResult?.counts.included ?? null,
+          excludedCount: input.universeResult?.counts.excluded ?? null,
+          truncatedCount: input.universeResult?.counts.truncated ?? null,
+          universeExecutedAt: input.universeResult ? new Date() : null,
           items: {
             create: input.items.map((item) => ({
               orgNumber: item.orgNumber,
@@ -423,6 +498,18 @@ const prismaRepository: AnalysisRepository = {
         },
         include: { items: { orderBy: { sortOrder: "asc" } } },
       });
+      if (input.universeResult && input.universeResult.excluded.length > 0) {
+        await transaction.analysisWorklistExclusion.createMany({
+          data: input.universeResult.excluded.map((company) => ({
+            worklistId: worklist.id,
+            orgNumber: company.orgNumber,
+            companyName: company.companyName,
+            reasons: company.reasons,
+            sourceBasis: company.sourceBasis,
+          })),
+        });
+      }
+      return worklist;
     });
   },
   async getWorklist(analysisId, worklistId) {
@@ -446,6 +533,41 @@ const prismaRepository: AnalysisRepository = {
         },
       },
     });
+  },
+  async listWorklistExclusions(analysisId, worklistId, input) {
+    const worklist = await prisma.analysisWorklist.findFirst({
+      where: { id: worklistId, analysisId },
+      select: {
+        universeResultVersion: true,
+        screeningVersion: true,
+        rankingVersion: true,
+        evaluatedCount: true,
+        includedCount: true,
+        excludedCount: true,
+        truncatedCount: true,
+        universeExecutedAt: true,
+        exclusions: {
+          where: input.cursor ? { orgNumber: { gt: input.cursor } } : undefined,
+          orderBy: [{ orgNumber: "asc" }, { id: "asc" }],
+          take: input.limit + 1,
+          select: {
+            orgNumber: true,
+            companyName: true,
+            reasons: true,
+            sourceBasis: true,
+          },
+        },
+      },
+    });
+    if (!worklist) return null;
+    const hasMore = worklist.exclusions.length > input.limit;
+    const items = worklist.exclusions.slice(0, input.limit);
+    const { exclusions: _exclusions, ...metadata } = worklist;
+    return {
+      ...metadata,
+      items,
+      nextCursor: hasMore ? items.at(-1)?.orgNumber ?? null : null,
+    };
   },
   async reorderWorklist(worklistId, itemIds) {
     await prisma.$transaction(async (transaction) => {
@@ -534,6 +656,7 @@ export function createAnalysisService(
     actorUserId: string,
     analysisId: string,
     parsed: z.infer<typeof createWorklistSchema>,
+    universeResult: z.infer<typeof universeResultEvidenceSchema> | null = null,
   ) {
     const uniqueOrgNumbers = new Set(parsed.items.map((item) => item.orgNumber));
     if (uniqueOrgNumbers.size !== parsed.items.length) {
@@ -564,6 +687,7 @@ export function createAnalysisService(
       name: parsed.name,
       purpose: parsed.purpose,
       criteriaVersion: parsed.criteriaVersion,
+      universeResult,
       items: parsed.items.map((item, index) => {
         const official = officialByOrgNumber.get(item.orgNumber)!;
         return {
@@ -721,6 +845,18 @@ export function createAnalysisService(
           dataGaps: company.dataGaps,
         };
       });
+      const universeResult = universeResultEvidenceSchema.parse({
+        version: result.version,
+        screeningVersion: result.screeningVersion,
+        rankingVersion: result.rankingVersion ?? null,
+        counts: result.counts,
+        excluded: result.excluded.map((company) => ({
+          orgNumber: company.orgNumber,
+          companyName: company.name,
+          reasons: company.reasons,
+          sourceBasis: company.sourceBasis,
+        })),
+      });
       return persistWorklist(
         actorUserId,
         analysisId,
@@ -729,7 +865,31 @@ export function createAnalysisService(
           criteriaVersion: "analysis-criteria-v1",
           items,
         }),
+        universeResult,
       );
+    },
+
+    async listWorklistExclusions(
+      actorUserId: string,
+      analysisId: string,
+      worklistId: string,
+      input: unknown,
+    ) {
+      const parsed = listWorklistExclusionsSchema.parse(input);
+      await requireAnalysisAccess(actorUserId, analysisId);
+      const result = await repository.listWorklistExclusions(
+        analysisId,
+        worklistId,
+        {
+          cursor: parsed.cursor ?? null,
+          limit: parsed.limit,
+        },
+      );
+      if (!result) throw new Error("Worklist not found.");
+      return {
+        ...result,
+        universeExecutedAt: result.universeExecutedAt?.toISOString() ?? null,
+      };
     },
 
     async reorderWorklist(
