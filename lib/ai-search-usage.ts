@@ -83,6 +83,8 @@ export type AiTokenUsage = {
   cachedInputTokens: number;
   outputTokens: number;
   usageTokens: number;
+  estimatedCostNok?: number;
+  durationMs?: number;
 };
 
 export function hasPremiumAiSearchAccess(status?: string | null, plan?: string | null) {

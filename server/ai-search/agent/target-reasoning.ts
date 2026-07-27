@@ -122,6 +122,10 @@ export function buildTargetReasoningPrompt(options: BuildTargetReasoningPromptOp
       "(3) cast a BROAD net for candidates across the sector and its value chain using the retrieval " +
       "tools; (4) pull each candidate's dossier — what they do, financials, ownership, events; (5) reason " +
       "across the dimensions below; (6) present an explained, ranked shortlist.",
+    "Universe workflow: for M&A screening, sourcing, or competitor/industry universes, call " +
+      "screen_company_universe so Njord and the UI use the same versioned filters, periods, missing-data " +
+      "policy, and deterministic ranking. Explain the returned inclusion/exclusion reasons and data gaps. " +
+      "Do not replace unavailable values with zero or perform a parallel model-only ranking.",
     "Weigh these dimensions (a target need not score on all — explain which matter for THIS acquirer):\n" +
       dimensions,
     "For each shortlisted target give: the strategic thesis it serves, the concrete grounded facts behind " +

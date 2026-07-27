@@ -172,6 +172,31 @@ enum WorkspaceInvitationStatus {
   CANCELED
 }
 
+enum AnalysisWorkflow {
+  MNA_SCREENING
+  SOURCING
+  COMPETITOR_ANALYSIS
+}
+
+enum AnalysisStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum AnalysisWorklistType {
+  LONGLIST
+  SHORTLIST
+  SOURCING
+  PEER_SET
+}
+
+enum NjordFeedbackLabel {
+  USEFUL
+  INCORRECT
+}
+
 enum DdRoomStatus {
   ACTIVE
   ARCHIVED
@@ -570,6 +595,9 @@ model User {
   companyEventExposureFeedback    CompanyEventExposureFeedback[]
   companySearchEvents             CompanySearchEvent[]
   aiSearchUsageEvents             AiSearchUsageEvent[]
+  analysesCreated                 Analysis[]                         @relation("AnalysisCreatedBy")
+  analysisWorklistsCreated        AnalysisWorklist[]                 @relation("AnalysisWorklistCreatedBy")
+  njordFeedback                   NjordFeedback[]
 }
 
 model Subscription {
@@ -652,6 +680,7 @@ model Workspace {
   notifications        WorkspaceNotification[]
   monitors             WorkspaceMonitor[]
   companyEventFeedback CompanyEventFeedback[]
+  analyses             Analysis[]
 
   @@index([status, type])
 }
@@ -4064,11 +4093,15 @@ model AiSearchUsageEvent {
   userId            String
   status            String    @default("RESERVED")
   reservedTokens    Int
+  reservedCostNok   Decimal   @default(0) @db.Decimal(12, 4)
   model             String?
   inputTokens       Int       @default(0)
   cachedInputTokens Int       @default(0)
   outputTokens      Int       @default(0)
   usageTokens       Int       @default(0)
+  estimatedCostNok  Decimal?  @db.Decimal(12, 4)
+  durationMs        Int?
+  errorCode         String?
   sourceSystem      String?
   sourceEntityType  String?
   sourceId          String?
@@ -4081,6 +4114,95 @@ model AiSearchUsageEvent {
 
   @@index([userId, occurredAt(sort: Desc)])
   @@index([status, expiresAt])
+}
+
+/// Access-controlled, durable analytical context shared by UI and Njord.
+/// JSON payloads are versioned domain contracts; raw provider payloads are forbidden here.
+model Analysis {
+  id                   String           @id @default(cuid())
+  workspaceId          String
+  createdByUserId      String
+  workflow             AnalysisWorkflow
+  status               AnalysisStatus   @default(DRAFT)
+  title                String
+  purpose              String
+  criteriaVersion      String
+  criteria             Json
+  universeQueryVersion String
+  universeQuery        Json
+  calculationVersion   String?
+  calculationConfig    Json?
+  sourceBasis          Json
+  conclusion           Json?
+  followUp             Json?
+  version              Int              @default(1)
+  archivedAt           DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy  User               @relation("AnalysisCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  worklists  AnalysisWorklist[]
+  feedback   NjordFeedback[]
+
+  @@index([workspaceId, status, updatedAt(sort: Desc)])
+  @@index([createdByUserId, createdAt(sort: Desc)])
+}
+
+model AnalysisWorklist {
+  id              String               @id @default(cuid())
+  analysisId      String
+  createdByUserId String
+  type            AnalysisWorklistType
+  name            String
+  purpose         String
+  criteriaVersion String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  analysis Analysis               @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  createdBy User                  @relation("AnalysisWorklistCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items     AnalysisWorklistItem[]
+
+  @@index([analysisId, type, updatedAt(sort: Desc)])
+}
+
+model AnalysisWorklistItem {
+  id             String   @id @default(cuid())
+  worklistId     String
+  orgNumber      String
+  companyName    String
+  sortOrder      Int
+  inclusionBasis Json
+  dataGaps       Json
+  sourceBasis    Json
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  worklist AnalysisWorklist @relation(fields: [worklistId], references: [id], onDelete: Cascade)
+
+  @@unique([worklistId, orgNumber])
+  @@unique([worklistId, sortOrder])
+  @@index([orgNumber])
+}
+
+model NjordFeedback {
+  id          String             @id @default(cuid())
+  userId      String
+  analysisId  String?
+  answerKey   String
+  label       NjordFeedbackLabel
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysis Analysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, answerKey])
+  @@index([analysisId, createdAt(sort: Desc)])
+  @@index([label, createdAt(sort: Desc)])
 }
 
 enum KnowledgeJurisdiction {

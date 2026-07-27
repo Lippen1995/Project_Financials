@@ -1,0 +1,2 @@
+ALTER TABLE "AiSearchUsageEvent"
+ADD COLUMN "reservedCostNok" DECIMAL(12,4) NOT NULL DEFAULT 0;

@@ -20,7 +20,12 @@ import {
   type SearchHistorySummary,
   type StoredSearchSector,
 } from "@/lib/search-history";
+import env from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import {
+  canReserveNjordCost,
+  estimateNjordCostNok,
+} from "@/server/ai-search/runtime-policy";
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 50;
@@ -393,16 +398,33 @@ export async function reserveAiSearchUsage(
   const now = new Date();
   const periodStart = billingPeriod.periodStart;
   const periodEnd = billingPeriod.periodEnd;
+  const globalPeriodStart = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    1,
+  ));
+  const globalPeriodEnd = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth() + 1,
+    1,
+  ));
   const expiresAt = new Date(now.getTime() + 5 * 60 * 1_000);
 
   return prisma.$transaction(async (transaction) => {
     // $executeRaw, not $queryRaw: pg_advisory_xact_lock returns SQL `void`, which $queryRaw cannot
     // deserialize (it throws "Failed to deserialize column of type 'void'"). We only need the lock's
     // side effect, so execute it without materializing a result set.
+    // The global cost lock is always acquired before the per-user token lock. That fixed order
+    // prevents two users from reserving the same remaining monthly NOK budget concurrently.
+    await transaction.$executeRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(hashtextextended('njord-global-monthly-cost', 0))
+    `);
     await transaction.$executeRaw(Prisma.sql`
       SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))
     `);
-    const rows = await transaction.$queryRaw<Array<{ usageTokens: bigint }>>(Prisma.sql`
+    const usageRows = await transaction.$queryRaw<Array<{
+      usageTokens: bigint;
+    }>>(Prisma.sql`
       SELECT COALESCE(SUM(
         CASE
           WHEN "status" = 'RECORDED' AND "occurredAt" >= ${periodStart} AND "occurredAt" < ${periodEnd} THEN "usageTokens"
@@ -413,17 +435,41 @@ export async function reserveAiSearchUsage(
       FROM "AiSearchUsageEvent"
       WHERE "userId" = ${userId}
     `);
-    const usedTokens = Number(rows[0]?.usageTokens ?? 0);
+    const costRows = await transaction.$queryRaw<Array<{
+      costNok: Prisma.Decimal;
+    }>>(Prisma.sql`
+      SELECT COALESCE(SUM(
+        CASE
+          WHEN "status" = 'RECORDED'
+            AND "occurredAt" >= ${globalPeriodStart}
+            AND "occurredAt" < ${globalPeriodEnd}
+            THEN COALESCE("estimatedCostNok", 0)
+          WHEN "status" = 'RESERVED' AND "expiresAt" > ${now}
+            THEN "reservedCostNok"
+          ELSE 0
+        END
+      ), 0)::numeric AS "costNok"
+      FROM "AiSearchUsageEvent"
+    `);
+    const usedTokens = Number(usageRows[0]?.usageTokens ?? 0);
     if (usedTokens + AI_SEARCH_RESERVATION_TOKENS > PREMIUM_AI_SEARCH_TOKEN_LIMIT) {
+      return null;
+    }
+    if (!canReserveNjordCost({
+      recordedAndReservedCostNok: Number(costRows[0]?.costNok ?? 0),
+      requestCostLimitNok: env.njordRequestCostLimitNok,
+      monthlyCostLimitNok: env.njordMonthlyCostLimitNok,
+    })) {
       return null;
     }
 
     const id = randomUUID();
     await transaction.$executeRaw(Prisma.sql`
       INSERT INTO "AiSearchUsageEvent" (
-        "id", "userId", "status", "reservedTokens", "expiresAt"
+        "id", "userId", "status", "reservedTokens", "reservedCostNok", "expiresAt"
       ) VALUES (
-        ${id}, ${userId}, 'RESERVED', ${AI_SEARCH_RESERVATION_TOKENS}, ${expiresAt}
+        ${id}, ${userId}, 'RESERVED', ${AI_SEARCH_RESERVATION_TOKENS},
+        ${env.njordRequestCostLimitNok}, ${expiresAt}
       )
     `);
     return id;
@@ -435,21 +481,48 @@ export async function finalizeAiSearchUsage(
   reservationId: string,
   usage: AiTokenUsage,
 ) {
+  const estimatedCostNok = usage.estimatedCostNok ?? estimateNjordCostNok(usage, {
+    inputNokPerMillion: env.njordInputNokPerMillion,
+    cachedInputNokPerMillion: env.njordCachedInputNokPerMillion,
+    outputNokPerMillion: env.njordOutputNokPerMillion,
+  });
   return prisma.$executeRaw(Prisma.sql`
     UPDATE "AiSearchUsageEvent"
     SET "status" = 'RECORDED',
         "reservedTokens" = 0,
+        "reservedCostNok" = 0,
         "model" = ${usage.model},
         "inputTokens" = ${Math.max(0, Math.trunc(usage.inputTokens))},
         "cachedInputTokens" = ${Math.max(0, Math.trunc(usage.cachedInputTokens))},
         "outputTokens" = ${Math.max(0, Math.trunc(usage.outputTokens))},
         "usageTokens" = ${Math.max(0, Math.trunc(usage.usageTokens))},
+        "estimatedCostNok" = ${estimatedCostNok},
+        "durationMs" = ${usage.durationMs == null ? null : Math.max(0, Math.trunc(usage.durationMs))},
+        "errorCode" = NULL,
         "sourceSystem" = ${usage.sourceSystem},
         "sourceEntityType" = ${usage.sourceEntityType},
         "sourceId" = ${usage.sourceId},
         "fetchedAt" = ${usage.fetchedAt},
         "normalizedAt" = ${usage.normalizedAt},
         "occurredAt" = ${usage.fetchedAt}
+    WHERE "id" = ${reservationId} AND "userId" = ${userId} AND "status" = 'RESERVED'
+  `);
+}
+
+export async function failAiSearchUsage(
+  userId: string,
+  reservationId: string,
+  failure: { errorCode: string; durationMs: number },
+) {
+  const occurredAt = new Date();
+  return prisma.$executeRaw(Prisma.sql`
+    UPDATE "AiSearchUsageEvent"
+    SET "status" = 'FAILED',
+        "reservedTokens" = 0,
+        "reservedCostNok" = 0,
+        "durationMs" = ${Math.max(0, Math.trunc(failure.durationMs))},
+        "errorCode" = ${failure.errorCode.slice(0, 100)},
+        "occurredAt" = ${occurredAt}
     WHERE "id" = ${reservationId} AND "userId" = ${userId} AND "status" = 'RESERVED'
   `);
 }

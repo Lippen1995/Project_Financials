@@ -21,6 +21,8 @@ type ChatMessage = {
   role: "assistant" | "user";
   content: string;
   visualization?: NjordVisualization | null;
+  answerKey?: string | null;
+  feedback?: "USEFUL" | "INCORRECT" | "SAVING" | "ERROR" | null;
 };
 
 export type AiSearchUsageSummary = {
@@ -195,6 +197,7 @@ export function AiSearchPanel({
         body: JSON.stringify({ query: trimmed }),
       });
       const data = (await res.json()) as {
+        answerKey?: string;
         answer?: string;
         error?: string;
         quota?: AiSearchUsageSummary;
@@ -211,6 +214,8 @@ export function AiSearchPanel({
           role: "assistant",
           content,
           visualization: res.ok ? (data.visualization ?? null) : null,
+          answerKey: res.ok ? (data.answerKey ?? null) : null,
+          feedback: null,
         },
       ]);
       if (data.quota) setUsage(data.quota);
@@ -225,6 +230,31 @@ export function AiSearchPanel({
       setIsLoading(false);
     }
   }, [onCompanies]);
+
+  const submitFeedback = useCallback(async (
+    messageId: string,
+    answerKey: string,
+    label: "USEFUL" | "INCORRECT",
+  ) => {
+    setMessages((current) => current.map((message) =>
+      message.id === messageId ? { ...message, feedback: "SAVING" } : message
+    ));
+    try {
+      const response = await fetch("/api/njord/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answerKey, label }),
+      });
+      if (!response.ok) throw new Error("Feedback could not be saved.");
+      setMessages((current) => current.map((message) =>
+        message.id === messageId ? { ...message, feedback: label } : message
+      ));
+    } catch {
+      setMessages((current) => current.map((message) =>
+        message.id === messageId ? { ...message, feedback: "ERROR" } : message
+      ));
+    }
+  }, []);
 
   useEffect(() => {
     if (!minimized) messagesEndRef.current?.scrollIntoView({ block: "nearest" });
@@ -380,6 +410,39 @@ export function AiSearchPanel({
             </div>
             {message.role === "assistant" && message.visualization && (
               <NjordScatterplot visualization={message.visualization} />
+            )}
+            {message.role === "assistant" && message.answerKey && (
+              <div className="mt-2 flex items-center gap-4" aria-live="polite">
+                <span className="data-label text-[9px] uppercase text-[var(--px-muted)]">
+                  {message.feedback === "ERROR"
+                    ? "Kunne ikke lagre"
+                    : message.feedback === "SAVING"
+                      ? "Lagrer"
+                      : message.feedback
+                        ? "Tilbakemelding lagret"
+                        : "Var svaret nyttig?"}
+                </span>
+                <button
+                  type="button"
+                  disabled={message.feedback === "SAVING"}
+                  onClick={() => void submitFeedback(message.id, message.answerKey!, "USEFUL")}
+                  aria-pressed={message.feedback === "USEFUL"}
+                  aria-label="Marker Njord-svaret som nyttig"
+                  className="rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-1.5 text-xs text-[var(--px-text)] transition-colors hover:bg-[var(--px-subtle)] disabled:opacity-40"
+                >
+                  Nyttig
+                </button>
+                <button
+                  type="button"
+                  disabled={message.feedback === "SAVING"}
+                  onClick={() => void submitFeedback(message.id, message.answerKey!, "INCORRECT")}
+                  aria-pressed={message.feedback === "INCORRECT"}
+                  aria-label="Marker Njord-svaret som feil"
+                  className="rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-1.5 text-xs text-[var(--px-text)] transition-colors hover:bg-[var(--px-subtle)] disabled:opacity-40"
+                >
+                  Feil
+                </button>
+              </div>
             )}
           </div>
         ))}

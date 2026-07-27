@@ -8,7 +8,7 @@
  * answer never cites a company the tools did not return.
  */
 import type { LlmClient, LlmMessage } from "@/server/ai-search/llm/types";
-import type { RetrievalTool } from "@/server/ai-search/tools/types";
+import type { NjordToolOutputKind, RetrievalTool } from "@/server/ai-search/tools/types";
 
 export type AgentBudget = { maxTurns: number; maxToolCalls: number };
 export const DEFAULT_BUDGET: AgentBudget = { maxTurns: 8, maxToolCalls: 16 };
@@ -23,7 +23,13 @@ export type AgentToolInvocation = {
 export type AgentStopReason = "final" | "max_turns" | "max_tool_calls";
 
 /** A tool's parsed output, kept so callers can drive UI (e.g. the result table) off what the agent found. */
-export type AgentToolResult = { name: string; output: unknown };
+export type AgentToolResult = {
+  name: string;
+  toolVersion?: `v${number}`;
+  outputKind?: NjordToolOutputKind;
+  dataDomains?: string[];
+  output: unknown;
+};
 
 export type AgentResult = {
   answer: string | null;
@@ -220,13 +226,17 @@ function finalize(
 ): AgentResult {
   const groundedAnswer = enforceKnowledgeGrounding(answer, toolResults, knowledgeRequired);
   const citedInAnswer = groundedAnswer ? [...new Set(groundedAnswer.match(ORGNR_IN_TEXT) ?? [])] : [];
+  const ungroundedOrgNumbersInAnswer = citedInAnswer.filter((org) => !grounded.has(org));
+  const safeAnswer = ungroundedOrgNumbersInAnswer.length > 0
+    ? "Njord kunne ikke dokumentere alle selskapene i svaret. Ingen ugrunnede selskapsopplysninger vises. Prøv et mer avgrenset spørsmål."
+    : groundedAnswer;
   return {
-    answer: groundedAnswer,
+    answer: safeAnswer,
     turns,
     invocations,
     toolResults,
     groundedOrgNumbers: [...grounded],
-    ungroundedOrgNumbersInAnswer: citedInAnswer.filter((org) => !grounded.has(org)),
+    ungroundedOrgNumbersInAnswer,
     usage,
     stopReason,
   };
@@ -305,7 +315,16 @@ export async function runAgent(params: {
       for (const call of result.toolCalls) {
         const { invocation, content, output } = await executeCall(call, activeToolsByName, grounded);
         invocations.push(invocation);
-        if (invocation.ok) toolResults.push({ name: call.name, output });
+        const executedTool = activeToolsByName.get(call.name);
+        if (invocation.ok && executedTool) {
+          toolResults.push({
+            name: call.name,
+            toolVersion: executedTool.version,
+            outputKind: executedTool.outputKind,
+            dataDomains: executedTool.dataDomains,
+            output,
+          });
+        }
         if (
           invocation.ok
           && call.name === ROUTING_TOOL_NAME

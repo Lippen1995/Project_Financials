@@ -129,6 +129,7 @@ describe("runAgent", () => {
     const result = await runAgent({ llm, tools, systemPrompt: PROMPT, userQuery: "q" });
     expect(result.groundedOrgNumbers).toContain("917811288");
     expect(result.ungroundedOrgNumbersInAnswer).toEqual(["999999999"]);
+    expect(result.answer).toMatch(/kunne ikke dokumentere alle selskapene/i);
   });
 
   it("stops at the tool-call budget and forces a synthesis turn", async () => {

@@ -10,12 +10,18 @@ import { buildCompanySearchRows } from "@/server/ai-search/agent/company-rows";
 import { buildTargetReasoningPrompt } from "@/server/ai-search/agent/target-reasoning";
 import { buildNjordVisualization } from "@/server/ai-search/agent/visualization";
 import { OpenAiLlmClient } from "@/server/ai-search/llm/openai-client";
+import {
+  buildSecureNjordSystemPrompt,
+  estimateNjordCostNok,
+  inspectNjordUserQuery,
+  validateNjordActivation,
+} from "@/server/ai-search/runtime-policy";
 import { getRetrievalToolsForAccess } from "@/server/ai-search/tools";
 import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import {
   finalizeAiSearchUsage,
+  failAiSearchUsage,
   getAiSearchUsageStatus,
-  releaseAiSearchUsage,
   reserveAiSearchUsage,
 } from "@/server/services/search-history-service";
 import { z } from "zod";
@@ -64,11 +70,50 @@ export async function POST(request: NextRequest) {
   }
   const query = parsedBody.data.query;
 
+  const queryInspection = inspectNjordUserQuery(query);
+  if (!queryInspection.allowed) {
+    return NextResponse.json(
+      {
+        error:
+          "Njord kan ikke hente hemmeligheter, interne instrukser eller omgå tilgangskontroll.",
+        reason: queryInspection.reason,
+      },
+      { status: 400 },
+    );
+  }
+
   const realLlmEnabled = env.aiSearchBillingEnabled && Boolean(env.openAiApiKey);
   if (!realLlmEnabled) {
     return NextResponse.json(
       { error: "Njord LLM er ikke aktivert i dette miljøet." },
       { status: 503 },
+    );
+  }
+  const activation = validateNjordActivation({
+    enabled: env.aiSearchBillingEnabled,
+    provider: env.njordProvider,
+    apiKeyPresent: Boolean(env.openAiApiKey),
+    inputNokPerMillion: env.njordInputNokPerMillion,
+    outputNokPerMillion: env.njordOutputNokPerMillion,
+    requestCostLimitNok: env.njordRequestCostLimitNok,
+    monthlyCostLimitNok: env.njordMonthlyCostLimitNok,
+    dailyRequestLimit: env.njordDailyRequestLimit,
+  });
+  if (!activation.ready) {
+    logRecoverableError("ai-search.activation-preflight", new Error(activation.issues.join(" ")));
+    return NextResponse.json(
+      { error: "Njord er ikke aktivert med fullstendige kostnads- og sikkerhetsgrenser." },
+      { status: 503 },
+    );
+  }
+  const dailyLimit = consumeRateLimit("njord-ai-search-daily", session.user.id, {
+    limit: env.njordDailyRequestLimit,
+    windowMs: 24 * 60 * 60_000,
+  });
+  if (!dailyLimit.allowed) {
+    return NextResponse.json(
+      { error: "Dagsgrensen for Njord er brukt opp." },
+      { status: 429, headers: rateLimitHeaders(dailyLimit) },
     );
   }
   const subscription = await getAiSearchSubscriptionContext(session.user.id);
@@ -80,23 +125,43 @@ export async function POST(request: NextRequest) {
   }
   const reservationId = await reserveAiSearchUsage(session.user.id, subscription.billingPeriod);
   if (!reservationId) {
-    return NextResponse.json({ error: "Tokenkvoten for Njord er brukt opp." }, { status: 429 });
+    return NextResponse.json(
+      { error: "Kostnads- eller tokenkvoten for Njord er brukt opp." },
+      { status: 429 },
+    );
   }
-  const llm = new OpenAiLlmClient({ apiKey: env.openAiApiKey, model: env.openAiSearchModel });
+  const pricing = {
+    inputNokPerMillion: env.njordInputNokPerMillion,
+    cachedInputNokPerMillion: env.njordCachedInputNokPerMillion,
+    outputNokPerMillion: env.njordOutputNokPerMillion,
+  };
+  const llm = new OpenAiLlmClient({
+    apiKey: env.openAiApiKey,
+    model: env.openAiSearchModel,
+    pricing,
+    requestCostLimitNok: env.njordRequestCostLimitNok,
+  });
   const tools = getRetrievalToolsForAccess({
     canUseDueDiligence: subscription.canUseDueDiligence,
     userQuery: query,
   });
   let result: Awaited<ReturnType<typeof runAgent>>;
+  const startedAt = Date.now();
+  let durationMs = 0;
+  let estimatedCostNok = 0;
   try {
     result = await runAgent({
       llm,
       tools,
-      systemPrompt: buildTargetReasoningPrompt({
-        canUseDueDiligence: subscription.canUseDueDiligence,
-      }),
+      systemPrompt: buildSecureNjordSystemPrompt(
+        buildTargetReasoningPrompt({
+          canUseDueDiligence: subscription.canUseDueDiligence,
+        }),
+      ),
       userQuery: query,
     });
+    durationMs = Date.now() - startedAt;
+    estimatedCostNok = estimateNjordCostNok(result.usage, pricing);
     if (reservationId) {
       const observedAt = new Date();
       await finalizeAiSearchUsage(session.user.id, reservationId, {
@@ -110,11 +175,30 @@ export async function POST(request: NextRequest) {
         cachedInputTokens: result.usage.cachedInputTokens,
         outputTokens: result.usage.outputTokens,
         usageTokens: calculateAiUsageTokens(result.usage),
+        estimatedCostNok,
+        durationMs,
       });
     }
+    if (estimatedCostNok > env.njordRequestCostLimitNok) {
+      throw new Error("Njord request exceeded the configured cost limit.");
+    }
   } catch (error) {
-    if (reservationId) await releaseAiSearchUsage(session.user.id, reservationId);
-    throw error;
+    if (reservationId) {
+      await failAiSearchUsage(session.user.id, reservationId, {
+        errorCode: "MODEL_UNAVAILABLE",
+        durationMs: Date.now() - startedAt,
+      });
+    }
+    logRecoverableError("ai-search.model-unavailable", error, {
+      userId: session.user.id,
+    });
+    return NextResponse.json(
+      {
+        error:
+          "Njord er midlertidig utilgjengelig. Selskapsdata og øvrige funksjoner fungerer fortsatt.",
+      },
+      { status: 503 },
+    );
   }
 
   // The companies the agent SURFACED (find_by_business matches, in its ranked order) become the
@@ -165,6 +249,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({
+    answerKey: reservationId,
     answer: result.answer,
     visualization,
     companies,
@@ -172,6 +257,17 @@ export async function POST(request: NextRequest) {
     groundedOrgNumbers: result.groundedOrgNumbers,
     tools: result.invocations.map((i) => ({ name: i.name, ok: i.ok })),
     usage: result.usage,
+    runtime: {
+      durationMs,
+      estimatedCostNok,
+      requestCostLimitNok: env.njordRequestCostLimitNok,
+    },
+    evidence: result.toolResults.map((toolResult) => ({
+      tool: toolResult.name,
+      toolVersion: toolResult.toolVersion,
+      kind: toolResult.outputKind,
+      dataDomains: toolResult.dataDomains,
+    })),
     stopReason: result.stopReason,
     mode: "llm-tools-offline-knowledge",
     capabilities: { mnaProForma: subscription.canUseDueDiligence },
