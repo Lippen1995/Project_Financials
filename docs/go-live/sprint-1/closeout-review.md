@@ -1,21 +1,25 @@
-# Sprint 1 – beslutningsgrunnlag
+# Sprint 1 – beslutningsgrunnlag og signering
 
-**Dato:** 25. juli 2026
+**Beslutningsgrunnlag ferdigstilt:** 25. juli 2026
+
+**Formelt godkjent:** 27. juli 2026
+
+**Godkjent av:** Simen Lippestad (CEO)
 
 **Teknisk releasekandidat:** `50c39f3dcd34bc3563ae151123295b315aae48fb`
 
-**Anbefaling:** Godkjenn Sprint 1 som teknisk lukket på K0. Flytt
-leverandørspesifikk backup/restore, TLS, proxy- og deployverifikasjon til G1, der
-de kan bevises mot valgt host. Dette er ikke en godkjenning av offentlig beta
-eller aktivering av K1-kostnader.
+**Beslutning:** Sprint 1 er teknisk lukket på K0. Leverandørspesifikk
+backup/restore, TLS, proxy- og deployverifikasjon flyttes til G1, der de kan
+bevises mot valgt host. Godkjenningen åpner ikke offentlig beta og aktiverer
+ingen K1-kostnader.
 
 ## Resultat
 
 | Område | Vurdering | Bevis |
 | --- | --- | --- |
 | GL-101–GL-104 | Lukket | Full filskann, 0 kjente credentials, autorisert write-route, 61 validerte body-flater og begrenset CSV-import |
-| GL-105 | Beta-baseline | Reelt vern på én instans; delt lager kreves før horisontal skalering |
-| GL-106 | Beta-baseline | Håndhevet CSP, sikre auth-cookies og fail-closed origin; hostkontroller gjenstår til G1 |
+| GL-105 | K0 teknisk lukket | Reelt vern på én instans; delt lager kreves før horisontal skalering |
+| GL-106 | K0 teknisk lukket | Håndhevet CSP, sikre auth-cookies og fail-closed origin; hostkontroller gjenstår til G1 |
 | GL-107 | Lukket | 37 migrasjoner passerer clean replay og full legacy-adopsjon med identisk sluttskjema |
 | GL-108 | K0 lukket | Repeterbar lokal release-, migrasjons-, smoke- og rollbackoppskrift; hostappendiks fylles ved G1 |
 | GL-109 | Lukket | Ren installasjon, sikkerhetsporter, 1 879 tester, typecheck, lint, build og begge migrasjonsstier grønne |
@@ -64,9 +68,9 @@ Dette krever et kontrollert vedlikeholdsvindu ved første legacy-adopsjon.
 
 | Beslutning | Valg | Dato / signatur |
 | --- | --- | --- |
-| Godkjenn Sprint 1 som teknisk lukket på K0 | Avventer | |
-| Flytt host-spesifikk releaseappendiks og nettverksbevis til G1 | Avventer | |
-| Bekreft én appinstans frem til delt limiter | Avventer | |
+| Godkjenn Sprint 1 som teknisk lukket på K0 | Godkjent | Simen Lippestad (CEO), 27. juli 2026 |
+| Flytt host-spesifikk releaseappendiks og nettverksbevis til G1 | Godkjent | Simen Lippestad (CEO), 27. juli 2026 |
+| Bekreft én appinstans frem til delt limiter | Godkjent | Simen Lippestad (CEO), 27. juli 2026 |
 
-En godkjenning her åpner neste planlagte arbeid, men åpner ikke offentlig beta
-og gir ikke fullmakt til K1-kostnader.
+Godkjenningen åpner neste planlagte arbeid, men åpner ikke offentlig beta og gir
+ikke fullmakt til K1-kostnader.

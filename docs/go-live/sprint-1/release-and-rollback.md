@@ -1,6 +1,6 @@
 # Release- og rollbackoppskrift
 
-**Status:** K0-kandidat. Host-spesifikke felter lukkes ved G1.
+**Status:** Teknisk godkjent på K0 27. juli 2026. Host-spesifikke felter lukkes ved G1.
 
 **Eier og lanseringsmyndighet:** Simen Lippestad
 

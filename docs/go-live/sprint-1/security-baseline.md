@@ -70,4 +70,4 @@ Porten ble kjørt 25. juli 2026 fra en ren `npm ci` og passerte:
 - 37 migrasjoner fra tom database, repair/deploy fra full legacy-kopi og tom schema-diff mellom sluttresultatene;
 - fullvolum-backfill med 6 729 616 bevarte rader og 0 manglende obligatoriske proveniensfelt.
 
-Kjøringen dekker releasekandidat `50c39f3dcd34bc3563ae151123295b315aae48fb` og lukker det tekniske GL-109-kriteriet. Formell Sprint 1-lukking krever fortsatt CEO-godkjenning.
+Kjøringen dekker releasekandidat `50c39f3dcd34bc3563ae151123295b315aae48fb` og lukker det tekniske GL-109-kriteriet. Simen Lippestad (CEO) godkjente formell Sprint 1-lukking 27. juli 2026.
