@@ -2,7 +2,7 @@
 
 **Status:** Aktiv arbeidsplan
 
-**Nåværende fase:** Sprint 0 ble formelt godkjent 24. juli 2026. Sprint 1 ble startet samme dag og formelt godkjent av CEO 27. juli 2026. Sprint 2 ble startet 27. juli 2026 på K0 og har teknisk closeout klart for CEO-beslutning; host- og kostnadsbeslutninger forblir i G1. Se [Sprint 1-signeringen](./go-live/sprint-1/closeout-review.md) og [Sprint 2-beslutningsgrunnlaget](./go-live/sprint-2/closeout-review.md).
+**Nåværende fase:** Sprint 0 ble formelt godkjent 24. juli 2026. Sprint 1 og Sprint 2 ble formelt godkjent av CEO 27. juli 2026. Sprint 3 er åpnet som neste K0-arbeidsfase; host- og kostnadsbeslutninger forblir i G1. Se [Sprint 1-signeringen](./go-live/sprint-1/closeout-review.md) og [Sprint 2-signeringen](./go-live/sprint-2/closeout-review.md).
 
 **Opprettet:** 20. juli 2026
 
@@ -127,14 +127,15 @@ K1-kostnader. Se [signeringen](./go-live/sprint-1/closeout-review.md).
 
 ### Sprint 2-status
 
-Sprint 2 ble startet 27. juli 2026 på K0. Den tekniske leveransen dekker
+Sprint 2 ble startet og formelt godkjent av Simen Lippestad (CEO) 27. juli
+2026 på K0. Den tekniske leveransen dekker
 versjonert provider-/normaliseringskontrakt, proveniens, idempotent read-through,
 cachede tom- og feiltilstander, OCR-fri offentlig visning samt en deterministisk
 dekningsrapport med snapshot-fingeravtrykk. Et stratifisert utvalg på 149 reelle virksomheter ga 95
 tilgjengelige statements, 54 ærlige tomtilstander og 0 kilde-/kontraktfeil.
-Produksjonslik lokal read-through og anti-fallback er verifisert. Sprinten er
-teknisk klar, men ikke formelt lukket før CEO-beslutning. Se
-[beslutningsgrunnlaget](./go-live/sprint-2/closeout-review.md).
+Produksjonslik lokal read-through og anti-fallback er verifisert. Godkjenningen
+åpner Sprint 3, men ikke offentlig beta eller K1-/K2-kostnader. Se
+[signeringen](./go-live/sprint-2/closeout-review.md).
 
 ## 8. Sprint 3 – analysegrunnlag og Njord uten å kjøpe modellbruk
 

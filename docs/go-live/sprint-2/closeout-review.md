@@ -2,9 +2,11 @@
 
 **Beslutningsgrunnlag ferdigstilt:** 27. juli 2026
 
+**CEO-godkjenning:** 27. juli 2026
+
 **Kostnadsnivå:** K0 – ingen nye eksterne kostnader aktivert
 
-**Status:** Klar for CEO-beslutning; ikke formelt godkjent
+**Status:** Formelt godkjent og lukket av CEO
 
 **Beslutningsforslag:** Lukk Sprint 2 teknisk på K0. Den åpne strukturerte
 Brreg-kilden er egnet for siste nøkkeltall for AS i betaen, med tydelig
@@ -81,10 +83,10 @@ plattformvalget i G1.
 
 | Beslutning | Valg | Dato / signatur |
 | --- | --- | --- |
-| Godkjenn Sprint 2 som teknisk lukket på K0 | Avventer |  |
-| Behold åpent Brreg-API som betastandard | Avventer |  |
-| Flytt host-/flerinstansbevis til G1/G2 | Avventer |  |
-| Ikke aktiver K2 uten nytt beslutningsgrunnlag | Avventer |  |
+| Godkjenn Sprint 2 som teknisk lukket på K0 | Godkjent | 27. juli 2026 / Simen Lippestad, CEO |
+| Behold åpent Brreg-API som betastandard | Godkjent | 27. juli 2026 / Simen Lippestad, CEO |
+| Flytt host-/flerinstansbevis til G1/G2 | Godkjent | 27. juli 2026 / Simen Lippestad, CEO |
+| Ikke aktiver K2 uten nytt beslutningsgrunnlag | Godkjent | 27. juli 2026 / Simen Lippestad, CEO |
 
-En godkjenning åpner planlagt Sprint 3-arbeid, men åpner ikke offentlig beta og
+Godkjenningen åpner planlagt Sprint 3-arbeid, men åpner ikke offentlig beta og
 gir ikke fullmakt til K1- eller K2-kostnader.

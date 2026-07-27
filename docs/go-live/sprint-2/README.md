@@ -1,6 +1,6 @@
 # Sprint 2 – kontrollsenter
 
-**Status:** Teknisk closeout klar for CEO-beslutning
+**Status:** Formelt godkjent og lukket av CEO 27. juli 2026
 
 **Planlagt sprintperiode:** 10.–23. august 2026
 
@@ -49,9 +49,10 @@ Fetch-state beholder et sporbart kilderesultat, mens statements bare lagrer
 normaliserte `financialValues`, modellversjon, periode, enhet, layoutmetadata
 og proveniens. Rå Brreg-respons eksponeres ikke til domene eller frontend.
 
-## Gjenstående beslutning
+## Formell godkjenning
 
-Det tekniske [beslutningsgrunnlaget](./closeout-review.md) er klart. CEO må
-eksplisitt godkjenne Sprint 2, åpent Brreg-API som betastandard og flytting av
-host-/flerinstansbevis til G1/G2. Teknisk ferdigstillelse er ikke det samme som
-formell Sprint 2-godkjenning.
+CEO godkjente Sprint 2 formelt 27. juli 2026. Godkjenningen lukker sprinten på
+K0, beholder åpent Brreg-API som betastandard og flytter host- og
+flerinstansbevis til G1/G2. Den åpner planlagt Sprint 3-arbeid, men ikke
+offentlig beta eller K1-/K2-kostnader. Se det signerte
+[beslutningsgrunnlaget](./closeout-review.md).
