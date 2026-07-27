@@ -166,9 +166,10 @@ Produksjonslik lokal read-through og anti-fallback er verifisert. Godkjenningen
 Sprint 3 ble startet teknisk 27. juli 2026 på K0. Første vertikale leveranse
 etablerer versjonert analyse-/arbeidslistepersistens, felles deterministisk
 univers og rangering for UI/Njord, godkjente verktøykontrakter, sikkerhets- og
-kostnadskontroll, et 50-case kontraktsett, kontrollert modellfallback og
-brukerfeedback. Ingen modellbruk eller K1-/K2-kostnad er aktivert. Leveransen er
-ikke formelt lukket; arbeidsflyt-UI, gjenopptakbar Njord-kontekst,
+kostnadskontroll, et 50-case kontraktsett, kontrollert modellfallback,
+brukerfeedback og en tilgangsstyrt flate for å liste og gjenoppta analyser og
+arbeidslister. Ingen modellbruk eller K1-/K2-kostnad er aktivert. Leveransen er
+ikke formelt lukket; oppretting/redigering i arbeidsflyt-UI, eksplisitt Njord-kontekst,
 påstand-til-kilde-bevis, reelle forventede fakta, modell-sammenligning etter G1,
 flerinstansgrenser og ende-til-ende-bevis gjenstår. Se
 [Sprint 3-kontrollpunktet](./go-live/sprint-3/README.md).

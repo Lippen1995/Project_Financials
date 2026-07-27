@@ -2,7 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
+import { logRecoverableError } from "@/lib/recoverable-error";
+import { analysisReadService } from "@/server/analysis/analysis-read-service";
 import { analysisService } from "@/server/analysis/analysis-service";
+
+export async function GET(request: NextRequest) {
+  const session = await safeAuth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
+  }
+  try {
+    const analyses = await analysisReadService.list(session.user.id, {
+      includeArchived: request.nextUrl.searchParams.get("includeArchived") === "true",
+    });
+    return NextResponse.json({ analyses });
+  } catch (error) {
+    logRecoverableError("analyses.list", error, { userId: session.user.id });
+    return NextResponse.json({ error: "Kunne ikke laste analysene." }, { status: 500 });
+  }
+}
 
 export async function POST(request: NextRequest) {
   const session = await safeAuth();

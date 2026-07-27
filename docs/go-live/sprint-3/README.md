@@ -26,10 +26,10 @@ kontrollpunkt, ikke en formell sprintlukking eller G1-godkjenning.
 | GL-309 | Delvis: deterministisk runner | Runneren måler verktøybruk, kilder, sikkerhet og resultatkontrakt uten modellkostnad; faktisk faktastøtte og sammenligning av minst to modeller krever G1 |
 | GL-310 | Implementert v1 | Innlogget bruker kan markere hvert faktisk Njord-svar som `Nyttig` eller `Feil`; beslutningen lagres idempotent |
 | GL-311 | Implementert | Modellfeil gir kontrollert 503 og ærlig melding; selskapsopplevelsen fortsetter |
-| GL-312 | Delvis: backend-fundament | Tilgangsstyrt `Analysis` kan opprettes og få en kildeverifisert konklusjon med optimistisk versjonering; les/gjenoppta-flyt og Njord-kontekst er ikke koblet på |
+| GL-312 | Delvis: gjenopptakbar arbeidsflate | Tilgangsstyrt `Analysis` kan opprettes, listes og gjenopptas i UI med kriterier, univers, beregning, arbeidslister og kildeverifisert konklusjon; eksplisitt Njord-kontekst er ikke koblet på |
 | GL-313 | Backend-fundament implementert | UI-API og Njord-verktøy bruker samme `company-universe-v1`, screening og manglende-data-policy |
 | GL-314 | Backend-fundament implementert | Periode, vekter, normalisering, dekningsprosent og beregningsspor er deterministiske i `company-ranking-v1` |
-| GL-315 | Delvis: create-API | Longlist, shortlist, sourcingliste og peer-sett kan batchlagres med inklusjonsgrunn, datagap, rekkefølge og offisielt utledede kilder; lesing, omrekkefølge og videreføring gjenstår |
+| GL-315 | Delvis: lagring og lesing | Longlist, shortlist, sourcingliste og peer-sett kan batchlagres og vises i lagret rekkefølge med inklusjonsgrunn, datagap og offisielt utledede kilder; omrekkefølge og promotering mellom lister gjenstår |
 
 ## K0-sikker aktivering
 
@@ -73,14 +73,13 @@ Regresjonstesten låser denne adferden.
 
 ## Åpent før formell lukking
 
-1. Full analyse-/arbeidsliste-UI for de tre arbeidsflytene må bygges over de nye
-   API-ene.
+1. Oppretting, redigering, omrekkefølge og promotering i analyse-/arbeidsliste-UI
+   må bygges for de tre arbeidsflytene.
 2. Evalueringssettet må kjøres mot minst to aktuelle modeller etter G1, med
    verifiserte priser og ingen svakere sikkerhetsport.
 3. Evalueringssettet må få forventede reelle fakta og påstand-til-kilde-bevis,
    ikke bare resultat- og sikkerhetskontrakter.
-4. Analyseobjektet må kunne leses/gjenopptas og kobles inn som eksplisitt
-   Njord-kontekst.
+4. Analyseobjektet må kobles inn som eksplisitt Njord-kontekst.
 5. Delt rate limiter, host-adferd og hard NOK-stopp må bevises på valgt
    plattform i G1/G2.
 6. Ende-til-ende-test må bevise formål → univers → rangering → lagret
