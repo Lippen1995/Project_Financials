@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { findChainProfile } from "@/server/franchise/chain-service";
+import {
+  selectStructuredFinancialCloseoutSample,
+  STRUCTURED_FINANCIAL_CLOSEOUT_SAMPLE_PROFILE,
+} from "@/server/services/structured-financial-sampling-service";
 import { ingestStructuredFinancialsForCompany } from "@/server/services/structured-financials-service";
 
 type CliOptions = {
@@ -8,6 +12,7 @@ type CliOptions = {
   orgNumbers: string[];
   chainQuery: string | null;
   refresh: boolean;
+  sampleProfile: string | null;
 };
 
 function parseCliOptions(argv: string[]): CliOptions {
@@ -17,6 +22,7 @@ function parseCliOptions(argv: string[]): CliOptions {
     orgNumbers: [],
     chainQuery: null,
     refresh: false,
+    sampleProfile: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -34,6 +40,7 @@ function parseCliOptions(argv: string[]): CliOptions {
     else if (arg === "--org") options.orgNumbers.push(nextValue());
     else if (arg === "--chain") options.chainQuery = nextValue();
     else if (arg === "--refresh") options.refresh = true;
+    else if (arg === "--sample-profile") options.sampleProfile = nextValue();
     else throw new Error(`Ukjent argument: ${arg}`);
   }
 
@@ -46,6 +53,22 @@ function parseCliOptions(argv: string[]): CliOptions {
   const invalidOrgNumber = options.orgNumbers.find((orgNumber) => !/^\d{9}$/.test(orgNumber));
   if (invalidOrgNumber) {
     throw new Error(`Ugyldig organisasjonsnummer: ${invalidOrgNumber}.`);
+  }
+  if (
+    options.sampleProfile !== null &&
+    options.sampleProfile !== STRUCTURED_FINANCIAL_CLOSEOUT_SAMPLE_PROFILE
+  ) {
+    throw new Error(
+      `Ukjent utvalgsprofil: ${options.sampleProfile}.`,
+    );
+  }
+  if (
+    options.sampleProfile &&
+    (options.orgNumbers.length > 0 || options.chainQuery || options.limit)
+  ) {
+    throw new Error(
+      "--sample-profile kan ikke kombineres med --org, --chain eller --limit.",
+    );
   }
   return options;
 }
@@ -66,28 +89,72 @@ async function main() {
   const requestedOrgNumbers = [...new Set([...options.orgNumbers, ...chainOrgNumbers])];
   const dueAt = new Date();
 
-  const companies = await prisma.company.findMany({
-    where: {
-      ...(requestedOrgNumbers.length ? { orgNumber: { in: requestedOrgNumbers } } : {}),
-      // Resume from the persisted source-health cache. Available, empty and
-      // failed checks all carry an explicit nextCheckAt, avoiding retry loops.
-      ...(options.refresh || options.orgNumbers.length
-        ? {}
-        : {
-            OR: [
-              { structuredFinancialFetchState: { is: null } },
-              {
-                structuredFinancialFetchState: {
-                  is: { nextCheckAt: { lte: dueAt } },
+  let companies: Array<{ orgNumber: string }>;
+  if (options.sampleProfile) {
+    const pool = await prisma.company.findMany({
+      select: {
+        orgNumber: true,
+        legalForm: true,
+        status: true,
+        structuredFinancialFetchState: {
+          select: { nextCheckAt: true },
+        },
+      },
+      orderBy: { orgNumber: "asc" },
+    });
+    const sample = selectStructuredFinancialCloseoutSample(
+      pool.map((company) => ({
+        ...company,
+        companyStatus: company.status,
+      })),
+    );
+    companies = sample.selected
+      .filter(
+        (company) =>
+          options.refresh ||
+          !company.structuredFinancialFetchState ||
+          company.structuredFinancialFetchState.nextCheckAt <= dueAt,
+      )
+      .map(({ orgNumber }) => ({ orgNumber }));
+    console.log(
+      JSON.stringify({
+        sampleProfile: sample.profile,
+        poolFingerprint: sample.poolFingerprint,
+        selectionFingerprint: sample.selectionFingerprint,
+        targetSize: sample.targetSize,
+        selectedSize: sample.selected.length,
+        dueForSourceCheck: companies.length,
+        strata: sample.strata.map(({ id, target, selected }) => ({
+          id,
+          target,
+          selected,
+        })),
+      }),
+    );
+  } else {
+    companies = await prisma.company.findMany({
+      where: {
+        ...(requestedOrgNumbers.length ? { orgNumber: { in: requestedOrgNumbers } } : {}),
+        // Resume from the persisted source-health cache. Available, empty and
+        // failed checks all carry an explicit nextCheckAt, avoiding retry loops.
+        ...(options.refresh || options.orgNumbers.length
+          ? {}
+          : {
+              OR: [
+                { structuredFinancialFetchState: { is: null } },
+                {
+                  structuredFinancialFetchState: {
+                    is: { nextCheckAt: { lte: dueAt } },
+                  },
                 },
-              },
-            ],
-          }),
-    },
-    select: { orgNumber: true },
-    orderBy: { orgNumber: "asc" },
-    ...(options.limit ? { take: options.limit } : {}),
-  });
+              ],
+            }),
+      },
+      select: { orgNumber: true },
+      orderBy: { orgNumber: "asc" },
+      ...(options.limit ? { take: options.limit } : {}),
+    });
+  }
 
   console.log(
     `Structured ingestion: ${companies.length} selskaper${chainProfile ? ` i ${chainProfile.name}` : ""} (delay ${options.delayMs}ms)`,

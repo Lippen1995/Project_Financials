@@ -294,6 +294,9 @@ npm run financials:ingest-structured -- --limit 100
 npm run financials:ingest-structured -- --org <organisasjonsnummer> --refresh
 npm run financials:report-structured-coverage
 npm run financials:report-structured-coverage -- --format json
+npm run financials:ingest-structured -- --sample-profile sprint-2-closeout-stratified@1
+npm run financials:report-structured-coverage -- --sample-profile sprint-2-closeout-stratified@1
+npm run financials:verify-structured-closeout
 ```
 
 Den åpne kilden gir siste innsendte regnskap og et begrenset sett nøkkeltall.

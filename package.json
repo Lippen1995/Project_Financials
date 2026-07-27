@@ -34,6 +34,7 @@
     "financials:run-ingestion-batch": "tsx scripts/run-financial-ingestion-batch.ts",
     "financials:ingest-structured": "tsx scripts/ingest-structured-financials.ts",
     "financials:report-structured-coverage": "tsx scripts/report-structured-financial-coverage.ts",
+    "financials:verify-structured-closeout": "tsx scripts/verify-structured-financials-closeout.ts",
     "financials:build-anchored-gold-set": "tsx scripts/build-anchored-gold-set.ts",
     "financials:build-anchored-unit-scale-dataset": "tsx scripts/build-anchored-unit-scale-dataset.ts",
     "financials:sync-new-filings": "tsx scripts/sync-new-financial-filings.ts",
