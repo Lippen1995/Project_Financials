@@ -21,7 +21,15 @@ type AnalysisFormValues = {
   fiscalYear: string;
   missingDataPolicy: "EXCLUDE" | "INCLUDE_WITH_GAP";
   limit: string;
+  revenueWeight: string;
+  revenueDirection: RankingDirection;
+  operatingMarginWeight: string;
+  operatingMarginDirection: RankingDirection;
+  employeeCountWeight: string;
+  employeeCountDirection: RankingDirection;
 };
+
+type RankingDirection = "HIGHER_BETTER" | "LOWER_BETTER";
 
 type AnalysisPayload = {
   title: string;
@@ -57,6 +65,28 @@ export function buildAnalysisPayload(values: AnalysisFormValues): AnalysisPayloa
     limit: Number(values.limit),
   };
 
+  const ranking = [
+    {
+      metric: "REVENUE",
+      direction: values.revenueDirection,
+      weight: optionalNumber(values.revenueWeight),
+    },
+    {
+      metric: "OPERATING_MARGIN_BPS",
+      direction: values.operatingMarginDirection,
+      weight: optionalNumber(values.operatingMarginWeight),
+    },
+    {
+      metric: "EMPLOYEE_COUNT",
+      direction: values.employeeCountDirection,
+      weight: optionalNumber(values.employeeCountWeight),
+    },
+  ].filter((criterion): criterion is {
+    metric: string;
+    direction: RankingDirection;
+    weight: number;
+  } => criterion.weight != null);
+
   return {
     title: values.title.trim(),
     purpose: values.purpose.trim(),
@@ -79,6 +109,7 @@ export function buildAnalysisPayload(values: AnalysisFormValues): AnalysisPayloa
       workflow: values.workflow,
       ...filters,
     },
+    calculationConfig: ranking.length > 0 ? { ranking } : null,
   };
 }
 
@@ -94,8 +125,23 @@ function stringList(value: unknown) {
     : [];
 }
 
+function rankingValue(analysis: AnalysisDetail | undefined, metric: string) {
+  const config = objectValue(analysis?.calculationConfig);
+  const ranking = Array.isArray(config.ranking) ? config.ranking : [];
+  return ranking
+    .map(objectValue)
+    .find((criterion) => criterion.metric === metric);
+}
+
+function rankingDirection(value: unknown): RankingDirection {
+  return value === "LOWER_BETTER" ? "LOWER_BETTER" : "HIGHER_BETTER";
+}
+
 function initialValues(analysis?: AnalysisDetail): AnalysisFormValues {
   const universe = objectValue(analysis?.universeQuery);
+  const revenueRanking = rankingValue(analysis, "REVENUE");
+  const marginRanking = rankingValue(analysis, "OPERATING_MARGIN_BPS");
+  const employeeRanking = rankingValue(analysis, "EMPLOYEE_COUNT");
   return {
     title: analysis?.title ?? "",
     purpose: analysis?.purpose ?? "",
@@ -120,6 +166,18 @@ function initialValues(analysis?: AnalysisDetail): AnalysisFormValues {
     fiscalYear: typeof universe.fiscalYear === "number" ? String(universe.fiscalYear) : "",
     missingDataPolicy: universe.missingDataPolicy === "EXCLUDE" ? "EXCLUDE" : "INCLUDE_WITH_GAP",
     limit: typeof universe.limit === "number" ? String(universe.limit) : "100",
+    revenueWeight: typeof revenueRanking?.weight === "number"
+      ? String(revenueRanking.weight)
+      : "",
+    revenueDirection: rankingDirection(revenueRanking?.direction),
+    operatingMarginWeight: typeof marginRanking?.weight === "number"
+      ? String(marginRanking.weight)
+      : "",
+    operatingMarginDirection: rankingDirection(marginRanking?.direction),
+    employeeCountWeight: typeof employeeRanking?.weight === "number"
+      ? String(employeeRanking.weight)
+      : "",
+    employeeCountDirection: rankingDirection(employeeRanking?.direction),
   };
 }
 
@@ -196,6 +254,24 @@ export function AnalysisEditor({
         ? initial.missingDataPolicy
         : String(form.get("missingDataPolicy")) as AnalysisFormValues["missingDataPolicy"],
       limit: contextLocked ? initial.limit : String(form.get("limit") ?? "100"),
+      revenueWeight: contextLocked
+        ? initial.revenueWeight
+        : String(form.get("revenueWeight") ?? ""),
+      revenueDirection: contextLocked
+        ? initial.revenueDirection
+        : String(form.get("revenueDirection")) as RankingDirection,
+      operatingMarginWeight: contextLocked
+        ? initial.operatingMarginWeight
+        : String(form.get("operatingMarginWeight") ?? ""),
+      operatingMarginDirection: contextLocked
+        ? initial.operatingMarginDirection
+        : String(form.get("operatingMarginDirection")) as RankingDirection,
+      employeeCountWeight: contextLocked
+        ? initial.employeeCountWeight
+        : String(form.get("employeeCountWeight") ?? ""),
+      employeeCountDirection: contextLocked
+        ? initial.employeeCountDirection
+        : String(form.get("employeeCountDirection")) as RankingDirection,
     });
 
     const body = mode === "create"
@@ -203,9 +279,6 @@ export function AnalysisEditor({
       : {
           expectedVersion: analysis?.version,
           ...payload,
-          calculationConfig: analysis?.calculationConfig == null
-            ? null
-            : objectValue(analysis.calculationConfig),
         };
     try {
       const response = await fetch(
@@ -346,6 +419,53 @@ export function AnalysisEditor({
               <option value="EXCLUDE">Ekskluder når filterdata mangler</option>
             </select>
           </label>
+        </fieldset>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6">
+        <div className="data-label text-[11px] text-[var(--px-accent)]">company-ranking-v1</div>
+        <h2 className="mt-2 text-xl font-semibold text-[var(--px-text)]">Deterministisk rangering</h2>
+        <p className="mt-2 text-sm text-[var(--px-muted)]">
+          Angi vekt for målene som skal brukes. Tom vekt utelater målet; manglende data
+          reduserer dekningsprosenten og blir ikke behandlet som null.
+        </p>
+        <fieldset disabled={contextLocked} className="mt-6 grid gap-4 lg:grid-cols-3">
+          {([
+            ["revenue", "Driftsinntekt", initial.revenueWeight, initial.revenueDirection],
+            [
+              "operatingMargin",
+              "Driftsmargin",
+              initial.operatingMarginWeight,
+              initial.operatingMarginDirection,
+            ],
+            ["employeeCount", "Antall ansatte", initial.employeeCountWeight, initial.employeeCountDirection],
+          ] as const).map(([name, label, weight, direction]) => (
+            <div key={name} className="rounded-xl bg-[var(--px-subtle)] p-4">
+              <div className="text-sm font-semibold text-[var(--px-text)]">{label}</div>
+              <label className="mt-4 block text-sm font-medium text-[var(--px-text)]">
+                Vekt (1–100)
+                <input
+                  name={`${name}Weight`}
+                  type="number"
+                  min={1}
+                  max={100}
+                  defaultValue={weight}
+                  className={fieldClassName}
+                />
+              </label>
+              <label className="mt-4 block text-sm font-medium text-[var(--px-text)]">
+                Retning
+                <select
+                  name={`${name}Direction`}
+                  defaultValue={direction}
+                  className={fieldClassName}
+                >
+                  <option value="HIGHER_BETTER">Høyere er bedre</option>
+                  <option value="LOWER_BETTER">Lavere er bedre</option>
+                </select>
+              </label>
+            </div>
+          ))}
         </fieldset>
       </section>
 

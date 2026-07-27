@@ -171,10 +171,13 @@ brukerfeedback og en tilgangsstyrt flate for å opprette, redigere og gjenoppta
 analyser samt lagre, omrekkefølge og promotere dokumenterte arbeidslisteelementer.
 Analyse-ID kan følge Njord-forespørselen som eksplisitt, tilgangskontrollert og
 størrelsesbegrenset kontekst. Ingen modellbruk eller K1-/K2-kostnad er aktivert.
-Leveransen er ikke formelt lukket; skriveflate for konklusjon, oppfølging,
-status og beregningsoppsett, direkte univers-/rangeringskjøring til arbeidsliste,
-påstand-til-kilde-bevis, reelle forventede fakta, modell-sammenligning etter G1,
-flerinstansgrenser og ende-til-ende-bevis gjenstår. Se
+Den tilgangsstyrte arbeidsflyten støtter nå også validert beregningsoppsett,
+direkte univers-/rangeringskjøring til arbeidsliste og lagring av status,
+konklusjon, oppfølging og offisielt kildegrunnlag. Leveransen er ikke formelt
+lukket; påstand-til-kilde-bevis, reelle forventede fakta,
+modell-sammenligning etter G1, flerinstansgrenser og ende-til-ende-bevis
+gjenstår. Arbeidsflyt-UI lagrer inkluderte kandidater med inklusjonsgrunn og
+datagap, men ikke ennå det versjonerte eksklusjonssettet med årsaker. Se
 [Sprint 3-kontrollpunktet](./go-live/sprint-3/README.md).
 
 ## 9. Port G1 – godkjenning av første betalte kostnader

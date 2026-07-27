@@ -3,7 +3,11 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMembership } from "@/server/services/workspace-service";
-import { companyUniverseQuerySchema } from "./company-analysis-domain";
+import {
+  companyUniverseQuerySchema,
+  rankingCriterionSchema,
+} from "./company-analysis-domain";
+import { companyUniverseService } from "./company-universe-service";
 
 const sourceMetadataSchema = z.object({
   sourceSystem: z.string().trim().min(1).max(100),
@@ -14,6 +18,9 @@ const sourceMetadataSchema = z.object({
 }).strict();
 
 const jsonObjectSchema = z.record(z.unknown());
+const calculationConfigSchema = z.object({
+  ranking: z.array(rankingCriterionSchema).min(1).max(10),
+}).strict();
 
 const analysisContextShape = {
   title: z.string().trim().min(1).max(200),
@@ -21,7 +28,7 @@ const analysisContextShape = {
   workflow: z.enum(["MNA_SCREENING", "SOURCING", "COMPETITOR_ANALYSIS"]),
   criteria: jsonObjectSchema,
   universeQuery: companyUniverseQuerySchema,
-  calculationConfig: jsonObjectSchema.nullable().optional(),
+  calculationConfig: calculationConfigSchema.nullable().optional(),
 } as const;
 
 function requireMatchingWorkflow(
@@ -71,6 +78,13 @@ const createWorklistSchema = z.object({
   items: z.array(worklistItemSchema).min(1).max(500),
 }).strict();
 
+const createWorklistFromUniverseSchema = z.object({
+  expectedAnalysisVersion: z.number().int().min(1),
+  type: z.enum(["LONGLIST", "SHORTLIST", "SOURCING", "PEER_SET"]),
+  name: z.string().trim().min(1).max(200),
+  purpose: z.string().trim().min(1).max(2_000),
+}).strict();
+
 const reorderWorklistSchema = z.object({
   itemIds: z.array(z.string().trim().min(1).max(128)).min(1).max(500),
 }).strict().superRefine((value, context) => {
@@ -100,6 +114,22 @@ type UpdateDraftInput = z.input<typeof updateDraftSchema>;
 type UpdateConclusionInput = z.input<typeof updateConclusionSchema>;
 type CreateWorklistInput = z.input<typeof createWorklistSchema>;
 type FeedbackInput = z.input<typeof feedbackSchema>;
+
+type CompanyUniverseRunner = {
+  run(input: unknown): Promise<{
+    status: "COMPLETE" | "REFINE_REQUIRED";
+    rankingVersion?: "company-ranking-v1" | null;
+    message?: string;
+    included: Array<{
+      orgNumber: string;
+      inclusionReasons: string[];
+      dataGaps: string[];
+      rank?: number;
+      score?: number | null;
+      coveragePercent?: number;
+    }>;
+  }>;
+};
 
 export type AnalysisRepository = {
   requireWorkspaceAccess(userId: string, workspaceId: string): Promise<void>;
@@ -468,7 +498,10 @@ const prismaRepository: AnalysisRepository = {
   },
 };
 
-export function createAnalysisService(repository: AnalysisRepository = prismaRepository) {
+export function createAnalysisService(
+  repository: AnalysisRepository = prismaRepository,
+  universeRunner: CompanyUniverseRunner = companyUniverseService,
+) {
   async function requireAnalysisAccess(actorUserId: string, analysisId: string) {
     const analysis = await repository.getAnalysisAccess(analysisId);
     if (!analysis) throw new Error("Analysis not found.");
@@ -495,6 +528,52 @@ export function createAnalysisService(repository: AnalysisRepository = prismaRep
 
   function sameJson(left: unknown, right: unknown) {
     return JSON.stringify(canonicalJson(left)) === JSON.stringify(canonicalJson(right));
+  }
+
+  async function persistWorklist(
+    actorUserId: string,
+    analysisId: string,
+    parsed: z.infer<typeof createWorklistSchema>,
+  ) {
+    const uniqueOrgNumbers = new Set(parsed.items.map((item) => item.orgNumber));
+    if (uniqueOrgNumbers.size !== parsed.items.length) {
+      throw new Error("Worklist contains duplicate organisation numbers.");
+    }
+    const analysis = await requireAnalysisAccess(actorUserId, analysisId);
+    if (analysis.version !== parsed.expectedAnalysisVersion) {
+      throw new Error("Analysis changed since the worklist was prepared.");
+    }
+    const officialCompanies = await repository.loadOfficialCompanies(
+      [...uniqueOrgNumbers],
+      getFiscalYear(analysis),
+    );
+    const officialByOrgNumber = new Map(
+      officialCompanies.map((company) => [company.orgNumber, company]),
+    );
+    const missingOrgNumbers = [...uniqueOrgNumbers].filter(
+      (orgNumber) => !officialByOrgNumber.has(orgNumber),
+    );
+    if (missingOrgNumbers.length > 0) {
+      throw new Error("Worklist contains companies not found in the official registry mirror.");
+    }
+    return repository.createWorklist({
+      analysisId,
+      expectedAnalysisVersion: parsed.expectedAnalysisVersion,
+      createdByUserId: actorUserId,
+      type: parsed.type,
+      name: parsed.name,
+      purpose: parsed.purpose,
+      criteriaVersion: parsed.criteriaVersion,
+      items: parsed.items.map((item, index) => {
+        const official = officialByOrgNumber.get(item.orgNumber)!;
+        return {
+          ...item,
+          companyName: official.companyName,
+          sourceBasis: official.sourceBasis,
+          sortOrder: index + 1,
+        };
+      }),
+    });
   }
 
   return {
@@ -592,45 +671,65 @@ export function createAnalysisService(repository: AnalysisRepository = prismaRep
       input: unknown,
     ) {
       const parsed = createWorklistSchema.parse(input);
-      const uniqueOrgNumbers = new Set(parsed.items.map((item) => item.orgNumber));
-      if (uniqueOrgNumbers.size !== parsed.items.length) {
-        throw new Error("Worklist contains duplicate organisation numbers.");
-      }
+      return persistWorklist(actorUserId, analysisId, parsed);
+    },
+
+    async createWorklistFromUniverse(
+      actorUserId: string,
+      analysisId: string,
+      input: unknown,
+    ) {
+      const parsed = createWorklistFromUniverseSchema.parse(input);
       const analysis = await requireAnalysisAccess(actorUserId, analysisId);
       if (analysis.version !== parsed.expectedAnalysisVersion) {
         throw new Error("Analysis changed since the worklist was prepared.");
       }
-      const officialCompanies = await repository.loadOfficialCompanies(
-        [...uniqueOrgNumbers],
-        getFiscalYear(analysis),
-      );
-      const officialByOrgNumber = new Map(
-        officialCompanies.map((company) => [company.orgNumber, company]),
-      );
-      const missingOrgNumbers = [...uniqueOrgNumbers].filter(
-        (orgNumber) => !officialByOrgNumber.has(orgNumber),
-      );
-      if (missingOrgNumbers.length > 0) {
-        throw new Error("Worklist contains companies not found in the official registry mirror.");
-      }
-      return repository.createWorklist({
-        analysisId,
-        expectedAnalysisVersion: parsed.expectedAnalysisVersion,
-        createdByUserId: actorUserId,
-        type: parsed.type,
-        name: parsed.name,
-        purpose: parsed.purpose,
-        criteriaVersion: parsed.criteriaVersion,
-        items: parsed.items.map((item, index) => {
-          const official = officialByOrgNumber.get(item.orgNumber)!;
-          return {
-            ...item,
-            companyName: official.companyName,
-            sourceBasis: official.sourceBasis,
-            sortOrder: index + 1,
-          };
-        }),
+      const query = companyUniverseQuerySchema.parse(analysis.universeQuery);
+      const calculation = analysis.calculationConfig == null
+        ? null
+        : calculationConfigSchema.parse(analysis.calculationConfig);
+      const result = await universeRunner.run({
+        query,
+        ...(calculation ? { ranking: calculation.ranking } : {}),
       });
+      if (result.status === "REFINE_REQUIRED") {
+        throw new Error(
+          result.message ??
+          "Universe is too broad for a complete result. Refine the stored filters.",
+        );
+      }
+      if (result.included.length === 0) {
+        throw new Error("The stored universe returned no companies.");
+      }
+      const items = result.included.map((company) => {
+        if (company.inclusionReasons.length === 0) {
+          throw new Error("Universe result is missing an inclusion basis.");
+        }
+        const rankingBasis = result.rankingVersion === "company-ranking-v1"
+          ? [
+              "RANKED_BY_COMPANY_RANKING_V1",
+              ...(company.rank == null ? [] : [`RANK_${company.rank}`]),
+              ...(company.score == null ? [] : [`SCORE_${company.score}`]),
+              ...(company.coveragePercent == null
+                ? []
+                : [`COVERAGE_${company.coveragePercent}_PERCENT`]),
+            ]
+          : [];
+        return {
+          orgNumber: company.orgNumber,
+          inclusionBasis: [...company.inclusionReasons, ...rankingBasis],
+          dataGaps: company.dataGaps,
+        };
+      });
+      return persistWorklist(
+        actorUserId,
+        analysisId,
+        createWorklistSchema.parse({
+          ...parsed,
+          criteriaVersion: "analysis-criteria-v1",
+          items,
+        }),
+      );
     },
 
     async reorderWorklist(

@@ -161,6 +161,121 @@ export function WorklistCreateForm({
   );
 }
 
+export function UniverseWorklistCreateForm({
+  analysisId,
+  analysisVersion,
+}: {
+  analysisId: string;
+  analysisVersion: number;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    try {
+      const response = await fetch(
+        `/api/analyses/${analysisId}/worklists/from-universe`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            expectedAnalysisVersion: analysisVersion,
+            type: String(form.get("type")),
+            name: String(form.get("name") ?? ""),
+            purpose: String(form.get("purpose") ?? ""),
+          }),
+        },
+      );
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Kunne ikke kjøre universet.");
+      formElement.reset();
+      setOpen(false);
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Kunne ikke kjøre universet.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-[var(--px-surface)] hover:bg-[var(--px-action-hover)]"
+      >
+        Kjør lagret univers
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6"
+    >
+      <div className="data-label text-[11px] text-[var(--px-accent)]">
+        company-universe-v1
+      </div>
+      <h3 className="mt-2 text-lg font-semibold text-[var(--px-text)]">
+        Opprett arbeidsliste fra universet
+      </h3>
+      <p className="mt-2 text-sm text-[var(--px-muted)]">
+        Den lagrede filter- og rangeringskontrakten kjøres på nytt. Bare komplette
+        resultater fra det offisielle registerspeilet kan lagres.
+      </p>
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <label className="text-sm font-medium text-[var(--px-text)]">
+          Listetype
+          <select name="type" className={fieldClassName}>
+            <option value="LONGLIST">Longlist</option>
+            <option value="SHORTLIST">Shortlist</option>
+            <option value="SOURCING">Sourcingliste</option>
+            <option value="PEER_SET">Peer-sett</option>
+          </select>
+        </label>
+        <label className="text-sm font-medium text-[var(--px-text)]">
+          Navn
+          <input name="name" required maxLength={200} className={fieldClassName} />
+        </label>
+        <label className="text-sm font-medium text-[var(--px-text)] lg:col-span-2">
+          Formål
+          <textarea name="purpose" required maxLength={2_000} rows={3} className={fieldClassName} />
+        </label>
+      </div>
+      {error ? (
+        <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-800">
+          {error}
+        </p>
+      ) : null}
+      <div className="mt-6 flex flex-wrap justify-end gap-4">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-full border border-[var(--px-border)] px-4 py-2 text-sm font-semibold text-[var(--px-text)] hover:bg-[var(--px-subtle)]"
+        >
+          Avbryt
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-full bg-[var(--px-action)] px-4 py-2 text-sm font-semibold text-[var(--px-surface)] hover:bg-[var(--px-action-hover)] disabled:opacity-60"
+        >
+          {saving ? "Kjører …" : "Kjør og lagre"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function WorklistItemActions({
   analysisId,
   sourceWorklistId,

@@ -26,10 +26,10 @@ kontrollpunkt, ikke en formell sprintlukking eller G1-godkjenning.
 | GL-309 | Delvis: deterministisk runner | Runneren måler verktøybruk, kilder, sikkerhet og resultatkontrakt uten modellkostnad; faktisk faktastøtte og sammenligning av minst to modeller krever G1 |
 | GL-310 | Implementert v1 | Innlogget bruker kan markere hvert faktisk Njord-svar som `Nyttig` eller `Feil`; beslutningen lagres idempotent |
 | GL-311 | Implementert | Modellfeil gir kontrollert 503 og ærlig melding; selskapsopplevelsen fortsetter |
-| GL-312 | Delvis: skriveflate v1 | Tilgangsstyrt `Analysis` kan opprettes, listes og gjenopptas; tittel, formål og et fortsatt uavhengig analysegrunnlag kan redigeres med optimistisk låsing, mens kriterier/univers låses etter lagrede arbeidslister eller konklusjon. Njord-endepunktet kan motta en eksplisitt, tilgangskontrollert og størrelsesbegrenset analysekontekst. UI for konklusjon, oppfølging og beregningsoppsett gjenstår |
-| GL-313 | Backend-fundament implementert | UI-API og Njord-verktøy bruker samme `company-universe-v1`, screening og manglende-data-policy |
-| GL-314 | Backend-fundament implementert | Periode, vekter, normalisering, dekningsprosent og beregningsspor er deterministiske i `company-ranking-v1` |
-| GL-315 | Implementert v1 | Longlist, shortlist, sourcingliste og peer-sett kan batchlagres fra reelle organisasjonsnumre, vises og omrekkefølges; selskaper kan promoteres mellom lister uten å endre lagret inklusjonsgrunn, datagap eller kildebevis |
+| GL-312 | Implementert v1 | Tilgangsstyrt `Analysis` kan opprettes, listes og gjenopptas; formål, kriterier, univers, beregningsoppsett, konklusjon, oppfølging, status og offisielt kildegrunnlag kan lagres med optimistisk låsing. Njord-endepunktet mottar bare eksplisitt, tilgangskontrollert og størrelsesbegrenset analysekontekst |
+| GL-313 | Delvis: felles kjøring | UI-API og Njord-verktøy bruker samme `company-universe-v1`, screening og manglende-data-policy. Inkluderte kandidater kan lagres direkte med inklusjonsgrunn og datagap; ekskluderte kandidater og eksklusjonsårsaker lagres ennå ikke i arbeidsflyt-UI |
+| GL-314 | Implementert v1 | Periode, retning, vekter, normalisering, dekningsprosent og beregningsspor er deterministiske i `company-ranking-v1`; UI lagrer den validerte rangeringskontrakten før kjøring |
+| GL-315 | Implementert v1 | Longlist, shortlist, sourcingliste og peer-sett kan opprettes direkte fra lagret univers eller batchlagres fra reelle organisasjonsnumre, vises og omrekkefølges; selskaper kan promoteres mellom lister uten å endre lagret inklusjonsgrunn, datagap eller kildebevis |
 
 ## K0-sikker aktivering
 
@@ -73,21 +73,18 @@ Regresjonstesten låser denne adferden.
 
 ## Åpent før formell lukking
 
-1. Universkjøring og deterministisk rangering må kobles direkte til oppretting av
-   arbeidslister i UI for alle tre arbeidsflytene; dagens batchflate krever
-   eksplisitte organisasjonsnumre og dokumentasjon fra brukeren.
-2. Konklusjon, oppfølging, status og beregningsoppsett må få en validert
-   skriveflate; de kan leses i UI og deler kan lagres via backend, men hele
-   GL-312 er ikke ferdig i arbeidsflyt-UI.
-3. Evalueringssettet må kjøres mot minst to aktuelle modeller etter G1, med
+1. Ekskluderte kandidater og de versjonerte eksklusjonsårsakene fra
+   `company-screening-v1` må kunne inspiseres eller lagres i arbeidsflyt-UI før
+   hele GL-313 er oppfylt.
+2. Evalueringssettet må kjøres mot minst to aktuelle modeller etter G1, med
    verifiserte priser og ingen svakere sikkerhetsport.
-4. Evalueringssettet må få forventede reelle fakta og påstand-til-kilde-bevis,
+3. Evalueringssettet må få forventede reelle fakta og påstand-til-kilde-bevis,
    ikke bare resultat- og sikkerhetskontrakter.
-5. Njord-konteksten må bevises ende-til-ende mot modellene som eventuelt
+4. Njord-konteksten må bevises ende-til-ende mot modellene som eventuelt
    godkjennes i G1; ingen modell ble kalt i K0-leveransen.
-6. Delt rate limiter, host-adferd og hard NOK-stopp må bevises på valgt
+5. Delt rate limiter, host-adferd og hard NOK-stopp må bevises på valgt
    plattform i G1/G2.
-7. Ende-til-ende-test må bevise formål → univers → rangering → lagret
+6. Ende-til-ende-test må bevise formål → univers → rangering → lagret
    arbeidsliste → konklusjon for alle tre arbeidsflytene.
-8. Sprinten kan først lukkes etter samlet review, full suite og eksplisitt
+7. Sprinten kan først lukkes etter samlet review, full suite og eksplisitt
    CEO-godkjenning.

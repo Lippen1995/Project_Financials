@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   safeAuth: vi.fn(),
   get: vi.fn(),
+  updateConclusion: vi.fn(),
   updateDraft: vi.fn(),
 }));
 
@@ -14,12 +15,12 @@ vi.mock("@/server/analysis/analysis-read-service", () => ({
 }));
 vi.mock("@/server/analysis/analysis-service", () => ({
   analysisService: {
-    updateConclusion: vi.fn(),
+    updateConclusion: mocks.updateConclusion,
     updateDraft: mocks.updateDraft,
   },
 }));
 
-import { GET, PUT } from "./route";
+import { GET, PATCH, PUT } from "./route";
 
 describe("GET /api/analyses/[analysisId]", () => {
   beforeEach(() => {
@@ -99,5 +100,37 @@ describe("PUT /api/analyses/[analysisId]", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.updateDraft).toHaveBeenCalledWith("user-1", "analysis-1", body);
+  });
+});
+
+describe("PATCH /api/analyses/[analysisId]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.safeAuth.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.updateConclusion.mockResolvedValue(undefined);
+  });
+
+  it("stores status, conclusion, follow-up and official source references", async () => {
+    const body = {
+      expectedVersion: 3,
+      status: "COMPLETED",
+      conclusion: { summary: "Prioriter shortlist." },
+      followUp: { nextStep: "Valider eierstruktur." },
+      sourceOrgNumbers: ["100000001"],
+    };
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/analyses/analysis-1", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ analysisId: "analysis-1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateConclusion).toHaveBeenCalledWith(
+      "user-1",
+      "analysis-1",
+      body,
+    );
   });
 });

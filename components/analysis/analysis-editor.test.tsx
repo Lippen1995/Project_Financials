@@ -34,6 +34,12 @@ describe("AnalysisEditor", () => {
       fiscalYear: "2024",
       missingDataPolicy: "INCLUDE_WITH_GAP",
       limit: "100",
+      revenueWeight: "60",
+      revenueDirection: "HIGHER_BETTER",
+      operatingMarginWeight: "40",
+      operatingMarginDirection: "HIGHER_BETTER",
+      employeeCountWeight: "",
+      employeeCountDirection: "HIGHER_BETTER",
     })).toMatchObject({
       title: "Nordisk programvarescreening",
       workflow: "MNA_SCREENING",
@@ -49,6 +55,12 @@ describe("AnalysisEditor", () => {
         minRevenue: 50_000_000,
         fiscalYear: 2024,
         limit: 100,
+      },
+      calculationConfig: {
+        ranking: [
+          { metric: "REVENUE", direction: "HIGHER_BETTER", weight: 60 },
+          { metric: "OPERATING_MARGIN_BPS", direction: "HIGHER_BETTER", weight: 40 },
+        ],
       },
     });
   });

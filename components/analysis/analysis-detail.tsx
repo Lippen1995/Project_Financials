@@ -3,9 +3,11 @@ import Link from "next/link";
 
 import type { AnalysisDetail } from "@/server/analysis/analysis-read-service";
 import {
+  UniverseWorklistCreateForm,
   WorklistCreateForm,
   WorklistItemActions,
 } from "./analysis-worklist-actions";
+import { AnalysisOutcomeEditor } from "./analysis-outcome-editor";
 import {
   analysisStatusClasses,
   analysisStatusLabels,
@@ -128,6 +130,18 @@ function ContextPanel({
 
 export function AnalysisDetailView({ analysis }: { analysis: AnalysisDetail }) {
   const analysisSources = sourceMetadataList(analysis.sourceBasis);
+  const sourceOrgNumbers = [
+    ...new Set(
+      [
+        ...analysis.worklists.flatMap((worklist) =>
+          worklist.items.map((item) => item.orgNumber)
+        ),
+        ...analysisSources
+          .map((source) => source.sourceId)
+          .filter((sourceId) => /^\d{9}$/.test(sourceId)),
+      ],
+    ),
+  ];
   const editable = analysis.status !== "ARCHIVED";
   return (
     <main className="flex flex-col gap-8 pb-16">
@@ -210,7 +224,11 @@ export function AnalysisDetailView({ analysis }: { analysis: AnalysisDetail }) {
         </div>
 
         {editable ? (
-          <div className="mb-4">
+          <div className="mb-4 flex flex-col gap-4">
+            <UniverseWorklistCreateForm
+              analysisId={analysis.id}
+              analysisVersion={analysis.version}
+            />
             <WorklistCreateForm
               analysisId={analysis.id}
               analysisVersion={analysis.version}
@@ -315,6 +333,17 @@ export function AnalysisDetailView({ analysis }: { analysis: AnalysisDetail }) {
           </div>
         )}
       </section>
+
+      {editable ? (
+        <AnalysisOutcomeEditor
+          analysisId={analysis.id}
+          analysisVersion={analysis.version}
+          status={analysis.status}
+          conclusion={analysis.conclusion}
+          followUp={analysis.followUp}
+          sourceOrgNumbers={sourceOrgNumbers}
+        />
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <ContextPanel

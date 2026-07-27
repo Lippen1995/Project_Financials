@@ -88,5 +88,7 @@ describe("AnalysisDetailView", () => {
     expect(html).toContain("Valider shortlist.");
     expect(html).toContain("REVENUE");
     expect(html).toContain("statement-1");
+    expect(html).toContain("Kjør lagret univers");
+    expect(html).toContain("Lagre konklusjon");
   });
 });

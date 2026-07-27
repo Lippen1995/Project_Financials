@@ -239,6 +239,81 @@ describe("analysis service", () => {
     }));
   });
 
+  it("runs the stored versioned universe and persists its deterministic ranking", async () => {
+    const repo = repository();
+    vi.mocked(repo.getAnalysisAccess).mockResolvedValue({
+      id: "analysis-1",
+      workspaceId: "workspace-1",
+      version: 2,
+      workflow: "MNA_SCREENING",
+      criteria: { industries: ["62"] },
+      universeQuery,
+      calculationConfig: {
+        ranking: [{ metric: "REVENUE", direction: "HIGHER_BETTER", weight: 100 }],
+      },
+      worklistCount: 0,
+      hasConclusion: false,
+    });
+    const run = vi.fn().mockResolvedValue({
+      status: "COMPLETE",
+      rankingVersion: "company-ranking-v1",
+      included: [{
+        orgNumber: "100000001",
+        inclusionReasons: ["MATCHED_VERSIONED_UNIVERSE_QUERY"],
+        dataGaps: [],
+        rank: 1,
+        score: 87.5,
+        coveragePercent: 100,
+      }],
+    });
+    const service = createAnalysisService(repo, { run });
+
+    await service.createWorklistFromUniverse("user-1", "analysis-1", {
+      expectedAnalysisVersion: 2,
+      type: "LONGLIST",
+      name: "Rangert longlist",
+      purpose: "Deterministisk første utvalg.",
+    });
+
+    expect(run).toHaveBeenCalledWith({
+      query: expect.objectContaining(universeQuery),
+      ranking: [{ metric: "REVENUE", direction: "HIGHER_BETTER", weight: 100 }],
+    });
+    expect(repo.createWorklist).toHaveBeenCalledWith(expect.objectContaining({
+      expectedAnalysisVersion: 2,
+      criteriaVersion: "analysis-criteria-v1",
+      items: [expect.objectContaining({
+        orgNumber: "100000001",
+        inclusionBasis: [
+          "MATCHED_VERSIONED_UNIVERSE_QUERY",
+          "RANKED_BY_COMPANY_RANKING_V1",
+          "RANK_1",
+          "SCORE_87.5",
+          "COVERAGE_100_PERCENT",
+        ],
+      })],
+    }));
+  });
+
+  it("does not persist a partial result when the candidate pool must be refined", async () => {
+    const repo = repository();
+    const service = createAnalysisService(repo, {
+      run: vi.fn().mockResolvedValue({
+        status: "REFINE_REQUIRED",
+        included: [],
+        message: "Universet er for bredt.",
+      }),
+    });
+
+    await expect(service.createWorklistFromUniverse("user-1", "analysis-1", {
+      expectedAnalysisVersion: 2,
+      type: "LONGLIST",
+      name: "Longlist",
+      purpose: "Første utvalg.",
+    })).rejects.toThrow(/bredt|refine/i);
+    expect(repo.createWorklist).not.toHaveBeenCalled();
+  });
+
   it("reorders a worklist only when the complete stored item set is supplied", async () => {
     const repo = repository();
     const service = createAnalysisService(repo);
