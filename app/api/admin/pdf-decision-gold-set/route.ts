@@ -6,6 +6,7 @@ import {
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import {
   listPdfDecisionGoldSet,
   PdfDecisionGoldSetValidationError,
@@ -16,13 +17,13 @@ const querySchema = z.object({
   status: z.nativeEnum(PdfDecisionGoldSetStatus).optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
   fiscalYear: z.coerce.number().int().optional(),
-  orgNumber: z.string().trim().min(1).max(20).optional(),
+  orgNumber: norwegianOrganizationNumberSchema.optional(),
 });
 
 const bodySchema = z.object({
   filingId: z.string().trim().min(1),
   extractionRunId: z.string().trim().min(1).nullable().optional(),
-  orgNumber: z.string().trim().min(1).max(20).nullable().optional(),
+  orgNumber: norwegianOrganizationNumberSchema.nullable().optional(),
   fiscalYear: z.number().int().nullable().optional(),
   status: z.nativeEnum(PdfDecisionGoldSetStatus),
   reason: z.nativeEnum(PdfDecisionGoldSetReason),

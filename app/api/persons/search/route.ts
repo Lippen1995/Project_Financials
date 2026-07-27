@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import {
   getPersonRoles,
@@ -6,20 +7,45 @@ import {
   searchPersons,
 } from "@/server/registry/role-search-service";
 
+const querySchema = z
+  .object({
+    query: z.string().trim().max(200).default(""),
+    identityKey: z.string().trim().min(1).max(512).optional(),
+    section: z.enum(["roles", "shareholdings"]).optional(),
+    roleType: z.string().trim().min(1).max(128).optional(),
+    scope: z.enum(["persons", "roles"]).default("persons"),
+    includeDeregistered: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .strict();
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get("query") ?? "";
-  const identityKey = searchParams.get("identityKey");
-  const section = searchParams.get("section");
-  const roleType = searchParams.get("roleType") ?? undefined;
-  const mode = searchParams.get("scope") === "roles" ? "roles" : "persons";
-  const includeDeregistered = searchParams.get("includeDeregistered") === "true";
-  const limitParam = searchParams.get("limit");
-  const limit = limitParam ? Number(limitParam) : undefined;
+  const parsedQuery = querySchema.safeParse({
+    query: searchParams.get("query") ?? undefined,
+    identityKey: searchParams.get("identityKey") ?? undefined,
+    section: searchParams.get("section") ?? undefined,
+    roleType: searchParams.get("roleType") ?? undefined,
+    scope: searchParams.get("scope") ?? undefined,
+    includeDeregistered: searchParams.get("includeDeregistered") ?? undefined,
+    limit: searchParams.get("limit") ?? undefined,
+  });
 
-  if (query.length > 200) {
-    return NextResponse.json({ error: "Søket er for langt." }, { status: 400 });
+  if (!parsedQuery.success) {
+    return NextResponse.json({ error: "Ugyldige søkeparametere." }, { status: 400 });
   }
+  const {
+    query,
+    identityKey,
+    section,
+    roleType,
+    scope: mode,
+    includeDeregistered,
+    limit,
+  } = parsedQuery.data;
 
   // With identityKey: the reverse lookup — a person's roles across companies plus the
   // shares they own (from the aksjonærregister).
@@ -45,7 +71,7 @@ export async function GET(request: NextRequest) {
     includeDeregistered,
     roleType,
     mode,
-    limit: Number.isNaN(limit) ? undefined : limit,
+    limit,
   });
   return NextResponse.json({ data: results });
 }

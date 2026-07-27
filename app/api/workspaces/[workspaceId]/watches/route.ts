@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import {
   createWorkspaceWatch,
@@ -24,7 +25,7 @@ export async function GET(
   }
 
   try {
-    const { workspaceId } = await context.params;
+    const { workspaceId } = parseRouteIds(await context.params, ["workspaceId"] as const);
     const watches = await listWorkspaceWatches(session.user.id, workspaceId);
     return NextResponse.json({ data: watches });
   } catch (error) {
@@ -45,7 +46,7 @@ export async function POST(
   }
 
   try {
-    const { workspaceId } = await context.params;
+    const { workspaceId } = parseRouteIds(await context.params, ["workspaceId"] as const);
     const body = await request.json();
     const values = createWatchSchema.parse(body);
     const watch = await createWorkspaceWatch(session.user.id, workspaceId, values);

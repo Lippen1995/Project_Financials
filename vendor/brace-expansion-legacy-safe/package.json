@@ -1,0 +1,11 @@
+{
+  "name": "@fjord-insight/brace-expansion-legacy-safe",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Legacy CommonJS adapter for the patched brace-expansion implementation",
+  "main": "index.cjs",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "brace-expansion-safe": "npm:brace-expansion@5.0.8"
+  }
+}

@@ -2,6 +2,7 @@ import { DdTaskPriority, DdTaskStage, DdWorkstream } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds, queryDateTimeSchema } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDdRoomDetail } from "@/server/services/dd-room-service";
 import { createDdTask } from "@/server/services/dd-workflow-service";
@@ -12,7 +13,7 @@ const createTaskSchema = z.object({
   stage: z.nativeEnum(DdTaskStage),
   workstream: z.nativeEnum(DdWorkstream),
   priority: z.nativeEnum(DdTaskPriority).optional(),
-  dueAt: z.string().optional(),
+  dueAt: queryDateTimeSchema,
   assigneeUserId: z.string().optional(),
 });
 
@@ -23,7 +24,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ roomId: st
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const detail = await getDdRoomDetail(session.user.id, roomId);
     if (!detail) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -45,7 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const body = await request.json();
     const values = createTaskSchema.parse(body);
     const task = await createDdTask(session.user.id, roomId, {
@@ -54,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
       stage: values.stage,
       workstream: values.workstream,
       priority: values.priority,
-      dueAt: values.dueAt ? new Date(values.dueAt) : null,
+      dueAt: values.dueAt ?? null,
       assigneeUserId: values.assigneeUserId || null,
     });
 

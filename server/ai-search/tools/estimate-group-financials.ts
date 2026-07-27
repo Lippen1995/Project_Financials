@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { prisma } from "@/lib/prisma";
 import {
   getOwnershipAvailableYears,
@@ -9,7 +10,7 @@ import {
 import { defineTool, type RetrievalTool } from "./types";
 
 const inputSchema = z.object({
-  parentOrgNumber: z.string().regex(/^\d{9}$/, "parentOrgNumber must be a 9-digit organisation number"),
+  parentOrgNumber: norwegianOrganizationNumberSchema,
   years: z.number().int().min(1).max(5),
 });
 

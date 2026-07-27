@@ -328,10 +328,9 @@ export async function saveUserProfile(userId: string, input: UserProfilePatchInp
     jobTitle: input.jobTitle !== undefined ? normalizeNullableString(input.jobTitle) : currentProfile.jobTitle,
     employerName:
       input.employerName !== undefined ? normalizeNullableString(input.employerName) : currentProfile.employerName,
-    employerOrgNumber:
-      input.employerOrgNumber !== undefined
-        ? normalizeNullableString(input.employerOrgNumber)
-        : currentProfile.employerOrgNumber,
+    // Derive the organization number from the matched local Brreg-backed company below.
+    // Never persist the client-supplied value as company master data.
+    employerOrgNumber: currentProfile.employerOrgNumber,
     employerLogoUrl:
       input.employerLogoUrl !== undefined
         ? normalizeNullableString(input.employerLogoUrl)

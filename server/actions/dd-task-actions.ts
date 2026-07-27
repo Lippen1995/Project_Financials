@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { queryDateTimeSchema } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { rethrowIfRedirectError } from "@/lib/redirect-error";
 import { createDdTask, updateDdTaskStatus } from "@/server/services/dd-workflow-service";
@@ -16,7 +17,7 @@ const createTaskSchema = z.object({
   stage: z.nativeEnum(DdTaskStage),
   workstream: z.nativeEnum(DdWorkstream),
   priority: z.nativeEnum(DdTaskPriority).optional(),
-  dueAt: z.string().optional(),
+  dueAt: queryDateTimeSchema,
   assigneeUserId: z.string().optional(),
 });
 
@@ -71,7 +72,7 @@ export async function createDdTaskAction(formData: FormData) {
       stage: values.stage,
       workstream: values.workstream,
       priority: values.priority,
-      dueAt: values.dueAt ? new Date(values.dueAt) : null,
+      dueAt: values.dueAt ?? null,
       assigneeUserId: values.assigneeUserId || null,
     });
 

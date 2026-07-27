@@ -1,32 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 export const revalidate = 0;
 
+import { tryParseCompanyReference } from "@/lib/api-input";
 import { prisma } from "@/lib/prisma";
 import { getCompanyEventTimeline } from "@/server/news/company-event-timeline-service";
 import { getCompanyByReference } from "@/server/services/company-service";
 
-function boundedNumber(value: string | null, fallback: number, min: number, max: number) {
-  if (!value) {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return fallback;
-  }
-
-  return Math.min(Math.max(parsed, min), max);
-}
+const querySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(30),
+    minScore: z.coerce.number().finite().min(0).max(100).default(35),
+    minExposure: z.coerce.number().finite().min(0).max(1).default(0.65),
+  })
+  .strict();
 
 export async function GET(request: NextRequest, context: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await context.params;
-    const limit = boundedNumber(request.nextUrl.searchParams.get("limit"), 30, 1, 100);
-    const minInvestorValueScore = boundedNumber(request.nextUrl.searchParams.get("minScore"), 35, 0, 100);
-    const minExposureScore = boundedNumber(request.nextUrl.searchParams.get("minExposure"), 0.65, 0, 1);
+    const companyReferenceInput = tryParseCompanyReference(slug);
+    if (!companyReferenceInput) {
+      return NextResponse.json({ error: "Invalid company reference" }, { status: 400 });
+    }
 
-    const companyReference = await getCompanyByReference(slug);
+    const query = querySchema.safeParse({
+      limit: request.nextUrl.searchParams.get("limit") ?? undefined,
+      minScore: request.nextUrl.searchParams.get("minScore") ?? undefined,
+      minExposure: request.nextUrl.searchParams.get("minExposure") ?? undefined,
+    });
+    if (!query.success) {
+      return NextResponse.json({ error: "Invalid event filters" }, { status: 400 });
+    }
+
+    const companyReference = await getCompanyByReference(companyReferenceInput);
     if (!companyReference) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -40,9 +47,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
     }
 
     const timeline = await getCompanyEventTimeline(company.id, {
-      limit,
-      minInvestorValueScore,
-      minExposureScore,
+      limit: query.data.limit,
+      minInvestorValueScore: query.data.minScore,
+      minExposureScore: query.data.minExposure,
     });
     return NextResponse.json(timeline);
   } catch (error) {

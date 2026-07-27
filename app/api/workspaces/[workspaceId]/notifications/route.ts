@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { tryParseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { listWorkspaceNotifications } from "@/server/services/workspace-collaboration-service";
 
@@ -13,7 +14,11 @@ export async function GET(
   }
 
   try {
-    const { workspaceId } = await context.params;
+    const routeIds = tryParseRouteIds(await context.params, ["workspaceId"] as const);
+    if (!routeIds) {
+      return NextResponse.json({ error: "Ugyldig workspace-ID." }, { status: 400 });
+    }
+    const { workspaceId } = routeIds;
     const notifications = await listWorkspaceNotifications(session.user.id, workspaceId);
     return NextResponse.json({ data: notifications });
   } catch (error) {

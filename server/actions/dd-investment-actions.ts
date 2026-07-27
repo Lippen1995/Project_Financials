@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { queryDateTimeSchema } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { rethrowIfRedirectError } from "@/lib/redirect-error";
 import {
@@ -46,7 +47,7 @@ const createFindingSchema = z.object({
   impact: z.nativeEnum(DdFindingImpact).optional(),
   recommendedAction: z.string().trim().optional(),
   isBlocking: z.string().optional(),
-  dueAt: z.string().optional(),
+  dueAt: queryDateTimeSchema,
   assigneeUserId: z.string().optional(),
   taskId: z.string().optional(),
 });
@@ -73,7 +74,7 @@ const evidenceSchema = z.object({
   announcementId: z.string().optional(),
   announcementSourceId: z.string().optional(),
   announcementSourceSystem: z.string().trim().optional(),
-  announcementPublishedAt: z.string().optional(),
+  announcementPublishedAt: queryDateTimeSchema,
   announcementLabel: z.string().trim().optional(),
 });
 
@@ -167,7 +168,7 @@ export async function createDdFindingAction(formData: FormData) {
     await createDdFinding(userId, values.roomId, {
       ...values,
       isBlocking: values.isBlocking === "on",
-      dueAt: values.dueAt ? new Date(values.dueAt) : null,
+      dueAt: values.dueAt ?? null,
       assigneeUserId: values.assigneeUserId || null,
       taskId: values.taskId || null,
     });
@@ -238,7 +239,7 @@ export async function addDdFindingEvidenceAction(formData: FormData) {
 
     await createDdFindingEvidence(userId, values.findingId, {
       ...values,
-      announcementPublishedAt: values.announcementPublishedAt ? new Date(values.announcementPublishedAt) : null,
+      announcementPublishedAt: values.announcementPublishedAt ?? null,
     });
 
     revalidatePath(`/dd/${values.roomId}`);

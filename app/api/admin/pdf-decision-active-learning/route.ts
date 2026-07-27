@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { listPdfDecisionActiveLearningQueue } from "@/server/services/pdf-decision-active-learning-service";
 
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
   fiscalYear: z.coerce.number().int().optional(),
-  orgNumber: z.string().trim().min(1).max(20).optional(),
+  orgNumber: norwegianOrganizationNumberSchema.optional(),
   includeCurated: z.enum(["true", "false"]).transform((value) => value === "true").optional(),
   minPriority: z.coerce.number().int().min(0).max(100).optional(),
   priorityBand: z.enum(["HIGH", "MEDIUM", "LOW"]).optional(),

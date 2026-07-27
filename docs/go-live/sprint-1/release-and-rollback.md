@@ -1,6 +1,6 @@
 # Release- og rollbackoppskrift
 
-**Status:** K0-kandidat. Host-spesifikke felter lukkes ved G1.
+**Status:** Teknisk godkjent på K0 27. juli 2026. Host-spesifikke felter lukkes ved G1.
 
 **Eier og lanseringsmyndighet:** Simen Lippestad
 
@@ -10,6 +10,8 @@
 - Release går fra en ren, gjennomgått commit; lokale ucommittede filer inngår ikke.
 - Produksjonsmiljøet har separat database og separate hemmeligheter.
 - `AUTH_SECRET`, `DATABASE_URL` og aktuelle jobbhemmeligheter er konfigurert i hostens secret store.
+- `AUTH_URL` eller `NEXTAUTH_URL` er satt til den kanoniske offentlige HTTPS-origin-en; appen feiler lukket uten denne.
+- Reverse proxy setter én kanonisk `Host`/`X-Forwarded-Host` og avviser ukjente hostnavn før trafikken når Auth.js.
 - En gjenopprettbar databasebackup er fullført og kontrollert.
 - Forrige fungerende deploy-/artifact-ID er notert som `ROLLBACK_RELEASE`.
 
@@ -20,6 +22,7 @@ Kjør fra repository-roten:
 ```bash
 npm ci
 npm run security:check-env-files
+npm run security:check-api-inputs
 npm run security:audit
 npm run db:generate
 npm run typecheck
@@ -41,6 +44,24 @@ npm run db:migrate:status
 ```
 
 Kontroller at alle migrasjoner er additive eller har en særskilt, skriftlig rollbackplan. `prisma db push` er forbudt i releasebanen.
+
+### Engangsadopsjon av db-push-era database
+
+En database som har den feilede migrasjonen
+`20260721123000_add_offline_business_knowledge` må repareres før vanlig deploy.
+Bekreft først at det er akkurat denne migrasjonen som står som feilet. Ta og
+verifiser backup, sett vedlikeholdsmodus og kjør deretter:
+
+```bash
+npx prisma migrate resolve --rolled-back 20260721123000_add_offline_business_knowledge
+npm run db:migrate:deploy
+npm run db:migrate:status
+```
+
+Ikke bruk `migrate resolve` for andre migrasjoner uten en separat gjennomgang.
+Fullvolum-rehearsal med 6 729 616 registry-rader tok 344,5 sekunder, bevarte alle
+rader og ga 0 manglende proveniensfelt. Sett av minst 10 minutters
+vedlikeholdsvindu med margin, og overvåk låser, WAL og ledig disk gjennom kjøringen.
 
 ## 4. Deployrekkefølge
 
@@ -64,7 +85,9 @@ Host ved G1 må fylle inn:
 ## 5. Smoke-kontroller
 
 - HTTPS videresender all HTTP-trafikk og sertifikatet er gyldig.
-- Sikkerhetshodene er til stede.
+- `Content-Security-Policy`, HSTS, nosniff, frame-deny, referrer-, permissions- og cross-origin-hodene er til stede; `X-Powered-By` mangler.
+- Auth-endepunktet setter produksjonscookies med `__Host`/`__Secure`, `HttpOnly`, `Secure`, `SameSite=Lax` og `Path=/`.
+- En request med et ukjent `Host`-navn avvises av reverse proxy.
 - Ny bruker kan åpne login og autentisere.
 - Uautentisert bruker får 401 på beskyttet API.
 - Vanlig bruker får 403 på administratorhandling.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import {
   DEFAULT_PDF_PARSER_ROUTE_CANARY_CONFIG,
 } from "@/server/services/pdf-parser-route-canary-config-service";
@@ -14,7 +15,7 @@ const bodySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   fiscalYear: z.number().int().min(2000).max(2100).optional(),
-  organizationNumber: z.string().trim().min(1).max(20).optional(),
+  organizationNumber: norwegianOrganizationNumberSchema.optional(),
   limit: z.number().int().min(1).max(500).optional(),
 });
 

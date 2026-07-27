@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { createDdFindingComment, getFindingCommentThread } from "@/server/services/dd-comment-service";
 
@@ -16,7 +17,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ fin
   }
 
   try {
-    const { findingId } = await params;
+    const { findingId } = parseRouteIds(await params, ["findingId"] as const);
     const thread = await getFindingCommentThread(session.user.id, findingId);
     return NextResponse.json({ data: thread });
   } catch (error) {
@@ -34,7 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ fin
   }
 
   try {
-    const { findingId } = await params;
+    const { findingId } = parseRouteIds(await params, ["findingId"] as const);
     const body = await request.json();
     const values = createCommentSchema.parse(body);
     const data = await createDdFindingComment(session.user.id, findingId, {

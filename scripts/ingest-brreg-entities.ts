@@ -193,7 +193,8 @@ async function main() {
         ${randomUUID()}, ${r.orgNumber}, ${r.name}, ${r.organisationForm}, ${r.naceCode},
         ${r.naceDescription}, ${r.status}::"CompanyStatus", ${r.employeeCount}, ${r.registeredAt},
         ${r.website}, ${r.addressStreet}, ${r.postalCode}, ${r.postalPlace}, ${r.municipality},
-        ${r.municipalityNumber}, ${r.countryCode}, ${r.registerUpdatedAt}, ${now}
+        ${r.municipalityNumber}, ${r.countryCode}, ${r.registerUpdatedAt},
+        ${"BRREG"}, ${"enhet"}, ${r.orgNumber}, ${now}, ${now}, ${now}
       )`,
     );
     await prisma.$executeRaw(Prisma.sql`
@@ -201,7 +202,7 @@ async function main() {
         "id", "orgNumber", "name", "organisationForm", "naceCode", "naceDescription",
         "status", "employeeCount", "registeredAt", "website", "addressStreet", "postalCode",
         "postalPlace", "municipality", "municipalityNumber", "countryCode", "registerUpdatedAt",
-        "updatedAt"
+        "sourceSystem", "sourceEntityType", "sourceId", "fetchedAt", "normalizedAt", "updatedAt"
       ) VALUES ${Prisma.join(tuples)}
       ON CONFLICT ("orgNumber") DO NOTHING
     `);

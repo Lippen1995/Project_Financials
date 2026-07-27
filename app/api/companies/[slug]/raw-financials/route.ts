@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { queryYearSchema, tryParseCompanyReference } from "@/lib/api-input";
 import { prisma } from "@/lib/prisma";
 import env from "@/lib/env";
 
@@ -28,12 +29,19 @@ export async function GET(
   }
 
   const { slug } = await context.params;
-  const yearParam = request.nextUrl.searchParams.get("year");
-  const year = yearParam ? parseInt(yearParam, 10) : null;
-  const yearFilter = year !== null && !isNaN(year) ? { fiscalYear: year } : {};
+  const companyReference = tryParseCompanyReference(slug);
+  if (!companyReference) {
+    return NextResponse.json({ error: "Invalid company reference" }, { status: 400 });
+  }
+
+  const year = queryYearSchema.safeParse(request.nextUrl.searchParams.get("year"));
+  if (!year.success) {
+    return NextResponse.json({ error: "Invalid year" }, { status: 400 });
+  }
+  const yearFilter = year.data !== undefined ? { fiscalYear: year.data } : {};
 
   const company = await prisma.company.findFirst({
-    where: { OR: [{ slug }, { orgNumber: slug }] },
+    where: { OR: [{ slug: companyReference }, { orgNumber: companyReference }] },
     select: { id: true },
   });
   if (!company) {

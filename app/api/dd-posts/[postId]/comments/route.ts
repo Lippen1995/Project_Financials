@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { createDdPostComment } from "@/server/services/dd-comment-service";
 
@@ -19,7 +20,7 @@ export async function POST(
   }
 
   try {
-    const { postId } = await context.params;
+    const { postId } = parseRouteIds(await context.params, ["postId"] as const);
     const body = await request.json();
     const values = createCommentSchema.parse(body);
     const thread = await createDdPostComment(session.user.id, postId, {

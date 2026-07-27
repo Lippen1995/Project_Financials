@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { tryParseRouteIds } from "@/lib/api-input";
 import { deleteNode, updateNode } from "@/server/services/presentation-node-service";
 
 const updateSchema = z
@@ -23,7 +24,11 @@ export async function PATCH(
   const { error } = await requireFinancialReviewer();
   if (error) return error;
 
-  const { id } = await params;
+  const routeIds = tryParseRouteIds(await params, ["id"] as const);
+  if (!routeIds) {
+    return NextResponse.json({ error: "Invalid node identifier." }, { status: 400 });
+  }
+  const { id } = routeIds;
 
   let body: unknown;
   try {
@@ -61,7 +66,11 @@ export async function DELETE(
   const { error } = await requireFinancialReviewer();
   if (error) return error;
 
-  const { id } = await params;
+  const routeIds = tryParseRouteIds(await params, ["id"] as const);
+  if (!routeIds) {
+    return NextResponse.json({ error: "Invalid node identifier." }, { status: 400 });
+  }
+  const { id } = routeIds;
 
   try {
     await deleteNode(id);

@@ -2,7 +2,7 @@
 
 **Status:** Aktiv arbeidsplan
 
-**Nåværende fase:** Sprint 0 er fullført og formelt godkjent av CEO 24. juli 2026. Sprint 1 ble startet av CEO samme dag, tre dager før opprinnelig plan. Se [Sprint 1-kontrollsenteret](./go-live/sprint-1/README.md).
+**Nåværende fase:** Sprint 0 ble formelt godkjent 24. juli 2026. Sprint 1 ble startet samme dag og formelt godkjent av CEO 27. juli 2026. Neste planlagte leveransefase er Sprint 2; host- og kostnadsbeslutninger forblir i G1. Se [Sprint 1-signeringen](./go-live/sprint-1/closeout-review.md).
 
 **Opprettet:** 20. juli 2026
 
@@ -97,6 +97,14 @@ Sprint 0 ble formelt godkjent av Simen Lippestad (CEO) 24. juli 2026. Produktret
 | GL-109 | Automatiske porter | Typekontroll, tester og produksjonsbygg må passere før release. |
 
 **Godkjenningskriterium:** En annen utvikler kan følge releaseoppskriften uten muntlige spesialinstruksjoner.
+
+### Sprint 1-status
+
+Sprint 1 ble formelt godkjent av Simen Lippestad (CEO) 27. juli 2026. GL-101–GL-109
+er teknisk lukket på K0. Host-spesifikke backup-, restore-, TLS-, proxy- og
+deploybevis følger G1. Deploy er begrenset til én appinstans frem til delt
+rate-limiter finnes. Godkjenningen åpner ikke offentlig beta og aktiverer ingen
+K1-kostnader. Se [signeringen](./go-live/sprint-1/closeout-review.md).
 
 ## 7. Sprint 2 – strukturert Brreg-data, uten OCR
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { createDdRoom } from "@/server/services/dd-room-service";
 import { getDashboardWorkspaceHome } from "@/server/services/workspace-service";
@@ -18,7 +19,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ workspaceI
   }
 
   try {
-    const { workspaceId } = await params;
+    const { workspaceId } = parseRouteIds(await params, ["workspaceId"] as const);
     const payload = await getDashboardWorkspaceHome(session.user.id, workspaceId);
     return NextResponse.json({
       data: {
@@ -41,7 +42,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
   }
 
   try {
-    const { workspaceId } = await params;
+    const { workspaceId } = parseRouteIds(await params, ["workspaceId"] as const);
     const body = await request.json();
     const values = createDdRoomSchema.parse(body);
     const room = await createDdRoom(session.user.id, workspaceId, values);

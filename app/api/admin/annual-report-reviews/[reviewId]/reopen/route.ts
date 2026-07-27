@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { tryParseRouteIds } from "@/lib/api-input";
 import {
   reopenAnnualReportReview,
   ReviewConflictError,
@@ -13,9 +14,13 @@ export async function POST(
   const { user, error } = await requireFinancialReviewer();
   if (error) return error;
 
-  const { reviewId } = await params;
+  const routeIds = tryParseRouteIds(await params, ["reviewId"] as const);
+  if (!routeIds) {
+    return NextResponse.json({ error: "Invalid review identifier." }, { status: 400 });
+  }
 
   try {
+    const { reviewId } = routeIds;
     const result = await reopenAnnualReportReview(reviewId, user!.id);
     return NextResponse.json({ data: result });
   } catch (err) {

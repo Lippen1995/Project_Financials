@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import type { PdfParserRoute } from "@/server/services/pdf-parser-route-quality-comparison-service";
 import {
   buildPdfParserRouteRecommendationV2Report,
@@ -18,7 +19,7 @@ const querySchema = z.object({
     .optional()
     .transform((v) => (v !== undefined ? parseInt(v, 10) : undefined))
     .pipe(z.number().int().min(2000).max(2100).optional()),
-  organizationNumber: z.string().trim().min(1).max(20).optional(),
+  organizationNumber: norwegianOrganizationNumberSchema.optional(),
   routes: z
     .string()
     .optional()

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CompanyStatus } from "@prisma/client";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import {
   createWorkspaceMonitor,
@@ -29,7 +30,7 @@ export async function GET(
   }
 
   try {
-    const { workspaceId } = await context.params;
+    const { workspaceId } = parseRouteIds(await context.params, ["workspaceId"] as const);
     const monitors = await listWorkspaceMonitors(session.user.id, workspaceId);
     return NextResponse.json({ data: monitors });
   } catch (error) {
@@ -50,7 +51,7 @@ export async function POST(
   }
 
   try {
-    const { workspaceId } = await context.params;
+    const { workspaceId } = parseRouteIds(await context.params, ["workspaceId"] as const);
     const body = await request.json();
     const values = createMonitorSchema.parse(body);
     const monitor = await createWorkspaceMonitor(session.user.id, workspaceId, values);

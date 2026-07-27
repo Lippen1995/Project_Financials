@@ -9,7 +9,9 @@
 
 Dette er kontrollsenteret for Sprint 0 i [go-live-planen](../go-live-sprint-plan.md). Formålet er å gjøre produktposisjon, arbeidsflyter, omfang, ansvar, risiko, datakilder, måling, personvern og kostnader etterprøvbare før sikkerhets- og releasearbeidet starter. [Den reviderte produktposisjoneringen](./product-positioning.md) er styrende fra 22. juli 2026.
 
-Sprint 1 ble startet 24. juli 2026 og følges i [Sprint 1-kontrollsenteret](./sprint-1/README.md).
+Sprint 1 ble startet 24. juli 2026 og formelt godkjent av CEO 27. juli 2026.
+[Sprint 1-kontrollsenteret](./sprint-1/README.md) og
+[signeringen](./sprint-1/closeout-review.md) dokumenterer bevis og G1-vilkår.
 
 ## Status
 

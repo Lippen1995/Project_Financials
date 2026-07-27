@@ -58,4 +58,13 @@ describe("GET /api/persons/search", () => {
     expect(response.status).toBe(400);
     expect(searchPersonsMock).not.toHaveBeenCalled();
   });
+
+  it("rejects limits outside the supported integer range before searching", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/persons/search?query=Ola&limit=-1"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(searchPersonsMock).not.toHaveBeenCalled();
+  });
 });

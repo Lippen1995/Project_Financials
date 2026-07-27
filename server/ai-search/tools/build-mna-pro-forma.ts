@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { prisma } from "@/lib/prisma";
 import {
   calculateMnaProForma,
@@ -31,8 +32,8 @@ const booleanAssumptionSchema = z.object({
 });
 
 const inputSchema = z.object({
-  buyerOrgNumber: z.string().regex(/^\d{9}$/),
-  targetOrgNumber: z.string().regex(/^\d{9}$/),
+  buyerOrgNumber: norwegianOrganizationNumberSchema,
+  targetOrgNumber: norwegianOrganizationNumberSchema,
   fiscalYear: z.number().int().min(1990).max(2200).nullable(),
   buyerStatementScope: z.enum(["AUTO", "COMPANY", "CONSOLIDATED"]),
   targetStatementScope: z.enum(["AUTO", "COMPANY", "CONSOLIDATED"]),

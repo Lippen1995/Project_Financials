@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { createDdPost, getRoomPosts } from "@/server/services/dd-post-service";
 
@@ -18,7 +19,7 @@ export async function GET(
   }
 
   try {
-    const { roomId } = await context.params;
+    const { roomId } = parseRouteIds(await context.params, ["roomId"] as const);
     const posts = await getRoomPosts(session.user.id, roomId);
     return NextResponse.json({ data: posts });
   } catch (error) {
@@ -39,7 +40,7 @@ export async function POST(
   }
 
   try {
-    const { roomId } = await context.params;
+    const { roomId } = parseRouteIds(await context.params, ["roomId"] as const);
     const body = await request.json();
     const values = createPostSchema.parse(body);
     const post = await createDdPost(session.user.id, roomId, values.content);

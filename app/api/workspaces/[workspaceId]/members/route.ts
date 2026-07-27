@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { parseRouteIds, tryParseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDashboardWorkspaceHome, inviteWorkspaceMember } from "@/server/services/workspace-service";
 import { z } from "zod";
@@ -15,7 +16,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ workspaceI
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { workspaceId } = await params;
+  const routeIds = tryParseRouteIds(await params, ["workspaceId"] as const);
+  if (!routeIds) {
+    return NextResponse.json({ error: "Invalid workspace identifier." }, { status: 400 });
+  }
+  const { workspaceId } = routeIds;
   const payload = await getDashboardWorkspaceHome(session.user.id, workspaceId);
   return NextResponse.json({ data: payload.currentWorkspace.members });
 }
@@ -27,7 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
   }
 
   try {
-    const { workspaceId } = await params;
+    const { workspaceId } = parseRouteIds(await params, ["workspaceId"] as const);
     const body = await request.json();
     const values = inviteSchema.parse(body);
     const invitation = await inviteWorkspaceMember(session.user.id, workspaceId, values.email, values.role);

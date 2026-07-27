@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import env from "@/lib/env";
 import {
@@ -18,6 +19,20 @@ const SUPPORTED_JOBS: PetroleumJobName[] = [
   "scheduled",
 ];
 
+const querySchema = z.object({
+  job: z.enum([
+    "bootstrap-core",
+    "bootstrap-metrics",
+    "bootstrap-publications",
+    "bootstrap-events",
+    "bootstrap-macros",
+    "refresh-snapshots",
+    "refresh-company-exposure",
+    "bootstrap-all",
+    "scheduled",
+  ]),
+});
+
 function isAuthorized(request: NextRequest) {
   if (!env.workspaceSyncSecret) {
     return false;
@@ -33,12 +48,10 @@ function isAuthorized(request: NextRequest) {
 }
 
 function parseJobName(request: NextRequest) {
-  const job = request.nextUrl.searchParams.get("job");
-  if (!job || !SUPPORTED_JOBS.includes(job as PetroleumJobName)) {
-    return null;
-  }
-
-  return job as PetroleumJobName;
+  const query = querySchema.safeParse({
+    job: request.nextUrl.searchParams.get("job") ?? undefined,
+  });
+  return query.success ? query.data.job : null;
 }
 
 async function handle(request: NextRequest) {

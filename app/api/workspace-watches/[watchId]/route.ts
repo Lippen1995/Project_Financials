@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { WorkspaceWatchStatus } from "@prisma/client";
 import { z } from "zod";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { updateWorkspaceWatchStatus } from "@/server/services/workspace-collaboration-service";
 
@@ -19,7 +20,7 @@ export async function PATCH(
   }
 
   try {
-    const { watchId } = await context.params;
+    const { watchId } = parseRouteIds(await context.params, ["watchId"] as const);
     const body = await request.json();
     const values = updateWatchSchema.parse(body);
     const workspaceId = await updateWorkspaceWatchStatus(session.user.id, watchId, values.status);

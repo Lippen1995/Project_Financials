@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import env from "@/lib/env";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import {
   listAnnualReportReviewQueue,
   updateAnnualReportReview,
@@ -19,7 +20,7 @@ const listSchema = z.object({
   ruleCodes: z
     .array(z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9_.:-]+$/))
     .max(100),
-  orgNumbers: z.array(z.string().regex(/^\d{9}$/)).max(100),
+  orgNumbers: z.array(norwegianOrganizationNumberSchema).max(100),
   limit: z.coerce.number().int().min(1).max(200),
 });
 const updateSchema = z

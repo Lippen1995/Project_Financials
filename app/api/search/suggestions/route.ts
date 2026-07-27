@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
-import { buildDashboardSearchHref, isDashboardSearchScope } from "@/lib/dashboard-search";
+import { buildDashboardSearchHref } from "@/lib/dashboard-search";
 import type { NavSearchSuggestion } from "@/lib/nav-search";
 import {
   consumeRateLimit,
@@ -13,6 +14,14 @@ import { searchPersons, searchRoleTypes } from "@/server/registry/role-search-se
 
 const MIN_QUERY_LENGTH = 2;
 const MAX_QUERY_LENGTH = 200;
+const querySchema = z
+  .object({
+    query: z.string().trim().max(MAX_QUERY_LENGTH).default(""),
+    scope: z
+      .enum(["all", "companies", "industries", "persons", "roles", "bankruptcies"])
+      .default("all"),
+  })
+  .strict();
 const industryCodeProvider = new SsbIndustryCodeProvider();
 
 export async function GET(request: NextRequest) {
@@ -28,18 +37,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const query = (request.nextUrl.searchParams.get("query") ?? "").trim();
-  const rawScope = request.nextUrl.searchParams.get("scope");
-  if (rawScope !== null && !isDashboardSearchScope(rawScope)) {
-    return NextResponse.json({ error: "Ugyldig søkeavgrensning." }, { status: 400 });
+  const parsedQuery = querySchema.safeParse({
+    query: request.nextUrl.searchParams.get("query") ?? undefined,
+    scope: request.nextUrl.searchParams.get("scope") ?? undefined,
+  });
+  if (!parsedQuery.success) {
+    return NextResponse.json({ error: "Ugyldige søkeparametere." }, { status: 400 });
   }
-  const scope = isDashboardSearchScope(rawScope) ? rawScope : "all";
+  const { query, scope } = parsedQuery.data;
   const includesScope = (candidate: Exclude<typeof scope, "all">) =>
     scope === "all" || scope === candidate;
 
-  if (query.length > MAX_QUERY_LENGTH) {
-    return NextResponse.json({ error: "Søket er for langt." }, { status: 400 });
-  }
   if (query.length < MIN_QUERY_LENGTH) {
     return NextResponse.json({ data: [], meta: { unavailableSources: [] } });
   }

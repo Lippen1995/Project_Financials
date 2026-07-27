@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds, queryDateTimeSchema } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import {
   createAnnouncementComment,
@@ -11,7 +12,7 @@ const querySchema = z.object({
   announcementId: z.string().min(1),
   announcementSourceId: z.string().min(1),
   announcementSourceSystem: z.string().min(1),
-  announcementPublishedAt: z.string().optional(),
+  announcementPublishedAt: queryDateTimeSchema,
 });
 
 const createCommentSchema = querySchema.extend({
@@ -26,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const url = new URL(request.url);
     const values = querySchema.parse({
       announcementId: url.searchParams.get("announcementId"),
@@ -52,16 +53,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     const body = await request.json();
     const values = createCommentSchema.parse(body);
     const data = await createAnnouncementComment(session.user.id, roomId, {
       announcementId: values.announcementId,
       announcementSourceId: values.announcementSourceId,
       announcementSourceSystem: values.announcementSourceSystem,
-      announcementPublishedAt: values.announcementPublishedAt
-        ? new Date(values.announcementPublishedAt)
-        : null,
+      announcementPublishedAt: values.announcementPublishedAt ?? null,
       content: values.content,
       parentCommentId: values.parentCommentId || null,
     });

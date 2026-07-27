@@ -9,14 +9,33 @@ const createWorkspaceSchema = z.object({
   name: z.string().trim().min(2),
 });
 
+const querySchema = z.object({
+  workspace: z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/)
+    .optional(),
+}).strict();
+
 export async function GET(request: NextRequest) {
   const session = await safeAuth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const workspaceId = request.nextUrl.searchParams.get("workspace");
-  const payload = await getDashboardWorkspaceHome(session.user.id, workspaceId);
+  const parsedQuery = querySchema.safeParse({
+    workspace: request.nextUrl.searchParams.get("workspace") ?? undefined,
+  });
+  if (!parsedQuery.success) {
+    return NextResponse.json({ error: "Invalid workspace query." }, { status: 400 });
+  }
+
+  const payload = await getDashboardWorkspaceHome(
+    session.user.id,
+    parsedQuery.data.workspace,
+  );
 
   return NextResponse.json({ data: payload });
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { parseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { removeWorkspaceMember } from "@/server/services/workspace-service";
 
@@ -13,7 +14,10 @@ export async function DELETE(
   }
 
   try {
-    const { workspaceId, memberUserId } = await params;
+    const { workspaceId, memberUserId } = parseRouteIds(
+      await params,
+      ["workspaceId", "memberUserId"] as const,
+    );
     await removeWorkspaceMember(session.user.id, workspaceId, memberUserId);
     return NextResponse.json({ data: true });
   } catch (error) {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireFinancialReviewer } from "@/lib/admin-auth";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import {
   listPersistedPdfModelArtifactSnapshots,
   persistPdfModelArtifactSnapshot,
@@ -13,7 +14,7 @@ const querySchema = z.object({
   modelId: z.string().trim().min(1).max(200).optional(),
   modelVersion: z.string().trim().min(1).max(200).optional(),
   fiscalYear: z.coerce.number().int().optional(),
-  orgNumber: z.string().trim().min(1).max(20).optional(),
+  orgNumber: norwegianOrganizationNumberSchema.optional(),
   status: z.nativeEnum(PdfModelArtifactStatus).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
@@ -26,7 +27,7 @@ const postSchema = z.object({
   modelTarget: z.string().trim().min(1).max(200).nullish(),
   featureSchemaVersion: z.string().trim().min(1).max(200).nullish(),
   fiscalYear: z.number().int().nullish(),
-  orgNumber: z.string().trim().min(1).max(20).nullish(),
+  orgNumber: norwegianOrganizationNumberSchema.nullish(),
   split: z.string().trim().min(1).max(30).nullish(),
   sourceCommand: z.string().trim().max(500).nullish(),
   sourceCommitSha: z.string().trim().max(80).nullish(),

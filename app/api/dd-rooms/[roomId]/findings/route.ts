@@ -8,6 +8,7 @@ import {
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { parseRouteIds, queryDateTimeSchema } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDdRoomDetail } from "@/server/services/dd-room-service";
 import { buildFindingsSummary, createDdFinding, getRoomFindings } from "@/server/services/dd-investment-service";
@@ -22,9 +23,13 @@ const createFindingSchema = z.object({
   impact: z.nativeEnum(DdFindingImpact).optional(),
   recommendedAction: z.string().trim().optional(),
   isBlocking: z.boolean().optional(),
-  dueAt: z.string().optional(),
+  dueAt: queryDateTimeSchema,
   assigneeUserId: z.string().optional(),
   taskId: z.string().optional(),
+});
+
+const querySchema = z.object({
+  workstream: z.nativeEnum(DdWorkstream).optional(),
 });
 
 export async function GET(request: Request, { params }: { params: Promise<{ roomId: string }> }) {
@@ -34,17 +39,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ room
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     if (!(await getDdRoomDetail(session.user.id, roomId))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     const url = new URL(request.url);
-    const workstreamParam = url.searchParams.get("workstream");
-    const workstream = workstreamParam && Object.values(DdWorkstream).includes(workstreamParam as DdWorkstream)
-      ? (workstreamParam as DdWorkstream)
-      : null;
+    const query = querySchema.safeParse({
+      workstream: url.searchParams.get("workstream") ?? undefined,
+    });
+    if (!query.success) {
+      return NextResponse.json({ error: "Ugyldig workstream." }, { status: 400 });
+    }
     const findings = await getRoomFindings(roomId);
-    return NextResponse.json({ data: buildFindingsSummary(findings, workstream) });
+    return NextResponse.json({
+      data: buildFindingsSummary(findings, query.data.workstream ?? null),
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Kunne ikke hente funn." },
@@ -60,7 +69,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
   }
 
   try {
-    const { roomId } = await params;
+    const { roomId } = parseRouteIds(await params, ["roomId"] as const);
     if (!(await getDdRoomDetail(session.user.id, roomId))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -68,7 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
     const values = createFindingSchema.parse(body);
     const data = await createDdFinding(session.user.id, roomId, {
       ...values,
-      dueAt: values.dueAt ? new Date(values.dueAt) : null,
+      dueAt: values.dueAt ?? null,
       assigneeUserId: values.assigneeUserId || null,
       taskId: values.taskId || null,
     });

@@ -8,6 +8,10 @@ import readline from "node:readline";
 import { spawn } from "node:child_process";
 
 import { prisma } from "@/lib/prisma";
+import {
+  parseShareholderRegisterCsvHeader,
+  splitShareholderRegisterCsvLine,
+} from "@/lib/shareholder-register-csv";
 import { rebuildRoleChangeAttributions } from "@/server/insider-transactions/role-change-attribution-service";
 
 const DEFAULT_DIR = path.join(
@@ -229,51 +233,6 @@ async function deleteExistingYear(taxYear: number, keepImportId?: string | null)
       AND "sourceSystem" = 'SKATTEETATEN_CSV'
       ${keepImportId ? `AND "id" <> ${sqlLiteral(keepImportId)}` : ""};
   `);
-}
-
-function splitCsvLine(line: string, delimiter: string) {
-  const values: string[] = [];
-  let current = "";
-  let quoted = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const next = line[i + 1];
-
-    if (char === '"') {
-      if (quoted && next === '"') {
-        current += '"';
-        i += 1;
-      } else {
-        quoted = !quoted;
-      }
-      continue;
-    }
-
-    if (char === delimiter && !quoted) {
-      values.push(current);
-      current = "";
-      continue;
-    }
-
-    current += char;
-  }
-
-  values.push(current);
-  return values.map((value) => value.trim());
-}
-
-function normalizeHeader(value: string) {
-  return value
-    .replace(/^\uFEFF/, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\u00e6/g, "ae")
-    .replace(/\u00f8/g, "o")
-    .replace(/\u00e5/g, "a")
-    .normalize("NFKD")
-    .replace(/[^\w]+/g, "_")
-    .replace(/^_+|_+$/g, "");
 }
 
 function parseBigIntSafe(value: string | undefined) {
@@ -560,33 +519,19 @@ async function importCsv(input: {
       hash.update("\n");
       sourceRowNumber += 1;
       if (!headers) {
-        headers = splitCsvLine(line, ";");
-        const normalized = headers.map(normalizeHeader);
-        indexes = {
-          issuerOrgNumber: normalized.indexOf("orgnr"),
-          issuerName: normalized.indexOf("selskap"),
-          shareClass: normalized.indexOf("aksjeklasse"),
-          shareholderName: normalized.indexOf("navn_aksjonaer"),
-          shareholderIdentifier: normalized.indexOf("fodselsar_orgnr"),
-          postal: normalized.indexOf("postnr_sted"),
-          countryCode: normalized.indexOf("landkode"),
-          numberOfShares: normalized.indexOf("antall_aksjer"),
-          totalCompanyShares: normalized.indexOf("antall_aksjer_selskap"),
-        };
-
-        const missing = Object.entries(indexes)
-          .filter(([key, index]) => key !== "shareClass" && index < 0)
-          .map(([key]) => key);
-        if (missing.length > 0) {
+        const parsedHeader = parseShareholderRegisterCsvHeader(line);
+        headers = parsedHeader.headers;
+        indexes = parsedHeader.indexes;
+        if (parsedHeader.missing.length > 0) {
           throw new Error(
-            `CSV mangler påkrevde kolonner: ${missing.join(", ")}. Headers: ${JSON.stringify(headers)}. Normalized: ${JSON.stringify(normalized)}`,
+            `CSV mangler påkrevde kolonner: ${parsedHeader.missing.join(", ")}. Headers: ${JSON.stringify(headers)}. Normalized: ${JSON.stringify(parsedHeader.normalized)}`,
           );
         }
         continue;
       }
 
       counters.parsedRows += 1;
-      const values = splitCsvLine(line, ";");
+      const values = splitShareholderRegisterCsvLine(line);
       const holding = normalizeHolding(input.taxYear, sourceRowNumber, headers, values, indexes!);
       if (!holding) {
         counters.skippedRows += 1;

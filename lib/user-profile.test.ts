@@ -8,6 +8,7 @@ import {
   getProfileHeadline,
   getProfileInitials,
   getProfileLocationLabel,
+  userProfilePatchSchema,
 } from "@/lib/user-profile";
 
 describe("user profile helpers", () => {
@@ -133,5 +134,13 @@ describe("user profile helpers", () => {
   it("falls back gracefully for location labels", () => {
     expect(getProfileLocationLabel({ countryOfOrigin: "Norway" })).toBe("Norway");
     expect(getProfileLocationLabel({})).toBeNull();
+  });
+
+  it("validates and normalizes employer organization numbers", () => {
+    expect(
+      userProfilePatchSchema.parse({ employerOrgNumber: "928 846 466" }).employerOrgNumber,
+    ).toBe("928846466");
+    expect(userProfilePatchSchema.safeParse({ employerOrgNumber: "928846467" }).success).toBe(false);
+    expect(userProfilePatchSchema.parse({ employerOrgNumber: null }).employerOrgNumber).toBeNull();
   });
 });

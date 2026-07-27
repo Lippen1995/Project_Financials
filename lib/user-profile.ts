@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
+
 export const PROFILE_TOTAL_STEPS = 5;
 export const PROFILE_BIO_MAX_LENGTH = 240;
 
@@ -94,7 +96,7 @@ export const userProfilePatchSchema = z.object({
   professionalBio: z.string().trim().max(PROFILE_BIO_MAX_LENGTH).nullable().optional(),
   jobTitle: z.string().trim().max(120).nullable().optional(),
   employerName: z.string().trim().max(160).nullable().optional(),
-  employerOrgNumber: z.string().trim().max(32).nullable().optional(),
+  employerOrgNumber: norwegianOrganizationNumberSchema.nullable().optional(),
   employerLogoUrl: z.string().trim().url().nullable().optional().or(z.literal("")),
   employerSector: z.string().trim().max(120).nullable().optional(),
   employerMatchedCompanyId: z.string().trim().nullable().optional(),

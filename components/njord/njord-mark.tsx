@@ -9,7 +9,7 @@ export function NjordMark({ className }: NjordMarkProps) {
     <span
       aria-hidden="true"
       className={cn(
-        "block shrink-0 overflow-hidden rounded-full border border-[var(--px-border)] bg-white bg-no-repeat",
+        "block shrink-0 overflow-hidden rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] bg-no-repeat",
         className,
       )}
       style={{

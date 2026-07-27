@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { tryParseCompanyReference, tryParseRouteIds } from "@/lib/api-input";
 import { safeAuth } from "@/lib/auth";
 import { getDistressCompanyDetailForWorkspace } from "@/server/services/distress-analysis-service";
 
@@ -14,7 +15,16 @@ export async function GET(
 
   try {
     const { workspaceId, slug } = await context.params;
-    const data = await getDistressCompanyDetailForWorkspace(session.user.id, workspaceId, slug);
+    const routeIds = tryParseRouteIds({ workspaceId }, ["workspaceId"] as const);
+    const companyReference = tryParseCompanyReference(slug);
+    if (!routeIds || !companyReference) {
+      return NextResponse.json({ error: "Ugyldige ruteparametere." }, { status: 400 });
+    }
+    const data = await getDistressCompanyDetailForWorkspace(
+      session.user.id,
+      routeIds.workspaceId,
+      companyReference,
+    );
 
     if (!data) {
       return NextResponse.json({ error: "Fant ikke distress-selskapet." }, { status: 404 });

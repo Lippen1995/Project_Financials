@@ -786,6 +786,11 @@ model RegistrySubunit {
   countryCode        String?
   registerUpdatedAt  DateTime?
   sourceSnapshotAt   DateTime      @default(now())
+  sourceSystem       String
+  sourceEntityType   String
+  sourceId           String
+  fetchedAt          DateTime
+  normalizedAt       DateTime
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -874,6 +879,11 @@ model RegistryEntity {
   countryCode        String?
   registerUpdatedAt  DateTime?
   sourceSnapshotAt   DateTime      @default(now())
+  sourceSystem       String
+  sourceEntityType   String
+  sourceId           String
+  fetchedAt          DateTime
+  normalizedAt       DateTime
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -3929,6 +3939,11 @@ model RegistryPerson {
   birthDate        DateTime? @db.Date
   isDeceased       Boolean   @default(false)
   sourceSnapshotAt DateTime  @default(now())
+  sourceSystem     String
+  sourceEntityType String
+  sourceId         String
+  fetchedAt        DateTime
+  normalizedAt     DateTime
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -3959,6 +3974,11 @@ model RegistryRoleAssignment {
   orderIndex        Int?
   groupLastChanged  DateTime?      @db.Date
   sourceSnapshotAt  DateTime       @default(now())
+  sourceSystem      String
+  sourceEntityType  String
+  sourceId          String
+  fetchedAt         DateTime
+  normalizedAt      DateTime
 
   @@index([companyOrgNumber])
   @@index([personIdentityKey])
@@ -4098,41 +4118,41 @@ enum NorwayImplementationStatus {
 /// No user-facing answer should treat a row as current without checking the legal status and
 /// effective interval against the date in question.
 model KnowledgeDocument {
-  id               String                @id @default(cuid())
-  externalId       String
-  versionKey       String
-  title            String
-  shortTitle       String?
-  description      String?
-  authority        String
-  jurisdiction     KnowledgeJurisdiction
-  domain           KnowledgeDomain
-  documentType     KnowledgeDocumentType
-  legalStatus      KnowledgeLegalStatus  @default(UNKNOWN)
-  language         String                @default("nb")
-  sourceUrl        String
-  publishedAt      DateTime?
-  adoptedAt        DateTime?
-  effectiveFrom    DateTime?
-  effectiveTo      DateTime?
-  eeaIncorporationStatus EeaIncorporationStatus @default(NOT_ASSESSED)
-  eeaDecisionReference String?
-  eeaIncorporatedAt DateTime?
-  eeaEffectiveFrom DateTime?
-  norwayImplementationStatus NorwayImplementationStatus @default(NOT_ASSESSED)
+  id                          String                     @id @default(cuid())
+  externalId                  String
+  versionKey                  String
+  title                       String
+  shortTitle                  String?
+  description                 String?
+  authority                   String
+  jurisdiction                KnowledgeJurisdiction
+  domain                      KnowledgeDomain
+  documentType                KnowledgeDocumentType
+  legalStatus                 KnowledgeLegalStatus       @default(UNKNOWN)
+  language                    String                     @default("nb")
+  sourceUrl                   String
+  publishedAt                 DateTime?
+  adoptedAt                   DateTime?
+  effectiveFrom               DateTime?
+  effectiveTo                 DateTime?
+  eeaIncorporationStatus      EeaIncorporationStatus     @default(NOT_ASSESSED)
+  eeaDecisionReference        String?
+  eeaIncorporatedAt           DateTime?
+  eeaEffectiveFrom            DateTime?
+  norwayImplementationStatus  NorwayImplementationStatus @default(NOT_ASSESSED)
   norwayImplementingReference String?
-  norwayImplementedAt DateTime?
-  lastVerifiedAt   DateTime
-  checksum         String
-  sourceSystem     String
-  sourceEntityType String
-  sourceId         String
-  fetchedAt        DateTime
-  normalizedAt     DateTime
-  rawPayload       Json?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  chunks           KnowledgeChunk[]
+  norwayImplementedAt         DateTime?
+  lastVerifiedAt              DateTime
+  checksum                    String
+  sourceSystem                String
+  sourceEntityType            String
+  sourceId                    String
+  fetchedAt                   DateTime
+  normalizedAt                DateTime
+  rawPayload                  Json?
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+  chunks                      KnowledgeChunk[]
 
   @@unique([sourceSystem, sourceId, versionKey])
   @@index([externalId, effectiveFrom])
@@ -4144,17 +4164,17 @@ model KnowledgeDocument {
 /// Retrieval-sized provision/section from an official knowledge document. `searchVector` is a
 /// generated PostgreSQL tsvector maintained by the migration and therefore never written by Prisma.
 model KnowledgeChunk {
-  id             String   @id @default(cuid())
-  documentId     String
-  chunkIndex     Int
-  heading        String?
-  provisionRef   String?
-  content        String
-  tokenEstimate  Int
-  searchVector   Unsupported("tsvector")?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  document       KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id            String                   @id @default(cuid())
+  documentId    String
+  chunkIndex    Int
+  heading       String?
+  provisionRef  String?
+  content       String
+  tokenEstimate Int
+  searchVector  Unsupported("tsvector")?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  document      KnowledgeDocument        @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, chunkIndex])
   @@index([documentId, provisionRef])
