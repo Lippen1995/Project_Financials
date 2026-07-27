@@ -2,7 +2,7 @@
 
 **Status:** Aktiv arbeidsplan
 
-**Nåværende fase:** Sprint 0 ble formelt godkjent 24. juli 2026. Sprint 1 ble startet samme dag og formelt godkjent av CEO 27. juli 2026. Neste planlagte leveransefase er Sprint 2; host- og kostnadsbeslutninger forblir i G1. Se [Sprint 1-signeringen](./go-live/sprint-1/closeout-review.md).
+**Nåværende fase:** Sprint 0 ble formelt godkjent 24. juli 2026. Sprint 1 ble startet samme dag og formelt godkjent av CEO 27. juli 2026. Sprint 2 ble startet 27. juli 2026 på K0; host- og kostnadsbeslutninger forblir i G1. Se [Sprint 1-signeringen](./go-live/sprint-1/closeout-review.md) og [Sprint 2-kontrollsenteret](./go-live/sprint-2/README.md).
 
 **Opprettet:** 20. juli 2026
 
@@ -124,6 +124,15 @@ K1-kostnader. Se [signeringen](./go-live/sprint-1/closeout-review.md).
 | GL-210 | Datadekningsrapport | CEO får en enkel oversikt over hvilke regnskapsfelt åpen kilde faktisk dekker. |
 
 **Godkjenningskriterium:** En bruker kan se reelle nøkkeltall med kilde og dato, eller en ærlig tomtilstand.
+
+### Sprint 2-status
+
+Sprint 2 ble startet 27. juli 2026 på K0. Første vertikale leveranse dekker
+versjonert provider-/normaliseringskontrakt, proveniens, idempotent read-through,
+cachede tom- og feiltilstander, OCR-fri offentlig visning samt en reproduserbar
+dekningsrapport. Sprinten er ikke formelt lukket; bredere dekningsmåling og full
+produksjonslik verifikasjon gjenstår. Lokal releaseport er grønn. Se
+[kontrollsenteret](./go-live/sprint-2/README.md).
 
 ## 8. Sprint 3 – analysegrunnlag og Njord uten å kjøpe modellbruk
 

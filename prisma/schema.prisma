@@ -693,70 +693,71 @@ model WorkspaceInvitation {
 }
 
 model Company {
-  id                         String                            @id @default(cuid())
-  slug                       String                            @unique
-  orgNumber                  String                            @unique
-  name                       String
-  legalForm                  String?
-  status                     CompanyStatus                     @default(ACTIVE)
-  statusObservedAt           DateTime?
-  registeredAt               DateTime?
-  foundedAt                  DateTime?
-  website                    String?
-  employeeCount              Int?
-  revenue                    Int?
-  operatingProfit            Int?
-  netIncome                  Int?
-  equity                     Int?
-  description                String?
-  sourceSystem               String
-  sourceEntityType           String
-  sourceId                   String
-  fetchedAt                  DateTime
-  normalizedAt               DateTime
-  rawPayload                 Json?
-  createdAt                  DateTime                          @default(now())
-  updatedAt                  DateTime                          @updatedAt
-  addresses                  Address[]
-  roles                      Role[]
-  financialStatements        FinancialStatement[]
-  annualReportFilings        AnnualReportFiling[]
-  financialExtractionRuns    FinancialExtractionRun[]
-  financialFacts             FinancialFact[]
-  financialValidationIssues  FinancialValidationIssue[]
-  annualReportReviews        AnnualReportReview[]
-  shareholdingSnapshots      ShareholdingSnapshot[]
-  linkedShareholders         Shareholder[]
-  ownerships                 Ownership[]
-  insiderTransactions        InsiderTransaction[]
-  ddRooms                    DdRoom[]
-  ddCommentThreads           DdCommentThread[]
-  ddFindingEvidence          DdFindingEvidence[]
-  workspaceWatches           WorkspaceWatch[]
-  workspaceWatchGroupMembers WorkspaceWatchGroupMember[]
-  petroleumWatches           PetroleumWorkspaceWatch[]
-  workspaceNotifications     WorkspaceNotification[]
-  distressProfile            CompanyDistressProfile?
-  distressFinancialSnapshot  DistressFinancialSnapshot?
-  financialCoverage          CompanyFinancialCoverage?
-  petroleumExposureSnapshot  PetroleumCompanyExposureSnapshot?
-  annualReportReviewedFacts  AnnualReportReviewedFact[]
-  rawLineItems               RawFinancialLineItem[]
-  publishedLineItems         PublishedFinancialLineItem[]
-  narratives                 AnnualReportNarrative[]
-  boardReportExtractions     BoardReportExtraction[]
-  newsArticles               NewsArticleCompany[]
-  newsRelevanceScores        NewsArticleRelevance[]
-  newsFeatureSets            NewsArticleFeatureSet[]
-  newsRelevanceFeedback      NewsRelevanceFeedback[]
-  newsSignals                NewsSignal[]
-  companyEvents              CompanyEvent[]
-  companyEventExposures      CompanyEventExposure[]
-  exposureGraphEdges         CompanyExposureGraphEdge[]
-  newsIssuerIdentities       NewsIssuerIdentity[]
-  matchedUserProfiles        UserProfile[]
-  industryCodeId             String?
-  industryCode               IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
+  id                            String                            @id @default(cuid())
+  slug                          String                            @unique
+  orgNumber                     String                            @unique
+  name                          String
+  legalForm                     String?
+  status                        CompanyStatus                     @default(ACTIVE)
+  statusObservedAt              DateTime?
+  registeredAt                  DateTime?
+  foundedAt                     DateTime?
+  website                       String?
+  employeeCount                 Int?
+  revenue                       Int?
+  operatingProfit               Int?
+  netIncome                     Int?
+  equity                        Int?
+  description                   String?
+  sourceSystem                  String
+  sourceEntityType              String
+  sourceId                      String
+  fetchedAt                     DateTime
+  normalizedAt                  DateTime
+  rawPayload                    Json?
+  createdAt                     DateTime                          @default(now())
+  updatedAt                     DateTime                          @updatedAt
+  addresses                     Address[]
+  roles                         Role[]
+  financialStatements           FinancialStatement[]
+  structuredFinancialFetchState StructuredFinancialFetchState?
+  annualReportFilings           AnnualReportFiling[]
+  financialExtractionRuns       FinancialExtractionRun[]
+  financialFacts                FinancialFact[]
+  financialValidationIssues     FinancialValidationIssue[]
+  annualReportReviews           AnnualReportReview[]
+  shareholdingSnapshots         ShareholdingSnapshot[]
+  linkedShareholders            Shareholder[]
+  ownerships                    Ownership[]
+  insiderTransactions           InsiderTransaction[]
+  ddRooms                       DdRoom[]
+  ddCommentThreads              DdCommentThread[]
+  ddFindingEvidence             DdFindingEvidence[]
+  workspaceWatches              WorkspaceWatch[]
+  workspaceWatchGroupMembers    WorkspaceWatchGroupMember[]
+  petroleumWatches              PetroleumWorkspaceWatch[]
+  workspaceNotifications        WorkspaceNotification[]
+  distressProfile               CompanyDistressProfile?
+  distressFinancialSnapshot     DistressFinancialSnapshot?
+  financialCoverage             CompanyFinancialCoverage?
+  petroleumExposureSnapshot     PetroleumCompanyExposureSnapshot?
+  annualReportReviewedFacts     AnnualReportReviewedFact[]
+  rawLineItems                  RawFinancialLineItem[]
+  publishedLineItems            PublishedFinancialLineItem[]
+  narratives                    AnnualReportNarrative[]
+  boardReportExtractions        BoardReportExtraction[]
+  newsArticles                  NewsArticleCompany[]
+  newsRelevanceScores           NewsArticleRelevance[]
+  newsFeatureSets               NewsArticleFeatureSet[]
+  newsRelevanceFeedback         NewsRelevanceFeedback[]
+  newsSignals                   NewsSignal[]
+  companyEvents                 CompanyEvent[]
+  companyEventExposures         CompanyEventExposure[]
+  exposureGraphEdges            CompanyExposureGraphEdge[]
+  newsIssuerIdentities          NewsIssuerIdentity[]
+  matchedUserProfiles           UserProfile[]
+  industryCodeId                String?
+  industryCode                  IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
 
   @@index([name])
   @@index([orgNumber])
@@ -1056,6 +1057,33 @@ model FinancialStatement {
   @@index([companyId, fiscalYear])
   @@index([sourceFilingId])
   @@index([sourceExtractionRunId])
+}
+
+/// Cache and source-health state for the public structured Regnskapsregisteret
+/// endpoint. Empty and error outcomes are persisted so user reads do not create
+/// retry loops or silently fall back to PDF/OCR.
+model StructuredFinancialFetchState {
+  id                String   @id @default(cuid())
+  companyId         String   @unique
+  status            String
+  unavailableReason String?
+  lastCheckedAt     DateTime
+  nextCheckAt       DateTime
+  failureCount      Int      @default(0)
+  lastErrorCode     String?
+  latestFiscalYear  Int?
+  sourceSystem      String
+  sourceEntityType  String
+  sourceId          String
+  fetchedAt         DateTime
+  normalizedAt      DateTime
+  rawPayload        Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextCheckAt])
+  @@index([nextCheckAt])
 }
 
 // Public "as reported" financial statement line items. Machine extraction may

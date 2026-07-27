@@ -1,17 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  parseStructuredRegnskapResponse,
+  STRUCTURED_FINANCIAL_MODEL_VERSION,
   mapStructuredRegnskapEntry,
   mapStructuredRegnskapResponse,
 } from "@/integrations/brreg/structured-regnskap";
 
-// Shape captured from the live API 2026-07-04 (org 835347702, FY2025).
+const source = {
+  orgNumber: "000000000",
+  fetchedAt: new Date("2026-07-27T08:00:00.000Z"),
+  normalizedAt: new Date("2026-07-27T08:00:01.000Z"),
+};
+
+// Shape captured from the live API 2026-07-04; identity replaced by a sentinel.
 const SMALL_AS_ENTRY = {
   id: 6785416,
   journalnr: "2026357688",
   regnskapstype: "SELSKAP",
   virksomhet: {
-    organisasjonsnummer: "835347702",
+    organisasjonsnummer: source.orgNumber,
     organisasjonsform: "AS",
     morselskap: false,
   },
@@ -50,10 +58,17 @@ const SMALL_AS_ENTRY = {
 };
 
 describe("mapStructuredRegnskapEntry", () => {
-  it("maps headline figures in whole NOK", () => {
-    const mapped = mapStructuredRegnskapEntry(SMALL_AS_ENTRY);
+  it("maps headline figures with a versioned period, unit and provenance contract", () => {
+    const mapped = mapStructuredRegnskapEntry(SMALL_AS_ENTRY, source);
     expect(mapped).not.toBeNull();
     expect(mapped!.fiscalYear).toBe(2025);
+    expect(mapped!.modelVersion).toBe(STRUCTURED_FINANCIAL_MODEL_VERSION);
+    expect(mapped!.period).toEqual({
+      from: "2025-01-01",
+      to: "2025-12-31",
+    });
+    expect(mapped!.amountUnit).toBe("WHOLE_CURRENCY_UNITS");
+    expect(mapped!.unitScale).toBe(1);
     expect(mapped!.statementScope).toBe("COMPANY");
     expect(mapped!.currency).toBe("NOK");
     expect(mapped!.revenue).toBe(314053);
@@ -61,10 +76,17 @@ describe("mapStructuredRegnskapEntry", () => {
     expect(mapped!.netIncome).toBe(4131);
     expect(mapped!.equity).toBe(4131);
     expect(mapped!.assets).toBe(93716);
+    expect(mapped).toMatchObject({
+      sourceSystem: "BRREG",
+      sourceEntityType: "structuredAnnualAccounts",
+      sourceId: "2026357688",
+      fetchedAt: source.fetchedAt,
+      normalizedAt: source.normalizedAt,
+    });
   });
 
   it("collects canonical anchor values with taxonomy keys", () => {
-    const mapped = mapStructuredRegnskapEntry(SMALL_AS_ENTRY)!;
+    const mapped = mapStructuredRegnskapEntry(SMALL_AS_ENTRY, source)!;
     expect(mapped.canonicalValues).toMatchObject({
       total_operating_income: 314053,
       total_operating_expenses: 309921,
@@ -85,14 +107,31 @@ describe("mapStructuredRegnskapEntry", () => {
   });
 
   it("rejects entries without a valid period", () => {
-    expect(mapStructuredRegnskapEntry({ ...SMALL_AS_ENTRY, regnskapsperiode: {} })).toBeNull();
+    expect(
+      mapStructuredRegnskapEntry({ ...SMALL_AS_ENTRY, regnskapsperiode: {} }, source),
+    ).toBeNull();
+  });
+
+  it("rejects entries without any usable financial values", () => {
+    expect(
+      mapStructuredRegnskapEntry(
+        {
+          journalnr: "empty-entry",
+          regnskapstype: "SELSKAP",
+          avviklingsregnskap: false,
+          regnskapsperiode: { tilDato: "2025-12-31" },
+          valuta: "NOK",
+        },
+        source,
+      ),
+    ).toBeNull();
   });
 
   it("marks konsern entries as CONSOLIDATED", () => {
     const mapped = mapStructuredRegnskapEntry({
       ...SMALL_AS_ENTRY,
       regnskapstype: "KONSERN",
-    })!;
+    }, source)!;
     expect(mapped.statementScope).toBe("CONSOLIDATED");
   });
 });
@@ -103,13 +142,27 @@ describe("mapStructuredRegnskapResponse", () => {
       SMALL_AS_ENTRY,
       { regnskapsperiode: {} },
       "garbage",
-    ]);
+    ], source);
     expect(mapped).toHaveLength(1);
     expect(mapped[0]!.fiscalYear).toBe(2025);
   });
 
   it("returns empty for non-array payloads", () => {
-    expect(mapStructuredRegnskapResponse({ error: "500" })).toEqual([]);
-    expect(mapStructuredRegnskapResponse(null)).toEqual([]);
+    expect(mapStructuredRegnskapResponse({ error: "500" }, source)).toEqual([]);
+    expect(mapStructuredRegnskapResponse(null, source)).toEqual([]);
+  });
+});
+
+describe("parseStructuredRegnskapResponse", () => {
+  it("rejects a changed successful response instead of presenting it as no data", () => {
+    expect(() => parseStructuredRegnskapResponse({ data: [] }, source)).toThrow(
+      "Uventet responsformat",
+    );
+  });
+
+  it("rejects an array where no entry satisfies the Brreg contract", () => {
+    expect(() =>
+      parseStructuredRegnskapResponse([{ regnskapsperiode: {} }], source),
+    ).toThrow("ingen gyldige regnskap");
   });
 });

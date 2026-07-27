@@ -6,9 +6,8 @@
  * ML gold-set generation.
  *
  * Precedence rules:
- *  - Never replaces reviewer-published statements.
- *  - Replaces machine/OCR statements for the same (company, year, scope) —
- *    the structured registry values are exact.
+ *  - Replaces PDF/OCR and reviewer-derived headline statements for the same
+ *    (company, year, scope); Brreg is source of truth for these core fields.
  *  - Published with HIGH_CONFIDENCE / score 1.0 / MACHINE_READABLE precedence,
  *    which the existing publish gate treats as non-replaceable by later OCR
  *    runs (different sourceFilingId + higher quality score).
@@ -16,58 +15,77 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
-import { StructuredAnnualAccounts } from "@/integrations/brreg/structured-regnskap";
+import {
+  BrregFinancialsProvider,
+  StructuredAnnualAccountsResult,
+} from "@/integrations/brreg/brreg-financials-provider";
+import {
+  StructuredAnnualAccounts,
+  StructuredRegnskapContractError,
+} from "@/integrations/brreg/structured-regnskap";
+import { logRecoverableError } from "@/lib/recoverable-error";
+import type { SourceMetadata } from "@/lib/types";
 import { findCompanyByOrgNumber } from "@/server/persistence/annual-report-ingestion-repository";
 
 const provider = new BrregFinancialsProvider();
 
 const STRUCTURED_SOURCE_SYSTEM = "BRREG";
 const STRUCTURED_SOURCE_ENTITY_TYPE = "structuredAnnualAccounts";
+const AVAILABLE_CACHE_MS = 24 * 60 * 60 * 1000;
+const UNAVAILABLE_CACHE_MS = 7 * AVAILABLE_CACHE_MS;
+const ERROR_RETRY_BASE_MS = 15 * 60 * 1000;
+const ERROR_RETRY_MAX_MS = 6 * 60 * 60 * 1000;
+
+export type StructuredFinancialFetchStatus = "AVAILABLE" | "UNAVAILABLE" | "ERROR";
+
+export type StructuredFinancialFetchStateRecord = SourceMetadata & {
+  status: StructuredFinancialFetchStatus;
+  unavailableReason: string | null;
+  nextCheckAt: Date;
+  failureCount: number;
+  latestFiscalYear: number | null;
+  lastErrorCode: string | null;
+};
+
+export type StructuredFinancialsContext = {
+  companyId: string;
+  hasStructuredStatements: boolean;
+  latestStatementFetchedAt: Date | null;
+  latestStructuredFiscalYear?: number | null;
+  state: StructuredFinancialFetchStateRecord | null;
+};
+
+export type StructuredFinancialFetchStateInput = StructuredFinancialFetchStateRecord & {
+  lastCheckedAt: Date;
+};
+
+export type StructuredFinancialsRepository = {
+  loadContext(orgNumber: string): Promise<StructuredFinancialsContext | null>;
+  publish(
+    companyId: string,
+    accounts: StructuredAnnualAccounts,
+  ): Promise<"published" | "skipped_reviewed">;
+  saveFetchState(
+    companyId: string,
+    state: StructuredFinancialFetchStateInput,
+  ): Promise<void>;
+};
+
+type StructuredFinancialsProviderContract = {
+  fetchStructuredAnnualAccounts(orgNumber: string): Promise<StructuredAnnualAccountsResult>;
+};
 
 function toBigIntOrNull(value: number | null): bigint | null {
   return value === null ? null : BigInt(value);
 }
 
-function isReviewedStatement(statement: {
-  sourceSystem: string;
-  sourceEntityType: string;
-  rawPayload: Prisma.JsonValue;
-}): boolean {
-  const payload =
-    statement.rawPayload && typeof statement.rawPayload === "object"
-      ? (statement.rawPayload as Record<string, unknown>)
-      : null;
-  return (
-    statement.sourceSystem === "PROJECT_FINANCIALS_REVIEW" ||
-    statement.sourceEntityType === "annualReportReviewedFact" ||
-    payload?.reviewed === true
-  );
-}
-
 async function publishStructuredStatement(input: {
   companyId: string;
   accounts: StructuredAnnualAccounts;
-  fetchedAt: Date;
 }): Promise<"published" | "skipped_reviewed"> {
-  const { companyId, accounts, fetchedAt } = input;
+  const { companyId, accounts } = input;
 
   return prisma.$transaction(async (tx) => {
-    const existing = await tx.financialStatement.findUnique({
-      where: {
-        companyId_fiscalYear_statementScope: {
-          companyId,
-          fiscalYear: accounts.fiscalYear,
-          statementScope: accounts.statementScope,
-        },
-      },
-      select: { sourceSystem: true, sourceEntityType: true, rawPayload: true },
-    });
-
-    if (existing && isReviewedStatement(existing)) {
-      return "skipped_reviewed";
-    }
-
     // Provenance link to the PDF filing for the same fiscal year when known.
     const filing = await tx.annualReportFiling.findFirst({
       where: { companyId, fiscalYear: accounts.fiscalYear, isLatestForFiscalYear: true },
@@ -81,28 +99,29 @@ async function publishStructuredStatement(input: {
       netIncome: toBigIntOrNull(accounts.netIncome),
       equity: toBigIntOrNull(accounts.equity),
       assets: toBigIntOrNull(accounts.assets),
-      sourceSystem: STRUCTURED_SOURCE_SYSTEM,
-      sourceEntityType: STRUCTURED_SOURCE_ENTITY_TYPE,
-      sourceId:
-        accounts.journalnr ??
-        `structured:${accounts.fiscalYear}:${accounts.sourceEntryId ?? "unknown"}`,
-      fetchedAt,
-      normalizedAt: fetchedAt,
+      sourceSystem: accounts.sourceSystem,
+      sourceEntityType: accounts.sourceEntityType,
+      sourceId: accounts.sourceId,
+      fetchedAt: accounts.fetchedAt,
+      normalizedAt: accounts.normalizedAt,
       rawPayload: {
         structuredAnnualAccounts: true,
+        modelVersion: accounts.modelVersion,
+        period: accounts.period,
+        amountUnit: accounts.amountUnit,
+        unitScale: accounts.unitScale,
         canonicalValues: accounts.canonicalValues,
         oppstillingsplan: accounts.oppstillingsplan,
         isParentCompany: accounts.isParentCompany,
         isLiquidationAccounts: accounts.isLiquidationAccounts,
-        entry: accounts.rawEntry,
       } as unknown as Prisma.InputJsonValue,
       sourceFilingId: filing?.id ?? null,
       sourceExtractionRunId: null,
       qualityStatus: "HIGH_CONFIDENCE" as const,
       qualityScore: 1,
-      unitScale: 1,
+      unitScale: accounts.unitScale,
       sourcePrecedence: "MACHINE_READABLE" as const,
-      publishedAt: fetchedAt,
+      publishedAt: accounts.normalizedAt,
     };
 
     await tx.financialStatement.upsert({
@@ -122,7 +141,7 @@ async function publishStructuredStatement(input: {
       },
     });
 
-    return "published";
+    return "published" as const;
   });
 }
 
@@ -151,41 +170,356 @@ export async function loadStructuredAnchors(
 
 export type StructuredIngestionResult = {
   orgNumber: string;
+  status: "AVAILABLE" | "UNAVAILABLE" | "STALE" | "ERROR";
+  available: boolean;
+  fromCache: boolean;
   published: number;
   skippedReviewed: number;
   unavailableReason: string | null;
   fiscalYears: number[];
+  errorCode: string | null;
+  nextCheckAt: Date;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
 };
+
+function addMilliseconds(value: Date, milliseconds: number) {
+  return new Date(value.getTime() + milliseconds);
+}
+
+function cachedResult(
+  orgNumber: string,
+  context: StructuredFinancialsContext,
+): StructuredIngestionResult {
+  const state = context.state;
+  if (!state) {
+    throw new Error("Mangler cachetilstand for strukturert regnskap.");
+  }
+
+  const hasLastOfficialSnapshot = context.hasStructuredStatements;
+  const status =
+    state.status === "ERROR"
+      ? hasLastOfficialSnapshot
+        ? "STALE"
+        : "ERROR"
+      : state.status;
+  const latestFiscalYear =
+    state.latestFiscalYear ?? context.latestStructuredFiscalYear ?? null;
+
+  return {
+    orgNumber,
+    status,
+    available: status === "AVAILABLE" || status === "STALE",
+    fromCache: true,
+    published: 0,
+    skippedReviewed: 0,
+    unavailableReason:
+      status === "UNAVAILABLE" ? state.unavailableReason : null,
+    fiscalYears: latestFiscalYear === null ? [] : [latestFiscalYear],
+    errorCode: state.lastErrorCode,
+    nextCheckAt: state.nextCheckAt,
+    sourceSystem: state.sourceSystem,
+    sourceEntityType: state.sourceEntityType,
+    sourceId: state.sourceId,
+    fetchedAt: state.fetchedAt,
+    normalizedAt: state.normalizedAt,
+  };
+}
+
+export function createStructuredFinancialsService(dependencies: {
+  repository: StructuredFinancialsRepository;
+  provider: StructuredFinancialsProviderContract;
+  now?: () => Date;
+}) {
+  const { repository, provider: sourceProvider } = dependencies;
+  const now = dependencies.now ?? (() => new Date());
+  const inFlightByOrgNumber = new Map<string, Promise<StructuredIngestionResult>>();
+
+  async function performEnsureForCompany(
+    orgNumber: string,
+    options: { forceRefresh?: boolean } = {},
+  ): Promise<StructuredIngestionResult> {
+    const context = await repository.loadContext(orgNumber);
+    if (!context) {
+      throw new Error(`Fant ikke virksomhet ${orgNumber}.`);
+    }
+
+    const checkedAt = now();
+    if (
+      !options.forceRefresh &&
+      context.state &&
+      (context.state.status !== "AVAILABLE" || context.hasStructuredStatements) &&
+      context.state.nextCheckAt.getTime() > checkedAt.getTime()
+    ) {
+      return cachedResult(orgNumber, context);
+    }
+
+    let sourceFetchComplete = false;
+    try {
+      const sourceResult =
+        await sourceProvider.fetchStructuredAnnualAccounts(orgNumber);
+      sourceFetchComplete = true;
+      const publishableAccounts = sourceResult.accounts.filter(
+        (entry) => !entry.isLiquidationAccounts,
+      );
+      let published = 0;
+      let skippedReviewed = 0;
+
+      for (const accounts of publishableAccounts) {
+        const outcome = await repository.publish(context.companyId, accounts);
+        if (outcome === "published") {
+          published += 1;
+        } else {
+          skippedReviewed += 1;
+        }
+      }
+
+      const fiscalYears = publishableAccounts
+        .map((entry) => entry.fiscalYear)
+        .sort((left, right) => right - left);
+      const available = fiscalYears.length > 0;
+      const status: StructuredFinancialFetchStatus = available
+        ? "AVAILABLE"
+        : "UNAVAILABLE";
+      const unavailableReason =
+        available
+          ? null
+          : sourceResult.unavailableReason ??
+            (sourceResult.accounts.length > 0
+              ? "Bare avviklingsregnskap er tilgjengelig."
+              : "Strukturert regnskap er ikke tilgjengelig.");
+      const nextCheckAt = addMilliseconds(
+        checkedAt,
+        available ? AVAILABLE_CACHE_MS : UNAVAILABLE_CACHE_MS,
+      );
+
+      await repository.saveFetchState(context.companyId, {
+        status,
+        unavailableReason,
+        lastCheckedAt: checkedAt,
+        nextCheckAt,
+        failureCount: 0,
+        lastErrorCode: null,
+        latestFiscalYear:
+          fiscalYears[0] ?? context.latestStructuredFiscalYear ?? null,
+        sourceSystem: sourceResult.sourceSystem,
+        sourceEntityType: sourceResult.sourceEntityType,
+        sourceId: sourceResult.sourceId,
+        fetchedAt: sourceResult.fetchedAt,
+        normalizedAt: sourceResult.normalizedAt,
+        rawPayload: sourceResult.rawPayload,
+      });
+
+      return {
+        orgNumber,
+        status,
+        available,
+        fromCache: false,
+        published,
+        skippedReviewed,
+        unavailableReason,
+        fiscalYears,
+        errorCode: null,
+        nextCheckAt,
+        sourceSystem: sourceResult.sourceSystem,
+        sourceEntityType: sourceResult.sourceEntityType,
+        sourceId: sourceResult.sourceId,
+        fetchedAt: sourceResult.fetchedAt,
+        normalizedAt: sourceResult.normalizedAt,
+      };
+    } catch (error) {
+      if (sourceFetchComplete) {
+        throw error;
+      }
+      const failureCount = (context.state?.failureCount ?? 0) + 1;
+      const retryDelay = Math.min(
+        ERROR_RETRY_BASE_MS * 2 ** (failureCount - 1),
+        ERROR_RETRY_MAX_MS,
+      );
+      const nextCheckAt = addMilliseconds(checkedAt, retryDelay);
+      const errorCode =
+        error instanceof StructuredRegnskapContractError
+          ? "BRREG_CONTRACT_ERROR"
+          : "BRREG_UNAVAILABLE";
+      const previousSource = context.state;
+
+      await repository.saveFetchState(context.companyId, {
+        status: "ERROR",
+        unavailableReason: null,
+        lastCheckedAt: checkedAt,
+        nextCheckAt,
+        failureCount,
+        lastErrorCode: errorCode,
+        latestFiscalYear:
+          previousSource?.latestFiscalYear ??
+          context.latestStructuredFiscalYear ??
+          null,
+        sourceSystem: previousSource?.sourceSystem ?? "BRREG",
+        sourceEntityType:
+          previousSource?.sourceEntityType ??
+          "structuredAnnualAccountsError",
+        sourceId: previousSource?.sourceId ?? orgNumber,
+        fetchedAt: previousSource?.fetchedAt ?? checkedAt,
+        normalizedAt: checkedAt,
+        rawPayload: {
+          errorCode,
+          previousSourceFetchedAt:
+            previousSource?.fetchedAt.toISOString() ?? null,
+        },
+      });
+
+      logRecoverableError("structured-financials.ensure", error, {
+        orgNumber,
+        errorCode,
+        failureCount,
+        hasLastOfficialSnapshot: context.hasStructuredStatements,
+      });
+
+      return {
+        orgNumber,
+        status: context.hasStructuredStatements ? "STALE" : "ERROR",
+        available: context.hasStructuredStatements,
+        fromCache: context.hasStructuredStatements,
+        published: 0,
+        skippedReviewed: 0,
+        unavailableReason: context.hasStructuredStatements
+          ? null
+          : "Brønnøysundregistrenes regnskapstjeneste er midlertidig utilgjengelig.",
+        fiscalYears:
+          context.latestStructuredFiscalYear !== undefined &&
+          context.latestStructuredFiscalYear !== null
+            ? [context.latestStructuredFiscalYear]
+            : previousSource?.latestFiscalYear !== null &&
+                previousSource?.latestFiscalYear !== undefined
+              ? [previousSource.latestFiscalYear]
+              : [],
+        errorCode,
+        nextCheckAt,
+        sourceSystem: previousSource?.sourceSystem ?? "BRREG",
+        sourceEntityType:
+          previousSource?.sourceEntityType ?? "structuredAnnualAccountsError",
+        sourceId: previousSource?.sourceId ?? orgNumber,
+        fetchedAt: previousSource?.fetchedAt ?? checkedAt,
+        normalizedAt: checkedAt,
+      };
+    }
+  }
+
+  function ensureForCompany(
+    orgNumber: string,
+    options: { forceRefresh?: boolean } = {},
+  ): Promise<StructuredIngestionResult> {
+    const existing = inFlightByOrgNumber.get(orgNumber);
+    if (existing) return existing;
+
+    const request = performEnsureForCompany(orgNumber, options);
+    inFlightByOrgNumber.set(orgNumber, request);
+    const clearRequest = () => {
+      if (inFlightByOrgNumber.get(orgNumber) === request) {
+        inFlightByOrgNumber.delete(orgNumber);
+      }
+    };
+    void request.then(clearRequest, clearRequest);
+    return request;
+  }
+
+  return { ensureForCompany };
+}
+
+const prismaStructuredFinancialsRepository: StructuredFinancialsRepository = {
+  async loadContext(orgNumber) {
+    const company = await findCompanyByOrgNumber(orgNumber);
+    if (!company) return null;
+
+    const [state, latestStatement] = await Promise.all([
+      prisma.structuredFinancialFetchState.findUnique({
+        where: { companyId: company.id },
+      }),
+      prisma.financialStatement.findFirst({
+        where: {
+          companyId: company.id,
+          sourceSystem: STRUCTURED_SOURCE_SYSTEM,
+          sourceEntityType: STRUCTURED_SOURCE_ENTITY_TYPE,
+        },
+        orderBy: [{ fiscalYear: "desc" }, { fetchedAt: "desc" }],
+        select: { fiscalYear: true, fetchedAt: true },
+      }),
+    ]);
+
+    return {
+      companyId: company.id,
+      hasStructuredStatements: latestStatement !== null,
+      latestStatementFetchedAt: latestStatement?.fetchedAt ?? null,
+      latestStructuredFiscalYear: latestStatement?.fiscalYear ?? null,
+      state: state
+        ? {
+            status: state.status as StructuredFinancialFetchStatus,
+            unavailableReason: state.unavailableReason,
+            nextCheckAt: state.nextCheckAt,
+            failureCount: state.failureCount,
+            latestFiscalYear: state.latestFiscalYear,
+            lastErrorCode: state.lastErrorCode,
+            sourceSystem: state.sourceSystem,
+            sourceEntityType: state.sourceEntityType,
+            sourceId: state.sourceId,
+            fetchedAt: state.fetchedAt,
+            normalizedAt: state.normalizedAt,
+            rawPayload: state.rawPayload,
+          }
+        : null,
+    };
+  },
+
+  publish(companyId, accounts) {
+    return publishStructuredStatement({ companyId, accounts });
+  },
+
+  async saveFetchState(companyId, state) {
+    const values = {
+      status: state.status,
+      unavailableReason: state.unavailableReason,
+      lastCheckedAt: state.lastCheckedAt,
+      nextCheckAt: state.nextCheckAt,
+      failureCount: state.failureCount,
+      lastErrorCode: state.lastErrorCode,
+      latestFiscalYear: state.latestFiscalYear,
+      sourceSystem: state.sourceSystem,
+      sourceEntityType: state.sourceEntityType,
+      sourceId: state.sourceId,
+      fetchedAt: state.fetchedAt,
+      normalizedAt: state.normalizedAt,
+      rawPayload:
+        state.rawPayload === undefined
+          ? Prisma.JsonNull
+          : (state.rawPayload as Prisma.InputJsonValue),
+    };
+
+    await prisma.structuredFinancialFetchState.upsert({
+      where: { companyId },
+      update: values,
+      create: { companyId, ...values },
+    });
+  },
+};
+
+const structuredFinancialsService = createStructuredFinancialsService({
+  repository: prismaStructuredFinancialsRepository,
+  provider,
+});
+
+export async function ensureStructuredFinancialsForCompany(
+  orgNumber: string,
+): Promise<StructuredIngestionResult> {
+  return structuredFinancialsService.ensureForCompany(orgNumber);
+}
 
 export async function ingestStructuredFinancialsForCompany(
   orgNumber: string,
 ): Promise<StructuredIngestionResult> {
-  const company = await findCompanyByOrgNumber(orgNumber);
-  if (!company) throw new Error(`Fant ikke virksomhet ${orgNumber}.`);
-
-  const fetchedAt = new Date();
-  const { accounts, unavailableReason } = await provider.fetchStructuredAnnualAccounts(orgNumber);
-
-  let published = 0;
-  let skippedReviewed = 0;
-  const fiscalYears: number[] = [];
-
-  for (const entry of accounts) {
-    // Liquidation accounts describe a wind-down period, not a normal fiscal
-    // year — skip rather than overwrite ordinary statements.
-    if (entry.isLiquidationAccounts) continue;
-    const outcome = await publishStructuredStatement({
-      companyId: company.id,
-      accounts: entry,
-      fetchedAt,
-    });
-    if (outcome === "published") {
-      published += 1;
-      fiscalYears.push(entry.fiscalYear);
-    } else {
-      skippedReviewed += 1;
-    }
-  }
-
-  return { orgNumber, published, skippedReviewed, unavailableReason, fiscalYears };
+  return structuredFinancialsService.ensureForCompany(orgNumber, {
+    forceRefresh: true,
+  });
 }

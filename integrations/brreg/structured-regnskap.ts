@@ -14,6 +14,16 @@
  *    "oppstillingsplan som ikke er stottet" message.
  */
 
+import type { SourceMetadata } from "@/lib/types";
+
+export const STRUCTURED_FINANCIAL_MODEL_VERSION = "brreg-structured-annual-accounts@1";
+
+export type StructuredRegnskapSourceContext = {
+  orgNumber: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
+};
+
 export type StructuredRegnskapEntry = {
   id?: number;
   journalnr?: string;
@@ -62,12 +72,19 @@ export type StructuredRegnskapEntry = {
   };
 };
 
-export type StructuredAnnualAccounts = {
+export type StructuredAnnualAccounts = SourceMetadata & {
+  modelVersion: typeof STRUCTURED_FINANCIAL_MODEL_VERSION;
   fiscalYear: number;
+  period: {
+    from: string | null;
+    to: string;
+  };
   statementScope: "COMPANY" | "CONSOLIDATED";
   currency: string;
+  amountUnit: "WHOLE_CURRENCY_UNITS";
+  unitScale: 1;
   isLiquidationAccounts: boolean;
-  isParentCompany: boolean;
+  isParentCompany: boolean | null;
   oppstillingsplan: string | null;
   journalnr: string | null;
   sourceEntryId: number | null;
@@ -80,7 +97,6 @@ export type StructuredAnnualAccounts = {
   /** Exact values per canonical metric key — anchors for OCR validation and
    *  ML gold-set generation. Keys follow the annual-report taxonomy. */
   canonicalValues: Record<string, number>;
-  rawEntry: StructuredRegnskapEntry;
 };
 
 function asFiniteNumber(value: unknown): number | null {
@@ -122,21 +138,57 @@ function collectCanonicalValues(entry: StructuredRegnskapEntry): Record<string, 
 
 export function mapStructuredRegnskapEntry(
   entry: StructuredRegnskapEntry,
+  source: StructuredRegnskapSourceContext,
 ): StructuredAnnualAccounts | null {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
   const tilDato = entry.regnskapsperiode?.tilDato;
-  const fiscalYear = tilDato ? Number(tilDato.slice(0, 4)) : NaN;
+  if (
+    !tilDato ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(tilDato) ||
+    Number.isNaN(Date.parse(`${tilDato}T00:00:00Z`)) ||
+    !entry.valuta?.trim() ||
+    (entry.regnskapstype !== "SELSKAP" && entry.regnskapstype !== "KONSERN") ||
+    typeof entry.avviklingsregnskap !== "boolean" ||
+    (entry.virksomhet?.organisasjonsnummer !== undefined &&
+      entry.virksomhet.organisasjonsnummer !== source.orgNumber)
+  ) {
+    return null;
+  }
+  const fiscalYear = Number(tilDato.slice(0, 4));
   if (!Number.isInteger(fiscalYear) || fiscalYear < 1900 || fiscalYear > 2100) {
     return null;
   }
 
   const canonicalValues = collectCanonicalValues(entry);
+  if (Object.keys(canonicalValues).length === 0) {
+    return null;
+  }
 
   return {
+    sourceSystem: "BRREG",
+    sourceEntityType: "structuredAnnualAccounts",
+    sourceId:
+      entry.journalnr ??
+      `${source.orgNumber}:${fiscalYear}:${typeof entry.id === "number" ? entry.id : "unknown"}`,
+    fetchedAt: source.fetchedAt,
+    normalizedAt: source.normalizedAt,
+    modelVersion: STRUCTURED_FINANCIAL_MODEL_VERSION,
     fiscalYear,
+    period: {
+      from: entry.regnskapsperiode?.fraDato ?? null,
+      to: tilDato,
+    },
     statementScope: entry.regnskapstype === "KONSERN" ? "CONSOLIDATED" : "COMPANY",
-    currency: entry.valuta ?? "NOK",
+    currency: entry.valuta,
+    amountUnit: "WHOLE_CURRENCY_UNITS",
+    unitScale: 1,
     isLiquidationAccounts: entry.avviklingsregnskap === true,
-    isParentCompany: entry.virksomhet?.morselskap === true,
+    isParentCompany:
+      typeof entry.virksomhet?.morselskap === "boolean"
+        ? entry.virksomhet.morselskap
+        : null,
     oppstillingsplan: entry.oppstillingsplan ?? null,
     journalnr: entry.journalnr ?? null,
     sourceEntryId: typeof entry.id === "number" ? entry.id : null,
@@ -150,15 +202,52 @@ export function mapStructuredRegnskapEntry(
     equity: asFiniteNumber(entry.egenkapitalGjeld?.egenkapital?.sumEgenkapital),
     assets: asFiniteNumber(entry.eiendeler?.sumEiendeler),
     canonicalValues,
-    rawEntry: entry,
   };
 }
 
 export function mapStructuredRegnskapResponse(
   payload: unknown,
+  source: StructuredRegnskapSourceContext,
 ): StructuredAnnualAccounts[] {
   if (!Array.isArray(payload)) return [];
   return payload
-    .map((entry) => mapStructuredRegnskapEntry(entry as StructuredRegnskapEntry))
+    .map((entry) => mapStructuredRegnskapEntry(entry as StructuredRegnskapEntry, source))
     .filter((mapped): mapped is StructuredAnnualAccounts => mapped !== null);
+}
+
+export class StructuredRegnskapContractError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StructuredRegnskapContractError";
+  }
+}
+
+/**
+ * Strict provider boundary for successful HTTP responses. A changed response
+ * must become a controlled contract error, never an incorrect empty state.
+ */
+export function parseStructuredRegnskapResponse(
+  payload: unknown,
+  source: StructuredRegnskapSourceContext,
+): StructuredAnnualAccounts[] {
+  if (!Array.isArray(payload)) {
+    throw new StructuredRegnskapContractError(
+      "Uventet responsformat fra Brreg Regnskapsregisteret.",
+    );
+  }
+
+  if (payload.length === 0) {
+    return [];
+  }
+
+  const accounts = mapStructuredRegnskapResponse(payload, source);
+  if (accounts.length !== payload.length) {
+    throw new StructuredRegnskapContractError(
+      accounts.length === 0
+        ? "Brreg-responsen inneholdt ingen gyldige regnskap."
+        : "Brreg-responsen inneholdt ugyldige regnskapsoppføringer.",
+    );
+  }
+
+  return accounts;
 }

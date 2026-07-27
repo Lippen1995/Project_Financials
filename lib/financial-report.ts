@@ -60,6 +60,36 @@ export type FinancialReportDataset = {
   balanceValidationByYear: Record<number, BalanceValidation>;
 };
 
+const STRUCTURED_KEY_BY_REPORT_KEY: Record<string, string> = {
+  total_operating_revenue: "total_operating_income",
+  total_operating_costs: "total_operating_expenses",
+  ebit: "operating_profit",
+};
+
+function internalStatementValue(
+  statement: NormalizedFinancialStatement | undefined,
+  reportKey: string,
+) {
+  if (!statement) return null;
+  const structuredKey = STRUCTURED_KEY_BY_REPORT_KEY[reportKey] ?? reportKey;
+  const structuredValue = statement.financialValues?.[structuredKey];
+  if (typeof structuredValue === "number" && Number.isFinite(structuredValue)) {
+    return structuredValue;
+  }
+
+  const headlineValues: Record<string, number | null | undefined> = {
+    total_operating_revenue: statement.revenue,
+    ebit: statement.operatingProfit,
+    net_income: statement.netIncome,
+    total_equity: statement.equity,
+    total_assets: statement.assets,
+  };
+  const headlineValue = headlineValues[reportKey];
+  return typeof headlineValue === "number" && Number.isFinite(headlineValue)
+    ? headlineValue
+    : null;
+}
+
 const EMPTY = "—";
 const BALANCE_TOLERANCE = 1;
 
@@ -1106,11 +1136,13 @@ export function buildFinancialReportDataset(
   const balanceValidationByYear: FinancialReportDataset["balanceValidationByYear"] = {};
 
   for (const year of years) {
-    const payload = ((statementByYear.get(year)?.rawPayload ?? {}) as Record<string, unknown>) ?? {};
+    const statement = statementByYear.get(year);
+    const payload = ((statement?.rawPayload ?? {}) as Record<string, unknown>) ?? {};
     valuesByYear[year] = {};
 
     for (const row of financialReportRows) {
-      valuesByYear[year][row.key] = row.accessor(payload);
+      valuesByYear[year][row.key] =
+        internalStatementValue(statement, row.key) ?? row.accessor(payload);
     }
 
     const totalAssets = valuesByYear[year].total_assets;

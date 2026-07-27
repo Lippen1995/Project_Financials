@@ -64,18 +64,24 @@ async function main() {
   }
   const chainOrgNumbers = chainProfile?.operators.map((operator) => operator.orgNumber) ?? [];
   const requestedOrgNumbers = [...new Set([...options.orgNumbers, ...chainOrgNumbers])];
+  const dueAt = new Date();
 
   const companies = await prisma.company.findMany({
     where: {
       ...(requestedOrgNumbers.length ? { orgNumber: { in: requestedOrgNumbers } } : {}),
-      // Resume: skip companies that already carry a structured statement,
-      // unless --refresh (new filings arrive continuously through the year).
+      // Resume from the persisted source-health cache. Available, empty and
+      // failed checks all carry an explicit nextCheckAt, avoiding retry loops.
       ...(options.refresh || options.orgNumbers.length
         ? {}
         : {
-            financialStatements: {
-              none: { sourceEntityType: "structuredAnnualAccounts" },
-            },
+            OR: [
+              { structuredFinancialFetchState: { is: null } },
+              {
+                structuredFinancialFetchState: {
+                  is: { nextCheckAt: { lte: dueAt } },
+                },
+              },
+            ],
           }),
     },
     select: { orgNumber: true },
@@ -98,6 +104,7 @@ async function main() {
       published += result.published;
       skippedReviewed += result.skippedReviewed;
       if (result.unavailableReason) unavailable += 1;
+      if (result.status === "ERROR" || result.status === "STALE") failures += 1;
     } catch (error) {
       failures += 1;
       const message = error instanceof Error ? error.message : String(error);

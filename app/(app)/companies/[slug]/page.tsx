@@ -639,6 +639,7 @@ export default async function CompanyPage({
             discussionRoomName={discussionContext?.selectedRoomName ?? null}
             discussionStatements={financialDiscussions}
             discussionThreads={financialMetricDiscussions}
+            availability={financialsAvailability}
           />
 
           {financialDocuments.length > 0 ? (

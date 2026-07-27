@@ -281,6 +281,26 @@ npm run test:financial-regression
 
 Disse kan ta en eller flere `orgNumber` som argumenter. Uten argumenter brukes selskaper som allerede finnes i Fjord Insight-databasen.
 
+### Strukturert regnskap fra åpent Brreg-API
+
+Betaens offentlige regnskapsflyt bruker siste tilgjengelige nøkkeltall fra
+Regnskapsregisterets åpne, strukturerte API. Den bruker ikke PDF eller OCR som
+fallback. Første profiloppslag gjør en kontrollert read-through-henting; både
+tilgjengelige resultater, tomme svar og kildefeil caches med neste
+oppdateringstidspunkt og full proveniens.
+
+```bash
+npm run financials:ingest-structured -- --limit 100
+npm run financials:ingest-structured -- --org <organisasjonsnummer> --refresh
+npm run financials:report-structured-coverage
+npm run financials:report-structured-coverage -- --format json
+```
+
+Den åpne kilden gir siste innsendte regnskap og et begrenset sett nøkkeltall.
+Historikk, detaljerte linjer og enkelte oppstillingsplaner kan mangle. UI-et
+viser da en dokumentert tom- eller feiltilstand; det fyller aldri hull med
+konstruerte tall.
+
 ### Uttrekk av styrets årsberetning
 
 Fjord Insight kan trekke ut bare styrets årsberetning fra en lagret, offisiell Brreg-filing. Uttrekket bruker blokk-/linjegrenser og stopper foran resultatregnskap, balanse, noter eller revisjonsberetning, og lagrer komplett kildeproveniens og dokumenthash. Usikre grenser publiseres ikke; de lagres som `MANUAL_REVIEW`.

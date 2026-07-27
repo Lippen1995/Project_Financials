@@ -20,6 +20,12 @@ export type DataAvailability = {
   available: boolean;
   message?: string;
   sourceSystem?: string;
+  sourceEntityType?: string;
+  sourceId?: string;
+  fetchedAt?: Date;
+  normalizedAt?: Date;
+  status?: "AVAILABLE" | "UNAVAILABLE" | "STALE" | "ERROR";
+  nextCheckAt?: Date;
 };
 
 export type CompanyStatus = "ACTIVE" | "DISSOLVED" | "BANKRUPT";
@@ -87,8 +93,14 @@ export type NormalizedRole = SourceMetadata & {
 };
 
 export type NormalizedFinancialStatement = SourceMetadata & {
+  modelVersion?: string;
   fiscalYear: number;
+  period?: { from: string | null; to: string };
   currency: string;
+  amountUnit?: "WHOLE_CURRENCY_UNITS";
+  unitScale?: number;
+  /** Versioned internal metric keys. Public UI never reads raw Brreg payloads. */
+  financialValues?: Record<string, number>;
   /** Which set of accounts: "COMPANY" (selskap/mor) or "CONSOLIDATED" (konsern). */
   statementScope?: "COMPANY" | "CONSOLIDATED";
   revenue?: number | null;

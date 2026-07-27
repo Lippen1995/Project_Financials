@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { FinancialTimeSeriesTable } from "@/components/company/financial-time-series-table";
 import type {
+  DataAvailability,
   NormalizedFinancialLineItem,
   NormalizedFinancialStatement,
 } from "@/lib/types";
@@ -18,6 +19,89 @@ const source = {
 };
 
 describe("FinancialTimeSeriesTable", () => {
+  it("shows the official structured source and fetch date", () => {
+    const statements: NormalizedFinancialStatement[] = [
+      {
+        sourceSystem: "BRREG",
+        sourceEntityType: "structuredAnnualAccounts",
+        sourceId: "journal-test",
+        fetchedAt: new Date("2026-07-27T10:00:00.000Z"),
+        normalizedAt: new Date("2026-07-27T10:00:01.000Z"),
+        fiscalYear: 2025,
+        currency: "NOK",
+        statementScope: "COMPANY",
+        revenue: 1000,
+        operatingProfit: 100,
+        netIncome: 80,
+        equity: 400,
+        assets: 900,
+      },
+    ];
+
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable
+        statements={statements}
+        documents={[]}
+        companySlug="company-test"
+      />,
+    );
+
+    expect(html).toContain("Brønnøysundregistrene");
+    expect(html).toContain("27. juli 2026");
+    expect(html).toContain("strukturert API");
+  });
+
+  it("uses the controlled availability message when no figures exist", () => {
+    const availability: DataAvailability = {
+      available: false,
+      status: "UNAVAILABLE",
+      sourceSystem: "BRREG",
+      message: "Ingen strukturerte regnskapstall er tilgjengelige fra kilden.",
+    };
+
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable
+        statements={[]}
+        documents={[]}
+        companySlug="company-test"
+        availability={availability}
+      />,
+    );
+
+    expect(html).toContain(availability.message);
+  });
+
+  it("marks stale official figures next to the displayed source", () => {
+    const statements: NormalizedFinancialStatement[] = [
+      {
+        sourceSystem: "BRREG",
+        sourceEntityType: "structuredAnnualAccounts",
+        sourceId: "journal-test",
+        fetchedAt: new Date("2026-07-27T10:00:00.000Z"),
+        normalizedAt: new Date("2026-07-27T10:00:01.000Z"),
+        fiscalYear: 2025,
+        currency: "NOK",
+        statementScope: "COMPANY",
+        revenue: 1000,
+        operatingProfit: 100,
+        netIncome: 80,
+        equity: 400,
+        assets: 900,
+      },
+    ];
+
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable
+        statements={statements}
+        documents={[]}
+        companySlug="company-test"
+        availability={{ available: true, status: "STALE" }}
+      />,
+    );
+
+    expect(html).toContain("utdatert snapshot");
+  });
+
   it("renders every published filing row in Som rapportert instead of a fixed summary template", () => {
     const statements: NormalizedFinancialStatement[] = [{
       ...source,
