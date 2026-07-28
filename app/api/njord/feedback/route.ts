@@ -3,7 +3,10 @@ import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
 import { consumeRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
-import { analysisService } from "@/server/analysis/analysis-service";
+import {
+  analysisService,
+  feedbackSchema,
+} from "@/server/analysis/analysis-service";
 
 export async function POST(request: NextRequest) {
   const session = await safeAuth();
@@ -26,8 +29,15 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
   }
+  const parsedBody = feedbackSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
+  }
   try {
-    const feedback = await analysisService.saveNjordFeedback(session.user.id, body);
+    const feedback = await analysisService.saveNjordFeedback(
+      session.user.id,
+      parsedBody.data,
+    );
     return NextResponse.json({ feedback });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Kunne ikke lagre tilbakemeldingen.";

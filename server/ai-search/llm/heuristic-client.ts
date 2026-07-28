@@ -38,9 +38,36 @@ function resultOf(messages: LlmMessage[], toolName: string): any | null {
   const toolMsg = messages.find((m) => m.role === "tool" && m.toolCallId === callId);
   if (!toolMsg || toolMsg.role !== "tool") return null;
   try {
-    return JSON.parse(toolMsg.content);
+    const parsed = JSON.parse(toolMsg.content);
+    return parsed && typeof parsed === "object" && "data" in parsed ? parsed.data : parsed;
   } catch {
     return null;
+  }
+}
+
+function citationSuffix(messages: LlmMessage[], toolName: string): string {
+  let callId: string | null = null;
+  for (const message of messages) {
+    if (message.role !== "assistant" || !message.toolCalls) continue;
+    for (const call of message.toolCalls) if (call.name === toolName) callId = call.id;
+  }
+  if (!callId) return "";
+  const toolMessage = messages.find(
+    (message) => message.role === "tool" && message.toolCallId === callId,
+  );
+  if (!toolMessage || toolMessage.role !== "tool") return "";
+  try {
+    const parsed = JSON.parse(toolMessage.content) as {
+      citationSources?: Array<{ citationId?: unknown }>;
+    };
+    const citationIds = (parsed.citationSources ?? []).flatMap((source) =>
+      typeof source.citationId === "string" ? [source.citationId] : [],
+    );
+    return citationIds.length > 0
+      ? ` ${citationIds.map((citationId) => `[${citationId}]`).join(" ")}`
+      : "";
+  } catch {
+    return "";
   }
 }
 
@@ -98,6 +125,7 @@ export class HeuristicLlmClient implements LlmClient {
     const query = firstUserQuery(messages);
     const chainResult = resultOf(messages, "get_chain_financials");
     if (chainResult) {
+      const sourceCitations = citationSuffix(messages, "get_chain_financials");
       const chain = chainResult.chain;
       if (!chain) {
         return {
@@ -118,10 +146,10 @@ export class HeuristicLlmClient implements LlmClient {
         : "Jeg foreslår å plotte nettomargin mot omsetning for å sammenligne både lønnsomhet og størrelse.";
       return {
         content: [
-          `${chain.name}: ${chain.storeCount} utsalgssteder er utledet som koblet til ${operators} operatørselskaper.`,
+          `${chain.name}: ${chain.storeCount} utsalgssteder er utledet som koblet til ${operators} operatørselskaper.${sourceCitations}`,
           action,
-          `${withLatestFinancials} av ${operators} har siste regnskap. ${plotted} har sammenlignbare NOK-verdier for standardgrafen; manglende verdier er utelatt, ikke satt til null.`,
-          "Operatørtilhørigheten er utledet fra Brønnøysundregistrenes underenhetsnavn og er ikke et offisielt franchisefelt.",
+          `${withLatestFinancials} av ${operators} har siste regnskap. ${plotted} har sammenlignbare NOK-verdier for standardgrafen; manglende verdier er utelatt, ikke satt til null.${sourceCitations}`,
+          `Operatørtilhørigheten er utledet fra Brønnøysundregistrenes underenhetsnavn og er ikke et offisielt franchisefelt.${sourceCitations}`,
         ].join("\n\n"),
         toolCalls: [],
         usage: { inputTokens: 0, outputTokens: 0 },

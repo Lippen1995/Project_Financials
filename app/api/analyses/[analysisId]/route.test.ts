@@ -13,7 +13,8 @@ vi.mock("@/lib/recoverable-error", () => ({ logRecoverableError: vi.fn() }));
 vi.mock("@/server/analysis/analysis-read-service", () => ({
   analysisReadService: { get: mocks.get },
 }));
-vi.mock("@/server/analysis/analysis-service", () => ({
+vi.mock("@/server/analysis/analysis-service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/analysis/analysis-service")>()),
   analysisService: {
     updateConclusion: mocks.updateConclusion,
     updateDraft: mocks.updateDraft,
@@ -99,7 +100,15 @@ describe("PUT /api/analyses/[analysisId]", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.updateDraft).toHaveBeenCalledWith("user-1", "analysis-1", body);
+    expect(mocks.updateDraft).toHaveBeenCalledWith("user-1", "analysis-1", {
+      ...body,
+      universeQuery: {
+        ...body.universeQuery,
+        industryCodePrefixes: [],
+        legalForms: [],
+        municipalityNumbers: [],
+      },
+    });
   });
 });
 

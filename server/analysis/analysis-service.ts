@@ -44,17 +44,17 @@ function requireMatchingWorkflow(
   }
 }
 
-const createAnalysisSchema = z.object({
+export const createAnalysisSchema = z.object({
   workspaceId: z.string().trim().min(1).max(128),
   ...analysisContextShape,
 }).strict().superRefine(requireMatchingWorkflow);
 
-const updateDraftSchema = z.object({
+export const updateDraftSchema = z.object({
   expectedVersion: z.number().int().min(1),
   ...analysisContextShape,
 }).strict().superRefine(requireMatchingWorkflow);
 
-const updateConclusionSchema = z.object({
+export const updateConclusionSchema = z.object({
   expectedVersion: z.number().int().min(1),
   status: z.enum(["DRAFT", "IN_PROGRESS", "COMPLETED", "ARCHIVED"]),
   conclusion: jsonObjectSchema,
@@ -69,7 +69,7 @@ const worklistItemSchema = z.object({
   notes: z.string().trim().max(2_000).optional(),
 }).strict();
 
-const createWorklistSchema = z.object({
+export const createWorklistSchema = z.object({
   expectedAnalysisVersion: z.number().int().min(1),
   type: z.enum(["LONGLIST", "SHORTLIST", "SOURCING", "PEER_SET"]),
   name: z.string().trim().min(1).max(200),
@@ -78,7 +78,7 @@ const createWorklistSchema = z.object({
   items: z.array(worklistItemSchema).min(1).max(500),
 }).strict();
 
-const createWorklistFromUniverseSchema = z.object({
+export const createWorklistFromUniverseSchema = z.object({
   expectedAnalysisVersion: z.number().int().min(1),
   type: z.enum(["LONGLIST", "SHORTLIST", "SOURCING", "PEER_SET"]),
   name: z.string().trim().min(1).max(200),
@@ -111,7 +111,7 @@ const universeResultEvidenceSchema = z.object({
   }
 });
 
-const reorderWorklistSchema = z.object({
+export const reorderWorklistSchema = z.object({
   itemIds: z.array(z.string().trim().min(1).max(128)).min(1).max(500),
 }).strict().superRefine((value, context) => {
   if (new Set(value.itemIds).size !== value.itemIds.length) {
@@ -123,17 +123,17 @@ const reorderWorklistSchema = z.object({
   }
 });
 
-const listWorklistExclusionsSchema = z.object({
+export const listWorklistExclusionsSchema = z.object({
   cursor: z.string().regex(/^\d{9}$/).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 }).strict();
 
-const promoteWorklistItemSchema = z.object({
+export const promoteWorklistItemSchema = z.object({
   itemId: z.string().trim().min(1).max(128),
   targetWorklistId: z.string().trim().min(1).max(128),
 }).strict();
 
-const feedbackSchema = z.object({
+export const feedbackSchema = z.object({
   analysisId: z.string().trim().min(1).max(128).optional(),
   answerKey: z.string().trim().min(1).max(200),
   label: z.enum(["USEFUL", "INCORRECT"]),

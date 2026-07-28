@@ -3,7 +3,10 @@ import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
 import { consumeRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
-import { companyUniverseService } from "@/server/analysis/company-universe-service";
+import {
+  companyUniverseRunInputSchema,
+  companyUniverseService,
+} from "@/server/analysis/company-universe-service";
 
 export async function POST(request: NextRequest) {
   const session = await safeAuth();
@@ -26,8 +29,12 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
   }
+  const parsedBody = companyUniverseRunInputSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
+  }
   try {
-    const result = await companyUniverseService.run(body);
+    const result = await companyUniverseService.run(parsedBody.data);
     return NextResponse.json({ result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Kunne ikke bygge selskapsuniverset.";

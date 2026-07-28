@@ -10,6 +10,20 @@ export type NjordEvaluationObservation = {
   evidenceKinds: Array<"DOCUMENTED_FACT" | "CALCULATION" | "EXPLANATION">;
   ungroundedOrgNumbers: string[];
   outcome: NjordExpectedOutcome;
+  facts?: Array<{
+    orgNumber: string;
+    field: string;
+    value: string | number | boolean | null;
+    citationIds: string[];
+  }>;
+  sources?: Array<{
+    citationId: string;
+    sourceSystem: string;
+    sourceEntityType: string;
+    sourceId: string;
+    fetchedAt: string;
+    normalizedAt: string;
+  }>;
 };
 
 export function evaluateNjordRun(
@@ -46,6 +60,37 @@ export function evaluateNjordRun(
       if (observation.ungroundedOrgNumbers.length > 0) issues.push("UNGROUNDED_COMPANY");
       if (testCase.requiresCitation && !/knowledge:[A-Za-z0-9:_-]+/.test(observation.answer ?? "")) {
         issues.push("MISSING_CITATION");
+      }
+      for (const expectedFact of testCase.expectedFacts ?? []) {
+        const issueSuffix = `${expectedFact.orgNumber}:${expectedFact.field}`;
+        const observedFact = observation.facts?.find(
+          (fact) =>
+            fact.orgNumber === expectedFact.orgNumber &&
+            fact.field === expectedFact.field,
+        );
+        if (!observedFact) {
+          issues.push(`MISSING_FACT:${issueSuffix}`);
+          continue;
+        }
+        if (observedFact.value !== expectedFact.value) {
+          issues.push(`WRONG_FACT:${issueSuffix}`);
+          continue;
+        }
+        if (observedFact.citationIds.length === 0) {
+          issues.push(`MISSING_FACT_CITATION:${issueSuffix}`);
+          continue;
+        }
+        const hasExpectedSource = observedFact.citationIds.some((citationId) =>
+          observation.sources?.some((source) =>
+            source.citationId === citationId &&
+            source.sourceSystem === expectedFact.verifiedFrom.sourceSystem &&
+            source.sourceEntityType === expectedFact.verifiedFrom.sourceEntityType &&
+            source.sourceId === expectedFact.verifiedFrom.sourceId &&
+            !Number.isNaN(Date.parse(source.fetchedAt)) &&
+            !Number.isNaN(Date.parse(source.normalizedAt)),
+          ),
+        );
+        if (!hasExpectedSource) issues.push(`MISSING_FACT_SOURCE:${issueSuffix}`);
       }
     }
     return { caseId: testCase.id, passed: issues.length === 0, issues };

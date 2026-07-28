@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: mocks.safeAuth }));
-vi.mock("@/server/analysis/analysis-service", () => ({
+vi.mock("@/server/analysis/analysis-service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/analysis/analysis-service")>()),
   analysisService: {
     listWorklistExclusions: mocks.listWorklistExclusions,
   },
@@ -50,7 +51,7 @@ describe("GET /api/analyses/[analysisId]/worklists/[worklistId]/exclusions", () 
       "user-1",
       "analysis-1",
       "worklist-1",
-      { cursor: undefined, limit: "25" },
+      { cursor: undefined, limit: 25 },
     );
   });
 

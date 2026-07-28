@@ -4,7 +4,15 @@ import { z } from "zod";
 import { safeAuth } from "@/lib/auth";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import { analysisReadService } from "@/server/analysis/analysis-read-service";
-import { analysisService } from "@/server/analysis/analysis-service";
+import {
+  analysisService,
+  updateConclusionSchema,
+  updateDraftSchema,
+} from "@/server/analysis/analysis-service";
+
+const paramsSchema = z.object({
+  analysisId: z.string().trim().min(1).max(128),
+}).strict();
 
 export async function GET(
   _request: NextRequest,
@@ -14,10 +22,11 @@ export async function GET(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
   }
-  const { analysisId } = await context.params;
-  if (!analysisId || analysisId.length > 128) {
+  const parsedParams = paramsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
     return NextResponse.json({ error: "Ugyldig analyse-ID." }, { status: 400 });
   }
+  const { analysisId } = parsedParams.data;
   try {
     const analysis = await analysisReadService.get(session.user.id, analysisId);
     if (!analysis) {
@@ -41,18 +50,23 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
   }
-  const { analysisId } = await context.params;
-  if (!analysisId || analysisId.length > 128) {
+  const parsedParams = paramsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
     return NextResponse.json({ error: "Ugyldig analyse-ID." }, { status: 400 });
   }
+  const { analysisId } = parsedParams.data;
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
   }
+  const parsedBody = updateConclusionSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
+  }
   try {
-    await analysisService.updateConclusion(session.user.id, analysisId, body);
+    await analysisService.updateConclusion(session.user.id, analysisId, parsedBody.data);
     return NextResponse.json({ updated: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Kunne ikke oppdatere analysen.";
@@ -75,18 +89,23 @@ export async function PUT(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
   }
-  const { analysisId } = await context.params;
-  if (!analysisId || analysisId.length > 128) {
+  const parsedParams = paramsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
     return NextResponse.json({ error: "Ugyldig analyse-ID." }, { status: 400 });
   }
+  const { analysisId } = parsedParams.data;
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
   }
+  const parsedBody = updateDraftSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
+  }
   try {
-    await analysisService.updateDraft(session.user.id, analysisId, body);
+    await analysisService.updateDraft(session.user.id, analysisId, parsedBody.data);
     return NextResponse.json({ updated: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Kunne ikke oppdatere analysen.";

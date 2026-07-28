@@ -25,6 +25,13 @@ describe("Njord franchise analysis flow", () => {
           operatorCount: 2,
           confidence: 0.98,
           builtAt: "2026-07-20T08:00:00.000Z",
+          provenance: {
+            sourceSystem: "BRREG",
+            sourceEntityType: "derivedRetailChain",
+            sourceId: "rema-1000",
+            fetchedAt: "2026-07-20T08:00:00.000Z",
+            normalizedAt: "2026-07-20T08:00:00.000Z",
+          },
         },
         operators: [],
         coverage: { operatorCount: 2, withLatestFinancials: 1, plottableCount: 1 },

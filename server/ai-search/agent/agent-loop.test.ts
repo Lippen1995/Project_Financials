@@ -19,6 +19,13 @@ const resolveStub = defineTool({
     resolved: {
       orgNumber: nameHint === "Target" ? "999999999" : "917811288",
       name: `MATCH:${nameHint}`,
+      provenance: {
+        sourceSystem: "BRREG",
+        sourceEntityType: "company",
+        sourceId: nameHint === "Target" ? "999999999" : "917811288",
+        fetchedAt: "2026-07-27T09:00:00.000Z",
+        normalizedAt: "2026-07-27T09:00:01.000Z",
+      },
     },
   }),
 });
@@ -38,7 +45,18 @@ const knowledgeStub = defineTool({
   parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"], additionalProperties: false },
   execute: async () => ({
     coverage: { resultCount: 1, sufficient: true },
-    results: [{ citationId: "knowledge:law-1:chunk-1", title: "Offisiell kilde" }],
+    results: [{
+      citationId: "knowledge:law-1:chunk-1",
+      title: "Offisiell kilde",
+      sourceUrl: "https://lovdata.no/dokument/NL/lov/1997-06-13-44",
+      provenance: {
+        sourceSystem: "LOVDATA_API",
+        sourceEntityType: "law-document",
+        sourceId: "LOV-1997-06-13-44",
+        fetchedAt: "2026-07-27T09:00:00.000Z",
+        normalizedAt: "2026-07-27T09:00:01.000Z",
+      },
+    }],
   }),
 });
 
@@ -97,7 +115,7 @@ describe("runAgent", () => {
         usage: { inputTokens: 200, cachedInputTokens: 30, outputTokens: 20, model: "test-model", sourceId: "call-2" },
       },
       {
-        content: "Top target: FJORD DEFENCE GROUP ASA (917811288).",
+        content: "Top target: FJORD DEFENCE GROUP ASA (917811288) [source:1].",
         usage: { inputTokens: 300, cachedInputTokens: 40, outputTokens: 30, model: "test-model", sourceId: "call-3" },
       },
     ]);
@@ -121,6 +139,53 @@ describe("runAgent", () => {
     expect(llm.received[0].messages[0]).toEqual({ role: "system", content: "system" });
   });
 
+  it("returns claim-level evidence and gives the model the citation IDs from tool results", async () => {
+    const llm = new ScriptedLlmClient([
+      { toolCalls: [{ name: "resolve_company", arguments: { nameHint: "Fjord Defence" } }] },
+      { content: "Selskapet har organisasjonsnummer 917811288 [source:1]." },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools,
+      systemPrompt: PROMPT,
+      userQuery: "Hvilket organisasjonsnummer har selskapet?",
+    });
+
+    expect(llm.received[1].messages.at(-1)).toMatchObject({
+      role: "tool",
+      content: expect.stringContaining('"citationId":"source:1"'),
+    });
+    expect(result.claimEvidence).toMatchObject({
+      invalidCitationIds: [],
+      claims: [{
+        text: "Selskapet har organisasjonsnummer 917811288.",
+        citationIds: ["source:1"],
+        sources: [expect.objectContaining({
+          sourceSystem: "BRREG",
+          sourceId: "917811288",
+        })],
+      }],
+    });
+  });
+
+  it("does not present a sourced tool answer when no claim cites its source", async () => {
+    const llm = new ScriptedLlmClient([
+      { toolCalls: [{ name: "resolve_company", arguments: { nameHint: "Fjord Defence" } }] },
+      { content: "Selskapet har organisasjonsnummer 917811288." },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools,
+      systemPrompt: PROMPT,
+      userQuery: "Hvilket organisasjonsnummer har selskapet?",
+    });
+
+    expect(result.answer).toMatch(/kunne ikke koble svaret til konkrete kilder/i);
+    expect(result.claimEvidence.claims).toEqual([]);
+  });
+
   it("flags an org number cited in the answer that no tool returned (grounding leak)", async () => {
     const llm = new ScriptedLlmClient([
       { toolCalls: [{ name: "resolve_company", arguments: { nameHint: "x" } }] },
@@ -136,7 +201,7 @@ describe("runAgent", () => {
     // Three tool-call turns exhaust maxToolCalls; the 4th run is forced to synthesize.
     const script: ScriptedTurn[] = [
       ...Array.from({ length: 3 }, () => ({ toolCalls: [{ name: "resolve_company", arguments: { nameHint: "x" } }] })),
-      { content: "forced answer" },
+      { content: "forced answer [source:1]." },
     ];
     const alwaysCallsTool = new ScriptedLlmClient(script);
     const result = await runAgent({
@@ -148,7 +213,7 @@ describe("runAgent", () => {
     });
     expect(result.stopReason).toBe("max_tool_calls");
     expect(result.invocations).toHaveLength(3);
-    expect(result.answer).toBe("forced answer");
+    expect(result.answer).toBe("forced answer [source:1].");
   });
 
   it("handles invalid tool arguments without throwing, and keeps going", async () => {

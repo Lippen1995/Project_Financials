@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: mocks.safeAuth }));
-vi.mock("@/server/analysis/analysis-service", () => ({
+vi.mock("@/server/analysis/analysis-service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/analysis/analysis-service")>()),
   analysisService: {
     reorderWorklist: mocks.reorderWorklist,
     promoteWorklistItem: mocks.promoteWorklistItem,

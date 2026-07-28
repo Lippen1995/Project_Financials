@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
-import { analysisService } from "@/server/analysis/analysis-service";
+import {
+  analysisService,
+  createWorklistFromUniverseSchema,
+} from "@/server/analysis/analysis-service";
+
+const paramsSchema = z.object({
+  analysisId: z.string().trim().min(1).max(128),
+}).strict();
 
 export async function POST(
   request: NextRequest,
@@ -12,21 +19,26 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
   }
-  const { analysisId } = await context.params;
-  if (!analysisId || analysisId.length > 128) {
+  const parsedParams = paramsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
     return NextResponse.json({ error: "Ugyldig analyse-ID." }, { status: 400 });
   }
+  const { analysisId } = parsedParams.data;
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
   }
+  const parsedBody = createWorklistFromUniverseSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
+  }
   try {
     const worklist = await analysisService.createWorklistFromUniverse(
       session.user.id,
       analysisId,
-      body,
+      parsedBody.data,
     );
     return NextResponse.json({ worklist }, { status: 201 });
   } catch (error) {

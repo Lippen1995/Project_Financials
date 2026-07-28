@@ -11,6 +11,7 @@ import type { NormalizedCompany, SerializableSourceMetadata } from "@/lib/types"
 export type AgentCompanyRef = {
   orgNumber: string;
   name: string;
+  provenance: SerializableSourceMetadata;
   naceCode: string | null;
   naceDescription: string | null;
   municipality: string | null;
@@ -155,6 +156,13 @@ export function toAgentCompanyRef(company: NormalizedCompany): AgentCompanyRef {
   return {
     orgNumber: company.orgNumber,
     name: company.name,
+    provenance: {
+      sourceSystem: company.sourceSystem,
+      sourceEntityType: company.sourceEntityType,
+      sourceId: company.sourceId,
+      fetchedAt: company.fetchedAt.toISOString(),
+      normalizedAt: company.normalizedAt.toISOString(),
+    },
     naceCode: company.industryCode?.code ?? null,
     naceDescription: company.industryCode?.description ?? company.industryCode?.title ?? null,
     municipality: company.municipality ?? null,

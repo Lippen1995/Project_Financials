@@ -173,10 +173,13 @@ Analyse-ID kan følge Njord-forespørselen som eksplisitt, tilgangskontrollert o
 størrelsesbegrenset kontekst. Ingen modellbruk eller K1-/K2-kostnad er aktivert.
 Den tilgangsstyrte arbeidsflyten støtter nå også validert beregningsoppsett,
 direkte univers-/rangeringskjøring til arbeidsliste og lagring av status,
-konklusjon, oppfølging og offisielt kildegrunnlag. Leveransen er ikke formelt
-lukket; påstand-til-kilde-bevis, reelle forventede fakta,
-modell-sammenligning etter G1, flerinstansgrenser og ende-til-ende-bevis
-gjenstår. Arbeidslister fra universmotoren lagrer nå også kjøringsversjoner,
+konklusjon, oppfølging og offisielt kildegrunnlag. K0-arbeidet er teknisk
+fullført: Njord-svar har påstand-til-kilde-kontrakt og inspeksjonsflate,
+evalsettet har 28 verifiserte Brreg-fakta for fire reelle virksomheter, og alle
+tre arbeidsflytene har en deterministisk kontrakttest fra formål via univers og
+rangering til gjenlest arbeidsliste og konklusjon. Modell-sammenligning,
+modellbasert kontekstbevis og flerinstansgrenser avventer G1/valgt host.
+Arbeidslister fra universmotoren lagrer også kjøringsversjoner,
 tellinger og hele eksklusjonssettet atomisk; årsaker og kildebevis kan
 inspiseres paginert i arbeidsflyt-UI. Se
 [Sprint 3-kontrollpunktet](./go-live/sprint-3/README.md).

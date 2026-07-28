@@ -7,6 +7,13 @@ function ref(overrides: Partial<AgentCompanyRef>): AgentCompanyRef {
   return {
     orgNumber: "000000000",
     name: "Test AS",
+    provenance: {
+      sourceSystem: "BRREG",
+      sourceEntityType: "company",
+      sourceId: "000000000",
+      fetchedAt: "2026-07-27T09:00:00.000Z",
+      normalizedAt: "2026-07-27T09:00:01.000Z",
+    },
     naceCode: "47.710",
     naceDescription: "Butikkhandel med klær",
     municipality: "Bergen",

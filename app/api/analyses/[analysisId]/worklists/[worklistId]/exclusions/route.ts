@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
-import { analysisService } from "@/server/analysis/analysis-service";
+import {
+  analysisService,
+  listWorklistExclusionsSchema,
+} from "@/server/analysis/analysis-service";
+
+const paramsSchema = z.object({
+  analysisId: z.string().trim().min(1).max(128),
+  worklistId: z.string().trim().min(1).max(128),
+}).strict();
 
 export async function GET(
   request: NextRequest,
@@ -14,23 +22,24 @@ export async function GET(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
   }
-  const { analysisId, worklistId } = await context.params;
-  if (
-    !analysisId ||
-    analysisId.length > 128 ||
-    !worklistId ||
-    worklistId.length > 128
-  ) {
+  const parsedParams = paramsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
     return NextResponse.json({ error: "Ugyldig analyse- eller arbeidsliste-ID." }, { status: 400 });
   }
-  const cursor = request.nextUrl.searchParams.get("cursor") ?? undefined;
-  const limit = request.nextUrl.searchParams.get("limit") ?? undefined;
+  const { analysisId, worklistId } = parsedParams.data;
+  const query = listWorklistExclusionsSchema.safeParse({
+    cursor: request.nextUrl.searchParams.get("cursor") ?? undefined,
+    limit: request.nextUrl.searchParams.get("limit") ?? undefined,
+  });
+  if (!query.success) {
+    return NextResponse.json({ error: "Ugyldig sideinndeling." }, { status: 400 });
+  }
   try {
     const result = await analysisService.listWorklistExclusions(
       session.user.id,
       analysisId,
       worklistId,
-      { cursor, limit },
+      query.data,
     );
     return NextResponse.json(result);
   } catch (error) {

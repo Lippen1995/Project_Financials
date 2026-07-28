@@ -118,6 +118,28 @@ describe("POST /api/ai-search", () => {
   it("uses the real LLM path and records aggregate provider usage", async () => {
     mocks.runAgent.mockResolvedValue({
       answer: "Svar med kilde.",
+      claimEvidence: {
+        claims: [{
+          text: "Svar med kilde.",
+          kind: "DOCUMENTED_FACT",
+          citationIds: ["source:1"],
+          sources: [{
+            citationId: "source:1",
+            label: "Offisiell virksomhet",
+            sourceUrl: null,
+            tool: "resolve_company",
+            toolVersion: "v1",
+            kind: "DOCUMENTED_FACT",
+            sourceSystem: "BRREG",
+            sourceEntityType: "company",
+            sourceId: "923609016",
+            fetchedAt: "2026-07-27T09:00:00.000Z",
+            normalizedAt: "2026-07-27T09:00:01.000Z",
+          }],
+        }],
+        sources: [],
+        invalidCitationIds: [],
+      },
       toolResults: [],
       groundedOrgNumbers: [],
       invocations: [],
@@ -134,7 +156,12 @@ describe("POST /api/ai-search", () => {
     const response = await POST(request());
 
     expect(response.status).toBe(200);
-    expect((await response.json()).mode).toBe("llm-tools-offline-knowledge");
+    const body = await response.json();
+    expect(body.mode).toBe("llm-tools-offline-knowledge");
+    expect(body.claimEvidence.claims[0]).toMatchObject({
+      text: "Svar med kilde.",
+      sources: [expect.objectContaining({ sourceSystem: "BRREG", sourceId: "923609016" })],
+    });
     expect(mocks.reserveUsage).toHaveBeenCalledWith("user-1", billingPeriod);
     expect(mocks.getRetrievalToolsForAccess).toHaveBeenCalledWith({
       canUseDueDiligence: true,

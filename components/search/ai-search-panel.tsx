@@ -12,8 +12,13 @@ import {
 import type { Route } from "next";
 import type { CompanySearchRow } from "@/lib/company-search-sort";
 import type { NjordVisualization } from "@/lib/njord-visualization";
+import type { NjordClaimEvidenceResult } from "@/server/ai-search/evidence/claim-evidence";
 import { useRouter, useSearchParams } from "next/navigation";
 import { NjordMark } from "@/components/njord/njord-mark";
+import {
+  NjordClaimEvidence,
+  stripNjordCitationMarkers,
+} from "./njord-claim-evidence";
 import { NjordScatterplot } from "./njord-scatterplot";
 
 type ChatMessage = {
@@ -21,6 +26,7 @@ type ChatMessage = {
   role: "assistant" | "user";
   content: string;
   visualization?: NjordVisualization | null;
+  claimEvidence?: NjordClaimEvidenceResult | null;
   answerKey?: string | null;
   feedback?: "USEFUL" | "INCORRECT" | "SAVING" | "ERROR" | null;
 };
@@ -208,9 +214,10 @@ export function AiSearchPanel({
         quota?: AiSearchUsageSummary;
         companies?: CompanySearchRow[];
         visualization?: NjordVisualization | null;
+        claimEvidence?: NjordClaimEvidenceResult;
       };
       const content = res.ok
-        ? (data.answer ?? "Fant ikke noe svar.")
+        ? stripNjordCitationMarkers(data.answer ?? "Fant ikke noe svar.")
         : (data.error ?? "Noe gikk galt med AI-søket.");
       setMessages((prev) => [
         ...prev,
@@ -219,6 +226,7 @@ export function AiSearchPanel({
           role: "assistant",
           content,
           visualization: res.ok ? (data.visualization ?? null) : null,
+          claimEvidence: res.ok ? (data.claimEvidence ?? null) : null,
           answerKey: res.ok ? (data.answerKey ?? null) : null,
           feedback: null,
         },
@@ -419,6 +427,9 @@ export function AiSearchPanel({
             </div>
             {message.role === "assistant" && message.visualization && (
               <NjordScatterplot visualization={message.visualization} />
+            )}
+            {message.role === "assistant" && message.claimEvidence && (
+              <NjordClaimEvidence evidence={message.claimEvidence} />
             )}
             {message.role === "assistant" && message.answerKey && (
               <div className="mt-2 flex items-center gap-4" aria-live="polite">

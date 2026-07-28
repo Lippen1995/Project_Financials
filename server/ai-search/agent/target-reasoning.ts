@@ -84,6 +84,10 @@ export const GROUNDING_RULES = [
     "value chain (suppliers, adjacent and dual-use companies), not a single product niche. Use the " +
     "retrieval tools to enumerate widely, then curate down with reasoning.",
   "Distinguish grounded FACT (from a tool) from your own INFERENCE, and say which is which.",
+  "Write one factual or calculated claim per line. End every such line with the exact citation IDs " +
+    "supplied in the tool result's citationSources, for example [source:1], [calculation:1], or " +
+    "[knowledge:document-id:chunk-id]. Never invent or alter a citation ID. Explanations and " +
+    "hypotheses must be labelled clearly and must not be presented as sourced facts.",
   "Name the data you are MISSING. Thin coverage is a caveat to state, not a gap to paper over. If a " +
     "candidate has no business description or no financials, say so rather than guessing.",
   "Do NOT reduce the ranking to a single score. Weigh the dimensions qualitatively and surface the " +

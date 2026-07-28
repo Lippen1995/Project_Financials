@@ -12,7 +12,8 @@ vi.mock("@/lib/recoverable-error", () => ({ logRecoverableError: vi.fn() }));
 vi.mock("@/server/analysis/analysis-read-service", () => ({
   analysisReadService: { list: mocks.list },
 }));
-vi.mock("@/server/analysis/analysis-service", () => ({
+vi.mock("@/server/analysis/analysis-service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/analysis/analysis-service")>()),
   analysisService: { create: mocks.create },
 }));
 
@@ -75,6 +76,14 @@ describe("POST /api/analyses", () => {
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ analysis: { id: "analysis-1" } });
-    expect(mocks.create).toHaveBeenCalledWith("user-1", body);
+    expect(mocks.create).toHaveBeenCalledWith("user-1", {
+      ...body,
+      universeQuery: {
+        ...body.universeQuery,
+        industryCodePrefixes: [],
+        legalForms: [],
+        municipalityNumbers: [],
+      },
+    });
   });
 });

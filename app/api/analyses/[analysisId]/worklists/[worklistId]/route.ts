@@ -2,11 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
-import { analysisService } from "@/server/analysis/analysis-service";
+import {
+  analysisService,
+  promoteWorklistItemSchema,
+  reorderWorklistSchema,
+} from "@/server/analysis/analysis-service";
 
 type WorklistContext = {
   params: Promise<{ analysisId: string; worklistId: string }>;
 };
+
+const paramsSchema = z.object({
+  analysisId: z.string().trim().min(1).max(128),
+  worklistId: z.string().trim().min(1).max(128),
+}).strict();
 
 function errorResponse(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : fallback;
@@ -27,10 +36,11 @@ type ScopeResult =
 async function requestScope(context: WorklistContext): Promise<ScopeResult> {
   const session = await safeAuth();
   if (!session?.user?.id) return { response: NextResponse.json({ error: "Krever innlogging." }, { status: 401 }) };
-  const { analysisId, worklistId } = await context.params;
-  if (!analysisId || analysisId.length > 128 || !worklistId || worklistId.length > 128) {
+  const parsedParams = paramsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
     return { response: NextResponse.json({ error: "Ugyldig analyse- eller arbeidsliste-ID." }, { status: 400 }) };
   }
+  const { analysisId, worklistId } = parsedParams.data;
   return { userId: session.user.id, analysisId, worklistId };
 }
 
@@ -51,12 +61,16 @@ export async function PATCH(request: NextRequest, context: WorklistContext) {
   if (scope.response) return scope.response;
   const payload = await jsonBody(request);
   if (payload.response) return payload.response;
+  const parsedBody = reorderWorklistSchema.safeParse(payload.body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
+  }
   try {
     await analysisService.reorderWorklist(
       scope.userId,
       scope.analysisId,
       scope.worklistId,
-      payload.body,
+      parsedBody.data,
     );
     return NextResponse.json({ updated: true });
   } catch (error) {
@@ -69,12 +83,16 @@ export async function POST(request: NextRequest, context: WorklistContext) {
   if (scope.response) return scope.response;
   const payload = await jsonBody(request);
   if (payload.response) return payload.response;
+  const parsedBody = promoteWorklistItemSchema.safeParse(payload.body);
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
+  }
   try {
     const item = await analysisService.promoteWorklistItem(
       scope.userId,
       scope.analysisId,
       scope.worklistId,
-      payload.body,
+      parsedBody.data,
     );
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) {

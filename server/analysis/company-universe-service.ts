@@ -164,7 +164,7 @@ const prismaRepository: CompanyUniverseRepository = {
   },
 };
 
-const runInputSchema = z.object({
+export const companyUniverseRunInputSchema = z.object({
   query: companyUniverseQuerySchema,
   ranking: z.array(rankingCriterionSchema).min(1).max(10).optional(),
 }).strict();
@@ -172,7 +172,7 @@ const runInputSchema = z.object({
 export function createCompanyUniverseService(repository: CompanyUniverseRepository = prismaRepository) {
   return {
     async run(input: unknown) {
-      const parsed = runInputSchema.parse(input);
+      const parsed = companyUniverseRunInputSchema.parse(input);
       const { candidates, truncated } = await repository.loadCandidates(parsed.query);
       if (truncated) {
         return {

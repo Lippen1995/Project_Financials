@@ -282,6 +282,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     answerKey: reservationId,
     answer: result.answer,
+    claimEvidence: result.claimEvidence,
     visualization,
     companies,
     subjectOrgNumber,
