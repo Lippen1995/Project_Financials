@@ -214,6 +214,10 @@ describe("POST /api/ai-search", () => {
     }));
 
     expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "NJORD_POLICY_REJECTION",
+      reason: "SECRET_OR_INSTRUCTION_EXTRACTION",
+    });
     expect(mocks.reserveUsage).not.toHaveBeenCalled();
     expect(mocks.runAgent).not.toHaveBeenCalled();
   });

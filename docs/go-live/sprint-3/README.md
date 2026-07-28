@@ -84,7 +84,7 @@ Innlogging, staging-host og ekte modell bevises først i Sprint 4 etter G1.
 
 Sluttverifisering 28. juli 2026:
 
-- `npm test`: 292 testfiler bestått, 2 hoppet over; 1 989 tester bestått,
+- `npm test`: 292 testfiler bestått, 2 hoppet over; 1 993 tester bestått,
   12 hoppet over.
 - `npm run build` og `npm run typecheck`: bestått.
 - `npm run lint`: 0 feil; 18 eksisterende varsler, hvorav 3 i hovedtreet.

@@ -29,6 +29,10 @@ const sourceSchema = z.object({
 const observationSchema = z.object({
   caseId: z.string().min(1),
   status: z.number().int().min(100).max(599),
+  boundaryError: z.object({
+    code: z.string().trim().min(1).max(100),
+    reason: z.string().trim().min(1).max(200).nullable(),
+  }).strict().nullable(),
   result: z.object({
     answer: z.string().nullable(),
     invocations: z.array(z.object({

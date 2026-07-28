@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
       {
         error:
           "Njord kan ikke hente hemmeligheter, interne instrukser eller omgå tilgangskontroll.",
+        code: "NJORD_POLICY_REJECTION",
         reason: queryInspection.reason,
       },
       { status: 400 },
