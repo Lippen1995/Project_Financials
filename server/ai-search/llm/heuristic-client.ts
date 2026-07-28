@@ -147,7 +147,7 @@ export class HeuristicLlmClient implements LlmClient {
       return {
         content: [
           `${chain.name}: ${chain.storeCount} utsalgssteder er utledet som koblet til ${operators} operatørselskaper.${sourceCitations}`,
-          action,
+          `${action}${sourceCitations}`,
           `${withLatestFinancials} av ${operators} har siste regnskap. ${plotted} har sammenlignbare NOK-verdier for standardgrafen; manglende verdier er utelatt, ikke satt til null.${sourceCitations}`,
           `Operatørtilhørigheten er utledet fra Brønnøysundregistrenes underenhetsnavn og er ikke et offisielt franchisefelt.${sourceCitations}`,
         ].join("\n\n"),

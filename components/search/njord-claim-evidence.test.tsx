@@ -13,6 +13,7 @@ describe("NjordClaimEvidence", () => {
       <NjordClaimEvidence
         evidence={{
           invalidCitationIds: [],
+          uncitedLines: [],
           sources: [],
           claims: [{
             text: "Aksjeloven regulerer utbytte.",
@@ -49,7 +50,14 @@ describe("NjordClaimEvidence", () => {
   it("renders nothing when the answer has no source-backed claims", () => {
     expect(
       renderToStaticMarkup(
-        <NjordClaimEvidence evidence={{ claims: [], sources: [], invalidCitationIds: [] }} />,
+        <NjordClaimEvidence
+          evidence={{
+            claims: [],
+            sources: [],
+            invalidCitationIds: [],
+            uncitedLines: [],
+          }}
+        />,
       ),
     ).toBe("");
   });

@@ -171,4 +171,29 @@ describe("createClaimEvidenceTracker", () => {
       citationIds: ["calculation:1"],
     });
   });
+
+  it("reports every non-empty answer line that lacks a citation", () => {
+    const tracker = createClaimEvidenceTracker();
+    tracker.recordToolResult({
+      name: "resolve_company",
+      toolVersion: "v1",
+      outputKind: "DOCUMENTED_FACT",
+      output: {
+        provenance: {
+          sourceSystem: "BRREG",
+          sourceEntityType: "enhet",
+          sourceId: "923609016",
+          fetchedAt: "2026-07-27T09:00:00.000Z",
+          normalizedAt: "2026-07-27T09:00:01.000Z",
+        },
+      },
+    });
+
+    const result = tracker.buildResult(
+      "EQUINOR ASA er registrert [source:1].\nSelskapet har 21 467 ansatte.",
+    );
+
+    expect(result.claims).toHaveLength(1);
+    expect(result.uncitedLines).toEqual(["Selskapet har 21 467 ansatte."]);
+  });
 });

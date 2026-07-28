@@ -186,6 +186,27 @@ describe("runAgent", () => {
     expect(result.claimEvidence.claims).toEqual([]);
   });
 
+  it("rejects a mixed answer when any factual line is uncited", async () => {
+    const llm = new ScriptedLlmClient([
+      { toolCalls: [{ name: "resolve_company", arguments: { nameHint: "Fjord Defence" } }] },
+      {
+        content:
+          "Selskapet har organisasjonsnummer 917811288 [source:1].\n" +
+          "Selskapet har 42 ansatte.",
+      },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools,
+      systemPrompt: PROMPT,
+      userQuery: "Oppsummer selskapet.",
+    });
+
+    expect(result.answer).toMatch(/kunne ikke koble svaret til konkrete kilder/i);
+    expect(result.claimEvidence.claims).toEqual([]);
+  });
+
   it("flags an org number cited in the answer that no tool returned (grounding leak)", async () => {
     const llm = new ScriptedLlmClient([
       { toolCalls: [{ name: "resolve_company", arguments: { nameHint: "x" } }] },
@@ -268,6 +289,26 @@ describe("runAgent", () => {
     });
 
     expect(result.answer).toBe("Kilden støtter svaret (knowledge:law-1:chunk-1).");
+  });
+
+  it("rejects a knowledge answer with an additional uncited factual line", async () => {
+    const llm = new ScriptedLlmClient([
+      { toolCalls: [{ name: "search_norwegian_law", arguments: { query: "aksjeloven" } }] },
+      {
+        content:
+          "Kilden støtter svaret (knowledge:law-1:chunk-1).\n" +
+          "Alle utbytter er derfor lovlige.",
+      },
+    ]);
+
+    const result = await runAgent({
+      llm,
+      tools: [knowledgeStub as RetrievalTool],
+      systemPrompt: PROMPT,
+      userQuery: "Hva gjelder?",
+    });
+
+    expect(result.answer).toMatch(/kunne ikke koble svaret til konkrete kilder/i);
   });
 
   it("uses LLM routing to restrict a legal request to knowledge tools", async () => {

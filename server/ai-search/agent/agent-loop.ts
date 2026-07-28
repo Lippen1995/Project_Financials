@@ -248,8 +248,16 @@ function finalize(
     Boolean(safeAnswer?.trim()) &&
     requiresClaimEvidence &&
     claimEvidence.claims.length === 0;
+  const hasUncitedLines =
+    safeAnswer === groundedAnswer &&
+    groundedAnswer === answer &&
+    Boolean(safeAnswer?.trim()) &&
+    toolResults.some((result) => result.name !== ROUTING_TOOL_NAME) &&
+    claimEvidence.uncitedLines.length > 0;
   const answerWithValidCitations =
-    claimEvidence.invalidCitationIds.length > 0 || missingClaimEvidence
+    claimEvidence.invalidCitationIds.length > 0 ||
+    missingClaimEvidence ||
+    hasUncitedLines
     ? "Njord kunne ikke koble svaret til konkrete kilder. Prøv et mer avgrenset spørsmål."
     : safeAnswer;
   return {

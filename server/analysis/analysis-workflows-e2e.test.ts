@@ -9,6 +9,8 @@ import {
   createAnalysisService,
   type AnalysisRepository,
 } from "./analysis-service";
+import type { CompanyUniverseCandidate } from "./company-analysis-domain";
+import { createCompanyUniverseService } from "./company-universe-service";
 
 const observedAt = new Date("2026-07-28T08:00:00.000Z");
 type OfficialCompanyFixture = {
@@ -109,6 +111,12 @@ type StoredAnalysis = {
       dataGaps: unknown;
       sourceBasis: unknown;
       notes: string | null;
+    }>;
+    exclusions: Array<{
+      orgNumber: string;
+      companyName: string;
+      reasons: string[];
+      sourceBasis: OfficialCompanyFixture["sourceBasis"];
     }>;
   }>;
   createdAt: Date;
@@ -219,6 +227,7 @@ function createWorkflowHarness() {
           sourceBasis: item.sourceBasis,
           notes: item.notes ?? null,
         })),
+        exclusions: input.universeResult?.excluded ?? [],
       };
       analysis.worklists.push(worklist);
       return worklist;
@@ -235,8 +244,26 @@ function createWorkflowHarness() {
           }
         : null;
     },
-    async listWorklistExclusions() {
-      return null;
+    async listWorklistExclusions(analysisId, worklistId, input) {
+      const worklist = analyses
+        .get(analysisId)
+        ?.worklists.find((item) => item.id === worklistId);
+      if (!worklist) return null;
+      const filtered = worklist.exclusions
+        .filter((item) => input.cursor == null || item.orgNumber > input.cursor)
+        .slice(0, input.limit);
+      return {
+        universeResultVersion: worklist.universeResultVersion,
+        screeningVersion: worklist.screeningVersion,
+        rankingVersion: worklist.rankingVersion,
+        evaluatedCount: worklist.evaluatedCount,
+        includedCount: worklist.includedCount,
+        excludedCount: worklist.excludedCount,
+        truncatedCount: worklist.truncatedCount,
+        universeExecutedAt: worklist.universeExecutedAt,
+        items: filtered,
+        nextCursor: null,
+      };
     },
     async reorderWorklist() {},
     async addWorklistItem() {
@@ -276,37 +303,38 @@ function createWorkflowHarness() {
     SOURCING: { included: "984851006", excluded: "982463718" },
     COMPETITOR_ANALYSIS: { included: "982463718", excluded: "984851006" },
   } as const;
-  const universeRunner = {
-    async run(input: unknown) {
-      const request = input as {
-        query: { workflow: keyof typeof candidatesByWorkflow };
-        ranking: unknown;
-      };
-      const selection = candidatesByWorkflow[request.query.workflow];
-      const excludedSource = sourceByOrgNumber[selection.excluded]!;
+  const candidateDetails = {
+    "923609016": { naceCode: "06.100", municipalityNumber: "1103", employeeCount: 21_467 },
+    "984851006": { naceCode: "64.190", municipalityNumber: "0301", employeeCount: 7_536 },
+    "982463718": { naceCode: "61.100", municipalityNumber: "3201", employeeCount: 298 },
+    "914778271": { naceCode: "24.420", municipalityNumber: "0301", employeeCount: 391 },
+  } as const;
+  const toCandidate = (
+    orgNumber: keyof typeof candidateDetails,
+  ): CompanyUniverseCandidate => {
+    const official = sourceByOrgNumber[orgNumber]!;
+    return {
+      orgNumber,
+      name: official.companyName,
+      legalForm: "ASA",
+      status: "ACTIVE",
+      ...candidateDetails[orgNumber],
+      companySource: official.sourceBasis[0]!,
+      financials: null,
+    };
+  };
+  const universeRunner = createCompanyUniverseService({
+    async loadCandidates(query) {
+      const selection = candidatesByWorkflow[query.workflow];
       return {
-        version: "company-universe-result-v1" as const,
-        status: "COMPLETE" as const,
-        screeningVersion: "company-screening-v1" as const,
-        rankingVersion: "company-ranking-v1" as const,
-        counts: { evaluated: 2, included: 1, excluded: 1, truncated: 0 },
-        included: [{
-          orgNumber: selection.included,
-          inclusionReasons: ["MATCHED_VERSIONED_UNIVERSE_QUERY"],
-          dataGaps: [],
-          rank: 1,
-          score: 100,
-          coveragePercent: 100,
-        }],
-        excluded: [{
-          orgNumber: selection.excluded,
-          name: excludedSource.companyName,
-          reasons: ["FILTER_CRITERIA_NOT_MET"],
-          sourceBasis: excludedSource.sourceBasis,
-        }],
+        candidates: [
+          toCandidate(selection.included),
+          toCandidate(selection.excluded),
+        ],
+        truncated: false,
       };
     },
-  };
+  });
 
   return {
     write: createAnalysisService(writeRepository, universeRunner),
@@ -321,6 +349,8 @@ const workflows = [
     purpose: "Finn dokumenterte oppkjøpskandidater.",
     worklistType: "LONGLIST" as const,
     expectedOrgNumber: "923609016",
+    excludedOrgNumber: "914778271",
+    industryCodePrefix: "06",
   },
   {
     workflow: "SOURCING" as const,
@@ -328,6 +358,8 @@ const workflows = [
     purpose: "Finn dokumenterte leverandørkandidater.",
     worklistType: "SOURCING" as const,
     expectedOrgNumber: "984851006",
+    excludedOrgNumber: "982463718",
+    industryCodePrefix: "64",
   },
   {
     workflow: "COMPETITOR_ANALYSIS" as const,
@@ -335,6 +367,8 @@ const workflows = [
     purpose: "Bygg et dokumentert peer-sett.",
     worklistType: "PEER_SET" as const,
     expectedOrgNumber: "982463718",
+    excludedOrgNumber: "984851006",
+    industryCodePrefix: "61",
   },
 ];
 
@@ -352,24 +386,31 @@ describe("Sprint 3 analysis workflows", () => {
           version: "company-universe-v1",
           workflow: scenario.workflow,
           statuses: ["ACTIVE"],
+          industryCodePrefixes: [scenario.industryCodePrefix],
           missingDataPolicy: "INCLUDE_WITH_GAP",
           limit: 100,
         },
         calculationConfig: {
           ranking: [{
-            metric: "REVENUE",
+            metric: "EMPLOYEE_COUNT",
             direction: "HIGHER_BETTER",
             weight: 100,
           }],
         },
       });
 
-      await harness.write.createWorklistFromUniverse("user-1", analysis.id, {
+      const worklist = await harness.write.createWorklistFromUniverse("user-1", analysis.id, {
         expectedAnalysisVersion: 1,
         type: scenario.worklistType,
         name: `${scenario.title} – prioritert liste`,
         purpose: scenario.purpose,
       });
+      const exclusions = await harness.write.listWorklistExclusions(
+        "user-1",
+        analysis.id,
+        worklist.id,
+        { limit: 25 },
+      );
       await harness.write.updateConclusion("user-1", analysis.id, {
         expectedVersion: 2,
         status: "COMPLETED",
@@ -379,6 +420,24 @@ describe("Sprint 3 analysis workflows", () => {
       });
 
       const stored = await harness.read.get("user-1", analysis.id);
+
+      expect(exclusions).toMatchObject({
+        universeResultVersion: "company-universe-result-v1",
+        screeningVersion: "company-screening-v1",
+        rankingVersion: "company-ranking-v1",
+        excludedCount: 1,
+        items: [{
+          orgNumber: scenario.excludedOrgNumber,
+          reasons: ["INDUSTRY_NOT_INCLUDED"],
+          sourceBasis: [{
+            sourceSystem: "BRREG",
+            sourceEntityType: "enhet",
+            sourceId: scenario.excludedOrgNumber,
+            fetchedAt: expect.any(String),
+            normalizedAt: expect.any(String),
+          }],
+        }],
+      });
 
       expect(stored).toMatchObject({
         workflow: scenario.workflow,

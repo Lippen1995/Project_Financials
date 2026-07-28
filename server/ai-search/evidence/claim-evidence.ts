@@ -21,6 +21,7 @@ export type NjordClaimEvidenceResult = {
   claims: NjordClaimEvidence[];
   sources: NjordEvidenceSource[];
   invalidCitationIds: string[];
+  uncitedLines: string[];
 };
 
 type RecordedToolResult = {
@@ -188,13 +189,17 @@ export function createClaimEvidenceTracker() {
 
     buildResult(answer: string | null): NjordClaimEvidenceResult {
       const invalidCitationIds = new Set<string>();
+      const uncitedLines: string[] = [];
       const claims = (answer ?? "")
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean)
         .flatMap((line) => {
           const citationIds = [...new Set(line.match(CITATION_PATTERN) ?? [])];
-          if (citationIds.length === 0) return [];
+          if (citationIds.length === 0) {
+            uncitedLines.push(line);
+            return [];
+          }
           const claimSources = citationIds.flatMap((citationId) => {
             const source = sourcesByCitationId.get(citationId);
             if (!source) {
@@ -222,6 +227,7 @@ export function createClaimEvidenceTracker() {
         claims,
         sources: [...sources],
         invalidCitationIds: [...invalidCitationIds],
+        uncitedLines,
       };
     },
   };

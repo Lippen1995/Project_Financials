@@ -8,27 +8,55 @@ import {
   type NjordEvaluationObservation,
 } from "@/server/ai-search/evaluation/evaluator";
 
+const evidenceKindSchema = z.enum([
+  "DOCUMENTED_FACT",
+  "CALCULATION",
+  "EXPLANATION",
+]);
+const sourceSchema = z.object({
+  citationId: z.string().trim().min(1).max(500),
+  sourceSystem: z.string().trim().min(1).max(100),
+  sourceEntityType: z.string().trim().min(1).max(100),
+  sourceId: z.string().trim().min(1).max(500),
+  fetchedAt: z.string().datetime(),
+  normalizedAt: z.string().datetime(),
+  label: z.string().nullable(),
+  sourceUrl: z.string().url().nullable(),
+  tool: z.string().trim().min(1).max(100),
+  toolVersion: z.string().regex(/^v\d+$/).nullable(),
+  kind: evidenceKindSchema,
+}).strict();
 const observationSchema = z.object({
   caseId: z.string().min(1),
-  answer: z.string().nullable(),
-  toolNames: z.array(z.string()),
-  evidenceKinds: z.array(z.enum(["DOCUMENTED_FACT", "CALCULATION", "EXPLANATION"])),
-  ungroundedOrgNumbers: z.array(z.string().regex(/^\d{9}$/)),
-  outcome: z.enum(["GROUNDED_ANSWER", "UNAVAILABLE", "REFUSAL"]),
-  facts: z.array(z.object({
-    orgNumber: z.string().regex(/^\d{9}$/),
-    field: z.string().trim().min(1).max(100),
-    value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
-    citationIds: z.array(z.string().trim().min(1).max(500)).min(1),
-  }).strict()).optional(),
-  sources: z.array(z.object({
-    citationId: z.string().trim().min(1).max(500),
-    sourceSystem: z.string().trim().min(1).max(100),
-    sourceEntityType: z.string().trim().min(1).max(100),
-    sourceId: z.string().trim().min(1).max(500),
-    fetchedAt: z.string().datetime(),
-    normalizedAt: z.string().datetime(),
-  }).strict()).optional(),
+  status: z.number().int().min(100).max(599),
+  result: z.object({
+    answer: z.string().nullable(),
+    invocations: z.array(z.object({
+      name: z.string().trim().min(1).max(100),
+      arguments: z.unknown(),
+      ok: z.boolean(),
+      error: z.string().optional(),
+    }).strict()),
+    toolResults: z.array(z.object({
+      name: z.string().trim().min(1).max(100),
+      toolVersion: z.string().regex(/^v\d+$/).optional(),
+      outputKind: evidenceKindSchema.optional(),
+      dataDomains: z.array(z.string()).optional(),
+      output: z.unknown(),
+    }).strict()),
+    claimEvidence: z.object({
+      claims: z.array(z.object({
+        text: z.string(),
+        kind: evidenceKindSchema,
+        citationIds: z.array(z.string()),
+        sources: z.array(sourceSchema),
+      }).strict()),
+      sources: z.array(sourceSchema),
+      invalidCitationIds: z.array(z.string()),
+      uncitedLines: z.array(z.string()),
+    }).strict(),
+    stopReason: z.enum(["final", "max_turns", "max_tool_calls"]),
+  }).strict().nullable(),
 }).strict();
 
 const fileSchema = z.object({
