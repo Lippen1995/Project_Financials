@@ -92,4 +92,36 @@ describe("OpenAiLlmClient", () => {
     expect(request.max_completion_tokens).toBeGreaterThan(0);
     expect(request.max_completion_tokens).toBeLessThan(1_800);
   });
+
+  it("retains charged usage when a provider response cannot be used", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "chatcmpl-invalid",
+          model: "gpt-5-mini",
+          usage: {
+            prompt_tokens: 30,
+            completion_tokens: 6,
+            prompt_tokens_details: { cached_tokens: 10 },
+          },
+          choices: [],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const client = new OpenAiLlmClient({ apiKey: "test-key", model: "gpt-5-mini" });
+
+    await expect(client.run({
+      messages: [{ role: "user", content: "Svar." }],
+      tools: [],
+    })).rejects.toThrow("contained no message");
+
+    expect(client.getUsageSnapshot()).toEqual({
+      inputTokens: 20,
+      cachedInputTokens: 10,
+      outputTokens: 6,
+      model: "gpt-5-mini",
+      sourceIds: ["chatcmpl-invalid"],
+    });
+  });
 });

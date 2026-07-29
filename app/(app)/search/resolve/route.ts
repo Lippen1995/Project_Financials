@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { safeAuth } from "@/lib/auth";
+import env from "@/lib/env";
 import { canStartAiSearch } from "@/lib/ai-search-usage";
 import {
   buildDashboardSearchHref,
@@ -9,6 +10,7 @@ import {
 import { resolveDashboardSearchHref } from "@/server/services/dashboard-search-routing-service";
 import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
 import { getAiSearchUsageStatus } from "@/server/services/search-history-service";
+import { getAiRuntimeEconomicsConfig } from "@/server/services/admin-ai-economics-service";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -20,17 +22,25 @@ export async function GET(request: Request) {
   const scope = isDashboardSearchScope(rawScope) ? rawScope : "all";
   const aiRequested = url.searchParams.get("ai") === "1";
   const session = aiRequested ? await safeAuth() : null;
+  const economics = session?.user?.id ? await getAiRuntimeEconomicsConfig() : null;
   const subscription = session?.user?.id
-    ? await getAiSearchSubscriptionContext(session.user.id)
+    ? await getAiSearchSubscriptionContext(session.user.id, new Date(), economics)
     : null;
   const usage = session?.user?.id && subscription
     ? await getAiSearchUsageStatus(
         session.user.id,
         subscription.premium,
         subscription.billingPeriod,
+        subscription.tokenLimit,
       )
     : null;
-  const aiEnabled = Boolean(aiRequested && usage && canStartAiSearch(usage));
+  const aiEnabled = Boolean(
+    aiRequested &&
+      env.aiSearchBillingEnabled &&
+      economics?.runtimeEnabled &&
+      usage &&
+      canStartAiSearch(usage),
+  );
   const searchEventId = url.searchParams.get("searchEventId");
 
   const href =

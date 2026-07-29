@@ -4,7 +4,6 @@ import { Prisma } from "@prisma/client";
 
 import {
   AI_SEARCH_RESERVATION_TOKENS,
-  PREMIUM_AI_SEARCH_TOKEN_LIMIT,
   createAiSearchUsageStatus,
   getSearchHistoryCutoff,
   type AiSearchUsageStatus,
@@ -26,6 +25,10 @@ import {
   canReserveNjordCost,
   estimateNjordCostNok,
 } from "@/server/ai-search/runtime-policy";
+import {
+  AI_ECONOMICS_RUNTIME_LOCK_KEY,
+  canReserveWithinAllowance,
+} from "@/server/ai-economics/domain";
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 50;
@@ -292,6 +295,7 @@ export async function getSearchHistoryDashboard(
     pageSize?: number;
     premium?: boolean;
     billingPeriod?: AiSearchBillingPeriod | null;
+    tokenLimit?: number;
   } = {},
 ): Promise<SearchHistoryDashboard> {
   const page = Math.max(1, Math.trunc(options.page ?? 1));
@@ -326,19 +330,19 @@ export async function getSearchHistoryDashboard(
     }>>(Prisma.sql`
       SELECT
         COUNT(*) FILTER (WHERE "status" = 'RECORDED')::bigint AS "aiSearches",
-        COALESCE(SUM("inputTokens") FILTER (WHERE "status" = 'RECORDED'), 0)::bigint AS "inputTokens",
-        COALESCE(SUM("cachedInputTokens") FILTER (WHERE "status" = 'RECORDED'), 0)::bigint AS "cachedInputTokens",
-        COALESCE(SUM("outputTokens") FILTER (WHERE "status" = 'RECORDED'), 0)::bigint AS "outputTokens",
+        COALESCE(SUM("inputTokens") FILTER (WHERE "status" IN ('RECORDED', 'FAILED')), 0)::bigint AS "inputTokens",
+        COALESCE(SUM("cachedInputTokens") FILTER (WHERE "status" IN ('RECORDED', 'FAILED')), 0)::bigint AS "cachedInputTokens",
+        COALESCE(SUM("outputTokens") FILTER (WHERE "status" IN ('RECORDED', 'FAILED')), 0)::bigint AS "outputTokens",
         COALESCE(SUM(
           CASE
-            WHEN "status" = 'RECORDED' AND "occurredAt" >= ${usagePeriodStart} AND "occurredAt" < ${usagePeriodEnd} THEN "usageTokens"
+            WHEN "status" IN ('RECORDED', 'FAILED') AND "occurredAt" >= ${usagePeriodStart} AND "occurredAt" < ${usagePeriodEnd} THEN "usageTokens"
             WHEN "status" = 'RESERVED' AND "expiresAt" > NOW() THEN "reservedTokens"
             ELSE 0
           END
         ), 0)::bigint AS "usageTokens"
       FROM "AiSearchUsageEvent"
       WHERE "userId" = ${userId}
-        AND (("status" = 'RECORDED' AND "occurredAt" >= ${usagePeriodStart} AND "occurredAt" < ${usagePeriodEnd}) OR ("status" = 'RESERVED' AND "expiresAt" > NOW()))
+        AND (("status" IN ('RECORDED', 'FAILED') AND "occurredAt" >= ${usagePeriodStart} AND "occurredAt" < ${usagePeriodEnd}) OR ("status" = 'RESERVED' AND "expiresAt" > NOW()))
     `),
   ]);
 
@@ -348,6 +352,7 @@ export async function getSearchHistoryDashboard(
     Boolean(options.premium),
     Number(usage?.usageTokens ?? 0),
     options.billingPeriod,
+    options.tokenLimit,
   );
   return {
     items: items.map(toHistoryItem),
@@ -370,13 +375,14 @@ export async function getAiSearchUsageStatus(
   userId: string,
   premium: boolean,
   billingPeriod: AiSearchBillingPeriod | null,
+  tokenLimit?: number,
 ) {
   const periodStart = billingPeriod?.periodStart ?? new Date();
   const periodEnd = billingPeriod?.periodEnd ?? new Date();
   const rows = await prisma.$queryRaw<Array<{ usageTokens: bigint }>>(Prisma.sql`
     SELECT COALESCE(SUM(
       CASE
-        WHEN "status" = 'RECORDED' AND "occurredAt" >= ${periodStart} AND "occurredAt" < ${periodEnd} THEN "usageTokens"
+        WHEN "status" IN ('RECORDED', 'FAILED') AND "occurredAt" >= ${periodStart} AND "occurredAt" < ${periodEnd} THEN "usageTokens"
         WHEN "status" = 'RESERVED' AND "expiresAt" > NOW() THEN "reservedTokens"
         ELSE 0
       END
@@ -388,12 +394,24 @@ export async function getAiSearchUsageStatus(
     premium,
     Number(rows[0]?.usageTokens ?? 0),
     billingPeriod,
+    tokenLimit,
   );
 }
+
+export type AiSearchReservationPolicy = {
+  settingsVersion: number;
+  planEconomicsVersion: number | null;
+  usageCategory: "CUSTOMER" | "INTERNAL_ADMIN" | "INTERNAL_REVIEWER";
+  appRole: "USER" | "ADMIN" | "FINANCIAL_REVIEWER";
+  subscriptionPlan: string | null;
+  subscriptionStatus: "FREE" | "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELED" | null;
+  subscriptionUpdatedAt: Date | null;
+};
 
 export async function reserveAiSearchUsage(
   userId: string,
   billingPeriod: AiSearchBillingPeriod,
+  policy: AiSearchReservationPolicy,
 ) {
   const now = new Date();
   const periodStart = billingPeriod.periodStart;
@@ -414,24 +432,98 @@ export async function reserveAiSearchUsage(
     // $executeRaw, not $queryRaw: pg_advisory_xact_lock returns SQL `void`, which $queryRaw cannot
     // deserialize (it throws "Failed to deserialize column of type 'void'"). We only need the lock's
     // side effect, so execute it without materializing a result set.
-    // The global cost lock is always acquired before the per-user token lock. That fixed order
-    // prevents two users from reserving the same remaining monthly NOK budget concurrently.
+    // The shared economics lock is always acquired before the per-user token lock. Admin writes
+    // use the same lock, so a completed pause or limit update cannot be followed by a stale
+    // reservation. The fixed order also protects the remaining monthly NOK budget.
     await transaction.$executeRaw(Prisma.sql`
-      SELECT pg_advisory_xact_lock(hashtextextended('njord-global-monthly-cost', 0))
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${AI_ECONOMICS_RUNTIME_LOCK_KEY}, 0)
+      )
     `);
     await transaction.$executeRaw(Prisma.sql`
       SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 0))
     `);
+    const [settings, currentUser] = await Promise.all([
+      transaction.aiEconomicsSettings.findUnique({ where: { id: "global" } }),
+      transaction.user.findUnique({
+        where: { id: userId },
+        select: {
+          appRole: true,
+          subscription: true,
+        },
+      }),
+    ]);
+    if (
+      !settings?.runtimeEnabled ||
+      settings.version !== policy.settingsVersion ||
+      !currentUser ||
+      currentUser.appRole !== policy.appRole ||
+      (currentUser.subscription?.plan ?? null) !== policy.subscriptionPlan ||
+      (currentUser.subscription?.status ?? null) !== policy.subscriptionStatus ||
+      (currentUser.subscription?.updatedAt?.getTime() ?? null) !==
+        (policy.subscriptionUpdatedAt?.getTime() ?? null)
+    ) {
+      return null;
+    }
+    const internal =
+      currentUser.appRole === "ADMIN" ||
+      currentUser.appRole === "FINANCIAL_REVIEWER";
+    const effectiveUsageCategory = currentUser.appRole === "ADMIN"
+      ? "INTERNAL_ADMIN"
+      : currentUser.appRole === "FINANCIAL_REVIEWER"
+        ? "INTERNAL_REVIEWER"
+        : "CUSTOMER";
+    const currentPlan = !internal && currentUser.subscription?.plan
+      ? await transaction.aiSubscriptionPlanEconomics.findUnique({
+          where: { planKey: currentUser.subscription.plan },
+        })
+      : null;
+    if (
+      (!internal &&
+        (
+          currentUser.subscription?.status !== "ACTIVE" ||
+          !currentPlan?.active ||
+          currentPlan.version !== policy.planEconomicsVersion
+        )) ||
+      (internal && policy.planEconomicsVersion != null) ||
+      policy.usageCategory !== effectiveUsageCategory
+    ) {
+      return null;
+    }
+    const effectiveTokenLimit = internal
+      ? settings.internalMonthlyTokenAllowance
+      : currentPlan?.includedAiUsageTokens ?? 0;
+    const effectiveUserCostLimitNok = internal
+      ? null
+      : Number(currentPlan?.includedAiCostNok ?? 0);
+    const effectiveRequestCostLimitNok = Number(settings.requestCostLimitNok);
+    const effectiveMonthlyCostLimitNok = Number(settings.globalMonthlyBudgetNok);
     const usageRows = await transaction.$queryRaw<Array<{
       usageTokens: bigint;
+      costNok: Prisma.Decimal;
+      dailyRequests: bigint;
     }>>(Prisma.sql`
-      SELECT COALESCE(SUM(
-        CASE
-          WHEN "status" = 'RECORDED' AND "occurredAt" >= ${periodStart} AND "occurredAt" < ${periodEnd} THEN "usageTokens"
+      SELECT
+        COALESCE(SUM(CASE
+          WHEN "status" IN ('RECORDED', 'FAILED') AND "occurredAt" >= ${periodStart} AND "occurredAt" < ${periodEnd} THEN "usageTokens"
           WHEN "status" = 'RESERVED' AND "expiresAt" > ${now} THEN "reservedTokens"
           ELSE 0
-        END
-      ), 0)::bigint AS "usageTokens"
+        END), 0)::bigint AS "usageTokens",
+        COALESCE(SUM(CASE
+          WHEN "status" IN ('RECORDED', 'FAILED') AND "occurredAt" >= ${periodStart} AND "occurredAt" < ${periodEnd}
+            THEN COALESCE("budgetedCostNok", "estimatedCostNok", 0)
+          WHEN "status" = 'RESERVED' AND "expiresAt" > ${now} THEN "reservedCostNok"
+          ELSE 0
+        END), 0)::numeric AS "costNok",
+        COUNT(*) FILTER (
+          WHERE (
+            "status" IN ('RECORDED', 'FAILED')
+            AND "occurredAt" >= ${new Date(now.getTime() - 24 * 60 * 60 * 1_000)}
+          ) OR (
+            "status" = 'RESERVED'
+            AND "expiresAt" > ${now}
+          )
+        )::bigint AS "dailyRequests"
       FROM "AiSearchUsageEvent"
       WHERE "userId" = ${userId}
     `);
@@ -440,10 +532,10 @@ export async function reserveAiSearchUsage(
     }>>(Prisma.sql`
       SELECT COALESCE(SUM(
         CASE
-          WHEN "status" = 'RECORDED'
+          WHEN "status" IN ('RECORDED', 'FAILED')
             AND "occurredAt" >= ${globalPeriodStart}
             AND "occurredAt" < ${globalPeriodEnd}
-            THEN COALESCE("estimatedCostNok", 0)
+            THEN COALESCE("budgetedCostNok", "estimatedCostNok", 0)
           WHEN "status" = 'RESERVED' AND "expiresAt" > ${now}
             THEN "reservedCostNok"
           ELSE 0
@@ -452,13 +544,24 @@ export async function reserveAiSearchUsage(
       FROM "AiSearchUsageEvent"
     `);
     const usedTokens = Number(usageRows[0]?.usageTokens ?? 0);
-    if (usedTokens + AI_SEARCH_RESERVATION_TOKENS > PREMIUM_AI_SEARCH_TOKEN_LIMIT) {
+    if (Number(usageRows[0]?.dailyRequests ?? 0) >= settings.dailyRequestLimit) {
+      return null;
+    }
+    if (usedTokens + AI_SEARCH_RESERVATION_TOKENS > effectiveTokenLimit) {
+      return null;
+    }
+    const usedCostNok = Number(usageRows[0]?.costNok ?? 0);
+    if (!canReserveWithinAllowance(
+      usedCostNok,
+      effectiveRequestCostLimitNok,
+      effectiveUserCostLimitNok,
+    )) {
       return null;
     }
     if (!canReserveNjordCost({
       recordedAndReservedCostNok: Number(costRows[0]?.costNok ?? 0),
-      requestCostLimitNok: env.njordRequestCostLimitNok,
-      monthlyCostLimitNok: env.njordMonthlyCostLimitNok,
+      requestCostLimitNok: effectiveRequestCostLimitNok,
+      monthlyCostLimitNok: effectiveMonthlyCostLimitNok,
     })) {
       return null;
     }
@@ -466,10 +569,15 @@ export async function reserveAiSearchUsage(
     const id = randomUUID();
     await transaction.$executeRaw(Prisma.sql`
       INSERT INTO "AiSearchUsageEvent" (
-        "id", "userId", "status", "reservedTokens", "reservedCostNok", "expiresAt"
+        "id", "userId", "status", "reservedTokens", "reservedCostNok", "expiresAt",
+        "usageCategory", "appRoleAtUsage", "subscriptionPlanAtUsage",
+        "subscriptionStatusAtUsage", "settingsVersion"
       ) VALUES (
         ${id}, ${userId}, 'RESERVED', ${AI_SEARCH_RESERVATION_TOKENS},
-        ${env.njordRequestCostLimitNok}, ${expiresAt}
+        ${effectiveRequestCostLimitNok}, ${expiresAt},
+        ${effectiveUsageCategory}::"AiUsageCategory", ${policy.appRole}::"AppRole",
+        ${policy.subscriptionPlan},
+        ${policy.subscriptionStatus}::"SubscriptionStatus", ${policy.settingsVersion}
       )
     `);
     return id;
@@ -497,6 +605,11 @@ export async function finalizeAiSearchUsage(
         "outputTokens" = ${Math.max(0, Math.trunc(usage.outputTokens))},
         "usageTokens" = ${Math.max(0, Math.trunc(usage.usageTokens))},
         "estimatedCostNok" = ${estimatedCostNok},
+        "providerCurrency" = ${usage.providerCurrency ?? null},
+        "providerCostAmount" = ${usage.providerCostAmount ?? null},
+        "exchangeRateNok" = ${usage.exchangeRateNok ?? null},
+        "fxRiskBufferBps" = ${usage.fxRiskBufferBps ?? null},
+        "budgetedCostNok" = ${usage.budgetedCostNok ?? estimatedCostNok},
         "durationMs" = ${usage.durationMs == null ? null : Math.max(0, Math.trunc(usage.durationMs))},
         "errorCode" = NULL,
         "sourceSystem" = ${usage.sourceSystem},
@@ -512,9 +625,43 @@ export async function finalizeAiSearchUsage(
 export async function failAiSearchUsage(
   userId: string,
   reservationId: string,
-  failure: { errorCode: string; durationMs: number },
+  failure: { errorCode: string; durationMs: number; usage?: AiTokenUsage },
 ) {
   const occurredAt = new Date();
+  if (failure.usage) {
+    const usage = failure.usage;
+    const estimatedCostNok = usage.estimatedCostNok ?? estimateNjordCostNok(usage, {
+      inputNokPerMillion: env.njordInputNokPerMillion,
+      cachedInputNokPerMillion: env.njordCachedInputNokPerMillion,
+      outputNokPerMillion: env.njordOutputNokPerMillion,
+    });
+    return prisma.$executeRaw(Prisma.sql`
+      UPDATE "AiSearchUsageEvent"
+      SET "status" = 'FAILED',
+          "reservedTokens" = 0,
+          "reservedCostNok" = 0,
+          "model" = ${usage.model},
+          "inputTokens" = ${Math.max(0, Math.trunc(usage.inputTokens))},
+          "cachedInputTokens" = ${Math.max(0, Math.trunc(usage.cachedInputTokens))},
+          "outputTokens" = ${Math.max(0, Math.trunc(usage.outputTokens))},
+          "usageTokens" = ${Math.max(0, Math.trunc(usage.usageTokens))},
+          "estimatedCostNok" = ${estimatedCostNok},
+          "providerCurrency" = ${usage.providerCurrency ?? null},
+          "providerCostAmount" = ${usage.providerCostAmount ?? null},
+          "exchangeRateNok" = ${usage.exchangeRateNok ?? null},
+          "fxRiskBufferBps" = ${usage.fxRiskBufferBps ?? null},
+          "budgetedCostNok" = ${usage.budgetedCostNok ?? estimatedCostNok},
+          "durationMs" = ${Math.max(0, Math.trunc(failure.durationMs))},
+          "errorCode" = ${failure.errorCode.slice(0, 100)},
+          "sourceSystem" = ${usage.sourceSystem},
+          "sourceEntityType" = ${usage.sourceEntityType},
+          "sourceId" = ${usage.sourceId},
+          "fetchedAt" = ${usage.fetchedAt},
+          "normalizedAt" = ${usage.normalizedAt},
+          "occurredAt" = ${usage.fetchedAt}
+      WHERE "id" = ${reservationId} AND "userId" = ${userId} AND "status" = 'RESERVED'
+    `);
+  }
   return prisma.$executeRaw(Prisma.sql`
     UPDATE "AiSearchUsageEvent"
     SET "status" = 'FAILED',

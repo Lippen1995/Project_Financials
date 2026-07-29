@@ -108,7 +108,10 @@ function buildFallbackInterpretation(
 }
 
 export class OpenAiSearchIntentProvider {
-  async interpretQuery(query: string): Promise<SearchInterpretation> {
+  async interpretQuery(
+    query: string,
+    options: { maxCompletionTokens?: number } = {},
+  ): Promise<SearchInterpretation> {
     const trimmed = query.trim();
     if (!trimmed) {
       return {
@@ -132,7 +135,10 @@ export class OpenAiSearchIntentProvider {
         body: JSON.stringify({
           model: env.openAiSearchModel,
           temperature: 0,
-          max_completion_tokens: 500,
+          max_completion_tokens: Math.max(
+            1,
+            Math.min(500, Math.trunc(options.maxCompletionTokens ?? 500)),
+          ),
           response_format: {
             type: "json_object",
           },

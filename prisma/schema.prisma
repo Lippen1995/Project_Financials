@@ -148,6 +148,18 @@ enum SubscriptionStatus {
   CANCELED
 }
 
+enum AiRevenueAllocationMode {
+  COST_PLUS
+  FIXED_PER_SUBSCRIBER
+  REVENUE_SHARE
+}
+
+enum AiUsageCategory {
+  CUSTOMER
+  INTERNAL_ADMIN
+  INTERNAL_REVIEWER
+}
+
 enum WorkspaceType {
   PERSONAL
   TEAM
@@ -595,8 +607,11 @@ model User {
   companyEventExposureFeedback    CompanyEventExposureFeedback[]
   companySearchEvents             CompanySearchEvent[]
   aiSearchUsageEvents             AiSearchUsageEvent[]
-  analysesCreated                 Analysis[]                         @relation("AnalysisCreatedBy")
-  analysisWorklistsCreated        AnalysisWorklist[]                 @relation("AnalysisWorklistCreatedBy")
+  aiEconomicsSettingsUpdated      AiEconomicsSettings[]             @relation("AiEconomicsSettingsUpdatedBy")
+  aiPlanEconomicsUpdated          AiSubscriptionPlanEconomics[]     @relation("AiPlanEconomicsUpdatedBy")
+  aiEconomicsChanges              AiEconomicsChangeAudit[]          @relation("AiEconomicsChangeActor")
+  analysesCreated                 Analysis[]                        @relation("AnalysisCreatedBy")
+  analysisWorklistsCreated        AnalysisWorklist[]                @relation("AnalysisWorklistCreatedBy")
   njordFeedback                   NjordFeedback[]
 }
 
@@ -612,6 +627,63 @@ model Subscription {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Singleton runtime and provider-cost configuration. No row is seeded; paid AI fails closed
+/// until a global admin has supplied current commercial terms and explicit safety limits.
+model AiEconomicsSettings {
+  id                            String   @id @default("global")
+  runtimeEnabled                Boolean  @default(false)
+  billingCurrency               String
+  exchangeRateNok               Decimal  @db.Decimal(12, 6)
+  fxRiskBufferBps               Int
+  inputPricePerMillion          Decimal  @db.Decimal(14, 6)
+  cachedInputPricePerMillion    Decimal  @db.Decimal(14, 6)
+  outputPricePerMillion         Decimal  @db.Decimal(14, 6)
+  globalMonthlyBudgetNok        Decimal  @db.Decimal(14, 2)
+  requestCostLimitNok           Decimal  @db.Decimal(14, 4)
+  dailyRequestLimit             Int
+  internalMonthlyTokenAllowance Int
+  version                       Int      @default(1)
+  updatedByUserId               String
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+  updatedBy                     User     @relation("AiEconomicsSettingsUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+}
+
+model AiSubscriptionPlanEconomics {
+  id                                String                  @id @default(cuid())
+  planKey                           String                  @unique
+  displayName                       String
+  active                            Boolean                 @default(true)
+  monthlyPriceNok                   Decimal                 @db.Decimal(14, 2)
+  includedAiUsageTokens             Int
+  includedAiCostNok                 Decimal                 @db.Decimal(14, 2)
+  allocationMode                    AiRevenueAllocationMode
+  costPlusMarkupBps                 Int                     @default(0)
+  fixedAiAllocationNokPerSubscriber Decimal                 @default(0) @db.Decimal(14, 2)
+  revenueShareBps                   Int                     @default(0)
+  version                           Int                     @default(1)
+  updatedByUserId                   String
+  createdAt                         DateTime                @default(now())
+  updatedAt                         DateTime                @updatedAt
+  updatedBy                         User                    @relation("AiPlanEconomicsUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([active, planKey])
+}
+
+model AiEconomicsChangeAudit {
+  id          String   @id @default(cuid())
+  actorUserId String
+  entityType  String
+  entityKey   String
+  beforeState Json?
+  afterState  Json
+  createdAt   DateTime @default(now())
+  actor       User     @relation("AiEconomicsChangeActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityKey, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
 }
 
 model UserProfile {
@@ -4089,31 +4161,43 @@ model CompanySearchEvent {
 }
 
 model AiSearchUsageEvent {
-  id                String    @id @default(cuid())
-  userId            String
-  status            String    @default("RESERVED")
-  reservedTokens    Int
-  reservedCostNok   Decimal   @default(0) @db.Decimal(12, 4)
-  model             String?
-  inputTokens       Int       @default(0)
-  cachedInputTokens Int       @default(0)
-  outputTokens      Int       @default(0)
-  usageTokens       Int       @default(0)
-  estimatedCostNok  Decimal?  @db.Decimal(12, 4)
-  durationMs        Int?
-  errorCode         String?
-  sourceSystem      String?
-  sourceEntityType  String?
-  sourceId          String?
-  fetchedAt         DateTime?
-  normalizedAt      DateTime?
-  occurredAt        DateTime?
-  expiresAt         DateTime
-  createdAt         DateTime  @default(now())
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                        String              @id @default(cuid())
+  userId                    String
+  status                    String              @default("RESERVED")
+  reservedTokens            Int
+  reservedCostNok           Decimal             @default(0) @db.Decimal(12, 4)
+  usageCategory             AiUsageCategory?
+  appRoleAtUsage            AppRole?
+  subscriptionPlanAtUsage   String?
+  subscriptionStatusAtUsage SubscriptionStatus?
+  settingsVersion           Int?
+  model                     String?
+  inputTokens               Int                 @default(0)
+  cachedInputTokens         Int                 @default(0)
+  outputTokens              Int                 @default(0)
+  usageTokens               Int                 @default(0)
+  estimatedCostNok          Decimal?            @db.Decimal(12, 4)
+  providerCurrency          String?
+  providerCostAmount        Decimal?            @db.Decimal(14, 6)
+  exchangeRateNok           Decimal?            @db.Decimal(12, 6)
+  fxRiskBufferBps           Int?
+  budgetedCostNok           Decimal?            @db.Decimal(12, 4)
+  durationMs                Int?
+  errorCode                 String?
+  sourceSystem              String?
+  sourceEntityType          String?
+  sourceId                  String?
+  fetchedAt                 DateTime?
+  normalizedAt              DateTime?
+  occurredAt                DateTime?
+  expiresAt                 DateTime
+  createdAt                 DateTime            @default(now())
+  user                      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, occurredAt(sort: Desc)])
   @@index([status, expiresAt])
+  @@index([usageCategory, occurredAt(sort: Desc)])
+  @@index([subscriptionPlanAtUsage, occurredAt(sort: Desc)])
 }
 
 /// Access-controlled, durable analytical context shared by UI and Njord.
@@ -4140,10 +4224,10 @@ model Analysis {
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
-  workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy  User               @relation("AnalysisCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  worklists  AnalysisWorklist[]
-  feedback   NjordFeedback[]
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User               @relation("AnalysisCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  worklists AnalysisWorklist[]
+  feedback  NjordFeedback[]
 
   @@index([workspaceId, status, updatedAt(sort: Desc)])
   @@index([createdByUserId, createdAt(sort: Desc)])
@@ -4168,9 +4252,9 @@ model AnalysisWorklist {
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 
-  analysis Analysis               @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  createdBy User                  @relation("AnalysisWorklistCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  items     AnalysisWorklistItem[]
+  analysis   Analysis                    @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  createdBy  User                        @relation("AnalysisWorklistCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items      AnalysisWorklistItem[]
   exclusions AnalysisWorklistExclusion[]
 
   @@index([analysisId, type, updatedAt(sort: Desc)])
@@ -4214,14 +4298,14 @@ model AnalysisWorklistItem {
 }
 
 model NjordFeedback {
-  id          String             @id @default(cuid())
-  userId      String
-  analysisId  String?
-  answerKey   String
-  label       NjordFeedbackLabel
-  notes       String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id         String             @id @default(cuid())
+  userId     String
+  analysisId String?
+  answerKey  String
+  label      NjordFeedbackLabel
+  notes      String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   analysis Analysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)

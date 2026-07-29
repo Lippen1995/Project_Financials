@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   getUsageStatus: vi.fn(),
   logRecoverableError: vi.fn(),
   getAnalysis: vi.fn(),
+  getEconomics: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: mocks.safeAuth }));
@@ -52,6 +53,15 @@ vi.mock("@/server/ai-search/llm/heuristic-client", () => ({
 vi.mock("@/server/ai-search/llm/openai-client", () => ({
   OpenAiLlmClient: class OpenAiLlmClient {
     constructor(readonly options: unknown) {}
+    getUsageSnapshot() {
+      return {
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 0,
+        model: "test-model",
+        sourceIds: [],
+      };
+    }
   },
 }));
 vi.mock("@/server/ai-search/tools", () => ({
@@ -59,6 +69,9 @@ vi.mock("@/server/ai-search/tools", () => ({
 }));
 vi.mock("@/server/billing/subscription", () => ({
   getAiSearchSubscriptionContext: mocks.getSubscription,
+}));
+vi.mock("@/server/services/admin-ai-economics-service", () => ({
+  getAiRuntimeEconomicsConfig: mocks.getEconomics,
 }));
 vi.mock("@/server/analysis/analysis-read-service", () => ({
   analysisReadService: { get: mocks.getAnalysis },
@@ -97,6 +110,25 @@ describe("POST /api/ai-search", () => {
       premium: true,
       canUseDueDiligence: true,
       billingPeriod,
+      tokenLimit: 1_000_000,
+      appRole: "USER",
+      subscriptionPlan: "premium",
+      subscriptionStatus: "ACTIVE",
+      usageCategory: "CUSTOMER",
+    });
+    mocks.getEconomics.mockResolvedValue({
+      runtimeEnabled: true,
+      billingCurrency: "USD",
+      exchangeRateNok: 10,
+      fxRiskBufferBps: 1_500,
+      inputPricePerMillion: 1,
+      cachedInputPricePerMillion: 0.1,
+      outputPricePerMillion: 8,
+      globalMonthlyBudgetNok: 2_500,
+      requestCostLimitNok: 25,
+      dailyRequestLimit: 50,
+      internalMonthlyTokenAllowance: 1_000_000,
+      version: 1,
     });
     mocks.buildTargetReasoningPrompt.mockReturnValue("system prompt");
     mocks.getRetrievalToolsForAccess.mockReturnValue([{ name: "dd-tool" }]);
@@ -162,7 +194,16 @@ describe("POST /api/ai-search", () => {
       text: "Svar med kilde.",
       sources: [expect.objectContaining({ sourceSystem: "BRREG", sourceId: "923609016" })],
     });
-    expect(mocks.reserveUsage).toHaveBeenCalledWith("user-1", billingPeriod);
+    expect(mocks.reserveUsage).toHaveBeenCalledWith(
+      "user-1",
+      billingPeriod,
+      expect.objectContaining({
+        usageCategory: "CUSTOMER",
+        appRole: "USER",
+        subscriptionPlan: "premium",
+        settingsVersion: 1,
+      }),
+    );
     expect(mocks.getRetrievalToolsForAccess).toHaveBeenCalledWith({
       canUseDueDiligence: true,
       userQuery: "Hva gjelder etter IFRS 16?",
@@ -204,6 +245,15 @@ describe("POST /api/ai-search", () => {
     );
     expect(mocks.releaseUsage).not.toHaveBeenCalled();
     expect(mocks.finalizeUsage).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when admin economics are missing", async () => {
+    mocks.getEconomics.mockResolvedValue(null);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(503);
+    expect(mocks.reserveUsage).not.toHaveBeenCalled();
   });
 
   it("rejects attempts to retrieve secrets before reserving model usage", async () => {

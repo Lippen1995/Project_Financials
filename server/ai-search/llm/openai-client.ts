@@ -57,6 +57,10 @@ export class OpenAiLlmClient implements LlmClient {
   private readonly pricing: NjordPricing | null;
   private readonly requestCostLimitNok: number | null;
   private spentCostNok = 0;
+  private inputTokens = 0;
+  private cachedInputTokens = 0;
+  private outputTokens = 0;
+  private sourceIds: string[] = [];
 
   constructor(options: {
     apiKey: string;
@@ -120,6 +124,23 @@ export class OpenAiLlmClient implements LlmClient {
       throw new Error(`OpenAI Njord request failed with status ${response.status}.`);
     }
     const payload = (await response.json()) as OpenAiResponse;
+    const promptTokens = Math.max(0, payload.usage?.prompt_tokens ?? 0);
+    const cachedInputTokens = Math.min(
+      promptTokens,
+      Math.max(0, payload.usage?.prompt_tokens_details?.cached_tokens ?? 0),
+    );
+    const outputTokens = Math.max(0, payload.usage?.completion_tokens ?? 0);
+    this.inputTokens += promptTokens - cachedInputTokens;
+    this.cachedInputTokens += cachedInputTokens;
+    this.outputTokens += outputTokens;
+    if (payload.id) this.sourceIds.push(payload.id);
+    if (this.pricing) {
+      this.spentCostNok += estimateNjordCostNok({
+        inputTokens: promptTokens - cachedInputTokens,
+        cachedInputTokens,
+        outputTokens,
+      }, this.pricing);
+    }
     const message = payload.choices?.[0]?.message;
     if (!message) throw new Error("OpenAI Njord response contained no message.");
 
@@ -129,19 +150,6 @@ export class OpenAiLlmClient implements LlmClient {
       if (!id || !name) return [];
       return [{ id, name, arguments: call.function?.arguments ?? "{}" }];
     });
-    const promptTokens = Math.max(0, payload.usage?.prompt_tokens ?? 0);
-    const cachedInputTokens = Math.min(
-      promptTokens,
-      Math.max(0, payload.usage?.prompt_tokens_details?.cached_tokens ?? 0),
-    );
-    const outputTokens = Math.max(0, payload.usage?.completion_tokens ?? 0);
-    if (this.pricing) {
-      this.spentCostNok += estimateNjordCostNok({
-        inputTokens: promptTokens - cachedInputTokens,
-        cachedInputTokens,
-        outputTokens,
-      }, this.pricing);
-    }
 
     return {
       content: message.content ?? null,
@@ -153,6 +161,16 @@ export class OpenAiLlmClient implements LlmClient {
         model: payload.model ?? this.model,
         sourceId: payload.id,
       },
+    };
+  }
+
+  getUsageSnapshot() {
+    return {
+      inputTokens: this.inputTokens,
+      cachedInputTokens: this.cachedInputTokens,
+      outputTokens: this.outputTokens,
+      model: this.model,
+      sourceIds: [...this.sourceIds],
     };
   }
 }
