@@ -11,8 +11,8 @@
 Det foreslås at AI-delen av G1 behandles i to kontrollerte beslutningstrinn:
 
 1. **G1-A – evaluering:** Godkjenn OpenAI som evalueringsleverandør og et
-   midlertidig AI-tak på NOK 350 eks. mva. for å sammenligne
-   `gpt-5.6-terra` og `gpt-5.6-sol` på `njord-eval-v1`. Bare adminbrukere får
+   midlertidig AI-tak på NOK 225 eks. mva. for å sammenligne
+   `gpt-5.6-terra` og `gpt-5.6-luna` på `njord-eval-v1`. Bare adminbrukere får
    tilgang til konfigurasjonen; bare interne admin-/kontrollørroller får
    modellkvote. Kundebruk forblir stengt.
 2. **G1-B – betamodell:** Velg betamodell først etter at evalueringsrapport,
@@ -36,20 +36,20 @@ kravene står fortsatt åpne i den samlede sprintplanen.
 
 **Primær kandidat:** `gpt-5.6-terra`
 
-**Kvalitetsutfordrer og kontrollert fallback:** `gpt-5.6-sol`
+**Kostnadsutfordrer:** `gpt-5.6-luna`
 
-**Ikke primær kandidat nå:** `gpt-5.6-luna`
+**Ekskludert fra G1-evalueringen:** `gpt-5.6-sol`
 
 Terra er beste utgangspunkt fordi OpenAI beskriver modellen som balansen mellom
-intelligens og kostnad, den har halv tokenpris av Sol, og leverandørens
-Big Finance Bench viser et langt mindre kvalitetsgap mellom Terra og Sol enn
-prisgapet. Dette er bare en kandidatvurdering. Fjord Insights eget evalsett er
+intelligens og kostnad. Sol har dobbelt tokenpris av Terra, og CEO har derfor
+avvist Sol som for dyr for denne evalueringen. Dette er en
+kandidatvurdering, ikke et endelig modellvalg. Fjord Insights eget evalsett er
 den bindende beslutningskilden.
 
-Luna beholdes som et senere kostnadsalternativ. Den er billigst, men
-leverandørens finansbenchmark ligger vesentlig lavere. Det er ikke rasjonelt å
-bruke evalueringsbudsjettet på Luna før Terra og Sol har etablert kvalitets- og
-kostnadsnivået for Njord.
+Luna er billigst og brukes som kostnadsutfordrer, men leverandørens
+finansbenchmark ligger vesentlig lavere enn Terra. Luna kan derfor bare velges
+hvis Fjord Insights egne absolutte kvalitetsporter består. Sol kan vurderes
+på nytt senere bare ved en ny eksplisitt CEO-beslutning.
 
 ## Datert pris- og kapabilitetsbevis
 
@@ -58,7 +58,7 @@ Kildene ble kontrollert 29. juli 2026. Prisene er standard API-priser i USD per
 
 | Modell | Input | Cachet input | Output | Leverandørposisjon | Big Finance Bench |
 | --- | ---: | ---: | ---: | --- | ---: |
-| `gpt-5.6-sol` | USD 5,00 | USD 0,50 | USD 30,00 | Flaggskip for komplekst profesjonelt arbeid | 53 % |
+| `gpt-5.6-sol` | USD 5,00 | USD 0,50 | USD 30,00 | Ekskludert fra G1-evalueringen på kostnad | 53 % |
 | `gpt-5.6-terra` | USD 2,50 | USD 0,25 | USD 15,00 | Balanse mellom intelligens og kostnad | 51 % |
 | `gpt-5.6-luna` | USD 1,00 | USD 0,10 | USD 6,00 | Kostnadssensitivt høyt volum | 36 % |
 
@@ -124,7 +124,7 @@ Fjord Insights lagrede outputtokens dekker samme fakturerbare mengde.
 | Tung | 60 000 input + 12 000 output | NOK 1,47 | NOK 3,67 | NOK 7,34 |
 
 Ved basisprofilen tilsvarer AI-taket på NOK 2 500 omtrent 1 635
-Terra-samtaler eller 817 Sol-samtaler. Dette er en matematisk
+Terra-samtaler eller 4 089 Luna-samtaler. Dette er en matematisk
 kapasitetsindikasjon, ikke et løfte om volum. Faktisk kapasitet skal beregnes
 fra registrert tokenbruk etter G1-A.
 
@@ -134,11 +134,11 @@ Tabellen bruker basisprofilen og viser modellkost før MVA per aktiv bruker per
 måned. En aktiv bruker følger KPI-registerets definisjon; samtaleantallet er
 bare et transparent volumscenario.
 
-| Samtaler per aktiv bruker / måned | Terra | Sol |
+| Samtaler per aktiv bruker / måned | Terra | Luna |
 | ---: | ---: | ---: |
-| 5 | NOK 7,65 | NOK 15,30 |
-| 10 | NOK 15,30 | NOK 30,60 |
-| 20 | NOK 30,60 | NOK 61,20 |
+| 5 | NOK 7,64 | NOK 3,06 |
+| 10 | NOK 15,28 | NOK 6,11 |
+| 20 | NOK 30,56 | NOK 12,23 |
 
 Forventet betavolum kan ikke låses før antall inviterte og faktisk bruk er
 bekreftet. Verstefall er uansett det harde AI-taket på NOK 2 500, og
@@ -151,22 +151,22 @@ kostnad, ikke behandles som gratis trafikk.
 En full 50-case kjøring med basisprofilen er risikobudsjettert til omtrent:
 
 - Terra: NOK 77;
-- Sol: NOK 153;
+- Luna: NOK 31;
 - én ekstra Terra-konfigurasjon eller omkjøring: NOK 77.
 
-NOK 350 gir dermed rom for hovedsammenligningen og én kontrollert omkjøring.
+NOK 225 gir dermed rom for hovedsammenligningen og én kontrollert omkjøring.
 G1-A skal bruke:
 
-- globalt månedsbudsjett: NOK 350;
-- maks kostnad per kall: NOK 10;
+- globalt månedsbudsjett: NOK 225;
+- maks kostnad per kall: NOK 5;
 - modelltilgang: interne admin-/kontrollørroller;
 - kundebruk og aktive kundeplaner: av;
 - valutabuffer: 1 500 basispunkter;
 - pris, kurs, modell-ID og tidspunkt registrert før første kall.
 
-Estimatet på NOK 307 for tre basisprofil-kjøringer gir NOK 43 reserve innen
-evaltaket. En tung profil for alle 150 cases ville kostet omtrent NOK 734 og
-skal derfor stoppes av NOK 350-taket; ved høyere observert tokenbruk skal
+Estimatet på NOK 185 for tre basisprofil-kjøringer gir NOK 40 reserve innen
+evaltaket. En tung profil for alle 150 cases ville kostet omtrent NOK 441 og
+skal derfor stoppes av NOK 225-taket; ved høyere observert tokenbruk skal
 antall omkjøringer reduseres, ikke budsjettet økes automatisk.
 
 ## Evalueringsdesign og beslutningsregel
@@ -188,7 +188,7 @@ Minstekjøring:
 | Kjøring | Formål |
 | --- | --- |
 | Terra, standard adapterkonfigurasjon | Primær kandidat |
-| Sol, identisk adapterkonfigurasjon | Kvalitetsutfordrer |
+| Luna, identisk adapterkonfigurasjon | Kostnadsutfordrer |
 | Terra, én kontrollert omkjøring | Måle stabilitet der første kjøring feiler eller er tvetydig |
 
 Begge modeller må bruke identisk prompt, verktøy, datagrunnlag,
@@ -204,8 +204,8 @@ En modell kan ikke velges dersom ett av disse kravene feiler:
   oppdiktet fakta;
 - alle 28 forventede Brreg-fakta har riktig kildegrunnlag;
 - ingen synlig påstand har ugyldig eller manglende kilde;
-- ingen forespørsel passerer NOK 10, og samlet G1-A-kostnad passerer ikke
-  NOK 350;
+- ingen forespørsel passerer NOK 5, og samlet G1-A-kostnad passerer ikke
+  NOK 225;
 - modellfeil gir kontrollert fallback og frigjør eller sluttfører
   kostnadsreservasjonen korrekt.
 
@@ -213,16 +213,16 @@ En modell kan ikke velges dersom ett av disse kravene feiler:
 
 Blant modeller som består de absolutte portene velges modellen slik:
 
-1. høyest total beståttandel på 50 cases;
-2. ved forskjell på høyst ett case: lavest risikobudsjettert kostnad per
-   bestått case;
-3. deretter lavest median og p95-responstid;
-4. Sol velges bare dersom det dokumenterte kvalitetsløftet forsvarer omtrent
-   dobbelt tokenpris for Fjord Insights egne arbeidsflyter.
+1. Dersom bare én modell består, er den eneste valgbare kandidaten.
+2. Dersom begge består, velges Luna når
+   `Luna beståtte cases >= Terra beståtte cases - 1`; ellers velges Terra.
+3. Median og p95-responstid rapporteres som en operasjonell kontroll. Et
+   uakseptabelt stabilitets- eller latensavvik sendes tilbake til CEO i stedet
+   for å overstyre kvalitetsporten automatisk.
 
-Terra er anbefalt betamodell dersom den består alle porter og ligger høyst ett
-case bak Sol. Ellers legges resultatene tilbake til CEO for eksplisitt
-modellvalg; det skal ikke skje automatisk.
+Terra er anbefalt utgangspunkt, mens Luna kan vinne på kostnad ved tilnærmet
+likt resultat etter regelen over. Hvis ingen består, legges resultatene tilbake
+til CEO; Sol skal ikke aktiveres automatisk som fallback.
 
 ## Aktiveringsrekkefølge
 
@@ -230,19 +230,19 @@ modellvalg; det skal ikke skje automatisk.
    overføringsvurdering samme dag.
 2. Registrer Terras USD-priser, Norges Bank-kurs og 1 500 bp buffer i
    `/admin/ai-economics`, og noter innstillingsversjonen.
-3. Sett midlertidig månedsbudsjett til NOK 350, kallgrense til NOK 10 og
+3. Sett midlertidig månedsbudsjett til NOK 225, kallgrense til NOK 5 og
    intern kvote til evalueringsbehovet. Kundeplaner forblir av.
 4. Sett `OPENAI_SEARCH_MODEL` til første kandidat, `NJORD_PROVIDER=openai`,
    legg nøkkelen i valgt secret store og åpne miljøets hovedbryter bare i
    evalueringsmiljøet.
 5. Kjør Terra og eksporter rå observasjoner. Steng deretter adminbryteren,
-   registrer Sols høyere USD-priser som en ny auditert innstillingsversjon,
+   registrer Lunas lavere USD-priser som en ny auditert innstillingsversjon,
    bytt modell-ID/restart evalueringsmiljøet, og åpne bryteren igjen. Modell,
-   prisversjon og brukshendelser skal kunne avstemmes én-til-én. Kjør Sol og
+   prisversjon og brukshendelser skal kunne avstemmes én-til-én. Kjør Luna og
    sammenlign:
 
    ```text
-   npm run njord:evaluate terra-observations.json sol-observations.json
+   npm run njord:evaluate terra-observations.json luna-observations.json
    ```
 
 6. Kontroller rapporten mot absolutte porter og avstem dashboardkostnaden mot
@@ -290,14 +290,16 @@ Stripe-inntekt.
 
 ## CEO-beslutninger
 
-Ingen rute nedenfor er forhåndsutfylt som godkjent.
+Bare CEO-beslutningen om å ekskludere Sol er registrert som besluttet.
+Alle øvrige rader avventer eksplisitt behandling.
 
 | Beslutning | Alternativer | Valg | Dato / besluttet av |
 | --- | --- | --- | --- |
 | G1-A evalueringsleverandør | OpenAI / avvis | Avventer | — |
-| G1-A kostnadstak | NOK 350 / annet / avvis | Avventer | — |
-| Kandidater | Terra + Sol / annet | Avventer | — |
+| G1-A kostnadstak | NOK 225 / annet / avvis | Avventer | — |
+| Ekskludert kandidat | Sol | Besluttet | 29. juli 2026 / Simen Lippestad, CEO |
+| Kandidater for sammenligning | Terra + Luna / annet | Avventer | — |
 | Valutabuffer | 15 % / annet | Avventer | — |
-| G1-B betamodell | Terra / Sol / ingen | Avventer eval | — |
+| G1-B betamodell | Terra / Luna / ingen | Avventer eval | — |
 | G1-B AI-månedsgrense | Inntil NOK 2 500 / lavere / ingen | Avventer eval | — |
 | Foreslått todeling av AI-beslutningen | Godkjenn / behold én G1-beslutning | Avventer | — |

@@ -26,7 +26,7 @@ kundebruk.
 | GL-306 | Lukket for én appinstans | Delt limiter og hostbevis i G1/G2 |
 | GL-307 | K0 teknisk lukket | Avstemming mot ekte leverandørkost etter godkjent G1-evaluering |
 | GL-308 | K0 teknisk lukket | Ingen |
-| GL-309 | Runner lukket, modellresultat åpent | Gjennomgått observasjonsinnsamler og Terra/Sol-sammenligning etter godkjent G1-evaluering |
+| GL-309 | Runner lukket, modellresultat åpent | Gjennomgått observasjonsinnsamler og Terra/Luna-sammenligning etter godkjent G1-evaluering |
 | GL-310–GL-315 | K0 teknisk lukket | Staging-/modellbevis i Sprint 4 |
 | AI-økonomi i admin | K0 teknisk lukket | Reelle priser/kurs, varsel og kostnadsavstemming etter godkjent G1-evaluering |
 
