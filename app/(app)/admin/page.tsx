@@ -15,7 +15,10 @@ export default async function AdminControlCenterPage() {
   return (
     <div className="space-y-6">
       <AdminIngestionIndicator />
-      <AdminHubView model={model} />
+      <AdminHubView
+        model={model}
+        canManageAiEconomics={reviewer?.appRole === "ADMIN"}
+      />
     </div>
   );
 }

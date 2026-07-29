@@ -5,6 +5,7 @@ import type { AdminHubModel, AdminPipelineStage } from "@/server/services/admin-
 
 type AdminHubViewProps = {
   model: AdminHubModel;
+  canManageAiEconomics: boolean;
 };
 
 function stageToneClasses(tone: AdminPipelineStage["tone"]) {
@@ -78,7 +79,10 @@ function ActionCard({
   );
 }
 
-export default function AdminHubView({ model }: AdminHubViewProps) {
+export default function AdminHubView({
+  model,
+  canManageAiEconomics,
+}: AdminHubViewProps) {
   const pendingReview = model.pipeline.find((s) => s.status === "MANUAL_REVIEW");
   const failed = model.pipeline.find((s) => s.status === "FAILED");
   const processing = model.pipeline.reduce(
@@ -285,6 +289,26 @@ export default function AdminHubView({ model }: AdminHubViewProps) {
             Åpne modell
           </span>
         </Link>
+
+        {canManageAiEconomics ? (
+          <Link
+            href="/admin/ai-economics"
+            className="group rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6 transition-colors hover:bg-[var(--px-subtle)]"
+          >
+            <p className="data-label text-[11px] uppercase tracking-widest text-[var(--px-accent)]">
+              AI-økonomi
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-[var(--px-text)]">
+              Kostnader og inntekter
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--px-muted)]">
+              Styr AI-budsjett, valutarisiko, abonnementskvoter og inntektsallokering.
+            </p>
+            <span className="mt-4 inline-flex rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 text-sm font-medium text-[var(--px-text)]">
+              Åpne AI-økonomi
+            </span>
+          </Link>
+        ) : null}
 
         {/* Metric mapping */}
         <Link
