@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import React, { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import type { AdminAiEconomicsDashboard } from "@/server/services/admin-ai-economics-service";
@@ -29,6 +29,15 @@ function nok(value: number) {
 
 function count(value: number) {
   return new Intl.NumberFormat("nb-NO").format(value);
+}
+
+function percent(value: number | null) {
+  if (value == null) return "Ikke tilgjengelig";
+  return new Intl.NumberFormat("nb-NO", {
+    style: "percent",
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  }).format(value / 100);
 }
 
 function date(value: string) {
@@ -203,6 +212,33 @@ export default function AdminAiEconomicsClient({ model }: Props) {
             <p className="mt-3 text-xl font-semibold text-[var(--px-text)]">{value}</p>
           </div>
         ))}
+      </section>
+
+      <section>
+        <div className="mb-4">
+          <p className="data-label text-[11px] uppercase tracking-widest text-[var(--px-accent)]">
+            Samlet abonnementsøkonomi
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[var(--px-muted)]">
+            Modellert fra aktive abonnement og lagrede NOK-priser. Beløpene er
+            ikke avstemt mot innbetalt Stripe-inntekt.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Modellert abonnementsinntekt", nok(model.totals.modeledSubscriptionRevenueNok)],
+            ["Allokert AI-inntekt", nok(model.totals.allocatedAiRevenueNok)],
+            ["AI-bidrag", nok(model.totals.aiContributionNok)],
+            ["Realisert påslag", percent(model.totals.realizedMarkupPercent)],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-5">
+              <p className="data-label text-[11px] uppercase tracking-widest text-[var(--px-muted)]">
+                {label}
+              </p>
+              <p className="mt-3 text-xl font-semibold text-[var(--px-text)]">{value}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6">

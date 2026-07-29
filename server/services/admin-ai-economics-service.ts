@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import env from "@/lib/env";
 import {
   AI_ECONOMICS_RUNTIME_LOCK_KEY,
+  aggregatePlanAiEconomics,
   calculatePlanAiEconomics,
   parseAiEconomicsSettingsInput,
   parseAiPlanEconomicsInput,
@@ -367,6 +368,9 @@ export async function buildAdminAiEconomicsDashboard(now = new Date()) {
 
   const committedCostNok = total.budgetedCostNok + total.reservedCostNok;
   const monthlyBudgetNok = settings?.globalMonthlyBudgetNok ?? 0;
+  const planEconomicsTotals = aggregatePlanAiEconomics(
+    plans.map((plan) => plan.economics),
+  );
 
   return {
     period: {
@@ -383,6 +387,7 @@ export async function buildAdminAiEconomicsDashboard(now = new Date()) {
     },
     totals: {
       ...total,
+      ...planEconomicsTotals,
       committedCostNok: money(committedCostNok),
       remainingBudgetNok: money(Math.max(0, monthlyBudgetNok - committedCostNok)),
       projectedBudgetedCostNok: money(total.budgetedCostNok / elapsedFraction),

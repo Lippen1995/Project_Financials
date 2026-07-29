@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  aggregatePlanAiEconomics,
   calculatePlanAiEconomics,
   calculateUsageCost,
   canReserveWithinAllowance,
@@ -78,6 +79,36 @@ describe("AI economics domain", () => {
       fixedAiAllocationNokPerSubscriber: 0,
       revenueShareBps: 2_000,
     }).allocatedAiRevenueNok).toBe(240);
+  });
+
+  it("aggregates total AI-related revenue and contribution across plans", () => {
+    expect(aggregatePlanAiEconomics([
+      {
+        modeledSubscriptionRevenueNok: 5_000,
+        allocatedAiRevenueNok: 1_250,
+        aiContributionNok: 250,
+        realizedMarkupPercent: 25,
+      },
+      null,
+      {
+        modeledSubscriptionRevenueNok: 1_200,
+        allocatedAiRevenueNok: 240,
+        aiContributionNok: 40,
+        realizedMarkupPercent: 20,
+      },
+    ])).toEqual({
+      modeledSubscriptionRevenueNok: 6_200,
+      allocatedAiRevenueNok: 1_490,
+      aiContributionNok: 290,
+      realizedMarkupPercent: 24.17,
+    });
+
+    expect(aggregatePlanAiEconomics([])).toEqual({
+      modeledSubscriptionRevenueNok: 0,
+      allocatedAiRevenueNok: 0,
+      aiContributionNok: 0,
+      realizedMarkupPercent: null,
+    });
   });
 
   it("reserves conservatively against a per-user plan cost allowance", () => {

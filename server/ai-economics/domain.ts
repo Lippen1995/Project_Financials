@@ -174,6 +174,50 @@ export function calculatePlanAiEconomics(input: {
   };
 }
 
+type PlanAiEconomicsSummary = ReturnType<typeof calculatePlanAiEconomics>;
+
+export function aggregatePlanAiEconomics(
+  plans: Array<PlanAiEconomicsSummary | null>,
+) {
+  const totals = plans.reduce(
+    (aggregate, plan) => {
+      if (!plan) return aggregate;
+      aggregate.modeledSubscriptionRevenueNok +=
+        nonNegative(plan.modeledSubscriptionRevenueNok);
+      aggregate.allocatedAiRevenueNok +=
+        nonNegative(plan.allocatedAiRevenueNok);
+      aggregate.aiContributionNok += plan.aiContributionNok;
+      aggregate.actualAiCostNok += Math.max(
+        0,
+        plan.allocatedAiRevenueNok - plan.aiContributionNok,
+      );
+      return aggregate;
+    },
+    {
+      modeledSubscriptionRevenueNok: 0,
+      allocatedAiRevenueNok: 0,
+      aiContributionNok: 0,
+      actualAiCostNok: 0,
+    },
+  );
+
+  return {
+    modeledSubscriptionRevenueNok: round(
+      totals.modeledSubscriptionRevenueNok,
+      2,
+    ),
+    allocatedAiRevenueNok: round(totals.allocatedAiRevenueNok, 2),
+    aiContributionNok: round(totals.aiContributionNok, 2),
+    realizedMarkupPercent:
+      totals.actualAiCostNok > 0
+        ? round(
+            totals.aiContributionNok / totals.actualAiCostNok * 100,
+            2,
+          )
+        : null,
+  };
+}
+
 export function canReserveWithinAllowance(
   committedCostNok: number,
   reservationCostNok: number,

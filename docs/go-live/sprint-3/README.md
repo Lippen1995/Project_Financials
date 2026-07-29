@@ -7,9 +7,9 @@
 **Kostnadsnivå:** K0 – ingen modellnøkkel eller ny betalt tjeneste er aktivert
 
 Sprint 3 bygger det felles, etterprøvbare analyselaget for M&A-screening,
-kunde-/leverandørsourcing og konkurrent-/bransjeanalyse. Leveransen er startet
-på grenen `codex/sprint-3-njord-analysis`. Dette dokumentet er et teknisk
-K0-kontrollpunkt, ikke en godkjenning av betalt modellbruk, hosting eller G1.
+kunde-/leverandørsourcing og konkurrent-/bransjeanalyse. Leveransen er slått
+inn i `main`. Dette dokumentet er et teknisk K0-kontrollpunkt, ikke en
+godkjenning av betalt modellbruk, hosting eller G1.
 
 ## Første vertikale leveranse
 
@@ -21,7 +21,7 @@ K0-kontrollpunkt, ikke en godkjenning av betalt modellbruk, hosting eller G1.
 | GL-304 | Implementert i kjernen | Manglende finans- og rangeringsdata forblir nullable og vises som datagap; de blir aldri nullstilt |
 | GL-305 | Implementert i kjernen | Sikker systeminstruks og server-side avvisning stopper hemmelighetsuthenting og forsøk på å omgå tilgang |
 | GL-306 | Delvis: én appinstans | Burstgrense, dagstak og forespørselsbudsjett finnes; modelladapteren reduserer providerens maksimale output innenfor restbudsjettet, mens delt limiter avventer G1-host |
-| GL-307 | Implementert som K0-fundament | Tokens, estimert NOK-kostnad, responstid og modellfeil lagres; hele forespørselsbudsjettet reserveres atomisk mot et globalt kalendermånedstak før modellkall, og aktivering blokkeres uten verifiserte priser |
+| GL-307 | Implementert som K0-fundament | Tokens, leverandørkost, estimert og risikobudsjettert NOK-kostnad, responstid og modellfeil lagres; hele forespørselsbudsjettet reserveres atomisk mot et globalt kalendermånedstak før modellkall, og aktivering blokkeres uten verifiserte priser. Admin kan kontrollere valuta, buffer, priser, kvoter og abonnement samt se kostnad per bruker, brukertype, rolle, abonnement og modell |
 | GL-308 | Implementert v1 på K0 | 50 lagrede evalueringsspørsmål dekker fakta, beregning, offisiell kunnskap, tomtilstand og sikkerhet. 28 forventede fakta er verifisert mot Brreg-speilet for fire reelle virksomheter med komplett kildegrunnlag |
 | GL-309 | Implementert som K0-runner | Runneren avleder verktøybruk, faktaverdi, påstandskilde, sikkerhet og resultatkontrakt fra rått `AgentResult`/verktøyspor uten å stole på adapterrapportert fasit. Sammenligning av minst to aktuelle modeller er eksplisitt G1-arbeid |
 | GL-310 | Implementert v1 | Innlogget bruker kan markere hvert faktisk Njord-svar som `Nyttig` eller `Feil`; beslutningen lagres idempotent |
@@ -39,6 +39,30 @@ forespørselstak og månedstak er konfigurert. Standard prisfelter er bevisst
 nullstilt i `.env.example`; de skal ikke fylles med gamle eller antatte priser.
 
 Ingen språkmodell ble kalt under denne leveransen.
+
+## AI-økonomi i admin
+
+Adminflaten `/admin/ai-economics` er tilgjengelig fra administrasjonssiden for
+brukere med rollen `ADMIN`. Uten lagret økonomikonfigurasjon er Njord låst.
+Flaten har:
+
+- totalsum, åpne reservasjoner, gjenstående budsjett og månedsprognose;
+- samlet modellert abonnementsinntekt, allokert AI-inntekt, AI-bidrag og
+  realisert påslag;
+- kostnadssplitt for vanlige brukere, admin/kontrollører, approller,
+  abonnement, modeller og individuelle brukere;
+- leverandørpris i fakturavaluta, datert NOK-kurs og valutarisikobuffer;
+- globalt månedsbudsjett, grense per kall, dagsgrense og intern admin-kvote;
+- abonnementspris og inkludert AI-forbruk i NOK/tokens;
+- inntektsallokering som kost pluss påslag, fast beløp eller inntektsandel;
+- versjonert endringslogg.
+
+Miljøets hovedbryter og API-nøkkel må i tillegg være aktive. Adminbryteren kan
+derfor aldri åpne betalt AI alene.
+
+Valg av kandidatmodeller, datert prisbevis, kostnadsscenarioer,
+valutahåndtering og evalueringsport er samlet i
+[AI-delunderlaget til G1](./g1-ai-decision-pack.md).
 
 ## Datakontrakter
 
@@ -103,3 +127,6 @@ Sluttverifisering 28. juli 2026:
    plattform i G1/G2.
 4. Sprinten kan først lukkes formelt med eksplisitt CEO-godkjenning. K0-
    ferdigstillelsen godkjenner ikke modell, host, kostnader eller offentlig beta.
+
+Formell status og signeringsfelt finnes i
+[Sprint 3 closeout review](./closeout-review.md).
