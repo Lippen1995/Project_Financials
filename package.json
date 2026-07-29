@@ -33,6 +33,8 @@
     "financials:process-pending-filings": "tsx scripts/process-pending-financial-filings.ts",
     "financials:run-ingestion-batch": "tsx scripts/run-financial-ingestion-batch.ts",
     "financials:ingest-structured": "tsx scripts/ingest-structured-financials.ts",
+    "financials:report-structured-coverage": "tsx scripts/report-structured-financial-coverage.ts",
+    "financials:verify-structured-closeout": "tsx scripts/verify-structured-financials-closeout.ts",
     "financials:build-anchored-gold-set": "tsx scripts/build-anchored-gold-set.ts",
     "financials:build-anchored-unit-scale-dataset": "tsx scripts/build-anchored-unit-scale-dataset.ts",
     "financials:sync-new-filings": "tsx scripts/sync-new-financial-filings.ts",
@@ -138,6 +140,7 @@
     "news:intelligence:prepare-relevance-review": "tsx scripts/prepare-manual-news-relevance-evaluation.ts",
     "news:intelligence:prepare-macro-review": "tsx scripts/prepare-manual-macro-company-evaluation.ts",
     "newsweb:sync-insider-transactions": "tsx scripts/sync-newsweb-insider-transactions.ts",
+    "njord:evaluate": "tsx scripts/evaluate-njord.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

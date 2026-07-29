@@ -14,6 +14,7 @@ import {
   searchNorwegianLawTool,
 } from "./search-knowledge";
 import { createRouteNjordRequestTool, routeNjordRequestTool } from "./route-request";
+import { screenCompanyUniverseTool } from "./screen-company-universe";
 
 /**
  * The retrieval tool registry the agent is given. v1 covers the competitors path end-to-end:
@@ -34,6 +35,7 @@ export const retrievalTools: RetrievalTool[] = [
   searchEuEeaLawTool as RetrievalTool,
   searchBusinessPolicyTool as RetrievalTool,
   getRuleStatusTool as RetrievalTool,
+  screenCompanyUniverseTool as RetrievalTool,
 ];
 
 export function getRetrievalToolsForAccess(options: {
@@ -62,6 +64,7 @@ export { getChainFinancialsTool } from "./get-chain-financials";
 export { estimateGroupFinancialsTool } from "./estimate-group-financials";
 export { createRouteNjordRequestTool, routeNjordRequestTool } from "./route-request";
 export { createBuildMnaProFormaTool } from "./build-mna-pro-forma";
+export { screenCompanyUniverseTool } from "./screen-company-universe";
 export {
   getRuleStatusTool,
   searchAccountingGuidanceTool,

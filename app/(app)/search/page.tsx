@@ -12,6 +12,11 @@ import { logRecoverableError } from "@/lib/recoverable-error";
 import type { CompanySearchResponse } from "@/lib/types";
 import { canStartAiSearch } from "@/lib/ai-search-usage";
 import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
+import {
+  calculateMaxAffordableOutputTokens,
+  calculateUsageCost,
+} from "@/server/ai-economics/domain";
+import { getAiRuntimeEconomicsConfig } from "@/server/services/admin-ai-economics-service";
 import { searchCompanies } from "@/server/services/company-service";
 import {
   getGroupEmployeeSummaries,
@@ -64,32 +69,66 @@ export default async function SearchPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const rawParams = await searchParams;
+  const requestedQuery = readParam(rawParams.query ?? rawParams.q).trim();
+  const queryTooLong = requestedQuery.length > 200;
   const session = await safeAuth();
   let subscriptionContext = { premium: false, billingPeriod: null } as Awaited<
     ReturnType<typeof getAiSearchSubscriptionContext>
   >;
   let aiUsageStatus = null;
   let aiReservationId: string | null = null;
+  let economics: Awaited<ReturnType<typeof getAiRuntimeEconomicsConfig>> = null;
+  let maxAiOutputTokens = 0;
   let quotaLookupFailed = false;
   if (session?.user?.id) {
     try {
-      subscriptionContext = await getAiSearchSubscriptionContext(session.user.id);
+      economics = await getAiRuntimeEconomicsConfig();
+      maxAiOutputTokens = economics
+        ? calculateMaxAffordableOutputTokens({
+            requestCostLimitNok: economics.requestCostLimitNok,
+            inputPricePerMillion: economics.inputPricePerMillion,
+            outputPricePerMillion: economics.outputPricePerMillion,
+            exchangeRateNok: economics.exchangeRateNok,
+            fxRiskBufferBps: economics.fxRiskBufferBps,
+            reservedInputTokens: 2_000,
+            providerMaximumOutputTokens: 500,
+          })
+        : 0;
+      subscriptionContext = await getAiSearchSubscriptionContext(
+        session.user.id,
+        new Date(),
+        economics,
+      );
       aiUsageStatus = await getAiSearchUsageStatus(
         session.user.id,
-        subscriptionContext.premium,
+        subscriptionContext.premium &&
+          env.aiSearchBillingEnabled &&
+          Boolean(economics?.runtimeEnabled),
         subscriptionContext.billingPeriod,
+        subscriptionContext.tokenLimit,
       );
-      // Token reservation only runs when billing is switched on (go-live). In the zero-cost phase
-      // the AI agent consumes no tokens, so there is nothing to reserve or meter.
+      // Reserve before provider execution so current token, cost, and daily limits are atomic.
       if (
         env.aiSearchBillingEnabled &&
+        economics?.runtimeEnabled &&
         rawParams.ai === "1" &&
+        !queryTooLong &&
+        maxAiOutputTokens > 0 &&
         subscriptionContext.premium &&
         subscriptionContext.billingPeriod
       ) {
         aiReservationId = await reserveAiSearchUsage(
           session.user.id,
           subscriptionContext.billingPeriod,
+          {
+            settingsVersion: economics.version,
+            planEconomicsVersion: subscriptionContext.planEconomicsVersion,
+            usageCategory: subscriptionContext.usageCategory,
+            appRole: subscriptionContext.appRole,
+            subscriptionPlan: subscriptionContext.subscriptionPlan,
+            subscriptionStatus: subscriptionContext.subscriptionStatus,
+            subscriptionUpdatedAt: subscriptionContext.subscriptionUpdatedAt,
+          },
         );
       }
     } catch (error) {
@@ -100,18 +139,20 @@ export default async function SearchPage({
     }
   }
   const aiRequested = rawParams.ai === "1";
-  // With billing ON, availability requires a successful token reservation (quota gate). With billing
-  // OFF (zero-cost phase), the panel is gated on premium ENTITLEMENT alone — no reservation needed.
   const aiAvailable = aiRequested
-    ? env.aiSearchBillingEnabled
+    ? env.aiSearchBillingEnabled && economics?.runtimeEnabled && maxAiOutputTokens > 0
       ? Boolean(aiReservationId)
-      : subscriptionContext.premium
+      : false
     : Boolean(aiUsageStatus && canStartAiSearch(aiUsageStatus));
   const revenueClass: RevenueClass | "" = isRevenueClass(rawParams.revenueClass)
     ? rawParams.revenueClass
     : "";
   const params = {
-    query: readParam(rawParams.query ?? rawParams.q).trim(),
+    query: queryTooLong ? "" : requestedQuery,
+    analysisId: (() => {
+      const value = readParam(rawParams.analysisId).trim();
+      return value.length > 0 && value.length <= 128 ? value : null;
+    })(),
     industryCode: readParam(rawParams.industryCode).trim(),
     city: readParam(rawParams.city).trim(),
     legalForm: readParam(rawParams.legalForm).trim(),
@@ -123,13 +164,21 @@ export default async function SearchPage({
   };
 
   let searchResult = emptySearchResult;
-  let searchError: string | null = null;
+  let searchError: string | null = queryTooLong
+    ? "Søket kan ikke være lengre enn 200 tegn."
+    : null;
   const aiAccessMessage = aiRequested && !aiAvailable
     ? quotaLookupFailed
       ? "Tokenstatus er midlertidig utilgjengelig. AI-søk er deaktivert til statusen kan bekreftes."
+      : queryTooLong
+      ? "AI-søk ble ikke kjørt fordi søket er lengre enn 200 tegn."
+      : !env.aiSearchBillingEnabled || !economics?.runtimeEnabled
+      ? "AI-søk er administrativt stengt eller mangler økonomikonfigurasjon."
+      : maxAiOutputTokens < 1
+      ? "AI-søk er stengt fordi kostnadsgrensen per kall er for lav."
       : subscriptionContext.premium
       ? subscriptionContext.billingPeriod
-        ? "AI-søk er midlertidig deaktivert fordi tokenkvoten for denne abonnementsperioden er brukt opp."
+        ? "AI-søk er midlertidig deaktivert fordi kostnads-, dags- eller tokenrammen er brukt opp."
         : "AI-søk er midlertidig deaktivert fordi abonnementsperioden ikke er tilgjengelig."
       : "AI-søk krever Premium-abonnement. Søket ble kjørt uten AI."
     : null;
@@ -151,9 +200,19 @@ export default async function SearchPage({
             : undefined,
       },
       {
+        maxAiOutputTokens: params.aiEnabled ? maxAiOutputTokens : undefined,
         onAiUsage: async (usage) => {
           if (session?.user?.id && aiReservationId) {
-            await finalizeAiSearchUsage(session.user.id, aiReservationId, usage);
+            const cost = economics ? calculateUsageCost(usage, economics) : null;
+            await finalizeAiSearchUsage(session.user.id, aiReservationId, {
+              ...usage,
+              estimatedCostNok: cost?.estimatedCostNok,
+              providerCurrency: economics?.billingCurrency,
+              providerCostAmount: cost?.providerCost,
+              exchangeRateNok: economics?.exchangeRateNok,
+              fxRiskBufferBps: economics?.fxRiskBufferBps,
+              budgetedCostNok: cost?.budgetedCostNok,
+            });
             aiUsageFinalized = true;
           }
         },
@@ -179,8 +238,11 @@ export default async function SearchPage({
     try {
       aiUsageStatus = await getAiSearchUsageStatus(
         session.user.id,
-        subscriptionContext.premium,
+        subscriptionContext.premium &&
+          env.aiSearchBillingEnabled &&
+          Boolean(economics?.runtimeEnabled),
         subscriptionContext.billingPeriod,
+        subscriptionContext.tokenLimit,
       );
     } catch (error) {
       logRecoverableError("search-page.refreshAiSearchUsageStatus", error, {

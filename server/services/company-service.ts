@@ -333,7 +333,10 @@ async function searchCandidates(
 
 export async function searchCompanies(
   filters: SearchFilters,
-  options: { onAiUsage?: (usage: NonNullable<SearchInterpretation["aiUsage"]>) => Promise<void> } = {},
+  options: {
+    onAiUsage?: (usage: NonNullable<SearchInterpretation["aiUsage"]>) => Promise<void>;
+    maxAiOutputTokens?: number;
+  } = {},
 ): Promise<CompanySearchResponse> {
   if (
     !filters.query &&
@@ -353,7 +356,9 @@ export async function searchCompanies(
       classifyQueryIntent(filters.query).intent !== "DIRECT_LOOKUP",
   );
   const interpretation: SearchInterpretation = shouldInterpretWithAi
-    ? await searchIntentProvider.interpretQuery(filters.query ?? "")
+    ? await searchIntentProvider.interpretQuery(filters.query ?? "", {
+        maxCompletionTokens: options.maxAiOutputTokens,
+      })
     : {
         originalQuery: filters.query ?? "",
         rewrittenQuery: filters.query ?? "",

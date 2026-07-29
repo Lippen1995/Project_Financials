@@ -2,7 +2,7 @@
 
 **Status:** Aktiv arbeidsplan
 
-**Nåværende fase:** Sprint 0 ble formelt godkjent 24. juli 2026. Sprint 1 ble startet samme dag og formelt godkjent av CEO 27. juli 2026. Neste planlagte leveransefase er Sprint 2; host- og kostnadsbeslutninger forblir i G1. Se [Sprint 1-signeringen](./go-live/sprint-1/closeout-review.md).
+**Nåværende fase:** Sprint 0 ble formelt godkjent 24. juli 2026. Sprint 1 og Sprint 2 ble formelt godkjent av CEO 27. juli 2026. Sprint 3 er åpnet som neste K0-arbeidsfase; host- og kostnadsbeslutninger forblir i G1. Se [Sprint 1-signeringen](./go-live/sprint-1/closeout-review.md) og [Sprint 2-signeringen](./go-live/sprint-2/closeout-review.md).
 
 **Opprettet:** 20. juli 2026
 
@@ -125,6 +125,18 @@ K1-kostnader. Se [signeringen](./go-live/sprint-1/closeout-review.md).
 
 **Godkjenningskriterium:** En bruker kan se reelle nøkkeltall med kilde og dato, eller en ærlig tomtilstand.
 
+### Sprint 2-status
+
+Sprint 2 ble startet og formelt godkjent av Simen Lippestad (CEO) 27. juli
+2026 på K0. Den tekniske leveransen dekker
+versjonert provider-/normaliseringskontrakt, proveniens, idempotent read-through,
+cachede tom- og feiltilstander, OCR-fri offentlig visning samt en deterministisk
+dekningsrapport med snapshot-fingeravtrykk. Et stratifisert utvalg på 149 reelle virksomheter ga 95
+tilgjengelige statements, 54 ærlige tomtilstander og 0 kilde-/kontraktfeil.
+Produksjonslik lokal read-through og anti-fallback er verifisert. Godkjenningen
+åpner Sprint 3, men ikke offentlig beta eller K1-/K2-kostnader. Se
+[signeringen](./go-live/sprint-2/closeout-review.md).
+
 ## 8. Sprint 3 – analysegrunnlag og Njord uten å kjøpe modellbruk
 
 **Mål:** Bygge analyseobjektet, de kontrollerte verktøyene og kontrollmekanismene som de tre arbeidsflytene trenger før en betalt modellnøkkel aktiveres.
@@ -148,6 +160,29 @@ K1-kostnader. Se [signeringen](./go-live/sprint-1/closeout-review.md).
 | GL-315 | Arbeidslister | Longlist, shortlist og sourcing-/analyseutvalg kan lagres og videreføres. |
 
 **Godkjenningskriterium:** Njord kan kobles til en ekte modell uten ukontrollert tilgang til data eller budsjett, og de tre arbeidsflytene kan gjennomføres deterministisk via de samme godkjente verktøyene.
+
+### Sprint 3-status
+
+Sprint 3 ble startet teknisk 27. juli 2026 på K0. Første vertikale leveranse
+etablerer versjonert analyse-/arbeidslistepersistens, felles deterministisk
+univers og rangering for UI/Njord, godkjente verktøykontrakter, sikkerhets- og
+kostnadskontroll, et 50-case kontraktsett, kontrollert modellfallback,
+brukerfeedback og en tilgangsstyrt flate for å opprette, redigere og gjenoppta
+analyser samt lagre, omrekkefølge og promotere dokumenterte arbeidslisteelementer.
+Analyse-ID kan følge Njord-forespørselen som eksplisitt, tilgangskontrollert og
+størrelsesbegrenset kontekst. Ingen modellbruk eller K1-/K2-kostnad er aktivert.
+Den tilgangsstyrte arbeidsflyten støtter nå også validert beregningsoppsett,
+direkte univers-/rangeringskjøring til arbeidsliste og lagring av status,
+konklusjon, oppfølging og offisielt kildegrunnlag. K0-arbeidet er teknisk
+fullført: Njord-svar har påstand-til-kilde-kontrakt og inspeksjonsflate,
+evalsettet har 28 verifiserte Brreg-fakta for fire reelle virksomheter, og alle
+tre arbeidsflytene har en deterministisk kontrakttest fra formål via univers og
+rangering til gjenlest arbeidsliste og konklusjon. Modell-sammenligning,
+modellbasert kontekstbevis og flerinstansgrenser avventer G1/valgt host.
+Arbeidslister fra universmotoren lagrer også kjøringsversjoner,
+tellinger og hele eksklusjonssettet atomisk; årsaker og kildebevis kan
+inspiseres paginert i arbeidsflyt-UI. Se
+[Sprint 3-kontrollpunktet](./go-live/sprint-3/README.md).
 
 ## 9. Port G1 – godkjenning av første betalte kostnader
 

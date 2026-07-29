@@ -8,7 +8,11 @@
  * answer never cites a company the tools did not return.
  */
 import type { LlmClient, LlmMessage } from "@/server/ai-search/llm/types";
-import type { RetrievalTool } from "@/server/ai-search/tools/types";
+import type { NjordToolOutputKind, RetrievalTool } from "@/server/ai-search/tools/types";
+import {
+  createClaimEvidenceTracker,
+  type NjordClaimEvidenceResult,
+} from "@/server/ai-search/evidence/claim-evidence";
 
 export type AgentBudget = { maxTurns: number; maxToolCalls: number };
 export const DEFAULT_BUDGET: AgentBudget = { maxTurns: 8, maxToolCalls: 16 };
@@ -23,7 +27,13 @@ export type AgentToolInvocation = {
 export type AgentStopReason = "final" | "max_turns" | "max_tool_calls";
 
 /** A tool's parsed output, kept so callers can drive UI (e.g. the result table) off what the agent found. */
-export type AgentToolResult = { name: string; output: unknown };
+export type AgentToolResult = {
+  name: string;
+  toolVersion?: `v${number}`;
+  outputKind?: NjordToolOutputKind;
+  dataDomains?: string[];
+  output: unknown;
+};
 
 export type AgentResult = {
   answer: string | null;
@@ -42,6 +52,8 @@ export type AgentResult = {
     model: string | null;
     sourceIds: string[];
   };
+  /** Every cited statement mapped to the exact normalized source records behind it. */
+  claimEvidence: NjordClaimEvidenceResult;
   stopReason: AgentStopReason;
 };
 
@@ -216,18 +228,47 @@ function finalize(
   grounded: Set<string>,
   usage: AgentResult["usage"],
   stopReason: AgentStopReason,
+  claimEvidenceTracker: ReturnType<typeof createClaimEvidenceTracker>,
   knowledgeRequired = false,
 ): AgentResult {
   const groundedAnswer = enforceKnowledgeGrounding(answer, toolResults, knowledgeRequired);
   const citedInAnswer = groundedAnswer ? [...new Set(groundedAnswer.match(ORGNR_IN_TEXT) ?? [])] : [];
+  const ungroundedOrgNumbersInAnswer = citedInAnswer.filter((org) => !grounded.has(org));
+  const safeAnswer = ungroundedOrgNumbersInAnswer.length > 0
+    ? "Njord kunne ikke dokumentere alle selskapene i svaret. Ingen ugrunnede selskapsopplysninger vises. Prøv et mer avgrenset spørsmål."
+    : groundedAnswer;
+  const claimEvidence = claimEvidenceTracker.buildResult(safeAnswer);
+  const requiresClaimEvidence = !knowledgeRequired && toolResults.some(
+    (result) =>
+      result.outputKind === "DOCUMENTED_FACT" || result.outputKind === "CALCULATION",
+  );
+  const missingClaimEvidence =
+    safeAnswer === groundedAnswer &&
+    groundedAnswer === answer &&
+    Boolean(safeAnswer?.trim()) &&
+    requiresClaimEvidence &&
+    claimEvidence.claims.length === 0;
+  const hasUncitedLines =
+    safeAnswer === groundedAnswer &&
+    groundedAnswer === answer &&
+    Boolean(safeAnswer?.trim()) &&
+    toolResults.some((result) => result.name !== ROUTING_TOOL_NAME) &&
+    claimEvidence.uncitedLines.length > 0;
+  const answerWithValidCitations =
+    claimEvidence.invalidCitationIds.length > 0 ||
+    missingClaimEvidence ||
+    hasUncitedLines
+    ? "Njord kunne ikke koble svaret til konkrete kilder. Prøv et mer avgrenset spørsmål."
+    : safeAnswer;
   return {
-    answer: groundedAnswer,
+    answer: answerWithValidCitations,
     turns,
     invocations,
     toolResults,
     groundedOrgNumbers: [...grounded],
-    ungroundedOrgNumbersInAnswer: citedInAnswer.filter((org) => !grounded.has(org)),
+    ungroundedOrgNumbersInAnswer,
     usage,
+    claimEvidence: claimEvidenceTracker.buildResult(answerWithValidCitations),
     stopReason,
   };
 }
@@ -263,6 +304,7 @@ export async function runAgent(params: {
     model: null,
     sourceIds: [],
   };
+  const claimEvidenceTracker = createClaimEvidenceTracker();
   let toolCallCount = 0;
   let routedIntent: string | null = null;
   const hasRoutingTool = toolsByName.has(ROUTING_TOOL_NAME);
@@ -303,9 +345,22 @@ export async function runAgent(params: {
     if (!forceAnswer && result.toolCalls.length > 0) {
       messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
-        const { invocation, content, output } = await executeCall(call, activeToolsByName, grounded);
+        const execution = await executeCall(call, activeToolsByName, grounded);
+        const { invocation, output } = execution;
+        let content = execution.content;
         invocations.push(invocation);
-        if (invocation.ok) toolResults.push({ name: call.name, output });
+        const executedTool = activeToolsByName.get(call.name);
+        if (invocation.ok && executedTool) {
+          const toolResult: AgentToolResult = {
+            name: call.name,
+            toolVersion: executedTool.version,
+            outputKind: executedTool.outputKind,
+            dataDomains: executedTool.dataDomains,
+            output,
+          };
+          toolResults.push(toolResult);
+          content = claimEvidenceTracker.recordToolResult(toolResult).content;
+        }
         if (
           invocation.ok
           && call.name === ROUTING_TOOL_NAME
@@ -329,6 +384,7 @@ export async function runAgent(params: {
       grounded,
       usage,
       forceAnswer ? "max_tool_calls" : "final",
+      claimEvidenceTracker,
       routedIntent != null && KNOWLEDGE_INTENTS.has(routedIntent),
     );
   }
@@ -341,6 +397,7 @@ export async function runAgent(params: {
     grounded,
     usage,
     "max_turns",
+    claimEvidenceTracker,
     routedIntent != null && KNOWLEDGE_INTENTS.has(routedIntent),
   );
 }

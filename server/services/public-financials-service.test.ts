@@ -29,6 +29,13 @@ function sourceRecord(
 describe("public financial source policy", () => {
   it("keeps structured Brreg statements and removes PDF/OCR surfaces in beta mode", () => {
     const structured = sourceRecord("structuredAnnualAccounts", 2025);
+    structured.rawPayload = {
+      modelVersion: "brreg-structured-annual-accounts@1",
+      period: { from: "2025-01-01", to: "2025-12-31" },
+      amountUnit: "WHOLE_CURRENCY_UNITS",
+      canonicalValues: { total_operating_income: 1000 },
+      entry: { shouldNotReachTheFrontend: true },
+    };
     const extracted = sourceRecord("annualReportFinancialStatement", 2024);
     const financials: PublicCompanyFinancials = {
       statements: [structured, extracted],
@@ -77,13 +84,25 @@ describe("public financial source policy", () => {
 
     const result = applyPublicFinancialSourcePolicy(financials, true);
 
-    expect(result.statements).toEqual([structured]);
-    expect(result.allScopeStatements).toEqual([structured]);
+    expect(result.statements[0]).toMatchObject({
+      modelVersion: "brreg-structured-annual-accounts@1",
+      period: { from: "2025-01-01", to: "2025-12-31" },
+      amountUnit: "WHOLE_CURRENCY_UNITS",
+      unitScale: 1,
+      financialValues: { total_operating_income: 1000 },
+    });
+    expect(result.statements[0]?.rawPayload).toBeUndefined();
+    expect(result.allScopeStatements[0]?.rawPayload).toBeUndefined();
     expect(result.lineItems).toEqual([]);
     expect(result.documents).toEqual([]);
     expect(result.availability).toMatchObject({
       available: true,
       sourceSystem: "BRREG",
+      sourceEntityType: "structuredAnnualAccounts",
+      sourceId: "structuredAnnualAccounts:2025",
+      fetchedAt: timestamp,
+      normalizedAt: timestamp,
+      status: "AVAILABLE",
     });
     expect(result.availability.message).toContain("PDF og OCR brukes ikke som fallback");
   });

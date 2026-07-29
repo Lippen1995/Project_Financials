@@ -21,6 +21,7 @@ export function isGlobalNavItemActive(item: GlobalNavItem, pathname: string) {
 export function buildGlobalNavItems(user?: { appRole?: string | null } | null): GlobalNavItem[] {
   const items: GlobalNavItem[] = [
     { href: "/search", label: "Søk", icon: "search" },
+    { href: "/analyses", label: "Analyser", icon: "analytics" },
     { href: "/people", label: "Personer", icon: "person_search" },
     { href: "/watchlist", label: "Overvåkning", icon: "star" },
     { href: "/market/distress", label: "Distress", icon: "warning" },

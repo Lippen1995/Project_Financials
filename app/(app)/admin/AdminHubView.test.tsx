@@ -102,13 +102,25 @@ const model: AdminHubModel = {
 
 describe("AdminHubView", () => {
   it("renders the admin hub metrics, navigation and human review section", () => {
-    const html = renderToStaticMarkup(<AdminHubView model={model} />);
+    const html = renderToStaticMarkup(
+      <AdminHubView model={model} canManageAiEconomics />,
+    );
 
     expect(html).toContain("Adminhub");
     expect(html).toContain("Opplastede rapportfiler");
     expect(html).toContain("Brukere og roller");
     expect(html).toContain("AI-modellen");
+    expect(html).toContain("Kostnader og inntekter");
+    expect(html).toContain("/admin/ai-economics");
     expect(html).toContain("Krever tiltak");
     expect(html).toContain("Siste aktivitet");
+  });
+
+  it("hides AI economics controls from financial reviewers", () => {
+    const html = renderToStaticMarkup(
+      <AdminHubView model={model} canManageAiEconomics={false} />,
+    );
+
+    expect(html).not.toContain("/admin/ai-economics");
   });
 });

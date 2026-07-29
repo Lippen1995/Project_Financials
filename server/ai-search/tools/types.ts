@@ -11,6 +11,7 @@ import type { NormalizedCompany, SerializableSourceMetadata } from "@/lib/types"
 export type AgentCompanyRef = {
   orgNumber: string;
   name: string;
+  provenance: SerializableSourceMetadata;
   naceCode: string | null;
   naceDescription: string | null;
   municipality: string | null;
@@ -155,6 +156,13 @@ export function toAgentCompanyRef(company: NormalizedCompany): AgentCompanyRef {
   return {
     orgNumber: company.orgNumber,
     name: company.name,
+    provenance: {
+      sourceSystem: company.sourceSystem,
+      sourceEntityType: company.sourceEntityType,
+      sourceId: company.sourceId,
+      fetchedAt: company.fetchedAt.toISOString(),
+      normalizedAt: company.normalizedAt.toISOString(),
+    },
     naceCode: company.industryCode?.code ?? null,
     naceDescription: company.industryCode?.description ?? company.industryCode?.title ?? null,
     municipality: company.municipality ?? null,
@@ -169,8 +177,16 @@ export function toAgentCompanyRef(company: NormalizedCompany): AgentCompanyRef {
  * to the LLM's function-calling API. They are kept in lockstep by hand rather than pulling in
  * a zod→JSON-schema dependency — the tool surface is small and rarely changes.
  */
+export type NjordToolOutputKind = "DOCUMENTED_FACT" | "CALCULATION" | "EXPLANATION";
+
 export type RetrievalTool<TInput = unknown, TOutput = unknown> = {
   name: string;
+  /** Versioned approval boundary. Changing inputs, semantics, or access requires a new version. */
+  version: `v${number}`;
+  /** Lets the response distinguish sourced facts, deterministic calculations, and explanations. */
+  outputKind: NjordToolOutputKind;
+  /** Human-auditable data domains this tool is approved to expose. */
+  dataDomains: string[];
   description: string;
   /** Enables provider-level strict function schemas when every property is required. */
   strict?: boolean;
@@ -181,7 +197,41 @@ export type RetrievalTool<TInput = unknown, TOutput = unknown> = {
 
 /** Narrow helper so `execute` receives validated input and callers get a typed result. */
 export function defineTool<TInput, TOutput>(
-  tool: RetrievalTool<TInput, TOutput>,
+  tool: Omit<RetrievalTool<TInput, TOutput>, "version" | "outputKind" | "dataDomains"> &
+    Partial<Pick<RetrievalTool<TInput, TOutput>, "version" | "outputKind" | "dataDomains">>,
 ): RetrievalTool<TInput, TOutput> {
-  return tool;
+  const calculationTools = new Set([
+    "find_comparables",
+    "estimate_group_financials",
+    "build_mna_pro_forma",
+  ]);
+  const explanationTools = new Set(["route_njord_request"]);
+  const dataDomainsByTool: Record<string, string[]> = {
+    route_njord_request: ["request-routing"],
+    resolve_company: ["company-master"],
+    get_company_profile: ["company-master", "financials", "ownership", "company-events"],
+    find_comparables: ["company-master", "financials"],
+    find_by_business: ["company-master", "company-descriptions"],
+    get_chain_financials: ["company-master", "subunits", "financials"],
+    estimate_group_financials: ["company-master", "ownership", "financials"],
+    build_mna_pro_forma: ["company-master", "financials", "user-assumptions"],
+    search_norwegian_law: ["official-knowledge"],
+    search_accounting_guidance: ["official-knowledge"],
+    search_eu_eea_law: ["official-knowledge"],
+    search_business_policy: ["official-knowledge"],
+    get_rule_status: ["official-knowledge"],
+    screen_company_universe: ["company-master", "financials"],
+  };
+  return {
+    ...tool,
+    version: tool.version ?? "v1",
+    outputKind:
+      tool.outputKind ??
+      (calculationTools.has(tool.name)
+        ? "CALCULATION"
+        : explanationTools.has(tool.name)
+          ? "EXPLANATION"
+          : "DOCUMENTED_FACT"),
+    dataDomains: tool.dataDomains ?? dataDomainsByTool[tool.name] ?? ["test"],
+  };
 }

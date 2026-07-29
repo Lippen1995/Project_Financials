@@ -84,6 +84,10 @@ export const GROUNDING_RULES = [
     "value chain (suppliers, adjacent and dual-use companies), not a single product niche. Use the " +
     "retrieval tools to enumerate widely, then curate down with reasoning.",
   "Distinguish grounded FACT (from a tool) from your own INFERENCE, and say which is which.",
+  "Write one factual or calculated claim per line. End every such line with the exact citation IDs " +
+    "supplied in the tool result's citationSources, for example [source:1], [calculation:1], or " +
+    "[knowledge:document-id:chunk-id]. Never invent or alter a citation ID. Explanations and " +
+    "hypotheses must be labelled clearly and must not be presented as sourced facts.",
   "Name the data you are MISSING. Thin coverage is a caveat to state, not a gap to paper over. If a " +
     "candidate has no business description or no financials, say so rather than guessing.",
   "Do NOT reduce the ranking to a single score. Weigh the dimensions qualitatively and surface the " +
@@ -122,6 +126,10 @@ export function buildTargetReasoningPrompt(options: BuildTargetReasoningPromptOp
       "(3) cast a BROAD net for candidates across the sector and its value chain using the retrieval " +
       "tools; (4) pull each candidate's dossier — what they do, financials, ownership, events; (5) reason " +
       "across the dimensions below; (6) present an explained, ranked shortlist.",
+    "Universe workflow: for M&A screening, sourcing, or competitor/industry universes, call " +
+      "screen_company_universe so Njord and the UI use the same versioned filters, periods, missing-data " +
+      "policy, and deterministic ranking. Explain the returned inclusion/exclusion reasons and data gaps. " +
+      "Do not replace unavailable values with zero or perform a parallel model-only ranking.",
     "Weigh these dimensions (a target need not score on all — explain which matter for THIS acquirer):\n" +
       dimensions,
     "For each shortlisted target give: the strategic thesis it serves, the concrete grounded facts behind " +

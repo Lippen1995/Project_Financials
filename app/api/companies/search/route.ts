@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
+import env from "@/lib/env";
 import {
   consumeRateLimit,
   getClientAddress,
   rateLimitHeaders,
 } from "@/lib/rate-limit";
 import { getAiSearchSubscriptionContext } from "@/server/billing/subscription";
+import {
+  calculateMaxAffordableOutputTokens,
+  calculateUsageCost,
+} from "@/server/ai-economics/domain";
+import { getAiRuntimeEconomicsConfig } from "@/server/services/admin-ai-economics-service";
 import { searchCompanies } from "@/server/services/company-service";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import {
@@ -101,10 +107,40 @@ export async function GET(request: NextRequest) {
 
   const aiRequested = ai === "1";
   const session = aiRequested ? await safeAuth() : null;
+  if (aiRequested && !session?.user?.id) {
+    return NextResponse.json(
+      { error: "AI-søk krever et aktivt Premium-abonnement." },
+      { status: 403 },
+    );
+  }
+  const economics = aiRequested ? await getAiRuntimeEconomicsConfig() : null;
+  if (aiRequested && (!env.aiSearchBillingEnabled || !economics?.runtimeEnabled)) {
+    return NextResponse.json(
+      { error: "AI-søk er pauset eller mangler økonomikonfigurasjon i admin." },
+      { status: 503 },
+    );
+  }
+  const maxAiOutputTokens = economics
+    ? calculateMaxAffordableOutputTokens({
+        requestCostLimitNok: economics.requestCostLimitNok,
+        inputPricePerMillion: economics.inputPricePerMillion,
+        outputPricePerMillion: economics.outputPricePerMillion,
+        exchangeRateNok: economics.exchangeRateNok,
+        fxRiskBufferBps: economics.fxRiskBufferBps,
+        reservedInputTokens: 2_000,
+        providerMaximumOutputTokens: 500,
+      })
+    : 0;
+  if (aiRequested && maxAiOutputTokens < 1) {
+    return NextResponse.json(
+      { error: "Kostnadsgrensen per AI-kall er for lav for et sikkert søk." },
+      { status: 429 },
+    );
+  }
   const subscription = session?.user?.id
-    ? await getAiSearchSubscriptionContext(session.user.id)
+    ? await getAiSearchSubscriptionContext(session.user.id, new Date(), economics)
     : null;
-  if (aiRequested && (!session?.user?.id || !subscription?.premium)) {
+  if (aiRequested && !subscription?.premium) {
     return NextResponse.json({ error: "AI-søk krever et aktivt Premium-abonnement." }, { status: 403 });
   }
   if (aiRequested && !subscription?.billingPeriod) {
@@ -114,10 +150,21 @@ export async function GET(request: NextRequest) {
     );
   }
   const reservationId = aiRequested && session?.user?.id && subscription?.billingPeriod
-    ? await reserveAiSearchUsage(session.user.id, subscription.billingPeriod)
+    ? await reserveAiSearchUsage(session.user.id, subscription.billingPeriod, {
+        settingsVersion: economics?.version ?? 0,
+        planEconomicsVersion: subscription.planEconomicsVersion,
+        usageCategory: subscription.usageCategory,
+        appRole: subscription.appRole,
+        subscriptionPlan: subscription.subscriptionPlan,
+        subscriptionStatus: subscription.subscriptionStatus,
+        subscriptionUpdatedAt: subscription.subscriptionUpdatedAt,
+      })
     : null;
   if (aiRequested && !reservationId) {
-    return NextResponse.json({ error: "Tokenkvoten for AI-søk er brukt opp." }, { status: 429 });
+    return NextResponse.json(
+      { error: "Kostnads-, dags- eller tokenrammen for AI-søk er brukt opp." },
+      { status: 429 },
+    );
   }
 
   let usageFinalized = false;
@@ -126,9 +173,21 @@ export async function GET(request: NextRequest) {
     searchResult = await searchCompanies(
       { query, aiAssisted: aiRequested, industryCode, city, legalForm, status },
       {
+        maxAiOutputTokens: aiRequested ? maxAiOutputTokens : undefined,
         onAiUsage: async (usage) => {
           if (session?.user?.id && reservationId) {
-            await finalizeAiSearchUsage(session.user.id, reservationId, usage);
+            const cost = economics
+              ? calculateUsageCost(usage, economics)
+              : null;
+            await finalizeAiSearchUsage(session.user.id, reservationId, {
+              ...usage,
+              estimatedCostNok: cost?.estimatedCostNok,
+              providerCurrency: economics?.billingCurrency,
+              providerCostAmount: cost?.providerCost,
+              exchangeRateNok: economics?.exchangeRateNok,
+              fxRiskBufferBps: economics?.fxRiskBufferBps,
+              budgetedCostNok: cost?.budgetedCostNok,
+            });
             usageFinalized = true;
           }
         },

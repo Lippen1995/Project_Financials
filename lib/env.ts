@@ -48,12 +48,20 @@ const env = {
   stripePriceId: process.env.STRIPE_PRICE_ID ?? "",
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   openAiSearchModel: process.env.OPENAI_SEARCH_MODEL ?? "gpt-5-mini",
-  // AI-search billing switch. While false (the default), AI-search runs on the zero-cost
-  // heuristic client and the panel is gated on premium ENTITLEMENT only — no token reservation,
-  // no quota metering. Flip to true at go-live (set AI_SEARCH_BILLING_ENABLED=true) once a real
-  // paid LLM adapter is wired, to re-connect the subscription/token-quota gate end-to-end.
+  // AI-search billing switch. While false (the default), the paid Njord endpoint is unavailable.
+  // K0 tests use scripted clients directly; there is no synthetic answer fallback in the product.
+  // G1 must approve provider, verified pricing and hard limits before this can be enabled.
   aiSearchBillingEnabled:
     (process.env.AI_SEARCH_BILLING_ENABLED ?? "").trim().toLowerCase() === "true",
+  njordProvider: (process.env.NJORD_PROVIDER ?? "disabled").trim().toLowerCase(),
+  njordDailyRequestLimit: Number(process.env.NJORD_DAILY_REQUEST_LIMIT ?? "50"),
+  njordMonthlyCostLimitNok: Number(process.env.NJORD_MONTHLY_COST_LIMIT_NOK ?? "2500"),
+  njordRequestCostLimitNok: Number(process.env.NJORD_REQUEST_COST_LIMIT_NOK ?? "0"),
+  njordInputNokPerMillion: Number(process.env.NJORD_INPUT_NOK_PER_MILLION ?? "0"),
+  njordCachedInputNokPerMillion: Number(
+    process.env.NJORD_CACHED_INPUT_NOK_PER_MILLION ?? "0",
+  ),
+  njordOutputNokPerMillion: Number(process.env.NJORD_OUTPUT_NOK_PER_MILLION ?? "0"),
   opendataloaderEnabled:
     (process.env.OPENDATALOADER_ENABLED ?? "").trim().toLowerCase() === "true",
   opendataloaderMode:

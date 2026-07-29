@@ -1,7 +1,7 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { searchCompaniesMock, getGroupEmployeeSummariesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock, getAiSearchSubscriptionContextMock, envMock } = vi.hoisted(() => ({
+const { searchCompaniesMock, getGroupEmployeeSummariesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock, getAiSearchSubscriptionContextMock, getEconomicsMock, envMock } = vi.hoisted(() => ({
   searchCompaniesMock: vi.fn(),
   getGroupEmployeeSummariesMock: vi.fn(),
   safeAuthMock: vi.fn(),
@@ -11,6 +11,7 @@ const { searchCompaniesMock, getGroupEmployeeSummariesMock, safeAuthMock, record
   finalizeAiSearchUsageMock: vi.fn(),
   releaseAiSearchUsageMock: vi.fn(),
   getAiSearchSubscriptionContextMock: vi.fn(),
+  getEconomicsMock: vi.fn(),
   envMock: { aiSearchBillingEnabled: false },
 }));
 
@@ -25,6 +26,9 @@ vi.mock("@/lib/auth", () => ({ safeAuth: safeAuthMock }));
 vi.mock("@/lib/env", () => ({ default: envMock }));
 vi.mock("@/server/billing/subscription", () => ({
   getAiSearchSubscriptionContext: getAiSearchSubscriptionContextMock,
+}));
+vi.mock("@/server/services/admin-ai-economics-service", () => ({
+  getAiRuntimeEconomicsConfig: getEconomicsMock,
 }));
 vi.mock("@/server/services/search-history-service", () => ({
   recordCompanySearch: recordCompanySearchMock,
@@ -49,6 +53,7 @@ describe("SearchPage", () => {
     finalizeAiSearchUsageMock.mockReset();
     releaseAiSearchUsageMock.mockReset();
     getAiSearchSubscriptionContextMock.mockReset();
+    getEconomicsMock.mockReset();
     envMock.aiSearchBillingEnabled = false;
     safeAuthMock.mockResolvedValue(null);
     recordCompanySearchMock.mockResolvedValue("event-id");
@@ -67,12 +72,32 @@ describe("SearchPage", () => {
     });
     getAiSearchSubscriptionContextMock.mockResolvedValue({
       premium: true,
+      tokenLimit: 1_000_000,
+      userMonthlyCostLimitNok: 100,
+      usageCategory: "CUSTOMER",
+      appRole: "USER",
+      subscriptionPlan: "premium",
+      subscriptionStatus: "ACTIVE",
       billingPeriod: {
         periodStart: new Date("2026-07-14T10:00:00Z"),
         periodEnd: new Date("2026-08-14T10:00:00Z"),
         resetAt: new Date("2026-08-14T10:00:00Z"),
         daysUntilReset: 31,
       },
+    });
+    getEconomicsMock.mockResolvedValue({
+      runtimeEnabled: true,
+      billingCurrency: "USD",
+      exchangeRateNok: 10,
+      fxRiskBufferBps: 1_500,
+      inputPricePerMillion: 1,
+      cachedInputPricePerMillion: 0.1,
+      outputPricePerMillion: 8,
+      globalMonthlyBudgetNok: 2_500,
+      requestCostLimitNok: 25,
+      dailyRequestLimit: 50,
+      internalMonthlyTokenAllowance: 500_000,
+      version: 1,
     });
     reserveAiSearchUsageMock.mockResolvedValue("reservation-1");
     finalizeAiSearchUsageMock.mockResolvedValue(1);
@@ -95,6 +120,7 @@ describe("SearchPage", () => {
   });
 
   it("enables AI interpretation inside the selected company scope", async () => {
+    envMock.aiSearchBillingEnabled = true;
     safeAuthMock.mockResolvedValue({
       user: { id: "user-1", subscriptionPlan: "premium", subscriptionStatus: "ACTIVE" },
     });
@@ -289,7 +315,7 @@ describe("SearchPage", () => {
       expect.objectContaining({ aiAssisted: false }),
       expect.any(Object),
     );
-    expect(page.props.aiAccessMessage).toContain("tokenkvoten");
+    expect(page.props.aiAccessMessage).toContain("kostnads-, dags- eller tokenrammen");
   });
 
   it("accepts the public landing page q parameter as a company query", async () => {
@@ -301,7 +327,27 @@ describe("SearchPage", () => {
     );
   });
 
+  it("rejects oversized server-rendered AI queries before reserving or calling the provider", async () => {
+    envMock.aiSearchBillingEnabled = true;
+    safeAuthMock.mockResolvedValue({
+      user: { id: "user-1", subscriptionPlan: "premium", subscriptionStatus: "ACTIVE" },
+    });
+
+    const page = await SearchPage({
+      searchParams: Promise.resolve({ query: "a".repeat(201), ai: "1" }),
+    });
+
+    expect(reserveAiSearchUsageMock).not.toHaveBeenCalled();
+    expect(searchCompaniesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ query: undefined, aiAssisted: false }),
+      expect.any(Object),
+    );
+    expect(page.props.searchError).toContain("200 tegn");
+    expect(page.props.aiAccessMessage).toContain("lengre enn 200 tegn");
+  });
+
   it("records an authenticated search with its real filters, sectors and result count", async () => {
+    envMock.aiSearchBillingEnabled = true;
     safeAuthMock.mockResolvedValue({
       user: { id: "user-1", subscriptionPlan: "premium", subscriptionStatus: "ACTIVE" },
     });

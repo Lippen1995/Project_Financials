@@ -83,6 +83,13 @@ export type AiTokenUsage = {
   cachedInputTokens: number;
   outputTokens: number;
   usageTokens: number;
+  estimatedCostNok?: number;
+  providerCurrency?: string;
+  providerCostAmount?: number;
+  exchangeRateNok?: number;
+  fxRiskBufferBps?: number;
+  budgetedCostNok?: number;
+  durationMs?: number;
 };
 
 export function hasPremiumAiSearchAccess(status?: string | null, plan?: string | null) {
@@ -125,6 +132,7 @@ export function createAiSearchUsageStatus(
   premium: boolean,
   recordedUsageTokens: number,
   billingPeriod: AiSearchBillingPeriod | null = null,
+  tokenLimit = PREMIUM_AI_SEARCH_TOKEN_LIMIT,
 ): AiSearchUsageStatus {
   if (!premium) {
     return {
@@ -138,16 +146,33 @@ export function createAiSearchUsageStatus(
   }
 
   const usedTokens = wholeNonNegative(recordedUsageTokens);
+  const normalizedTokenLimit = wholeNonNegative(tokenLimit);
   return {
     enabled: true,
-    tokenLimit: PREMIUM_AI_SEARCH_TOKEN_LIMIT,
+    tokenLimit: normalizedTokenLimit,
     usedTokens,
-    remainingTokens: Math.max(0, PREMIUM_AI_SEARCH_TOKEN_LIMIT - usedTokens),
+    remainingTokens: Math.max(0, normalizedTokenLimit - usedTokens),
     usagePercent: Math.min(
       100,
-      Math.round((usedTokens / PREMIUM_AI_SEARCH_TOKEN_LIMIT) * 100),
+      normalizedTokenLimit > 0
+        ? Math.round((usedTokens / normalizedTokenLimit) * 100)
+        : 100,
     ),
     billingPeriod,
+  };
+}
+
+export function getCalendarMonthBillingPeriod(now = new Date()): AiSearchBillingPeriod {
+  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return {
+    periodStart,
+    periodEnd,
+    resetAt: periodEnd,
+    daysUntilReset: Math.max(
+      1,
+      Math.ceil((periodEnd.getTime() - now.getTime()) / 86_400_000),
+    ),
   };
 }
 

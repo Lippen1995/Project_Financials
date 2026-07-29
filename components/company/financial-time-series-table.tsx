@@ -23,6 +23,7 @@ import {
 import {
   CompanyFinancialMetricDiscussionSummary,
   CompanyFinancialStatementDiscussionSummary,
+  DataAvailability,
   DdCommentThreadSummary,
   NormalizedFinancialDocument,
   NormalizedFinancialLineItem,
@@ -572,6 +573,7 @@ export function FinancialTimeSeriesTable({
   discussionRoomName,
   discussionStatements,
   discussionThreads = [],
+  availability,
 }: {
   statements: NormalizedFinancialStatement[];
   documents: NormalizedFinancialDocument[];
@@ -581,6 +583,7 @@ export function FinancialTimeSeriesTable({
   discussionRoomName?: string | null;
   discussionStatements?: CompanyFinancialStatementDiscussionSummary[];
   discussionThreads?: CompanyFinancialMetricDiscussionSummary[];
+  availability?: DataAvailability;
 }) {
   // A group company publishes two statement sets — konsern and selskap.
   // Determine which are available and let the user toggle; default to konsern.
@@ -719,7 +722,8 @@ export function FinancialTimeSeriesTable({
   if (years.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-7 text-slate-600">
-        Regnskapstall er ikke tilgjengelige for denne virksomheten ennå.
+        {availability?.message ??
+          "Regnskapstall er ikke tilgjengelige for denne virksomheten ennå."}
       </div>
     );
   }
@@ -794,10 +798,31 @@ export function FinancialTimeSeriesTable({
   const rangeLabel =
     visibleYears.length > 0 ? `${visibleYears[0]}–${visibleYears[visibleYears.length - 1]}` : "";
 
+  const latestSourceStatement = [...scopedStatements].sort(
+    (left, right) => right.fetchedAt.getTime() - left.fetchedAt.getTime(),
+  )[0];
+  const sourceName =
+    latestSourceStatement?.sourceSystem === "BRREG"
+      ? "Brønnøysundregistrene"
+      : latestSourceStatement?.sourceSystem;
+  const sourceDate = latestSourceStatement?.fetchedAt
+    ? new Intl.DateTimeFormat("nb-NO", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Europe/Oslo",
+      }).format(latestSourceStatement.fetchedAt)
+    : null;
+  const sourceText =
+    sourceName && sourceDate
+      ? `Kilde: ${sourceName} strukturert API · hentet ${sourceDate}${availability?.status === "STALE" ? " · utdatert snapshot" : ""}`
+      : sourceName
+        ? `Kilde: ${sourceName}${availability?.status === "STALE" ? " · utdatert snapshot" : ""}`
+        : null;
   const infoText =
     basis === "standardized"
-      ? `Standardiserte poster · sammenlignbare på tvers av selskaper og år · Tall i ${unitLabel}`
-      : `Innlevert årsregnskap · resultatregnskap og balanse i oppstillingsform · Tall i ${unitLabel}`;
+      ? `Standardiserte poster · sammenlignbare på tvers av selskaper og år · Tall i ${unitLabel}${sourceText ? ` · ${sourceText}` : ""}`
+      : `Innlevert årsregnskap · resultatregnskap og balanse i oppstillingsform · Tall i ${unitLabel}${sourceText ? ` · ${sourceText}` : ""}`;
   const infoIcon = basis === "standardized" ? "info" : "description";
 
   // ---- standardized document cell ---------------------------------------

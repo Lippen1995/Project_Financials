@@ -5,6 +5,10 @@ import type {
   LlmToolCall,
   LlmClient,
 } from "./types";
+import { estimateNjordCostNok, type NjordPricing } from "../runtime-policy";
+
+const MAX_COMPLETION_TOKENS = 1_800;
+const TOKENIZATION_OVERHEAD_TOKENS = 4_096;
 
 type OpenAiResponse = {
   id?: string;
@@ -50,13 +54,55 @@ function toOpenAiMessage(message: LlmMessage) {
 export class OpenAiLlmClient implements LlmClient {
   readonly model: string;
   private readonly apiKey: string;
+  private readonly pricing: NjordPricing | null;
+  private readonly requestCostLimitNok: number | null;
+  private spentCostNok = 0;
+  private inputTokens = 0;
+  private cachedInputTokens = 0;
+  private outputTokens = 0;
+  private sourceIds: string[] = [];
 
-  constructor(options: { apiKey: string; model: string }) {
+  constructor(options: {
+    apiKey: string;
+    model: string;
+    pricing?: NjordPricing;
+    requestCostLimitNok?: number;
+  }) {
     this.apiKey = options.apiKey;
     this.model = options.model;
+    this.pricing = options.pricing ?? null;
+    this.requestCostLimitNok = options.requestCostLimitNok ?? null;
   }
 
   async run(options: LlmRunOptions): Promise<LlmRunResult> {
+    const messages = options.messages.map(toOpenAiMessage);
+    const tools = options.tools.map((tool) => ({
+      type: "function",
+      function: {
+        name: tool.name,
+        description: tool.description,
+        strict: tool.strict ?? false,
+        parameters: tool.parameters,
+      },
+    }));
+    let maxCompletionTokens = MAX_COMPLETION_TOKENS;
+    if (this.pricing && this.requestCostLimitNok != null) {
+      const serializedInputBytes = Buffer.byteLength(JSON.stringify({ messages, tools }), "utf8");
+      const conservativeInputTokens = serializedInputBytes + TOKENIZATION_OVERHEAD_TOKENS;
+      const inputUpperCostNok =
+        conservativeInputTokens * this.pricing.inputNokPerMillion / 1_000_000;
+      const remainingForOutputNok =
+        this.requestCostLimitNok - this.spentCostNok - inputUpperCostNok;
+      maxCompletionTokens = Math.min(
+        MAX_COMPLETION_TOKENS,
+        Math.floor(
+          remainingForOutputNok * 1_000_000 / this.pricing.outputNokPerMillion,
+        ),
+      );
+      if (!Number.isFinite(maxCompletionTokens) || maxCompletionTokens < 1) {
+        throw new Error("Njord request cost budget is exhausted before the next model turn.");
+      }
+    }
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -65,19 +111,11 @@ export class OpenAiLlmClient implements LlmClient {
       },
       body: JSON.stringify({
         model: this.model,
-        messages: options.messages.map(toOpenAiMessage),
-        tools: options.tools.map((tool) => ({
-          type: "function",
-          function: {
-            name: tool.name,
-            description: tool.description,
-            strict: tool.strict ?? false,
-            parameters: tool.parameters,
-          },
-        })),
+        messages,
+        tools,
         tool_choice: options.toolChoice ?? "auto",
         parallel_tool_calls: false,
-        max_completion_tokens: 1_800,
+        max_completion_tokens: maxCompletionTokens,
         ...(options.temperature == null ? {} : { temperature: options.temperature }),
       }),
     });
@@ -86,6 +124,23 @@ export class OpenAiLlmClient implements LlmClient {
       throw new Error(`OpenAI Njord request failed with status ${response.status}.`);
     }
     const payload = (await response.json()) as OpenAiResponse;
+    const promptTokens = Math.max(0, payload.usage?.prompt_tokens ?? 0);
+    const cachedInputTokens = Math.min(
+      promptTokens,
+      Math.max(0, payload.usage?.prompt_tokens_details?.cached_tokens ?? 0),
+    );
+    const outputTokens = Math.max(0, payload.usage?.completion_tokens ?? 0);
+    this.inputTokens += promptTokens - cachedInputTokens;
+    this.cachedInputTokens += cachedInputTokens;
+    this.outputTokens += outputTokens;
+    if (payload.id) this.sourceIds.push(payload.id);
+    if (this.pricing) {
+      this.spentCostNok += estimateNjordCostNok({
+        inputTokens: promptTokens - cachedInputTokens,
+        cachedInputTokens,
+        outputTokens,
+      }, this.pricing);
+    }
     const message = payload.choices?.[0]?.message;
     if (!message) throw new Error("OpenAI Njord response contained no message.");
 
@@ -95,11 +150,6 @@ export class OpenAiLlmClient implements LlmClient {
       if (!id || !name) return [];
       return [{ id, name, arguments: call.function?.arguments ?? "{}" }];
     });
-    const promptTokens = Math.max(0, payload.usage?.prompt_tokens ?? 0);
-    const cachedInputTokens = Math.min(
-      promptTokens,
-      Math.max(0, payload.usage?.prompt_tokens_details?.cached_tokens ?? 0),
-    );
 
     return {
       content: message.content ?? null,
@@ -107,10 +157,20 @@ export class OpenAiLlmClient implements LlmClient {
       usage: {
         inputTokens: promptTokens - cachedInputTokens,
         cachedInputTokens,
-        outputTokens: Math.max(0, payload.usage?.completion_tokens ?? 0),
+        outputTokens,
         model: payload.model ?? this.model,
         sourceId: payload.id,
       },
+    };
+  }
+
+  getUsageSnapshot() {
+    return {
+      inputTokens: this.inputTokens,
+      cachedInputTokens: this.cachedInputTokens,
+      outputTokens: this.outputTokens,
+      model: this.model,
+      sourceIds: [...this.sourceIds],
     };
   }
 }

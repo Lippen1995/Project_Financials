@@ -10,9 +10,13 @@ const mocks = vi.hoisted(() => ({
   releaseAiSearchUsage: vi.fn(),
   getAiSearchSubscriptionContext: vi.fn(),
   recordCompanySearch: vi.fn(),
+  getEconomics: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: mocks.safeAuth }));
+vi.mock("@/lib/env", () => ({
+  default: { aiSearchBillingEnabled: true },
+}));
 vi.mock("@/server/billing/subscription", () => ({
   getAiSearchSubscriptionContext: mocks.getAiSearchSubscriptionContext,
 }));
@@ -28,6 +32,9 @@ vi.mock("@/server/services/search-history-service", () => ({
   releaseAiSearchUsage: mocks.releaseAiSearchUsage,
   recordCompanySearch: mocks.recordCompanySearch,
 }));
+vi.mock("@/server/services/admin-ai-economics-service", () => ({
+  getAiRuntimeEconomicsConfig: mocks.getEconomics,
+}));
 
 import { GET } from "@/app/api/companies/search/route";
 
@@ -35,6 +42,20 @@ describe("GET /api/companies/search", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.safeAuth.mockResolvedValue(null);
+    mocks.getEconomics.mockResolvedValue({
+      runtimeEnabled: true,
+      billingCurrency: "USD",
+      exchangeRateNok: 10,
+      fxRiskBufferBps: 1_500,
+      inputPricePerMillion: 1,
+      cachedInputPricePerMillion: 0.1,
+      outputPricePerMillion: 8,
+      globalMonthlyBudgetNok: 2_500,
+      requestCostLimitNok: 25,
+      dailyRequestLimit: 50,
+      internalMonthlyTokenAllowance: 1_000_000,
+      version: 1,
+    });
   });
 
   it("does not allow anonymous callers to bypass the Premium AI gate", async () => {
@@ -57,6 +78,13 @@ describe("GET /api/companies/search", () => {
     mocks.getAiSearchSubscriptionContext.mockResolvedValue({
       premium: true,
       billingPeriod,
+      tokenLimit: 1_000_000,
+      usageCategory: "CUSTOMER",
+      appRole: "USER",
+      subscriptionPlan: "premium",
+      subscriptionStatus: "ACTIVE",
+      subscriptionUpdatedAt: new Date("2026-07-01T10:00:00.000Z"),
+      planEconomicsVersion: 3,
     });
     mocks.reserveAiSearchUsage.mockResolvedValue(null);
 
@@ -64,7 +92,16 @@ describe("GET /api/companies/search", () => {
       new NextRequest("http://localhost/api/companies/search?query=havvind&ai=1"),
     );
 
-    expect(mocks.reserveAiSearchUsage).toHaveBeenCalledWith("user-1", billingPeriod);
+    expect(mocks.reserveAiSearchUsage).toHaveBeenCalledWith(
+      "user-1",
+      billingPeriod,
+      expect.objectContaining({
+        usageCategory: "CUSTOMER",
+        settingsVersion: 1,
+        planEconomicsVersion: 3,
+        subscriptionUpdatedAt: new Date("2026-07-01T10:00:00.000Z"),
+      }),
+    );
     expect(response.status).toBe(429);
     expect(mocks.searchCompanies).not.toHaveBeenCalled();
   });

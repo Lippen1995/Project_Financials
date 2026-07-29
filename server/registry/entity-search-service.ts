@@ -21,20 +21,24 @@ type EntityRow = {
   municipality: string | null;
   municipalityNumber: string | null;
   countryCode: string | null;
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
 };
 
 const DEFAULT_SIZE = 25;
 const MAX_SIZE = 100;
 
 function toNormalizedCompany(row: EntityRow): NormalizedCompany {
-  const now = new Date();
   const hasAddress = Boolean(row.addressStreet || row.postalCode || row.postalPlace);
   return {
-    sourceSystem: "BRREG",
-    sourceEntityType: "company",
-    sourceId: row.orgNumber,
-    fetchedAt: now,
-    normalizedAt: now,
+    sourceSystem: row.sourceSystem,
+    sourceEntityType: row.sourceEntityType,
+    sourceId: row.sourceId,
+    fetchedAt: row.fetchedAt,
+    normalizedAt: row.normalizedAt,
     rawPayload: null,
     orgNumber: row.orgNumber,
     name: row.name,
@@ -51,11 +55,11 @@ function toNormalizedCompany(row: EntityRow): NormalizedCompany {
     addresses: hasAddress
       ? [
           {
-            sourceSystem: "BRREG",
+            sourceSystem: row.sourceSystem,
             sourceEntityType: "address",
             sourceId: `${row.orgNumber}-business`,
-            fetchedAt: now,
-            normalizedAt: now,
+            fetchedAt: row.fetchedAt,
+            normalizedAt: row.normalizedAt,
             rawPayload: null,
             line1: row.addressStreet ?? "",
             line2: null,
@@ -69,8 +73,8 @@ function toNormalizedCompany(row: EntityRow): NormalizedCompany {
     industryCode: buildRegisteredIndustryCode({
       orgNumber: row.orgNumber,
       industryPayload: row.naceCode ? { kode: row.naceCode, beskrivelse: row.naceDescription } : null,
-      fetchedAt: now,
-      normalizedAt: now,
+      fetchedAt: row.fetchedAt,
+      normalizedAt: row.normalizedAt,
     }),
   };
 }
@@ -132,7 +136,8 @@ export async function searchRegistryCompanies(filters: SearchFilters): Promise<N
       e."orgNumber", e."name", e."organisationForm", e."naceCode", e."naceDescription",
       e."status"::text AS "status", e."employeeCount", e."registeredAt", e."website",
       e."addressStreet", e."postalCode", e."postalPlace", e."municipality",
-      e."municipalityNumber", e."countryCode"
+      e."municipalityNumber", e."countryCode", e."sourceSystem",
+      e."sourceEntityType", e."sourceId", e."fetchedAt", e."normalizedAt"
     FROM "RegistryEntity" e
     WHERE ${where}
     ${orderBy}

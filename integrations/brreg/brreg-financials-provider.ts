@@ -1,17 +1,32 @@
 import env from "@/lib/env";
 import { fetchJson } from "@/integrations/http";
-import { NormalizedFinancialDocument } from "@/lib/types";
+import type { NormalizedFinancialDocument, SourceMetadata } from "@/lib/types";
 import { inferStringHashKey } from "@/integrations/brreg/annual-report-financials/text";
 import {
-  mapStructuredRegnskapResponse,
+  parseStructuredRegnskapResponse,
   StructuredAnnualAccounts,
 } from "@/integrations/brreg/structured-regnskap";
+import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 
-export type StructuredAnnualAccountsResult = {
+export type StructuredAnnualAccountsResult = SourceMetadata & {
+  status: "AVAILABLE" | "UNAVAILABLE";
   accounts: StructuredAnnualAccounts[];
   /** Set when the registry cannot serve this company (unsupported layout,
    *  nothing filed) — callers should record and move on, not retry. */
   unavailableReason: string | null;
+};
+
+type ProviderFetch = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
+type BrregFinancialsProviderDependencies = {
+  fetch?: ProviderFetch;
+  sleep?: (milliseconds: number) => Promise<void>;
+  now?: () => Date;
+  random?: () => number;
+  timeoutMs?: number;
 };
 
 type BrregFinancialDocumentYear = string;
@@ -41,6 +56,31 @@ function mapDocumentYears(years: BrregFinancialDocumentYear[], orgNumber: string
 }
 
 export class BrregFinancialsProvider {
+  private readonly fetchImpl: ProviderFetch;
+  private readonly sleep: (milliseconds: number) => Promise<void>;
+  private readonly now: () => Date;
+  private readonly random: () => number;
+  private readonly timeoutMs: number;
+
+  constructor(dependencies: BrregFinancialsProviderDependencies = {}) {
+    this.fetchImpl = dependencies.fetch ?? fetch;
+    this.sleep =
+      dependencies.sleep ??
+      ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    this.now = dependencies.now ?? (() => new Date());
+    this.random = dependencies.random ?? Math.random;
+    this.timeoutMs = dependencies.timeoutMs ?? 8_000;
+  }
+
+  private retryDelay(attempt: number, retryAfter: string | null = null) {
+    const retryAfterSeconds = Number(retryAfter);
+    const backoffMs =
+      Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? retryAfterSeconds * 1000
+        : 2000 * 2 ** (attempt - 1) + Math.floor(this.random() * 1000);
+    return Math.min(backoffMs, 60_000);
+  }
+
   async listAnnualReportDocuments(orgNumber: string) {
     const years = await fetchJson<string[]>(
       `${env.brregFinancialsBaseUrl}/aarsregnskap/kopi/${orgNumber}/aar`,
@@ -74,25 +114,64 @@ export class BrregFinancialsProvider {
    * uses for unsupported oppstillingsplan variants (banks/insurers).
    */
   async fetchStructuredAnnualAccounts(orgNumber: string): Promise<StructuredAnnualAccountsResult> {
-    const url = `${env.brregFinancialsBaseUrl}/${orgNumber}`;
+    const normalizedOrgNumber = norwegianOrganizationNumberSchema.parse(orgNumber);
+    const url = `${env.brregFinancialsBaseUrl}/${normalizedOrgNumber}`;
     const maxAttempts = 4;
     let lastStatus: number | null = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      const response = await fetch(url, {
-        headers: { Accept: "application/json" },
-        cache: "no-store",
-      });
+      let response: Response;
+      try {
+        response = await this.fetchImpl(url, {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
+      } catch {
+        if (attempt === maxAttempts) {
+          throw new Error("Failed to fetch structured annual accounts: network");
+        }
+        await this.sleep(this.retryDelay(attempt));
+        continue;
+      }
 
       if (response.ok) {
+        const fetchedAt = this.now();
+        const accounts = parseStructuredRegnskapResponse(await response.json(), {
+          orgNumber: normalizedOrgNumber,
+          fetchedAt,
+          normalizedAt: this.now(),
+        });
         return {
-          accounts: mapStructuredRegnskapResponse(await response.json()),
-          unavailableReason: null,
+          status: accounts.length > 0 ? "AVAILABLE" : "UNAVAILABLE",
+          accounts,
+          unavailableReason:
+            accounts.length > 0 ? null : "Brreg returnerte ingen regnskapsoppføringer.",
+          sourceSystem: "BRREG",
+          sourceEntityType: "structuredAnnualAccountsResponse",
+          sourceId: normalizedOrgNumber,
+          fetchedAt,
+          normalizedAt: this.now(),
+          rawPayload: {
+            httpStatus: response.status,
+            accountCount: accounts.length,
+          },
         };
       }
 
       if (response.status === 404 || response.status === 410) {
-        return { accounts: [], unavailableReason: `HTTP ${response.status}: ingen regnskap` };
+        const checkedAt = this.now();
+        return {
+          status: "UNAVAILABLE",
+          accounts: [],
+          unavailableReason: `HTTP ${response.status}: ingen regnskap`,
+          sourceSystem: "BRREG",
+          sourceEntityType: "structuredAnnualAccountsResponse",
+          sourceId: normalizedOrgNumber,
+          fetchedAt: checkedAt,
+          normalizedAt: checkedAt,
+          rawPayload: { httpStatus: response.status },
+        };
       }
 
       if (response.status === 500) {
@@ -100,7 +179,21 @@ export class BrregFinancialsProvider {
         // and transient faults; the body distinguishes them.
         const body = await response.text();
         if (/ikke (er )?st\S*ttet/i.test(body)) {
-          return { accounts: [], unavailableReason: "Oppstillingsplan ikke støttet" };
+          const checkedAt = this.now();
+          return {
+            status: "UNAVAILABLE",
+            accounts: [],
+            unavailableReason: "Oppstillingsplan ikke støttet",
+            sourceSystem: "BRREG",
+            sourceEntityType: "structuredAnnualAccountsResponse",
+            sourceId: normalizedOrgNumber,
+            fetchedAt: checkedAt,
+            normalizedAt: checkedAt,
+            rawPayload: {
+              httpStatus: response.status,
+              reasonCode: "UNSUPPORTED_LAYOUT",
+            },
+          };
         }
         lastStatus = 500;
       } else {
@@ -111,12 +204,7 @@ export class BrregFinancialsProvider {
       }
 
       if (attempt === maxAttempts) break;
-      const retryAfterSeconds = Number(response.headers.get("retry-after"));
-      const backoffMs =
-        Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-          ? retryAfterSeconds * 1000
-          : 2000 * 2 ** (attempt - 1) + Math.floor(Math.random() * 1000);
-      await new Promise((resolve) => setTimeout(resolve, Math.min(backoffMs, 60_000)));
+      await this.sleep(this.retryDelay(attempt, response.headers.get("retry-after")));
     }
 
     throw new Error(`Failed to fetch structured annual accounts: ${lastStatus}`);

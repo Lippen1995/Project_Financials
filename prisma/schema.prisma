@@ -148,6 +148,18 @@ enum SubscriptionStatus {
   CANCELED
 }
 
+enum AiRevenueAllocationMode {
+  COST_PLUS
+  FIXED_PER_SUBSCRIBER
+  REVENUE_SHARE
+}
+
+enum AiUsageCategory {
+  CUSTOMER
+  INTERNAL_ADMIN
+  INTERNAL_REVIEWER
+}
+
 enum WorkspaceType {
   PERSONAL
   TEAM
@@ -170,6 +182,31 @@ enum WorkspaceInvitationStatus {
   DECLINED
   EXPIRED
   CANCELED
+}
+
+enum AnalysisWorkflow {
+  MNA_SCREENING
+  SOURCING
+  COMPETITOR_ANALYSIS
+}
+
+enum AnalysisStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum AnalysisWorklistType {
+  LONGLIST
+  SHORTLIST
+  SOURCING
+  PEER_SET
+}
+
+enum NjordFeedbackLabel {
+  USEFUL
+  INCORRECT
 }
 
 enum DdRoomStatus {
@@ -570,6 +607,12 @@ model User {
   companyEventExposureFeedback    CompanyEventExposureFeedback[]
   companySearchEvents             CompanySearchEvent[]
   aiSearchUsageEvents             AiSearchUsageEvent[]
+  aiEconomicsSettingsUpdated      AiEconomicsSettings[]             @relation("AiEconomicsSettingsUpdatedBy")
+  aiPlanEconomicsUpdated          AiSubscriptionPlanEconomics[]     @relation("AiPlanEconomicsUpdatedBy")
+  aiEconomicsChanges              AiEconomicsChangeAudit[]          @relation("AiEconomicsChangeActor")
+  analysesCreated                 Analysis[]                        @relation("AnalysisCreatedBy")
+  analysisWorklistsCreated        AnalysisWorklist[]                @relation("AnalysisWorklistCreatedBy")
+  njordFeedback                   NjordFeedback[]
 }
 
 model Subscription {
@@ -584,6 +627,63 @@ model Subscription {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Singleton runtime and provider-cost configuration. No row is seeded; paid AI fails closed
+/// until a global admin has supplied current commercial terms and explicit safety limits.
+model AiEconomicsSettings {
+  id                            String   @id @default("global")
+  runtimeEnabled                Boolean  @default(false)
+  billingCurrency               String
+  exchangeRateNok               Decimal  @db.Decimal(12, 6)
+  fxRiskBufferBps               Int
+  inputPricePerMillion          Decimal  @db.Decimal(14, 6)
+  cachedInputPricePerMillion    Decimal  @db.Decimal(14, 6)
+  outputPricePerMillion         Decimal  @db.Decimal(14, 6)
+  globalMonthlyBudgetNok        Decimal  @db.Decimal(14, 2)
+  requestCostLimitNok           Decimal  @db.Decimal(14, 4)
+  dailyRequestLimit             Int
+  internalMonthlyTokenAllowance Int
+  version                       Int      @default(1)
+  updatedByUserId               String
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+  updatedBy                     User     @relation("AiEconomicsSettingsUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+}
+
+model AiSubscriptionPlanEconomics {
+  id                                String                  @id @default(cuid())
+  planKey                           String                  @unique
+  displayName                       String
+  active                            Boolean                 @default(true)
+  monthlyPriceNok                   Decimal                 @db.Decimal(14, 2)
+  includedAiUsageTokens             Int
+  includedAiCostNok                 Decimal                 @db.Decimal(14, 2)
+  allocationMode                    AiRevenueAllocationMode
+  costPlusMarkupBps                 Int                     @default(0)
+  fixedAiAllocationNokPerSubscriber Decimal                 @default(0) @db.Decimal(14, 2)
+  revenueShareBps                   Int                     @default(0)
+  version                           Int                     @default(1)
+  updatedByUserId                   String
+  createdAt                         DateTime                @default(now())
+  updatedAt                         DateTime                @updatedAt
+  updatedBy                         User                    @relation("AiPlanEconomicsUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([active, planKey])
+}
+
+model AiEconomicsChangeAudit {
+  id          String   @id @default(cuid())
+  actorUserId String
+  entityType  String
+  entityKey   String
+  beforeState Json?
+  afterState  Json
+  createdAt   DateTime @default(now())
+  actor       User     @relation("AiEconomicsChangeActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityKey, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
 }
 
 model UserProfile {
@@ -652,6 +752,7 @@ model Workspace {
   notifications        WorkspaceNotification[]
   monitors             WorkspaceMonitor[]
   companyEventFeedback CompanyEventFeedback[]
+  analyses             Analysis[]
 
   @@index([status, type])
 }
@@ -693,70 +794,71 @@ model WorkspaceInvitation {
 }
 
 model Company {
-  id                         String                            @id @default(cuid())
-  slug                       String                            @unique
-  orgNumber                  String                            @unique
-  name                       String
-  legalForm                  String?
-  status                     CompanyStatus                     @default(ACTIVE)
-  statusObservedAt           DateTime?
-  registeredAt               DateTime?
-  foundedAt                  DateTime?
-  website                    String?
-  employeeCount              Int?
-  revenue                    Int?
-  operatingProfit            Int?
-  netIncome                  Int?
-  equity                     Int?
-  description                String?
-  sourceSystem               String
-  sourceEntityType           String
-  sourceId                   String
-  fetchedAt                  DateTime
-  normalizedAt               DateTime
-  rawPayload                 Json?
-  createdAt                  DateTime                          @default(now())
-  updatedAt                  DateTime                          @updatedAt
-  addresses                  Address[]
-  roles                      Role[]
-  financialStatements        FinancialStatement[]
-  annualReportFilings        AnnualReportFiling[]
-  financialExtractionRuns    FinancialExtractionRun[]
-  financialFacts             FinancialFact[]
-  financialValidationIssues  FinancialValidationIssue[]
-  annualReportReviews        AnnualReportReview[]
-  shareholdingSnapshots      ShareholdingSnapshot[]
-  linkedShareholders         Shareholder[]
-  ownerships                 Ownership[]
-  insiderTransactions        InsiderTransaction[]
-  ddRooms                    DdRoom[]
-  ddCommentThreads           DdCommentThread[]
-  ddFindingEvidence          DdFindingEvidence[]
-  workspaceWatches           WorkspaceWatch[]
-  workspaceWatchGroupMembers WorkspaceWatchGroupMember[]
-  petroleumWatches           PetroleumWorkspaceWatch[]
-  workspaceNotifications     WorkspaceNotification[]
-  distressProfile            CompanyDistressProfile?
-  distressFinancialSnapshot  DistressFinancialSnapshot?
-  financialCoverage          CompanyFinancialCoverage?
-  petroleumExposureSnapshot  PetroleumCompanyExposureSnapshot?
-  annualReportReviewedFacts  AnnualReportReviewedFact[]
-  rawLineItems               RawFinancialLineItem[]
-  publishedLineItems         PublishedFinancialLineItem[]
-  narratives                 AnnualReportNarrative[]
-  boardReportExtractions     BoardReportExtraction[]
-  newsArticles               NewsArticleCompany[]
-  newsRelevanceScores        NewsArticleRelevance[]
-  newsFeatureSets            NewsArticleFeatureSet[]
-  newsRelevanceFeedback      NewsRelevanceFeedback[]
-  newsSignals                NewsSignal[]
-  companyEvents              CompanyEvent[]
-  companyEventExposures      CompanyEventExposure[]
-  exposureGraphEdges         CompanyExposureGraphEdge[]
-  newsIssuerIdentities       NewsIssuerIdentity[]
-  matchedUserProfiles        UserProfile[]
-  industryCodeId             String?
-  industryCode               IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
+  id                            String                            @id @default(cuid())
+  slug                          String                            @unique
+  orgNumber                     String                            @unique
+  name                          String
+  legalForm                     String?
+  status                        CompanyStatus                     @default(ACTIVE)
+  statusObservedAt              DateTime?
+  registeredAt                  DateTime?
+  foundedAt                     DateTime?
+  website                       String?
+  employeeCount                 Int?
+  revenue                       Int?
+  operatingProfit               Int?
+  netIncome                     Int?
+  equity                        Int?
+  description                   String?
+  sourceSystem                  String
+  sourceEntityType              String
+  sourceId                      String
+  fetchedAt                     DateTime
+  normalizedAt                  DateTime
+  rawPayload                    Json?
+  createdAt                     DateTime                          @default(now())
+  updatedAt                     DateTime                          @updatedAt
+  addresses                     Address[]
+  roles                         Role[]
+  financialStatements           FinancialStatement[]
+  structuredFinancialFetchState StructuredFinancialFetchState?
+  annualReportFilings           AnnualReportFiling[]
+  financialExtractionRuns       FinancialExtractionRun[]
+  financialFacts                FinancialFact[]
+  financialValidationIssues     FinancialValidationIssue[]
+  annualReportReviews           AnnualReportReview[]
+  shareholdingSnapshots         ShareholdingSnapshot[]
+  linkedShareholders            Shareholder[]
+  ownerships                    Ownership[]
+  insiderTransactions           InsiderTransaction[]
+  ddRooms                       DdRoom[]
+  ddCommentThreads              DdCommentThread[]
+  ddFindingEvidence             DdFindingEvidence[]
+  workspaceWatches              WorkspaceWatch[]
+  workspaceWatchGroupMembers    WorkspaceWatchGroupMember[]
+  petroleumWatches              PetroleumWorkspaceWatch[]
+  workspaceNotifications        WorkspaceNotification[]
+  distressProfile               CompanyDistressProfile?
+  distressFinancialSnapshot     DistressFinancialSnapshot?
+  financialCoverage             CompanyFinancialCoverage?
+  petroleumExposureSnapshot     PetroleumCompanyExposureSnapshot?
+  annualReportReviewedFacts     AnnualReportReviewedFact[]
+  rawLineItems                  RawFinancialLineItem[]
+  publishedLineItems            PublishedFinancialLineItem[]
+  narratives                    AnnualReportNarrative[]
+  boardReportExtractions        BoardReportExtraction[]
+  newsArticles                  NewsArticleCompany[]
+  newsRelevanceScores           NewsArticleRelevance[]
+  newsFeatureSets               NewsArticleFeatureSet[]
+  newsRelevanceFeedback         NewsRelevanceFeedback[]
+  newsSignals                   NewsSignal[]
+  companyEvents                 CompanyEvent[]
+  companyEventExposures         CompanyEventExposure[]
+  exposureGraphEdges            CompanyExposureGraphEdge[]
+  newsIssuerIdentities          NewsIssuerIdentity[]
+  matchedUserProfiles           UserProfile[]
+  industryCodeId                String?
+  industryCode                  IndustryCode?                     @relation(fields: [industryCodeId], references: [id])
 
   @@index([name])
   @@index([orgNumber])
@@ -1056,6 +1158,33 @@ model FinancialStatement {
   @@index([companyId, fiscalYear])
   @@index([sourceFilingId])
   @@index([sourceExtractionRunId])
+}
+
+/// Cache and source-health state for the public structured Regnskapsregisteret
+/// endpoint. Empty and error outcomes are persisted so user reads do not create
+/// retry loops or silently fall back to PDF/OCR.
+model StructuredFinancialFetchState {
+  id                String   @id @default(cuid())
+  companyId         String   @unique
+  status            String
+  unavailableReason String?
+  lastCheckedAt     DateTime
+  nextCheckAt       DateTime
+  failureCount      Int      @default(0)
+  lastErrorCode     String?
+  latestFiscalYear  Int?
+  sourceSystem      String
+  sourceEntityType  String
+  sourceId          String
+  fetchedAt         DateTime
+  normalizedAt      DateTime
+  rawPayload        Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextCheckAt])
+  @@index([nextCheckAt])
 }
 
 // Public "as reported" financial statement line items. Machine extraction may
@@ -4032,27 +4161,158 @@ model CompanySearchEvent {
 }
 
 model AiSearchUsageEvent {
-  id                String    @id @default(cuid())
-  userId            String
-  status            String    @default("RESERVED")
-  reservedTokens    Int
-  model             String?
-  inputTokens       Int       @default(0)
-  cachedInputTokens Int       @default(0)
-  outputTokens      Int       @default(0)
-  usageTokens       Int       @default(0)
-  sourceSystem      String?
-  sourceEntityType  String?
-  sourceId          String?
-  fetchedAt         DateTime?
-  normalizedAt      DateTime?
-  occurredAt        DateTime?
-  expiresAt         DateTime
-  createdAt         DateTime  @default(now())
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                        String              @id @default(cuid())
+  userId                    String
+  status                    String              @default("RESERVED")
+  reservedTokens            Int
+  reservedCostNok           Decimal             @default(0) @db.Decimal(12, 4)
+  usageCategory             AiUsageCategory?
+  appRoleAtUsage            AppRole?
+  subscriptionPlanAtUsage   String?
+  subscriptionStatusAtUsage SubscriptionStatus?
+  settingsVersion           Int?
+  model                     String?
+  inputTokens               Int                 @default(0)
+  cachedInputTokens         Int                 @default(0)
+  outputTokens              Int                 @default(0)
+  usageTokens               Int                 @default(0)
+  estimatedCostNok          Decimal?            @db.Decimal(12, 4)
+  providerCurrency          String?
+  providerCostAmount        Decimal?            @db.Decimal(14, 6)
+  exchangeRateNok           Decimal?            @db.Decimal(12, 6)
+  fxRiskBufferBps           Int?
+  budgetedCostNok           Decimal?            @db.Decimal(12, 4)
+  durationMs                Int?
+  errorCode                 String?
+  sourceSystem              String?
+  sourceEntityType          String?
+  sourceId                  String?
+  fetchedAt                 DateTime?
+  normalizedAt              DateTime?
+  occurredAt                DateTime?
+  expiresAt                 DateTime
+  createdAt                 DateTime            @default(now())
+  user                      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, occurredAt(sort: Desc)])
   @@index([status, expiresAt])
+  @@index([usageCategory, occurredAt(sort: Desc)])
+  @@index([subscriptionPlanAtUsage, occurredAt(sort: Desc)])
+}
+
+/// Access-controlled, durable analytical context shared by UI and Njord.
+/// JSON payloads are versioned domain contracts; raw provider payloads are forbidden here.
+model Analysis {
+  id                   String           @id @default(cuid())
+  workspaceId          String
+  createdByUserId      String
+  workflow             AnalysisWorkflow
+  status               AnalysisStatus   @default(DRAFT)
+  title                String
+  purpose              String
+  criteriaVersion      String
+  criteria             Json
+  universeQueryVersion String
+  universeQuery        Json
+  calculationVersion   String?
+  calculationConfig    Json?
+  sourceBasis          Json
+  conclusion           Json?
+  followUp             Json?
+  version              Int              @default(1)
+  archivedAt           DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User               @relation("AnalysisCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  worklists AnalysisWorklist[]
+  feedback  NjordFeedback[]
+
+  @@index([workspaceId, status, updatedAt(sort: Desc)])
+  @@index([createdByUserId, createdAt(sort: Desc)])
+}
+
+model AnalysisWorklist {
+  id                    String               @id @default(cuid())
+  analysisId            String
+  createdByUserId       String
+  type                  AnalysisWorklistType
+  name                  String
+  purpose               String
+  criteriaVersion       String
+  universeResultVersion String?
+  screeningVersion      String?
+  rankingVersion        String?
+  evaluatedCount        Int?
+  includedCount         Int?
+  excludedCount         Int?
+  truncatedCount        Int?
+  universeExecutedAt    DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  analysis   Analysis                    @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  createdBy  User                        @relation("AnalysisWorklistCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items      AnalysisWorklistItem[]
+  exclusions AnalysisWorklistExclusion[]
+
+  @@index([analysisId, type, updatedAt(sort: Desc)])
+}
+
+model AnalysisWorklistExclusion {
+  id          String   @id @default(cuid())
+  worklistId  String
+  orgNumber   String
+  companyName String
+  reasons     Json
+  sourceBasis Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  worklist AnalysisWorklist @relation(fields: [worklistId], references: [id], onDelete: Cascade)
+
+  @@unique([worklistId, orgNumber])
+  @@index([worklistId, orgNumber])
+  @@index([orgNumber])
+}
+
+model AnalysisWorklistItem {
+  id             String   @id @default(cuid())
+  worklistId     String
+  orgNumber      String
+  companyName    String
+  sortOrder      Int
+  inclusionBasis Json
+  dataGaps       Json
+  sourceBasis    Json
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  worklist AnalysisWorklist @relation(fields: [worklistId], references: [id], onDelete: Cascade)
+
+  @@unique([worklistId, orgNumber])
+  @@unique([worklistId, sortOrder])
+  @@index([orgNumber])
+}
+
+model NjordFeedback {
+  id         String             @id @default(cuid())
+  userId     String
+  analysisId String?
+  answerKey  String
+  label      NjordFeedbackLabel
+  notes      String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysis Analysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, answerKey])
+  @@index([analysisId, createdAt(sort: Desc)])
+  @@index([label, createdAt(sort: Desc)])
 }
 
 enum KnowledgeJurisdiction {

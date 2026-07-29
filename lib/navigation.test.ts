@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildGlobalNavItems } from "@/lib/navigation";
+import { buildGlobalNavItems, isGlobalNavItemActive } from "@/lib/navigation";
 
 describe("buildGlobalNavItems", () => {
   it("shows Admin nav for ADMIN users", () => {
@@ -25,5 +25,12 @@ describe("buildGlobalNavItems", () => {
 
   it("hides Admin nav for unauthenticated users", () => {
     expect(buildGlobalNavItems(null).some((item) => item.href === "/admin")).toBe(false);
+  });
+
+  it("exposes resumable analyses and keeps detail routes active", () => {
+    const analyses = buildGlobalNavItems(null).find((item) => item.href === "/analyses");
+
+    expect(analyses).toMatchObject({ label: "Analyser", icon: "analytics" });
+    expect(isGlobalNavItemActive(analyses!, "/analyses/analysis-1")).toBe(true);
   });
 });
