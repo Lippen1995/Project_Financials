@@ -11,7 +11,7 @@ type Edge = {
   ownerName: string;
   issuer: string;
   issuerName: string;
-  rel: "SUBSIDIARY" | "ASSOCIATED";
+  rel: "SUBSIDIARY" | "ASSOCIATED" | "FINANCIAL_POSITION" | "CONFLICT";
   pct: number;
 };
 
@@ -35,7 +35,14 @@ function depsFrom(edges: Edge[]): GroupStructureDeps {
           ownerOrgNumber: edge.owner,
           issuerOrgNumber: edge.issuer,
           issuerName: edge.issuerName,
-          relationship: edge.rel,
+          relationship:
+            edge.rel === "SUBSIDIARY"
+              ? "GROUP_SUBSIDIARY"
+              : edge.rel === "ASSOCIATED"
+                ? "GROUP_ASSOCIATE"
+                : edge.rel === "FINANCIAL_POSITION"
+                  ? "FINANCIAL_POSITION"
+                  : "CONFLICT",
           ownershipPercent: edge.pct,
         }));
     },
@@ -45,9 +52,17 @@ function depsFrom(edges: Edge[]): GroupStructureDeps {
 const e = (
   owner: string,
   issuer: string,
-  rel: "SUBSIDIARY" | "ASSOCIATED",
+  rel: "SUBSIDIARY" | "ASSOCIATED" | "FINANCIAL_POSITION" | "CONFLICT",
   pct: number,
-): Edge => ({ owner, ownerName: `${owner} AS`, issuer, issuerName: `${issuer} AS`, rel, pct });
+  names?: { owner: string; issuer: string },
+): Edge => ({
+  owner,
+  ownerName: names?.owner ?? `${owner} AS`,
+  issuer,
+  issuerName: names?.issuer ?? `${issuer} AS`,
+  rel,
+  pct,
+});
 
 describe("buildGroupStructure — downward", () => {
   it("builds a recursive subsidiary tree and attaches associated companies as leaves", async () => {
@@ -104,6 +119,37 @@ describe("buildGroupStructure — downward", () => {
 });
 
 describe("buildGroupStructure — upward to konsernspiss", () => {
+  it("stops at a public financial position while retaining the commercial group below it", async () => {
+    const edges = [
+      e("912660680", "923609016", "FINANCIAL_POSITION", 67, {
+        owner: "NÆRINGS- OG FISKERIDEPARTEMENTET",
+        issuer: "EQUINOR ASA",
+      }),
+      e("923609016", "990888213", "SUBSIDIARY", 100, {
+        owner: "EQUINOR ASA",
+        issuer: "EQUINOR ENERGY AS",
+      }),
+    ];
+
+    const energy = await buildGroupStructure(
+      { orgNumber: "990888213", year: 2025, currentName: "EQUINOR ENERGY AS" },
+      depsFrom(edges),
+    );
+    expect(energy.rootOrgNumber).toBe("923609016");
+    expect(energy.ultimateParent).toEqual({ orgNumber: "923609016", name: "EQUINOR ASA" });
+    expect(energy.nodes.map((node) => node.orgNumber)).toEqual(["923609016", "990888213"]);
+
+    const ministry = await buildGroupStructure(
+      {
+        orgNumber: "912660680",
+        year: 2025,
+        currentName: "NÆRINGS- OG FISKERIDEPARTEMENTET",
+      },
+      depsFrom(edges),
+    );
+    expect(ministry.nodes.map((node) => node.orgNumber)).toEqual(["912660680"]);
+  });
+
   it("climbs the controlling chain and roots the tree at the ultimate parent", async () => {
     const edges = [
       e("TOP", "MID", "SUBSIDIARY", 80),
@@ -131,18 +177,34 @@ describe("buildGroupStructure — upward to konsernspiss", () => {
     expect(result.ultimateParent).toBeNull();
   });
 
-  it("guards against an upward ownership cycle", async () => {
+  it("does not expose a conflicted ownership cycle as a group", async () => {
     const edges = [
-      e("A", "B", "SUBSIDIARY", 60),
-      e("B", "A", "SUBSIDIARY", 60),
+      e("A", "B", "CONFLICT", 60),
+      e("B", "A", "CONFLICT", 60),
     ];
     const result = await buildGroupStructure(
       { orgNumber: "A", year: 2025, currentName: "A AS" },
       depsFrom(edges),
     );
-    // Climbs A -> B, then B's parent A is already visited; stop without looping.
-    expect(result.rootOrgNumber).toBe("B");
-    expect(result.nodes.length).toBeGreaterThan(0);
+    expect(result.rootOrgNumber).toBe("A");
+    expect(result.nodes.map((node) => node.orgNumber)).toEqual(["A"]);
+  });
+
+  it("suppresses descendants when materialised membership is ambiguous", async () => {
+    const edges = [e("A", "C", "SUBSIDIARY", 100)];
+    const result = await buildGroupStructure(
+      {
+        orgNumber: "A",
+        year: 2025,
+        currentName: "A AS",
+        rootOverride: { orgNumber: "A", name: "A AS" },
+        suppressTraversal: true,
+      },
+      depsFrom(edges),
+    );
+
+    expect(result.rootOrgNumber).toBe("A");
+    expect(result.nodes.map((node) => node.orgNumber)).toEqual(["A"]);
   });
 });
 

@@ -32,6 +32,11 @@ export type GroupStructure = {
   nodes: GroupNode[];
   /** True when depth or node-count limits stopped the traversal short. */
   truncated: boolean;
+  /** Only complete source imports are eligible for semantic group publication. */
+  sourceImportStatus?: "COMPLETED";
+  /** Consumers may show a definitive group label only for RESOLVED membership. */
+  membershipStatus?: "RESOLVED" | "UNKNOWN" | "CONFLICT";
+  ruleVersion?: string;
 };
 
 /** A direct shareholder (person or company) of a company, aggregated across share classes. */
@@ -52,7 +57,7 @@ export type CompanyHolding = {
   name: string;
   shares: string;
   ownershipPercent: number | null;
-  relationship: OwnershipRelationship;
+  relationship: OwnershipRelationship | "FINANCIAL_POSITION";
 };
 
 /** Everything the Eierskap tab needs for a single tax year. */
@@ -61,6 +66,8 @@ export type OwnershipOverview = {
   companyName: string;
   year: number | null;
   availableYears: number[];
+  /** Exact Skatteetaten import used for the raw ownership lists. */
+  sourceImportStatus: "COMPLETED" | "PARTIAL" | null;
   group: GroupStructure | null;
   directShareholders: DirectShareholder[];
   holdings: CompanyHolding[];

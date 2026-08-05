@@ -2,6 +2,12 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
+  acquireOwnershipPublicationLocks,
+  buildGroupRelationshipSnapshotInTransaction,
+  requireCompleteShareholderRegisterImport,
+  type GroupRelationshipSnapshotBuildResult,
+} from "@/server/ownership/group-relationship-snapshot-builder";
+import {
   ASSOCIATED_THRESHOLD_PERCENT,
   CONTROL_THRESHOLD_PERCENT,
 } from "@/server/ownership/ownership-thresholds";
@@ -12,6 +18,7 @@ export type OwnershipEdgeBuildResult = {
   subsidiaryCount: number;
   associatedCount: number;
   minorityCount: number;
+  semanticSnapshot: GroupRelationshipSnapshotBuildResult;
 };
 
 /**
@@ -27,16 +34,20 @@ export type OwnershipEdgeBuildResult = {
  * register re-import yields a clean rebuild.
  */
 export async function buildOwnershipEdgesForYear(taxYear: number): Promise<OwnershipEdgeBuildResult> {
-  // Not wrapped in an interactive transaction: the INSERT...SELECT aggregates millions
-  // of register rows and far exceeds Prisma's 5s interactive-transaction timeout. The
-  // DELETE + INSERT run as separate implicit transactions; this is a re-runnable batch
-  // build, so the brief window between them is acceptable.
-  await prisma.$executeRaw`DELETE FROM "OwnershipEdge" WHERE "taxYear" = ${taxYear}`;
+  return prisma.$transaction(async (tx) => {
+    // The quantitative rebuild and semantic publication share one year-scoped lock and one
+    // transaction. Readers therefore keep seeing the previous published snapshot until every
+    // replacement edge, relationship and membership row is ready.
+    await acquireOwnershipPublicationLocks(tx, taxYear);
+    const sourceImport = await requireCompleteShareholderRegisterImport(tx, taxYear);
 
-  await prisma.$executeRaw`
+    await tx.$executeRaw`DELETE FROM "OwnershipEdge" WHERE "taxYear" = ${taxYear}`;
+
+    await tx.$executeRaw`
       INSERT INTO "OwnershipEdge" (
         "taxYear", "issuerOrgNumber", "ownerOrgNumber", "issuerName", "ownerName",
-        "aggregatedShares", "totalIssuerShares", "ownershipPercent", "relationship", "builtAt"
+        "aggregatedShares", "totalIssuerShares", "ownershipPercent", "relationship",
+        "sourceImportId", "builtAt"
       )
       SELECT
         agg."taxYear",
@@ -53,6 +64,7 @@ export async function buildOwnershipEdgesForYear(taxYear: number): Promise<Owner
           WHEN agg."ownershipPercent" >= ${ASSOCIATED_THRESHOLD_PERCENT} THEN 'ASSOCIATED'
           ELSE 'MINORITY'
         END)::"OwnershipRelationship",
+        ${sourceImport.id},
         now()
       FROM (
         SELECT
@@ -76,31 +88,54 @@ export async function buildOwnershipEdgesForYear(taxYear: number): Promise<Owner
           END AS "ownershipPercent"
         FROM "ShareholderRegisterHolding" h
         WHERE h."taxYear" = ${taxYear}
+          AND h."importId" = ${sourceImport.id}
           AND h."shareholderOrgNumber" IS NOT NULL
           AND h."shareholderOrgNumber" <> h."issuerOrgNumber"
         GROUP BY h."taxYear", h."issuerOrgNumber", h."shareholderOrgNumber"
       ) agg
     `;
 
-  const counts = await prisma.$queryRaw<Array<{ relationship: string; count: bigint }>>`
+    const counts = await tx.$queryRaw<Array<{ relationship: string; count: bigint }>>`
       SELECT "relationship"::text AS relationship, count(*)::bigint AS count
       FROM "OwnershipEdge"
       WHERE "taxYear" = ${taxYear}
       GROUP BY "relationship"
     `;
 
-  const byRelationship = new Map(counts.map((row) => [row.relationship, Number(row.count)]));
-  const subsidiaryCount = byRelationship.get("SUBSIDIARY") ?? 0;
-  const associatedCount = byRelationship.get("ASSOCIATED") ?? 0;
-  const minorityCount = byRelationship.get("MINORITY") ?? 0;
+    const byRelationship = new Map(counts.map((row) => [row.relationship, Number(row.count)]));
+    const subsidiaryCount = byRelationship.get("SUBSIDIARY") ?? 0;
+    const associatedCount = byRelationship.get("ASSOCIATED") ?? 0;
+    const minorityCount = byRelationship.get("MINORITY") ?? 0;
+    const edgeCount = subsidiaryCount + associatedCount + minorityCount;
+    if (sourceImport.importedRowCount > 0 && edgeCount === 0) {
+      throw new Error(
+        `Refusing to publish an empty ownership graph for non-empty import ${sourceImport.id}.`,
+      );
+    }
 
-  return {
-    taxYear,
-    edgeCount: subsidiaryCount + associatedCount + minorityCount,
-    subsidiaryCount,
-    associatedCount,
-    minorityCount,
-  };
+    const semanticSnapshot = await buildGroupRelationshipSnapshotInTransaction(
+      tx,
+      taxYear,
+      sourceImport,
+    );
+    if (semanticSnapshot.relationshipCount !== edgeCount) {
+      throw new Error(
+        `Relationship projection count ${semanticSnapshot.relationshipCount} does not match edge count ${edgeCount}.`,
+      );
+    }
+    if (subsidiaryCount > 0 && semanticSnapshot.membershipCount === 0) {
+      throw new Error("Refusing to publish an empty membership projection for a non-empty control graph.");
+    }
+
+    return {
+      taxYear,
+      edgeCount,
+      subsidiaryCount,
+      associatedCount,
+      minorityCount,
+      semanticSnapshot,
+    };
+  }, { maxWait: 60_000, timeout: 900_000 });
 }
 
 /** Tax years that have register holdings available to build edges from. */

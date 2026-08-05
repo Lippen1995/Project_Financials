@@ -24,8 +24,16 @@ import { prisma } from "@/lib/prisma";
 
 const BULK_URL = `${env.brregBaseUrl}/enheter/lastned`;
 const ACCEPT = "application/vnd.brreg.enhetsregisteret.enhet.v2+gzip";
-// 18 columns per row; 1500 * 18 = 27000 stays under PostgreSQL's 32767 bind-parameter limit.
-const BATCH_SIZE = 1500;
+// 25 bound values per row; 1250 * 25 = 31250 stays under PostgreSQL's 32767 parameter limit.
+const BATCH_SIZE = 1250;
+let cleanupStageTable: string | null = null;
+
+function quotedStageTable(tableName: string): Prisma.Sql {
+  if (!/^RegistryEntityStage_[a-f0-9]{32}$/.test(tableName)) {
+    throw new Error("Invalid registry staging-table identifier.");
+  }
+  return Prisma.raw(`"${tableName}"`);
+}
 
 type BrregAddress = {
   adresse?: (string | null)[];
@@ -39,6 +47,7 @@ type BrregEntity = {
   organisasjonsnummer?: string;
   navn?: string;
   organisasjonsform?: { kode?: string };
+  institusjonellSektorkode?: { kode?: string; beskrivelse?: string };
   naeringskode1?: { kode?: string; beskrivelse?: string };
   antallAnsatte?: number;
   registreringsdatoEnhetsregisteret?: string;
@@ -102,6 +111,8 @@ function mapEntity(entity: BrregEntity) {
     orgNumber: entity.organisasjonsnummer!,
     name: entity.navn ?? "",
     organisationForm: entity.organisasjonsform?.kode ?? null,
+    institutionalSectorCode: entity.institusjonellSektorkode?.kode ?? null,
+    institutionalSectorDescription: entity.institusjonellSektorkode?.beskrivelse ?? null,
     naceCode: entity.naeringskode1?.kode ?? null,
     naceDescription: entity.naeringskode1?.beskrivelse ?? null,
     status: deriveStatus(entity),
@@ -178,8 +189,13 @@ async function main() {
     objectStart: -1,
   };
 
-  console.log("Truncating RegistryEntity and streaming inserts…");
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "RegistryEntity"');
+  console.log("Streaming into an isolated RegistryEntity candidate snapshot…");
+  const stageTable = `RegistryEntityStage_${randomUUID().replaceAll("-", "")}`;
+  cleanupStageTable = stageTable;
+  const stageIdentifier = quotedStageTable(stageTable);
+  await prisma.$executeRaw(
+    Prisma.sql`CREATE UNLOGGED TABLE ${stageIdentifier} (LIKE "RegistryEntity" INCLUDING DEFAULTS)`,
+  );
 
   let batch: ReturnType<typeof mapEntity>[] = [];
   let inserted = 0;
@@ -190,7 +206,8 @@ async function main() {
     const now = new Date();
     const tuples = batch.map(
       (r) => Prisma.sql`(
-        ${randomUUID()}, ${r.orgNumber}, ${r.name}, ${r.organisationForm}, ${r.naceCode},
+        ${randomUUID()}, ${r.orgNumber}, ${r.name}, ${r.organisationForm},
+        ${r.institutionalSectorCode}, ${r.institutionalSectorDescription}, ${r.naceCode},
         ${r.naceDescription}, ${r.status}::"CompanyStatus", ${r.employeeCount}, ${r.registeredAt},
         ${r.website}, ${r.addressStreet}, ${r.postalCode}, ${r.postalPlace}, ${r.municipality},
         ${r.municipalityNumber}, ${r.countryCode}, ${r.registerUpdatedAt},
@@ -198,13 +215,13 @@ async function main() {
       )`,
     );
     await prisma.$executeRaw(Prisma.sql`
-      INSERT INTO "RegistryEntity" (
-        "id", "orgNumber", "name", "organisationForm", "naceCode", "naceDescription",
-        "status", "employeeCount", "registeredAt", "website", "addressStreet", "postalCode",
+      INSERT INTO ${stageIdentifier} (
+        "id", "orgNumber", "name", "organisationForm", "institutionalSectorCode",
+        "institutionalSectorDescription", "naceCode", "naceDescription", "status",
+        "employeeCount", "registeredAt", "website", "addressStreet", "postalCode",
         "postalPlace", "municipality", "municipalityNumber", "countryCode", "registerUpdatedAt",
         "sourceSystem", "sourceEntityType", "sourceId", "fetchedAt", "normalizedAt", "updatedAt"
       ) VALUES ${Prisma.join(tuples)}
-      ON CONFLICT ("orgNumber") DO NOTHING
     `);
     inserted += batch.length;
     batch = [];
@@ -244,8 +261,37 @@ async function main() {
   }
   await flush();
 
-  // Name-search index built after the load (up-front would slow every insert). IF NOT
-  // EXISTS so re-runs are a no-op; TRUNCATE preserves it.
+  const isCompleteSnapshot = !nacePrefix && limit === Infinity;
+  if (isCompleteSnapshot) {
+    const [{ count: currentCountRaw }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT count(*)::bigint AS count FROM "RegistryEntity"
+    `;
+    const currentCount = Number(currentCountRaw);
+    if (inserted === 0 || (currentCount > 0 && inserted < currentCount * 0.9)) {
+      throw new Error(
+        `Refusing to publish suspicious RegistryEntity snapshot: ${inserted} rows versus ${currentCount} current rows.`,
+      );
+    }
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`
+          SELECT pg_advisory_xact_lock(hashtext('fjord-insight-registry-entity-publication'), 0)
+        `;
+        await tx.$executeRaw`TRUNCATE TABLE "RegistryEntity"`;
+        await tx.$executeRaw(
+          Prisma.sql`INSERT INTO "RegistryEntity" SELECT * FROM ${stageIdentifier}`,
+        );
+      },
+      { maxWait: 60_000, timeout: 900_000 },
+    );
+  } else {
+    console.log("Filtered/limited run validated only; RegistryEntity publication was not replaced.");
+  }
+
+  await prisma.$executeRaw(Prisma.sql`DROP TABLE ${stageIdentifier}`);
+  cleanupStageTable = null;
+
+  // The published table keeps its indexes across the atomic truncate-and-replace operation.
   await prisma.$executeRawUnsafe("CREATE EXTENSION IF NOT EXISTS pg_trgm");
   await prisma.$executeRawUnsafe(
     'CREATE INDEX IF NOT EXISTS registry_entity_name_trgm ON "RegistryEntity" USING gin ("name" gin_trgm_ops)',
@@ -261,4 +307,11 @@ main()
     console.error(error);
     process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    if (cleanupStageTable) {
+      await prisma.$executeRaw(
+        Prisma.sql`DROP TABLE IF EXISTS ${quotedStageTable(cleanupStageTable)}`,
+      );
+    }
+    await prisma.$disconnect();
+  });

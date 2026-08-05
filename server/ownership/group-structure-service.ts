@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import type { GroupRelationshipKind } from "@/server/ownership/group-relationship-classifier";
 import type { OwnershipRelationship } from "@/server/ownership/ownership-thresholds";
 import type { GroupNode, GroupStructure } from "@/server/ownership/types";
 
@@ -18,7 +19,7 @@ export type ChildEdge = {
   ownerOrgNumber: string;
   issuerOrgNumber: string;
   issuerName: string;
-  relationship: OwnershipRelationship;
+  relationship: GroupRelationshipKind;
   ownershipPercent: number | null;
 };
 
@@ -29,7 +30,7 @@ export type ChildEdge = {
 export type GroupStructureDeps = {
   /** The single owner that controls (>50 %) the given company, if any. */
   getControllingParent: (orgNumber: string) => Promise<ControllingParent | null>;
-  /** All subsidiary/associated edges owned by any of the given companies. */
+  /** Published semantic relationships owned by any of the given companies. */
   getChildren: (ownerOrgNumbers: string[]) => Promise<ChildEdge[]>;
 };
 
@@ -40,6 +41,8 @@ export type BuildGroupStructureParams = {
   maxDepth?: number;
   maxNodes?: number;
   maxUpDepth?: number;
+  rootOverride?: { orgNumber: string; name: string };
+  suppressTraversal?: boolean;
 };
 
 /**
@@ -71,16 +74,24 @@ export async function buildGroupStructure(
   let root = current;
   let ultimateParent: { orgNumber: string; name: string } | null = null;
   let cursor = current;
-  for (let i = 0; i < maxUpDepth; i += 1) {
-    const parent = await deps.getControllingParent(cursor);
-    if (!parent || upVisited.has(parent.ownerOrgNumber)) {
-      break;
+  if (params.rootOverride) {
+    root = params.rootOverride.orgNumber;
+    upNames.set(root, params.rootOverride.name);
+    if (root !== current) {
+      ultimateParent = params.rootOverride;
     }
-    upVisited.add(parent.ownerOrgNumber);
-    upNames.set(parent.ownerOrgNumber, parent.ownerName);
-    root = parent.ownerOrgNumber;
-    ultimateParent = { orgNumber: parent.ownerOrgNumber, name: parent.ownerName };
-    cursor = parent.ownerOrgNumber;
+  } else {
+    for (let i = 0; i < maxUpDepth; i += 1) {
+      const parent = await deps.getControllingParent(cursor);
+      if (!parent || upVisited.has(parent.ownerOrgNumber)) {
+        break;
+      }
+      upVisited.add(parent.ownerOrgNumber);
+      upNames.set(parent.ownerOrgNumber, parent.ownerName);
+      root = parent.ownerOrgNumber;
+      ultimateParent = { orgNumber: parent.ownerOrgNumber, name: parent.ownerName };
+      cursor = parent.ownerOrgNumber;
+    }
   }
 
   // 2. Breadth-first down from the root.
@@ -98,7 +109,7 @@ export async function buildGroupStructure(
     },
   ];
   const visited = new Set<string>([root]);
-  let frontier = [root];
+  let frontier = params.suppressTraversal ? [] : [root];
   let truncated = false;
 
   for (let depth = 0; depth < maxDepth && frontier.length > 0; depth += 1) {
@@ -120,11 +131,15 @@ export async function buildGroupStructure(
         truncated = true;
         break;
       }
+      const displayRelationship = groupRelationshipToDisplayRelationship(edge.relationship);
+      if (!displayRelationship) {
+        continue;
+      }
       visited.add(edge.issuerOrgNumber);
       nodes.push({
         orgNumber: edge.issuerOrgNumber,
         name: edge.issuerName,
-        relationshipToParent: edge.relationship,
+        relationshipToParent: displayRelationship,
         ownershipPercent: edge.ownershipPercent,
         depth: depth + 1,
         parentOrgNumber: edge.ownerOrgNumber,
@@ -132,7 +147,7 @@ export async function buildGroupStructure(
         childCount: 0,
       });
       // Only control edges continue the konsern downward; associated are leaves.
-      if (edge.relationship === "SUBSIDIARY") {
+      if (edge.relationship === "GROUP_SUBSIDIARY") {
         nextFrontier.push(edge.issuerOrgNumber);
       }
     }
@@ -165,6 +180,14 @@ export async function buildGroupStructure(
   };
 }
 
+function groupRelationshipToDisplayRelationship(
+  relationship: GroupRelationshipKind,
+): OwnershipRelationship | null {
+  if (relationship === "GROUP_SUBSIDIARY") return "SUBSIDIARY";
+  if (relationship === "GROUP_ASSOCIATE") return "ASSOCIATED";
+  return null;
+}
+
 function createPrismaDeps(year: number): GroupStructureDeps {
   return {
     async getControllingParent(orgNumber) {
@@ -172,11 +195,15 @@ function createPrismaDeps(year: number): GroupStructureDeps {
         Array<{ ownerOrgNumber: string; ownerName: string; ownershipPercent: number | null }>
       >`
         SELECT "ownerOrgNumber", "ownerName", "ownershipPercent"::float8 AS "ownershipPercent"
-        FROM "OwnershipEdge"
-        WHERE "taxYear" = ${year}
-          AND "issuerOrgNumber" = ${orgNumber}
-          AND "relationship" = 'SUBSIDIARY'
-        ORDER BY "ownershipPercent" DESC NULLS LAST
+        FROM "GroupRelationshipPublication" publication
+        JOIN "GroupRelationshipSnapshot" relationship
+          ON relationship."buildId" = publication."buildId"
+         AND relationship."taxYear" = publication."taxYear"
+        WHERE publication."taxYear" = ${year}
+          AND publication."sourceImportStatus" = 'COMPLETED'
+          AND relationship."issuerOrgNumber" = ${orgNumber}
+          AND relationship."relationship" = 'GROUP_SUBSIDIARY'
+        ORDER BY relationship."ownershipPercent" DESC NULLS LAST
         LIMIT 1
       `;
       return rows[0] ?? null;
@@ -192,10 +219,14 @@ function createPrismaDeps(year: number): GroupStructureDeps {
           "issuerName",
           "relationship"::text AS "relationship",
           "ownershipPercent"::float8 AS "ownershipPercent"
-        FROM "OwnershipEdge"
-        WHERE "taxYear" = ${year}
-          AND "ownerOrgNumber" IN (${Prisma.join(ownerOrgNumbers)})
-          AND "relationship" IN ('SUBSIDIARY', 'ASSOCIATED')
+        FROM "GroupRelationshipPublication" publication
+        JOIN "GroupRelationshipSnapshot" relationship
+          ON relationship."buildId" = publication."buildId"
+         AND relationship."taxYear" = publication."taxYear"
+        WHERE publication."taxYear" = ${year}
+          AND publication."sourceImportStatus" = 'COMPLETED'
+          AND relationship."ownerOrgNumber" IN (${Prisma.join(ownerOrgNumbers)})
+          AND relationship."relationship" IN ('GROUP_SUBSIDIARY', 'GROUP_ASSOCIATE')
       `);
     },
   };
@@ -209,8 +240,55 @@ export async function getGroupStructure(params: {
   maxDepth?: number;
   maxNodes?: number;
 }): Promise<GroupStructure> {
-  const structure = await buildGroupStructure(params, createPrismaDeps(params.year));
-  await enrichWithCompanyStatus(structure.nodes);
+  const memberships = await prisma.$queryRaw<
+    Array<{
+      groupRootOrgNumber: string;
+      groupRootName: string | null;
+      status: "RESOLVED" | "UNKNOWN" | "CONFLICT";
+    }>
+  >`
+    SELECT
+      membership."groupRootOrgNumber",
+      root."name" AS "groupRootName",
+      membership."status"::text AS status
+    FROM "GroupRelationshipPublication" publication
+    JOIN "GroupMembershipSnapshot" membership
+      ON membership."buildId" = publication."buildId"
+     AND membership."taxYear" = publication."taxYear"
+    LEFT JOIN "RegistryEntity" root
+      ON root."orgNumber" = membership."groupRootOrgNumber"
+    WHERE publication."taxYear" = ${params.year}
+      AND publication."sourceImportStatus" = 'COMPLETED'
+      AND membership."memberOrgNumber" = ${params.orgNumber}
+    LIMIT 1
+  `;
+  const membership = memberships[0] ?? null;
+  const membershipResolved = membership?.status === "RESOLVED";
+  const structure = await buildGroupStructure(
+    {
+      ...params,
+      rootOverride: membershipResolved
+        ? {
+            orgNumber: membership.groupRootOrgNumber,
+            name: membership.groupRootName ?? membership.groupRootOrgNumber,
+          }
+        : { orgNumber: params.orgNumber, name: params.currentName },
+      suppressTraversal: membership !== null && !membershipResolved,
+    },
+    createPrismaDeps(params.year),
+  );
+  const [publication] = await Promise.all([
+    prisma.groupRelationshipPublication.findFirst({
+      where: { taxYear: params.year, sourceImportStatus: "COMPLETED" },
+      select: { sourceImportStatus: true, ruleVersion: true },
+    }),
+    enrichWithCompanyStatus(structure.nodes),
+  ]);
+  if (publication?.sourceImportStatus === "COMPLETED") {
+    structure.sourceImportStatus = publication.sourceImportStatus;
+  }
+  if (membership) structure.membershipStatus = membership.status;
+  if (publication) structure.ruleVersion = publication.ruleVersion;
   return structure;
 }
 
@@ -266,6 +344,21 @@ export async function getSubsidiaryTraversal(params: {
     return { orgNumbers: [], truncated: false };
   }
 
+  const membershipRows = await prisma.$queryRaw<Array<{ status: string }>>`
+    SELECT membership."status"::text AS status
+    FROM "GroupRelationshipPublication" publication
+    JOIN "GroupMembershipSnapshot" membership
+      ON membership."buildId" = publication."buildId"
+     AND membership."taxYear" = publication."taxYear"
+    WHERE publication."taxYear" = ${year}
+      AND publication."sourceImportStatus" = 'COMPLETED'
+      AND membership."memberOrgNumber" = ${params.orgNumber}
+    LIMIT 1
+  `;
+  if (membershipRows[0] && membershipRows[0].status !== "RESOLVED") {
+    return { orgNumbers: [], truncated: false };
+  }
+
   const deps = createPrismaDeps(year);
   const maxDepth = params.maxDepth ?? DEFAULT_MAX_DEPTH;
   const maxNodes = params.maxNodes ?? DEFAULT_MAX_NODES;
@@ -279,7 +372,7 @@ export async function getSubsidiaryTraversal(params: {
     const edges = await deps.getChildren(frontier);
     const next: string[] = [];
     for (const edge of edges) {
-      if (edge.relationship !== "SUBSIDIARY" || visited.has(edge.issuerOrgNumber)) {
+      if (edge.relationship !== "GROUP_SUBSIDIARY" || visited.has(edge.issuerOrgNumber)) {
         continue;
       }
       visited.add(edge.issuerOrgNumber);
@@ -301,7 +394,10 @@ export async function getSubsidiaryTraversal(params: {
 /** Tax years for which a materialised ownership graph exists. */
 export async function getOwnershipAvailableYears(): Promise<number[]> {
   const rows = await prisma.$queryRaw<Array<{ taxYear: number }>>`
-    SELECT DISTINCT "taxYear" FROM "OwnershipEdge" ORDER BY "taxYear" DESC
+    SELECT "taxYear"
+    FROM "GroupRelationshipPublication"
+    WHERE "sourceImportStatus" = 'COMPLETED'
+    ORDER BY "taxYear" DESC
   `;
   return rows.map((row) => row.taxYear);
 }

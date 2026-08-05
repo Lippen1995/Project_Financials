@@ -46,7 +46,7 @@ The repository already contains scripts or services for these processes, but `ve
 
 | Dataset or process | Target cadence | Go-live status | Command or service | Dependency and follow-up |
 |---|---:|---|---|---|
-| Brreg main entities | Daily | **Required before go-live** | `npm run brreg:ingest-entities` | Replaces the local search mirror. Run dependent search and exposure checks after success. |
+| Brreg main entities | Daily | **Required before go-live** | `npm run brreg:ingest-entities` | Loads an isolated candidate and atomically replaces the local mirror. Limited/filter runs never publish. Run dependent search and exposure checks after success. |
 | Brreg subunits | Daily | **Required before go-live** | `npm run brreg:ingest-subunits` | Refreshes workplace, outlet, and subunit search data. |
 | Brreg roles and people-role assignments | Daily | **Required before go-live** | `npm run brreg:ingest-roles` | Refreshes boards, management roles, auditors, accountants, and reverse person lookup. |
 | Brreg distress updates | Hourly | **Required before go-live** | `npm run sync:distress` | Uses the Brreg update cursor. Run after entity changes when practical. |
@@ -58,7 +58,7 @@ The repository already contains scripts or services for these processes, but `ve
 | Company exposure and read-across graph | Daily | **Required before go-live** | `npm run news:intelligence:sync-exposure-graph` | Rebuild after ownership or major registry changes. |
 | Shareholder register | On every official annual release | **Required operational procedure** | `npm run import:shareholder-register` | Import only official source files. Record tax year and provenance. |
 | Company shareholding snapshots | After shareholder-source updates | **Required operational procedure** | `npm run import:shareholding` | Rebuild materialized ownership data for changed source years. |
-| Ownership graph edges | After ownership updates | **Required operational procedure** | `npm run ownership:build-edges` | Complete before company exposure and ultimate-owner rebuilds. |
+| Ownership graph edges and semantic group snapshots | After ownership updates | **Required operational procedure** | `npm run ownership:build-edges` | Publish only from a `COMPLETED` shareholder-register import. The command builds quantitative edges, semantic relationships, and group memberships atomically before company exposure and ultimate-owner rebuilds. |
 | Retail chains and franchise memberships | After entity or subunit refresh | **Required operational procedure** | `npm run franchise:discover-chains` | Recompute only from current official registry records. |
 | SSB industry and geography classifications | Weekly and on classification-version change | **Required before go-live** | Add a scheduled classification sync | Persist current effective codes and invalidate process-local lookup caches. |
 
@@ -82,7 +82,7 @@ Run these jobs after relevant upstream data or decision logic changes. They do n
 |---|---|
 | News scoring rules, thresholds, or models | Recalibrate company events and rerun relevance evaluation. |
 | Company exposure rules | Rebuild company-event read-across. |
-| Ownership imports | Rebuild ownership edges, company exposure, and affected ultimate-owner views. |
+| Ownership imports | After confirming import status `COMPLETED`, rebuild ownership edges, semantic relationships, group memberships, company exposure, and affected ultimate-owner views. Never publish a semantic snapshot from a `PARTIAL` import. |
 | Financial extraction parser, mapping, or confidence thresholds | Reprocess affected filings and run published-financial validation. |
 | SSB classification version | Refresh the full classification snapshot and rerun affected search/filter mappings. |
 | Registry schema or mapping | Run full entity, subunit, and role imports before serving the new schema. |
@@ -126,12 +126,15 @@ Use this order for a full recovery or initial production bootstrap:
 4. Refresh SSB classifications.
 5. Bootstrap distress data, then enable incremental updates.
 6. Discover and process annual-report filings.
-7. Import the latest official shareholder register and rebuild ownership edges.
-8. Sync the NewsWeb issuer registry.
-9. Rebuild the company exposure graph.
-10. Sync all company-event sources and rebuild read-across.
-11. Bootstrap petroleum data and rebuild petroleum snapshots.
-12. Enable workspace notification processing.
+7. Import the latest official shareholder register and verify that the import is `COMPLETED`.
+8. Rebuild ownership edges. Verify that relationship and membership publication counts were
+   recorded for the exact source import ID and tax year before enabling group labels. If the import remains `PARTIAL`, keep
+   the previous complete publication active or leave the feature unavailable.
+9. Sync the NewsWeb issuer registry.
+10. Rebuild the company exposure graph.
+11. Sync all company-event sources and rebuild read-across.
+12. Bootstrap petroleum data and rebuild petroleum snapshots.
+13. Enable workspace notification processing.
 
 ## Source references
 
