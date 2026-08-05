@@ -15,12 +15,15 @@ export function WatchButton({
   workspaceId,
   orgNumber,
   slug,
+  variant = "icon",
 }: {
   isWatched: boolean;
   watchId: string | null;
   workspaceId: string;
   orgNumber: string;
   slug: string;
+  /** "icon" = compact star toggle; "pill" = filled "Overvåk" action pill (5C header). */
+  variant?: "icon" | "pill";
 }) {
   const [isPending, startTransition] = useTransition();
   const [optimisticWatched, setOptimisticWatched] = useOptimistic(isWatched);
@@ -44,6 +47,27 @@ export function WatchButton({
 
   const filled = optimisticWatched;
   const label = filled ? "Fjern fra watchlist" : "Legg til i watchlist";
+
+  if (variant === "pill") {
+    return (
+      <button
+        type="button"
+        onClick={handleToggle}
+        disabled={isPending}
+        aria-pressed={filled}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[13px] font-semibold transition-colors",
+          isPending && "opacity-50",
+          filled
+            ? "border border-[var(--px-border)] bg-white text-[var(--px-text)] hover:border-[var(--px-accent)]"
+            : "border border-transparent bg-[var(--px-action)] text-white hover:bg-[var(--px-action-hover)]",
+        )}
+      >
+        <Star className={cn("h-[18px] w-[18px]", filled && "fill-current text-[var(--px-watch)]")} aria-hidden="true" />
+        {filled ? "Overvåkes" : "Overvåk"}
+      </button>
+    );
+  }
 
   return (
     <button
