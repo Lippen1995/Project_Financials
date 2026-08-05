@@ -220,8 +220,14 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
   leverandøren direkte. Scope-klassifisereren for søk er gjort fail-closed og
   kan ikke kalle modellen uten eksplisitt tokenbudsjett og aktiv betalt
   AI-bryter. Samling av kallstedene er G1-arbeid.
-- GL-A04 er ikke startet. Kontrollsenteret er bygget om til Brreg-henting og
-  lenker ikke lenger til OCR-flater, men flatene finnes fortsatt på direkte URL.
+- GL-A04 er implementert. 23 adminsider, 48 API-ruter og 91 `npm`-skript for
+  PDF/OCR er flyttet til `quarantine/`, som er utelatt fra typesjekk, tester og
+  ESLint. Next.js ruter bare det som ligger under `app/`, så flatene svarer nå
+  404 også på direkte URL; kontrollert for både adminsider, adminruter og den
+  planlagte OCR-synkroniseringen. Ingenting er slettet: tjenester, integrasjoner,
+  Prisma-modeller og data er urørt, og manuelle korreksjoner ligger fortsatt
+  lagret. `/admin/metric-mapping` er bevisst beholdt som K2-infrastruktur.
+  Sletting krever egen beslutning. Se [karantenen](../quarantine/README.md).
 - GL-A05 er implementert. To feil er lukket. `core.autocrlf` skrev om
   linjeskiftene i migrasjonsfilene, slik at 23 av 45 registrerte migrasjoner
   fremsto som endret og `prisma migrate dev` tilbød å nullstille

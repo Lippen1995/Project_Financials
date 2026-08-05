@@ -13,6 +13,8 @@ export default defineConfig({
       "**/.claude/**",
       "**/.codex-worktrees/**",
       "**/output/**",
+      // Retired PDF/OCR entry points — see quarantine/README.md.
+      "**/quarantine/**",
     ],
   },
   resolve: {
