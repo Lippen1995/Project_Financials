@@ -2,7 +2,7 @@
 
 **Status:** Aktiv arbeidsplan
 
-**Nåværende fase:** Sprint 0 ble formelt godkjent 24. juli 2026. Sprint 1 og Sprint 2 ble formelt godkjent av CEO 27. juli 2026. Sprint 3 er åpnet som neste K0-arbeidsfase; host- og kostnadsbeslutninger forblir i G1. Se [Sprint 1-signeringen](./go-live/sprint-1/closeout-review.md) og [Sprint 2-signeringen](./go-live/sprint-2/closeout-review.md).
+**Nåværende fase:** Sprint 0 ble formelt godkjent 24. juli 2026. Sprint 1 og Sprint 2 ble formelt godkjent av CEO 27. juli 2026. Sprint 3 er teknisk fullført på K0, men er fortsatt formelt åpen inntil CEO har behandlet [closeout review](./go-live/sprint-3/closeout-review.md). Host-, modell- og kostnadsbeslutninger forblir i G1. Se [Sprint 1-signeringen](./go-live/sprint-1/closeout-review.md) og [Sprint 2-signeringen](./go-live/sprint-2/closeout-review.md).
 
 **Opprettet:** 20. juli 2026
 
@@ -182,7 +182,13 @@ modellbasert kontekstbevis og flerinstansgrenser avventer G1/valgt host.
 Arbeidslister fra universmotoren lagrer også kjøringsversjoner,
 tellinger og hele eksklusjonssettet atomisk; årsaker og kildebevis kan
 inspiseres paginert i arbeidsflyt-UI. Se
-[Sprint 3-kontrollpunktet](./go-live/sprint-3/README.md).
+[Sprint 3-kontrollpunktet](./go-live/sprint-3/README.md). Adminflaten for
+AI-økonomi viser og styrer valuta, risikobuffer, leverandørpriser, globale og
+per-bruker-grenser, kostnad per bruker/rolle/abonnement/modell samt
+abonnementspris og AI-inntektsallokering. Et datert
+[G1-beslutningsunderlag](./go-live/sprint-3/g1-ai-decision-pack.md) anbefaler
+en separat evalueringsramme før betamodellen velges. Ingen modell eller
+K1-kostnad er godkjent gjennom anbefalingen.
 
 ## 9. Port G1 – godkjenning av første betalte kostnader
 
