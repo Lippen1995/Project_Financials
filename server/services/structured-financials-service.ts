@@ -24,6 +24,7 @@ import {
   StructuredRegnskapContractError,
 } from "@/integrations/brreg/structured-regnskap";
 import { logRecoverableError } from "@/lib/recoverable-error";
+import { projectStructuredAccountsToLineItems } from "@/server/services/financial-line-item-service";
 import type { SourceMetadata } from "@/lib/types";
 import { findCompanyByOrgNumber } from "@/server/persistence/annual-report-ingestion-repository";
 
@@ -149,6 +150,27 @@ async function publishStructuredStatement(input: {
         ...values,
       },
     });
+
+    // Mirror the statement's canonical values into the source-agnostic
+    // line-item substrate the metric-mapping surface reads. Same transaction,
+    // so the statement and its line items never disagree.
+    await projectStructuredAccountsToLineItems(
+      tx,
+      {
+        companyId,
+        fiscalYear: accounts.fiscalYear,
+        statementScope: accounts.statementScope,
+        currency: accounts.currency,
+        unitScale: accounts.unitScale,
+        sourceSystem: accounts.sourceSystem,
+        sourceEntityType: accounts.sourceEntityType,
+        sourceId: accounts.sourceId,
+        fetchedAt: accounts.fetchedAt,
+        normalizedAt: accounts.normalizedAt,
+        rawPayload: null,
+      },
+      accounts.canonicalValues,
+    );
 
     return "published" as const;
   });
