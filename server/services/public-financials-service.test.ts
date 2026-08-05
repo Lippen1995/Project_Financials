@@ -1,9 +1,39 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PublicCompanyFinancials } from "@/server/services/public-financials-service";
-import { applyPublicFinancialSourcePolicy } from "@/server/services/public-financials-service";
+import {
+  applyPublicFinancialSourcePolicy,
+  getPublicCompanyFinancials,
+} from "@/server/services/public-financials-service";
 
 const timestamp = new Date("2026-07-24T00:00:00.000Z");
+
+vi.mock("@/lib/env", () => ({
+  default: { betaStructuredFinancialsOnly: true },
+}));
+
+const getPublishedAnnualReportFinancials = vi.fn();
+const readStructuredFinancialsState = vi.fn();
+const ensureStructuredFinancialsForCompany = vi.fn();
+const enqueueStructuredFinancialsFetch = vi.fn();
+
+vi.mock("@/server/services/annual-report-financials-service", () => ({
+  getPublishedAnnualReportFinancials: (orgNumber: string) =>
+    getPublishedAnnualReportFinancials(orgNumber),
+}));
+
+vi.mock("@/server/services/structured-financials-service", () => ({
+  readStructuredFinancialsState: (orgNumber: string) =>
+    readStructuredFinancialsState(orgNumber),
+  ensureStructuredFinancialsForCompany: (orgNumber: string) =>
+    ensureStructuredFinancialsForCompany(orgNumber),
+}));
+
+vi.mock("@/server/services/structured-financials-queue-service", () => ({
+  STRUCTURED_FETCH_STATUS_PENDING: "PENDING",
+  enqueueStructuredFinancialsFetch: (orgNumber: string) =>
+    enqueueStructuredFinancialsFetch(orgNumber),
+}));
 
 function sourceRecord(
   sourceEntityType: string,
@@ -137,5 +167,163 @@ describe("public financial source policy", () => {
     };
 
     expect(applyPublicFinancialSourcePolicy(financials, false)).toBe(financials);
+  });
+});
+
+function emptyPublished(): PublicCompanyFinancials {
+  return {
+    statements: [],
+    allScopeStatements: [],
+    lineItems: [],
+    documents: [],
+    availability: { available: false, sourceSystem: "BRREG" },
+  };
+}
+
+function publishedWithStructured(): PublicCompanyFinancials {
+  const structured = sourceRecord("structuredAnnualAccounts", 2025);
+  return {
+    statements: [structured],
+    allScopeStatements: [structured],
+    lineItems: [],
+    documents: [],
+    availability: { available: true, sourceSystem: "BRREG" },
+  };
+}
+
+function fetchState(overrides: Record<string, unknown> = {}) {
+  return {
+    companyId: "company-1",
+    hasStructuredStatements: false,
+    latestStatementFetchedAt: null,
+    latestStructuredFiscalYear: null,
+    state: {
+      status: "UNAVAILABLE",
+      unavailableReason: "Strukturert regnskap er ikke tilgjengelig.",
+      nextCheckAt: timestamp,
+      failureCount: 0,
+      latestFiscalYear: null,
+      lastErrorCode: null,
+      sourceSystem: "BRREG",
+      sourceEntityType: "structuredAnnualAccounts",
+      sourceId: "912345678",
+      fetchedAt: timestamp,
+      normalizedAt: timestamp,
+      ...overrides,
+    },
+  };
+}
+
+describe("getPublicCompanyFinancials", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    enqueueStructuredFinancialsFetch.mockResolvedValue("queued");
+  });
+
+  it("never calls the read-through Brreg fetch from the request path", async () => {
+    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    readStructuredFinancialsState.mockResolvedValue(null);
+
+    await getPublicCompanyFinancials("912345678");
+
+    expect(ensureStructuredFinancialsForCompany).not.toHaveBeenCalled();
+  });
+
+  it("enqueues and reports PENDING when the company has never been fetched", async () => {
+    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    readStructuredFinancialsState.mockResolvedValue(null);
+
+    const result = await getPublicCompanyFinancials("912345678");
+
+    expect(enqueueStructuredFinancialsFetch).toHaveBeenCalledWith("912345678");
+    expect(result.availability.status).toBe("PENDING");
+    expect(result.availability.available).toBe(false);
+    expect(result.availability.message).toContain("ikke lastet inn i databasen");
+    expect(result.statements).toEqual([]);
+  });
+
+  it("reports PENDING without re-enqueueing a company already in the queue", async () => {
+    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    readStructuredFinancialsState.mockResolvedValue(fetchState({ status: "PENDING" }));
+
+    const result = await getPublicCompanyFinancials("912345678");
+
+    expect(enqueueStructuredFinancialsFetch).not.toHaveBeenCalled();
+    expect(result.availability.status).toBe("PENDING");
+  });
+
+  it("distinguishes an honest empty source from a queued company", async () => {
+    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    readStructuredFinancialsState.mockResolvedValue(fetchState({ status: "UNAVAILABLE" }));
+
+    const result = await getPublicCompanyFinancials("912345678");
+
+    expect(enqueueStructuredFinancialsFetch).not.toHaveBeenCalled();
+    expect(result.availability.status).toBe("UNAVAILABLE");
+    expect(result.availability.message).toContain("ikke tilgjengelig");
+  });
+
+  it("never leaks a raw transport reason into user-facing copy", async () => {
+    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    readStructuredFinancialsState.mockResolvedValue(
+      fetchState({ status: "UNAVAILABLE", unavailableReason: "HTTP 404: ingen regnskap" }),
+    );
+
+    const result = await getPublicCompanyFinancials("912345678");
+
+    expect(result.availability.message).not.toContain("HTTP");
+    expect(result.availability.message).not.toContain("404");
+    expect(result.availability.message).toContain("ikke tilgjengelige");
+  });
+
+  it("surfaces a reason that genuinely explains the gap to a user", async () => {
+    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    readStructuredFinancialsState.mockResolvedValue(
+      fetchState({
+        status: "UNAVAILABLE",
+        unavailableReason: "Bare avviklingsregnskap er tilgjengelig.",
+      }),
+    );
+
+    const result = await getPublicCompanyFinancials("912345678");
+
+    expect(result.availability.message).toContain("Avviklingsregnskap");
+  });
+
+  it("serves stored numbers as AVAILABLE without enqueueing", async () => {
+    getPublishedAnnualReportFinancials.mockResolvedValue(publishedWithStructured());
+    readStructuredFinancialsState.mockResolvedValue(fetchState({ status: "AVAILABLE" }));
+
+    const result = await getPublicCompanyFinancials("912345678");
+
+    expect(enqueueStructuredFinancialsFetch).not.toHaveBeenCalled();
+    expect(result.availability.status).toBe("AVAILABLE");
+    expect(result.statements).toHaveLength(1);
+  });
+
+  it("marks stored numbers STALE when the last fetch errored", async () => {
+    getPublishedAnnualReportFinancials.mockResolvedValue(publishedWithStructured());
+    readStructuredFinancialsState.mockResolvedValue(
+      fetchState({ status: "ERROR", lastErrorCode: "BRREG_UNAVAILABLE" }),
+    );
+
+    const result = await getPublicCompanyFinancials("912345678");
+
+    expect(result.availability.status).toBe("STALE");
+    expect(result.availability.available).toBe(true);
+    expect(result.statements).toHaveLength(1);
+  });
+
+  it("reports ERROR when the fetch failed and no numbers are stored", async () => {
+    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    readStructuredFinancialsState.mockResolvedValue(
+      fetchState({ status: "ERROR", lastErrorCode: "BRREG_UNAVAILABLE" }),
+    );
+
+    const result = await getPublicCompanyFinancials("912345678");
+
+    expect(result.availability.status).toBe("ERROR");
+    expect(result.availability.available).toBe(false);
+    expect(result.statements).toEqual([]);
   });
 });

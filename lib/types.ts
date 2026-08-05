@@ -24,7 +24,12 @@ export type DataAvailability = {
   sourceId?: string;
   fetchedAt?: Date;
   normalizedAt?: Date;
-  status?: "AVAILABLE" | "UNAVAILABLE" | "STALE" | "ERROR";
+  /**
+   * PENDING means the company is queued for a source fetch that has not run
+   * yet. It is distinct from UNAVAILABLE, which means the source was asked and
+   * has nothing.
+   */
+  status?: "AVAILABLE" | "UNAVAILABLE" | "STALE" | "ERROR" | "PENDING";
   nextCheckAt?: Date;
 };
 
