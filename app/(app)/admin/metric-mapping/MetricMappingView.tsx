@@ -1118,15 +1118,18 @@ export default function MetricMappingView({
               </div>
               <div className="rounded border border-[rgba(15,23,42,0.08)] p-2">
                 <p className="text-lg font-semibold text-slate-800">
-                  {inspected?.reviewedFactCount ?? 0}
+                  {inspected?.lineItemCount ?? 0}
                 </p>
-                <p className="text-[10px] uppercase tracking-wide text-slate-400">Review-fakta</p>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">Linjeposter</p>
               </div>
-              <div className="rounded border border-[rgba(15,23,42,0.08)] p-2">
+              <div
+                className="rounded border border-[rgba(15,23,42,0.08)] p-2"
+                title="Antall ulike kildelabels som er mappet til denne nøkkelen. Null for den frie strukturerte kilden, som kommer ferdig mappet."
+              >
                 <p className="text-lg font-semibold text-slate-800">
-                  {inspected?.machineFactCount ?? 0}
+                  {inspected?.sourceLabelCount ?? 0}
                 </p>
-                <p className="text-[10px] uppercase tracking-wide text-slate-400">Maskin-fakta</p>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">Kildelabels</p>
               </div>
             </div>
 
