@@ -228,6 +228,14 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
   Prisma-modeller og data er urørt, og manuelle korreksjoner ligger fortsatt
   lagret. `/admin/metric-mapping` er bevisst beholdt som K2-infrastruktur.
   Sletting krever egen beslutning. Se [karantenen](../quarantine/README.md).
+  Hele ekstraksjonslaget er nå flyttet etter: 423 filer og 121 248 kodelinjer
+  ligger i karantene, og det aktive treet gikk fra omtrent 264 000 til 142 512
+  kodelinjer. En avhengighetsgjennomgang fra alle 181 inngangspunkter viser at
+  ingen OCR-modul lenger nås fra kode i drift. Gjennomgangen avdekket
+  samtidig to veier som fortsatt kunne starte OCR-løpet — arbeidsflate-synk,
+  som enhver innlogget bruker kunne treffe, og et beholdt `npm`-skript — samt
+  en tredje som bare var inaktiv fordi en miljøvariabel var satt. Alle tre er
+  lukket strukturelt.
 - GL-A05 er implementert. To feil er lukket. `core.autocrlf` skrev om
   linjeskiftene i migrasjonsfilene, slik at 23 av 45 registrerte migrasjoner
   fremsto som endret og `prisma migrate dev` tilbød å nullstille
