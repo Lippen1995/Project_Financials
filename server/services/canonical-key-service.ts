@@ -9,13 +9,20 @@ import { loadCanonicalRegistry } from "@/server/services/canonical-registry-serv
 // Canonical-key administration hub.
 //
 // The set of canonical keys is the union of:
-//   1. the fixed code skeleton (canonicalMetricLayout) — well-known keys, and
-//   2. every metricKey a reviewer has ever persisted in the fact tables.
+//   1. the canonical registry (CanonicalKey) — the well-known skeleton, and
+//   2. every metricKey observed in FinancialLineItem.
 //
-// Management operations here mutate the underlying financial fact rows directly
-// (financialFact + annualReportReviewedFact), so a rename/merge/move is applied
-// to all affected companies automatically. Deletion is only allowed when no
-// company uses the key any longer.
+// The substrate is FinancialLineItem, not the PDF/OCR fact tables. Those are
+// being retired, and their 218 + 379 distinct keys were largely extraction
+// artifacts — typos, fused labels, one-off headings — rather than accounting
+// concepts. Line items come from Brreg and will carry the paid K2 delivery.
+//
+// Management operations mutate line items directly, so a rename/merge/move
+// applies to every affected company at once. metricKey is not part of any
+// uniqueness constraint on FinancialLineItem, so a reassign is a plain bulk
+// update: several source lines legitimately mapping to one standardised key is
+// the normal case once K2 line items arrive, not a collision to resolve.
+// Deletion is only allowed when no line item uses the key any longer.
 // ---------------------------------------------------------------------------
 
 export class CanonicalKeyError extends Error {}
@@ -40,12 +47,17 @@ export type CanonicalKeyUsage = {
   isRequired: boolean;
   /** Referenced by code (skeleton or required) — a rename here also needs a code change. */
   isCodeReferenced: boolean;
-  /** Distinct companies using the key across both fact tables. */
+  /** Distinct companies with a line item on this key. */
   companyCount: number;
-  /** Fact rows in financialFact (machine-extracted). */
-  machineFactCount: number;
-  /** Fact rows in annualReportReviewedFact (manual review). */
-  reviewedFactCount: number;
+  /** Line-item rows carrying this key. */
+  lineItemCount: number;
+  /**
+   * Distinct source labels mapped to this key. Zero for the free structured
+   * feed, which arrives pre-mapped with no raw label. Once the paid K2
+   * delivery lands this is the number that matters: how many different labels
+   * the sources use for one standardised concept.
+   */
+  sourceLabelCount: number;
   /** Presentation node the key is assigned to, if any. */
   nodeId: string | null;
 };
@@ -60,30 +72,31 @@ function familyFromStatementType(statementType: string): CanonicalKeyFamily {
   return statementType === "BALANCE_SHEET" ? "BALANCE_SHEET" : "INCOME_STATEMENT";
 }
 
+/** One row per observed key, aggregated in the database. */
+type KeyUsageRow = {
+  metricKey: string;
+  companyCount: number;
+  lineItemCount: number;
+  sourceLabelCount: number;
+  statementType: string;
+};
+
 export async function getCanonicalKeyUsage(): Promise<CanonicalKeyUsage[]> {
-  const [
-    registry,
-    reviewedPairs,
-    machinePairs,
-    reviewedCounts,
-    machineCounts,
-    assignments,
-    familyOverrides,
-  ] = await Promise.all([
+  const [registry, usageRows, assignments, familyOverrides] = await Promise.all([
     loadCanonicalRegistry(),
-    prisma.annualReportReviewedFact.findMany({
-      distinct: ["metricKey", "companyId"],
-      select: { metricKey: true, companyId: true, statementType: true },
-    }),
-    prisma.financialFact.findMany({
-      distinct: ["metricKey", "companyId"],
-      select: { metricKey: true, companyId: true, statementType: true },
-    }),
-    prisma.annualReportReviewedFact.groupBy({
-      by: ["metricKey"],
-      _count: { _all: true },
-    }),
-    prisma.financialFact.groupBy({ by: ["metricKey"], _count: { _all: true } }),
+    // Aggregated in Postgres rather than by pulling every line item: the
+    // previous fact-table version fetched one row per (key, company) pair,
+    // which is six figures of rows for an admin page that renders four numbers.
+    prisma.$queryRawUnsafe<KeyUsageRow[]>(
+      `SELECT "metricKey",
+              COUNT(DISTINCT "companyId")::int   AS "companyCount",
+              COUNT(*)::int                      AS "lineItemCount",
+              COUNT(DISTINCT "sourceLabel")::int AS "sourceLabelCount",
+              MIN("statementType"::text)         AS "statementType"
+         FROM "FinancialLineItem"
+        WHERE "metricKey" IS NOT NULL
+        GROUP BY "metricKey"`,
+    ),
     prisma.presentationNodeKey.findMany(),
     prisma.canonicalKeyFamilyOverride.findMany(),
   ]);
@@ -95,25 +108,9 @@ export async function getCanonicalKeyUsage(): Promise<CanonicalKeyUsage[]> {
     ]),
   );
 
-  const companiesByKey = new Map<string, Set<string>>();
-  const familyByKey = new Map<string, CanonicalKeyFamily>();
-  for (const row of [...reviewedPairs, ...machinePairs]) {
-    let set = companiesByKey.get(row.metricKey);
-    if (!set) {
-      set = new Set();
-      companiesByKey.set(row.metricKey, set);
-    }
-    set.add(row.companyId);
-    if (!familyByKey.has(row.metricKey)) {
-      familyByKey.set(row.metricKey, familyFromStatementType(row.statementType));
-    }
-  }
-
-  const reviewedCountByKey = new Map(
-    reviewedCounts.map((c) => [c.metricKey, c._count._all]),
-  );
-  const machineCountByKey = new Map(
-    machineCounts.map((c) => [c.metricKey, c._count._all]),
+  const usageByKey = new Map(usageRows.map((row) => [row.metricKey, row]));
+  const familyByKey = new Map<string, CanonicalKeyFamily>(
+    usageRows.map((row) => [row.metricKey, familyFromStatementType(row.statementType)]),
   );
   const nodeByKey = new Map(assignments.map((a) => [a.metricKey, a.nodeId]));
 
@@ -142,17 +139,17 @@ export async function getCanonicalKeyUsage(): Promise<CanonicalKeyUsage[]> {
       // required keys still gate publishing. Surfaced so the UI can flag that a
       // rename touches publish gating, even though it no longer needs a deploy.
       isCodeReferenced: !isCustom || isRequired,
-      companyCount: companiesByKey.get(key)?.size ?? 0,
-      machineFactCount: machineCountByKey.get(key) ?? 0,
-      reviewedFactCount: reviewedCountByKey.get(key) ?? 0,
+      companyCount: usageByKey.get(key)?.companyCount ?? 0,
+      lineItemCount: usageByKey.get(key)?.lineItemCount ?? 0,
+      sourceLabelCount: usageByKey.get(key)?.sourceLabelCount ?? 0,
       nodeId: nodeByKey.get(key) ?? null,
     };
   };
 
-  // Registry (skeleton) keys first, in layout order; then custom keys by company
-  // count desc.
+  // Registry (skeleton) keys first, in layout order; then observed keys that
+  // are not in the registry, by company count desc.
   const skeleton = registry.map((e) => build(e.key));
-  const customKeys = [...companiesByKey.keys()]
+  const customKeys = [...usageByKey.keys()]
     .filter((k) => !registryByKey.has(k))
     .map(build)
     .sort((a, b) => b.companyCount - a.companyCount || a.key.localeCompare(b.key));
@@ -194,48 +191,39 @@ export async function setKeyFamily(input: {
 export async function getCompaniesForKey(
   key: string,
 ): Promise<{ companyId: string; name: string }[]> {
-  const [reviewed, machine] = await Promise.all([
-    prisma.annualReportReviewedFact.findMany({
-      where: { metricKey: key },
-      distinct: ["companyId"],
-      select: { companyId: true, company: { select: { name: true } } },
-    }),
-    prisma.financialFact.findMany({
-      where: { metricKey: key },
-      distinct: ["companyId"],
-      select: { companyId: true, company: { select: { name: true } } },
-    }),
-  ]);
-  const byId = new Map<string, string>();
-  for (const row of [...reviewed, ...machine]) {
-    byId.set(row.companyId, row.company?.name ?? row.companyId);
-  }
-  return [...byId.entries()]
-    .map(([companyId, name]) => ({ companyId, name }))
+  const rows = await prisma.financialLineItem.findMany({
+    where: { metricKey: key },
+    distinct: ["companyId"],
+    select: { companyId: true, company: { select: { name: true } } },
+  });
+  return rows
+    .map((row) => ({ companyId: row.companyId, name: row.company?.name ?? row.companyId }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
- * Move fact rows from one canonical key to another. With `companyIds` set, only
- * those companies are moved (a partial merge); otherwise every row of `from` is
- * moved (a full rename / merge). Applied to both fact tables, the
+ * Move line items from one canonical key to another. With `companyIds` set,
+ * only those companies are moved (a partial merge); otherwise every row of
+ * `from` is moved (a full rename / merge). Applied to the line items, the
  * presentation-node assignment, AND the editable alias layer
- * (`MetricAlias.metricKey`) — so a rename also follows through to the extraction
- * mapping and future filings emit the new key. Handles the AnnualReportReviewedFact
- * @@unique([reviewId, metricKey, statementScope]) collision by dropping the
- * duplicate source row in favour of the existing target row, and the
- * MetricAlias @@unique([metricKey, normalizedAlias, liabilitySection]) collision
- * the same way. Alias + presentation moves only happen on a full rename, never on
- * a per-company partial merge (aliases are not company-scoped).
+ * (`MetricAlias.metricKey`) — so a rename also follows through to the mapping
+ * and future ingestion emits the new key.
+ *
+ * metricKey is not part of any uniqueness constraint on FinancialLineItem, so
+ * the line-item move is a plain bulk update with nothing to deduplicate. Two
+ * source lines ending up on the same standardised key is the expected outcome
+ * of a merge, and the normal shape of K2 data. The MetricAlias
+ * @@unique([metricKey, normalizedAlias, liabilitySection]) collision is still
+ * resolved by keeping the existing target row and dropping the duplicate
+ * source. Alias + presentation moves only happen on a full rename, never on a
+ * per-company partial merge (aliases are not company-scoped).
  */
 export async function reassignCanonicalKey(input: {
   from: string;
   to: string;
   companyIds?: string[] | null;
 }): Promise<{
-  machineFactsMoved: number;
-  reviewedFactsMoved: number;
-  reviewedFactsDropped: number;
+  lineItemsMoved: number;
   aliasesMoved: number;
   aliasesDropped: number;
 }> {
@@ -249,63 +237,14 @@ export async function reassignCanonicalKey(input: {
     input.companyIds && input.companyIds.length > 0 ? input.companyIds : null;
 
   return prisma.$transaction(async (tx) => {
-    // financialFact has no metricKey uniqueness — safe bulk update.
-    const machine = await tx.financialFact.updateMany({
+    // metricKey carries no uniqueness constraint — safe bulk update.
+    const lineItems = await tx.financialLineItem.updateMany({
       where: {
         metricKey: from,
         ...(companyFilter ? { companyId: { in: companyFilter } } : {}),
       },
       data: { metricKey: to },
     });
-
-    // annualReportReviewedFact: unique [reviewId, metricKey, statementScope].
-    const sources = await tx.annualReportReviewedFact.findMany({
-      where: {
-        metricKey: from,
-        ...(companyFilter ? { companyId: { in: companyFilter } } : {}),
-      },
-      select: { id: true, reviewId: true, statementScope: true },
-    });
-
-    let reviewedFactsMoved = 0;
-    let reviewedFactsDropped = 0;
-
-    if (sources.length > 0) {
-      const reviewIds = [...new Set(sources.map((s) => s.reviewId))];
-      const existingTargets = await tx.annualReportReviewedFact.findMany({
-        where: { metricKey: to, reviewId: { in: reviewIds } },
-        select: { reviewId: true, statementScope: true },
-      });
-      const taken = new Set(
-        existingTargets.map((t) => `${t.reviewId}|${t.statementScope}`),
-      );
-
-      const toUpdate: string[] = [];
-      const toDelete: string[] = [];
-      for (const s of sources) {
-        const slot = `${s.reviewId}|${s.statementScope}`;
-        if (taken.has(slot)) {
-          toDelete.push(s.id);
-        } else {
-          taken.add(slot);
-          toUpdate.push(s.id);
-        }
-      }
-
-      if (toUpdate.length > 0) {
-        await tx.annualReportReviewedFact.updateMany({
-          where: { id: { in: toUpdate } },
-          data: { metricKey: to },
-        });
-        reviewedFactsMoved = toUpdate.length;
-      }
-      if (toDelete.length > 0) {
-        await tx.annualReportReviewedFact.deleteMany({
-          where: { id: { in: toDelete } },
-        });
-        reviewedFactsDropped = toDelete.length;
-      }
-    }
 
     let aliasesMoved = 0;
     let aliasesDropped = 0;
@@ -424,26 +363,21 @@ export async function reassignCanonicalKey(input: {
     }
 
     return {
-      machineFactsMoved: machine.count,
-      reviewedFactsMoved,
-      reviewedFactsDropped,
+      lineItemsMoved: lineItems.count,
       aliasesMoved,
       aliasesDropped,
     };
   });
 }
 
-/** Delete a canonical key. Only permitted when no company uses it any longer. */
+/** Delete a canonical key. Only permitted when no line item uses it any longer. */
 export async function deleteCanonicalKey(key: string): Promise<void> {
   if (!key) throw new CanonicalKeyError("Mangler nøkkel.");
-  const [machine, reviewed] = await Promise.all([
-    prisma.financialFact.findFirst({ where: { metricKey: key }, select: { id: true } }),
-    prisma.annualReportReviewedFact.findFirst({
-      where: { metricKey: key },
-      select: { id: true },
-    }),
-  ]);
-  if (machine || reviewed) {
+  const inUse = await prisma.financialLineItem.findFirst({
+    where: { metricKey: key },
+    select: { id: true },
+  });
+  if (inUse) {
     throw new CanonicalKeyError(
       "Kan ikke slette en nøkkel som fortsatt brukes. Flytt selskapene til en annen nøkkel først.",
     );

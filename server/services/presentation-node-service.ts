@@ -89,26 +89,34 @@ function humanizeKey(key: string): string {
 }
 
 /**
- * Distinct metric keys that reviewers have actually used — i.e. the free-text
- * metricKey values persisted to reviewed facts. These become the source of
- * "custom" canonical keys that show up in the flow automatically, without any
- * code change.
+ * Distinct metric keys actually present in the line-item substrate. These
+ * become the "custom" canonical keys that show up in the flow automatically,
+ * without any code change.
+ *
+ * Previously read from the reviewed-fact table, whose keys were mostly OCR
+ * extraction artifacts. Reads FinancialLineItem now, so the flow reflects keys
+ * that real source data uses.
  */
-async function loadReviewerMetricKeys(): Promise<
+async function loadObservedMetricKeys(): Promise<
   { metricKey: string; statementType: string }[]
 > {
-  return prisma.annualReportReviewedFact.findMany({
+  const rows = await prisma.financialLineItem.findMany({
+    where: { metricKey: { not: null } },
     distinct: ["metricKey"],
     select: { metricKey: true, statementType: true },
   });
+  return rows.map((row) => ({
+    metricKey: row.metricKey as string,
+    statementType: row.statementType,
+  }));
 }
 
 export async function buildNodeMappingModel(): Promise<NodeMappingModel> {
-  const [nodes, assignments, links, reviewerKeys, registry] = await Promise.all([
+  const [nodes, assignments, links, observedKeys, registry] = await Promise.all([
     prisma.presentationNode.findMany({ orderBy: { positionY: "asc" } }),
     prisma.presentationNodeKey.findMany(),
     prisma.presentationNodeLink.findMany(),
-    loadReviewerMetricKeys(),
+    loadObservedMetricKeys(),
     loadCanonicalRegistry(),
   ]);
 
@@ -136,7 +144,7 @@ export async function buildNodeMappingModel(): Promise<NodeMappingModel> {
   //    registry does not already cover. Surfaced automatically so a reviewer
   //    can drag them onto a node.
   const known = new Set(keys.map((k) => k.key));
-  for (const { metricKey, statementType } of reviewerKeys) {
+  for (const { metricKey, statementType } of observedKeys) {
     if (known.has(metricKey)) continue;
     known.add(metricKey);
     keys.push({
@@ -284,12 +292,12 @@ export async function deleteNode(id: string) {
  * dynamic, reviewer-created keys.
  */
 async function loadKnownMetricKeys(): Promise<Set<string>> {
-  const [reviewerKeys, registry] = await Promise.all([
-    loadReviewerMetricKeys(),
+  const [observedKeys, registry] = await Promise.all([
+    loadObservedMetricKeys(),
     loadCanonicalRegistry(),
   ]);
   const set = new Set<string>(registry.map((e) => e.key));
-  for (const { metricKey } of reviewerKeys) set.add(metricKey);
+  for (const { metricKey } of observedKeys) set.add(metricKey);
   return set;
 }
 
