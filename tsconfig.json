@@ -23,7 +23,8 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  // `quarantine` holds retired PDF/OCR entry points. They are kept for
-  // reference, not built — see quarantine/README.md.
-  "exclude": ["node_modules", "quarantine"]
+  // `quarantine` holds the retired PDF/OCR estate. Kept for reference, not
+  // built — see quarantine/README.md.
+  // `tmp` is gitignored scratch; ad-hoc scripts there must not gate the build.
+  "exclude": ["node_modules", "quarantine", "tmp"]
 }

@@ -17,12 +17,26 @@ kan leses, sammenlignes og eventuelt hentes tilbake.
 
 | Innhold | Antall |
 | --- | ---: |
+| Filer totalt | 423 |
+| Kodelinjer | 121 248 |
 | API-ruter | 48 |
 | Adminsider | 23 |
+| Testfiler | ~100 |
+
+Det aktive treet gikk fra omtrent 264 000 til 142 512 kodelinjer.
+
+Hele ekstraksjonslaget ligger her: OCR, sideklassifisering,
+tabellrekonstruksjon, geometry-first, OpenDataLoader, PDF-beslutningsmotoren,
+gold-set- og shadow-verktøyene, modellkandidatløpet og den manuelle
+kontrollflaten.
 
 Alt under `quarantine/` er utelatt fra `tsconfig.json`, `vitest.config.ts` og
 ESLint. Next.js ruter bare det som ligger under `app/`, så flatene er
 utilgjengelige selv med direkte URL.
+
+Testene fulgte koden sin. Suiten gikk fra 2 025 til 849 tester. Det er ikke
+tapt dekning av noe som er i drift — det er tester for kode som ikke lenger
+kjører.
 
 ## Hva som IKKE er her
 
@@ -33,6 +47,12 @@ tilgangen til flatene, ikke koden bak dem eller dataene. Det betyr at:
   modellene finnes fortsatt, med data;
 - manuelle korreksjoner gjort av en person er fortsatt lagret;
 - ingen migrasjon er kjørt som del av karantenen.
+
+Avhengighetene i `package.json` er også urørt. `tesseract.js` og
+`@opendataloader/pdf` har ingen bruk igjen i det aktive treet, men fjernes ikke
+nå, siden koden her fortsatt refererer dem og en tilbakeflytting da ville
+mangle dem. `pdf-parse` har fortsatt en reell bruker i drift:
+innsidehandel-parsing fra Newsweb, som ikke er OCR.
 
 Følgende adminflater er bevisst beholdt og ligger fortsatt under `app/`:
 
