@@ -44,11 +44,35 @@ function dependencies(input?: {
 describe("dashboard all-search routing", () => {
   it("lets AI choose the destination while preserving AI mode", async () => {
     const href = await resolveDashboardSearchHref(
-      { query: "ROLE_QUERY", aiEnabled: true },
+      { query: "ROLE_QUERY", aiEnabled: true, aiBudget: { maxOutputTokens: 32 } },
       dependencies({ aiScope: "roles" }),
     );
 
     expect(href).toBe("/people?query=ROLE_QUERY&scope=roles&ai=1#role-filter");
+  });
+
+  it("does not call the model classifier when no AI budget is supplied", async () => {
+    const deps = dependencies({ aiScope: "roles", personName: "PERSON_QUERY" });
+
+    const href = await resolveDashboardSearchHref(
+      { query: "PERSON_QUERY", aiEnabled: true },
+      deps,
+    );
+
+    expect(deps.classifyWithAi).not.toHaveBeenCalled();
+    // Falls back to deterministic routing rather than spending on a model call.
+    expect(href).toBe("/people?query=PERSON_QUERY&scope=persons&ai=1");
+  });
+
+  it("does not call the model classifier when the budget is explicitly null", async () => {
+    const deps = dependencies({ aiScope: "roles", personName: "PERSON_QUERY" });
+
+    await resolveDashboardSearchHref(
+      { query: "PERSON_QUERY", aiEnabled: true, aiBudget: null },
+      deps,
+    );
+
+    expect(deps.classifyWithAi).not.toHaveBeenCalled();
   });
 
   it("prefers an exact person match over a non-exact company match", async () => {

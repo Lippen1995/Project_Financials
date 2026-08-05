@@ -28,6 +28,8 @@ Betaen skal gi 10–20 inviterte profesjonelle brukere minst tre komplette, form
 - Søk og selskapsprofil er nødvendige byggeklosser, men er ikke alene en validering av verdiforslaget.
 - Historikk, eierskap, konsern, person-, dokument- og markedsdata tas bare i bruk når reell kilde, datakontrakt, proveniens, dekning og mangelhåndtering er dokumentert.
 - OCR tas ut av den produksjonskritiske dataflyten. Regnskap skal hentes som strukturerte data fra Brønnøysundregistrene (Brreg).
+- Brukerforespørsler skal ikke kalle eksterne API-er. API-kall populerer databasen i bakgrunnsjobber, og applikasjonen leser databasen. Manglende data legges i kø og vises som ærlig «ikke lastet», aldri som en blokkerende henting i forespørselsveien.
+- Alle modellkall skal gå gjennom den felles modelladapteren med sikker systeminstruks, injeksjonsinspeksjon, eksplisitt budsjett og forbruksregistrering. Et modellkall utenfor adapteren er en avvikssak, ikke en implementasjonsdetalj.
 - Åpent Brreg-API brukes som standard så langt det gir tilstrekkelige data. Et betalt abonnement på komplette årsregnskap er en separat investeringsbeslutning.
 - Produksjon skal ikke være avhengig av en Raspberry Pi eller utstyr på et privat nettverk. Slikt utstyr kan brukes til utvikling, men ikke som et kritisk ledd i en tjeneste som skal være tilgjengelig 24/7.
 - Ingen mockdata, seed-data eller syntetiske selskapsdata skal brukes.
@@ -116,7 +118,7 @@ K1-kostnader. Se [signeringen](./go-live/sprint-1/closeout-review.md).
 | GL-202 | Åpent Brreg-API | Reelle tilgjengelige regnskapsdata kan hentes for et gyldig organisasjonsnummer. |
 | GL-203 | Normalisering | Eksterne felt mappes til en intern, versjonert modell med tydelige enheter og perioder. |
 | GL-204 | Sporbarhet | Alle poster har `sourceSystem`, `sourceEntityType`, `sourceId`, `fetchedAt` og `normalizedAt`. |
-| GL-205 | Cache og oppdatering | Gjentatte hentinger er kontrollerte, idempotente og belaster ikke kilden unødig. |
+| GL-205 | Cache og oppdatering | Gjentatte hentinger er kontrollerte, idempotente og belaster ikke kilden unødig. Revidert 5. august 2026: read-through i forespørselsveien er erstattet av databaselesing med kø, jf. GL-A01. |
 | GL-206 | Tomtilstand | Selskaper uten tilgjengelig regnskap viser «ikke tilgjengelig», aldri konstruerte tall. |
 | GL-207 | Feilhåndtering | Nedetid og endret Brreg-respons gir kontrollert feil og logging. |
 | GL-208 | Integrasjonstester | Kontrakt, mapping, tomtilstand og feiltilstand er testet. |
@@ -190,6 +192,36 @@ abonnementspris og AI-inntektsallokering. Et datert
 en separat evalueringsramme før betamodellen velges. Ingen modell eller
 K1-kostnad er godkjent gjennom anbefalingen.
 
+## 8.1 Arkitekturregler som følges løpende
+
+Disse reglene ble besluttet 5. august 2026 etter en full gjennomgang av koden mot
+strategien. De gjelder på tvers av sprintene, kontrolleres ved hver leveranse og
+rapporteres ved G1. De erstatter ikke sprintleveransene, men et brudd på dem er
+en avvikssak uavhengig av hvilken sprint arbeidet hører til.
+
+| ID | Regel | Ferdig når | Kontrolleres |
+| --- | --- | --- | --- |
+| GL-A01 | Forespørselsveien leser bare databasen | Ingen brukerforespørsel gjør et eksternt API-kall; manglende data legges i kø og vises som «ikke lastet» | Regresjonstest som feiler ved utgående HTTP i forespørselsveien |
+| GL-A02 | Populering skjer i bakgrunnsjobb med kø | Kø, kjøring, feil og etterslep kan ses i adminflaten og kjøres på plan | Kødybde, feiltelling og siste kjøring i kontrollsenteret |
+| GL-A03 | Ett modellkallsted | Alle modellkall går gjennom modelladapteren med sikker systeminstruks, injeksjonsinspeksjon, budsjett, reservasjon og forbruksregistrering | Inventar over modellkallsteder; fail-closed-tester for kallsteder som ikke er koblet på ennå |
+| GL-A04 | OCR-flatene er ikke tilgjengelige | Ingen OCR-/PDF-flate, jobb eller adminside kan nås fra applikasjonen; koden er i karantene, ikke slettet | Rutetest og adminflate uten lenker til pensjonerte OCR-flater |
+
+### Status 5. august 2026
+
+- GL-A01 er implementert for strukturert regnskap: selskapssiden og
+  `GET /api/companies/[slug]/financials` leser databasen, legger ukjente
+  virksomheter i kø og viser en ærlig ventetilstand. Verifisert uten utgående
+  HTTP i forespørselsveien. Kunngjøringer fra Brreg, SSB Klass-oppslag og
+  søkeintensjon gjenstår.
+- GL-A02 er implementert som `financials:drain-queue` og en hemmelighetsbeskyttet
+  planlagt rute; kø, etterslep og feil vises i kontrollsenteret.
+- GL-A03 er delvis: Njord bruker adapteren, mens søkeintensjonen kaller
+  leverandøren direkte. Scope-klassifisereren for søk er gjort fail-closed og
+  kan ikke kalle modellen uten eksplisitt tokenbudsjett og aktiv betalt
+  AI-bryter. Samling av kallstedene er G1-arbeid.
+- GL-A04 er ikke startet. Kontrollsenteret er bygget om til Brreg-henting og
+  lenker ikke lenger til OCR-flater, men flatene finnes fortsatt på direkte URL.
+
 ## 9. Port G1 – godkjenning av første betalte kostnader
 
 Porten gjennomføres 6. september. Hvis den ikke godkjennes, fortsetter K0-forbedringer, men produksjon og ekte modellbruk aktiveres ikke.
@@ -202,6 +234,7 @@ CEO skal få:
 4. Estimert kostnad per aktiv betabruker og per Njord-samtale.
 5. Datadekning fra åpent Brreg-API og gapet til betalt leveranse.
 6. Anbefaling om domene, databehandleravtaler og personvernbehov.
+7. Status på arkitekturreglene GL-A01–GL-A04, med inventar over modellkallsteder og gjenstående eksterne kall i forespørselsveien.
 
 **Beslutninger:** Godkjenn K1-ramme, velg hosting, velg språkmodell og fastsett hard kostnadsgrense. K2 behandles separat.
 
