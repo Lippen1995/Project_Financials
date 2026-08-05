@@ -1,0 +1,12 @@
+# Prisma computes a SHA-256 checksum over each migration.sql and compares it to
+# the value stored in _prisma_migrations. With core.autocrlf=true and no rule
+# here, Git rewrites these files to CRLF on checkout, the bytes stop matching,
+# and Prisma reports the migration history as drifted — which makes
+# `prisma migrate dev` demand a full database reset.
+#
+# Pinning them to LF keeps the checksum identical on Windows, Linux and CI.
+# Do not remove this without running `npm run db:check-migrations`.
+prisma/migrations/**/*.sql text eol=lf
+
+# Same reasoning for any other checked-in SQL that tooling hashes or diffs.
+*.sql text eol=lf
