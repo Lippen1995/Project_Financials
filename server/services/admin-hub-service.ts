@@ -1,11 +1,26 @@
-import { type AppRole, AnnualReportFilingStatus, AnnualReportReviewStatus } from "@prisma/client";
+/**
+ * Admin hub model.
+ *
+ * Rebuilt around the structured Brønnøysund ingestion, which is the beta's
+ * only production data path for regnskap (see docs/go-live-sprint-plan.md,
+ * "OCR tas ut av den produksjonskritiske dataflyten"). The previous model was
+ * a control console for the PDF/OCR extraction pipeline; every panel read
+ * AnnualReportFiling / AnnualReportReview. Those surfaces are being retired,
+ * so the hub now answers the questions that matter for a DB-backed product:
+ *
+ *  - how much of the company base actually has official financials;
+ *  - what is queued for refresh, and what has never been fetched at all;
+ *  - what failed against the source, and when we last heard from it.
+ *
+ * Navigation and action items are data-driven so the view holds no hardcoded
+ * links to retired admin surfaces.
+ */
+import { type AppRole } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import {
-  listPublishedAnnualReports,
-  type PublishedAnnualReportMode,
-} from "@/server/services/admin-published-annual-reports-service";
 import { getCurrentIngestionRun } from "@/server/services/ingestion-run-service";
+
+export type AdminHubTone = "neutral" | "active" | "success" | "warning" | "error";
 
 export type AdminHubMetric = {
   key: string;
@@ -21,6 +36,8 @@ export type AdminHubNavigationItem = {
   href?: string;
   available: boolean;
   restrictionLabel?: string;
+  actionLabel?: string;
+  eyebrow?: string;
 };
 
 export type AdminHubNavigationSection = {
@@ -44,12 +61,23 @@ export type AdminHubActivity = {
   href?: string;
 };
 
-export type AdminPipelineStage = {
-  status: AnnualReportFilingStatus;
+export type AdminHubActionItem = {
+  key: string;
+  title: string;
+  value: number;
+  detail: string;
+  href?: string;
+  urgent: boolean;
+};
+
+/** One band of the ingestion coverage funnel, from registry down to published. */
+export type AdminCoverageStage = {
+  key: string;
   label: string;
   count: number;
-  href: string;
-  tone: "neutral" | "active" | "success" | "warning" | "error";
+  detail: string;
+  href?: string;
+  tone: AdminHubTone;
 };
 
 export type AdminUserStats = {
@@ -64,15 +92,29 @@ export type AdminHubModel = {
   subtitle: string;
   generatedAt: string;
   metrics: AdminHubMetric[];
-  pipeline: AdminPipelineStage[];
+  coverage: AdminCoverageStage[];
+  coverageTotals: {
+    companies: number;
+    withFinancials: number;
+    coveragePercent: number;
+    neverFetched: number;
+  };
+  actionItems: AdminHubActionItem[];
   userStats: AdminUserStats;
   navigationSections: AdminHubNavigationSection[];
   humanSteps: AdminHubHumanStep[];
   recentActivity: AdminHubActivity[];
 };
 
+const STRUCTURED_SOURCE_SYSTEM = "BRREG";
+const STRUCTURED_SOURCE_ENTITY_TYPE = "structuredAnnualAccounts";
+
 function formatNumber(value: number) {
   return value.toLocaleString("nb-NO");
+}
+
+function formatPercent(value: number) {
+  return `${value.toLocaleString("nb-NO", { maximumFractionDigits: 1 })} %`;
 }
 
 function formatTimestamp(value: Date | null | undefined) {
@@ -83,145 +125,107 @@ function formatTimestamp(value: Date | null | undefined) {
   return value.toLocaleString("nb-NO");
 }
 
-function findSummaryCount(
-  summary: Array<{ key: PublishedAnnualReportMode; count: number }>,
-  key: PublishedAnnualReportMode,
-) {
-  return summary.find((item) => item.key === key)?.count ?? 0;
-}
-
 export async function buildAdminHubModel(input: {
   currentUserRole: AppRole;
 }): Promise<AdminHubModel> {
-  const openReviewStatuses: AnnualReportReviewStatus[] = [
-    "PENDING_REVIEW",
-    "REPROCESS_REQUESTED",
-  ];
+  const now = new Date();
+  const isAdmin = input.currentUserRole === "ADMIN";
 
   const [
-    filingCount,
-    failedCount,
-    openReviewRows,
-    published,
-    latestPublishedFiling,
-    latestReviewDecision,
+    companyCount,
+    companiesWithFinancials,
+    fetchStateCount,
+    fetchStateByStatus,
+    dueForRefresh,
+    failingFetches,
+    latestAvailable,
+    latestError,
     latestIngestionRun,
-    totalReviewDecisions,
-    pipelineStatusGroups,
+    statementsByYear,
+    metricAliasCount,
     userRoleGroups,
   ] = await Promise.all([
-    prisma.annualReportFiling.count(),
-    prisma.annualReportFiling.count({
-      where: {
-        status: "FAILED",
-      },
-    }),
-    prisma.annualReportReview.findMany({
-      where: {
-        status: {
-          in: openReviewStatuses,
+    prisma.company.count(),
+    prisma.financialStatement
+      .groupBy({
+        by: ["companyId"],
+        where: {
+          sourceSystem: STRUCTURED_SOURCE_SYSTEM,
+          sourceEntityType: STRUCTURED_SOURCE_ENTITY_TYPE,
         },
-      },
-      select: {
-        filingId: true,
-      },
-    }),
-    listPublishedAnnualReports(),
-    prisma.annualReportFiling.findFirst({
-      where: {
-        publishedSnapshotAt: { not: null },
-      },
-      orderBy: {
-        publishedSnapshotAt: "desc",
-      },
-      select: {
-        id: true,
-        fiscalYear: true,
-        publishedSnapshotAt: true,
-        company: {
-          select: {
-            name: true,
-            orgNumber: true,
-          },
-        },
-      },
-    }),
-    prisma.annualReportReviewDecision.findFirst({
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        createdAt: true,
-        decisionType: true,
-        fiscalYear: true,
-        review: {
-          select: {
-            id: true,
-            company: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-      },
-    }),
-    getCurrentIngestionRun(),
-    prisma.annualReportReviewDecision.count(),
-    prisma.annualReportFiling.groupBy({
+      })
+      .then((rows) => rows.length),
+    prisma.structuredFinancialFetchState.count(),
+    prisma.structuredFinancialFetchState.groupBy({
       by: ["status"],
       _count: { id: true },
     }),
+    prisma.structuredFinancialFetchState.count({
+      where: { nextCheckAt: { lt: now } },
+    }),
+    prisma.structuredFinancialFetchState.count({
+      where: { failureCount: { gt: 0 } },
+    }),
+    prisma.structuredFinancialFetchState.findFirst({
+      where: { status: "AVAILABLE" },
+      orderBy: { fetchedAt: "desc" },
+      select: {
+        fetchedAt: true,
+        latestFiscalYear: true,
+        company: { select: { name: true, orgNumber: true, slug: true } },
+      },
+    }),
+    prisma.structuredFinancialFetchState.findFirst({
+      where: { status: "ERROR" },
+      orderBy: { lastCheckedAt: "desc" },
+      select: {
+        lastCheckedAt: true,
+        lastErrorCode: true,
+        failureCount: true,
+        company: { select: { name: true, orgNumber: true, slug: true } },
+      },
+    }),
+    getCurrentIngestionRun(),
+    prisma.financialStatement.groupBy({
+      by: ["fiscalYear"],
+      where: {
+        sourceSystem: STRUCTURED_SOURCE_SYSTEM,
+        sourceEntityType: STRUCTURED_SOURCE_ENTITY_TYPE,
+      },
+      _count: { id: true },
+      orderBy: { fiscalYear: "desc" },
+      take: 3,
+    }),
+    prisma.metricAlias.count(),
     prisma.user.groupBy({
       by: ["appRole"],
       _count: { id: true },
     }),
   ]);
 
-  const openReviewFilingIds = Array.from(new Set(openReviewRows.map((row) => row.filingId)));
-  const extraManualCount = await prisma.annualReportFiling.count({
-    where: {
-      status: "MANUAL_REVIEW",
-      ...(openReviewFilingIds.length
-        ? {
-            id: {
-              notIn: openReviewFilingIds,
-            },
-          }
-        : {}),
-    },
-  });
-  const currentManualCount = openReviewFilingIds.length + extraManualCount;
-
-  // Build pipeline stage count map
-  const statusCountMap = new Map<AnnualReportFilingStatus, number>();
-  for (const group of pipelineStatusGroups) {
+  const statusCountMap = new Map<string, number>();
+  for (const group of fetchStateByStatus) {
     statusCountMap.set(group.status, group._count.id);
   }
-  const pipelineStageOrder: Array<{
-    status: AnnualReportFilingStatus;
-    label: string;
-    tone: AdminPipelineStage["tone"];
-  }> = [
-    { status: "DISCOVERED", label: "Oppdaget", tone: "neutral" },
-    { status: "DOWNLOADED", label: "Lastet ned", tone: "neutral" },
-    { status: "PROCESSING", label: "Behandles", tone: "active" },
-    { status: "PREFLIGHTED", label: "Preflight OK", tone: "active" },
-    { status: "EXTRACTED", label: "Ekstrahert", tone: "active" },
-    { status: "VALIDATED", label: "Validert", tone: "active" },
-    { status: "MANUAL_REVIEW", label: "Manuell kontroll", tone: "warning" },
-    { status: "PUBLISHED", label: "Publisert", tone: "success" },
-    { status: "FAILED", label: "Feilet", tone: "error" },
-  ];
-  const pipeline: AdminPipelineStage[] = pipelineStageOrder.map((stage) => ({
-    status: stage.status,
-    label: stage.label,
-    count: statusCountMap.get(stage.status) ?? 0,
-    href: `/admin/filings?status=${stage.status}`,
-    tone: stage.tone,
-  }));
+  const availableCount = statusCountMap.get("AVAILABLE") ?? 0;
+  const unavailableCount = statusCountMap.get("UNAVAILABLE") ?? 0;
+  const errorCount = statusCountMap.get("ERROR") ?? 0;
+  const neverFetched = Math.max(0, companyCount - fetchStateCount);
+  const coveragePercent =
+    companyCount === 0 ? 0 : (companiesWithFinancials / companyCount) * 100;
+  // The newest fiscal year on its own is misleading: a handful of early filers
+  // can put a year on the board that has almost no coverage. Report the year
+  // that actually carries the most statements alongside it.
+  const latestFiscalYear = statementsByYear[0]?.fiscalYear ?? null;
+  const bestCoveredYear = statementsByYear.reduce<
+    { fiscalYear: number; count: number } | null
+  >((best, row) => {
+    const count = row._count.id;
+    return best === null || count > best.count
+      ? { fiscalYear: row.fiscalYear, count }
+      : best;
+  }, null);
 
-  // Build user stats
   const userRoleCountMap = new Map<string, number>();
   for (const group of userRoleGroups) {
     userRoleCountMap.set(group.appRole, group._count.id);
@@ -233,218 +237,253 @@ export async function buildAdminHubModel(input: {
     regularUsers: userRoleCountMap.get("USER") ?? 0,
   };
 
-  const automaticPublishedCount = findSummaryCount(published.summary, "AUTOMATIC");
-  const reviewedWithoutChangesCount = findSummaryCount(
-    published.summary,
-    "REVIEWED_WITHOUT_CHANGES",
-  );
-  const publishedWithoutCorrectionsCount =
-    automaticPublishedCount + reviewedWithoutChangesCount;
-  const manuallyCorrectedCount = findSummaryCount(
-    published.summary,
-    "MANUALLY_CORRECTED",
-  );
+  const actionItems: AdminHubActionItem[] = [];
+  if (errorCount > 0) {
+    actionItems.push({
+      key: "fetch-errors",
+      title: "Kildefeil mot Brreg",
+      value: errorCount,
+      detail: "Virksomheter der siste henting mot Brreg feilet.",
+      urgent: true,
+    });
+  }
+  if (neverFetched > 0) {
+    actionItems.push({
+      key: "never-fetched",
+      title: "Aldri hentet",
+      value: neverFetched,
+      detail: "Virksomheter i basen som aldri har vært gjennom regnskapshenting.",
+      urgent: false,
+    });
+  }
+  if (dueForRefresh > 0) {
+    actionItems.push({
+      key: "due-for-refresh",
+      title: "Klar for oppdatering",
+      value: dueForRefresh,
+      detail: "Hentetilstander som har passert neste kontrolltidspunkt.",
+      urgent: false,
+    });
+  }
+
+  const coverage: AdminCoverageStage[] = [
+    {
+      key: "companies",
+      label: "Virksomheter i basen",
+      count: companyCount,
+      detail: "Selskaper vi har normalisert fra Brreg.",
+      tone: "neutral",
+    },
+    {
+      key: "with-financials",
+      label: "Har offisielt regnskap",
+      count: companiesWithFinancials,
+      detail: bestCoveredYear
+        ? `Best dekkede år er ${bestCoveredYear.fiscalYear} med ${formatNumber(bestCoveredYear.count)} regnskap. Nyeste registrerte år er ${latestFiscalYear}.`
+        : "Ingen strukturerte regnskapsår er registrert.",
+      tone: "success",
+    },
+    {
+      key: "available",
+      label: "Henting: tilgjengelig",
+      count: availableCount,
+      detail: "Siste henting fant strukturert regnskap.",
+      tone: "success",
+    },
+    {
+      key: "unavailable",
+      label: "Henting: ikke tilgjengelig",
+      count: unavailableCount,
+      detail: "Ærlig tomtilstand — Brreg har ikke regnskap for disse.",
+      tone: "neutral",
+    },
+    {
+      key: "due-for-refresh",
+      label: "Klar for oppdatering",
+      count: dueForRefresh,
+      detail: "Passert neste kontrolltidspunkt og venter på ny henting.",
+      tone: "active",
+    },
+    {
+      key: "never-fetched",
+      label: "Aldri hentet",
+      count: neverFetched,
+      detail: "Ingen hentetilstand registrert ennå.",
+      tone: "warning",
+    },
+    {
+      key: "errors",
+      label: "Kildefeil",
+      count: errorCount,
+      detail: "Siste henting mot Brreg feilet.",
+      tone: "error",
+    },
+  ];
+
+  const humanSteps: AdminHubHumanStep[] = [
+    {
+      key: "metric-mapping",
+      title: "Regnskapsmapping",
+      description:
+        "Koble kildelabels fra Brreg til de standardiserte regnskapsnøklene. Grunnlaget for at nøkkeltall kan sammenlignes på tvers av virksomheter.",
+      href: "/admin/metric-mapping",
+      actionLabel: "Åpne mapping",
+    },
+    {
+      key: "company-events",
+      title: "Vurdering av selskapshendelser",
+      description:
+        "Gå gjennom hendelser fra nyhetsmotoren, fjern støy og bygg treningsgrunnlag.",
+      href: "/admin/company-events",
+      actionLabel: "Åpne hendelseskø",
+    },
+  ];
 
   return {
     title: "Kontrollsenter",
     subtitle:
-      "Oversikt over rapportpipelinens status, hva som krever tiltak, og systemets utvikling.",
-    generatedAt: new Date().toISOString(),
-    pipeline,
+      "Dekning, oppdatering og feil i den strukturerte regnskapshentingen fra Brønnøysundregistrene, samt adminoppgaver.",
+    generatedAt: now.toISOString(),
+    coverage,
+    coverageTotals: {
+      companies: companyCount,
+      withFinancials: companiesWithFinancials,
+      coveragePercent,
+      neverFetched,
+    },
+    actionItems,
     userStats,
     metrics: [
       {
-        key: "uploaded-filings",
-        title: "Opplastede rapportfiler",
-        value: formatNumber(filingCount),
+        key: "financial-coverage",
+        title: "Regnskapsdekning",
+        value: formatPercent(coveragePercent),
+        detail: `${formatNumber(companiesWithFinancials)} av ${formatNumber(companyCount)} virksomheter har minst ett offisielt regnskapsår.`,
+      },
+      {
+        key: "never-fetched",
+        title: "Aldri hentet",
+        value: formatNumber(neverFetched),
+        detail: "Virksomheter uten hentetilstand. Disse må gjennom en populeringsjobb.",
+      },
+      {
+        key: "due-for-refresh",
+        title: "Klar for oppdatering",
+        value: formatNumber(dueForRefresh),
+        detail: `${formatNumber(fetchStateCount)} hentetilstander finnes totalt.`,
+      },
+      {
+        key: "fetch-errors",
+        title: "Kildefeil",
+        value: formatNumber(errorCount),
         detail:
-          latestIngestionRun
-            ? `Siste bulk-opplasting startet ${formatTimestamp(latestIngestionRun.startedAt)}.`
-            : "Ingen bulk-opplasting registrert ennå.",
-      },
-      {
-        key: "manual-review-now",
-        title: "Til manuell kontroll nå",
-        value: formatNumber(currentManualCount),
-        detail: `${formatNumber(totalReviewDecisions)} manuelle beslutninger er registrert totalt.`,
-      },
-      {
-        key: "published-without-corrections",
-        title: "Publisert uten manuell korrigering",
-        value: formatNumber(publishedWithoutCorrectionsCount),
-        detail: `${formatNumber(automaticPublishedCount)} helautomatiske og ${formatNumber(reviewedWithoutChangesCount)} manuelt vurderte uten endring.`,
-      },
-      {
-        key: "published-with-corrections",
-        title: "Publisert etter manuell korrigering",
-        value: formatNumber(manuallyCorrectedCount),
-        detail: "Rapporter der en person har endret tall før publisering.",
-      },
-      {
-        key: "failed-or-stopped",
-        title: "Feilet eller stoppet",
-        value: formatNumber(failedCount),
-        detail: "Rapporter som har stoppet i behandlingen og må følges opp.",
+          failingFetches > 0
+            ? `${formatNumber(failingFetches)} hentetilstander har minst ett registrert feilforsøk.`
+            : "Ingen registrerte feilforsøk mot kilden.",
       },
     ],
     navigationSections: [
       {
-        title: "Daglig drift",
+        title: "Data og dekning",
         items: [
           {
-            key: "overview",
-            title: "Oversikt",
-            description: "Start her for å se dagens situasjon og viktigste oppgaver.",
-            href: "/admin",
+            key: "metric-mapping",
+            title: "Regnskapsmapping",
+            eyebrow: "Data",
+            description:
+              "Koble kildelabels til standardiserte regnskapsnøkler. Klargjør også for komplett linjepostleveranse fra Brreg.",
+            href: "/admin/metric-mapping",
+            actionLabel: "Åpne mapping",
             available: true,
           },
           {
-            key: "published-annual-reports",
-            title: "Godkjente årsregnskaper",
-            description: "Se alle publiserte årsregnskaper og hvordan de ble godkjent.",
-            href: "/admin/published-annual-reports",
+            key: "company-events",
+            title: "Selskapshendelser",
+            eyebrow: "Nyhetsmotor",
+            description:
+              "Vurder hendelser, rydd bort støy og bygg treningsgrunnlag for shadow mode.",
+            href: "/admin/company-events",
+            actionLabel: "Åpne hendelseskø",
             available: true,
           },
           {
-            key: "review-queue",
-            title: "Rapporter til manuell kontroll",
-            description: "Åpne køen for rapporter som trenger en menneskelig vurdering.",
-            href: "/admin/annual-report-reviews",
-            available: true,
+            key: "ingestion-coverage",
+            title: "Dekningsrapport",
+            eyebrow: "Rapport",
+            description:
+              "Detaljert dekningsrapport per organisasjonsform og regnskapsår kjøres i dag som skript.",
+            available: false,
+            restrictionLabel: "Kjøres som skript",
+          },
+        ],
+      },
+      {
+        title: "System og tilgang",
+        items: [
+          {
+            key: "ai-economics",
+            title: "AI-økonomi",
+            eyebrow: "Njord",
+            description:
+              "Styr AI-budsjett, valutarisiko, abonnementskvoter og inntektsallokering.",
+            href: isAdmin ? "/admin/ai-economics" : undefined,
+            actionLabel: "Åpne AI-økonomi",
+            available: isAdmin,
+            restrictionLabel: isAdmin ? undefined : "Kun admin",
           },
           {
             key: "users",
             title: "Brukere og roller",
-            description: "Finn brukere, filtrer på rolle og administrer globale tilganger.",
-            href: input.currentUserRole === "ADMIN" ? "/admin/users" : undefined,
-            available: input.currentUserRole === "ADMIN",
-            restrictionLabel: input.currentUserRole === "ADMIN" ? undefined : "Kun admin",
-          },
-        ],
-      },
-      {
-        title: "Kontroll og kvalitet",
-        items: [
-          {
-            key: "confidence",
-            title: "Datakvalitet og kontrollgrunnlag",
-            description: "Se hvilke rapporter og kontroller som krever oppfølging.",
-            href: "/admin/annual-report-unified-confidence",
-            available: true,
-          },
-          {
-            key: "human-steps",
-            title: "Steg som krever menneskelig vurdering",
-            description: "Gå rett til stegene der systemet trenger et menneske i løkken.",
-            href: "/admin#human-review",
-            available: true,
-          },
-          {
-            key: "app-statistics",
-            title: "App-statistikk",
-            description: "Plassholder for produktstatistikk og bruksmønstre.",
-            available: false,
-            restrictionLabel: "Ikke tilgjengelig ennå",
-          },
-        ],
-      },
-      {
-        title: "Modell og system",
-        items: [
-          {
-            key: "ai-model",
-            title: "AI-modellen",
-            description: "Følg læring, kalibrering og modellrelaterte vurderinger.",
-            href: "/admin/extraction-learning",
-            available: true,
-          },
-          {
-            key: "metric-mapping",
-            title: "Regnskapsmapping",
-            description: "Koble norske kildelabels til de standardiserte regnskapsnøklene.",
-            href: "/admin/metric-mapping",
-            available: true,
-          },
-          {
-            key: "pdf-analytics",
-            title: "PDF-vurdering",
-            description: "Analyser hvordan systemet vurderer og ruter dokumenter.",
-            href: "/admin/pdf-decision-analytics",
-            available: true,
-          },
-          {
-            key: "parser-remediation",
-            title: "Feil og forbedringer",
-            description: "Samle områder der parseren bør forbedres eller korrigeres.",
-            href: "/admin/pdf-parser-remediation",
-            available: true,
+            eyebrow: "Tilgang",
+            description: `${formatNumber(userStats.total)} brukere · ${formatNumber(userStats.admins)} admins · ${formatNumber(userStats.reviewers)} reviewere.`,
+            href: isAdmin ? "/admin/users" : undefined,
+            actionLabel: "Administrer brukere",
+            available: isAdmin,
+            restrictionLabel: isAdmin ? undefined : "Kun admin",
           },
         ],
       },
     ],
-    humanSteps: [
-      {
-        key: "manual-review",
-        title: "Manuell kontroll av rapporter",
-        description: "Rapporter med usikre tall eller avvik må åpnes og vurderes av et menneske.",
-        href: "/admin/annual-report-reviews",
-        actionLabel: "Åpne kontrollkøen",
-      },
-      {
-        key: "published-after-correction",
-        title: "Rapporter publisert etter korrigering",
-        description: "Disse rapportene er viktige når dere vil se hvor systemet fortsatt trenger støtte.",
-        href: "/admin/published-annual-reports?mode=MANUALLY_CORRECTED",
-        actionLabel: "Se korrigerte publiseringer",
-      },
-      {
-        key: "quality-follow-up",
-        title: "Datakvalitet som må vurderes",
-        description: "Når kontrollgrunnlaget peker på avvik, bør de vurderes før nye publiseringer kjøres.",
-        href: "/admin/annual-report-unified-confidence",
-        actionLabel: "Åpne kvalitetsgrunnlag",
-      },
-      {
-        key: "model-decisions",
-        title: "Modellkandidater og læring",
-        description: "Nye modellkandidater og kalibreringer trenger menneskelig godkjenning før bruk.",
-        href: "/admin/pdf-model-candidates",
-        actionLabel: "Se modellkandidater",
-      },
-    ],
+    humanSteps,
     recentActivity: [
       {
-        key: "latest-publication",
-        title: "Siste publisering",
-        description: latestPublishedFiling
-          ? `${latestPublishedFiling.company.name} · ${latestPublishedFiling.fiscalYear}`
-          : "Ingen publisering registrert ennå.",
-        timestamp: formatTimestamp(latestPublishedFiling?.publishedSnapshotAt),
-        href: latestPublishedFiling
-          ? `/admin/published-annual-reports?query=${encodeURIComponent(
-              latestPublishedFiling.company.orgNumber,
-            )}`
-          : undefined,
+        key: "latest-available-fetch",
+        title: "Siste vellykkede henting",
+        description: latestAvailable
+          ? `${latestAvailable.company.name}${
+              latestAvailable.latestFiscalYear
+                ? ` · ${latestAvailable.latestFiscalYear}`
+                : ""
+            }`
+          : "Ingen vellykket henting registrert ennå.",
+        timestamp: formatTimestamp(latestAvailable?.fetchedAt),
+        href: latestAvailable ? `/companies/${latestAvailable.company.slug}` : undefined,
       },
       {
-        key: "latest-review-decision",
-        title: "Siste manuelle beslutning",
-        description: latestReviewDecision
-          ? `${latestReviewDecision.review.company.name} · ${latestReviewDecision.fiscalYear} · ${latestReviewDecision.decisionType}`
-          : "Ingen manuelle beslutninger registrert ennå.",
-        timestamp: formatTimestamp(latestReviewDecision?.createdAt),
-        href: latestReviewDecision
-          ? `/admin/annual-report-reviews/${latestReviewDecision.review.id}`
-          : undefined,
+        key: "latest-fetch-error",
+        title: "Siste kildefeil",
+        description: latestError
+          ? `${latestError.company.name} · ${latestError.lastErrorCode ?? "ukjent feil"} · ${formatNumber(latestError.failureCount)} forsøk`
+          : "Ingen kildefeil registrert.",
+        timestamp: formatTimestamp(latestError?.lastCheckedAt),
+        href: latestError ? `/companies/${latestError.company.slug}` : undefined,
       },
       {
-        key: "latest-bulk-ingestion",
-        title: "Siste bulk-opplasting",
+        key: "latest-ingestion-run",
+        title: "Siste populeringsjobb",
         description: latestIngestionRun
-          ? `${latestIngestionRun.processedFilings} rapporter behandlet · ${latestIngestionRun.publishedCount} publisert · ${latestIngestionRun.reviewCount} til kontroll`
-          : "Ingen bulk-opplasting registrert ennå.",
-        timestamp: formatTimestamp(latestIngestionRun?.finishedAt ?? latestIngestionRun?.startedAt),
-        href: "/admin",
+          ? `${formatNumber(latestIngestionRun.processedFilings)} behandlet · ${formatNumber(latestIngestionRun.publishedCount)} publisert · ${formatNumber(latestIngestionRun.failedCount)} feilet`
+          : "Ingen populeringsjobb registrert ennå.",
+        timestamp: formatTimestamp(
+          latestIngestionRun?.finishedAt ?? latestIngestionRun?.startedAt,
+        ),
+      },
+      {
+        key: "metric-aliases",
+        title: "Regnskapsmapping",
+        description: `${formatNumber(metricAliasCount)} kildelabels er mappet til standardiserte nøkler.`,
+        timestamp: "Løpende",
+        href: "/admin/metric-mapping",
       },
     ],
   };
