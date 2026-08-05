@@ -845,6 +845,7 @@ model Company {
   annualReportReviewedFacts     AnnualReportReviewedFact[]
   rawLineItems                  RawFinancialLineItem[]
   publishedLineItems            PublishedFinancialLineItem[]
+  financialLineItems            FinancialLineItem[]
   narratives                    AnnualReportNarrative[]
   boardReportExtractions        BoardReportExtraction[]
   newsArticles                  NewsArticleCompany[]
@@ -1163,6 +1164,66 @@ model FinancialStatement {
 /// Cache and source-health state for the public structured Regnskapsregisteret
 /// endpoint. Empty and error outcomes are persisted so user reads do not create
 /// retry loops or silently fall back to PDF/OCR.
+/// Source-agnostic financial line items, and the substrate the metric-mapping
+/// admin surface operates on.
+///
+/// Replaces the PDF/OCR fact tables (FinancialFact, AnnualReportReviewedFact)
+/// in that role. Those are being retired with the rest of the OCR estate, and
+/// their 218 + 379 distinct metric keys are largely extraction artifacts rather
+/// than real accounting concepts.
+///
+/// Two columns carry the mapping problem:
+///   - `sourceLabel` is what the source called the line ("Sum eiendeler", or a
+///     Brreg field path). This is what MetricAlias matches on.
+///   - `metricKey` is the standardised key it maps to, and is NULL when nothing
+///     has mapped it yet. Unmapped rows are the metric-mapping work queue.
+///
+/// Today's free structured Regnskapsregisteret feed arrives pre-mapped (our own
+/// code names the fields), so those rows land with both columns set. The paid
+/// K2 delivery is expected to carry many raw labels that need mapping, which is
+/// what the NULL state exists for.
+///
+/// `sourceKey` is the source's own stable identifier for the line within a
+/// statement, so re-ingesting the same statement updates rather than duplicates.
+model FinancialLineItem {
+  id             String                     @id @default(cuid())
+  companyId      String
+  fiscalYear     Int
+  statementScope StatementScope             @default(COMPANY)
+  statementType  FinancialFactStatementType
+
+  /// The source's own identifier for this line within the statement. Part of
+  /// the idempotency key; never shown to a user.
+  sourceKey      String
+  /// The source's human label, when it provides one. What aliases match on.
+  sourceLabel    String?
+  /// Standardised key. NULL means "not mapped yet" — the mapping work queue.
+  metricKey      String?
+
+  value          BigInt?
+  currency       String                     @default("NOK")
+  unitScale      Int                        @default(1)
+  sortOrder      Int                        @default(0)
+
+  sourceSystem     String
+  sourceEntityType String
+  sourceId         String
+  fetchedAt        DateTime
+  normalizedAt     DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, fiscalYear, statementScope, sourceKey])
+  @@index([metricKey])
+  @@index([companyId, fiscalYear, statementScope])
+  /// Drives the "what still needs mapping" queue.
+  @@index([metricKey, sourceLabel])
+  @@index([sourceSystem, sourceEntityType])
+}
+
 model StructuredFinancialFetchState {
   id                String   @id @default(cuid())
   companyId         String   @unique
