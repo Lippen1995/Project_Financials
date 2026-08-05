@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getStatementTypeForMetricKey,
   liabilitySectionForMetricKey,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 import { loadCanonicalRegistry } from "@/server/services/canonical-registry-service";
 
 // ---------------------------------------------------------------------------

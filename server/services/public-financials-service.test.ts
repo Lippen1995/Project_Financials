@@ -17,7 +17,7 @@ const readStructuredFinancialsState = vi.fn();
 const ensureStructuredFinancialsForCompany = vi.fn();
 const enqueueStructuredFinancialsFetch = vi.fn();
 
-vi.mock("@/server/services/annual-report-financials-service", () => ({
+vi.mock("@/server/financials/published-financials-reader", () => ({
   getPublishedAnnualReportFinancials: (orgNumber: string) =>
     getPublishedAnnualReportFinancials(orgNumber),
 }));

@@ -5,7 +5,7 @@ import {
   CanonicalMetricKey,
   defaultMetricDefinitions,
   requiredPublishMetricKeys,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 import {
   OpenDataLoaderParseResult,
   OpenDataLoaderResolvedConfig,

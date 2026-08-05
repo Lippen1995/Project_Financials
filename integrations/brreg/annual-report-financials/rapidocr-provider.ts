@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import type { AnnualReportParsedPage } from "@/integrations/brreg/annual-report-financials/types";
 
 const execFileAsync = promisify(execFile);

@@ -1,8 +1,8 @@
 import {
   canonicalMetricLayout,
   type CanonicalMetricKey,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+} from "@/server/financials/canonical-taxonomy";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 
 export type RankableAccuracyFact = {
   metricKey: string;

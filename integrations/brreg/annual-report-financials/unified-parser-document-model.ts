@@ -15,7 +15,7 @@
  * This model does NOT replace production extraction in this PR.
  */
 
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import type {
   AnnualReportDocument,
   AnnualReportPage,

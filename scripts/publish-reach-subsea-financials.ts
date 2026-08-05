@@ -5,8 +5,8 @@ import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { PDFParse } from "pdf-parse";
 
-import { findCanonicalMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { findCanonicalMetricKey } from "@/server/financials/canonical-taxonomy";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import { prisma } from "@/lib/prisma";
 
 type StatementType = "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW";

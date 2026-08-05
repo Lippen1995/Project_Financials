@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { reconstructStatementRows } from "@/integrations/brreg/annual-report-financials/table-reconstruction";
 import { mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import type {
   ExtractedLine,
   PageClassification,

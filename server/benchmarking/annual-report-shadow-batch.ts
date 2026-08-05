@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { extractOcrPagesWithDiagnostics } from "@/integrations/brreg/annual-report-financials/ocr";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import {
   AnnualReportOcrDiagnostics,
   AnnualReportParsedInputPage,

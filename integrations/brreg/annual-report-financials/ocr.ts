@@ -23,7 +23,7 @@ import {
   parseFinancialInteger,
   repairOcrTokenBoundaries,
   stripDuplicateWhitespace,
-} from "@/integrations/brreg/annual-report-financials/text";
+} from "@/lib/norwegian-text";
 import {
   OCR_PREPROCESSING_PIPELINE_VERSION,
   preprocessOcrImage,

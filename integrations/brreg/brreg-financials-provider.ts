@@ -1,7 +1,7 @@
 import env from "@/lib/env";
 import { fetchJson } from "@/integrations/http";
 import type { NormalizedFinancialDocument, SourceMetadata } from "@/lib/types";
-import { inferStringHashKey } from "@/integrations/brreg/annual-report-financials/text";
+import { inferStringHashKey } from "@/lib/norwegian-text";
 import {
   parseStructuredRegnskapResponse,
   StructuredAnnualAccounts,

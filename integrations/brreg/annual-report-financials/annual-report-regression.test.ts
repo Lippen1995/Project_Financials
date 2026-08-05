@@ -12,7 +12,7 @@ import {
   ocrRegressionFixtures,
 } from "@/integrations/brreg/annual-report-financials/regression-fixtures";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import { ReconstructedRow, PageTextLayer } from "@/integrations/brreg/annual-report-financials/types";
 import { reconstructStatementRows } from "@/integrations/brreg/annual-report-financials/table-reconstruction";
 import { validateCanonicalFacts } from "@/integrations/brreg/annual-report-financials/validation";

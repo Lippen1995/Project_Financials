@@ -5,7 +5,7 @@ import {
   getStatementFamilyFromSection,
   MetricDefinition,
   requiredPublishMetricKeys,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 import {
   CanonicalFactCandidate,
   PageClassification,

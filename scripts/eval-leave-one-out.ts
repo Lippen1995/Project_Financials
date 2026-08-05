@@ -17,7 +17,7 @@ import path from "node:path";
 import { PDFParse } from "pdf-parse";
 
 import { prisma } from "@/lib/prisma";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import { extractOcrPages } from "@/integrations/brreg/annual-report-financials/ocr";
 import { classifyPages } from "@/integrations/brreg/annual-report-financials/page-classification";
 import {
@@ -26,7 +26,7 @@ import {
   type ColumnAnchor,
 } from "@/integrations/brreg/annual-report-financials/geometry-first-reconstruction";
 import { mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
-import type { MetricDefinition } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import type { MetricDefinition } from "@/server/financials/canonical-taxonomy";
 import type { ReconstructedRow } from "@/integrations/brreg/annual-report-financials/types";
 import { compareFactsToFasit, type AccuracyFact } from "@/server/services/extraction-accuracy-service";
 

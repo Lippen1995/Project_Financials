@@ -9,8 +9,8 @@
 import "./_load-env";
 
 import { prisma } from "@/lib/prisma";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
-import { defaultMetricDefinitions } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
+import { defaultMetricDefinitions } from "@/server/financials/canonical-taxonomy";
 
 async function main() {
   const existing = await prisma.metricAlias.count();

@@ -26,7 +26,7 @@ import {
 import { logRecoverableError } from "@/lib/recoverable-error";
 import { projectStructuredAccountsToLineItems } from "@/server/services/financial-line-item-service";
 import type { SourceMetadata } from "@/lib/types";
-import { findCompanyByOrgNumber } from "@/server/persistence/annual-report-ingestion-repository";
+import { findCompanyByOrgNumber } from "@/server/financials/published-financials-reader";
 
 const provider = new BrregFinancialsProvider();
 

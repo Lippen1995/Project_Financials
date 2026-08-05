@@ -1,7 +1,6 @@
 import { DistressStatus as PrismaDistressStatus } from "@prisma/client";
 
 import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
-import { extractDocumentSectionsFromFinancialDocument } from "@/integrations/brreg/annual-report-document-extractor";
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import { BrregDistressProvider } from "@/integrations/brreg/brreg-distress-provider";
 import { mapBrregCompany } from "@/integrations/brreg/mappers";
@@ -25,6 +24,7 @@ import {
   CompanyProfile,
   DistressCompanyDetail,
   DistressCompanyRow,
+  DistressDocumentExcerpt,
   DistressFilterOptions,
   DistressFinancialSnapshotSummary,
   DistressModuleKpis,
@@ -402,7 +402,11 @@ function buildBusinessDescription(profile: CompanyProfile) {
 function buildOperationsSummary(
   profile: CompanyProfile,
   assetSnapshot: ReturnType<typeof extractAssetSnapshot>,
-  extractedSections?: Awaited<ReturnType<typeof extractDocumentSectionsFromFinancialDocument>> | null,
+  extractedSections?: {
+    annualReportExcerpts?: DistressDocumentExcerpt[];
+    notesExcerpts?: DistressDocumentExcerpt[];
+    auditExcerpts?: DistressDocumentExcerpt[];
+  } | null,
 ) {
   const orderedStatements = [...profile.financialStatements].sort((left, right) => right.fiscalYear - left.fiscalYear);
   const latestStatement = orderedStatements[0] ?? null;
@@ -1379,19 +1383,14 @@ export async function getDistressCompanyDetailForWorkspace(
     return null;
   }
 
-  const latestDocumentWithUrl =
-    [...profile.financialDocuments]
-      .sort((left, right) => right.year - left.year)
-      .find((document) => document.files.some((file) => Boolean(file.url))) ?? null;
-  const extractedSections = latestDocumentWithUrl
-    ? await extractDocumentSectionsFromFinancialDocument(latestDocumentWithUrl).catch((error) => {
-        logRecoverableError("distress-analysis.extractDocumentSections", error, {
-          orgNumber: record.orgNumber,
-          documentYear: latestDocumentWithUrl.year,
-        });
-        return null;
-      })
-    : null;
+  // Annual-report excerpts previously came from downloading and parsing the
+  // latest PDF here, inside the request. The public source gate already returns
+  // no documents in beta, so this produced nothing — but it was reachable again
+  // the moment BETA_STRUCTURED_FINANCIALS_ONLY was turned off. GL-A04 requires
+  // OCR to be unreachable structurally, not by environment variable, so the
+  // call is gone. Excerpts stay empty until a source with a real document
+  // contract replaces it.
+  const extractedSections = null;
 
   const latestStatement = profile.financialStatements[0] ?? null;
   const persistedSnapshot = record.distressFinancialSnapshot;

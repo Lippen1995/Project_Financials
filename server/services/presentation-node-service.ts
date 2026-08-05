@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import type { NodeEvalConfig } from "@/integrations/brreg/annual-report-financials/presentation-node-evaluation";
+import type { NodeEvalConfig } from "@/server/financials/presentation-node-evaluation";
 import { loadCanonicalRegistry } from "@/server/services/canonical-registry-service";
 
 // ---------------------------------------------------------------------------

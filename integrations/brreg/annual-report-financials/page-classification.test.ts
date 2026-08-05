@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { classifyPages } from "@/integrations/brreg/annual-report-financials/page-classification";
 import { PageTextLayer } from "@/integrations/brreg/annual-report-financials/types";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 
 function buildPage(pageNumber: number, lines: string[]): PageTextLayer {
   return {

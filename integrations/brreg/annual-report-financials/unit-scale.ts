@@ -4,7 +4,7 @@ import {
   UnitScaleDetectionResult,
   UnitScaleSignal,
 } from "@/integrations/brreg/annual-report-financials/types";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 
 type ScalePattern = {
   unitScale: 1 | 1000 | 1_000_000;

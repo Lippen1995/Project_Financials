@@ -5,7 +5,7 @@ import type {
   NormalizedFinancialLineItem,
   NormalizedFinancialStatement,
 } from "@/lib/types";
-import { getPublishedAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
+import { getPublishedAnnualReportFinancials } from "@/server/financials/published-financials-reader";
 import {
   enqueueStructuredFinancialsFetch,
   STRUCTURED_FETCH_STATUS_PENDING,

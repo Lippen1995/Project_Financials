@@ -27,7 +27,7 @@ import {
   upsertCompanySnapshot,
 } from "@/server/persistence/company-repository";
 import { syncCompanyEventNotificationsForWatches } from "@/server/news/company-event-alert-service";
-import { syncCompanyAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
+import { getPublicCompanyFinancials } from "@/server/services/public-financials-service";
 import { getCompanyProfile, searchCompanies } from "@/server/services/company-service";
 import { getUserWorkspaceCapabilities } from "@/server/services/workspace-service";
 
@@ -1545,7 +1545,14 @@ async function syncWatchFinancials(watch: {
   company: { orgNumber: string; name: string };
   lastFinancialStatementYear: number | null;
 }) {
-  const financials = await syncCompanyAnnualReportFinancials(watch.company.orgNumber);
+  // Reads the database and enqueues an ingestion when a company has no
+  // financials yet. This previously called syncCompanyAnnualReportFinancials,
+  // which ran Brreg PDF discovery, download and OCR extraction inside the
+  // request — reachable by any authenticated user via
+  // POST /api/workspaces/[workspaceId]/sync. A watch only needs to know which
+  // fiscal years exist, so a read is sufficient; a newly queued company simply
+  // reports its new year on a later sync.
+  const financials = await getPublicCompanyFinancials(watch.company.orgNumber);
 
   const fiscalYears = financials.statements.map((statement) => statement.fiscalYear);
   const latestYear = fiscalYears.length ? Math.max(...fiscalYears) : null;

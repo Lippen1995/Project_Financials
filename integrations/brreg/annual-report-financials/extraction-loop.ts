@@ -7,7 +7,7 @@ import {
   PageConfidence,
   PageConfidenceDiagnosis,
 } from "@/integrations/brreg/annual-report-financials/page-confidence";
-import { StatementSectionType } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { StatementSectionType } from "@/server/financials/canonical-taxonomy";
 import {
   AnnualReportParsedInputPage,
   PageClassification,

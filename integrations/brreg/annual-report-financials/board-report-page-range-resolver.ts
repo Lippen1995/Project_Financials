@@ -1,4 +1,4 @@
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 
 export type BoardReportPageRange = {
   pageStart: number;

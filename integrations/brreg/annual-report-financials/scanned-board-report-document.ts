@@ -16,7 +16,7 @@ import {
   rapidOcrIsEnabled,
 } from "@/integrations/brreg/annual-report-financials/rapidocr-provider";
 import { mergeOcrPageConsensus } from "@/integrations/brreg/annual-report-financials/ocr-consensus";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import type {
   AnnualReportOcrExtractionResult,
   AnnualReportParsedInputPage,

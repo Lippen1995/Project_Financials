@@ -7,7 +7,7 @@ import {
 import {
   CanonicalMetricKey,
   requiredPublishMetricKeys,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 
 export function primaryStatementPages(classifications: PageClassification[]) {
   return classifications.filter((classification) =>
