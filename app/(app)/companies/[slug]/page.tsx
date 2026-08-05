@@ -14,12 +14,13 @@ import { CompanyPetroleumTab } from "@/components/company/company-petroleum-tab"
 import { CompanyTabId, CompanyTabs, resolveCompanyTab } from "@/components/company/company-tabs";
 import { FinancialDocuments } from "@/components/company/financial-documents";
 import { FinancialTimeSeriesTable } from "@/components/company/financial-time-series-table";
-import { KeyFiguresGrid } from "@/components/company/key-figures-grid";
+import { KeyFiguresTable } from "@/components/company/key-figures-table";
 import { OwnershipTab } from "@/components/company/ownership/ownership-tab";
 import { ShareholdersTab } from "@/components/company/ownership/shareholders-tab";
-import { OverviewAnalytics } from "@/components/company/overview-analytics";
+import { OverviewAnalytics, type OverviewOwner } from "@/components/company/overview-analytics";
 import { Card } from "@/components/ui/card";
 import { safeAuth } from "@/lib/auth";
+import { deriveHealthScore, deriveRating, deriveRisk, toneColor } from "@/lib/company-health";
 import { prisma } from "@/lib/prisma";
 import { CompanyProfile, NormalizedCompany, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -273,39 +274,46 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
   );
 }
 
-function HealthGauge({ score }: { score: number }) {
-  const r = 34;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - score / 100);
+function StatusPill({ status }: { status: NormalizedCompany["status"] }) {
+  const map = {
+    ACTIVE: { label: "Aktiv", icon: "check_circle", color: "var(--px-success)", border: "var(--px-success-border)" },
+    BANKRUPT: { label: "Konkurs", icon: "cancel", color: "var(--px-error)", border: "var(--px-error-border)" },
+    DISSOLVED: { label: "Oppløst", icon: "cancel", color: "var(--px-muted)", border: "var(--px-border)" },
+  } as const;
+  const s = map[status] ?? map.DISSOLVED;
   return (
-    <div className="relative h-14 w-14 sm:h-20 sm:w-20">
-      <svg className="h-full w-full -rotate-90" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--px-border)" strokeWidth="6" />
-        <circle
-          cx="40" cy="40" r={r} fill="none" stroke="var(--px-accent)" strokeWidth="6"
-          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="material-symbols-outlined text-[22px] text-[var(--px-accent)]">favorite</span>
-      </div>
-    </div>
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider"
+      style={{ color: s.color, borderColor: s.border }}
+    >
+      <span className="material-symbols-outlined text-[13px]">{s.icon}</span>
+      {s.label}
+    </span>
   );
 }
 
-function deriveHealthScore(profile: CompanyProfile): number {
-  const { company, financialStatements } = profile;
-  const { latest } = getLatestStatements(financialStatements);
-  let score = 20;
-  if (company.status === "ACTIVE") score += 20;
-  if (latest?.operatingProfit != null && latest.operatingProfit > 0) score += 20;
-  if (latest?.equity != null && latest.equity > 0) score += 15;
-  if (latest?.revenue != null) score += 10;
-  if (
-    latest?.equity != null && latest?.assets != null && latest.assets > 0 &&
-    (latest.equity / latest.assets) * 100 > 30
-  ) score += 15;
-  return Math.min(100, score);
+function HeaderStat({
+  value,
+  label,
+  color,
+  serif,
+}: {
+  value: string;
+  label: string;
+  color: string;
+  serif?: boolean;
+}) {
+  return (
+    <div className="border-l border-[var(--px-border-subtle)] pl-6 text-right first:border-l-0 first:pl-0">
+      <div
+        className={serif ? "editorial-display text-[26px] leading-none" : "text-[26px] font-semibold leading-none tabular-nums"}
+        style={{ color }}
+      >
+        {value}
+      </div>
+      <div className="data-label mt-1 text-[8px] text-[var(--px-muted)]">{label}</div>
+    </div>
+  );
 }
 
 function CompanyHeader({
@@ -321,82 +329,51 @@ function CompanyHeader({
 }) {
   const { company } = profile;
   const municipality = company.municipality ?? company.addresses[0]?.city ?? null;
+  const rating = deriveRating(healthScore, company.status);
+  const risk = deriveRisk(healthScore, company.status);
+
+  const identityLine = [company.legalForm, `ORG.NR ${company.orgNumber}`, municipality]
+    .filter(Boolean)
+    .join(" · ");
+  const classification = [
+    company.industryCode?.title ? company.industryCode.title.toUpperCase() : null,
+    company.industryCode?.code ? `NACE ${company.industryCode.code}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <section className="pb-2">
-      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0 flex-1">
-          {company.legalForm ? (
-            <div className="data-label inline-flex items-center rounded-full bg-[var(--px-panel)] px-3 py-1 text-[10px] font-semibold uppercase text-white">
-              {company.legalForm}
-            </div>
+    <section className="flex flex-col gap-6 border-b border-[var(--px-border)] pb-5 md:flex-row md:items-start md:justify-between">
+      <div className="min-w-0 flex-1">
+        <div className="data-label text-[11px] text-[var(--px-muted)]">{identityLine}</div>
+        <h1
+          className="editorial-display mt-1.5 text-[34px] leading-none text-[var(--px-text)] sm:text-[40px]"
+          style={{ letterSpacing: "-0.04em" }}
+        >
+          {company.name}
+        </h1>
+        <div className="mt-3 flex flex-wrap items-center gap-2.5">
+          <StatusPill status={company.status} />
+          {classification ? (
+            <span className="data-label text-[10px] text-[var(--px-muted)]">{classification}</span>
           ) : null}
-          <div className="mt-3 flex items-center gap-2">
-            <h1 className="editorial-display text-4xl leading-none text-[var(--px-text)] sm:text-5xl">
-              {company.name}
-            </h1>
-            {watchInfo ? (
-              <WatchButton
-                isWatched={watchInfo.watchId !== null}
-                watchId={watchInfo.watchId}
-                workspaceId={watchInfo.workspaceId}
-                orgNumber={company.orgNumber}
-                slug={slug}
-              />
-            ) : null}
-          </div>
-          <div className="mt-2 text-sm text-[var(--px-muted)]">
-            Org.nr. {company.orgNumber}
-            {company.registeredAt
-              ? ` · Registrert ${new Date(company.registeredAt).getFullYear()}`
-              : ""}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase ${
-                company.status === "ACTIVE"
-                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : company.status === "BANKRUPT"
-                    ? "border border-red-200 bg-red-50 text-red-700"
-                    : "border border-[rgba(15,23,42,0.1)] bg-[rgba(248,249,250,0.8)] text-slate-600"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[13px]">
-                {company.status === "ACTIVE" ? "check_circle" : "cancel"}
-              </span>
-              {company.status === "ACTIVE"
-                ? "Aktiv"
-                : company.status === "BANKRUPT"
-                  ? "Konkurs"
-                  : company.status}
-            </span>
-            {municipality ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-                <span className="material-symbols-outlined text-[13px]">location_on</span>
-                {municipality}
-              </span>
-            ) : null}
-            {company.industryCode?.code ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-3 py-1 text-[11px] font-semibold uppercase text-slate-600">
-                <span className="material-symbols-outlined text-[13px]">category</span>
-                {company.industryCode.code}
-                {company.industryCode.title ? ` · ${company.industryCode.title}` : ""}
-              </span>
-            ) : null}
-          </div>
         </div>
+      </div>
 
-        <div className="flex shrink-0 items-center gap-4">
-          <div className="flex items-center gap-4 rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 sm:gap-3 sm:px-5 sm:py-4">
-            <HealthGauge score={healthScore} />
-            <div>
-              <div className="text-2xl font-semibold tabular-nums text-[var(--px-text)] sm:text-3xl">{healthScore}</div>
-              <div className="data-label text-[10px] font-semibold uppercase text-[var(--px-muted)]">
-                Finansiell helse
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-6 self-center">
+        <HeaderStat value={String(healthScore)} label="HELSE" color={toneColor(risk.tone)} />
+        <HeaderStat value={rating.grade} label="RATING" color={toneColor(rating.tone)} serif />
+        <HeaderStat value={risk.label} label="RISIKO" color={toneColor(risk.tone)} />
+        {watchInfo ? (
+          <WatchButton
+            variant="pill"
+            isWatched={watchInfo.watchId !== null}
+            watchId={watchInfo.watchId}
+            workspaceId={watchInfo.workspaceId}
+            orgNumber={company.orgNumber}
+            slug={slug}
+          />
+        ) : null}
       </div>
     </section>
   );
@@ -555,10 +532,44 @@ export default async function CompanyPage({
       : Promise.resolve([]),
   ]);
 
-  const healthScore = deriveHealthScore(profile);
+  const [overviewShareholding, overviewAnnouncements] = await Promise.all([
+    activeTab === "oversikt" ? getCompanyShareholdingOverview(company.orgNumber) : Promise.resolve(null),
+    activeTab === "oversikt" ? getCompanyAnnouncements(company.orgNumber) : Promise.resolve(null),
+  ]);
+
+  const overviewOwners: OverviewOwner[] = (() => {
+    const snap = overviewShareholding?.snapshot;
+    if (!snap || snap.ownerships.length === 0) return [];
+    const byId = new Map(snap.shareholders.map((s) => [s.id, s]));
+    const total = snap.totalShares ? Number(snap.totalShares) : null;
+    const typeLabel: Record<string, string> = { PERSON: "Person", COMPANY: "Selskap", UNKNOWN: "—" };
+    // A shareholder can hold several ownership rows (share classes) — aggregate per shareholder.
+    const agg = new Map<string, OverviewOwner>();
+    for (const o of snap.ownerships) {
+      const sh = byId.get(o.shareholderId);
+      const pct =
+        o.ownershipPercent ?? (total && total > 0 ? (Number(o.numberOfShares) / total) * 100 : null);
+      if (!sh || pct === null || !Number.isFinite(pct)) continue;
+      const key = sh.normalizedName || sh.name;
+      const existing = agg.get(key);
+      if (existing) existing.pct += pct;
+      else agg.set(key, { name: sh.name, type: typeLabel[sh.type] ?? "Selskap", pct });
+    }
+    return [...agg.values()].sort((a, b) => b.pct - a.pct).slice(0, 6);
+  })();
+  const overviewOwnersYear = overviewShareholding?.snapshot?.taxYear ?? null;
+
+  const healthScore = deriveHealthScore(company, financialStatements);
 
   return (
     <main className="space-y-4 pb-10 sm:space-y-6">
+      <div className="data-label flex items-center gap-1.5 text-[10px] text-[var(--px-muted)]">
+        <Link href="/search" className="hover:text-[var(--px-text)]">
+          SØK
+        </Link>
+        <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+        <span className="text-[var(--px-text)]">SELSKAPSPROFIL</span>
+      </div>
       <CompanyHeader profile={profile} healthScore={healthScore} watchInfo={watchInfo} slug={slug} />
 
       <div>
@@ -619,8 +630,13 @@ export default async function CompanyPage({
         <OverviewAnalytics
           company={company}
           roles={profile.roles}
-          statements={financialStatements}
+          statements={
+            financialStatementsAllScopes.length > 0 ? financialStatementsAllScopes : financialStatements
+          }
           financialsAvailability={financialsAvailability}
+          owners={overviewOwners}
+          ownersTaxYear={overviewOwnersYear}
+          announcements={overviewAnnouncements?.announcements ?? []}
         />
       ) : null}
 
@@ -676,24 +692,11 @@ export default async function CompanyPage({
       ) : null}
 
       {activeTab === "nokkeltall" ? (
-        <div className="space-y-6">
-          <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-            <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
-              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-                Nøkkeltall
-              </div>
-              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
-                Finansielle signaler
-              </h2>
-              <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                Nøkkeltall vises når de er tilgjengelige for analyse.
-              </p>
-            </div>
-            <div className="mt-6">
-              <KeyFiguresGrid company={company} statements={financialStatements} />
-            </div>
-          </Card>
-        </div>
+        <KeyFiguresTable
+          statements={
+            financialStatementsAllScopes.length > 0 ? financialStatementsAllScopes : financialStatements
+          }
+        />
       ) : null}
 
       {activeTab === "konsern" && ownershipOverview ? (

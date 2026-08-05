@@ -42,17 +42,6 @@ const statementTitles: Record<FinancialStatementType, string> = {
   balance: "Balanse",
 };
 
-const modeLabels: Record<FinancialValueMode, string> = {
-  amount: "Beløp",
-  margin: "Margin",
-  growth: "Vekst",
-};
-
-const densityLabels: Record<FinancialDensityMode, string> = {
-  main: "Hovedlinjer",
-  all: "Alle linjer",
-};
-
 const unitOptions: { value: FinancialUnit; label: string }[] = [
   { value: "NOK", label: "NOK" },
   { value: "kNOK", label: "1 000 NOK" },
@@ -75,19 +64,6 @@ function formatPpDelta(current: number | null, previous: number | null) {
 }
 
 /* ---- controls --------------------------------------------------------- */
-function ControlGroup({ label, children }: { label?: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      {label ? (
-        <span className="data-label text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--px-muted)]">
-          {label}
-        </span>
-      ) : null}
-      {children}
-    </div>
-  );
-}
-
 function SegmentedControl<T extends string>({
   value,
   options,
@@ -597,9 +573,12 @@ export function FinancialTimeSeriesTable({
     }
     return scopes;
   }, [lineItems, statements]);
-  const [activeScope, setActiveScope] = useState<"COMPANY" | "CONSOLIDATED">(
-    availableScopes.has("CONSOLIDATED") ? "CONSOLIDATED" : "COMPANY",
-  );
+  // Scope/basis/view/density are fixed to the 5C mock defaults — the extra
+  // toggles were removed to match the design. Konsern is preferred when both
+  // statement scopes are available.
+  const activeScope: "COMPANY" | "CONSOLIDATED" = availableScopes.has("CONSOLIDATED")
+    ? "CONSOLIDATED"
+    : "COMPANY";
   const scopedStatements = useMemo(
     () =>
       availableScopes.size > 1
@@ -616,11 +595,14 @@ export function FinancialTimeSeriesTable({
     [documents, scopedStatements],
   );
 
+  // Default is always "Som rapportert" when the as-reported statements exist;
+  // a subtle toggle lets the user switch to the standardized view. View and
+  // density stay fixed to the 5C mock defaults.
   const [basis, setBasis] = useState<"standardized" | "reported">(
     scopedLineItems.length > 0 ? "reported" : "standardized",
   );
-  const [mode, setMode] = useState<FinancialValueMode>("amount");
-  const [densityMode, setDensityMode] = useState<FinancialDensityMode>("all");
+  const mode: FinancialValueMode = "amount";
+  const densityMode: FinancialDensityMode = "all";
   const [unit, setUnit] = useState<FinancialUnit>("MNOK");
   const [offset, setOffset] = useState(0); // years shifted back from the latest-anchored window
 
@@ -798,32 +780,6 @@ export function FinancialTimeSeriesTable({
   const rangeLabel =
     visibleYears.length > 0 ? `${visibleYears[0]}–${visibleYears[visibleYears.length - 1]}` : "";
 
-  const latestSourceStatement = [...scopedStatements].sort(
-    (left, right) => right.fetchedAt.getTime() - left.fetchedAt.getTime(),
-  )[0];
-  const sourceName =
-    latestSourceStatement?.sourceSystem === "BRREG"
-      ? "Brønnøysundregistrene"
-      : latestSourceStatement?.sourceSystem;
-  const sourceDate = latestSourceStatement?.fetchedAt
-    ? new Intl.DateTimeFormat("nb-NO", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        timeZone: "Europe/Oslo",
-      }).format(latestSourceStatement.fetchedAt)
-    : null;
-  const sourceText =
-    sourceName && sourceDate
-      ? `Kilde: ${sourceName} strukturert API · hentet ${sourceDate}${availability?.status === "STALE" ? " · utdatert snapshot" : ""}`
-      : sourceName
-        ? `Kilde: ${sourceName}${availability?.status === "STALE" ? " · utdatert snapshot" : ""}`
-        : null;
-  const infoText =
-    basis === "standardized"
-      ? `Standardiserte poster · sammenlignbare på tvers av selskaper og år · Tall i ${unitLabel}${sourceText ? ` · ${sourceText}` : ""}`
-      : `Innlevert årsregnskap · resultatregnskap og balanse i oppstillingsform · Tall i ${unitLabel}${sourceText ? ` · ${sourceText}` : ""}`;
-  const infoIcon = basis === "standardized" ? "info" : "description";
 
   // ---- standardized document cell ---------------------------------------
   function formatStandardCell(row: FinancialReportRow, year: number) {
@@ -1439,115 +1395,84 @@ export function FinancialTimeSeriesTable({
   return (
     <div className="space-y-5">
       {/* heading — floats above the document card */}
-      <header className="px-1">
-        <div className="data-label text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--px-muted)]">
-          Regnskap
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 px-1">
+        <div className="min-w-0">
+          <div className="data-label text-[11px] uppercase text-[var(--px-muted)]">
+            Årsregnskap · {availableScopes.has("CONSOLIDATED") ? "Konsern" : "Selskap"} ·{" "}
+            {basis === "reported" ? "Som rapportert" : "Standardisert"}
+          </div>
+          <h2 className="editorial-display mt-1.5 text-[32px] tracking-[-0.03em] text-[var(--px-text)]">
+            Regnskap over tid
+          </h2>
         </div>
-        <h2 className="mt-2 text-[26px] font-semibold tracking-[-0.02em] text-[var(--px-text)]">
-          Resultat og balanse over tid
-        </h2>
-        <p className="mt-1.5 text-sm text-[var(--px-muted)]">
-          {availableScopes.has("CONSOLIDATED") ? "Konserntall" : "Selskapstall"}, alle innleverte
-          regnskapsår. Eldste år til venstre. Bare verifiserte tall vises.
-        </p>
-      </header>
 
-      {/* controls + KPI summary */}
-      <div className="flex flex-col gap-5 px-1">
-        <div className="flex flex-wrap items-end gap-5">
-          <ControlGroup label="Oppstilling">
-            <SegmentedControl
-              value={basis}
-              onChange={(value) => {
-                setBasis(value);
+        <div className="flex items-center gap-3">
+          {scopedLineItems.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setBasis(basis === "reported" ? "standardized" : "reported");
                 setOffset(0);
               }}
-              options={[
-                ...(scopedLineItems.length > 0
-                  ? [{ value: "reported" as const, label: "Som rapportert" }]
-                  : []),
-                { value: "standardized", label: "Standardisert" },
-              ]}
-            />
-          </ControlGroup>
-
-          {basis === "standardized" ? (
-            <>
-              <div className="mx-1 h-9 w-px self-stretch bg-[var(--px-border-subtle)]" aria-hidden="true" />
-              <ControlGroup label="Visning">
-                <SegmentedControl
-                  value={mode}
-                  onChange={setMode}
-                  options={[
-                    { value: "amount", label: modeLabels.amount },
-                    { value: "margin", label: modeLabels.margin },
-                    { value: "growth", label: modeLabels.growth },
-                  ]}
-                />
-              </ControlGroup>
-              <ControlGroup label="Detaljnivå">
-                <SegmentedControl
-                  value={densityMode}
-                  onChange={setDensityMode}
-                  options={[
-                    { value: "main", label: densityLabels.main },
-                    { value: "all", label: densityLabels.all },
-                  ]}
-                />
-              </ControlGroup>
-            </>
+              className="cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-1.5 text-[12.5px] font-medium text-[var(--px-muted)] transition-colors hover:text-[var(--px-text)]"
+            >
+              {basis === "reported" ? "Vis standardisert" : "Vis som rapportert"}
+            </button>
           ) : null}
-
-          <ControlGroup label="Enhet">
-            <SegmentedControl value={unit} onChange={setUnit} options={unitOptions} />
-          </ControlGroup>
-
-          {availableScopes.size > 1 ? (
-            <ControlGroup label="Regnskap">
-              <SegmentedControl
-                value={activeScope}
-                onChange={(value) => {
-                  setActiveScope(value);
-                  if (!lineItems.some((item) => item.statementScope === value)) {
-                    setBasis("standardized");
-                  }
-                  setOffset(0);
-                }}
-                options={[
-                  { value: "CONSOLIDATED", label: "Konsern" },
-                  { value: "COMPANY", label: "Selskap" },
-                ]}
+          <SegmentedControl value={unit} onChange={setUnit} options={unitOptions} />
+          {activeYears.length > windowSize ? (
+            <div className="flex items-center gap-2.5">
+              <PagerButton
+                direction="back"
+                disabled={off >= maxOffset}
+                onClick={() => setOffset((o) => Math.min(maxOffset, o + 1))}
               />
-            </ControlGroup>
+              <span className="data-label tabular-nums text-[11px] text-[var(--px-text)]">{rangeLabel}</span>
+              <PagerButton
+                direction="forward"
+                disabled={off <= 0}
+                onClick={() => setOffset((o) => Math.max(0, o - 1))}
+              />
+            </div>
           ) : null}
         </div>
+      </header>
 
-        <div className="grid grid-cols-2 gap-x-8 gap-y-5 xl:grid-cols-4">
-          {kpis.map((item) => {
+      {/* KPI summary */}
+      <div className="px-1">
+        <div className="flex flex-wrap border-y border-[var(--px-border)]">
+          {kpis.map((item, i) => {
             const negative = item.delta.charAt(0) === MINUS;
             const neutral = item.delta === "—";
             return (
-              <div key={item.label}>
-                <div className="data-label text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--px-muted)]">
+              <div
+                key={item.label}
+                className={cn(
+                  "flex-1 py-4",
+                  i === 0 ? "pl-1 pr-5" : "border-l border-[var(--px-border-subtle)] px-5",
+                )}
+                style={{ minWidth: 150 }}
+              >
+                <div className="data-label text-[9px] uppercase tracking-[0.1em] text-[var(--px-muted)]">
                   {item.label}
                 </div>
-                <div className="tabular-nums mt-2 text-[26px] font-semibold tracking-[-0.01em] text-[var(--px-text)]">
+                <div className="tabular-nums mt-1.5 whitespace-nowrap text-[22px] font-semibold tracking-[-0.02em] text-[var(--px-text)]">
                   {item.value}
                 </div>
-                <div className="mt-1.5 flex items-baseline gap-1.5">
+                <div className="mt-1 flex items-baseline gap-1.5">
                   <span
-                    className="tabular-nums text-[13px] font-semibold"
+                    className="tabular-nums text-[11px] font-medium"
                     style={{
                       color: neutral
                         ? "var(--px-muted)"
                         : negative
-                          ? "var(--px-danger, #b3261e)"
-                          : "var(--px-positive, #1f7a4d)",
+                          ? "var(--px-error)"
+                          : "var(--px-success)",
                     }}
                   >
                     {item.delta}
                   </span>
-                  {previousYear ? (
+                  {previousYear && !neutral ? (
                     <span className="text-[11px] text-[var(--px-muted)]">vs {previousYear}</span>
                   ) : null}
                 </div>
@@ -1557,38 +1482,15 @@ export function FinancialTimeSeriesTable({
         </div>
       </div>
 
-      {/* document card */}
-      <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,42,0.08)] bg-white">
-        <div className="flex items-center gap-2.5 bg-[rgba(248,249,250,0.6)] px-7 py-3.5">
-          <span className="material-symbols-outlined text-[18px] text-[var(--px-muted)]">{infoIcon}</span>
-          <span className="text-[13px] text-[var(--px-muted)]">{infoText}</span>
-        </div>
-
-        <div className={cn(basis === "standardized" ? "px-7 pb-8 pt-5" : "px-7 pb-8 pt-7")}>
-          <div className="mx-auto max-w-[1080px]">
-            {/* shared year pager */}
-            <div className="mb-1.5 flex flex-wrap items-end justify-between gap-4">
+      {/* statements — flat, flowing (5C) */}
+      <div className="px-1">
+        <div className="pt-2">
+          <div>
+            <div className="mb-1.5">
               <div className="data-label text-[10.5px] uppercase text-[var(--px-muted)]">
                 {availableScopes.has("CONSOLIDATED") && activeScope === "CONSOLIDATED" ? "Konsern · " : ""}
                 Tall i {unitLabel}
               </div>
-              {activeYears.length > windowSize ? (
-                <div className="flex items-center gap-3">
-                  <span className="tabular-nums font-mono text-[11px] text-[var(--px-muted)]">{rangeLabel}</span>
-                  <div className="flex gap-2">
-                    <PagerButton
-                      direction="back"
-                      disabled={off >= maxOffset}
-                      onClick={() => setOffset((o) => Math.min(maxOffset, o + 1))}
-                    />
-                    <PagerButton
-                      direction="forward"
-                      disabled={off <= 0}
-                      onClick={() => setOffset((o) => Math.max(0, o - 1))}
-                    />
-                  </div>
-                </div>
-              ) : null}
             </div>
 
             {basis === "standardized" ? (
