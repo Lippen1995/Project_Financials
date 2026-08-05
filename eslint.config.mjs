@@ -6,7 +6,8 @@ const compat = new FlatCompat({
 
 const config = [
   {
-    ignores: [".next/**", "node_modules/**", "dist/**", "coverage/**"],
+    // `quarantine` holds retired PDF/OCR entry points — see quarantine/README.md.
+    ignores: [".next/**", "node_modules/**", "dist/**", "coverage/**", "quarantine/**"],
   },
   ...compat.extends("next/core-web-vitals"),
 ];
