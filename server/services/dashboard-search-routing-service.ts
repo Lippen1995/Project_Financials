@@ -1,4 +1,7 @@
-import { OpenAiDashboardSearchScopeProvider } from "@/integrations/openai/openai-dashboard-search-scope-provider";
+import {
+  OpenAiDashboardSearchScopeProvider,
+  type ScopeClassificationBudget,
+} from "@/integrations/openai/openai-dashboard-search-scope-provider";
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
 import {
   buildDashboardSearchHref,
@@ -21,7 +24,10 @@ export type RoutingDependencies = {
   searchRoleMatches: (
     query: string,
   ) => Promise<Array<{ roleType: string; roleTypeLabel: string | null }>>;
-  classifyWithAi: (query: string) => Promise<ResolvedDashboardSearchScope | null>;
+  classifyWithAi: (
+    query: string,
+    budget: ScopeClassificationBudget | null,
+  ) => Promise<ResolvedDashboardSearchScope | null>;
 };
 
 const BANKRUPTCY_TERMS = /\b(konkurs|konkurser|konkursrammet|tvangsavvikl(?:et|ing))\b/i;
@@ -44,7 +50,7 @@ const defaultDependencies: RoutingDependencies = {
   searchPersonMatches: (query) => searchPersons(query, { limit: 5 }),
   searchIndustryMatches: (query) => industryCodeProvider.searchIndustryCodes([query], 5),
   searchRoleMatches: (query) => searchRoleTypes(query, { limit: 5 }),
-  classifyWithAi: (query) => aiScopeProvider.classify(query),
+  classifyWithAi: (query, budget) => aiScopeProvider.classify(query, budget),
 };
 
 function nameScore(name: string | null | undefined, query: string, fallback: number) {
@@ -122,12 +128,28 @@ async function resolveWithoutAi(
   return scores.sort((left, right) => right.score - left.score)[0]?.scope ?? "companies";
 }
 
+/**
+ * Resolves which search scope a query should land in.
+ *
+ * `aiBudget` must be supplied for the model-backed classifier to run at all.
+ * `aiEnabled` alone only marks the resulting href as an AI search; it does not
+ * authorise a model call, because a flag that both marks intent and unlocks
+ * spending is too easy to flip by accident. The provider is fail-closed too,
+ * so omitting the budget falls back to deterministic routing rather than
+ * making an unbudgeted call.
+ */
 export async function resolveDashboardSearchHref(
-  input: { query: string; aiEnabled: boolean },
+  input: {
+    query: string;
+    aiEnabled: boolean;
+    aiBudget?: ScopeClassificationBudget | null;
+  },
   dependencies: RoutingDependencies = defaultDependencies,
 ) {
   const query = input.query.trim();
-  const aiScope = input.aiEnabled ? await dependencies.classifyWithAi(query) : null;
+  const budget = input.aiBudget ?? null;
+  const aiScope =
+    input.aiEnabled && budget ? await dependencies.classifyWithAi(query, budget) : null;
   const scope = aiScope ?? (await resolveWithoutAi(query, dependencies));
   return buildDashboardSearchHref(query, scope, input.aiEnabled);
 }

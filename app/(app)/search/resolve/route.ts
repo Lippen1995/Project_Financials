@@ -45,8 +45,10 @@ export async function GET(request: Request) {
 
   const href =
     scope === "all"
-      // Resolve scope locally so the only billable AI call is recorded by the search page.
-      ? await resolveDashboardSearchHref({ query, aiEnabled: false })
+      // Resolve scope deterministically. No aiBudget is passed, so the
+      // model-backed classifier cannot run: the only billable AI call in the
+      // search flow is the one the search page reserves and records.
+      ? await resolveDashboardSearchHref({ query, aiEnabled: false, aiBudget: null })
       : buildDashboardSearchHref(query, scope, aiEnabled);
 
   const destination = new URL(href, url);
