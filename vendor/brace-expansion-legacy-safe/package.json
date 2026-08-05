@@ -6,6 +6,6 @@
   "main": "index.cjs",
   "license": "UNLICENSED",
   "dependencies": {
-    "brace-expansion-safe": "npm:brace-expansion@5.0.8"
+    "brace-expansion-safe": "npm:brace-expansion@5.0.9"
   }
 }
