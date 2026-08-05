@@ -5,7 +5,7 @@ import {
   parseFinancialInteger,
   repairOcrTokenBoundaries,
   stripDuplicateWhitespace,
-} from "@/integrations/brreg/annual-report-financials/text";
+} from "@/lib/norwegian-text";
 import {
   AnnualReportParsedInputPage,
   AnnualReportParsedPage,
@@ -14,7 +14,7 @@ import {
   ReconstructedRow,
   ReconstructedValueCell,
 } from "@/integrations/brreg/annual-report-financials/types";
-import type { LiabilitySection } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import type { LiabilitySection } from "@/server/financials/canonical-taxonomy";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Geometry-first reconstruction

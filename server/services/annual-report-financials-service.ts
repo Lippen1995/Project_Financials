@@ -31,7 +31,7 @@ import {
   loopCandidateWins,
   selectRecoveryCandidates,
 } from "@/integrations/brreg/annual-report-financials/extraction-loop";
-import { CanonicalMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { CanonicalMetricKey } from "@/server/financials/canonical-taxonomy";
 import { validateCanonicalFacts } from "@/integrations/brreg/annual-report-financials/validation";
 import { AnnualReportParsedInputPage, CanonicalFactCandidate, PageClassification, ValidationIssueDraft } from "@/integrations/brreg/annual-report-financials/types";
 import {
@@ -49,7 +49,7 @@ import type {
   PdfDecisionResult,
   PdfDecisionValidationSummary,
 } from "@/integrations/brreg/annual-report-financials/pdf-decision-types";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import { chooseCanonicalFacts, mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
 import {
   AnchorRowCorrection,
@@ -58,13 +58,13 @@ import {
   repairRowsWithAnchors,
 } from "@/integrations/brreg/annual-report-financials/anchor-validation";
 import { loadStructuredAnchors } from "@/server/services/structured-financials-service";
-import type { MetricDefinition } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import type { MetricDefinition } from "@/server/financials/canonical-taxonomy";
 import { loadMetricDefinitions } from "@/server/services/metric-mapping-service";
 import { loadRequiredPublishMetricKeys } from "@/server/services/canonical-registry-service";
 import {
   evaluateNodeMatches,
   type NodeEvalConfig,
-} from "@/integrations/brreg/annual-report-financials/presentation-node-evaluation";
+} from "@/server/financials/presentation-node-evaluation";
 import { loadNodeEvaluationConfig } from "@/server/services/presentation-node-service";
 import { mapBrregFinancialStatement } from "@/integrations/brreg/mappers";
 import { getHeadlineFinancialStatements } from "@/lib/financial-statements";

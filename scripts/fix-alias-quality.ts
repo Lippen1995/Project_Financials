@@ -28,7 +28,7 @@ import { prisma } from "@/lib/prisma";
 import {
   defaultMetricDefinitions,
   type MetricDefinition,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 
 const APPLY = process.argv.includes("--apply");
 

@@ -5,7 +5,7 @@ import {
   normalizeNorwegianText,
   parseFinancialInteger,
   repairOcrTokenBoundaries,
-} from "@/integrations/brreg/annual-report-financials/text";
+} from "@/lib/norwegian-text";
 
 describe("annual-report text helpers", () => {
   it("parses parentheses negatives", () => {

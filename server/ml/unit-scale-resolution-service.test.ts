@@ -11,7 +11,7 @@ import type {
   AnnualReportParsedInputPage,
   PageClassification,
 } from "@/integrations/brreg/annual-report-financials/types";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 
 function page(pageNumber: number, lines: string[]): AnnualReportParsedInputPage {
   return {

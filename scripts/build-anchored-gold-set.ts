@@ -27,7 +27,7 @@ import { prisma } from "@/lib/prisma";
 import {
   findCanonicalMetricKey,
   getStatementFamilyFromSection,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 import { loadMetricDefinitions } from "@/server/services/metric-mapping-service";
 
 const ARTIFACTS_DIR = path.join(process.cwd(), "output", "annual-report-artifacts");

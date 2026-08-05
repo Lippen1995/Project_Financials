@@ -7,7 +7,7 @@ import {
   canonicalMetricLayout,
   liabilitySectionForMetricKey,
   requiredPublishMetricKeys,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 
 // ---------------------------------------------------------------------------
 // Canonical-key registry.

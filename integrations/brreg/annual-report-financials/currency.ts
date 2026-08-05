@@ -15,8 +15,8 @@ import {
   AnnualReportParsedPage,
   PageTextLayer,
 } from "@/integrations/brreg/annual-report-financials/types";
-import { ReportingCurrency } from "@/integrations/brreg/annual-report-financials/taxonomy";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { ReportingCurrency } from "@/server/financials/canonical-taxonomy";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 
 export type { ReportingCurrency };
 

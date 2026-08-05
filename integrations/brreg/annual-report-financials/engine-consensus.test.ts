@@ -5,7 +5,7 @@ import {
   computeEngineConsensus,
   consensusConfidenceDelta,
 } from "@/integrations/brreg/annual-report-financials/engine-consensus";
-import { CanonicalMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { CanonicalMetricKey } from "@/server/financials/canonical-taxonomy";
 import { CanonicalFactCandidate } from "@/integrations/brreg/annual-report-financials/types";
 
 function fact(metricKey: CanonicalMetricKey, value: number): CanonicalFactCandidate {

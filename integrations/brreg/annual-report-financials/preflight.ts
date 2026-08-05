@@ -4,7 +4,7 @@ import {
   PageTextLayer,
   PreflightResult,
 } from "@/integrations/brreg/annual-report-financials/types";
-import { normalizeNorwegianText, stripDuplicateWhitespace } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText, stripDuplicateWhitespace } from "@/lib/norwegian-text";
 import { buildAnnualReportDocumentFromPages } from "@/integrations/brreg/annual-report-financials/section-segmentation";
 
 const RELIABLE_TEXT_MIN_CHARS = 120;

@@ -14,7 +14,7 @@ import {
   canonicalMetricLayout,
   metricLayoutGroupLabels,
   type MetricLayoutGroup,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 
 async function main() {
   const existing = await prisma.presentationNode.count();

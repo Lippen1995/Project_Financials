@@ -1,5 +1,5 @@
 import { toAnnualReportParsedPages } from "@/integrations/brreg/annual-report-financials/page-model";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import { detectUnitScale } from "@/integrations/brreg/annual-report-financials/unit-scale";
 import { detectCurrency } from "@/integrations/brreg/annual-report-financials/currency";
 import {
@@ -7,7 +7,7 @@ import {
   AnnualReportParsedPage,
   PageClassification,
 } from "@/integrations/brreg/annual-report-financials/types";
-import { StatementSectionType } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { StatementSectionType } from "@/server/financials/canonical-taxonomy";
 
 type PageFeatures = {
   page: AnnualReportParsedPage;

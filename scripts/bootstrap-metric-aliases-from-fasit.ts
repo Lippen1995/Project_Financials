@@ -11,7 +11,7 @@
  * Usage: npx tsx scripts/bootstrap-metric-aliases-from-fasit.ts [--apply]
  */
 import { prisma } from "@/lib/prisma";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 
 const APPLY = process.argv.includes("--apply");
 

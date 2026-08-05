@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateNodeMatches,
   type NodeEvalConfig,
-} from "@/integrations/brreg/annual-report-financials/presentation-node-evaluation";
+} from "@/server/financials/presentation-node-evaluation";
 
 function node(keys: NodeEvalConfig["keys"], label = "Node"): NodeEvalConfig {
   return { nodeId: "n1", nodeLabel: label, keys };

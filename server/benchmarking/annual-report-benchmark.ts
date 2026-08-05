@@ -12,8 +12,8 @@ import {
 } from "@/integrations/brreg/annual-report-financials/regression-fixtures";
 import { preflightAnnualReportDocument } from "@/integrations/brreg/annual-report-financials/preflight";
 import { reconstructStatementRows } from "@/integrations/brreg/annual-report-financials/table-reconstruction";
-import { CanonicalMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { CanonicalMetricKey } from "@/server/financials/canonical-taxonomy";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import {
   CanonicalFactCandidate,
   ExtractedLine,

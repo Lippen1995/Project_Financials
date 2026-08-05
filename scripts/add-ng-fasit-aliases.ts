@@ -14,7 +14,7 @@
 import "./_load-env";
 
 import { prisma } from "@/lib/prisma";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 
 type Family = "INCOME_STATEMENT" | "BALANCE_SHEET";
 

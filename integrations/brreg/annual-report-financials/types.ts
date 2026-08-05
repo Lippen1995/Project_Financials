@@ -4,7 +4,7 @@ import {
   ReportingCurrency,
   StatementScope,
   StatementSectionType,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 import { AnnualReportDocument, AnnualReportDocumentDiagnostics } from "@/integrations/brreg/annual-report-financials/document-model";
 
 export type AnnualReportUnitScale = 1 | 1000 | 1_000_000;

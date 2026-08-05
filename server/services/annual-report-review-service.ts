@@ -12,7 +12,7 @@ import {
   publishFinancialStatementSnapshot,
   upsertCompanyFinancialCoverage,
 } from "@/server/persistence/annual-report-ingestion-repository";
-import { getStatementTypeForMetricKey } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { getStatementTypeForMetricKey } from "@/server/financials/canonical-taxonomy";
 import {
   validateReviewedFacts,
   serializeValidationPayload,

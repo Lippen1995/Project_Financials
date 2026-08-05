@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { mapRowsToCanonicalFacts } from "@/integrations/brreg/annual-report-financials/canonical-mapping";
-import { findCanonicalMetricKey, MetricDefinition } from "@/integrations/brreg/annual-report-financials/taxonomy";
+import { findCanonicalMetricKey, MetricDefinition } from "@/server/financials/canonical-taxonomy";
 import { PageClassification, ReconstructedRow } from "@/integrations/brreg/annual-report-financials/types";
 
 function buildClassification(overrides: Partial<PageClassification>): PageClassification {

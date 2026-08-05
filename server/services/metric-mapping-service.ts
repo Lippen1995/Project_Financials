@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 import {
   CanonicalMetricKey,
   LiabilitySection,
@@ -10,7 +10,7 @@ import {
   MetricNodeType,
   defaultMetricDefinitions,
   metricLayoutGroupLabels,
-} from "@/integrations/brreg/annual-report-financials/taxonomy";
+} from "@/server/financials/canonical-taxonomy";
 import {
   CanonicalRegistryEntry,
   loadCanonicalRegistry,

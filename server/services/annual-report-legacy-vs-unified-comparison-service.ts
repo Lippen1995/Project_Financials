@@ -11,7 +11,7 @@ import type {
   UnifiedNarrativeExtractionResult,
   UnifiedNarrativeSectionKind,
 } from "@/integrations/brreg/annual-report-financials/unified-narrative-extractor";
-import { normalizeNorwegianText } from "@/integrations/brreg/annual-report-financials/text";
+import { normalizeNorwegianText } from "@/lib/norwegian-text";
 
 export type LegacyVsUnifiedComparisonVersion = "legacy-vs-unified-comparison-v1";
 export const LEGACY_VS_UNIFIED_COMPARISON_VERSION: LegacyVsUnifiedComparisonVersion =
