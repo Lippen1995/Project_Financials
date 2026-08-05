@@ -36,7 +36,16 @@ const UNAVAILABLE_CACHE_MS = 7 * AVAILABLE_CACHE_MS;
 const ERROR_RETRY_BASE_MS = 15 * 60 * 1000;
 const ERROR_RETRY_MAX_MS = 6 * 60 * 60 * 1000;
 
-export type StructuredFinancialFetchStatus = "AVAILABLE" | "UNAVAILABLE" | "ERROR";
+/**
+ * PENDING is written by the ingestion queue when a company has been enqueued
+ * from the request path but not yet fetched. The ingestion service itself only
+ * ever writes the other three.
+ */
+export type StructuredFinancialFetchStatus =
+  | "AVAILABLE"
+  | "UNAVAILABLE"
+  | "ERROR"
+  | "PENDING";
 
 export type StructuredFinancialFetchStateRecord = SourceMetadata & {
   status: StructuredFinancialFetchStatus;
@@ -198,6 +207,13 @@ function cachedResult(
   if (!state) {
     throw new Error("Mangler cachetilstand for strukturert regnskap.");
   }
+  if (state.status === "PENDING") {
+    // A queued company has never been fetched, so there is nothing to serve
+    // from cache. performEnsureForCompany must always fetch these.
+    throw new Error(
+      "Ventende hentetilstand skal alltid hentes på nytt, ikke leses fra cache.",
+    );
+  }
 
   const hasLastOfficialSnapshot = context.hasStructuredStatements;
   const status =
@@ -251,6 +267,8 @@ export function createStructuredFinancialsService(dependencies: {
     if (
       !options.forceRefresh &&
       context.state &&
+      // Queued companies have never been fetched — always go to the source.
+      context.state.status !== "PENDING" &&
       (context.state.status !== "AVAILABLE" || context.hasStructuredStatements) &&
       context.state.nextCheckAt.getTime() > checkedAt.getTime()
     ) {
@@ -510,6 +528,24 @@ const structuredFinancialsService = createStructuredFinancialsService({
   provider,
 });
 
+/**
+ * Read-only view of what the database knows about a company's structured
+ * financials. Performs no external call, so it is safe on the request path.
+ */
+export async function readStructuredFinancialsState(
+  orgNumber: string,
+): Promise<StructuredFinancialsContext | null> {
+  return prismaStructuredFinancialsRepository.loadContext(orgNumber);
+}
+
+/**
+ * Read-through fetch: calls Brreg when the cache is cold.
+ *
+ * Do NOT call this from a request path — the product rule is that user
+ * requests read the database and enqueue instead (see
+ * structured-financials-queue-service). This remains for background workers
+ * and CLI batches.
+ */
 export async function ensureStructuredFinancialsForCompany(
   orgNumber: string,
 ): Promise<StructuredIngestionResult> {

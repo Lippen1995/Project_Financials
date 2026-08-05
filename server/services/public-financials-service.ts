@@ -6,7 +6,11 @@ import type {
   NormalizedFinancialStatement,
 } from "@/lib/types";
 import { getPublishedAnnualReportFinancials } from "@/server/services/annual-report-financials-service";
-import { ensureStructuredFinancialsForCompany } from "@/server/services/structured-financials-service";
+import {
+  enqueueStructuredFinancialsFetch,
+  STRUCTURED_FETCH_STATUS_PENDING,
+} from "@/server/services/structured-financials-queue-service";
+import { readStructuredFinancialsState } from "@/server/services/structured-financials-service";
 
 const STRUCTURED_BRREG_ENTITY_TYPE = "structuredAnnualAccounts";
 
@@ -119,39 +123,95 @@ export function applyPublicFinancialSourcePolicy(
   };
 }
 
+const PENDING_MESSAGE =
+  "Regnskapstall for virksomheten er ikke lastet inn i databasen ennå. Virksomheten er lagt i kø for henting fra Brønnøysundregistrene, og tallene vises så snart hentingen er kjørt.";
+
+const UNAVAILABLE_MESSAGE =
+  "Strukturerte regnskapstall er ikke tilgjengelige for virksomheten. PDF og OCR brukes ikke som fallback i betaen.";
+
+/**
+ * `unavailableReason` is a diagnostic field — the coverage report groups by it,
+ * and some values are raw transport detail such as "HTTP 404: ingen regnskap".
+ * Only reasons that actually tell a user something are surfaced; everything
+ * else falls back to the honest generic message. The stored value is
+ * unchanged so admin reporting keeps its detail.
+ */
+const USER_FACING_UNAVAILABLE_REASONS = new Map<string, string>([
+  [
+    "Oppstillingsplan ikke støttet",
+    "Regnskapet er levert med en oppstillingsplan Fjord Insight ikke støtter ennå. Tallene vises derfor ikke.",
+  ],
+  [
+    "Bare avviklingsregnskap er tilgjengelig.",
+    "Bare avviklingsregnskap er registrert for virksomheten. Avviklingsregnskap vises ikke som ordinære regnskapstall.",
+  ],
+]);
+
+function toUserFacingUnavailableMessage(reason: string | null): string {
+  if (!reason) return UNAVAILABLE_MESSAGE;
+  return USER_FACING_UNAVAILABLE_REASONS.get(reason) ?? UNAVAILABLE_MESSAGE;
+}
+
+/**
+ * Public financials for a company.
+ *
+ * Reads only the database. When the company has no structured statements and
+ * no fetch state, it is enqueued for a background fetch and the caller gets an
+ * honest PENDING state — the request never calls Brønnøysundregistrene itself.
+ */
 export async function getPublicCompanyFinancials(
   orgNumber: string,
 ): Promise<PublicCompanyFinancials> {
-  const ingestion = env.betaStructuredFinancialsOnly
-    ? await ensureStructuredFinancialsForCompany(orgNumber)
-    : null;
   const financials = await getPublishedAnnualReportFinancials(orgNumber);
   const result = applyPublicFinancialSourcePolicy(financials);
 
-  if (!ingestion || !env.betaStructuredFinancialsOnly) {
+  if (!env.betaStructuredFinancialsOnly) {
     return result;
   }
 
-  if (ingestion.status === "STALE") {
+  const context = await readStructuredFinancialsState(orgNumber);
+  const state = context?.state ?? null;
+
+  const provenance = state
+    ? {
+        sourceSystem: state.sourceSystem,
+        sourceEntityType: state.sourceEntityType,
+        sourceId: state.sourceId,
+        fetchedAt: state.fetchedAt,
+        normalizedAt: state.normalizedAt,
+        nextCheckAt: state.nextCheckAt,
+      }
+    : {};
+
+  // We have numbers. Surface them, flagging the last known source trouble.
+  if (result.statements.length > 0) {
+    if (state?.status === "ERROR") {
+      return {
+        ...result,
+        availability: {
+          ...result.availability,
+          ...provenance,
+          available: true,
+          status: "STALE",
+          message:
+            "Brønnøysundregistrene var utilgjengelig ved siste henting. Sist hentede offisielle strukturerte regnskapstall vises; PDF og OCR brukes ikke som fallback.",
+        },
+      };
+    }
+
     return {
       ...result,
       availability: {
         ...result.availability,
-        available: result.statements.length > 0,
-        sourceSystem: ingestion.sourceSystem,
-        sourceEntityType: ingestion.sourceEntityType,
-        sourceId: ingestion.sourceId,
-        fetchedAt: ingestion.fetchedAt,
-        normalizedAt: ingestion.normalizedAt,
-        status: "STALE",
-        nextCheckAt: ingestion.nextCheckAt,
-        message:
-          "Brønnøysundregistrene er midlertidig utilgjengelig. Sist hentede offisielle strukturerte regnskapstall vises; PDF og OCR brukes ikke som fallback.",
+        ...provenance,
+        status: "AVAILABLE",
       },
     };
   }
 
-  if (ingestion.status === "ERROR" || ingestion.status === "UNAVAILABLE") {
+  // No numbers. Distinguish "not fetched yet" from "source has nothing".
+  if (!state) {
+    await enqueueStructuredFinancialsFetch(orgNumber);
     return {
       ...result,
       statements: [],
@@ -159,31 +219,41 @@ export async function getPublicCompanyFinancials(
       availability: {
         ...result.availability,
         available: false,
-        sourceSystem: ingestion.sourceSystem,
-        sourceEntityType: ingestion.sourceEntityType,
-        sourceId: ingestion.sourceId,
-        fetchedAt: ingestion.fetchedAt,
-        normalizedAt: ingestion.normalizedAt,
-        status: ingestion.status,
-        nextCheckAt: ingestion.nextCheckAt,
-        message:
-          ingestion.unavailableReason ??
-          "Strukturerte regnskapstall er ikke tilgjengelige for virksomheten. PDF og OCR brukes ikke som fallback i betaen.",
+        sourceSystem: "BRREG",
+        status: "PENDING",
+        message: PENDING_MESSAGE,
+      },
+    };
+  }
+
+  if (state.status === STRUCTURED_FETCH_STATUS_PENDING) {
+    return {
+      ...result,
+      statements: [],
+      allScopeStatements: [],
+      availability: {
+        ...result.availability,
+        ...provenance,
+        available: false,
+        status: "PENDING",
+        message: PENDING_MESSAGE,
       },
     };
   }
 
   return {
     ...result,
+    statements: [],
+    allScopeStatements: [],
     availability: {
       ...result.availability,
-      sourceSystem: ingestion.sourceSystem,
-      sourceEntityType: ingestion.sourceEntityType,
-      sourceId: ingestion.sourceId,
-      fetchedAt: ingestion.fetchedAt,
-      normalizedAt: ingestion.normalizedAt,
-      status: "AVAILABLE",
-      nextCheckAt: ingestion.nextCheckAt,
+      ...provenance,
+      available: false,
+      status: state.status === "ERROR" ? "ERROR" : "UNAVAILABLE",
+      message:
+        state.status === "ERROR"
+          ? "Brønnøysundregistrene var utilgjengelig ved siste henting, og vi har ingen tidligere tall for virksomheten. Ny henting er planlagt."
+          : toUserFacingUnavailableMessage(state.unavailableReason),
     },
   };
 }
