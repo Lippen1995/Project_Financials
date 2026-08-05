@@ -963,6 +963,13 @@ enum ChainMatchMethod {
 /// Enhetsregister download so company search hits our database instead of the live Brreg
 /// search API. Lightweight and search-focused; the rich per-company data (roles,
 /// financials, ownership) still lives in Company, populated on demand.
+/// WARNING: this model carries a raw-SQL index Prisma cannot express.
+/// `registry_entity_name_trgm` is a GIN index using `gin_trgm_ops`, which needs
+/// the postgresqlExtensions preview feature to declare. It exists only in
+/// migration 20260717161500_add_registry_entity_name_trgm, so
+/// `prisma migrate diff` will propose dropping it. Dropping it degrades fuzzy
+/// company-name matching in search silently.
+/// Verified by `npm run db:check-migrations`.
 model RegistryEntity {
   id                 String        @id @default(cuid())
   orgNumber          String        @unique
@@ -4219,6 +4226,10 @@ model CompanySearchEvent {
   @@index([userId, searchedAt(sort: Desc)])
   @@index([userId, query])
   @@index([userId, revenueClass])
+  /// Retention sweep scans by age across all users. Created by raw SQL in
+  /// 20260714190000_add_ai_search_usage_and_retention; declared here so
+  /// `prisma migrate diff` stops proposing to drop it.
+  @@index([searchedAt])
 }
 
 model AiSearchUsageEvent {
@@ -4484,6 +4495,13 @@ model KnowledgeDocument {
 
 /// Retrieval-sized provision/section from an official knowledge document. `searchVector` is a
 /// generated PostgreSQL tsvector maintained by the migration and therefore never written by Prisma.
+/// WARNING: this model carries a raw-SQL index Prisma cannot express.
+/// `KnowledgeChunk_searchVector_idx` is a GIN index on `searchVector`, and
+/// Prisma cannot index an Unsupported() column. It exists only in migration
+/// 20260721123000_add_offline_business_knowledge, so `prisma migrate diff`
+/// does not know about it and will propose dropping it. Dropping it degrades
+/// knowledge full-text search silently, with no error anywhere.
+/// Verified by `npm run db:check-migrations`.
 model KnowledgeChunk {
   id            String                   @id @default(cuid())
   documentId    String

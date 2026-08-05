@@ -205,6 +205,7 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
 | GL-A02 | Populering skjer i bakgrunnsjobb med kø | Kø, kjøring, feil og etterslep kan ses i adminflaten og kjøres på plan | Kødybde, feiltelling og siste kjøring i kontrollsenteret |
 | GL-A03 | Ett modellkallsted | Alle modellkall går gjennom modelladapteren med sikker systeminstruks, injeksjonsinspeksjon, budsjett, reservasjon og forbruksregistrering | Inventar over modellkallsteder; fail-closed-tester for kallsteder som ikke er koblet på ennå |
 | GL-A04 | OCR-flatene er ikke tilgjengelige | Ingen OCR-/PDF-flate, jobb eller adminside kan nås fra applikasjonen; koden er i karantene, ikke slettet | Rutetest og adminflate uten lenker til pensjonerte OCR-flater |
+| GL-A05 | Migrasjonshistorikken er trygg | Ingen sjekksumavvik, og indekser som bare finnes i rå SQL kan ikke forsvinne ubemerket | `npm run db:check-migrations` i CI etter `migrate deploy` |
 
 ### Status 5. august 2026
 
@@ -221,6 +222,14 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
   AI-bryter. Samling av kallstedene er G1-arbeid.
 - GL-A04 er ikke startet. Kontrollsenteret er bygget om til Brreg-henting og
   lenker ikke lenger til OCR-flater, men flatene finnes fortsatt på direkte URL.
+- GL-A05 er implementert. To feil er lukket. `core.autocrlf` skrev om
+  linjeskiftene i migrasjonsfilene, slik at 23 av 45 registrerte migrasjoner
+  fremsto som endret og `prisma migrate dev` tilbød å nullstille
+  utviklingsdatabasen med reelle data. `.gitattributes` låser nå filene til LF,
+  sjekksummene er reparert, og kontrollen kjører i CI. I tillegg foreslo
+  `prisma migrate diff` å slette tre indekser den ikke kjenner. Én er nå
+  deklarert i skjemaet; de to siste kan ikke uttrykkes i Prisma, er dokumentert
+  på modellene og overvåkes av kontrollen.
 
 ## 9. Port G1 – godkjenning av første betalte kostnader
 
