@@ -1,8 +1,8 @@
 # Company financial map — decision map
 
-Status: In discussion. The #4 public-owner boundary and technical group projection are implemented;
-#2 remains paused. Publication is intentionally unavailable until a complete official
-shareholder-register import exists for a tax year.
+Status: In implementation. The address contract, reported-financial projection and #4
+public-owner boundary are implemented. Publication is intentionally unavailable until a complete
+official shareholder-register import exists for a tax year.
 
 Goal: Define a public, account-free map of Norwegian companies and available financial
 metrics, based only on official source data. Advertising is a future monetisation layer and
@@ -95,9 +95,11 @@ when an exact official address cannot be resolved?
 
 ### Answer
 
-Open. Recommended starting contract: registered business address; exact address point when
-matched, otherwise explicitly labelled postcode/municipality aggregation, otherwise unmapped.
-Store coordinate source, match method, precision, fetched time and normalised time.
+Resolved for the first version: use Brreg's registered business address only. Plot an entity only
+when its complete normalized address key has exactly one match in the nationwide Kartverket
+address extract. Do not substitute postal address, postcode centroid or municipality centroid.
+Retain every unplotted entity with an explicit omission reason and expose filter-aware coverage
+counts. Exact ENK locations remain privacy-withheld pending a separate assessment.
 
 ## #3: What is the comparable financial observation?
 
@@ -111,10 +113,12 @@ the map?
 
 ### Answer
 
-Open. Recommended starting contract: latest available **company-scope** filing per legal entity,
-with fiscal year visible and a selectable common-year mode. Initial metrics: operating revenue,
-EBIT, pre-tax profit, net income, equity, total assets, EBIT margin and equity ratio. Never rank
-missing values as zero. Keep consolidated figures in a separately labelled group mode.
+Resolved for the first version: latest available **company-scope** filing per legal entity, with
+fiscal year and currency visible. Initial stored metrics are operating revenue, EBIT, pre-tax
+profit, net income, equity and total assets; employees come from the Brreg entity mirror. Rank by
+reported revenue descending and keep missing values null rather than zero. An explicit “see
+consolidated” switch reads the latest independently available consolidated filing; it never sums
+legal-entity accounts or silently changes accounting scope.
 
 ## #4: How is current group membership identified and qualified?
 
@@ -224,9 +228,13 @@ usable coordinates and official figures, and how long/costly is a complete refre
 
 ### Answer
 
-Open. Run a full-universe coverage audit. The existing 149-company stratified check found 96.7%
-availability for sampled AS entities but no open structured coverage for sampled ENK, ANS or DA;
-that sample is evidence of API behaviour, not a national coverage claim.
+Partially resolved. The first reported-financial candidate loaded 7,958 latest scope statements
+from the reported-only live-view repository. Of these, 5,690 statements for 5,403 entities belong
+to the current complete Brreg universe: 5,403 company scope and 287 consolidated scope, containing
+32,968 non-null key metrics. A further 2,268 historical statements across 2,264 entities were
+excluded because those entities are absent from the current Brreg mirror. This establishes the
+current local dataset coverage, not national open-source completeness; metric/year/form coverage
+still needs a filter-aware published audit after the group gate is satisfied.
 
 ## #6: What serving architecture meets public-map cost and latency targets?
 

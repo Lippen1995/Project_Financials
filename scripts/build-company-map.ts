@@ -4,8 +4,14 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { COMPANY_MAP_ADDRESS_MATCHER_VERSION } from "@/server/company-map/address-resolution";
+import {
+  loadReportedCompanyMapFinancialProjection,
+  restrictReportedCompanyMapFinancialProjection,
+} from "@/server/company-map/financial-projection";
+import { financialsRepository } from "@/server/financials/financials-repository";
 
-const FINANCIAL_DATASET_PENDING = "reported-only:pending-live-view";
+const FINANCIALS_REPOSITORY_VERSION = "financials-repository-v1";
+const FINANCIAL_INSERT_BATCH_SIZE = 1_000;
 
 function wantsPublication(): boolean {
   return process.argv.slice(2).includes("--publish");
@@ -13,11 +19,6 @@ function wantsPublication(): boolean {
 
 async function main() {
   const publish = wantsPublication();
-  if (publish) {
-    throw new Error(
-      "Public publication is blocked until the reported-only financial live view populates the build.",
-    );
-  }
   const addressDataset = await prisma.officialAddressDataset.findFirst({
     where: { status: "READY", isComplete: true },
     orderBy: { sourceUpdatedAt: "desc" },
@@ -27,12 +28,31 @@ async function main() {
       "No complete READY Kartverket address dataset. Run npm run kartverket:ingest-addresses first.",
     );
   }
+  const financialProjection =
+    await loadReportedCompanyMapFinancialProjection(financialsRepository);
 
   await prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`
         SELECT pg_advisory_xact_lock(hashtext('fjord-insight-registry-entity-publication'), 0)
       `;
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(hashtext('fjord-insight-financial-dataset-publication'), 0)
+      `;
+
+      const financialRevision = await tx.financialDatasetRevision.findUnique({
+        where: { id: "global" },
+        select: { reportedRevision: true },
+      });
+      const activeFinancialDatasetVersion = `reported:${financialRevision?.reportedRevision ?? 0n}`;
+      if (
+        activeFinancialDatasetVersion !==
+        financialProjection.financialDatasetVersion
+      ) {
+        throw new Error(
+          "Reported financials changed while the map projection was prepared; retry the build.",
+        );
+      }
 
       const registryImport = await tx.registryEntityImport.findFirst({
         where: {
@@ -89,10 +109,35 @@ async function main() {
         );
       }
 
+      const registryFinancialEntities = await tx.registryEntity.findMany({
+        where: {
+          orgNumber: {
+            in: [
+              ...new Set(
+                financialProjection.statements.map(
+                  (statement) => statement.orgNumber,
+                ),
+              ),
+            ],
+          },
+        },
+        select: { orgNumber: true },
+      });
+      const buildFinancialProjection =
+        restrictReportedCompanyMapFinancialProjection(
+          financialProjection,
+          new Set(registryFinancialEntities.map((entity) => entity.orgNumber)),
+        );
+
       const groupPublication = await tx.groupRelationshipPublication.findFirst({
         where: { sourceImportStatus: "COMPLETED" },
         orderBy: { taxYear: "desc" },
       });
+      if (publish && !groupPublication) {
+        throw new Error(
+          "Public publication requires a completed Skatteetaten group publication.",
+        );
+      }
       const buildId = randomUUID();
       const now = new Date();
       await tx.companyMapBuild.create({
@@ -105,7 +150,7 @@ async function main() {
           registryImportId: registryImport.id,
           groupBuildId: groupPublication?.buildId ?? null,
           groupTaxYear: groupPublication?.taxYear ?? null,
-          financialDatasetVersion: FINANCIAL_DATASET_PENDING,
+          financialDatasetVersion: financialProjection.financialDatasetVersion,
           sourceSystem: "FJORD_INSIGHT",
           sourceEntityType: "CompanyMapBuild",
           sourceId: buildId,
@@ -115,8 +160,15 @@ async function main() {
       });
 
       try {
-        await tx.$executeRaw(Prisma.sql`
-      INSERT INTO "CompanyMapEntitySnapshot" (
+        const [entityCounts] = await tx.$queryRaw<
+          Array<{
+            entityCount: bigint;
+            plottedCount: bigint;
+            omittedCount: bigint;
+          }>
+        >(Prisma.sql`
+      WITH inserted_entities AS (
+        INSERT INTO "CompanyMapEntitySnapshot" (
         "buildId", "orgNumber", "name", "organisationForm", "companyStatus",
         "employeeCount", "addressStreet", "postalCode", "postalPlace", "municipality",
         "municipalityNumber", "countryCode", "resolutionStatus", "officialAddressId",
@@ -201,44 +253,124 @@ async function main() {
         AND membership."memberOrgNumber" = registry."orgNumber"
       LEFT JOIN "RegistryEntity" group_root
         ON group_root."orgNumber" = membership."groupRootOrgNumber"
-    `);
-
-        const [counts] = await tx.$queryRaw<
-          Array<{
-            entityCount: bigint;
-            plottedCount: bigint;
-            omittedCount: bigint;
-          }>
-        >(Prisma.sql`
+      RETURNING "resolutionStatus"
+      )
       SELECT
         count(*)::bigint AS "entityCount",
         count(*) FILTER (WHERE "resolutionStatus" = 'MATCHED')::bigint AS "plottedCount",
         count(*) FILTER (WHERE "resolutionStatus" <> 'MATCHED')::bigint AS "omittedCount"
-      FROM "CompanyMapEntitySnapshot"
-      WHERE "buildId" = ${buildId}::uuid
+      FROM inserted_entities
     `);
-        if (!counts || counts.entityCount !== registryStats.entityCount) {
+
+        if (
+          !entityCounts ||
+          entityCounts.entityCount !== registryStats.entityCount
+        ) {
           throw new Error(
             "Candidate map build did not retain every RegistryEntity row.",
           );
         }
 
+        let financialStatementCount = 0;
+        for (
+          let offset = 0;
+          offset < buildFinancialProjection.statements.length;
+          offset += FINANCIAL_INSERT_BATCH_SIZE
+        ) {
+          const batch = buildFinancialProjection.statements.slice(
+            offset,
+            offset + FINANCIAL_INSERT_BATCH_SIZE,
+          );
+          const inserted = await tx.companyMapFinancialSnapshot.createMany({
+            data: batch.map((statement) => ({
+              buildId,
+              orgNumber: statement.orgNumber,
+              statementScope: statement.statementScope,
+              fiscalYear: statement.fiscalYear,
+              currency: statement.currency,
+              unitScale: statement.unitScale,
+              revenue: statement.revenue,
+              ebit: statement.ebit,
+              preTaxProfit: statement.preTaxProfit,
+              netIncome: statement.netIncome,
+              equity: statement.equity,
+              totalAssets: statement.totalAssets,
+              valueOrigin: statement.valueOrigin,
+              financialDatasetVersion: statement.financialDatasetVersion,
+              sourceSystem: "FJORD_FINANCIALS_REPOSITORY",
+              sourceEntityType: "LatestReportedCompanyMetrics",
+              sourceId: `${statement.companyId}:${statement.fiscalYear}:${statement.statementScope}`,
+              fetchedAt: now,
+              normalizedAt: now,
+            })),
+          });
+          financialStatementCount += inserted.count;
+        }
+
+        if (
+          financialStatementCount !== buildFinancialProjection.statementCount
+        ) {
+          throw new Error(
+            "Candidate map build did not retain the complete reported financial projection.",
+          );
+        }
+
         const completedAt = new Date();
+        await tx.companyMapFinancialDatasetPublication.create({
+          data: {
+            buildId,
+            financialDatasetVersion:
+              buildFinancialProjection.financialDatasetVersion,
+            status: "VERIFIED_REPORTED",
+            statementCount: buildFinancialProjection.statementCount,
+            metricCount: buildFinancialProjection.metricCount,
+            financialEntityCount: buildFinancialProjection.financialEntityCount,
+            companyStatementCount:
+              buildFinancialProjection.companyStatementCount,
+            consolidatedStatementCount:
+              buildFinancialProjection.consolidatedStatementCount,
+            sourceStatementCount: buildFinancialProjection.sourceStatementCount,
+            excludedStatementCount:
+              buildFinancialProjection.excludedStatementCount,
+            excludedEntityCount: buildFinancialProjection.excludedEntityCount,
+            verificationRepositoryVersion: FINANCIALS_REPOSITORY_VERSION,
+            verifiedAt: completedAt,
+            sourceSystem: "FJORD_FINANCIALS_REPOSITORY",
+            sourceEntityType: "CompanyMapFinancialVerification",
+            sourceId: buildId,
+            fetchedAt: completedAt,
+            normalizedAt: completedAt,
+          },
+        });
         await tx.companyMapBuild.update({
           where: { id: buildId },
           data: {
-            status: "READY",
-            entityCount: Number(counts.entityCount),
-            plottedCount: Number(counts.plottedCount),
-            omittedCount: Number(counts.omittedCount),
+            status: publish ? "PUBLISHED" : "READY",
+            entityCount: Number(entityCounts.entityCount),
+            plottedCount: Number(entityCounts.plottedCount),
+            omittedCount: Number(entityCounts.omittedCount),
             completedAt,
+            publishedAt: publish ? completedAt : null,
             normalizedAt: completedAt,
           },
         });
 
+        if (publish) {
+          await tx.companyMapPublication.upsert({
+            where: { channel: "public" },
+            update: { buildId, publishedAt: completedAt },
+            create: { channel: "public", buildId, publishedAt: completedAt },
+          });
+        }
+
         console.log(
-          `READY map candidate ${buildId}: ${counts.plottedCount}/${counts.entityCount} plotted; ` +
-            `${counts.omittedCount} retained as omissions.`,
+          `${publish ? "PUBLISHED" : "READY"} map candidate ${buildId}: ` +
+            `${entityCounts.plottedCount}/${entityCounts.entityCount} plotted; ` +
+            `${entityCounts.omittedCount} address omissions; ` +
+            `${financialStatementCount}/${buildFinancialProjection.sourceStatementCount} ` +
+            `reported financial statements included; ` +
+            `${buildFinancialProjection.excludedStatementCount} statements across ` +
+            `${buildFinancialProjection.excludedEntityCount} historical entities excluded.`,
         );
       } catch (error) {
         const failureReason =

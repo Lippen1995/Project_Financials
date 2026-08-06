@@ -2,7 +2,10 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
+  parseLatestReportedCompanyMetricsSnapshot,
   parseLiveFinancialStatement,
+  type LatestReportedCompanyMetrics,
+  type LatestReportedCompanyMetricsSnapshot,
   type LiveFinancialLine,
   type LiveFinancialStatement,
 } from "@/server/financials/live-financials-contract";
@@ -14,10 +17,15 @@ export interface LiveFinancialsDataSource {
     statements: readonly LiveFinancialStatementRecord[];
     lines: readonly LiveFinancialLine[];
   }>;
+  readLatestReportedCompanyMetrics(): Promise<{
+    financialDatasetVersion: string;
+    statements: readonly LatestReportedCompanyMetrics[];
+  }>;
 }
 
 export interface FinancialsRepository {
   listCompanyStatements(companyId: string): Promise<LiveFinancialStatement[]>;
+  listLatestReportedCompanyMetrics(): Promise<LatestReportedCompanyMetricsSnapshot>;
 }
 
 export function isInvestorDemoFinancialSimulationEnabled(
@@ -60,6 +68,11 @@ export function createFinancialsRepository(
           }),
         )
         .sort((left, right) => right.fiscalYear - left.fiscalYear);
+    },
+    async listLatestReportedCompanyMetrics() {
+      return parseLatestReportedCompanyMetricsSnapshot(
+        await dataSource.readLatestReportedCompanyMetrics(),
+      );
     },
   };
 }
@@ -126,6 +139,71 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
         ]);
 
         return { statements, lines };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  },
+  async readLatestReportedCompanyMetrics() {
+    return prisma.$transaction(
+      async (transaction) => {
+        await transaction.$executeRawUnsafe(
+          "SET LOCAL app.deployment_environment = 'public'",
+        );
+        await transaction.$executeRawUnsafe("SET LOCAL app.fi_sim_enabled = 'off'");
+
+        const [revision, statements] = await Promise.all([
+          transaction.financialDatasetRevision.findUnique({
+            where: { id: "global" },
+            select: { reportedRevision: true },
+          }),
+          transaction.$queryRaw<LatestReportedCompanyMetrics[]>(Prisma.sql`
+            WITH ranked_statements AS (
+              SELECT
+                statement.*,
+                company."orgNumber",
+                row_number() OVER (
+                  PARTITION BY statement."companyId", statement."statementScope"
+                  ORDER BY statement."fiscalYear" DESC, statement."liveStatementId" ASC
+                ) AS "scopeRank"
+              FROM "live_financial_statements_v1" statement
+              JOIN "Company" company ON company."id" = statement."companyId"
+              WHERE statement."statementOrigin" = 'reported'
+            ), pre_tax AS (
+              SELECT
+                line."liveStatementId",
+                max(line."value" * line."unitScale") FILTER (
+                  WHERE line."metricKey" = 'profit_before_tax'
+                ) AS "preTaxProfit"
+              FROM "live_financial_line_items_v1" line
+              WHERE line."statementOrigin" = 'reported'
+              GROUP BY line."liveStatementId"
+            )
+            SELECT
+              statement."companyId",
+              statement."orgNumber",
+              statement."fiscalYear",
+              statement."statementScope",
+              statement."currency",
+              1 AS "unitScale",
+              statement."revenue" * statement."unitScale" AS "revenue",
+              statement."operatingProfit" * statement."unitScale" AS "ebit",
+              pre_tax."preTaxProfit",
+              statement."netIncome" * statement."unitScale" AS "netIncome",
+              statement."equity" * statement."unitScale" AS "equity",
+              statement."assets" * statement."unitScale" AS "totalAssets",
+              statement."financialDatasetVersion",
+              'reported'::text AS "valueOrigin"
+            FROM ranked_statements statement
+            LEFT JOIN pre_tax ON pre_tax."liveStatementId" = statement."liveStatementId"
+            WHERE statement."scopeRank" = 1
+            ORDER BY statement."companyId", statement."statementScope"
+          `),
+        ]);
+
+        return {
+          financialDatasetVersion: `reported:${revision?.reportedRevision ?? 0n}`,
+          statements,
+        };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );

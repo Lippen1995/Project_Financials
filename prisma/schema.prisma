@@ -1277,6 +1277,8 @@ model CompanyMapFinancialSnapshot {
   orgNumber               String          @db.VarChar(9)
   statementScope          StatementScope
   fiscalYear              Int
+  currency                String
+  unitScale               Int             @default(1)
   revenue                 BigInt?
   ebit                    BigInt?
   preTaxProfit            BigInt?
@@ -1312,6 +1314,12 @@ model CompanyMapFinancialDatasetPublication {
   status                        CompanyMapFinancialDatasetStatus
   statementCount                Int
   metricCount                   Int
+  financialEntityCount          Int
+  companyStatementCount         Int
+  consolidatedStatementCount    Int
+  sourceStatementCount          Int
+  excludedStatementCount        Int
+  excludedEntityCount           Int
   verificationRepositoryVersion String
   verifiedAt                    DateTime
   sourceSystem                  String

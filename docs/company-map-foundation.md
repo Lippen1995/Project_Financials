@@ -1,7 +1,7 @@
 # Public company map foundation
 
-Status: Address and publication foundation implemented; public map publication remains blocked
-until a complete national snapshot also contains reported-only financial rows.
+Status: Complete address and reported-financial candidate implemented; public publication remains
+blocked until a complete Skatteetaten group snapshot is available.
 
 ## Product contract implemented here
 
@@ -30,8 +30,11 @@ until a complete national snapshot also contains reported-only financial rows.
 2. `npm run kartverket:ingest-addresses` discovers the latest nationwide WGS84 CSV through
    Kartverket's official Atom feed, streams the ZIP, verifies byte count, records SHA-256, and marks
    the immutable extract ready only after a national-size sanity check.
-3. `npm run company-map:build` joins the two complete mirrors, attaches the latest published
-   semantic group membership, records every omitted entity, and produces a versioned candidate.
+3. `npm run company-map:build` joins the two complete mirrors, reads latest company and
+   consolidated statements through the reported-only financial repository, restricts financials
+   to entities in the current Brreg universe, attaches the latest published semantic group
+   membership, records every omitted entity, and produces a versioned candidate. Add `--publish`
+   only after the complete Skatteetaten group publication exists.
 4. `CompanyMapPublication` is the single atomic pointer for public readers. Failed or incomplete
    candidates never affect the public endpoints. Database triggers verify snapshot counts, Brreg
    evidence, completed group publication and the reported-financial certificate, then make a
@@ -39,13 +42,16 @@ until a complete national snapshot also contains reported-only financial rows.
 
 ## Public read surfaces
 
-- `GET /api/company-map/coverage` returns filter-aware location coverage plus source versions and
-  dates. Financial coverage remains explicitly unavailable until it is connected through the
-  reported-only live-view repository.
+- `GET /api/company-map/coverage` returns filter-aware location coverage, audited financial
+  coverage, source versions and dates.
+- `GET /api/company-map/companies` returns the filtered list ordered by reported revenue, highest
+  first. It defaults to active AS/ASA, company accounts and NOK; consolidated scope must be
+  requested explicitly. Each row contains the other available key metrics, employees, exact
+  coordinates, group label and the normal company-profile URL.
 - `organisationForms=ALL` selects every organisation form; omitted filters default to active
   AS/ASA entities.
 
-The endpoint is anonymous and CDN-cacheable. Until a complete candidate has passed the
+Both endpoints are anonymous and CDN-cacheable. Until a complete candidate has passed the
 reported-only financial gate and is atomically published, they return `503` rather than exposing
 partial, stale or simulated data.
 
@@ -73,17 +79,38 @@ This is address coverage only. The candidate contains zero financial rows and ha
 publication pointer. No group labels were attached because the local Skatteetaten shareholder
 register import is `PARTIAL`, so no semantic group snapshot has passed its publication gate.
 
+## First reported-financial candidate audit (6 August 2026)
+
+Candidate `e5c0ff9b-5cd8-4a16-8693-cded710b933a` repeated the complete 1,170,717-entity address
+population and added the versioned reported-financial projection. It completed as `READY`; it was
+not published because no complete Skatteetaten group publication exists locally.
+
+- plotted entities: 599,335
+- address omissions: 571,382
+- reported source statements from the live-view repository: 7,958
+- included statements for entities in the current Brreg mirror: 5,690
+- included legal entities with financials: 5,403
+- included company-scope statements: 5,403
+- included consolidated statements: 287
+- included non-null key metrics: 32,968
+- excluded historical statements outside the current Brreg universe: 2,268 across 2,264 entities
+
+The full-universe address omissions are 29,080 without a business address, 25,965
+incomplete/invalid addresses, 125 non-geographic addresses, 18,843 with no exact match, 104
+ambiguous exact matches, 43,978 outside Norway and 453,287 privacy-withheld ENK locations. These
+counts are stored independently from financial exclusions and are never inferred from what is
+visible on the map.
+
 ## Deliberate next steps
 
-- Connect `CompanyMapFinancialSnapshot` to the versioned reported-only financial live view and
-  populate the latest company and, where actually filed, consolidated scope independently.
-- Add the public publication command and go-live gates after the full national coverage audit.
+- Complete and publish the Skatteetaten group snapshot, run
+  `npm run company-map:build -- --publish`, and verify the public pointer without weakening the
+  group gate.
 - Benchmark PostGIS MVT against precomputed vector tiles before choosing the national serving
   implementation. The browser must not receive the full entity universe.
 - Build the accessible map/list interface after the tile contract is fixed. Low-zoom clusters
   will show counts only; they will not sum company financials.
-- Add the omission drill-down list with the ordered company list once reported revenue ordering
-  is available through the same live-view repository.
+- Add the filter-aware omission drill-down UI on top of the existing coverage reason counts.
 
 Official source references:
 

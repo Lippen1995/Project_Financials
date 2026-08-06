@@ -9,6 +9,50 @@ const financialDatasetVersionSchema = z.union([
   simulatedDatasetVersionSchema,
 ]);
 
+const latestReportedCompanyMetricsSchema = z.object({
+  companyId: z.string().min(1),
+  orgNumber: z.string().regex(/^\d{9}$/),
+  fiscalYear: z.number().int(),
+  statementScope: z.enum(["COMPANY", "CONSOLIDATED"]),
+  currency: z.string().length(3),
+  unitScale: z.number().int().positive(),
+  revenue: z.bigint().nullable(),
+  ebit: z.bigint().nullable(),
+  preTaxProfit: z.bigint().nullable(),
+  netIncome: z.bigint().nullable(),
+  equity: z.bigint().nullable(),
+  totalAssets: z.bigint().nullable(),
+  financialDatasetVersion: reportedDatasetVersionSchema,
+  valueOrigin: z.literal("reported"),
+});
+
+const latestReportedCompanyMetricsSnapshotSchema = z
+  .object({
+    financialDatasetVersion: reportedDatasetVersionSchema,
+    statements: z.array(latestReportedCompanyMetricsSchema),
+  })
+  .superRefine((snapshot, context) => {
+    const seen = new Set<string>();
+    snapshot.statements.forEach((statement, index) => {
+      if (statement.financialDatasetVersion !== snapshot.financialDatasetVersion) {
+        context.addIssue({
+          code: "custom",
+          path: ["statements", index, "financialDatasetVersion"],
+          message: "statement and snapshot dataset versions must match",
+        });
+      }
+      const key = `${statement.companyId}:${statement.statementScope}`;
+      if (seen.has(key)) {
+        context.addIssue({
+          code: "custom",
+          path: ["statements", index],
+          message: "latest metric snapshot can contain only one row per company and scope",
+        });
+      }
+      seen.add(key);
+    });
+  });
+
 const liveFinancialLineSchema = z.object({
   liveLineId: z.string().min(1),
   liveStatementId: z.string().min(1),
@@ -218,9 +262,21 @@ const liveFinancialStatementSchema = z
   });
 
 export type FinancialDatasetVersion = z.infer<typeof financialDatasetVersionSchema>;
+export type LatestReportedCompanyMetrics = z.infer<
+  typeof latestReportedCompanyMetricsSchema
+>;
+export type LatestReportedCompanyMetricsSnapshot = z.infer<
+  typeof latestReportedCompanyMetricsSnapshotSchema
+>;
 export type LiveFinancialLine = z.infer<typeof liveFinancialLineSchema>;
 export type LiveFinancialStatement = z.infer<typeof liveFinancialStatementSchema>;
 
 export function parseLiveFinancialStatement(input: unknown): LiveFinancialStatement {
   return liveFinancialStatementSchema.parse(input);
+}
+
+export function parseLatestReportedCompanyMetricsSnapshot(
+  input: unknown,
+): LatestReportedCompanyMetricsSnapshot {
+  return latestReportedCompanyMetricsSnapshotSchema.parse(input);
 }

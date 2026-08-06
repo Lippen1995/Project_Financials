@@ -1,8 +1,12 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import type { CompanyMapCoverageQuery } from "@/lib/company-map";
+import type {
+  CompanyMapCompaniesQuery,
+  CompanyMapCoverageQuery,
+} from "@/lib/company-map";
 import type { CompanyMapAddressResolutionStatus } from "@/server/company-map/address-resolution";
+import { formatCompanyMapGroupLabel } from "@/server/company-map/company-list";
 
 export class CompanyMapNotPublishedError extends Error {
   constructor() {
@@ -75,13 +79,13 @@ async function getPublication() {
   ) {
     throw new CompanyMapNotPublishedError();
   }
-  return publication;
+  return { publication, financialPublication };
 }
 
 export async function getPublishedCompanyMapCoverage(
   query: CompanyMapCoverageQuery,
 ) {
-  const publication = await getPublication();
+  const { publication, financialPublication } = await getPublication();
   const filters = filterExpression(query);
   const [totals] = await prisma.$queryRaw<
     Array<{ eligible: bigint; plotted: bigint }>
@@ -122,9 +126,16 @@ export async function getPublishedCompanyMapCoverage(
         count: Number(row.count),
       })),
       financialCoverage: {
-        status: "UNAVAILABLE" as const,
-        reason:
-          "Financial coverage must be read through the reported-only live-view repository.",
+        status: "AVAILABLE" as const,
+        financialEntityCount: financialPublication.financialEntityCount,
+        statementCount: financialPublication.statementCount,
+        companyStatementCount: financialPublication.companyStatementCount,
+        consolidatedStatementCount:
+          financialPublication.consolidatedStatementCount,
+        metricCount: financialPublication.metricCount,
+        sourceStatementCount: financialPublication.sourceStatementCount,
+        excludedStatementCount: financialPublication.excludedStatementCount,
+        excludedEntityCount: financialPublication.excludedEntityCount,
       },
     },
     filters: query,
@@ -142,6 +153,127 @@ export async function getPublishedCompanyMapCoverage(
       groupBuildId: publication.build.groupBuildId,
       groupTaxYear: publication.build.groupTaxYear,
       financialDatasetVersion: publication.build.financialDatasetVersion,
+    },
+  };
+}
+
+type CompanyMapCompanyRow = {
+  orgNumber: string;
+  name: string;
+  organisationForm: string | null;
+  employeeCount: number | null;
+  municipality: string | null;
+  latitude: Prisma.Decimal;
+  longitude: Prisma.Decimal;
+  groupRootOrgNumber: string | null;
+  groupRootName: string | null;
+  fiscalYear: number | null;
+  currency: string | null;
+  revenue: bigint | null;
+  ebit: bigint | null;
+  preTaxProfit: bigint | null;
+  netIncome: bigint | null;
+  equity: bigint | null;
+  totalAssets: bigint | null;
+};
+
+function bigintString(value: bigint | null) {
+  return value === null ? null : value.toString();
+}
+
+export async function getPublishedCompanyMapCompanies(
+  query: CompanyMapCompaniesQuery,
+) {
+  const { publication } = await getPublication();
+  const filters = filterExpression(query);
+  const [rows, [totals]] = await Promise.all([
+    prisma.$queryRaw<CompanyMapCompanyRow[]>(Prisma.sql`
+      SELECT
+        entity."orgNumber",
+        entity."name",
+        entity."organisationForm",
+        entity."employeeCount",
+        entity."municipality",
+        entity."latitude",
+        entity."longitude",
+        entity."groupRootOrgNumber",
+        entity."groupRootName",
+        financial."fiscalYear",
+        financial."currency",
+        financial."revenue",
+        financial."ebit",
+        financial."preTaxProfit",
+        financial."netIncome",
+        financial."equity",
+        financial."totalAssets"
+      FROM "CompanyMapEntitySnapshot" entity
+      LEFT JOIN "CompanyMapFinancialSnapshot" financial
+        ON financial."buildId" = entity."buildId"
+        AND financial."orgNumber" = entity."orgNumber"
+        AND financial."statementScope" = ${query.statementScope}::"StatementScope"
+        AND financial."currency" = ${query.currency}
+      WHERE entity."buildId" = ${publication.buildId}::uuid
+        AND entity."resolutionStatus" = 'MATCHED'
+        AND ${filters}
+      ORDER BY financial."revenue" DESC NULLS LAST, entity."name" ASC, entity."orgNumber" ASC
+      LIMIT ${query.limit}
+      OFFSET ${query.offset}
+    `),
+    prisma.$queryRaw<Array<{ total: bigint; withRevenue: bigint }>>(Prisma.sql`
+      SELECT
+        count(*)::bigint AS "total",
+        count(financial."revenue")::bigint AS "withRevenue"
+      FROM "CompanyMapEntitySnapshot" entity
+      LEFT JOIN "CompanyMapFinancialSnapshot" financial
+        ON financial."buildId" = entity."buildId"
+        AND financial."orgNumber" = entity."orgNumber"
+        AND financial."statementScope" = ${query.statementScope}::"StatementScope"
+        AND financial."currency" = ${query.currency}
+      WHERE entity."buildId" = ${publication.buildId}::uuid
+        AND entity."resolutionStatus" = 'MATCHED'
+        AND ${filters}
+    `),
+  ]);
+
+  return {
+    companies: rows.map((row) => ({
+      orgNumber: row.orgNumber,
+      name: row.name,
+      organisationForm: row.organisationForm,
+      employeeCount: row.employeeCount,
+      municipality: row.municipality,
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+      groupRootOrgNumber: row.groupRootOrgNumber,
+      groupRootName: row.groupRootName,
+      groupLabel: row.groupRootName
+        ? formatCompanyMapGroupLabel(row.groupRootName)
+        : null,
+      statementScope: query.statementScope,
+      fiscalYear: row.fiscalYear,
+      currency: row.currency,
+      revenue: bigintString(row.revenue),
+      ebit: bigintString(row.ebit),
+      preTaxProfit: bigintString(row.preTaxProfit),
+      netIncome: bigintString(row.netIncome),
+      equity: bigintString(row.equity),
+      totalAssets: bigintString(row.totalAssets),
+      profileHref: `/companies/${row.orgNumber}`,
+    })),
+    page: {
+      total: Number(totals?.total ?? 0n),
+      withRevenue: Number(totals?.withRevenue ?? 0n),
+      limit: query.limit,
+      offset: query.offset,
+      hasMore: query.offset + rows.length < Number(totals?.total ?? 0n),
+    },
+    filters: query,
+    provenance: {
+      buildId: publication.buildId,
+      financialDatasetVersion: publication.build.financialDatasetVersion,
+      groupBuildId: publication.build.groupBuildId,
+      groupTaxYear: publication.build.groupTaxYear,
+      publishedAt: publication.publishedAt,
     },
   };
 }

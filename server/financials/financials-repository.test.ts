@@ -96,6 +96,9 @@ describe("FinancialsRepository", () => {
           ],
         };
       },
+      async readLatestReportedCompanyMetrics() {
+        return { financialDatasetVersion: "reported:14", statements: [] };
+      },
     });
 
     const statements = await repository.listCompanyStatements("company-1");
@@ -106,5 +109,68 @@ describe("FinancialsRepository", () => {
       "reported",
       "synthetic",
     ]);
+  });
+
+  it("returns one latest reported metric row per company and scope", async () => {
+    const repository = createFinancialsRepository({
+      async readCompanyFinancials() {
+        return { statements: [], lines: [] };
+      },
+      async readLatestReportedCompanyMetrics() {
+        return {
+          financialDatasetVersion: "reported:14",
+          statements: [
+            {
+              companyId: "company-1",
+              orgNumber: "999999999",
+              fiscalYear: 2025,
+              statementScope: "COMPANY",
+              currency: "NOK",
+              unitScale: 1,
+              revenue: 1_000n,
+              ebit: 100n,
+              preTaxProfit: 90n,
+              netIncome: 70n,
+              equity: 400n,
+              totalAssets: 800n,
+              financialDatasetVersion: "reported:14",
+              valueOrigin: "reported",
+            },
+            {
+              companyId: "company-1",
+              orgNumber: "999999999",
+              fiscalYear: 2024,
+              statementScope: "CONSOLIDATED",
+              currency: "NOK",
+              unitScale: 1,
+              revenue: 2_000n,
+              ebit: 250n,
+              preTaxProfit: 225n,
+              netIncome: 175n,
+              equity: 700n,
+              totalAssets: 1_400n,
+              financialDatasetVersion: "reported:14",
+              valueOrigin: "reported",
+            },
+          ],
+        };
+      },
+    });
+
+    await expect(repository.listLatestReportedCompanyMetrics()).resolves.toEqual({
+      financialDatasetVersion: "reported:14",
+      statements: expect.arrayContaining([
+        expect.objectContaining({
+          orgNumber: "999999999",
+          statementScope: "COMPANY",
+          preTaxProfit: 90n,
+        }),
+        expect.objectContaining({
+          orgNumber: "999999999",
+          statementScope: "CONSOLIDATED",
+          revenue: 2_000n,
+        }),
+      ]),
+    });
   });
 });

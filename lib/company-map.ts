@@ -67,3 +67,26 @@ export const companyMapCoverageQuerySchema = z.preprocess(
 export type CompanyMapCoverageQuery = z.infer<
   typeof companyMapCoverageQuerySchema
 >;
+
+export const companyMapCompaniesQuerySchema = z.preprocess(
+  (value) =>
+    value instanceof URLSearchParams
+      ? Object.fromEntries(value.entries())
+      : value,
+  z.object({
+    organisationForms: organisationFormsSchema,
+    companyStatuses: companyStatusesSchema,
+    statementScope: z.enum(["COMPANY", "CONSOLIDATED"]).default("COMPANY"),
+    currency: z
+      .string()
+      .default("NOK")
+      .transform((value) => value.trim().toUpperCase())
+      .pipe(z.string().regex(/^[A-Z]{3}$/)),
+    limit: z.coerce.number().int().min(1).max(500).default(100),
+    offset: z.coerce.number().int().min(0).max(100_000).default(0),
+  }),
+);
+
+export type CompanyMapCompaniesQuery = z.infer<
+  typeof companyMapCompaniesQuerySchema
+>;
