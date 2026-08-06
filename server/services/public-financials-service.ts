@@ -1,4 +1,5 @@
 import env from "@/lib/env";
+import { getHeadlineFinancialStatements } from "@/lib/financial-statements";
 import type {
   DataAvailability,
   NormalizedFinancialDocument,
@@ -86,18 +87,16 @@ export function applyPublicFinancialSourcePolicy(
   const allScopeStatements = financials.allScopeStatements
     .filter(isStructuredBrregStatement)
     .map(normalizePublicStructuredStatement);
-  const allowedKeys = new Set(
-    allScopeStatements.map(
-      (statement) => `${statement.fiscalYear}:${statement.statementScope ?? "COMPANY"}`,
-    ),
-  );
-  const statements = financials.statements
-    .filter(
-      (statement) =>
-        isStructuredBrregStatement(statement) &&
-        allowedKeys.has(`${statement.fiscalYear}:${statement.statementScope ?? "COMPANY"}`),
-    )
-    .map(normalizePublicStructuredStatement);
+
+  // Pick the headline year AFTER filtering to approved sources, not before.
+  // `financials.statements` is already deduped to one statement per year with
+  // consolidated preferred, so for a company holding both a non-Brreg
+  // consolidated statement and a Brreg company statement for the same year, the
+  // non-Brreg row won the year and was then removed here — leaving an empty
+  // result and an "ikke tilgjengelig" message for a company whose official
+  // Brreg figures we actually had. Deduping the filtered set instead keeps the
+  // Brreg row, and still prefers consolidated when Brreg supplies both scopes.
+  const statements = getHeadlineFinancialStatements(allScopeStatements);
   const available = statements.length > 0;
   const latestSource = [...statements].sort(
     (left, right) => right.fetchedAt.getTime() - left.fetchedAt.getTime(),

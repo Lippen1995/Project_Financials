@@ -226,12 +226,18 @@ async function updateImportRecord(
   await runPsql(`UPDATE "ShareholderRegisterImport" SET ${sets.join(", ")} WHERE "id" = ${sqlLiteral(importId)};`);
 }
 
-async function deleteExistingYear(taxYear: number, keepImportId?: string | null) {
+async function clearImportRowsForRetry(importId: string) {
   await runPsql(`
-    DELETE FROM "ShareholderRegisterImport"
-    WHERE "taxYear" = ${taxYear}
-      AND "sourceSystem" = 'SKATTEETATEN_CSV'
-      ${keepImportId ? `AND "id" <> ${sqlLiteral(keepImportId)}` : ""};
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM "GroupRelationshipPublication"
+        WHERE "sourceImportId" = ${sqlLiteral(importId)}
+      ) THEN
+        RAISE EXCEPTION 'Cannot replace shareholder import % while it backs a published group snapshot', ${sqlLiteral(importId)};
+      END IF;
+      DELETE FROM "ShareholderRegisterHolding" WHERE "importId" = ${sqlLiteral(importId)};
+    END $$;
   `);
 }
 
@@ -487,8 +493,8 @@ async function importCsv(input: {
     errorRows: 0,
   };
 
-  if (input.truncateYear) {
-    await deleteExistingYear(input.taxYear, input.importId);
+  if (input.truncateYear && input.importId) {
+    await clearImportRowsForRetry(input.importId);
   }
   if (!input.importId) {
     await createImportRecord({

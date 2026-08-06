@@ -25,7 +25,11 @@ function logResult(result: OwnershipEdgeBuildResult) {
     `${result.taxYear}: ${result.edgeCount.toLocaleString("nb-NO")} kanter ` +
       `(${result.subsidiaryCount.toLocaleString("nb-NO")} datter, ` +
       `${result.associatedCount.toLocaleString("nb-NO")} tilknyttet, ` +
-      `${result.minorityCount.toLocaleString("nb-NO")} minoritet)`,
+      `${result.minorityCount.toLocaleString("nb-NO")} minoritet); ` +
+      `${result.semanticSnapshot.financialPositionCount.toLocaleString("nb-NO")} ` +
+      `offentlige finansielle posisjoner og ` +
+      `${result.semanticSnapshot.membershipCount.toLocaleString("nb-NO")} ` +
+      `gruppemedlemskap i publisert semantisk snapshot`,
   );
 }
 

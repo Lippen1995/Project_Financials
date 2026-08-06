@@ -413,6 +413,27 @@ enum OwnershipRelationship {
   MINORITY
 }
 
+enum GroupOwnerCategory {
+  PUBLIC_NON_COMMERCIAL
+  OTHER_ORGANISATION
+  UNKNOWN
+}
+
+enum GroupRelationshipKind {
+  GROUP_SUBSIDIARY
+  GROUP_ASSOCIATE
+  FINANCIAL_POSITION
+  MINORITY_POSITION
+  UNKNOWN
+  CONFLICT
+}
+
+enum GroupMembershipStatus {
+  RESOLVED
+  UNKNOWN
+  CONFLICT
+}
+
 enum PetroleumEntityType {
   FIELD
   DISCOVERY
@@ -971,34 +992,37 @@ enum ChainMatchMethod {
 /// company-name matching in search silently.
 /// Verified by `npm run db:check-migrations`.
 model RegistryEntity {
-  id                 String        @id @default(cuid())
-  orgNumber          String        @unique
-  name               String
-  organisationForm   String?
-  naceCode           String?
-  naceDescription    String?
-  status             CompanyStatus @default(ACTIVE)
-  employeeCount      Int?
-  registeredAt       DateTime?
-  website            String?
-  addressStreet      String?
-  postalCode         String?
-  postalPlace        String?
-  municipality       String?
-  municipalityNumber String?
-  countryCode        String?
-  registerUpdatedAt  DateTime?
-  sourceSnapshotAt   DateTime      @default(now())
-  sourceSystem       String
-  sourceEntityType   String
-  sourceId           String
-  fetchedAt          DateTime
-  normalizedAt       DateTime
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  id                             String        @id @default(cuid())
+  orgNumber                      String        @unique
+  name                           String
+  organisationForm               String?
+  institutionalSectorCode        String?
+  institutionalSectorDescription String?
+  naceCode                       String?
+  naceDescription                String?
+  status                         CompanyStatus @default(ACTIVE)
+  employeeCount                  Int?
+  registeredAt                   DateTime?
+  website                        String?
+  addressStreet                  String?
+  postalCode                     String?
+  postalPlace                    String?
+  municipality                   String?
+  municipalityNumber             String?
+  countryCode                    String?
+  registerUpdatedAt              DateTime?
+  sourceSnapshotAt               DateTime      @default(now())
+  sourceSystem                   String
+  sourceEntityType               String
+  sourceId                       String
+  fetchedAt                      DateTime
+  normalizedAt                   DateTime
+  createdAt                      DateTime      @default(now())
+  updatedAt                      DateTime      @updatedAt
 
   @@index([name])
   @@index([naceCode])
+  @@index([institutionalSectorCode])
   @@index([status])
   @@index([municipalityNumber])
 }
@@ -3239,12 +3263,99 @@ model OwnershipEdge {
   totalIssuerShares BigInt?
   ownershipPercent  Decimal?              @db.Decimal(9, 6) // aggregatedShares / totalIssuerShares * 100
   relationship      OwnershipRelationship
+  sourceImportId    String?
   builtAt           DateTime              @default(now())
 
   @@id([taxYear, issuerOrgNumber, ownerOrgNumber])
   @@index([taxYear, ownerOrgNumber]) // downward traversal: what does X own
   @@index([taxYear, issuerOrgNumber]) // upward traversal: who owns X
   @@index([taxYear, ownerOrgNumber, relationship])
+}
+
+/// Immutable, versioned semantic projection of an OwnershipEdge. The percentage-only edge
+/// remains intact; this projection applies product rules such as the public-owner boundary.
+/// A build becomes visible only when GroupRelationshipPublication points to its buildId.
+model GroupRelationshipSnapshot {
+  buildId                        String                @db.Uuid
+  taxYear                        Int
+  issuerOrgNumber                String                @db.VarChar(9)
+  ownerOrgNumber                 String                @db.VarChar(9)
+  issuerName                     String
+  ownerName                      String
+  ownershipPercent               Decimal?              @db.Decimal(9, 6)
+  ownershipBand                  OwnershipRelationship
+  relationship                   GroupRelationshipKind
+  ownerCategory                  GroupOwnerCategory
+  reasonCode                     String
+  ruleVersion                    String
+  sourceSystem                   String
+  sourceEntityType               String
+  sourceId                       String
+  fetchedAt                      DateTime
+  normalizedAt                   DateTime
+  ownerMetadataSourceSystem      String?
+  ownerMetadataSourceEntityType  String?
+  ownerMetadataSourceId          String?
+  ownerMetadataFetchedAt         DateTime?
+  ownerMetadataNormalizedAt      DateTime?
+  issuerMetadataSourceSystem     String?
+  issuerMetadataSourceEntityType String?
+  issuerMetadataSourceId         String?
+  issuerMetadataFetchedAt        DateTime?
+  issuerMetadataNormalizedAt     DateTime?
+  builtAt                        DateTime              @default(now())
+
+  @@id([buildId, taxYear, issuerOrgNumber, ownerOrgNumber])
+  @@index([buildId, taxYear, issuerOrgNumber, relationship], map: "grp_rel_by_issuer")
+  @@index([buildId, taxYear, ownerOrgNumber, relationship], map: "grp_rel_by_owner")
+  @@index([taxYear, relationship])
+}
+
+/// Atomic publication pointer for the latest finalized semantic relationship build per tax year.
+model GroupRelationshipPublication {
+  taxYear                Int                              @id
+  buildId                String                           @unique @db.Uuid
+  ruleVersion            String
+  sourceImportStatus     ShareholderRegisterImportStatus?
+  sourceImportId         String
+  relationshipCount      Int
+  membershipCount        Int
+  financialPositionCount Int
+  classificationSourceSystem    String
+  classificationSourceVersion   String
+  classificationSourceReference String
+  sourceSystem           String
+  sourceEntityType       String
+  sourceId               String
+  fetchedAt              DateTime
+  normalizedAt           DateTime
+  publishedAt            DateTime                         @default(now())
+}
+
+/// Materialized lookup of the commercial group root for every company participating in a
+/// resolved control chain. Public financial positions are deliberately excluded from the chain.
+/// Conflicted companies are retained with status CONFLICT so consumers fail closed.
+model GroupMembershipSnapshot {
+  buildId               String                @db.Uuid
+  taxYear               Int
+  memberOrgNumber       String                @db.VarChar(9)
+  directParentOrgNumber String?               @db.VarChar(9)
+  groupRootOrgNumber    String                @db.VarChar(9)
+  depth                 Int
+  path                  String[]
+  status                GroupMembershipStatus
+  ruleVersion           String
+  ownershipAsOf         DateTime
+  sourceSystem          String
+  sourceEntityType      String
+  sourceId              String
+  fetchedAt             DateTime
+  normalizedAt          DateTime
+  builtAt               DateTime              @default(now())
+
+  @@id([buildId, taxYear, memberOrgNumber])
+  @@index([buildId, taxYear, groupRootOrgNumber], map: "grp_member_by_root")
+  @@index([taxYear, memberOrgNumber])
 }
 
 model Account {

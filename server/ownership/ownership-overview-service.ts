@@ -1,11 +1,69 @@
 import { prisma } from "@/lib/prisma";
-import {
-  getGroupStructure,
-  getOwnershipAvailableYears,
-} from "@/server/ownership/group-structure-service";
+import { getGroupStructure } from "@/server/ownership/group-structure-service";
 import { classifyRelationship, type OwnershipRelationship } from "@/server/ownership/ownership-thresholds";
 import type { GroupStructure } from "@/server/ownership/types";
 import type { CompanyProfile, DataAvailability, NormalizedCompany } from "@/lib/types";
+
+async function getRegisterHoldingAvailableYears(): Promise<number[]> {
+  const rows = await prisma.$queryRaw<Array<{ taxYear: number }>>`
+    SELECT DISTINCT import."taxYear"
+    FROM "ShareholderRegisterImport" import
+    WHERE import."status" IN ('COMPLETED', 'PARTIAL')
+      AND EXISTS (
+        SELECT 1 FROM "ShareholderRegisterHolding" holding
+        WHERE holding."importId" = import."id"
+      )
+    ORDER BY import."taxYear" DESC
+  `;
+  return rows.map((row) => row.taxYear);
+}
+
+async function getOwnershipSourceForYear(
+  taxYear: number,
+): Promise<{
+  importId: string;
+  status: "COMPLETED" | "PARTIAL";
+  hasGroupPublication: boolean;
+} | null> {
+  const publication = await prisma.groupRelationshipPublication.findFirst({
+    where: { taxYear, sourceImportStatus: "COMPLETED" },
+    select: { sourceImportId: true },
+  });
+  if (publication) {
+    const publishedImport = await prisma.shareholderRegisterImport.findFirst({
+      where: {
+        id: publication.sourceImportId,
+        status: "COMPLETED",
+        holdings: { some: {} },
+      },
+      select: { id: true },
+    });
+    if (publishedImport) {
+      return {
+        importId: publishedImport.id,
+        status: "COMPLETED",
+        hasGroupPublication: true,
+      };
+    }
+  }
+  const sourceImport = await prisma.shareholderRegisterImport.findFirst({
+    where: {
+      taxYear,
+      status: { in: ["COMPLETED", "PARTIAL"] },
+      holdings: { some: {} },
+    },
+    orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+    select: { id: true, status: true },
+  });
+  if (!sourceImport || (sourceImport.status !== "COMPLETED" && sourceImport.status !== "PARTIAL")) {
+    return null;
+  }
+  return {
+    importId: sourceImport.id,
+    status: sourceImport.status,
+    hasGroupPublication: false,
+  };
+}
 
 /** A company profile shaped like getCompanyProfile's result, for the company page. */
 export type RegisterBackedProfile = CompanyProfile & { companyDbId: string | null };
@@ -26,7 +84,7 @@ export type CompanyHolding = {
   name: string;
   shares: string;
   ownershipPercent: number | null;
-  relationship: OwnershipRelationship;
+  relationship: OwnershipRelationship | "FINANCIAL_POSITION";
 };
 
 export type OwnershipOverview = {
@@ -34,6 +92,7 @@ export type OwnershipOverview = {
   companyName: string;
   year: number | null;
   availableYears: number[];
+  sourceImportStatus: "COMPLETED" | "PARTIAL" | null;
   group: GroupStructure | null;
   directShareholders: DirectShareholder[];
   holdings: CompanyHolding[];
@@ -127,7 +186,11 @@ export async function getRegisterBackedCompanyProfile(
  * Direct shareholders of a company, aggregated across share classes so each
  * person/company appears once with a correct total ownership percentage.
  */
-async function getDirectShareholders(orgNumber: string, year: number): Promise<DirectShareholder[]> {
+async function getDirectShareholders(
+  orgNumber: string,
+  year: number,
+  importId: string,
+): Promise<DirectShareholder[]> {
   const rows = await prisma.$queryRaw<
     Array<{
       type: string;
@@ -154,7 +217,9 @@ async function getDirectShareholders(orgNumber: string, year: number): Promise<D
         ELSE round(least(sum("numberOfShares")::numeric * 100 / max("totalCompanyShares")::numeric, 100), 4)::float8
       END AS "ownershipPercent"
     FROM "ShareholderRegisterHolding"
-    WHERE "taxYear" = ${year} AND "issuerOrgNumber" = ${orgNumber}
+    WHERE "taxYear" = ${year}
+      AND "importId" = ${importId}
+      AND "issuerOrgNumber" = ${orgNumber}
     GROUP BY
       "shareholderType",
       "shareholderOrgNumber",
@@ -177,22 +242,44 @@ async function getDirectShareholders(orgNumber: string, year: number): Promise<D
 }
 
 /** Companies this company holds shares in, aggregated across share classes. */
-async function getDirectHoldings(orgNumber: string, year: number): Promise<CompanyHolding[]> {
+async function getDirectHoldings(
+  orgNumber: string,
+  year: number,
+  importId: string,
+): Promise<CompanyHolding[]> {
   const rows = await prisma.$queryRaw<
-    Array<{ orgNumber: string; name: string; shares: bigint; ownershipPercent: number | null }>
+    Array<{
+      orgNumber: string;
+      name: string;
+      shares: bigint;
+      ownershipPercent: number | null;
+      semanticRelationship: string | null;
+    }>
   >`
     SELECT
-      "issuerOrgNumber" AS "orgNumber",
-      max("issuerName") AS "name",
-      sum("numberOfShares")::bigint AS "shares",
+      holding."issuerOrgNumber" AS "orgNumber",
+      max(holding."issuerName") AS "name",
+      sum(holding."numberOfShares")::bigint AS "shares",
       CASE
-        WHEN max("totalCompanyShares") IS NULL OR max("totalCompanyShares") = 0 THEN NULL
-        WHEN sum("numberOfShares")::numeric * 100 / max("totalCompanyShares")::numeric > 150 THEN NULL
-        ELSE round(least(sum("numberOfShares")::numeric * 100 / max("totalCompanyShares")::numeric, 100), 4)::float8
-      END AS "ownershipPercent"
-    FROM "ShareholderRegisterHolding"
-    WHERE "taxYear" = ${year} AND "shareholderOrgNumber" = ${orgNumber}
-    GROUP BY "issuerOrgNumber"
+        WHEN max(holding."totalCompanyShares") IS NULL OR max(holding."totalCompanyShares") = 0 THEN NULL
+        WHEN sum(holding."numberOfShares")::numeric * 100 / max(holding."totalCompanyShares")::numeric > 150 THEN NULL
+        ELSE round(least(sum(holding."numberOfShares")::numeric * 100 / max(holding."totalCompanyShares")::numeric, 100), 4)::float8
+      END AS "ownershipPercent",
+      max(semantic."relationship"::text) AS "semanticRelationship"
+    FROM "ShareholderRegisterHolding" holding
+    LEFT JOIN "GroupRelationshipPublication" publication
+      ON publication."taxYear" = holding."taxYear"
+     AND publication."sourceImportStatus" = 'COMPLETED'
+     AND publication."sourceImportId" = holding."importId"
+    LEFT JOIN "GroupRelationshipSnapshot" semantic
+      ON semantic."buildId" = publication."buildId"
+     AND semantic."taxYear" = holding."taxYear"
+     AND semantic."issuerOrgNumber" = holding."issuerOrgNumber"
+     AND semantic."ownerOrgNumber" = holding."shareholderOrgNumber"
+    WHERE holding."taxYear" = ${year}
+      AND holding."importId" = ${importId}
+      AND holding."shareholderOrgNumber" = ${orgNumber}
+    GROUP BY holding."issuerOrgNumber"
     ORDER BY "ownershipPercent" DESC NULLS LAST, "shares" DESC
     LIMIT ${LIST_LIMIT}
   `;
@@ -202,7 +289,10 @@ async function getDirectHoldings(orgNumber: string, year: number): Promise<Compa
     name: row.name,
     shares: row.shares.toString(),
     ownershipPercent: row.ownershipPercent,
-    relationship: classifyRelationship(row.ownershipPercent),
+    relationship:
+      row.semanticRelationship === "FINANCIAL_POSITION"
+        ? "FINANCIAL_POSITION"
+        : classifyRelationship(row.ownershipPercent),
   }));
 }
 
@@ -216,8 +306,12 @@ export async function getCompanyOwnershipOverview(params: {
   requestedYear?: number;
 }): Promise<OwnershipOverview> {
   const { orgNumber } = params;
-  const availableYears = await getOwnershipAvailableYears();
-  const year = params.requestedYear ?? availableYears[0] ?? null;
+  // Raw holdings remain useful evidence even when no complete semantic group publication exists.
+  const availableYears = await getRegisterHoldingAvailableYears();
+  const year =
+    params.requestedYear !== undefined && availableYears.includes(params.requestedYear)
+      ? params.requestedYear
+      : availableYears[0] ?? null;
   const companyName =
     params.companyName ?? (await resolveCompanyNameFromRegister(orgNumber)) ?? orgNumber;
 
@@ -227,6 +321,7 @@ export async function getCompanyOwnershipOverview(params: {
       companyName,
       year: null,
       availableYears,
+      sourceImportStatus: null,
       group: null,
       directShareholders: [],
       holdings: [],
@@ -235,20 +330,38 @@ export async function getCompanyOwnershipOverview(params: {
     };
   }
 
+  const source = await getOwnershipSourceForYear(year);
+  if (!source) {
+    return {
+      orgNumber,
+      companyName,
+      year: null,
+      availableYears,
+      sourceImportStatus: null,
+      group: null,
+      directShareholders: [],
+      holdings: [],
+      availabilityMessage: "Ingen sporbar aksjonærregisterimport er tilgjengelig for valgt år.",
+    };
+  }
+
   const [group, directShareholders, holdings] = await Promise.all([
-    getGroupStructure({ orgNumber, year, currentName: companyName }),
-    getDirectShareholders(orgNumber, year),
-    getDirectHoldings(orgNumber, year),
+    source.hasGroupPublication
+      ? getGroupStructure({ orgNumber, year, currentName: companyName })
+      : Promise.resolve(null),
+    getDirectShareholders(orgNumber, year, source.importId),
+    getDirectHoldings(orgNumber, year, source.importId),
   ]);
 
   const hasAnyData =
-    group.nodes.length > 1 || directShareholders.length > 0 || holdings.length > 0;
+    (group?.nodes.length ?? 0) > 1 || directShareholders.length > 0 || holdings.length > 0;
 
   return {
     orgNumber,
     companyName,
     year,
     availableYears,
+    sourceImportStatus: source.status,
     group,
     directShareholders,
     holdings,

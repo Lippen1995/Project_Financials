@@ -137,6 +137,62 @@ describe("public financial source policy", () => {
     expect(result.availability.message).toContain("PDF og OCR brukes ikke som fallback");
   });
 
+  it("keeps the Brreg statement when a non-Brreg consolidated row shares the year", () => {
+    // getHeadlineFinancialStatements picks one statement per year and prefers
+    // CONSOLIDATED. A company with an outside consolidated statement and a Brreg
+    // company statement for the same year therefore had the outside row win the
+    // year, only to be filtered out here — reporting "not available" for a
+    // company whose official Brreg figures we held. Hit four real companies,
+    // among them NORGESGRUPPEN, REITAN and REACH SUBSEA.
+    const brregCompany = sourceRecord("structuredAnnualAccounts", 2024);
+    brregCompany.rawPayload = { canonicalValues: { total_assets: 881938000 } };
+    const outsideConsolidated = sourceRecord("annualReportConsolidatedFinancialStatement", 2024);
+    outsideConsolidated.statementScope = "CONSOLIDATED";
+    outsideConsolidated.sourceSystem = "REACH_SUBSEA_IR";
+
+    const result = applyPublicFinancialSourcePolicy(
+      {
+        // Mirrors the reader: `statements` is already deduped with the
+        // consolidated row winning 2024.
+        statements: [outsideConsolidated],
+        allScopeStatements: [outsideConsolidated, brregCompany],
+        lineItems: [],
+        documents: [],
+        availability: { available: true, sourceSystem: "BRREG" },
+      },
+      true,
+    );
+
+    expect(result.availability.available).toBe(true);
+    expect(result.statements).toHaveLength(1);
+    expect(result.statements[0]).toMatchObject({
+      fiscalYear: 2024,
+      statementScope: "COMPANY",
+      sourceEntityType: "structuredAnnualAccounts",
+    });
+  });
+
+  it("still prefers consolidated when Brreg supplies both scopes for a year", () => {
+    const company = sourceRecord("structuredAnnualAccounts", 2024);
+    const consolidated = sourceRecord("structuredAnnualAccounts", 2024);
+    consolidated.statementScope = "CONSOLIDATED";
+
+    const result = applyPublicFinancialSourcePolicy(
+      {
+        statements: [consolidated],
+        allScopeStatements: [company, consolidated],
+        lineItems: [],
+        documents: [],
+        availability: { available: true, sourceSystem: "BRREG" },
+      },
+      true,
+    );
+
+    expect(result.statements).toHaveLength(1);
+    expect(result.statements[0]?.statementScope).toBe("CONSOLIDATED");
+    expect(result.allScopeStatements).toHaveLength(2);
+  });
+
   it("returns an honest unavailable state when only extracted statements exist", () => {
     const extracted = sourceRecord("annualReportFinancialStatement", 2024);
     const result = applyPublicFinancialSourcePolicy(

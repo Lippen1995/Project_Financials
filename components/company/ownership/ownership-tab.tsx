@@ -43,7 +43,7 @@ function findParent(groupNodes: GroupNode[], node: GroupNode | null) {
 
 function buildSummary(overview: OwnershipOverview) {
   const group = overview.group;
-  if (!group) return null;
+  if (!group || group.membershipStatus !== "RESOLVED") return null;
 
   const currentNode = group.nodes.find((node) => node.orgNumber === group.currentOrgNumber) ?? null;
   const parent = findParent(group.nodes, currentNode);
@@ -240,8 +240,8 @@ function FinancialPositions({
         <div>
           <h3 className="text-lg font-semibold text-[var(--px-text)]">Finansielle posisjoner</h3>
           <p className="mt-1 text-sm leading-6 text-[var(--px-muted)]">
-            Aksjeposter under 20 % vises som finansielle posisjoner, ikke som konsern- eller
-            tilknyttet selskapsstruktur.
+            Aksjeposter under 20 %, og offentlige eierposter i AS/ASA uansett eierandel, vises som
+            finansielle posisjoner. De inngår ikke i konsern- eller tilknyttet selskapsstruktur.
           </p>
         </div>
         {positions.length > 0 ? (
@@ -302,7 +302,7 @@ function FinancialPositions({
         </div>
       ) : (
         <p className="rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] px-4 py-3 text-sm leading-6 text-[var(--px-muted)]">
-          Ingen finansielle posisjoner under 20 % er registrert for valgt år.
+          Ingen finansielle posisjoner er registrert for valgt år.
         </p>
       )}
 
@@ -365,11 +365,16 @@ export function OwnershipTab({ slug, initial }: { slug: string; initial: Ownersh
   const financialPositions = useMemo(
     () =>
       overview.holdings
-        .filter((holding) => holding.relationship === "MINORITY")
+        .filter(
+          (holding) =>
+            holding.relationship === "MINORITY" || holding.relationship === "FINANCIAL_POSITION",
+        )
         .sort((left, right) => (right.ownershipPercent ?? -1) - (left.ownershipPercent ?? -1)),
     [overview.holdings],
   );
-  const hasGroupStructure = Boolean(overview.group && overview.group.nodes.length > 1);
+  const hasGroupStructure = Boolean(
+    overview.group?.membershipStatus === "RESOLVED" && overview.group.nodes.length > 1,
+  );
 
   return (
     <div className="space-y-5">
@@ -389,10 +394,23 @@ export function OwnershipTab({ slug, initial }: { slug: string; initial: Ownersh
                 {summary.subsidiaries} datterselskaper · {summary.associated} tilknyttede selskaper ·{" "}
                 {summary.dissolved} oppløste selskaper
               </p>
+              {overview.year !== null ? (
+                <p>Eierskapsstruktur per 31. desember {overview.year}.</p>
+              ) : null}
+              {overview.sourceImportStatus === "PARTIAL" ? (
+                <p>
+                  Kildeimporten er delvis: ugyldige kilderader er utelatt og kan gi manglende
+                  relasjoner.
+                </p>
+              ) : null}
             </div>
           ) : (
             <p className="mt-3 text-sm leading-6 text-[var(--px-muted)]">
-              Konsernstruktur vises når aksjonærregisteret og eierskapskanter er tilgjengelige.
+              {overview.group?.membershipStatus === "CONFLICT"
+                ? "Konserntilhørighet vises ikke fordi eierskapskildene gir en motstridende kontrollkjede."
+                : overview.group?.membershipStatus === "UNKNOWN"
+                  ? "Konserntilhørighet vises ikke fordi den kontrollerende eierkjeden er ufullstendig."
+                  : "Konsernstruktur vises når en komplett aksjonærregisterimport og publisert gruppestruktur er tilgjengelig."}
             </p>
           )}
         </div>

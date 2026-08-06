@@ -41,3 +41,48 @@ en fullstendig eller automatisk betalingsanmerkning.
 
 Tidsperioden, domstolene, instansene og sakstypene en kilde faktisk er kontrollert for.
 «Ingen treff i dekningsvinduet» betyr ikke «virksomheten har aldri hatt en rettssak».
+
+## Selskapskart
+
+**Juridisk enhetspunkt**:
+Én registrert juridisk enhet, identifisert med organisasjonsnummer, vist som en selvstendig
+observasjon i selskapskartet. Enheten forblir selvstendig selv om den inngår i et konsern.
+_Unngå_: Lokasjonspunkt, konsernpunkt
+
+**Konserntilhørighetsmerking**:
+Merket «Part of the [ultimate business-group parent name] Group», som opplyser at den juridiske
+enheten inngår i et eierskapsavledet konsern i et navngitt årssnapshot. Merkingen endrer ikke
+regnskapstallenes selskapsomfang og er bare fullstendig sammen med eierskapstidspunktet.
+_Unngå_: Konsernregnskap, konserntall
+
+**Øverste forretningsmessige konsernforelder**:
+Den øverste juridiske enheten innenfor et anerkjent kommersielt konsern. Begrepet følger ikke
+eierkjeden videre til en stat, et departement eller en annen eier utenfor konserngrensen.
+_Unngå_: Øverste aksjonær, øverste eier
+
+**Eierskapsavledet konsern**:
+Et konsern utledet fra kontrollerende selskapseierskap i et datert aksjonærregister-snapshot.
+Begrepet er ikke synonymt med sanntidseierskap eller et publisert konsernregnskap.
+_Unngå_: Registrert konsern, sanntidskonsern
+
+**Eierskapstidspunkt**:
+Datoen aksjeeierskapet i et snapshot gjelder for, normalt 31. desember i det oppgitte
+inntektsåret. Datoen er ikke tidspunktet dataene ble mottatt eller behandlet.
+_Unngå_: Hentedato, importdato
+
+**Konsernferskhet**:
+Hvor godt konserntilhørigheten støttes av det nyeste komplette eierskapssnapshotet og fravær av
+nyere motstridende offisielle opplysninger. Et nyere importtidspunkt gjør ikke eierskapet nyere.
+_Unngå_: Hentedato, sist oppdatert
+
+**Finansiell eierposisjon**:
+En eierskapspost i et AS eller ASA som beskriver investering eller økonomisk eksponering, men ikke
+konserntilhørighet. Offentlige, ikke-kommersielle eieres selskapsbeholdninger er finansielle
+eierposisjoner uansett eierandel.
+_Unngå_: Datterselskap, tilknyttet selskap
+
+**Offentlig eiergrense**:
+Grensen der en eierskapskjede møter et departement, staten, en kommune, en fylkeskommune eller et
+annet ikke-kommersielt offentlig organ. Eierskap over grensen er finansielle eierposisjoner og
+inngår ikke i konsernet under grensen.
+_Unngå_: Offentlig konsernforelder
