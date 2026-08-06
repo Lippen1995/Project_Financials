@@ -176,7 +176,6 @@ function companyMapLatestFinancialsCtes(
       WHERE statement."statementOrigin" = 'reported'
         AND statement."reportedSourceSystem" = 'BRREG'
         AND statement."statementScope" = ${query.statementScope}::"StatementScope"
-        AND statement."currency" = ${query.currency}
     ),
     pre_tax AS (
       SELECT
@@ -233,6 +232,7 @@ function companyMapLatestFinancialsCtes(
       FROM ranked_statements statement
       LEFT JOIN pre_tax ON pre_tax."liveStatementId" = statement."liveStatementId"
       WHERE statement."scopeRank" = 1
+        AND statement."currency" = ${query.currency}
     )
   `;
 }
