@@ -86,6 +86,16 @@ a {
   @apply transition-colors;
 }
 
+/* Company profile tab strip: arrows replace the scrollbar, and it never scrolls vertically. */
+.company-tabs-scroller {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.company-tabs-scroller::-webkit-scrollbar {
+  display: none;
+}
+
 ::selection {
   background: rgba(49, 73, 95, 0.14);
 }
