@@ -317,9 +317,11 @@ export function createStructuredFinancialsService(dependencies: {
         }
       }
 
-      const fiscalYears = publishableAccounts
-        .map((entry) => entry.fiscalYear)
-        .sort((left, right) => right - left);
+      // Deduped: a parent company yields both a company and a consolidated
+      // statement for the same year, and this list reports years, not rows.
+      const fiscalYears = [
+        ...new Set(publishableAccounts.map((entry) => entry.fiscalYear)),
+      ].sort((left, right) => right - left);
       const available = fiscalYears.length > 0;
       const status: StructuredFinancialFetchStatus = available
         ? "AVAILABLE"

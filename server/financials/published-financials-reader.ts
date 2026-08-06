@@ -224,7 +224,24 @@ export function mapPublishedLineItems(
 /**
  * Prefer an as-reported line-item value over the headline column when the same
  * concept exists in both, so the figure shown matches the filed statement.
+ *
+ * Never applied to a structured Brreg statement. Those values come from the
+ * registry as exact whole-NOK figures — they are already as-reported, so there
+ * is nothing to improve. Line items, by contrast, only ever came from the
+ * PDF/OCR estate, and letting them win silently replaced official figures with
+ * extracted ones on a statement that still declared `sourceSystem: BRREG`.
+ * REITAN's 2024 group revenue showed 111,274,000,000 from a MANUAL_REVIEW line
+ * item while the registry said 112,806,000,000. The public source gate could
+ * not catch it: it checks the statement's provenance, and the provenance was
+ * still Brreg — only the numbers had been swapped.
  */
+function isStructuredBrregStatement(statement: NormalizedFinancialStatement) {
+  return (
+    statement.sourceSystem === "BRREG" &&
+    statement.sourceEntityType === "structuredAnnualAccounts"
+  );
+}
+
 function applyAsReportedHeadlineValues(
   statements: NormalizedFinancialStatement[],
   lineItems: ReturnType<typeof mapPublishedLineItems>,
@@ -244,7 +261,10 @@ function applyAsReportedHeadlineValues(
         item.value !== null,
     )?.value;
 
-  return statements.map((statement) => ({
+  return statements.map((statement) => {
+    if (isStructuredBrregStatement(statement)) return statement;
+
+    return {
     ...statement,
     revenue:
       valueFor(statement, "INCOME_STATEMENT", ["revenue", "total_operating_income"]) ??
@@ -256,7 +276,8 @@ function applyAsReportedHeadlineValues(
       valueFor(statement, "INCOME_STATEMENT", ["net_income"]) ?? statement.netIncome,
     equity: valueFor(statement, "BALANCE_SHEET", ["total_equity"]) ?? statement.equity,
     assets: valueFor(statement, "BALANCE_SHEET", ["total_assets"]) ?? statement.assets,
-  }));
+    };
+  });
 }
 
 function buildPublicAvailability(

@@ -3,8 +3,10 @@ import { fetchJson } from "@/integrations/http";
 import type { NormalizedFinancialDocument, SourceMetadata } from "@/lib/types";
 import { inferStringHashKey } from "@/lib/norwegian-text";
 import {
+  mapStructuredRegnskapEntry,
   parseStructuredRegnskapResponse,
   StructuredAnnualAccounts,
+  type StructuredRegnskapEntry,
 } from "@/integrations/brreg/structured-regnskap";
 import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 
@@ -108,10 +110,86 @@ export class BrregFinancialsProvider {
   }
 
   /**
+   * Fetches the consolidated (konsern) statement that accompanies a parent
+   * company's own accounts.
+   *
+   * The registry holds konsernregnskap, but the collection endpoint does not
+   * serve it: `GET /regnskap/{orgnr}` returns only the SELSKAP record, and its
+   * documented `regnskapstype=KONSERN` parameter is accepted (lowercase is
+   * rejected with HTTP 400) and then ignored — it returns the SELSKAP record
+   * anyway. The konsern record is reachable only through the per-record
+   * endpoint `GET /regnskap/{orgnr}/{id}`, at the id immediately after the
+   * company record.
+   *
+   * That +1 is an inference from the registry's id sequence, not a documented
+   * contract, so every field that could make a wrong record look plausible is
+   * checked: the response must be CONSOLIDATED, for this organisation number,
+   * and for the same fiscal year. Anything else is treated as "no konsern".
+   * A 404 is the normal answer for a parent that files no group accounts.
+   *
+   * Worth knowing: both records share the filing's `journalnr`, so the company
+   * and consolidated statements carry the same `sourceId` and are told apart by
+   * `statementScope`. That is factually right — one filing, two statements —
+   * but it means sourceId alone does not identify a statement.
+   */
+  private async fetchConsolidatedCompanion(
+    orgNumber: string,
+    companyAccounts: StructuredAnnualAccounts,
+  ): Promise<StructuredAnnualAccounts | null> {
+    if (companyAccounts.isParentCompany !== true) return null;
+    if (companyAccounts.sourceEntryId === null) return null;
+    if (companyAccounts.statementScope !== "COMPANY") return null;
+
+    const url = `${env.brregFinancialsBaseUrl}/${orgNumber}/${companyAccounts.sourceEntryId + 1}`;
+
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch {
+      // Never fail the company accounts because the group lookup did.
+      return null;
+    }
+
+    if (!response.ok) return null;
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      return null;
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+
+    const fetchedAt = this.now();
+    const consolidated = mapStructuredRegnskapEntry(payload as StructuredRegnskapEntry, {
+      orgNumber,
+      fetchedAt,
+      normalizedAt: this.now(),
+    });
+    if (!consolidated) return null;
+
+    if (
+      consolidated.statementScope !== "CONSOLIDATED" ||
+      consolidated.fiscalYear !== companyAccounts.fiscalYear
+    ) {
+      return null;
+    }
+
+    return consolidated;
+  }
+
+  /**
    * Latest filed annual accounts as structured JSON (exact whole-NOK values).
    * Returns `unavailableReason` instead of throwing for the registry's known
    * non-retryable cases: HTTP 404/410 (nothing filed) and the HTTP 500 the API
    * uses for unsupported oppstillingsplan variants (banks/insurers).
+   *
+   * For parent companies this also returns the consolidated statement — see
+   * fetchConsolidatedCompanion for why it needs a second request.
    */
   async fetchStructuredAnnualAccounts(orgNumber: string): Promise<StructuredAnnualAccountsResult> {
     const normalizedOrgNumber = norwegianOrganizationNumberSchema.parse(orgNumber);
@@ -137,11 +215,22 @@ export class BrregFinancialsProvider {
 
       if (response.ok) {
         const fetchedAt = this.now();
-        const accounts = parseStructuredRegnskapResponse(await response.json(), {
+        const companyAccounts = parseStructuredRegnskapResponse(await response.json(), {
           orgNumber: normalizedOrgNumber,
           fetchedAt,
           normalizedAt: this.now(),
         });
+
+        const consolidated = (
+          await Promise.all(
+            companyAccounts.map((entry) =>
+              this.fetchConsolidatedCompanion(normalizedOrgNumber, entry),
+            ),
+          )
+        ).filter((entry): entry is StructuredAnnualAccounts => entry !== null);
+
+        const accounts = [...companyAccounts, ...consolidated];
+
         return {
           status: accounts.length > 0 ? "AVAILABLE" : "UNAVAILABLE",
           accounts,
@@ -155,6 +244,10 @@ export class BrregFinancialsProvider {
           rawPayload: {
             httpStatus: response.status,
             accountCount: accounts.length,
+            // Separated so a drop in group coverage is visible without a
+            // reprocess — the konsern lookup relies on an undocumented id rule.
+            companyAccountCount: companyAccounts.length,
+            consolidatedAccountCount: consolidated.length,
           },
         };
       }
