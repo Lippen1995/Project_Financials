@@ -5,12 +5,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { COMPANY_MAP_ADDRESS_MATCHER_VERSION } from "@/server/company-map/address-resolution";
 import {
+  COMPANY_MAP_FINANCIAL_PROJECTION_VERSION,
   loadReportedCompanyMapFinancialProjection,
   restrictReportedCompanyMapFinancialProjection,
 } from "@/server/company-map/financial-projection";
 import { financialsRepository } from "@/server/financials/financials-repository";
 
-const FINANCIALS_REPOSITORY_VERSION = "financials-repository-v1";
 const FINANCIAL_INSERT_BATCH_SIZE = 1_000;
 
 function wantsPublication(): boolean {
@@ -292,6 +292,7 @@ async function main() {
               revenue: statement.revenue,
               ebit: statement.ebit,
               preTaxProfit: statement.preTaxProfit,
+              preTaxProfitStatus: statement.preTaxProfitStatus,
               netIncome: statement.netIncome,
               equity: statement.equity,
               totalAssets: statement.totalAssets,
@@ -299,7 +300,14 @@ async function main() {
               financialDatasetVersion: statement.financialDatasetVersion,
               sourceSystem: "FJORD_FINANCIALS_REPOSITORY",
               sourceEntityType: "LatestReportedCompanyMetrics",
-              sourceId: `${statement.companyId}:${statement.fiscalYear}:${statement.statementScope}`,
+              sourceId: statement.reportedStatementId,
+              reportedStatementId: statement.reportedStatementId,
+              reportedSourceSystem: statement.reportedSourceSystem,
+              reportedSourceId: statement.reportedSourceId,
+              sourceFilingId: statement.sourceFilingId,
+              publishedAt: statement.publishedAt,
+              financialFetchedAt: statement.financialFetchedAt,
+              financialNormalizedAt: statement.financialNormalizedAt,
               fetchedAt: now,
               normalizedAt: now,
             })),
@@ -333,7 +341,8 @@ async function main() {
             excludedStatementCount:
               buildFinancialProjection.excludedStatementCount,
             excludedEntityCount: buildFinancialProjection.excludedEntityCount,
-            verificationRepositoryVersion: FINANCIALS_REPOSITORY_VERSION,
+            verificationRepositoryVersion:
+              COMPANY_MAP_FINANCIAL_PROJECTION_VERSION,
             verifiedAt: completedAt,
             sourceSystem: "FJORD_FINANCIALS_REPOSITORY",
             sourceEntityType: "CompanyMapFinancialVerification",

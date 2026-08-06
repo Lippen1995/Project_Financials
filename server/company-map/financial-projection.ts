@@ -13,6 +13,9 @@ const METRIC_KEYS = [
   "totalAssets",
 ] as const;
 
+export const COMPANY_MAP_FINANCIAL_PROJECTION_VERSION =
+  "reported-brreg-map-v2";
+
 type ReportedFinancialsReader = Pick<
   FinancialsRepository,
   "listLatestReportedCompanyMetrics"

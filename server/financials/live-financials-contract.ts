@@ -11,6 +11,7 @@ const financialDatasetVersionSchema = z.union([
 
 const latestReportedCompanyMetricsSchema = z.object({
   companyId: z.string().min(1),
+  reportedStatementId: z.string().min(1),
   orgNumber: z.string().regex(/^\d{9}$/),
   fiscalYear: z.number().int(),
   statementScope: z.enum(["COMPANY", "CONSOLIDATED"]),
@@ -19,11 +20,18 @@ const latestReportedCompanyMetricsSchema = z.object({
   revenue: z.bigint().nullable(),
   ebit: z.bigint().nullable(),
   preTaxProfit: z.bigint().nullable(),
+  preTaxProfitStatus: z.enum(["AVAILABLE", "MISSING", "AMBIGUOUS"]),
   netIncome: z.bigint().nullable(),
   equity: z.bigint().nullable(),
   totalAssets: z.bigint().nullable(),
   financialDatasetVersion: reportedDatasetVersionSchema,
   valueOrigin: z.literal("reported"),
+  reportedSourceSystem: z.literal("BRREG"),
+  reportedSourceId: z.string().min(1),
+  sourceFilingId: z.string().min(1).nullable(),
+  publishedAt: z.date().nullable(),
+  financialFetchedAt: z.date(),
+  financialNormalizedAt: z.date(),
 });
 
 const latestReportedCompanyMetricsSnapshotSchema = z
@@ -34,7 +42,9 @@ const latestReportedCompanyMetricsSnapshotSchema = z
   .superRefine((snapshot, context) => {
     const seen = new Set<string>();
     snapshot.statements.forEach((statement, index) => {
-      if (statement.financialDatasetVersion !== snapshot.financialDatasetVersion) {
+      if (
+        statement.financialDatasetVersion !== snapshot.financialDatasetVersion
+      ) {
         context.addIssue({
           code: "custom",
           path: ["statements", index, "financialDatasetVersion"],
@@ -46,7 +56,8 @@ const latestReportedCompanyMetricsSnapshotSchema = z
         context.addIssue({
           code: "custom",
           path: ["statements", index],
-          message: "latest metric snapshot can contain only one row per company and scope",
+          message:
+            "latest metric snapshot can contain only one row per company and scope",
         });
       }
       seen.add(key);
@@ -97,8 +108,12 @@ const liveFinancialStatementSchema = z
   })
   .superRefine((statement, context) => {
     const isReportedStatement = statement.statementOrigin === "reported";
-    const expectedStatementPrefix = isReportedStatement ? "reported:" : "simulated:";
-    const expectedDatasetPrefix = isReportedStatement ? "reported:" : "simulated:";
+    const expectedStatementPrefix = isReportedStatement
+      ? "reported:"
+      : "simulated:";
+    const expectedDatasetPrefix = isReportedStatement
+      ? "reported:"
+      : "simulated:";
 
     if (!statement.liveStatementId.startsWith(expectedStatementPrefix)) {
       context.addIssue({
@@ -123,7 +138,10 @@ const liveFinancialStatementSchema = z
           message: "reported statements require reportedStatementId",
         });
       }
-      if (statement.taxonomyVersion !== null || statement.generatorVersion !== null) {
+      if (
+        statement.taxonomyVersion !== null ||
+        statement.generatorVersion !== null
+      ) {
         context.addIssue({
           code: "custom",
           path: ["taxonomyVersion"],
@@ -135,21 +153,24 @@ const liveFinancialStatementSchema = z
         context.addIssue({
           code: "custom",
           path: ["reportedStatementId"],
-          message: "simulated live statements cannot use a reported statement ID",
+          message:
+            "simulated live statements cannot use a reported statement ID",
         });
       }
       if (!statement.taxonomyVersion?.match(/^FI-SIM-\d{4}\.\d+$/)) {
         context.addIssue({
           code: "custom",
           path: ["taxonomyVersion"],
-          message: "taxonomyVersion is required for hybrid and simulated statements",
+          message:
+            "taxonomyVersion is required for hybrid and simulated statements",
         });
       }
       if (statement.generatorVersion === null) {
         context.addIssue({
           code: "custom",
           path: ["generatorVersion"],
-          message: "generatorVersion is required for hybrid and simulated statements",
+          message:
+            "generatorVersion is required for hybrid and simulated statements",
         });
       }
     }
@@ -181,14 +202,20 @@ const liveFinancialStatementSchema = z
           message: "line and statement dataset versions must match",
         });
       }
-      if (line.valueOrigin === "reported" && line.reportedFinancialLineItemId === null) {
+      if (
+        line.valueOrigin === "reported" &&
+        line.reportedFinancialLineItemId === null
+      ) {
         context.addIssue({
           code: "custom",
           path: ["lines", index, "reportedFinancialLineItemId"],
           message: "reported lines require a reported source line ID",
         });
       }
-      if (line.valueOrigin === "synthetic" && line.reportedFinancialLineItemId !== null) {
+      if (
+        line.valueOrigin === "synthetic" &&
+        line.reportedFinancialLineItemId !== null
+      ) {
         context.addIssue({
           code: "custom",
           path: ["lines", index, "reportedFinancialLineItemId"],
@@ -261,7 +288,9 @@ const liveFinancialStatementSchema = z
     }
   });
 
-export type FinancialDatasetVersion = z.infer<typeof financialDatasetVersionSchema>;
+export type FinancialDatasetVersion = z.infer<
+  typeof financialDatasetVersionSchema
+>;
 export type LatestReportedCompanyMetrics = z.infer<
   typeof latestReportedCompanyMetricsSchema
 >;
@@ -269,9 +298,13 @@ export type LatestReportedCompanyMetricsSnapshot = z.infer<
   typeof latestReportedCompanyMetricsSnapshotSchema
 >;
 export type LiveFinancialLine = z.infer<typeof liveFinancialLineSchema>;
-export type LiveFinancialStatement = z.infer<typeof liveFinancialStatementSchema>;
+export type LiveFinancialStatement = z.infer<
+  typeof liveFinancialStatementSchema
+>;
 
-export function parseLiveFinancialStatement(input: unknown): LiveFinancialStatement {
+export function parseLiveFinancialStatement(
+  input: unknown,
+): LiveFinancialStatement {
   return liveFinancialStatementSchema.parse(input);
 }
 

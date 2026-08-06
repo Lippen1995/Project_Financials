@@ -10,7 +10,10 @@ import {
   type LiveFinancialStatement,
 } from "@/server/financials/live-financials-contract";
 
-export type LiveFinancialStatementRecord = Omit<LiveFinancialStatement, "lines">;
+export type LiveFinancialStatementRecord = Omit<
+  LiveFinancialStatement,
+  "lines"
+>;
 
 export interface LiveFinancialsDataSource {
   readCompanyFinancials(companyId: string): Promise<{
@@ -51,9 +54,12 @@ export function createFinancialsRepository(
 
       for (const line of lineRecords) {
         if (!knownStatementIds.has(line.liveStatementId)) {
-          throw new Error(`Live financial line ${line.liveLineId} has no live statement`);
+          throw new Error(
+            `Live financial line ${line.liveLineId} has no live statement`,
+          );
         }
-        const statementLines = linesByStatementId.get(line.liveStatementId) ?? [];
+        const statementLines =
+          linesByStatementId.get(line.liveStatementId) ?? [];
         statementLines.push(line);
         linesByStatementId.set(line.liveStatementId, statementLines);
       }
@@ -62,9 +68,9 @@ export function createFinancialsRepository(
         .map((statement) =>
           parseLiveFinancialStatement({
             ...statement,
-            lines: (linesByStatementId.get(statement.liveStatementId) ?? []).sort(
-              (left, right) => left.sortOrder - right.sortOrder,
-            ),
+            lines: (
+              linesByStatementId.get(statement.liveStatementId) ?? []
+            ).sort((left, right) => left.sortOrder - right.sortOrder),
           }),
         )
         .sort((left, right) => right.fiscalYear - left.fiscalYear);
@@ -85,7 +91,9 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
           await transaction.$executeRawUnsafe(
             "SET LOCAL app.deployment_environment = 'investor-demo'",
           );
-          await transaction.$executeRawUnsafe("SET LOCAL app.fi_sim_enabled = 'on'");
+          await transaction.$executeRawUnsafe(
+            "SET LOCAL app.fi_sim_enabled = 'on'",
+          );
         }
 
         const [statements, lines] = await Promise.all([
@@ -149,7 +157,9 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
         await transaction.$executeRawUnsafe(
           "SET LOCAL app.deployment_environment = 'public'",
         );
-        await transaction.$executeRawUnsafe("SET LOCAL app.fi_sim_enabled = 'off'");
+        await transaction.$executeRawUnsafe(
+          "SET LOCAL app.fi_sim_enabled = 'off'",
+        );
 
         const [revision, statements] = await Promise.all([
           transaction.financialDatasetRevision.findUnique({
@@ -161,25 +171,53 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
               SELECT
                 statement.*,
                 company."orgNumber",
+                provenance."reportedSourceSystem",
+                provenance."reportedSourceId",
+                provenance."sourceFilingId",
+                provenance."publishedAt",
+                provenance."financialFetchedAt",
+                provenance."financialNormalizedAt",
                 row_number() OVER (
                   PARTITION BY statement."companyId", statement."statementScope"
                   ORDER BY statement."fiscalYear" DESC, statement."liveStatementId" ASC
                 ) AS "scopeRank"
               FROM "live_financial_statements_v1" statement
+              JOIN "reported_financial_statement_provenance_v1" provenance
+                ON provenance."reportedStatementId" = statement."reportedStatementId"
               JOIN "Company" company ON company."id" = statement."companyId"
               WHERE statement."statementOrigin" = 'reported'
+                AND provenance."reportedSourceSystem" = 'BRREG'
             ), pre_tax AS (
               SELECT
                 line."liveStatementId",
-                max(line."value" * line."unitScale") FILTER (
-                  WHERE line."metricKey" = 'profit_before_tax'
-                ) AS "preTaxProfit"
+                CASE
+                  WHEN count(*) FILTER (
+                    WHERE line."metricKey" = 'profit_before_tax'
+                  ) = 1
+                  THEN max(line."value" * line."unitScale") FILTER (
+                    WHERE line."metricKey" = 'profit_before_tax'
+                  )
+                  ELSE NULL
+                END AS "preTaxProfit",
+                CASE
+                  WHEN count(*) FILTER (
+                    WHERE line."metricKey" = 'profit_before_tax'
+                  ) > 1 THEN 'AMBIGUOUS'
+                  WHEN count(*) FILTER (
+                    WHERE line."metricKey" = 'profit_before_tax'
+                  ) = 1
+                    AND max(line."value") FILTER (
+                      WHERE line."metricKey" = 'profit_before_tax'
+                    ) IS NOT NULL THEN 'AVAILABLE'
+                  ELSE 'MISSING'
+                END AS "preTaxProfitStatus"
               FROM "live_financial_line_items_v1" line
               WHERE line."statementOrigin" = 'reported'
               GROUP BY line."liveStatementId"
             )
             SELECT
               statement."companyId",
+              statement."reportedStatementId",
               statement."orgNumber",
               statement."fiscalYear",
               statement."statementScope",
@@ -188,11 +226,18 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
               statement."revenue" * statement."unitScale" AS "revenue",
               statement."operatingProfit" * statement."unitScale" AS "ebit",
               pre_tax."preTaxProfit",
+              COALESCE(pre_tax."preTaxProfitStatus", 'MISSING') AS "preTaxProfitStatus",
               statement."netIncome" * statement."unitScale" AS "netIncome",
               statement."equity" * statement."unitScale" AS "equity",
               statement."assets" * statement."unitScale" AS "totalAssets",
               statement."financialDatasetVersion",
-              'reported'::text AS "valueOrigin"
+              'reported'::text AS "valueOrigin",
+              statement."reportedSourceSystem",
+              statement."reportedSourceId",
+              statement."sourceFilingId",
+              statement."publishedAt",
+              statement."financialFetchedAt",
+              statement."financialNormalizedAt"
             FROM ranked_statements statement
             LEFT JOIN pre_tax ON pre_tax."liveStatementId" = statement."liveStatementId"
             WHERE statement."scopeRank" = 1
@@ -210,4 +255,6 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
   },
 };
 
-export const financialsRepository = createFinancialsRepository(prismaLiveFinancialsDataSource);
+export const financialsRepository = createFinancialsRepository(
+  prismaLiveFinancialsDataSource,
+);

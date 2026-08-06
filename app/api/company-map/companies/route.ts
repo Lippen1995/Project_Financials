@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { companyMapCompaniesQuerySchema } from "@/lib/company-map";
+import { companyMapCompaniesQuerySchema as queryCompanyMapCompaniesSchema } from "@/lib/company-map";
 import {
   CompanyMapNotPublishedError,
   getPublishedCompanyMapCompanies,
 } from "@/server/company-map/public-company-map-service";
 
 export async function GET(request: NextRequest) {
-  const query = companyMapCompaniesQuerySchema.safeParse(
+  const query = queryCompanyMapCompaniesSchema.safeParse(
     new URL(request.url).searchParams,
   );
   if (!query.success) {
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       { data },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+          "Cache-Control": "no-store",
         },
       },
     );

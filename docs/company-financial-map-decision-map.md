@@ -228,10 +228,10 @@ usable coordinates and official figures, and how long/costly is a complete refre
 
 ### Answer
 
-Partially resolved. The first reported-financial candidate loaded 7,958 latest scope statements
-from the reported-only live-view repository. Of these, 5,690 statements for 5,403 entities belong
-to the current complete Brreg universe: 5,403 company scope and 287 consolidated scope, containing
-32,968 non-null key metrics. A further 2,268 historical statements across 2,264 entities were
+Partially resolved. The official-only reported-financial candidate loaded 7,923 latest Brreg scope
+statements from the reported-only live-view repository. Of these, 5,685 statements for 5,400
+entities belong to the current complete Brreg universe: 5,400 company scope and 285 consolidated
+scope, containing 32,946 non-null key metrics. A further 2,238 historical statements across 2,234 entities were
 excluded because those entities are absent from the current Brreg mirror. This establishes the
 current local dataset coverage, not national open-source completeness; metric/year/form coverage
 still needs a filter-aware published audit after the group gate is satisfied.

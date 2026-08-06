@@ -16,7 +16,7 @@ blocked until a complete Skatteetaten group snapshot is available.
 - Group labels come only from the published Skatteetaten-derived `GroupMembershipSnapshot`.
   Public financial positions are outside that group traversal.
 - Public map financial rows are protected by a database check requiring `valueOrigin =
-  'reported'`. The build records a `financialDatasetVersion`; publication additionally requires a
+'reported'`. The build records a `financialDatasetVersion`; publication additionally requires a
   build-specific verification certificate written by the reported-only live-view repository.
 
 ## Data flow
@@ -44,16 +44,20 @@ blocked until a complete Skatteetaten group snapshot is available.
 
 - `GET /api/company-map/coverage` returns filter-aware location coverage, audited financial
   coverage, source versions and dates.
-- `GET /api/company-map/companies` returns the filtered list ordered by reported revenue, highest
-  first. It defaults to active AS/ASA, company accounts and NOK; consolidated scope must be
-  requested explicitly. Each row contains the other available key metrics, employees, exact
-  coordinates, group label and the normal company-profile URL.
+- `GET /api/company-map/companies` returns all plotted entities in the filtered universe, with
+  reported revenue ordered highest first and entities without revenue ordered by name afterwards.
+  It defaults to active AS/ASA, company accounts and NOK; consolidated scope must be requested
+  explicitly. `officialAddressId` restricts the result to the complete paginated list at a clicked
+  shared address point. Rows with financials contain the other available key metrics and original
+  filing provenance/freshness; every row contains employees, exact coordinates, group label and
+  the normal company-profile URL.
 - `organisationForms=ALL` selects every organisation form; omitted filters default to active
   AS/ASA entities.
 
-Both endpoints are anonymous and CDN-cacheable. Until a complete candidate has passed the
-reported-only financial gate and is atomically published, they return `503` rather than exposing
-partial, stale or simulated data.
+Both endpoints are anonymous. They use `no-store` until version-aware cache invalidation exists;
+every request rejects a publication whose reported dataset revision is no longer active. Until a
+complete candidate has passed the reported-only financial gate and is atomically published, they
+return `503` rather than exposing partial, stale or simulated data.
 
 ## First national address audit (6 August 2026)
 
@@ -79,21 +83,24 @@ This is address coverage only. The candidate contains zero financial rows and ha
 publication pointer. No group labels were attached because the local Skatteetaten shareholder
 register import is `PARTIAL`, so no semantic group snapshot has passed its publication gate.
 
-## First reported-financial candidate audit (6 August 2026)
+## Official-only reported-financial candidate audit (6 August 2026)
 
-Candidate `e5c0ff9b-5cd8-4a16-8693-cded710b933a` repeated the complete 1,170,717-entity address
-population and added the versioned reported-financial projection. It completed as `READY`; it was
-not published because no complete Skatteetaten group publication exists locally.
+Candidate `73e4cafc-52af-4347-92b1-884e70fb1d4f` repeated the complete 1,170,717-entity address
+population and added the versioned, Brreg-only reported-financial projection. It completed as
+`READY`; it was not published because no complete Skatteetaten group publication exists locally.
+An earlier candidate was superseded after the audit found legacy `SEED`, review and issuer-IR rows
+in the reported source tables; the repository now admits only records whose preserved source system
+is `BRREG`.
 
 - plotted entities: 599,335
 - address omissions: 571,382
-- reported source statements from the live-view repository: 7,958
-- included statements for entities in the current Brreg mirror: 5,690
-- included legal entities with financials: 5,403
-- included company-scope statements: 5,403
-- included consolidated statements: 287
-- included non-null key metrics: 32,968
-- excluded historical statements outside the current Brreg universe: 2,268 across 2,264 entities
+- reported Brreg source statements from the live-view repository: 7,923
+- included statements for entities in the current Brreg mirror: 5,685
+- included legal entities with financials: 5,400
+- included company-scope statements: 5,400
+- included consolidated statements: 285
+- included non-null key metrics: 32,946
+- excluded historical statements outside the current Brreg universe: 2,238 across 2,234 entities
 
 The full-universe address omissions are 29,080 without a business address, 25,965
 incomplete/invalid addresses, 125 non-geographic addresses, 18,843 with no exact match, 104

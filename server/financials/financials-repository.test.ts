@@ -122,6 +122,7 @@ describe("FinancialsRepository", () => {
           statements: [
             {
               companyId: "company-1",
+              reportedStatementId: "statement-company-1",
               orgNumber: "999999999",
               fiscalYear: 2025,
               statementScope: "COMPANY",
@@ -130,14 +131,22 @@ describe("FinancialsRepository", () => {
               revenue: 1_000n,
               ebit: 100n,
               preTaxProfit: 90n,
+              preTaxProfitStatus: "AVAILABLE",
               netIncome: 70n,
               equity: 400n,
               totalAssets: 800n,
               financialDatasetVersion: "reported:14",
               valueOrigin: "reported",
+              reportedSourceSystem: "BRREG",
+              reportedSourceId: "filing-company-1",
+              sourceFilingId: "filing-company-1",
+              publishedAt: new Date("2026-07-01T00:00:00.000Z"),
+              financialFetchedAt: new Date("2026-07-02T00:00:00.000Z"),
+              financialNormalizedAt: new Date("2026-07-02T00:01:00.000Z"),
             },
             {
               companyId: "company-1",
+              reportedStatementId: "statement-group-1",
               orgNumber: "999999999",
               fiscalYear: 2024,
               statementScope: "CONSOLIDATED",
@@ -146,18 +155,27 @@ describe("FinancialsRepository", () => {
               revenue: 2_000n,
               ebit: 250n,
               preTaxProfit: 225n,
+              preTaxProfitStatus: "AVAILABLE",
               netIncome: 175n,
               equity: 700n,
               totalAssets: 1_400n,
               financialDatasetVersion: "reported:14",
               valueOrigin: "reported",
+              reportedSourceSystem: "BRREG",
+              reportedSourceId: "filing-group-1",
+              sourceFilingId: "filing-group-1",
+              publishedAt: new Date("2025-07-01T00:00:00.000Z"),
+              financialFetchedAt: new Date("2025-07-02T00:00:00.000Z"),
+              financialNormalizedAt: new Date("2025-07-02T00:01:00.000Z"),
             },
           ],
         };
       },
     });
 
-    await expect(repository.listLatestReportedCompanyMetrics()).resolves.toEqual({
+    await expect(
+      repository.listLatestReportedCompanyMetrics(),
+    ).resolves.toEqual({
       financialDatasetVersion: "reported:14",
       statements: expect.arrayContaining([
         expect.objectContaining({

@@ -1282,6 +1282,7 @@ model CompanyMapFinancialSnapshot {
   revenue                 BigInt?
   ebit                    BigInt?
   preTaxProfit            BigInt?
+  preTaxProfitStatus      String
   netIncome               BigInt?
   equity                  BigInt?
   totalAssets             BigInt?
@@ -1290,6 +1291,13 @@ model CompanyMapFinancialSnapshot {
   sourceSystem            String
   sourceEntityType        String
   sourceId                String
+  reportedStatementId     String
+  reportedSourceSystem    String
+  reportedSourceId        String
+  sourceFilingId          String?
+  publishedAt             DateTime?
+  financialFetchedAt      DateTime
+  financialNormalizedAt   DateTime
   fetchedAt               DateTime
   normalizedAt            DateTime
   builtAt                 DateTime        @default(now())

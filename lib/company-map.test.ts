@@ -10,6 +10,9 @@ describe("public company-map query", () => {
     expect(companyMapCoverageQuerySchema.parse(new URLSearchParams())).toEqual({
       organisationForms: ["AS", "ASA"],
       companyStatuses: ["ACTIVE"],
+      statementScope: "COMPANY",
+      currency: "NOK",
+      metric: "revenue",
     });
   });
 
@@ -24,6 +27,9 @@ describe("public company-map query", () => {
     ).toEqual({
       organisationForms: ["AS", "ENK"],
       companyStatuses: ["ACTIVE", "DISSOLVED"],
+      statementScope: "COMPANY",
+      currency: "NOK",
+      metric: "revenue",
     });
   });
 
@@ -35,6 +41,9 @@ describe("public company-map query", () => {
     ).toEqual({
       organisationForms: null,
       companyStatuses: ["ACTIVE"],
+      statementScope: "COMPANY",
+      currency: "NOK",
+      metric: "revenue",
     });
   });
 
@@ -57,14 +66,17 @@ describe("public company-map query", () => {
 
 describe("public company-map company list query", () => {
   it("defaults to company accounts ranked in NOK", () => {
-    expect(companyMapCompaniesQuerySchema.parse(new URLSearchParams())).toEqual({
-      organisationForms: ["AS", "ASA"],
-      companyStatuses: ["ACTIVE"],
-      statementScope: "COMPANY",
-      currency: "NOK",
-      limit: 100,
-      offset: 0,
-    });
+    expect(companyMapCompaniesQuerySchema.parse(new URLSearchParams())).toEqual(
+      {
+        organisationForms: ["AS", "ASA"],
+        companyStatuses: ["ACTIVE"],
+        statementScope: "COMPANY",
+        currency: "NOK",
+        limit: 100,
+        offset: 0,
+        officialAddressId: null,
+      },
+    );
   });
 
   it("accepts the consolidated scope and bounded pagination", () => {
@@ -75,6 +87,7 @@ describe("public company-map company list query", () => {
           currency: "EUR",
           limit: "50",
           offset: "100",
+          officialAddressId: "addr_123:unit-4",
         }),
       ),
     ).toMatchObject({
@@ -82,7 +95,16 @@ describe("public company-map company list query", () => {
       currency: "EUR",
       limit: 50,
       offset: 100,
+      officialAddressId: "addr_123:unit-4",
     });
+  });
+
+  it("rejects unsafe official address identifiers", () => {
+    expect(() =>
+      companyMapCompaniesQuerySchema.parse(
+        new URLSearchParams({ officialAddressId: "address id; DROP" }),
+      ),
+    ).toThrow();
   });
 
   it("rejects unbounded page sizes", () => {

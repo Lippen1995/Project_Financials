@@ -53,6 +53,15 @@ const companyStatusesSchema = z
     return [...new Set(values)] as Array<"ACTIVE" | "DISSOLVED" | "BANKRUPT">;
   });
 
+const financialSelectionSchema = {
+  statementScope: z.enum(["COMPANY", "CONSOLIDATED"]).default("COMPANY"),
+  currency: z
+    .string()
+    .default("NOK")
+    .transform((value) => value.trim().toUpperCase())
+    .pipe(z.string().regex(/^[A-Z]{3}$/)),
+};
+
 export const companyMapCoverageQuerySchema = z.preprocess(
   (value) =>
     value instanceof URLSearchParams
@@ -61,6 +70,17 @@ export const companyMapCoverageQuerySchema = z.preprocess(
   z.object({
     organisationForms: organisationFormsSchema,
     companyStatuses: companyStatusesSchema,
+    ...financialSelectionSchema,
+    metric: z
+      .enum([
+        "revenue",
+        "ebit",
+        "preTaxProfit",
+        "netIncome",
+        "equity",
+        "totalAssets",
+      ])
+      .default("revenue"),
   }),
 );
 
@@ -76,14 +96,14 @@ export const companyMapCompaniesQuerySchema = z.preprocess(
   z.object({
     organisationForms: organisationFormsSchema,
     companyStatuses: companyStatusesSchema,
-    statementScope: z.enum(["COMPANY", "CONSOLIDATED"]).default("COMPANY"),
-    currency: z
-      .string()
-      .default("NOK")
-      .transform((value) => value.trim().toUpperCase())
-      .pipe(z.string().regex(/^[A-Z]{3}$/)),
+    ...financialSelectionSchema,
     limit: z.coerce.number().int().min(1).max(500).default(100),
     offset: z.coerce.number().int().min(0).max(100_000).default(0),
+    officialAddressId: z
+      .string()
+      .regex(/^[A-Za-z0-9:_-]{1,128}$/)
+      .nullable()
+      .default(null),
   }),
 );
 
