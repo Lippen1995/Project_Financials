@@ -49,6 +49,9 @@ jobs:
       - name: Check API input validation inventory
         run: npm run security:check-api-inputs
 
+      - name: Protect financial source-access baseline
+        run: npm run financials:check-source-access
+
       - name: Audit production and development dependencies
         run: npm run security:audit
 

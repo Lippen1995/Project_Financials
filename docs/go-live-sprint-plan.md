@@ -32,7 +32,7 @@ Betaen skal gi 10–20 inviterte profesjonelle brukere minst tre komplette, form
 - Alle modellkall skal gå gjennom den felles modelladapteren med sikker systeminstruks, injeksjonsinspeksjon, eksplisitt budsjett og forbruksregistrering. Et modellkall utenfor adapteren er en avvikssak, ikke en implementasjonsdetalj.
 - Åpent Brreg-API brukes som standard så langt det gir tilstrekkelige data. Et betalt abonnement på komplette årsregnskap er en separat investeringsbeslutning.
 - Produksjon skal ikke være avhengig av en Raspberry Pi eller utstyr på et privat nettverk. Slikt utstyr kan brukes til utvikling, men ikke som et kritisk ledd i en tjeneste som skal være tilgjengelig 24/7.
-- Ingen mockdata, seed-data eller syntetiske selskapsdata skal brukes.
+- Ingen mockdata, seed-data eller syntetiske selskapsdata skal brukes i lukket beta eller produksjon. En tidsavgrenset investor-demo kan bare bruke simulerte resultat- og balanselinjer dersom de ligger i et teknisk isolert simuleringslag, aldri skrives til eller promoteres inn i tabellene for rapporterte regnskap, og merkes både per syntetisk linje og for hele regnskapsoppstillingen. Unntaket krever en eksplisitt endring av repoets dataregler før implementasjon og skal fjernes fullstendig før Port G2.
 
 ## 3. Kostnadsnivåer og fullmakter
 
@@ -292,6 +292,19 @@ CEO skal få:
 | GL-508 | Betastøtte | Én kanal og én ansvarlig for tilbakemeldinger er etablert. |
 | GL-509 | Invitasjoner | Bare godkjente brukere får tilgang; invitasjon kan trekkes tilbake. |
 | GL-510 | Go/no-go-møte | Hvert kriterium i G2 har eier, bevis og status. |
+| GL-511 | Fjern simulerte regnskap | Simuleringsbryteren er av, ingen applikasjonssti avhenger av simulerte data, simuleringsprovider og tilhørende UI er fjernet, simuleringstabellene er droppet med migrasjon, og rapporterte regnskap er regresjonstestet uavhengig. |
+
+### Avvikling av investor-demoens simuleringslag
+
+Hvis et isolert simuleringslag er brukt i investor-demoen, skal det avvikles i denne rekkefølgen før Port G2:
+
+1. Slå av funksjonsbryteren for simulerte regnskap i alle miljøer som skal brukes til beta eller produksjon.
+2. Verifiser at API-er, tjenester, filtre, rangeringer, eksporter og UI ikke lenger leser fra eller faller tilbake til simulerte data.
+3. Fjern simuleringsprovider, generator og all UI som bare finnes for å vise eller merke simulerte regnskapsoppstillinger.
+4. Dropp tabellene med simulerte statements og linjer gjennom en eksplisitt, gjennomgått databasemigrasjon.
+5. Kjør regresjonstester som beviser at rapporterte regnskap fortsatt fungerer uavhengig, og at manglende rapporterte data gir en ærlig tomtilstand.
+
+Simulerte verdier skal aldri migreres, kopieres eller promoteres til tabellene for rapporterte regnskap. Tabellene for rapporterte regnskap skal heller ikke ha referanser til simuleringslaget; bare simuleringslaget kan referere til rapporterte ankere. Fullført GL-511 med test- og migrasjonsbevis er et absolutt krav for G2.
 
 ## 12. Port G2 – absolutte lanseringskriterier
 
@@ -299,7 +312,7 @@ Beta kan åpnes bare når alle punktene er grønne eller har skriftlig risikoaks
 
 - Ingen kjente kritiske sikkerhetsfeil.
 - Innlogging og feature gating kan ikke omgås i testene.
-- Ingen mockdata eller konstruerte regnskapstall vises.
+- Ingen mockdata eller konstruerte regnskapstall vises; funksjonsbryteren er av, simuleringskoden er fjernet fra aktive applikasjonsstier, simuleringstabellene er droppet, og GL-511 har test- og migrasjonsbevis.
 - Selskapsdata og regnskap har kilde og hentetidspunkt.
 - Njord består kvalitets- og sikkerhetstester og kan slås av uten å ta ned resten av produktet.
 - M&A-screening, sourcing og konkurrent-/bransjeanalyse kan fullføres med reelle data, dokumenterte begrensninger og lagret resultat.
@@ -380,3 +393,7 @@ Nye ønsker legges ikke direkte inn i en aktiv sprint. De registreres og tas inn
 - [Beta-KPI-er](./go-live/beta-kpis.md)
 - [Datakildekart for beta](./go-live/data-source-map.md)
 - [Livsløp for finansielle data](./financial-data-lifecycle.md)
+- [ADR-0002: isolert simuleringslag for investor-demo](./adr/ADR-0002-isolated-simulated-financials-layer.md)
+- [Teknisk design for simulerte regnskap i investor-demo](./financials/simulated-financials-investor-demo-design.md)
+- [FI-SIM-2026.1: normativ spesifikasjon](./financials/fi-sim-2026.1-spec.md)
+- [Implementasjonsplan for det isolerte FI-SIM-datasettet](./financials/fi-sim-implementation-plan.md)

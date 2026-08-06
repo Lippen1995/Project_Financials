@@ -566,6 +566,38 @@ enum StatementScope {
   CONSOLIDATED
 }
 
+enum FinancialDatasetMode {
+  REPORTED
+  SIMULATED
+}
+
+enum SimulatedFinancialDatasetStatus {
+  BUILDING
+  VALIDATED
+  FAILED
+}
+
+enum SimulatedFinancialStatementOrigin {
+  HYBRID
+  SIMULATED
+}
+
+enum SimulatedFinancialValidationStatus {
+  PENDING
+  VALID
+  MANUAL_REVIEW
+  ERROR
+}
+
+enum FinancialSimulationProfile {
+  SERVICE
+  TRADE
+  MANUFACTURING_CONSTRUCTION
+  PROPERTY
+  HOLDING_INVESTMENT
+  DORMANT_PRE_REVENUE
+}
+
 enum FinancialValidationSeverity {
   INFO
   WARNING
@@ -893,6 +925,7 @@ model Company {
   rawLineItems                  RawFinancialLineItem[]
   publishedLineItems            PublishedFinancialLineItem[]
   financialLineItems            FinancialLineItem[]
+  simulatedFinancialStatements  SimulatedFinancialStatement[]
   narratives                    AnnualReportNarrative[]
   boardReportExtractions        BoardReportExtraction[]
   newsArticles                  NewsArticleCompany[]
@@ -1511,6 +1544,7 @@ model FinancialLineItem {
   updatedAt DateTime @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  simulatedAnchorBindings SimulatedFinancialLine[] @relation("SimulatedReportedAnchor")
 
   @@unique([companyId, fiscalYear, statementScope, sourceKey])
   @@index([metricKey])
@@ -1518,6 +1552,151 @@ model FinancialLineItem {
   /// Drives the "what still needs mapping" queue.
   @@index([metricKey, sourceLabel])
   @@index([sourceSystem, sourceEntityType])
+}
+
+/// Immutable versioned container for investor-demo financial simulations.
+/// A dataset becomes immutable when its status changes to VALIDATED.
+model SimulatedFinancialDataset {
+  id                String                          @id @default(cuid())
+  datasetVersion    String                          @unique
+  status            SimulatedFinancialDatasetStatus @default(BUILDING)
+  taxonomyVersion   String
+  generatorVersion  String
+  assumptionVersion String
+  profileVersion    String
+  manifest          Json
+  validationResult  Json?
+  createdByUserId   String
+  validatedAt       DateTime?
+  createdAt         DateTime                        @default(now())
+  updatedAt         DateTime                        @updatedAt
+  statements        SimulatedFinancialStatement[]
+  metricAliases     SimulatedMetricAlias[]
+  activePointers    ActiveFinancialDataset[]
+
+  @@index([status, createdAt])
+  @@index([taxonomyVersion, generatorVersion])
+}
+
+/// One simulated income statement or balance sheet for one company, period and scope.
+model SimulatedFinancialStatement {
+  id               String                             @id @default(cuid())
+  datasetId        String
+  companyId        String
+  fiscalYear       Int
+  statementScope   StatementScope                     @default(COMPANY)
+  statementType    FinancialFactStatementType
+  statementOrigin  SimulatedFinancialStatementOrigin
+  profile          FinancialSimulationProfile
+  profileRuleId    String
+  periodStart      DateTime
+  periodEnd        DateTime
+  currency         String                             @default("NOK")
+  unitScale        Int                                @default(1)
+  validationStatus SimulatedFinancialValidationStatus @default(PENDING)
+  residualAmount   BigInt?
+  validationResult Json?
+  createdAt        DateTime                           @default(now())
+  updatedAt        DateTime                           @updatedAt
+  dataset          SimulatedFinancialDataset          @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  company          Company                            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  lines            SimulatedFinancialLine[]
+
+  @@unique([datasetId, companyId, fiscalYear, statementScope, statementType])
+  @@index([companyId, fiscalYear, statementScope])
+  @@index([datasetId, validationStatus])
+}
+
+/// FI-SIM concept binding. Exactly one of reportedFinancialLineItemId and
+/// syntheticValue is present; the database migration enforces this XOR.
+model SimulatedFinancialLine {
+  id                          String                          @id @default(cuid())
+  statementId                 String
+  conceptKey                  String
+  /// Constrained by migration to the FI-SIM-2026.1 namespace and conceptKey.
+  conceptQName                String
+  taxonomyVersion             String
+  sourceLabel                 String
+  presentationRole            String
+  reportedFinancialLineItemId String?
+  syntheticValue              BigInt?
+  currency                    String                          @default("NOK")
+  unitScale                   Int                             @default(1)
+  sortOrder                   Int                             @default(0)
+  derivationRuleId            String?
+  generatorVersion            String
+  createdAt                   DateTime                        @default(now())
+  updatedAt                   DateTime                        @updatedAt
+  statement                   SimulatedFinancialStatement     @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  reportedFinancialLineItem   FinancialLineItem?              @relation("SimulatedReportedAnchor", fields: [reportedFinancialLineItemId], references: [id], onDelete: Restrict)
+  mappings                    SimulatedFinancialLineMapping[]
+
+  @@unique([statementId, conceptKey])
+  @@index([reportedFinancialLineItemId])
+  @@index([sourceLabel])
+  @@index([taxonomyVersion, conceptKey])
+}
+
+/// Append-only mapping result for a simulated line. Mapping never mutates the
+/// immutable financial line or any reported mapping record.
+model SimulatedFinancialLineMapping {
+  id              String                 @id @default(cuid())
+  lineId          String
+  mappingRevision BigInt
+  metricKey       String?
+  mappingMethod   String
+  mappedByUserId  String?
+  createdAt       DateTime               @default(now())
+  line            SimulatedFinancialLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+
+  @@unique([lineId, mappingRevision])
+  @@index([mappingRevision, metricKey])
+}
+
+/// Dataset-scoped alias overlay. Demo mapping never mutates reported MetricAlias rows.
+model SimulatedMetricAlias {
+  id               String                    @id @default(cuid())
+  datasetId        String
+  mappingRevision  BigInt
+  taxonomyVersion  String
+  conceptKey       String?
+  metricKey        String
+  alias            String
+  normalizedAlias  String
+  statementFamily  String
+  liabilitySection String?
+  isActive         Boolean                   @default(true)
+  createdByUserId  String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  dataset          SimulatedFinancialDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@unique([datasetId, mappingRevision, metricKey, normalizedAlias, liabilitySection])
+  @@index([datasetId, mappingRevision, statementFamily, isActive])
+  @@index([datasetId, conceptKey])
+}
+
+/// Atomic pointer for the active financial read dataset. Absence means reported mode.
+model ActiveFinancialDataset {
+  id                 String                     @id @default("global")
+  mode               FinancialDatasetMode       @default(REPORTED)
+  simulatedDatasetId String?
+  activationRevision BigInt                     @default(0)
+  mappingRevision    BigInt                     @default(0)
+  activatedAt        DateTime?
+  activatedByUserId  String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  simulatedDataset   SimulatedFinancialDataset? @relation(fields: [simulatedDatasetId], references: [id], onDelete: Restrict)
+
+  @@index([mode, activationRevision, mappingRevision])
+}
+
+/// Monotonic revision for cache invalidation when reported ingest publishes changes.
+model FinancialDatasetRevision {
+  id               String   @id @default("global")
+  reportedRevision BigInt   @default(0)
+  updatedAt        DateTime @updatedAt
 }
 
 model StructuredFinancialFetchState {
