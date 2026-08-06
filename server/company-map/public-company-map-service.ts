@@ -9,7 +9,6 @@ import type { CompanyMapAddressResolutionStatus } from "@/server/company-map/add
 import { formatCompanyMapGroupLabel } from "@/server/company-map/company-list";
 import { COMPANY_MAP_FINANCIAL_PROJECTION_VERSION } from "@/server/company-map/financial-projection";
 import { financialsRepository } from "@/server/financials/financials-repository";
-import type { LatestReportedCompanyMetrics } from "@/server/financials/live-financials-contract";
 
 export class CompanyMapNotPublishedError extends Error {
   constructor() {
@@ -94,22 +93,10 @@ async function getPublication() {
   return { publication, financialPublication };
 }
 
-async function getCurrentReportedFinancials(financialDatasetVersion: string) {
-  const financials =
-    await financialsRepository.listLatestReportedCompanyMetrics();
-  if (financials.financialDatasetVersion !== financialDatasetVersion) {
-    throw new CompanyMapNotPublishedError();
-  }
-  return financials;
-}
-
 export async function getPublishedCompanyMapCoverage(
   query: CompanyMapCoverageQuery,
 ) {
   const { publication, financialPublication } = await getPublication();
-  const financials = await getCurrentReportedFinancials(
-    publication.build.financialDatasetVersion,
-  );
   const filters = filterExpression(query);
   const [totals] = await prisma.$queryRaw<
     Array<{ eligible: bigint; plotted: bigint }>
@@ -138,32 +125,23 @@ export async function getPublishedCompanyMapCoverage(
   );
   const eligible = Number(totals?.eligible ?? 0n);
   const plotted = Number(totals?.plotted ?? 0n);
-  const metricStatements = financials.statements.filter(
-    (statement) =>
-      statement.statementScope === query.statementScope &&
-      statement.currency === query.currency &&
-      statement[query.metric] !== null,
+  const metricCoverage = await financialsRepository.getCompanyMapMetricCoverage(
+    {
+      buildId: publication.buildId,
+      organisationForms: query.organisationForms,
+      companyStatuses: query.companyStatuses,
+      statementScope: query.statementScope,
+      currency: query.currency,
+      metric: query.metric,
+    },
   );
-  const financialEntities =
-    metricStatements.length === 0
-      ? []
-      : await prisma.companyMapEntitySnapshot.findMany({
-          where: {
-            buildId: publication.buildId,
-            orgNumber: {
-              in: metricStatements.map((statement) => statement.orgNumber),
-            },
-            organisationForm: query.organisationForms
-              ? { in: query.organisationForms }
-              : undefined,
-            companyStatus: { in: query.companyStatuses },
-          },
-          select: { resolutionStatus: true },
-        });
-  const withMetric = financialEntities.length;
-  const plottedWithMetric = financialEntities.filter(
-    (entity) => entity.resolutionStatus === "MATCHED",
-  ).length;
+  if (
+    metricCoverage.financialDatasetVersion !==
+    publication.build.financialDatasetVersion
+  ) {
+    throw new CompanyMapNotPublishedError();
+  }
+  const { withMetric, plottedWithMetric } = metricCoverage;
 
   return {
     coverage: {
@@ -181,7 +159,9 @@ export async function getPublishedCompanyMapCoverage(
         statementScope: query.statementScope,
         currency: query.currency,
         withMetric,
+        withoutMetric: eligible - withMetric,
         plottedWithMetric,
+        plottedWithoutMetric: plotted - plottedWithMetric,
         eligibleCoveragePercent: percentage(withMetric, eligible),
         plottedCoveragePercent: percentage(plottedWithMetric, plotted),
         snapshotAudit: {
@@ -220,184 +200,70 @@ function bigintString(value: bigint | null) {
   return value === null ? null : value.toString();
 }
 
-function compareNullableBigIntDescending(
-  left: bigint | null,
-  right: bigint | null,
-) {
-  if (left === right) return 0;
-  if (left === null) return 1;
-  if (right === null) return -1;
-  return left > right ? -1 : 1;
-}
-
 export async function getPublishedCompanyMapCompanies(
   query: CompanyMapCompaniesQuery,
 ) {
   const { publication } = await getPublication();
-  const financials = await getCurrentReportedFinancials(
-    publication.build.financialDatasetVersion,
-  );
-  const selectedFinancials = financials.statements.filter(
-    (statement) =>
-      statement.statementScope === query.statementScope &&
-      statement.currency === query.currency,
-  );
-  const entityWhere = {
+  const ranking = await financialsRepository.listCompanyMapFinancialRanking({
     buildId: publication.buildId,
-    organisationForm: query.organisationForms
-      ? { in: query.organisationForms }
-      : undefined,
-    companyStatus: { in: query.companyStatuses },
-    resolutionStatus: "MATCHED" as const,
-    officialAddressId: query.officialAddressId ?? undefined,
-  };
-  const financialByOrgNumber = new Map(
-    selectedFinancials.map((financial) => [financial.orgNumber, financial]),
-  );
-  const revenueFinancials = selectedFinancials.filter(
-    (financial) => financial.revenue !== null,
-  );
-  const revenueEntities =
-    revenueFinancials.length === 0
-      ? []
-      : await prisma.companyMapEntitySnapshot.findMany({
-          where: {
-            ...entityWhere,
-            orgNumber: {
-              in: revenueFinancials.map((statement) => statement.orgNumber),
-            },
-          },
-          select: {
-            orgNumber: true,
-            name: true,
-            organisationForm: true,
-            employeeCount: true,
-            municipality: true,
-            officialAddressId: true,
-            latitude: true,
-            longitude: true,
-            groupRootOrgNumber: true,
-            groupRootName: true,
-          },
-        });
-  const revenueFinancialByOrgNumber = new Map(
-    revenueFinancials.map((financial) => [financial.orgNumber, financial]),
-  );
-  const rankedRevenueRows = revenueEntities
-    .flatMap((entity) => {
-      const financial = revenueFinancialByOrgNumber.get(entity.orgNumber);
-      return entity ? [{ entity, financial }] : [];
-    })
-    .filter(
-      (
-        row,
-      ): row is {
-        entity: (typeof revenueEntities)[number];
-        financial: LatestReportedCompanyMetrics;
-      } => row.financial !== undefined,
-    )
-    .sort((left, right) => {
-      const revenueOrder = compareNullableBigIntDescending(
-        left.financial.revenue,
-        right.financial.revenue,
-      );
-      return (
-        revenueOrder ||
-        left.entity.name.localeCompare(right.entity.name, "nb-NO") ||
-        left.entity.orgNumber.localeCompare(right.entity.orgNumber)
-      );
-    });
-  const total = await prisma.companyMapEntitySnapshot.count({
-    where: entityWhere,
+    organisationForms: query.organisationForms,
+    companyStatuses: query.companyStatuses,
+    statementScope: query.statementScope,
+    currency: query.currency,
+    officialAddressId: query.officialAddressId,
+    limit: query.limit,
+    offset: query.offset,
   });
-  const rows: Array<{
-    entity: (typeof revenueEntities)[number];
-    financial: LatestReportedCompanyMetrics | null;
-  }> = rankedRevenueRows.slice(query.offset, query.offset + query.limit);
-  const remaining = query.limit - rows.length;
-  if (remaining > 0) {
-    const nullRevenueOffset = Math.max(
-      0,
-      query.offset - rankedRevenueRows.length,
-    );
-    const nullRevenueEntities = await prisma.companyMapEntitySnapshot.findMany({
-      where: {
-        ...entityWhere,
-        orgNumber:
-          rankedRevenueRows.length === 0
-            ? undefined
-            : {
-                notIn: rankedRevenueRows.map((row) => row.entity.orgNumber),
-              },
-      },
-      select: {
-        orgNumber: true,
-        name: true,
-        organisationForm: true,
-        employeeCount: true,
-        municipality: true,
-        officialAddressId: true,
-        latitude: true,
-        longitude: true,
-        groupRootOrgNumber: true,
-        groupRootName: true,
-      },
-      orderBy: [{ name: "asc" }, { orgNumber: "asc" }],
-      skip: nullRevenueOffset,
-      take: remaining,
-    });
-    rows.push(
-      ...nullRevenueEntities.map((entity) => ({
-        entity,
-        financial: financialByOrgNumber.get(entity.orgNumber) ?? null,
-      })),
-    );
+  if (
+    ranking.financialDatasetVersion !==
+    publication.build.financialDatasetVersion
+  ) {
+    throw new CompanyMapNotPublishedError();
   }
-  const withRevenue = rankedRevenueRows.length;
 
   return {
-    companies: rows.map(({ entity, financial }) => ({
-      orgNumber: entity.orgNumber,
-      name: entity.name,
-      organisationForm: entity.organisationForm,
-      employeeCount: entity.employeeCount,
-      municipality: entity.municipality,
-      officialAddressId: entity.officialAddressId,
-      latitude: Number(entity.latitude),
-      longitude: Number(entity.longitude),
-      groupRootOrgNumber: entity.groupRootOrgNumber,
-      groupRootName: entity.groupRootName,
-      groupLabel: entity.groupRootName
-        ? formatCompanyMapGroupLabel(entity.groupRootName)
+    companies: ranking.rows.map((row) => ({
+      orgNumber: row.orgNumber,
+      name: row.name,
+      organisationForm: row.organisationForm,
+      employeeCount: row.employeeCount,
+      municipality: row.municipality,
+      officialAddressId: row.officialAddressId,
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+      groupRootOrgNumber: row.groupRootOrgNumber,
+      groupRootName: row.groupRootName,
+      groupLabel: row.groupRootName
+        ? formatCompanyMapGroupLabel(row.groupRootName)
         : null,
-      statementScope: financial ? query.statementScope : null,
-      fiscalYear: financial?.fiscalYear ?? null,
-      currency: financial?.currency ?? null,
-      revenue: bigintString(financial?.revenue ?? null),
-      ebit: bigintString(financial?.ebit ?? null),
-      preTaxProfit: bigintString(financial?.preTaxProfit ?? null),
-      preTaxProfitStatus: financial?.preTaxProfitStatus ?? null,
-      netIncome: bigintString(financial?.netIncome ?? null),
-      equity: bigintString(financial?.equity ?? null),
-      totalAssets: bigintString(financial?.totalAssets ?? null),
-      financialSource: financial
+      statementScope: row.financial ? query.statementScope : null,
+      fiscalYear: row.financial?.fiscalYear ?? null,
+      currency: row.financial?.currency ?? null,
+      revenue: bigintString(row.financial?.revenue ?? null),
+      ebit: bigintString(row.financial?.ebit ?? null),
+      preTaxProfit: bigintString(row.financial?.preTaxProfit ?? null),
+      preTaxProfitStatus: row.financial?.preTaxProfitStatus ?? null,
+      netIncome: bigintString(row.financial?.netIncome ?? null),
+      equity: bigintString(row.financial?.equity ?? null),
+      totalAssets: bigintString(row.financial?.totalAssets ?? null),
+      financialSource: row.financial
         ? {
-            sourceSystem: financial.reportedSourceSystem,
-            sourceId: financial.reportedSourceId,
-            sourceFilingId: financial.sourceFilingId,
-            publishedAt: financial.publishedAt,
-            fetchedAt: financial.financialFetchedAt,
-            normalizedAt: financial.financialNormalizedAt,
+            sourceSystem: row.financial.reportedSourceSystem,
+            sourceId: row.financial.reportedSourceId,
+            sourceFilingId: row.financial.sourceFilingId,
+            publishedAt: row.financial.publishedAt,
+            fetchedAt: row.financial.financialFetchedAt,
+            normalizedAt: row.financial.financialNormalizedAt,
           }
         : null,
-      profileHref: `/companies/${entity.orgNumber}`,
+      profileHref: `/companies/${row.orgNumber}`,
     })),
     page: {
-      total,
-      withRevenue,
+      total: ranking.total,
+      withRevenue: ranking.withRevenue,
       limit: query.limit,
       offset: query.offset,
-      hasMore: query.offset + rows.length < total,
+      hasMore: query.offset + ranking.rows.length < ranking.total,
     },
     filters: query,
     provenance: {

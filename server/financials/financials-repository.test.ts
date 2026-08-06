@@ -191,4 +191,52 @@ describe("FinancialsRepository", () => {
       ]),
     });
   });
+
+  it("keeps public map ranking and coverage bounded inside the repository", async () => {
+    let receivedLimit: number | null = null;
+    const repository = createFinancialsRepository({
+      async readCompanyFinancials() {
+        return { statements: [], lines: [] };
+      },
+      async readLatestReportedCompanyMetrics() {
+        return { financialDatasetVersion: "reported:14", statements: [] };
+      },
+      async readCompanyMapFinancialRanking(query) {
+        receivedLimit = query.limit;
+        return {
+          financialDatasetVersion: "reported:14",
+          total: 400_000,
+          withRevenue: 5_000,
+          rows: [],
+        };
+      },
+      async readCompanyMapMetricCoverage() {
+        return {
+          financialDatasetVersion: "reported:14",
+          withMetric: 5_000,
+          plottedWithMetric: 4_800,
+        };
+      },
+    });
+    const query = {
+      buildId: "00000000-0000-0000-0000-000000000000",
+      organisationForms: ["AS", "ASA"],
+      companyStatuses: ["ACTIVE" as const],
+      statementScope: "COMPANY" as const,
+      currency: "NOK",
+    };
+
+    await expect(
+      repository.listCompanyMapFinancialRanking({
+        ...query,
+        officialAddressId: null,
+        limit: 100,
+        offset: 0,
+      }),
+    ).resolves.toMatchObject({ total: 400_000, rows: [] });
+    await expect(
+      repository.getCompanyMapMetricCoverage({ ...query, metric: "employees" }),
+    ).resolves.toMatchObject({ plottedWithMetric: 4_800 });
+    expect(receivedLimit).toBe(100);
+  });
 });

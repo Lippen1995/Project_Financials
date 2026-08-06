@@ -33,6 +33,14 @@ describe("public company-map query", () => {
     });
   });
 
+  it("accepts employee coverage as a map metric", () => {
+    expect(
+      companyMapCoverageQuerySchema.parse(
+        new URLSearchParams({ metric: "employees" }),
+      ).metric,
+    ).toBe("employees");
+  });
+
   it("accepts every organisation form explicitly", () => {
     expect(
       companyMapCoverageQuerySchema.parse(

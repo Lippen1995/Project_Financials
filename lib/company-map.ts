@@ -79,6 +79,7 @@ export const companyMapCoverageQuerySchema = z.preprocess(
         "netIncome",
         "equity",
         "totalAssets",
+        "employees",
       ])
       .default("revenue"),
   }),

@@ -43,7 +43,8 @@ blocked until a complete Skatteetaten group snapshot is available.
 ## Public read surfaces
 
 - `GET /api/company-map/coverage` returns filter-aware location coverage, audited financial
-  coverage, source versions and dates.
+  coverage, explicit with/without counts for the selected financial or employee metric, source
+  versions and dates.
 - `GET /api/company-map/companies` returns all plotted entities in the filtered universe, with
   reported revenue ordered highest first and entities without revenue ordered by name afterwards.
   It defaults to active AS/ASA, company accounts and NOK; consolidated scope must be requested
@@ -58,6 +59,11 @@ Both endpoints are anonymous. They use `no-store` until version-aware cache inva
 every request rejects a publication whose reported dataset revision is no longer active. Until a
 complete candidate has passed the reported-only financial gate and is atomically published, they
 return `503` rather than exposing partial, stale or simulated data.
+
+Public ranking and metric coverage are bounded repository/database queries against
+`live_financial_statements_v1`; the application never materializes the national financial
+population or ranks it in memory. The live statement view is also the sole financial provenance
+read surface and remains the only statement view granted to the restricted runtime role.
 
 ## First national address audit (6 August 2026)
 
