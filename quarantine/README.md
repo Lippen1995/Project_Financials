@@ -1,8 +1,17 @@
-# Karantene – pensjonerte PDF-/OCR-flater
+# Karantene – kode som ikke er i bruk
 
 **Status:** Ikke i bruk. Ikke slettet.
 
-**Dato:** 5. august 2026
+**Dato:** 5.–6. august 2026
+
+Mappen inneholder to atskilte ting:
+
+| Sti | Innhold |
+| --- | --- |
+| `quarantine/` (rot) | Det pensjonerte PDF-/OCR-løpet |
+| `quarantine/orphaned/` | Filer uten én eneste importør, se eget avsnitt nederst |
+
+Resten av dette dokumentet handler om OCR-delen.
 
 Denne mappen inneholder inngangspunktene til PDF-/OCR-løpet: adminsider,
 API-ruter og planlagte jobber. De er flyttet hit fordi
@@ -76,3 +85,55 @@ arkiv som holder seg selv ved like.
 
 Sletting krever egen beslutning. Se GL-A04 i
 [go-live-planen](../docs/go-live-sprint-plan.md).
+
+---
+
+# `orphaned/` – filer uten importører
+
+**Dato:** 6. august 2026
+
+21 filer, 3 975 kodelinjer. Ingen av dem ble importert av noe som helst da de
+ble flyttet, kontrollert både med importgraf og med et direkte søk rett før
+flyttingen. Ingen av dem hadde testfiler.
+
+De er ikke slettet. Årsaken er at «null importører» forteller hvorfor en fil
+ikke er i bruk, men ikke om den burde vært det — noe kan være skrevet ferdig
+før det ble koblet på.
+
+## Erstattet av 5C-redesignen (22.–23. juni 2026)
+
+Alle sist endret i samme to dager, av «redesign company ownership tabs» og
+«full-width overview». Dette er versjonene fra før redesignen.
+
+`organization-tab.tsx` · `financial-chart.tsx` · `legal-structure.tsx` ·
+`overview-side-panel.tsx` · `overview/key-figures-overview.tsx` ·
+`overview/company-info.tsx` · `overview/ai-summary.tsx`
+
+Merk: Konsern-fanen er ikke bygget om ennå. `organization-tab.tsx` og
+`legal-structure.tsx` kan være referansemateriale for det arbeidet.
+
+## Den som ikke passer inn
+
+`overview/overview-aside.tsx` — sist endret 24. juli 2026 av «harden Njord and
+structured financials», altså nylig og ikke som del av redesignen. Enten ble
+den foreldreløs som en bieffekt av det arbeidet, eller så er den skrevet for
+noe som ikke er koblet på. Denne er den minst opplagte i hele settet.
+
+## Nylig foreldreløse (juni–juli 2026)
+
+`search/search-form.tsx` · `search/filter-panel.tsx` ·
+`watchlist/watchlist-quick-add.tsx` · `watchlist/watchlist-event-feed.tsx` ·
+`dashboard/relevant-insights-section.tsx`
+
+Foreldreløse i løpet av den siste måneden. Vanligvis betyr det «erstattet»,
+men det kan også bety «skrevet før det ble koblet på».
+
+## Eldre, mest sannsynlig reelt død (mars–mai 2026)
+
+`server/services/legal-structure-service.ts` ·
+`server/persistence/financial-cache.ts` · `server/actions/workspace-actions.ts` ·
+`company/ebit-chart.tsx` · `company/company-table.tsx` ·
+`company/metric-grid.tsx` · `company/roles-list.tsx` · `auth/login-form.tsx`
+
+`legal-structure-service.ts` gjorde fire direkte Brreg-kall og hadde ingen
+kallere. Hadde noe koblet den på igjen, ville den brutt GL-A01 med en gang.
