@@ -434,6 +434,32 @@ enum GroupMembershipStatus {
   CONFLICT
 }
 
+enum OfficialAddressDatasetStatus {
+  INGESTING
+  READY
+  FAILED
+}
+
+enum CompanyMapBuildStatus {
+  BUILDING
+  READY
+  PUBLISHED
+  FAILED
+}
+
+enum CompanyMapAddressResolutionStatus {
+  MATCHED
+  NO_BUSINESS_ADDRESS
+  INCOMPLETE_OR_INVALID
+  NON_GEOGRAPHIC_ADDRESS
+  NO_EXACT_MATCH
+  AMBIGUOUS_EXACT_MATCH
+  OUTSIDE_NORWAY
+  PRIVACY_WITHHELD
+  PENDING
+  PROVIDER_FAILURE
+}
+
 enum PetroleumEntityType {
   FIELD
   DISCOVERY
@@ -538,6 +564,38 @@ enum FinancialFactStatementType {
 enum StatementScope {
   COMPANY
   CONSOLIDATED
+}
+
+enum FinancialDatasetMode {
+  REPORTED
+  SIMULATED
+}
+
+enum SimulatedFinancialDatasetStatus {
+  BUILDING
+  VALIDATED
+  FAILED
+}
+
+enum SimulatedFinancialStatementOrigin {
+  HYBRID
+  SIMULATED
+}
+
+enum SimulatedFinancialValidationStatus {
+  PENDING
+  VALID
+  MANUAL_REVIEW
+  ERROR
+}
+
+enum FinancialSimulationProfile {
+  SERVICE
+  TRADE
+  MANUFACTURING_CONSTRUCTION
+  PROPERTY
+  HOLDING_INVESTMENT
+  DORMANT_PRE_REVENUE
 }
 
 enum FinancialValidationSeverity {
@@ -867,6 +925,7 @@ model Company {
   rawLineItems                  RawFinancialLineItem[]
   publishedLineItems            PublishedFinancialLineItem[]
   financialLineItems            FinancialLineItem[]
+  simulatedFinancialStatements  SimulatedFinancialStatement[]
   narratives                    AnnualReportNarrative[]
   boardReportExtractions        BoardReportExtraction[]
   newsArticles                  NewsArticleCompany[]
@@ -1010,6 +1069,16 @@ model RegistryEntity {
   municipality                   String?
   municipalityNumber             String?
   countryCode                    String?
+  businessAddressStreet          String?
+  businessAddressPostalCode      String?
+  businessAddressPostalPlace     String?
+  businessAddressMunicipality    String?
+  businessAddressMunicipalityNumber String?
+  businessAddressCountryCode     String?
+  businessAddressNormalizedName  String?
+  businessAddressHouseNumber     Int?
+  businessAddressHouseLetter     String?
+  businessAddressUnitNumber      String?
   registerUpdatedAt              DateTime?
   sourceSnapshotAt               DateTime      @default(now())
   sourceSystem                   String
@@ -1025,6 +1094,235 @@ model RegistryEntity {
   @@index([institutionalSectorCode])
   @@index([status])
   @@index([municipalityNumber])
+  @@index([businessAddressMunicipalityNumber, businessAddressNormalizedName, businessAddressHouseNumber], map: "registry_entity_exact_address")
+}
+
+enum RegistryEntityImportStatus {
+  COMPLETED
+  FAILED
+}
+
+/// Publication evidence for an atomic full-register Brreg mirror refresh. Map builds only accept
+/// completed, unfiltered imports that reached EOF and still exactly match the published mirror.
+model RegistryEntityImport {
+  id               String                     @id @default(uuid()) @db.Uuid
+  snapshotAt       DateTime                   @unique
+  status           RegistryEntityImportStatus
+  sourceUrl        String
+  sourceMediaType  String
+  sourceArtifact   String?
+  checksumSha256   String
+  byteCount        BigInt
+  rowCount         Int
+  isUnfiltered     Boolean
+  reachedEof       Boolean
+  failureReason    String?
+  startedAt        DateTime
+  completedAt      DateTime
+  sourceSystem     String
+  sourceEntityType String
+  sourceId         String
+  fetchedAt        DateTime
+  normalizedAt     DateTime
+  createdAt        DateTime                   @default(now())
+  mapBuilds        CompanyMapBuild[]
+
+  @@index([status, completedAt])
+}
+
+/// Immutable metadata for one official Matrikkelen address extract from Kartverket.
+/// Importers write a candidate dataset and mark it READY only after byte/count validation and
+/// recording the downloaded artifact's checksum. A CompanyMapBuild references one exact version.
+model OfficialAddressDataset {
+  id               String                       @id @default(uuid()) @db.Uuid
+  datasetVersion   String                       @unique
+  status           OfficialAddressDatasetStatus @default(INGESTING)
+  sourceUrl        String
+  sourceUpdatedAt  DateTime
+  checksumSha256   String
+  coordinateSystem String
+  isComplete       Boolean                      @default(false)
+  addressCount     Int                          @default(0)
+  failureReason    String?
+  sourceSystem     String
+  sourceEntityType String
+  sourceId         String
+  fetchedAt        DateTime
+  normalizedAt     DateTime
+  createdAt        DateTime                     @default(now())
+  readyAt          DateTime?
+  addresses        OfficialAddress[]
+  mapBuilds        CompanyMapBuild[]
+
+  @@index([status, sourceUpdatedAt])
+}
+
+/// One exact, official address point in a versioned Matrikkelen extract. The normalized
+/// fields are matcher indexes; original source fields remain available for audit.
+model OfficialAddress {
+  datasetId             String                 @db.Uuid
+  officialAddressId     String
+  municipalityNumber    String                 @db.VarChar(4)
+  addressType           String
+  addressName           String
+  normalizedAddressName String
+  houseNumber           Int
+  houseLetter           String?
+  unitNumber            String?
+  postalCode            String?
+  postalPlace           String?
+  latitude              Decimal                @db.Decimal(10, 7)
+  longitude             Decimal                @db.Decimal(10, 7)
+  sourceUpdatedAt       DateTime?
+  dataExtractedAt       DateTime
+  sourceSystem          String
+  sourceEntityType      String
+  sourceId              String
+  fetchedAt             DateTime
+  normalizedAt          DateTime
+  dataset               OfficialAddressDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@id([datasetId, officialAddressId])
+  @@index([datasetId, municipalityNumber, normalizedAddressName, houseNumber, houseLetter, unitNumber], map: "official_address_exact_match")
+}
+
+/// Candidate/publication unit for the public company map. A complete READY build is
+/// atomically selected by CompanyMapPublication; failed candidates never affect readers.
+model CompanyMapBuild {
+  id                      String                        @id @default(uuid()) @db.Uuid
+  status                  CompanyMapBuildStatus         @default(BUILDING)
+  addressDatasetId        String                        @db.Uuid
+  matcherVersion          String
+  registrySnapshotAt      DateTime
+  registryImportId        String?                       @db.Uuid
+  groupBuildId            String?                       @db.Uuid
+  groupTaxYear            Int?
+  financialDatasetVersion String
+  entityCount             Int                           @default(0)
+  plottedCount            Int                           @default(0)
+  omittedCount            Int                           @default(0)
+  failureReason           String?
+  startedAt               DateTime                      @default(now())
+  completedAt             DateTime?
+  publishedAt             DateTime?
+  sourceSystem            String
+  sourceEntityType        String
+  sourceId                String
+  fetchedAt               DateTime
+  normalizedAt            DateTime
+  addressDataset          OfficialAddressDataset        @relation(fields: [addressDatasetId], references: [id], onDelete: Restrict)
+  registryImport          RegistryEntityImport?          @relation(fields: [registryImportId], references: [id], onDelete: Restrict)
+  entities                CompanyMapEntitySnapshot[]
+  financials              CompanyMapFinancialSnapshot[]
+  financialPublication    CompanyMapFinancialDatasetPublication?
+  publication             CompanyMapPublication?
+
+  @@index([status, completedAt])
+  @@index([addressDatasetId])
+  @@index([registryImportId])
+}
+
+/// Atomic pointer read by every public company-map endpoint.
+model CompanyMapPublication {
+  channel     String          @id @default("public")
+  buildId     String          @unique @db.Uuid
+  publishedAt DateTime        @default(now())
+  build       CompanyMapBuild @relation(fields: [buildId], references: [id], onDelete: Restrict)
+}
+
+/// One legal entity in a versioned map build. Unplotted entities are deliberately retained
+/// with a resolution status so coverage and omission lists use the same denominator as the map.
+model CompanyMapEntitySnapshot {
+  buildId                  String                            @db.Uuid
+  orgNumber                String                            @db.VarChar(9)
+  name                     String
+  organisationForm         String?
+  companyStatus            CompanyStatus
+  employeeCount            Int?
+  addressStreet            String?
+  postalCode               String?
+  postalPlace              String?
+  municipality             String?
+  municipalityNumber       String?
+  countryCode              String?
+  resolutionStatus         CompanyMapAddressResolutionStatus
+  officialAddressId        String?
+  latitude                 Decimal?                          @db.Decimal(10, 7)
+  longitude                Decimal?                          @db.Decimal(10, 7)
+  groupRootOrgNumber       String?                           @db.VarChar(9)
+  groupRootName            String?
+  groupMembershipStatus    GroupMembershipStatus?
+  groupTaxYear             Int?
+  registerUpdatedAt        DateTime?
+  registrySourceSystem     String
+  registrySourceEntityType String
+  registrySourceId         String
+  registryFetchedAt        DateTime
+  registryNormalizedAt     DateTime
+  builtAt                  DateTime                          @default(now())
+  build                    CompanyMapBuild                   @relation(fields: [buildId], references: [id], onDelete: Cascade)
+
+  @@id([buildId, orgNumber])
+  @@index([buildId, organisationForm, companyStatus, resolutionStatus], map: "company_map_coverage")
+  @@index([buildId, resolutionStatus])
+  @@index([buildId, officialAddressId])
+  @@index([buildId, groupRootOrgNumber])
+}
+
+/// Reported-only financial read model for one entity and scope. The population job must read
+/// the versioned live financial view; SQL constraints prevent synthetic rows entering this
+/// public production surface.
+model CompanyMapFinancialSnapshot {
+  buildId                 String          @db.Uuid
+  orgNumber               String          @db.VarChar(9)
+  statementScope          StatementScope
+  fiscalYear              Int
+  revenue                 BigInt?
+  ebit                    BigInt?
+  preTaxProfit            BigInt?
+  netIncome               BigInt?
+  equity                  BigInt?
+  totalAssets             BigInt?
+  valueOrigin             String
+  financialDatasetVersion String
+  sourceSystem            String
+  sourceEntityType        String
+  sourceId                String
+  fetchedAt               DateTime
+  normalizedAt            DateTime
+  builtAt                 DateTime        @default(now())
+  build                   CompanyMapBuild @relation(fields: [buildId], references: [id], onDelete: Cascade)
+
+  @@id([buildId, orgNumber, statementScope])
+  @@index([buildId, statementScope, fiscalYear])
+  @@index([buildId, statementScope, revenue])
+}
+
+enum CompanyMapFinancialDatasetStatus {
+  VERIFIED_REPORTED
+  REVOKED
+}
+
+/// Verification certificate written by the reported-only financial live-view repository after
+/// it has checked nonzero statement/metric coverage and one active dataset version. Public map
+/// readers consume this metadata record and never query reported or simulated source tables.
+model CompanyMapFinancialDatasetPublication {
+  buildId                       String                           @id @db.Uuid
+  financialDatasetVersion       String
+  status                        CompanyMapFinancialDatasetStatus
+  statementCount                Int
+  metricCount                   Int
+  verificationRepositoryVersion String
+  verifiedAt                    DateTime
+  sourceSystem                  String
+  sourceEntityType              String
+  sourceId                      String
+  fetchedAt                     DateTime
+  normalizedAt                  DateTime
+  createdAt                     DateTime                         @default(now())
+  build                         CompanyMapBuild                  @relation(fields: [buildId], references: [id], onDelete: Restrict)
+
+  @@index([financialDatasetVersion])
 }
 
 model CompanyDistressProfile {
@@ -1246,6 +1544,7 @@ model FinancialLineItem {
   updatedAt DateTime @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  simulatedAnchorBindings SimulatedFinancialLine[] @relation("SimulatedReportedAnchor")
 
   @@unique([companyId, fiscalYear, statementScope, sourceKey])
   @@index([metricKey])
@@ -1253,6 +1552,151 @@ model FinancialLineItem {
   /// Drives the "what still needs mapping" queue.
   @@index([metricKey, sourceLabel])
   @@index([sourceSystem, sourceEntityType])
+}
+
+/// Immutable versioned container for investor-demo financial simulations.
+/// A dataset becomes immutable when its status changes to VALIDATED.
+model SimulatedFinancialDataset {
+  id                String                          @id @default(cuid())
+  datasetVersion    String                          @unique
+  status            SimulatedFinancialDatasetStatus @default(BUILDING)
+  taxonomyVersion   String
+  generatorVersion  String
+  assumptionVersion String
+  profileVersion    String
+  manifest          Json
+  validationResult  Json?
+  createdByUserId   String
+  validatedAt       DateTime?
+  createdAt         DateTime                        @default(now())
+  updatedAt         DateTime                        @updatedAt
+  statements        SimulatedFinancialStatement[]
+  metricAliases     SimulatedMetricAlias[]
+  activePointers    ActiveFinancialDataset[]
+
+  @@index([status, createdAt])
+  @@index([taxonomyVersion, generatorVersion])
+}
+
+/// One simulated income statement or balance sheet for one company, period and scope.
+model SimulatedFinancialStatement {
+  id               String                             @id @default(cuid())
+  datasetId        String
+  companyId        String
+  fiscalYear       Int
+  statementScope   StatementScope                     @default(COMPANY)
+  statementType    FinancialFactStatementType
+  statementOrigin  SimulatedFinancialStatementOrigin
+  profile          FinancialSimulationProfile
+  profileRuleId    String
+  periodStart      DateTime
+  periodEnd        DateTime
+  currency         String                             @default("NOK")
+  unitScale        Int                                @default(1)
+  validationStatus SimulatedFinancialValidationStatus @default(PENDING)
+  residualAmount   BigInt?
+  validationResult Json?
+  createdAt        DateTime                           @default(now())
+  updatedAt        DateTime                           @updatedAt
+  dataset          SimulatedFinancialDataset          @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  company          Company                            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  lines            SimulatedFinancialLine[]
+
+  @@unique([datasetId, companyId, fiscalYear, statementScope, statementType])
+  @@index([companyId, fiscalYear, statementScope])
+  @@index([datasetId, validationStatus])
+}
+
+/// FI-SIM concept binding. Exactly one of reportedFinancialLineItemId and
+/// syntheticValue is present; the database migration enforces this XOR.
+model SimulatedFinancialLine {
+  id                          String                          @id @default(cuid())
+  statementId                 String
+  conceptKey                  String
+  /// Constrained by migration to the FI-SIM-2026.1 namespace and conceptKey.
+  conceptQName                String
+  taxonomyVersion             String
+  sourceLabel                 String
+  presentationRole            String
+  reportedFinancialLineItemId String?
+  syntheticValue              BigInt?
+  currency                    String                          @default("NOK")
+  unitScale                   Int                             @default(1)
+  sortOrder                   Int                             @default(0)
+  derivationRuleId            String?
+  generatorVersion            String
+  createdAt                   DateTime                        @default(now())
+  updatedAt                   DateTime                        @updatedAt
+  statement                   SimulatedFinancialStatement     @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  reportedFinancialLineItem   FinancialLineItem?              @relation("SimulatedReportedAnchor", fields: [reportedFinancialLineItemId], references: [id], onDelete: Restrict)
+  mappings                    SimulatedFinancialLineMapping[]
+
+  @@unique([statementId, conceptKey])
+  @@index([reportedFinancialLineItemId])
+  @@index([sourceLabel])
+  @@index([taxonomyVersion, conceptKey])
+}
+
+/// Append-only mapping result for a simulated line. Mapping never mutates the
+/// immutable financial line or any reported mapping record.
+model SimulatedFinancialLineMapping {
+  id              String                 @id @default(cuid())
+  lineId          String
+  mappingRevision BigInt
+  metricKey       String?
+  mappingMethod   String
+  mappedByUserId  String?
+  createdAt       DateTime               @default(now())
+  line            SimulatedFinancialLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+
+  @@unique([lineId, mappingRevision])
+  @@index([mappingRevision, metricKey])
+}
+
+/// Dataset-scoped alias overlay. Demo mapping never mutates reported MetricAlias rows.
+model SimulatedMetricAlias {
+  id               String                    @id @default(cuid())
+  datasetId        String
+  mappingRevision  BigInt
+  taxonomyVersion  String
+  conceptKey       String?
+  metricKey        String
+  alias            String
+  normalizedAlias  String
+  statementFamily  String
+  liabilitySection String?
+  isActive         Boolean                   @default(true)
+  createdByUserId  String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  dataset          SimulatedFinancialDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@unique([datasetId, mappingRevision, metricKey, normalizedAlias, liabilitySection])
+  @@index([datasetId, mappingRevision, statementFamily, isActive])
+  @@index([datasetId, conceptKey])
+}
+
+/// Atomic pointer for the active financial read dataset. Absence means reported mode.
+model ActiveFinancialDataset {
+  id                 String                     @id @default("global")
+  mode               FinancialDatasetMode       @default(REPORTED)
+  simulatedDatasetId String?
+  activationRevision BigInt                     @default(0)
+  mappingRevision    BigInt                     @default(0)
+  activatedAt        DateTime?
+  activatedByUserId  String?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  simulatedDataset   SimulatedFinancialDataset? @relation(fields: [simulatedDatasetId], references: [id], onDelete: Restrict)
+
+  @@index([mode, activationRevision, mappingRevision])
+}
+
+/// Monotonic revision for cache invalidation when reported ingest publishes changes.
+model FinancialDatasetRevision {
+  id               String   @id @default("global")
+  reportedRevision BigInt   @default(0)
+  updatedAt        DateTime @updatedAt
 }
 
 model StructuredFinancialFetchState {

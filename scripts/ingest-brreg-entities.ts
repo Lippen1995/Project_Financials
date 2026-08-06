@@ -8,24 +8,29 @@
  *
  * Usage:
  *   npm run brreg:ingest-entities                       # full register (from live API)
- *   npm run brreg:ingest-entities -- --file=enheter.json.gz   # from a downloaded file (robust)
+ *   npm run brreg:ingest-entities -- --file=enheter.json.gz   # validate a local artifact only
  *   npm run brreg:ingest-entities -- --limit=5000        # stop after N inserts (smoke test)
  */
 import { createReadStream } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { resolve } from "node:path";
 import { createGunzip } from "node:zlib";
-import { Readable } from "node:stream";
+import { Readable, Transform } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 
-import { CompanyStatus, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import env from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import {
+  mapBrregRegistryEntity,
+  type BrregRegistryEntity,
+} from "@/server/providers/brreg-registry-entity-mapper";
 
 const BULK_URL = `${env.brregBaseUrl}/enheter/lastned`;
 const ACCEPT = "application/vnd.brreg.enhetsregisteret.enhet.v2+gzip";
-// 25 bound values per row; 1250 * 25 = 31250 stays under PostgreSQL's 32767 parameter limit.
-const BATCH_SIZE = 1250;
+// 36 bound values per row; 900 * 36 = 32400 stays under PostgreSQL's 32767 parameter limit.
+const BATCH_SIZE = 900;
 let cleanupStageTable: string | null = null;
 
 function quotedStageTable(tableName: string): Prisma.Sql {
@@ -34,32 +39,6 @@ function quotedStageTable(tableName: string): Prisma.Sql {
   }
   return Prisma.raw(`"${tableName}"`);
 }
-
-type BrregAddress = {
-  adresse?: (string | null)[];
-  postnummer?: string;
-  poststed?: string;
-  kommune?: string;
-  kommunenummer?: string;
-  landkode?: string;
-};
-type BrregEntity = {
-  organisasjonsnummer?: string;
-  navn?: string;
-  organisasjonsform?: { kode?: string };
-  institusjonellSektorkode?: { kode?: string; beskrivelse?: string };
-  naeringskode1?: { kode?: string; beskrivelse?: string };
-  antallAnsatte?: number;
-  registreringsdatoEnhetsregisteret?: string;
-  oppdateringsdato?: string;
-  hjemmeside?: string;
-  forretningsadresse?: BrregAddress;
-  postadresse?: BrregAddress;
-  konkurs?: boolean;
-  underAvvikling?: boolean;
-  underTvangsavviklingEllerTvangsopplosning?: boolean;
-  slettedato?: string;
-};
 
 function parseArgs() {
   let nacePrefix: string | null = null;
@@ -76,56 +55,33 @@ function parseArgs() {
   return { nacePrefix, limit, filePath };
 }
 
-async function openGzipStream(filePath: string | null): Promise<NodeJS.ReadableStream> {
+async function openGzipStream(filePath: string | null) {
+  let compressed: NodeJS.ReadableStream;
   if (filePath) {
     console.log(`Reading local file ${filePath}`);
-    return createReadStream(filePath).pipe(createGunzip());
+    compressed = createReadStream(filePath);
+  } else {
+    console.log(`Downloading ${BULK_URL}`);
+    const response = await fetch(BULK_URL, { headers: { Accept: ACCEPT } });
+    if (!response.ok || !response.body) {
+      throw new Error(`Bulk download failed: HTTP ${response.status}`);
+    }
+    compressed = Readable.fromWeb(response.body as never);
   }
-  console.log(`Downloading ${BULK_URL}`);
-  const response = await fetch(BULK_URL, { headers: { Accept: ACCEPT } });
-  if (!response.ok || !response.body) throw new Error(`Bulk download failed: HTTP ${response.status}`);
-  return Readable.fromWeb(response.body as never).pipe(createGunzip());
-}
 
-function deriveStatus(entity: BrregEntity): CompanyStatus {
-  if (entity.konkurs) return CompanyStatus.BANKRUPT;
-  if (entity.slettedato || entity.underAvvikling || entity.underTvangsavviklingEllerTvangsopplosning) {
-    return CompanyStatus.DISSOLVED;
-  }
-  return CompanyStatus.ACTIVE;
-}
-
-function toDate(value?: string): Date | null {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function mapEntity(entity: BrregEntity) {
-  // Prefer the business address (forretningsadresse); fall back to the postal address.
-  const address = entity.forretningsadresse ?? entity.postadresse ?? {};
-  const street = Array.isArray(address.adresse)
-    ? address.adresse.filter(Boolean).join(", ") || null
-    : null;
+  const hash = createHash("sha256");
+  let byteCount = 0n;
+  const meter = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      hash.update(chunk);
+      byteCount += BigInt(chunk.length);
+      callback(null, chunk);
+    },
+  });
   return {
-    orgNumber: entity.organisasjonsnummer!,
-    name: entity.navn ?? "",
-    organisationForm: entity.organisasjonsform?.kode ?? null,
-    institutionalSectorCode: entity.institusjonellSektorkode?.kode ?? null,
-    institutionalSectorDescription: entity.institusjonellSektorkode?.beskrivelse ?? null,
-    naceCode: entity.naeringskode1?.kode ?? null,
-    naceDescription: entity.naeringskode1?.beskrivelse ?? null,
-    status: deriveStatus(entity),
-    employeeCount: typeof entity.antallAnsatte === "number" ? entity.antallAnsatte : null,
-    registeredAt: toDate(entity.registreringsdatoEnhetsregisteret),
-    website: entity.hjemmeside ?? null,
-    addressStreet: street,
-    postalCode: address.postnummer ?? null,
-    postalPlace: address.poststed ?? null,
-    municipality: address.kommune ?? null,
-    municipalityNumber: address.kommunenummer ?? null,
-    countryCode: address.landkode ?? null,
-    registerUpdatedAt: toDate(entity.oppdateringsdato),
+    stream: compressed.pipe(meter).pipe(createGunzip()),
+    sourceArtifact: filePath ? resolve(filePath) : null,
+    finishEvidence: () => ({ checksumSha256: hash.digest("hex"), byteCount }),
   };
 }
 
@@ -140,7 +96,10 @@ type TokenizerState = {
   objectStart: number;
 };
 
-function* extractObjects(state: TokenizerState, appended: string): Generator<string> {
+function* extractObjects(
+  state: TokenizerState,
+  appended: string,
+): Generator<string> {
   state.buf += appended;
   for (let i = state.scanPos; i < state.buf.length; i += 1) {
     const char = state.buf[i];
@@ -176,9 +135,12 @@ function* extractObjects(state: TokenizerState, appended: string): Generator<str
 async function main() {
   const { nacePrefix, limit, filePath } = parseArgs();
   const startedAt = Date.now();
+  const snapshotAt = new Date();
+  const importId = randomUUID();
   if (nacePrefix) console.log(`Filtering to NACE prefix ${nacePrefix}`);
 
-  const gunzip = await openGzipStream(filePath);
+  const source = await openGzipStream(filePath);
+  const gunzip = source.stream;
   const decoder = new StringDecoder("utf8");
   const tokenizer: TokenizerState = {
     buf: "",
@@ -197,9 +159,29 @@ async function main() {
     Prisma.sql`CREATE UNLOGGED TABLE ${stageIdentifier} (LIKE "RegistryEntity" INCLUDING DEFAULTS)`,
   );
 
-  let batch: ReturnType<typeof mapEntity>[] = [];
+  let batch: ReturnType<typeof mapBrregRegistryEntity>[] = [];
   let inserted = 0;
   let scanned = 0;
+  let invalidObjects = 0;
+  let firstNonWhitespaceCharacter = "";
+  let lastNonWhitespaceCharacter = "";
+
+  function observeDocumentBoundary(value: string) {
+    if (!firstNonWhitespaceCharacter) {
+      for (let index = 0; index < value.length; index += 1) {
+        if (!/\s/.test(value[index])) {
+          firstNonWhitespaceCharacter = value[index];
+          break;
+        }
+      }
+    }
+    for (let index = value.length - 1; index >= 0; index -= 1) {
+      if (!/\s/.test(value[index])) {
+        lastNonWhitespaceCharacter = value[index];
+        break;
+      }
+    }
+  }
 
   async function flush() {
     if (batch.length === 0) return;
@@ -210,8 +192,13 @@ async function main() {
         ${r.institutionalSectorCode}, ${r.institutionalSectorDescription}, ${r.naceCode},
         ${r.naceDescription}, ${r.status}::"CompanyStatus", ${r.employeeCount}, ${r.registeredAt},
         ${r.website}, ${r.addressStreet}, ${r.postalCode}, ${r.postalPlace}, ${r.municipality},
-        ${r.municipalityNumber}, ${r.countryCode}, ${r.registerUpdatedAt},
-        ${"BRREG"}, ${"enhet"}, ${r.orgNumber}, ${now}, ${now}, ${now}
+        ${r.municipalityNumber}, ${r.countryCode}, ${r.businessAddressStreet},
+        ${r.businessAddressPostalCode}, ${r.businessAddressPostalPlace},
+        ${r.businessAddressMunicipality}, ${r.businessAddressMunicipalityNumber},
+        ${r.businessAddressCountryCode}, ${r.businessAddressNormalizedName},
+        ${r.businessAddressHouseNumber}, ${r.businessAddressHouseLetter},
+        ${r.businessAddressUnitNumber}, ${r.registerUpdatedAt},
+        ${snapshotAt}, ${"BRREG"}, ${"enhet"}, ${r.orgNumber}, ${now}, ${now}, ${now}
       )`,
     );
     await prisma.$executeRaw(Prisma.sql`
@@ -219,8 +206,14 @@ async function main() {
         "id", "orgNumber", "name", "organisationForm", "institutionalSectorCode",
         "institutionalSectorDescription", "naceCode", "naceDescription", "status",
         "employeeCount", "registeredAt", "website", "addressStreet", "postalCode",
-        "postalPlace", "municipality", "municipalityNumber", "countryCode", "registerUpdatedAt",
-        "sourceSystem", "sourceEntityType", "sourceId", "fetchedAt", "normalizedAt", "updatedAt"
+        "postalPlace", "municipality", "municipalityNumber", "countryCode",
+        "businessAddressStreet", "businessAddressPostalCode", "businessAddressPostalPlace",
+        "businessAddressMunicipality", "businessAddressMunicipalityNumber",
+        "businessAddressCountryCode",
+        "businessAddressNormalizedName", "businessAddressHouseNumber",
+        "businessAddressHouseLetter", "businessAddressUnitNumber", "registerUpdatedAt",
+        "sourceSnapshotAt", "sourceSystem", "sourceEntityType", "sourceId", "fetchedAt",
+        "normalizedAt", "updatedAt"
       ) VALUES ${Prisma.join(tuples)}
     `);
     inserted += batch.length;
@@ -229,17 +222,27 @@ async function main() {
   }
 
   for await (const chunk of gunzip) {
-    for (const objectText of extractObjects(tokenizer, decoder.write(chunk as Buffer))) {
+    const decodedChunk = decoder.write(chunk as Buffer);
+    observeDocumentBoundary(decodedChunk);
+    for (const objectText of extractObjects(tokenizer, decodedChunk)) {
       scanned += 1;
-      let entity: BrregEntity;
+      let entity: BrregRegistryEntity;
       try {
-        entity = JSON.parse(objectText) as BrregEntity;
+        entity = JSON.parse(objectText) as BrregRegistryEntity;
       } catch {
+        invalidObjects += 1;
         continue;
       }
-      if (!entity.organisasjonsnummer) continue;
-      if (nacePrefix && !(entity.naeringskode1?.kode ?? "").startsWith(nacePrefix)) continue;
-      batch.push(mapEntity(entity));
+      if (!entity.organisasjonsnummer) {
+        invalidObjects += 1;
+        continue;
+      }
+      if (
+        nacePrefix &&
+        !(entity.naeringskode1?.kode ?? "").startsWith(nacePrefix)
+      )
+        continue;
+      batch.push(mapBrregRegistryEntity(entity));
       if (batch.length >= BATCH_SIZE) await flush();
       if (inserted + batch.length >= limit) break;
     }
@@ -248,22 +251,50 @@ async function main() {
 
   const tail = decoder.end();
   if (tail) {
+    observeDocumentBoundary(tail);
     for (const objectText of extractObjects(tokenizer, tail)) {
       try {
-        const entity = JSON.parse(objectText) as BrregEntity;
-        if (entity.organisasjonsnummer && (!nacePrefix || (entity.naeringskode1?.kode ?? "").startsWith(nacePrefix))) {
-          batch.push(mapEntity(entity));
+        const entity = JSON.parse(objectText) as BrregRegistryEntity;
+        if (!entity.organisasjonsnummer) {
+          invalidObjects += 1;
+        } else if (
+          !nacePrefix ||
+          (entity.naeringskode1?.kode ?? "").startsWith(nacePrefix)
+        ) {
+          batch.push(mapBrregRegistryEntity(entity));
         }
       } catch {
-        /* ignore trailing malformed */
+        invalidObjects += 1;
       }
     }
   }
   await flush();
 
-  const isCompleteSnapshot = !nacePrefix && limit === Infinity;
-  if (isCompleteSnapshot) {
-    const [{ count: currentCountRaw }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
+  const isFullArtifact = !nacePrefix && limit === Infinity;
+  if (isFullArtifact) {
+    if (
+      firstNonWhitespaceCharacter !== "[" ||
+      lastNonWhitespaceCharacter !== "]" ||
+      tokenizer.depth !== 0 ||
+      tokenizer.inString ||
+      tokenizer.objectStart !== -1 ||
+      invalidObjects > 0
+    ) {
+      throw new Error(
+        "Brreg full-register artifact was incomplete or contained invalid entity objects.",
+      );
+    }
+  }
+  const evidence = isFullArtifact ? source.finishEvidence() : null;
+
+  // Only a stream fetched directly from the configured official Brreg endpoint can replace the
+  // published mirror. A local file has no authenticated chain to that source, even if valid.
+  const canPublishSnapshot = isFullArtifact && !filePath;
+  if (canPublishSnapshot) {
+    if (!evidence) throw new Error("Full Brreg artifact evidence was not recorded.");
+    const [{ count: currentCountRaw }] = await prisma.$queryRaw<
+      Array<{ count: bigint }>
+    >`
       SELECT count(*)::bigint AS count FROM "RegistryEntity"
     `;
     const currentCount = Number(currentCountRaw);
@@ -281,11 +312,38 @@ async function main() {
         await tx.$executeRaw(
           Prisma.sql`INSERT INTO "RegistryEntity" SELECT * FROM ${stageIdentifier}`,
         );
+        const completedAt = new Date();
+        await tx.registryEntityImport.create({
+          data: {
+            id: importId,
+            snapshotAt,
+            status: "COMPLETED",
+            sourceUrl: BULK_URL,
+            sourceMediaType: ACCEPT,
+            sourceArtifact: source.sourceArtifact,
+            checksumSha256: evidence.checksumSha256,
+            byteCount: evidence.byteCount,
+            rowCount: inserted,
+            isUnfiltered: true,
+            reachedEof: true,
+            startedAt: new Date(startedAt),
+            completedAt,
+            sourceSystem: "BRREG",
+            sourceEntityType: "EnhetsregisteretFullDownload",
+            sourceId: importId,
+            fetchedAt: snapshotAt,
+            normalizedAt: completedAt,
+          },
+        });
       },
       { maxWait: 60_000, timeout: 900_000 },
     );
   } else {
-    console.log("Filtered/limited run validated only; RegistryEntity publication was not replaced.");
+    console.log(
+      isFullArtifact
+        ? `Local full artifact validated (${evidence?.checksumSha256}); RegistryEntity publication was not replaced.`
+        : "Filtered/limited run inspected only; RegistryEntity publication was not replaced.",
+    );
   }
 
   await prisma.$executeRaw(Prisma.sql`DROP TABLE ${stageIdentifier}`);
@@ -299,7 +357,9 @@ async function main() {
 
   const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
   process.stdout.write("\n");
-  console.log(`Done: scanned ${scanned} entities, inserted ${inserted} in ${seconds}s`);
+  console.log(
+    `Done: scanned ${scanned} entities, inserted ${inserted} in ${seconds}s`,
+  );
 }
 
 main()

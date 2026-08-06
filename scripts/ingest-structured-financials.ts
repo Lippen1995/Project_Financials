@@ -13,6 +13,12 @@ type CliOptions = {
   chainQuery: string | null;
   refresh: boolean;
   sampleProfile: string | null;
+  /**
+   * Restrict to companies the registry flags as a parent (`morselskap`). Only
+   * those can carry a konsernregnskap, so a group-figure backfill does not need
+   * to re-fetch the whole base.
+   */
+  parentsOnly: boolean;
 };
 
 function parseCliOptions(argv: string[]): CliOptions {
@@ -23,6 +29,7 @@ function parseCliOptions(argv: string[]): CliOptions {
     chainQuery: null,
     refresh: false,
     sampleProfile: null,
+    parentsOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -41,6 +48,7 @@ function parseCliOptions(argv: string[]): CliOptions {
     else if (arg === "--chain") options.chainQuery = nextValue();
     else if (arg === "--refresh") options.refresh = true;
     else if (arg === "--sample-profile") options.sampleProfile = nextValue();
+    else if (arg === "--parents-only") options.parentsOnly = true;
     else throw new Error(`Ukjent argument: ${arg}`);
   }
 
@@ -132,12 +140,33 @@ async function main() {
       }),
     );
   } else {
+    // Parents are identified from what the registry already told us on the
+    // stored statement, so the filter costs one query instead of a probe per
+    // company.
+    const parentOrgNumbers = options.parentsOnly
+      ? (
+          await prisma.$queryRawUnsafe<Array<{ orgNumber: string }>>(`
+            SELECT DISTINCT c."orgNumber"
+              FROM "FinancialStatement" s
+              JOIN "Company" c ON c.id = s."companyId"
+             WHERE s."sourceSystem" = 'BRREG'
+               AND s."sourceEntityType" = 'structuredAnnualAccounts'
+               AND (s."rawPayload"->>'isParentCompany')::boolean IS TRUE`)
+        ).map((row) => row.orgNumber)
+      : null;
+
+    if (parentOrgNumbers !== null && parentOrgNumbers.length === 0) {
+      console.log("Ingen morselskap funnet i lagrede regnskap.");
+      return;
+    }
+
     companies = await prisma.company.findMany({
       where: {
+        ...(parentOrgNumbers ? { orgNumber: { in: parentOrgNumbers } } : {}),
         ...(requestedOrgNumbers.length ? { orgNumber: { in: requestedOrgNumbers } } : {}),
         // Resume from the persisted source-health cache. Available, empty and
         // failed checks all carry an explicit nextCheckAt, avoiding retry loops.
-        ...(options.refresh || options.orgNumbers.length
+        ...(options.refresh || options.orgNumbers.length || options.parentsOnly
           ? {}
           : {
               OR: [

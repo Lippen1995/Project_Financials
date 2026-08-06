@@ -86,3 +86,22 @@ Grensen der en eierskapskjede møter et departement, staten, en kommune, en fylk
 annet ikke-kommersielt offentlig organ. Eierskap over grensen er finansielle eierposisjoner og
 inngår ikke i konsernet under grensen.
 _Unngå_: Offentlig konsernforelder
+
+## Simulerte regnskap
+
+**Fjord Simulation Taxonomy (`FI-SIM`)**:
+Fjord Insights egen, versjonerte ordliste for linjer og sammenhenger i investor-demoens simulerte
+resultatregnskap og balanser. Taksonomien er selvstendig og inneholder ikke IFRS-materiale. Den er
+ikke en påstand om hvilket regnskapsregelverk en virksomhet følger.
+_Unngå_: IFRS-taksonomi, IFRS-kompatibel taksonomi
+
+**Simuleringsprofil**:
+Et versjonert sett med semantiske regler som bestemmer hvilke `FI-SIM`-konsepter som er relevante
+for en virksomhetstype. Profilen skaper meningsfull variasjon mellom selskaper; den er ikke et
+tilfeldig utvalg av linjer.
+_Unngå_: Standardlinjer for alle selskaper, tilfeldig linjeutvalg
+
+**Kanonisk finansiell metrikk**:
+Et sammenlignbart internt analysebegrep som én eller flere kilde- eller simuleringslinjer kan mappes
+til. Den kanoniske metrikken er ikke det samme som linjens originale label eller taksonomikonsept.
+_Unngå_: Kildelabel, simuleringskonsept
