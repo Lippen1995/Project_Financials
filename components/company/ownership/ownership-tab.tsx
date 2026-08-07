@@ -386,10 +386,20 @@ export function OwnershipTab({ slug, initial }: { slug: string; initial: Ownersh
           {summary ? (
             <div className="mt-3 space-y-1 text-sm leading-6 text-[var(--px-muted)]">
               <p className="text-[var(--px-text)]">{summary.lead}</p>
-              <p>
-                Morselskap: {summary.parent?.name ?? "Ingen"} · Direkte eierandel:{" "}
-                {formatPercent(summary.currentNode?.ownershipPercent ?? null)}
-              </p>
+              {summary.currentNode ? (
+                <p>
+                  Morselskap: {summary.parent?.name ?? "Ingen"} · Direkte eierandel:{" "}
+                  {formatPercent(summary.currentNode.ownershipPercent)}
+                </p>
+              ) : (
+                // The company is a resolved member but sits deeper than the traversal renders,
+                // so it is absent from its own tree. Saying "Morselskap: Ingen" here would
+                // assert it has no parent, which is the opposite of what the data says.
+                <p>
+                  Selskapet ligger dypere i konsernet enn visningen rekker, og vises derfor ikke
+                  i treet under.
+                </p>
+              )}
               <p>
                 {summary.subsidiaries} datterselskaper · {summary.associated} tilknyttede selskaper ·{" "}
                 {summary.dissolved} oppløste selskaper
@@ -410,7 +420,13 @@ export function OwnershipTab({ slug, initial }: { slug: string; initial: Ownersh
                 ? "Konserntilhørighet vises ikke fordi eierskapskildene gir en motstridende kontrollkjede."
                 : overview.group?.membershipStatus === "UNKNOWN"
                   ? "Konserntilhørighet vises ikke fordi den kontrollerende eierkjeden er ufullstendig."
-                  : "Konsernstruktur vises når en komplett aksjonærregisterimport og publisert gruppestruktur er tilgjengelig."}
+                  : overview.group
+                    ? // A publication exists and the company simply is not part of any commercial
+                      // group — the common case for companies owned by a municipality or the
+                      // state, whose holdings are financial positions by rule. Blaming missing
+                      // data here would report a gap in the source that does not exist.
+                      `${overview.companyName} inngår ikke i en konsernstruktur for valgt år.`
+                    : "Konsernstruktur vises når en komplett aksjonærregisterimport og publisert gruppestruktur er tilgjengelig."}
             </p>
           )}
         </div>

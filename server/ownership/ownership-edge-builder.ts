@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import {
   acquireOwnershipPublicationLocks,
   buildGroupRelationshipSnapshotInTransaction,
-  requireCompleteShareholderRegisterImport,
+  OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS,
+  requirePublishableShareholderRegisterImport,
   type GroupRelationshipSnapshotBuildResult,
 } from "@/server/ownership/group-relationship-snapshot-builder";
 import {
@@ -39,7 +40,7 @@ export async function buildOwnershipEdgesForYear(taxYear: number): Promise<Owner
     // transaction. Readers therefore keep seeing the previous published snapshot until every
     // replacement edge, relationship and membership row is ready.
     await acquireOwnershipPublicationLocks(tx, taxYear);
-    const sourceImport = await requireCompleteShareholderRegisterImport(tx, taxYear);
+    const sourceImport = await requirePublishableShareholderRegisterImport(tx, taxYear);
 
     await tx.$executeRaw`DELETE FROM "OwnershipEdge" WHERE "taxYear" = ${taxYear}`;
 
@@ -135,7 +136,7 @@ export async function buildOwnershipEdgesForYear(taxYear: number): Promise<Owner
       minorityCount,
       semanticSnapshot,
     };
-  }, { maxWait: 60_000, timeout: 900_000 });
+  }, OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS);
 }
 
 /** Tax years that have register holdings available to build edges from. */

@@ -1,4 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import {
+  PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL,
+  PUBLISHABLE_SOURCE_IMPORT_STATUSES,
+  toPublishableSourceImportStatus,
+} from "@/server/ownership/group-relationship-snapshot-builder";
 import { getGroupStructure } from "@/server/ownership/group-structure-service";
 import { classifyRelationship, type OwnershipRelationship } from "@/server/ownership/ownership-thresholds";
 import type { GroupStructure } from "@/server/ownership/types";
@@ -26,22 +31,23 @@ async function getOwnershipSourceForYear(
   hasGroupPublication: boolean;
 } | null> {
   const publication = await prisma.groupRelationshipPublication.findFirst({
-    where: { taxYear, sourceImportStatus: "COMPLETED" },
+    where: { taxYear, sourceImportStatus: { in: [...PUBLISHABLE_SOURCE_IMPORT_STATUSES] } },
     select: { sourceImportId: true },
   });
   if (publication) {
     const publishedImport = await prisma.shareholderRegisterImport.findFirst({
       where: {
         id: publication.sourceImportId,
-        status: "COMPLETED",
+        status: { in: [...PUBLISHABLE_SOURCE_IMPORT_STATUSES] },
         holdings: { some: {} },
       },
-      select: { id: true },
+      select: { id: true, status: true },
     });
-    if (publishedImport) {
+    const publishedStatus = toPublishableSourceImportStatus(publishedImport?.status);
+    if (publishedImport && publishedStatus) {
       return {
         importId: publishedImport.id,
-        status: "COMPLETED",
+        status: publishedStatus,
         hasGroupPublication: true,
       };
     }
@@ -271,7 +277,7 @@ async function getDirectHoldings(
     FROM "ShareholderRegisterHolding" holding
     LEFT JOIN "GroupRelationshipPublication" publication
       ON publication."taxYear" = holding."taxYear"
-     AND publication."sourceImportStatus" = 'COMPLETED'
+     AND publication."sourceImportStatus" IN ${PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL}
      AND publication."sourceImportId" = holding."importId"
     LEFT JOIN "GroupRelationshipSnapshot" semantic
       ON semantic."buildId" = publication."buildId"

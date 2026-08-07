@@ -32,8 +32,8 @@ export type GroupStructure = {
   nodes: GroupNode[];
   /** True when depth or node-count limits stopped the traversal short. */
   truncated: boolean;
-  /** Only complete source imports are eligible for semantic group publication. */
-  sourceImportStatus?: "COMPLETED";
+  /** Status of the Skatteetaten import the published snapshot was built from. */
+  sourceImportStatus?: "COMPLETED" | "PARTIAL";
   /** Consumers may show a definitive group label only for RESOLVED membership. */
   membershipStatus?: "RESOLVED" | "UNKNOWN" | "CONFLICT";
   ruleVersion?: string;
