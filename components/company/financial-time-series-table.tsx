@@ -745,6 +745,32 @@ export function FinancialTimeSeriesTable({
       : null;
 
   const unitLabel = FINANCIAL_UNIT_LABELS[unit];
+
+  // Provenance for the figures on screen. A STALE availability is otherwise unobservable:
+  // nothing else in the app renders that state, so without this line the user is shown
+  // official-looking figures with no indication that the snapshot is out of date.
+  const latestSourceStatement = [...scopedStatements].sort(
+    (left, right) => right.fetchedAt.getTime() - left.fetchedAt.getTime(),
+  )[0];
+  const sourceName =
+    latestSourceStatement?.sourceSystem === "BRREG"
+      ? "Brønnøysundregistrene"
+      : latestSourceStatement?.sourceSystem;
+  const sourceDate = latestSourceStatement?.fetchedAt
+    ? new Intl.DateTimeFormat("nb-NO", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Europe/Oslo",
+      }).format(latestSourceStatement.fetchedAt)
+    : null;
+  const staleSuffix = availability?.status === "STALE" ? " · utdatert snapshot" : "";
+  const sourceText =
+    sourceName && sourceDate
+      ? `Kilde: ${sourceName} strukturert API · hentet ${sourceDate}${staleSuffix}`
+      : sourceName
+        ? `Kilde: ${sourceName}${staleSuffix}`
+        : null;
   const unitSuffix = FINANCIAL_UNIT_SUFFIXES[unit];
   const kpis: { label: string; value: string; delta: string }[] = [
     {
@@ -1517,6 +1543,12 @@ export function FinancialTimeSeriesTable({
                 </p>
               </>
             )}
+
+            {sourceText ? (
+              <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3.5 text-[12px] leading-6 text-[var(--px-muted)]">
+                {sourceText}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
