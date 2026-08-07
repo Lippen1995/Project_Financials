@@ -6,12 +6,6 @@ import type { FinancialSourceAccessRegistration } from "@/lib/financial-source-a
  */
 export const financialSourceAccessRegistrations = [
   {
-    path: "app/api/companies/[slug]/raw-financials/route.ts",
-    sources: ["PublishedFinancialLineItem"],
-    classification: "temporary-runtime-reader",
-    rationale: "Replace the legacy published-line query with live lines in F4.",
-  },
-  {
     path: "scripts/bootstrap-metric-aliases-from-fasit.ts",
     sources: ["PublishedFinancialLineItem"],
     classification: "source-maintenance",
