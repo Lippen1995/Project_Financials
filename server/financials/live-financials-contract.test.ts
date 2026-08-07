@@ -13,6 +13,12 @@ function reportedStatement() {
     financialDatasetVersion: "reported:14",
     taxonomyVersion: null,
     generatorVersion: null,
+    sourceSystem: "BRREG",
+    sourceEntityType: "structuredAnnualAccounts",
+    sourceId: "journal-1",
+    fetchedAt: new Date("2026-08-06T00:00:00.000Z"),
+    normalizedAt: new Date("2026-08-06T00:01:00.000Z"),
+    rawPayload: { modelVersion: "brreg-structured-annual-accounts@1" },
     currency: "NOK",
     unitScale: 1,
     periodStart: null,
@@ -33,6 +39,7 @@ function reportedStatement() {
         metricKey: "total_operating_revenue",
         value: 100n,
         valueOrigin: "reported",
+        statementOrigin: "reported",
         financialDatasetVersion: "reported:14",
         taxonomyVersion: null,
         generatorVersion: null,
@@ -41,6 +48,13 @@ function reportedStatement() {
         sortOrder: 10,
         reportedSourceSystem: "brreg",
         reportedSourceId: "source-line-1",
+        sourceSystem: "brreg",
+        sourceEntityType: "structuredAnnualAccountsLine",
+        sourceId: "source-line-1",
+        fetchedAt: new Date("2026-08-06T00:00:00.000Z"),
+        normalizedAt: new Date("2026-08-06T00:01:00.000Z"),
+        rawPayload: null,
+        derivationRuleId: null as string | null,
       },
     ],
   };
@@ -64,7 +78,12 @@ describe("parseLiveFinancialStatement", () => {
         liveStatementId: "simulated:statement-1",
         reportedFinancialLineItemId: null as unknown as string,
         valueOrigin: "synthetic",
+        statementOrigin: "simulated",
         financialDatasetVersion: "simulated:dataset-1:2",
+        sourceSystem: "FI-SIM",
+        sourceEntityType: "simulatedFinancialLine",
+        sourceId: "simulated:line-1",
+        derivationRuleId: "residual-1",
       },
     ];
 
@@ -87,6 +106,9 @@ describe("parseLiveFinancialStatement", () => {
       financialDatasetVersion: "simulated:dataset-1:2",
       taxonomyVersion: "FI-SIM-2026.1",
       generatorVersion: "generator-1",
+      sourceSystem: "FI-SIM",
+      sourceEntityType: "simulatedFinancialStatement",
+      sourceId: "simulated:statement-2",
       lines: [
         {
           ...reportedStatement().lines[0],
@@ -96,6 +118,7 @@ describe("parseLiveFinancialStatement", () => {
           financialDatasetVersion: "simulated:dataset-1:2",
           taxonomyVersion: "FI-SIM-2026.1",
           generatorVersion: "generator-1",
+          statementOrigin: "hybrid",
         },
         {
           liveLineId: "simulated:line-synthetic",
@@ -107,6 +130,7 @@ describe("parseLiveFinancialStatement", () => {
           metricKey: null,
           value: 40n,
           valueOrigin: "synthetic",
+          statementOrigin: "hybrid",
           financialDatasetVersion: "simulated:dataset-1:2",
           taxonomyVersion: "FI-SIM-2026.1",
           generatorVersion: "generator-1",
@@ -115,6 +139,13 @@ describe("parseLiveFinancialStatement", () => {
           sortOrder: 20,
           reportedSourceSystem: null,
           reportedSourceId: null,
+          sourceSystem: "FI-SIM",
+          sourceEntityType: "simulatedFinancialLine",
+          sourceId: "simulated:line-synthetic",
+          fetchedAt: new Date("2026-08-06T00:00:00.000Z"),
+          normalizedAt: new Date("2026-08-06T00:01:00.000Z"),
+          rawPayload: { derivationRuleId: "personnel-residual-1" },
+          derivationRuleId: "personnel-residual-1",
         },
       ],
     };
@@ -131,6 +162,9 @@ describe("parseLiveFinancialStatement", () => {
       financialDatasetVersion: "simulated:dataset-1:3",
       taxonomyVersion: "FI-SIM-2026.1",
       generatorVersion: "generator-1",
+      sourceSystem: "FI-SIM",
+      sourceEntityType: "simulatedFinancialStatement",
+      sourceId: "simulated:statement-3",
       lines: [
         {
           ...reportedStatement().lines[0],
@@ -138,13 +172,33 @@ describe("parseLiveFinancialStatement", () => {
           liveStatementId: "simulated:statement-3",
           reportedFinancialLineItemId: null,
           valueOrigin: "synthetic",
+          statementOrigin: "simulated",
           financialDatasetVersion: "simulated:dataset-1:3",
           taxonomyVersion: "FI-SIM-2026.1",
           generatorVersion: "generator-1",
+          sourceSystem: "FI-SIM",
+          sourceEntityType: "simulatedFinancialLine",
+          sourceId: "simulated:line-3",
+          derivationRuleId: "residual-1",
         },
       ],
     };
 
     expect(() => parseLiveFinancialStatement(input)).toThrow(/reportedSourceSystem/);
+  });
+
+  it("rejects reported statement provenance on a simulated statement", () => {
+    const input = {
+      ...reportedStatement(),
+      liveStatementId: "simulated:statement-4",
+      reportedStatementId: null,
+      statementOrigin: "simulated",
+      financialDatasetVersion: "simulated:dataset-1:4",
+      taxonomyVersion: "FI-SIM-2026.1",
+      generatorVersion: "generator-1",
+      lines: [],
+    };
+
+    expect(() => parseLiveFinancialStatement(input)).toThrow(/sourceSystem/);
   });
 });

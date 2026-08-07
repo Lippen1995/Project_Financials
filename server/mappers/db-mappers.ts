@@ -1,7 +1,6 @@
 import {
   Address,
   Company,
-  FinancialStatement,
   IndustryCode,
   Person,
   Role,
@@ -17,11 +16,28 @@ import {
 } from "@/lib/industry-code";
 import { toSafeNumber } from "@/server/financials/number-utils";
 
+type FinancialStatementRecord = {
+  sourceSystem: string;
+  sourceEntityType: string;
+  sourceId: string;
+  fetchedAt: Date;
+  normalizedAt: Date;
+  rawPayload?: unknown;
+  fiscalYear: number;
+  currency: string;
+  statementScope: "COMPANY" | "CONSOLIDATED";
+  revenue: bigint | number | null;
+  operatingProfit: bigint | number | null;
+  netIncome: bigint | number | null;
+  equity: bigint | number | null;
+  assets: bigint | number | null;
+};
+
 type CompanyWithRelations = Company & {
   addresses: Address[];
   industryCode: IndustryCode | null;
   roles?: (Role & { person: Person })[];
-  financialStatements?: FinancialStatement[];
+  financialStatements?: FinancialStatementRecord[];
 };
 
 function deriveRoleHolder(role: Role & { person: Person }) {
@@ -214,7 +230,7 @@ export function mapDbRoles(roles: (Role & { person: Person })[]): NormalizedRole
 }
 
 export function mapDbFinancialStatements(
-  statements: FinancialStatement[],
+  statements: readonly FinancialStatementRecord[],
 ): NormalizedFinancialStatement[] {
   return statements.map((statement) => ({
     sourceSystem: statement.sourceSystem,

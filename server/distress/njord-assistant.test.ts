@@ -35,6 +35,8 @@ function buildRow(overrides: {
     },
     sector: { code: "43", label: "Bygg og anlegg" },
     financials: {
+      financialDatasetMode: "reported",
+      financialDatasetVersion: "reported:22",
       lastReportedYear: 2025,
       revenue: 1_200_000,
       ebit: -340_000,

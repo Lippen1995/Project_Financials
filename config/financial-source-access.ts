@@ -6,18 +6,6 @@ import type { FinancialSourceAccessRegistration } from "@/lib/financial-source-a
  */
 export const financialSourceAccessRegistrations = [
   {
-    path: "app/(app)/watchlist/page.tsx",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move watchlist financial years to FinancialsRepository in F4.",
-  },
-  {
-    path: "app/api/companies/[slug]/raw-financials/route.ts",
-    sources: ["PublishedFinancialLineItem"],
-    classification: "temporary-runtime-reader",
-    rationale: "Replace the legacy published-line query with live lines in F4.",
-  },
-  {
     path: "scripts/bootstrap-metric-aliases-from-fasit.ts",
     sources: ["PublishedFinancialLineItem"],
     classification: "source-maintenance",
@@ -55,22 +43,10 @@ export const financialSourceAccessRegistrations = [
     rationale: "Disposable-database migration verification creates an explicit reported anchor.",
   },
   {
-    path: "server/ai-search/tools/build-mna-pro-forma.ts",
-    sources: ["FinancialStatement", "PublishedFinancialLineItem"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move Njord M&A calculations to FinancialsRepository in F4.",
-  },
-  {
     path: "server/ai-search/tools/enrich.ts",
     sources: ["FinancialStatement"],
     classification: "temporary-runtime-reader",
     rationale: "Move Njord company enrichment to FinancialsRepository in F4.",
-  },
-  {
-    path: "server/ai-search/tools/estimate-group-financials.ts",
-    sources: ["FinancialStatement", "PublishedFinancialLineItem"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move Njord group estimates to FinancialsRepository in F4.",
   },
   {
     path: "server/analysis/analysis-service.ts",
@@ -79,28 +55,17 @@ export const financialSourceAccessRegistrations = [
     rationale: "Move analysis financial evidence to FinancialsRepository in F4.",
   },
   {
-    path: "server/analysis/company-universe-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move financial screening SQL behind FinancialsRepository in F4.",
-  },
-  {
     path: "server/financials/published-financials-reader.ts",
     sources: ["FinancialStatement", "PublishedFinancialLineItem"],
     classification: "temporary-runtime-reader",
-    rationale: "Replace this legacy public read module with FinancialsRepository in F4.",
+    rationale:
+      "Public company financials no longer imports this module; remove it after its remaining legacy callers migrate in F4.",
   },
   {
     path: "server/persistence/company-repository.ts",
     sources: ["FinancialStatement"],
     classification: "temporary-runtime-reader",
     rationale: "Split the permitted source writer from cached runtime reads in F4.",
-  },
-  {
-    path: "server/persistence/distress-repository.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move distress financial reads to FinancialsRepository in F4.",
   },
   {
     path: "server/services/admin-hub-service.ts",
@@ -119,12 +84,6 @@ export const financialSourceAccessRegistrations = [
     sources: ["FinancialStatement"],
     classification: "temporary-runtime-reader",
     rationale: "Reported statement FK validation remains direct until live IDs land in F4.",
-  },
-  {
-    path: "server/services/dd-investment-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Reported evidence reads remain direct until live IDs land in F4.",
   },
   {
     path: "server/services/financial-line-item-service.ts",

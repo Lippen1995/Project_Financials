@@ -6,10 +6,10 @@ import {
   type WatchlistCompany,
   type WatchlistDdRoom,
   type WatchlistNews,
-  type WatchlistStatement,
 } from "@/components/watchlist/watchlist-view";
 import { safeAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { watchlistFinancialsService } from "@/server/services/watchlist-financials-service";
 import { getWorkspaceWatchlistOverview } from "@/server/services/workspace-collaboration-service";
 
 export const metadata = { title: "Overvåkning" };
@@ -35,11 +35,6 @@ function eventCategory(eventType: string): string {
   return EVENT_TYPE_LABELS[eventType] ?? eventType.replaceAll("_", " ");
 }
 
-function toNumber(value: bigint | number | null | undefined): number | null {
-  if (value === null || value === undefined) return null;
-  return Number(value);
-}
-
 export default async function WatchlistPage() {
   const session = await safeAuth();
   if (!session?.user?.id) redirect("/login");
@@ -63,28 +58,14 @@ export default async function WatchlistPage() {
 
   const companyIds = overview.activeWatches.map((watch) => watch.company.id);
 
-  const [companyRecords, statementRecords, ddRoomRecords] = await Promise.all([
+  const [companyRecords, financialSnapshot, ddRoomRecords] = await Promise.all([
     companyIds.length
       ? prisma.company.findMany({
           where: { id: { in: companyIds } },
           select: { id: true, foundedAt: true, employeeCount: true, website: true },
         })
       : Promise.resolve([]),
-    companyIds.length
-      ? prisma.financialStatement.findMany({
-          where: { companyId: { in: companyIds }, statementScope: "COMPANY" },
-          orderBy: [{ fiscalYear: "asc" }],
-          select: {
-            companyId: true,
-            fiscalYear: true,
-            revenue: true,
-            operatingProfit: true,
-            netIncome: true,
-            equity: true,
-            assets: true,
-          },
-        })
-      : Promise.resolve([]),
+    watchlistFinancialsService.load(companyIds),
     prisma.ddRoom.findMany({
       where: { workspaceId },
       include: {
@@ -95,19 +76,6 @@ export default async function WatchlistPage() {
   ]);
 
   const companyExtras = new Map(companyRecords.map((c) => [c.id, c]));
-  const statementsByCompany = new Map<string, WatchlistStatement[]>();
-  for (const row of statementRecords) {
-    const list = statementsByCompany.get(row.companyId) ?? [];
-    list.push({
-      year: row.fiscalYear,
-      revenue: toNumber(row.revenue),
-      operatingProfit: toNumber(row.operatingProfit),
-      netIncome: toNumber(row.netIncome),
-      equity: toNumber(row.equity),
-      assets: toNumber(row.assets),
-    });
-    statementsByCompany.set(row.companyId, list);
-  }
 
   const companies: WatchlistCompany[] = overview.activeWatches.map((watch) => {
     const extras = companyExtras.get(watch.company.id);
@@ -126,7 +94,7 @@ export default async function WatchlistPage() {
       foundedAt: extras?.foundedAt ? extras.foundedAt.toISOString() : null,
       employeeCount: extras?.employeeCount ?? null,
       website: extras?.website ?? null,
-      statements: statementsByCompany.get(watch.company.id) ?? [],
+      statements: financialSnapshot.statementsByCompany[watch.company.id] ?? [],
     };
   });
 
@@ -171,6 +139,8 @@ export default async function WatchlistPage() {
       news={news}
       alerts={alerts}
       ddRooms={ddRooms}
+      financialDatasetMode={financialSnapshot.datasetMode}
+      financialDatasetVersion={financialSnapshot.financialDatasetVersion}
     />
   );
 }

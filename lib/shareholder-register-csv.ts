@@ -10,36 +10,50 @@ export type ShareholderRegisterCsvIndexes = {
   totalCompanyShares: number;
 };
 
+/**
+ * Split one Skatteetaten aksjeeiebok row.
+ *
+ * The format is semicolon-delimited with no quoting mechanism: a double quote is an ordinary
+ * character inside Baltic company names (`UAB "ERA CAPITAL"`, `SIA "MB CAPITAL"`). Verified
+ * against aksjeeiebok_2025.csv, where all 3 089 374 lines split into exactly nine fields on ";".
+ *
+ * Treating `"` as a quote delimiter was therefore pure loss: balanced names silently lost their
+ * quotes, and a name with an odd number of quotes swallowed the following ";", collapsing the
+ * row into too few fields so it was discarded as malformed.
+ */
 export function splitShareholderRegisterCsvLine(line: string) {
-  const values: string[] = [];
-  let current = "";
-  let quoted = false;
+  return line.split(";").map((value) => value.trim());
+}
 
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    const nextCharacter = line[index + 1];
-
-    if (character === '"') {
-      if (quoted && nextCharacter === '"') {
-        current += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-      continue;
-    }
-
-    if (character === ";" && !quoted) {
-      values.push(current);
-      current = "";
-      continue;
-    }
-
-    current += character;
+/**
+ * Fold surplus fields back into the address column.
+ *
+ * The register is unescaped, so a handful of foreign addresses contain the delimiter itself
+ * (`S-51, Tranemo; Sverige`) and split into more fields than the header declares. The row is
+ * still unambiguous: the address is the only free-text column, every column before it and
+ * after it is fixed, so the leading fields anchor from the left and the trailing fields from
+ * the right and the surplus in between can only belong to the address.
+ *
+ * Rows with the declared field count pass through untouched. Rejoining loses the whitespace
+ * that followed the embedded delimiter, which affects the address string only. If the anchor
+ * were ever wrong the share count would not parse and the row is rejected as before, so this
+ * recovers rows without widening what counts as valid.
+ */
+export function reconcileSurplusCsvFields(
+  values: string[],
+  columnCount: number,
+  addressIndex: number,
+) {
+  const trailingCount = columnCount - addressIndex - 1;
+  if (values.length <= columnCount || addressIndex < 0 || trailingCount < 0) {
+    return values;
   }
 
-  values.push(current);
-  return values.map((value) => value.trim());
+  return [
+    ...values.slice(0, addressIndex),
+    values.slice(addressIndex, values.length - trailingCount).join(";"),
+    ...values.slice(values.length - trailingCount),
+  ];
 }
 
 function normalizeHeader(value: string) {

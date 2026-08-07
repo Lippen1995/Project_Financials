@@ -2,6 +2,11 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import type { GroupRelationshipKind } from "@/server/ownership/group-relationship-classifier";
+import {
+  PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL,
+  PUBLISHABLE_SOURCE_IMPORT_STATUSES,
+  toPublishableSourceImportStatus,
+} from "@/server/ownership/group-relationship-snapshot-builder";
 import type { OwnershipRelationship } from "@/server/ownership/ownership-thresholds";
 import type { GroupNode, GroupStructure } from "@/server/ownership/types";
 
@@ -200,7 +205,7 @@ function createPrismaDeps(year: number): GroupStructureDeps {
           ON relationship."buildId" = publication."buildId"
          AND relationship."taxYear" = publication."taxYear"
         WHERE publication."taxYear" = ${year}
-          AND publication."sourceImportStatus" = 'COMPLETED'
+          AND publication."sourceImportStatus" IN ${PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL}
           AND relationship."issuerOrgNumber" = ${orgNumber}
           AND relationship."relationship" = 'GROUP_SUBSIDIARY'
         ORDER BY relationship."ownershipPercent" DESC NULLS LAST
@@ -224,7 +229,7 @@ function createPrismaDeps(year: number): GroupStructureDeps {
           ON relationship."buildId" = publication."buildId"
          AND relationship."taxYear" = publication."taxYear"
         WHERE publication."taxYear" = ${year}
-          AND publication."sourceImportStatus" = 'COMPLETED'
+          AND publication."sourceImportStatus" IN ${PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL}
           AND relationship."ownerOrgNumber" IN (${Prisma.join(ownerOrgNumbers)})
           AND relationship."relationship" IN ('GROUP_SUBSIDIARY', 'GROUP_ASSOCIATE')
       `);
@@ -258,7 +263,7 @@ export async function getGroupStructure(params: {
     LEFT JOIN "RegistryEntity" root
       ON root."orgNumber" = membership."groupRootOrgNumber"
     WHERE publication."taxYear" = ${params.year}
-      AND publication."sourceImportStatus" = 'COMPLETED'
+      AND publication."sourceImportStatus" IN ${PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL}
       AND membership."memberOrgNumber" = ${params.orgNumber}
     LIMIT 1
   `;
@@ -279,13 +284,17 @@ export async function getGroupStructure(params: {
   );
   const [publication] = await Promise.all([
     prisma.groupRelationshipPublication.findFirst({
-      where: { taxYear: params.year, sourceImportStatus: "COMPLETED" },
+      where: {
+        taxYear: params.year,
+        sourceImportStatus: { in: [...PUBLISHABLE_SOURCE_IMPORT_STATUSES] },
+      },
       select: { sourceImportStatus: true, ruleVersion: true },
     }),
     enrichWithCompanyStatus(structure.nodes),
   ]);
-  if (publication?.sourceImportStatus === "COMPLETED") {
-    structure.sourceImportStatus = publication.sourceImportStatus;
+  const publishedStatus = toPublishableSourceImportStatus(publication?.sourceImportStatus);
+  if (publishedStatus) {
+    structure.sourceImportStatus = publishedStatus;
   }
   if (membership) structure.membershipStatus = membership.status;
   if (publication) structure.ruleVersion = publication.ruleVersion;
@@ -351,7 +360,7 @@ export async function getSubsidiaryTraversal(params: {
       ON membership."buildId" = publication."buildId"
      AND membership."taxYear" = publication."taxYear"
     WHERE publication."taxYear" = ${year}
-      AND publication."sourceImportStatus" = 'COMPLETED'
+      AND publication."sourceImportStatus" IN ${PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL}
       AND membership."memberOrgNumber" = ${params.orgNumber}
     LIMIT 1
   `;
@@ -396,7 +405,7 @@ export async function getOwnershipAvailableYears(): Promise<number[]> {
   const rows = await prisma.$queryRaw<Array<{ taxYear: number }>>`
     SELECT "taxYear"
     FROM "GroupRelationshipPublication"
-    WHERE "sourceImportStatus" = 'COMPLETED'
+    WHERE "sourceImportStatus" IN ${PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL}
     ORDER BY "taxYear" DESC
   `;
   return rows.map((row) => row.taxYear);

@@ -11,6 +11,7 @@ import {
   SSB_INSTITUTIONAL_SECTOR_STANDARD_REFERENCE,
   SSB_INSTITUTIONAL_SECTOR_STANDARD_VERSION,
 } from "@/server/ownership/group-relationship-classifier";
+import { CONTROL_THRESHOLD_PERCENT } from "@/server/ownership/ownership-thresholds";
 
 export type GroupRelationshipSnapshotBuildResult = {
   taxYear: number;
@@ -25,10 +26,41 @@ export type GroupRelationshipSnapshotBuildResult = {
   conflictCount: number;
 };
 
-export type CompleteShareholderRegisterImport = {
+/**
+ * Import states a semantic group publication may be built from. A full-register import is
+ * PARTIAL as soon as a single unparseable CSV row is skipped, which is the normal outcome for
+ * the Skatteetaten register; refusing those would make the group graph unpublishable. The
+ * distinction is preserved on the publication so readers can disclose a partial source.
+ */
+export const PUBLISHABLE_SOURCE_IMPORT_STATUSES = ["COMPLETED", "PARTIAL"] as const;
+
+export type PublishableSourceImportStatus = (typeof PUBLISHABLE_SOURCE_IMPORT_STATUSES)[number];
+
+/** SQL tuple for `"sourceImportStatus" IN (...)` predicates against a publication row. */
+export const PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL = Prisma.sql`('COMPLETED', 'PARTIAL')`;
+
+/**
+ * Edge rebuild plus both recursive snapshot projections run inside one transaction so readers
+ * never see a half-built graph. Measured at ~29 minutes for tax year 2025 (3.1 M holdings,
+ * ~520 k edges), so the budget is set well above that; a full-register build is a batch job,
+ * not a request-path operation.
+ */
+export const OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS = {
+  maxWait: 60_000,
+  timeout: 3_600_000,
+} as const;
+
+/** Narrow a raw import status to a publishable one, or null when it is not publishable. */
+export function toPublishableSourceImportStatus(
+  status: string | null | undefined,
+): PublishableSourceImportStatus | null {
+  return status === "COMPLETED" || status === "PARTIAL" ? status : null;
+}
+
+export type PublishableShareholderRegisterImport = {
   id: string;
   sourceSystem: string;
-  status: "COMPLETED";
+  status: PublishableSourceImportStatus;
   sourceId: string | null;
   sourceChecksum: string | null;
   importedRowCount: number;
@@ -39,20 +71,22 @@ export async function acquireOwnershipPublicationLocks(
   tx: Prisma.TransactionClient,
   taxYear: number,
 ): Promise<void> {
+  // hashtext() returns integer and Prisma binds the year as bigint, so the year needs an
+  // explicit cast: Postgres only offers pg_advisory_xact_lock(bigint) and (int, int).
   await tx.$executeRaw`
-    SELECT pg_advisory_xact_lock(hashtext('fjord-insight-group-relationship'), ${taxYear})
+    SELECT pg_advisory_xact_lock(hashtext('fjord-insight-group-relationship'), ${taxYear}::int)
   `;
   await tx.$executeRaw`
-    SELECT pg_advisory_xact_lock(hashtext('fjord-insight-registry-entity-publication'), 0)
+    SELECT pg_advisory_xact_lock(hashtext('fjord-insight-registry-entity-publication'), 0::int)
   `;
 }
 
-export async function requireCompleteShareholderRegisterImport(
+export async function requirePublishableShareholderRegisterImport(
   tx: Prisma.TransactionClient,
   taxYear: number,
-): Promise<CompleteShareholderRegisterImport> {
+): Promise<PublishableShareholderRegisterImport> {
   const sourceImport = await tx.shareholderRegisterImport.findFirst({
-    where: { taxYear, status: "COMPLETED" },
+    where: { taxYear, status: { in: [...PUBLISHABLE_SOURCE_IMPORT_STATUSES] } },
     orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
@@ -64,12 +98,13 @@ export async function requireCompleteShareholderRegisterImport(
       fetchedAt: true,
     },
   });
-  if (!sourceImport) {
+  const status = toPublishableSourceImportStatus(sourceImport?.status);
+  if (!sourceImport || !status) {
     throw new Error(
-      `Cannot publish group relationships for ${taxYear}: no complete shareholder-register import exists.`,
+      `Cannot publish group relationships for ${taxYear}: no completed or partial shareholder-register import exists.`,
     );
   }
-  return { ...sourceImport, status: "COMPLETED" };
+  return { ...sourceImport, status };
 }
 
 /**
@@ -83,17 +118,17 @@ export async function buildGroupRelationshipSnapshotForYear(
   return prisma.$transaction(
     async (tx) => {
       await acquireOwnershipPublicationLocks(tx, taxYear);
-      const sourceImport = await requireCompleteShareholderRegisterImport(tx, taxYear);
+      const sourceImport = await requirePublishableShareholderRegisterImport(tx, taxYear);
       return buildGroupRelationshipSnapshotInTransaction(tx, taxYear, sourceImport);
     },
-    { maxWait: 60_000, timeout: 900_000 },
+    OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS,
   );
 }
 
 export async function buildGroupRelationshipSnapshotInTransaction(
   tx: Prisma.TransactionClient,
   taxYear: number,
-  sourceImport: CompleteShareholderRegisterImport,
+  sourceImport: PublishableShareholderRegisterImport,
 ): Promise<GroupRelationshipSnapshotBuildResult> {
   const buildId = randomUUID();
   const normalizedAt = new Date();
@@ -283,6 +318,13 @@ export async function buildGroupRelationshipSnapshotInTransaction(
           AND "taxYear" = ${taxYear}
           AND "relationship" = 'GROUP_SUBSIDIARY'
       ), ambiguous_nodes AS (
+        -- Only control-relevant doubt voids a company's group membership. An owner we cannot
+        -- classify is irrelevant to the control chain unless its stake could actually make it
+        -- the group root, so UNKNOWN edges count only at or above the control threshold, or
+        -- when the stake itself is unknown. Listed companies are held largely through foreign
+        -- custody banks that carry no Norwegian registry entity; treating those small nominee
+        -- positions as ambiguity erased the structure of every company on the exchange.
+        -- CONFLICT always counts: it marks control data that is internally contradictory.
         SELECT
           relationship."issuerOrgNumber" AS "memberOrgNumber",
           (CASE
@@ -292,7 +334,16 @@ export async function buildGroupRelationshipSnapshotInTransaction(
         FROM "GroupRelationshipSnapshot" relationship
         WHERE relationship."buildId" = ${buildId}::uuid
           AND relationship."taxYear" = ${taxYear}
-          AND relationship."relationship" IN ('CONFLICT', 'UNKNOWN')
+          AND (
+            relationship."relationship" = 'CONFLICT'
+            OR (
+              relationship."relationship" = 'UNKNOWN'
+              AND (
+                relationship."ownershipPercent" IS NULL
+                OR relationship."ownershipPercent" > ${CONTROL_THRESHOLD_PERCENT}
+              )
+            )
+          )
         GROUP BY relationship."issuerOrgNumber"
       ), roots AS (
         SELECT DISTINCT

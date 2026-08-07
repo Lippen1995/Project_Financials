@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
 import type { StructuredAnnualAccounts } from "@/integrations/brreg/structured-regnskap";
-import type { NormalizedFinancialStatement } from "@/lib/types";
 import {
   applyPublicFinancialSourcePolicy,
   type PublicCompanyFinancials,
+  type PublicFinancialStatement,
 } from "@/server/services/public-financials-service";
 import {
   createStructuredFinancialsService,
@@ -43,7 +43,13 @@ function createRepository() {
 function publicFinancials(
   accounts: StructuredAnnualAccounts[],
 ): PublicCompanyFinancials {
-  const statements: NormalizedFinancialStatement[] = accounts.map((account) => ({
+  const statements: PublicFinancialStatement[] = accounts.map((account) => ({
+    liveStatementId: `reported:${account.sourceId}`,
+    reportedStatementId: account.sourceId,
+    statementOrigin: "reported",
+    financialDatasetVersion: "reported:1",
+    taxonomyVersion: null,
+    generatorVersion: null,
     sourceSystem: account.sourceSystem,
     sourceEntityType: account.sourceEntityType,
     sourceId: account.sourceId,
@@ -66,6 +72,8 @@ function publicFinancials(
     },
   }));
   return {
+    datasetMode: "reported",
+    financialDatasetVersion: "reported:1",
     statements,
     allScopeStatements: statements,
     lineItems: [],

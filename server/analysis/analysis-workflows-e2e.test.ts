@@ -93,6 +93,8 @@ type StoredAnalysis = {
     purpose: string;
     criteriaVersion: string;
     universeResultVersion: string | null;
+    financialDatasetMode: "reported" | "simulated" | null;
+    financialDatasetVersion: `reported:${number}` | `simulated:${string}:${number}` | null;
     screeningVersion: string | null;
     rankingVersion: string | null;
     evaluatedCount: number | null;
@@ -208,6 +210,8 @@ function createWorkflowHarness() {
         purpose: input.purpose,
         criteriaVersion: input.criteriaVersion,
         universeResultVersion: input.universeResult?.version ?? null,
+        financialDatasetMode: input.universeResult?.datasetMode ?? null,
+        financialDatasetVersion: input.universeResult?.financialDatasetVersion ?? null,
         screeningVersion: input.universeResult?.screeningVersion ?? null,
         rankingVersion: input.universeResult?.rankingVersion ?? null,
         evaluatedCount: input.universeResult?.counts.evaluated ?? null,
@@ -254,6 +258,8 @@ function createWorkflowHarness() {
         .slice(0, input.limit);
       return {
         universeResultVersion: worklist.universeResultVersion,
+        financialDatasetMode: worklist.financialDatasetMode,
+        financialDatasetVersion: worklist.financialDatasetVersion,
         screeningVersion: worklist.screeningVersion,
         rankingVersion: worklist.rankingVersion,
         evaluatedCount: worklist.evaluatedCount,
@@ -332,6 +338,8 @@ function createWorkflowHarness() {
           toCandidate(selection.excluded),
         ],
         truncated: false,
+        datasetMode: "reported",
+        financialDatasetVersion: "reported:21",
       };
     },
   });
@@ -423,6 +431,8 @@ describe("Sprint 3 analysis workflows", () => {
 
       expect(exclusions).toMatchObject({
         universeResultVersion: "company-universe-result-v1",
+        financialDatasetMode: "reported",
+        financialDatasetVersion: "reported:21",
         screeningVersion: "company-screening-v1",
         rankingVersion: "company-ranking-v1",
         excludedCount: 1,
@@ -457,6 +467,8 @@ describe("Sprint 3 analysis workflows", () => {
           type: scenario.worklistType,
           purpose: scenario.purpose,
           universeResultVersion: "company-universe-result-v1",
+          financialDatasetMode: "reported",
+          financialDatasetVersion: "reported:21",
           screeningVersion: "company-screening-v1",
           rankingVersion: "company-ranking-v1",
           evaluatedCount: 2,

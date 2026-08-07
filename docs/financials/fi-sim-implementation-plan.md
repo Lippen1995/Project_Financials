@@ -1,22 +1,23 @@
 # Implementasjonsplan: isolert FI-SIM-datasett
 
-**Status:** Klar for implementasjon
+**Status:** Under implementasjon
 
-**Dato:** 6. august 2026
+**Dato:** 7. august 2026
 
 **Styrende dokumenter:** [ADR-0002](../adr/ADR-0002-isolated-simulated-financials-layer.md) og [FI-SIM-2026.1](./fi-sim-2026.1-spec.md)
 
 Planen er en additiv expand-and-contract-migrasjon. Ingen fase skal endre eller slette rapporterte finansdata. Hver fase har en selvstendig verifikasjonsport.
 
-## Implementasjonsstatus 6. august 2026
+## Implementasjonsstatus 7. august 2026
 
 | Fase | Status | Bevis |
 |---|---|---|
-| F0 | Delvis | Eksakt reader-register og baseline-gate finnes. Parity-fixtures, artefaktinventar og fjerning av forbudt direkte kildetilgang gjenstår. |
+| F0 | Delvis | Eksakt reader-register, baseline-gate og parity-test for offentlig regnskapsoutput finnes. Artefaktinventar og fjerning av resterende forbudt direkte kildetilgang gjenstår. |
 | F1 | Kontraktgrunnlag fullført | Runtime-validert live-kontrakt for IDs, datasetversjon og provenance finnes; eksisterende servicekontrakter migreres i F4. |
 | F2 | Fullført | Additive Prisma-modeller, database-constraints, immutability-triggere og verifikasjon i disposable PostgreSQL. |
-| F3 | Delvis | Versionerte views og et snapshot-konsistent company-repository finnes. Flere repository-metoder og inkrementering av `reportedRevision` gjenstår. |
-| F4–F7 | Ikke startet | Eksisterende runtime-konsumenter er ikke flyttet, og generator/mapping er ikke implementert. |
+| F3 | Delvis | Versionerte views, eget metadata-view, atomisk `reportedRevision`-inkrement og et snapshot-konsistent company-repository finnes. Metoder for univers-søk og aggregering gjenstår. |
+| F4 | Delvis | Offentlig company financials service og company profile leser nå gjennom `FinancialsRepository`; datasetversjon og statement/line-proveniens følger responsen. Øvrige runtime-konsumenter gjenstår. |
+| F5–F7 | Ikke startet | Mapping-isolasjon, FI-SIM-katalog og generator er ikke implementert. |
 | F8 | Delvis | DB-aktivering og live-views er fail-closed med capability-rolle, `FJORD_DEPLOYMENT_ENVIRONMENT=investor-demo` og `FJORD_FINANCIAL_SIMULATION_ENABLED=true`. Kontrollert produktkommando, audit-logg og reell runtime-principal gjenstår. |
 | F9–F11 | Ikke startet | UI/eksport/Njord, operativ demo og teardown-repetisjon gjenstår. |
 

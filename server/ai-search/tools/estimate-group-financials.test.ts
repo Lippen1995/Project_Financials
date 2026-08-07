@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createEstimateGroupFinancialsTool,
+  type GroupFinancialSnapshot,
   type GroupFinancialsDeps,
   type GroupFinancialStatementRow,
   type GroupDepreciationRow,
@@ -56,6 +57,24 @@ function depreciation(
   };
 }
 
+function financials(
+  statements: GroupFinancialStatementRow[] = [
+    statement("111111111", 2024, 100n, 80n),
+    statement("222222222", 2024, 40n, 30n),
+  ],
+  depreciationRows: GroupDepreciationRow[] = [
+    depreciation("111111111", 2024, 20n),
+    depreciation("222222222", 2024, 10n),
+  ],
+): GroupFinancialSnapshot {
+  return {
+    financialDatasetMode: "reported",
+    financialDatasetVersion: "reported:22",
+    statements,
+    depreciationRows,
+  };
+}
+
 function deps(overrides: Partial<GroupFinancialsDeps> = {}): GroupFinancialsDeps {
   return {
     getCompany: async () => ({ orgNumber: "111111111", name: "Test parent" }),
@@ -70,15 +89,7 @@ function deps(overrides: Partial<GroupFinancialsDeps> = {}): GroupFinancialsDeps
       importStatus: "COMPLETED",
     }),
     getSubsidiaryTraversal: async () => ({ orgNumbers: ["222222222"], truncated: false }),
-    getLatestFiscalYear: async () => 2024,
-    getStatements: async () => [
-      statement("111111111", 2024, 100n, 80n),
-      statement("222222222", 2024, 40n, 30n),
-    ],
-    getDepreciationRows: async () => [
-      depreciation("111111111", 2024, 20n),
-      depreciation("222222222", 2024, 10n),
-    ],
+    getFinancials: async () => financials(),
     ...overrides,
   };
 }
@@ -90,6 +101,10 @@ describe("estimate_group_financials", () => {
     const result = await tool.execute({ parentOrgNumber: "111111111", years: 1 });
 
     expect(result.answerStatus).toBe("CALCULATED_UNADJUSTED_PRO_FORMA");
+    expect(result).toMatchObject({
+      financialDatasetMode: "reported",
+      financialDatasetVersion: "reported:22",
+    });
     expect(result.canRepresentConsolidatedAccounts).toBe(false);
     expect(result.years[0]).toMatchObject({
       fiscalYear: 2024,
@@ -104,8 +119,10 @@ describe("estimate_group_financials", () => {
 
   it("returns only explicit partial sums when one subsidiary statement is missing", async () => {
     const tool = createEstimateGroupFinancialsTool(deps({
-      getStatements: async () => [statement("111111111", 2024, 100n, 80n)],
-      getDepreciationRows: async () => [depreciation("111111111", 2024, 20n)],
+      getFinancials: async () => financials(
+        [statement("111111111", 2024, 100n, 80n)],
+        [depreciation("111111111", 2024, 20n)],
+      ),
     }));
 
     const result = await tool.execute({ parentOrgNumber: "111111111", years: 1 });
@@ -119,7 +136,9 @@ describe("estimate_group_financials", () => {
   });
 
   it("does not calculate EBITDA-like when depreciation and amortisation is unavailable", async () => {
-    const tool = createEstimateGroupFinancialsTool(deps({ getDepreciationRows: async () => [] }));
+    const tool = createEstimateGroupFinancialsTool(deps({
+      getFinancials: async () => financials(undefined, []),
+    }));
 
     const result = await tool.execute({ parentOrgNumber: "111111111", years: 1 });
 
@@ -150,9 +169,7 @@ describe("estimate_group_financials", () => {
     const subsidiaries = Array.from({ length: 27 }, (_, index) => String(index + 1).padStart(9, "0"));
     const tool = createEstimateGroupFinancialsTool(deps({
       getSubsidiaryTraversal: async () => ({ orgNumbers: subsidiaries, truncated: false }),
-      getLatestFiscalYear: async () => null,
-      getStatements: async () => [],
-      getDepreciationRows: async () => [],
+      getFinancials: async () => financials([], []),
     }));
 
     const result = await tool.execute({ parentOrgNumber: "111111111", years: 5 });
@@ -168,15 +185,15 @@ describe("estimate_group_financials", () => {
 
   it("uses the absolute, unit-scaled depreciation expense as the EBITDA-like add-back", async () => {
     const scaledNegative = {
-      ...depreciation("111111111", 2024, -20_000n),
+      ...depreciation("111111111", 2024, -20n),
       unitScale: 1_000,
     };
     const scaledPositive = {
-      ...depreciation("222222222", 2024, 10_000n),
+      ...depreciation("222222222", 2024, 10n),
       unitScale: 1_000,
     };
     const tool = createEstimateGroupFinancialsTool(deps({
-      getDepreciationRows: async () => [scaledNegative, scaledPositive],
+      getFinancials: async () => financials(undefined, [scaledNegative, scaledPositive]),
     }));
 
     const result = await tool.execute({ parentOrgNumber: "111111111", years: 1 });
@@ -227,11 +244,11 @@ describe("estimate_group_financials", () => {
       sourceId: "consolidated-source-2024",
     };
     const tool = createEstimateGroupFinancialsTool(deps({
-      getStatements: async () => [
+      getFinancials: async () => financials([
         statement("111111111", 2024, 100n, 80n),
         statement("222222222", 2024, 40n, 30n),
         consolidated,
-      ],
+      ]),
     }));
 
     const result = await tool.execute({ parentOrgNumber: "111111111", years: 1 });
@@ -242,5 +259,36 @@ describe("estimate_group_financials", () => {
     });
     expect(result.years[0]?.ebit.unadjustedAmount).toBeNull();
     expect(result.answerStatus).toBe("INSUFFICIENT_DATA");
+  });
+
+  it("rejects an injected simulated snapshot until value-origin labels are supported", async () => {
+    const tool = createEstimateGroupFinancialsTool(deps({
+      getFinancials: async () => ({
+        ...financials(),
+        financialDatasetMode: "simulated",
+        financialDatasetVersion: "simulated:investor-demo:23",
+      }),
+    }));
+
+    await expect(
+      tool.execute({ parentOrgNumber: "111111111", years: 1 }),
+    ).rejects.toThrow(/labeling/);
+  });
+
+  it("rejects a calculation when the live dataset version changes between reads", async () => {
+    let readCount = 0;
+    const tool = createEstimateGroupFinancialsTool(deps({
+      getFinancials: async () => {
+        readCount += 1;
+        return {
+          ...financials(),
+          financialDatasetVersion: readCount === 1 ? "reported:22" : "reported:23",
+        };
+      },
+    }));
+
+    await expect(
+      tool.execute({ parentOrgNumber: "111111111", years: 1 }),
+    ).rejects.toThrow(/changed/);
   });
 });

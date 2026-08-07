@@ -2,6 +2,12 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import type { FinancialDatasetMode, FinancialDatasetVersion } from "@/lib/types";
+import {
+  financialsRepository,
+  type LiveCompanyFinancialHeadlines,
+  type LiveFinancialHeadline,
+} from "@/server/financials/financials-repository";
 import {
   companyUniverseQuerySchema,
   rankScreenedCompanies,
@@ -12,6 +18,7 @@ import {
 } from "./company-analysis-domain";
 
 type UniverseRow = {
+  companyId: string | null;
   orgNumber: string;
   name: string;
   legalForm: string | null;
@@ -24,14 +31,6 @@ type UniverseRow = {
   sourceId: string;
   fetchedAt: Date;
   normalizedAt: Date;
-  fiscalYear: number | null;
-  revenue: bigint | null;
-  operatingProfit: bigint | null;
-  financialSourceSystem: string | null;
-  financialSourceEntityType: string | null;
-  financialSourceId: string | null;
-  financialFetchedAt: Date | null;
-  financialNormalizedAt: Date | null;
 };
 
 function safeNumber(value: bigint | null) {
@@ -40,17 +39,12 @@ function safeNumber(value: bigint | null) {
   return Number.isSafeInteger(result) ? result : null;
 }
 
-function toCandidate(row: UniverseRow): CompanyUniverseCandidate {
-  const revenue = safeNumber(row.revenue);
-  const operatingProfit = safeNumber(row.operatingProfit);
-  const hasFinancialSource = Boolean(
-    row.fiscalYear != null &&
-    row.financialSourceSystem &&
-    row.financialSourceEntityType &&
-    row.financialSourceId &&
-    row.financialFetchedAt &&
-    row.financialNormalizedAt,
-  );
+function toCandidate(
+  row: UniverseRow,
+  statement: LiveFinancialHeadline | undefined,
+): CompanyUniverseCandidate {
+  const revenue = safeNumber(statement?.revenue ?? null);
+  const operatingProfit = safeNumber(statement?.operatingProfit ?? null);
   return {
     orgNumber: row.orgNumber,
     name: row.name,
@@ -66,9 +60,9 @@ function toCandidate(row: UniverseRow): CompanyUniverseCandidate {
       fetchedAt: row.fetchedAt.toISOString(),
       normalizedAt: row.normalizedAt.toISOString(),
     },
-    financials: hasFinancialSource
+    financials: statement
       ? {
-          fiscalYear: row.fiscalYear!,
+          fiscalYear: statement.fiscalYear,
           revenue,
           operatingProfit,
           operatingMarginBps:
@@ -76,12 +70,14 @@ function toCandidate(row: UniverseRow): CompanyUniverseCandidate {
               ? Math.round((operatingProfit / revenue) * 10_000)
               : null,
           source: {
-            sourceSystem: row.financialSourceSystem!,
-            sourceEntityType: row.financialSourceEntityType!,
-            sourceId: row.financialSourceId!,
-            fetchedAt: row.financialFetchedAt!.toISOString(),
-            normalizedAt: row.financialNormalizedAt!.toISOString(),
+            sourceSystem: statement.sourceSystem,
+            sourceEntityType: statement.sourceEntityType,
+            sourceId: statement.sourceId,
+            fetchedAt: statement.fetchedAt.toISOString(),
+            normalizedAt: statement.normalizedAt.toISOString(),
           },
+          statementOrigin: statement.statementOrigin,
+          financialDatasetVersion: statement.financialDatasetVersion,
         }
       : null,
   };
@@ -91,8 +87,33 @@ export type CompanyUniverseRepository = {
   loadCandidates(query: CompanyUniverseQuery): Promise<{
     candidates: CompanyUniverseCandidate[];
     truncated: boolean;
+    datasetMode: FinancialDatasetMode;
+    financialDatasetVersion: FinancialDatasetVersion;
   }>;
 };
+
+export function selectCompanyUniverseHeadlines(
+  snapshot: LiveCompanyFinancialHeadlines,
+) {
+  const eligibleStatements = snapshot.statements.filter(
+    (statement) =>
+      snapshot.datasetMode === "simulated" || statement.sourceSystem === "BRREG",
+  );
+  const headlineByCompanyId = new Map<string, LiveFinancialHeadline>();
+  for (const statement of eligibleStatements) {
+    const current = headlineByCompanyId.get(statement.companyId);
+    if (
+      !current ||
+      statement.fiscalYear > current.fiscalYear ||
+      (statement.fiscalYear === current.fiscalYear &&
+        statement.statementScope === "CONSOLIDATED" &&
+        current.statementScope !== "CONSOLIDATED")
+    ) {
+      headlineByCompanyId.set(statement.companyId, statement);
+    }
+  }
+  return headlineByCompanyId;
+}
 
 const prismaRepository: CompanyUniverseRepository = {
   async loadCandidates(query) {
@@ -123,6 +144,7 @@ const prismaRepository: CompanyUniverseRepository = {
     const rows = await prisma.$queryRaw<UniverseRow[]>(Prisma.sql`
       SELECT
         e."orgNumber",
+        company."id" AS "companyId",
         e."name",
         e."organisationForm" AS "legalForm",
         e."status"::text AS "status",
@@ -133,33 +155,30 @@ const prismaRepository: CompanyUniverseRepository = {
         e."sourceEntityType",
         e."sourceId",
         e."fetchedAt",
-        e."normalizedAt",
-        financial."fiscalYear",
-        financial."revenue",
-        financial."operatingProfit",
-        financial."sourceSystem" AS "financialSourceSystem",
-        financial."sourceEntityType" AS "financialSourceEntityType",
-        financial."sourceId" AS "financialSourceId",
-        financial."fetchedAt" AS "financialFetchedAt",
-        financial."normalizedAt" AS "financialNormalizedAt"
+        e."normalizedAt"
       FROM "RegistryEntity" e
       LEFT JOIN "Company" company ON company."orgNumber" = e."orgNumber"
-      LEFT JOIN LATERAL (
-        SELECT statement.*
-        FROM "FinancialStatement" statement
-        WHERE statement."companyId" = company."id"
-          AND statement."sourceSystem" = 'BRREG'
-          AND (${fiscalYear}::int IS NULL OR statement."fiscalYear" = ${fiscalYear})
-        ORDER BY statement."fiscalYear" DESC, statement."statementScope" DESC
-        LIMIT 1
-      ) financial ON TRUE
       WHERE ${Prisma.join(conditions, " AND ")}
       ORDER BY e."orgNumber" ASC
       LIMIT ${poolLimit + 1}
     `);
+    const candidateRows = rows.slice(0, poolLimit);
+    const snapshot = await financialsRepository.getCompaniesFinancialHeadlines({
+      companyIds: candidateRows.flatMap((row) => (row.companyId ? [row.companyId] : [])),
+      ...(fiscalYear === null ? {} : { fiscalYear }),
+    });
+    const headlineByCompanyId = selectCompanyUniverseHeadlines(snapshot);
+
     return {
-      candidates: rows.slice(0, poolLimit).map(toCandidate),
+      candidates: candidateRows.map((row) =>
+        toCandidate(
+          row,
+          row.companyId ? headlineByCompanyId.get(row.companyId) : undefined,
+        ),
+      ),
       truncated: rows.length > poolLimit,
+      datasetMode: snapshot.datasetMode,
+      financialDatasetVersion: snapshot.financialDatasetVersion,
     };
   },
 };
@@ -173,10 +192,17 @@ export function createCompanyUniverseService(repository: CompanyUniverseReposito
   return {
     async run(input: unknown) {
       const parsed = companyUniverseRunInputSchema.parse(input);
-      const { candidates, truncated } = await repository.loadCandidates(parsed.query);
+      const {
+        candidates,
+        truncated,
+        datasetMode,
+        financialDatasetVersion,
+      } = await repository.loadCandidates(parsed.query);
       if (truncated) {
         return {
           version: "company-universe-result-v1" as const,
+          datasetMode,
+          financialDatasetVersion,
           status: "REFINE_REQUIRED" as const,
           screeningVersion: "company-screening-v1" as const,
           rankingVersion: parsed.ranking ? "company-ranking-v1" as const : null,
@@ -200,6 +226,8 @@ export function createCompanyUniverseService(repository: CompanyUniverseReposito
         : screening.included;
       return {
         version: "company-universe-result-v1" as const,
+        datasetMode,
+        financialDatasetVersion,
         status: "COMPLETE" as const,
         screeningVersion: screening.version,
         rankingVersion: parsed.ranking ? "company-ranking-v1" as const : null,

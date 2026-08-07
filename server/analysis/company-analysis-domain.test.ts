@@ -31,6 +31,8 @@ function candidate(
       revenue: 100_000_000,
       operatingProfit: 10_000_000,
       operatingMarginBps: 1_000,
+      statementOrigin: "reported",
+      financialDatasetVersion: "reported:21",
       source: {
         sourceSystem: "BRREG",
         sourceEntityType: "annual-account",
