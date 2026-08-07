@@ -11,35 +11,10 @@ export type ShareholderRegisterCsvIndexes = {
 };
 
 export function splitShareholderRegisterCsvLine(line: string) {
-  const values: string[] = [];
-  let current = "";
-  let quoted = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    const nextCharacter = line[index + 1];
-
-    if (character === '"') {
-      if (quoted && nextCharacter === '"') {
-        current += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-      continue;
-    }
-
-    if (character === ";" && !quoted) {
-      values.push(current);
-      current = "";
-      continue;
-    }
-
-    current += character;
-  }
-
-  values.push(current);
-  return values.map((value) => value.trim());
+  // Skatteetaten's shareholder-register export is a fixed semicolon-delimited format,
+  // not an RFC 4180 CSV file. Quote characters occur literally in a few names and must
+  // not change where a field ends.
+  return line.split(";").map((value) => value.trim());
 }
 
 function normalizeHeader(value: string) {

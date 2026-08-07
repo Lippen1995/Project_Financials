@@ -330,7 +330,7 @@ function normalizeHolding(
   const numberOfShares = parseBigIntSafe(values[indexes.numberOfShares]);
   const totalCompanyShares = parseBigIntSafe(values[indexes.totalCompanyShares]);
 
-  if (!/^\d{9}$/.test(issuerOrgNumber) || !issuerName || !shareholderName || !numberOfShares || numberOfShares <= 0n) {
+  if (!/^\d{9}$/.test(issuerOrgNumber) || !issuerName || !numberOfShares || numberOfShares <= 0n) {
     return null;
   }
 

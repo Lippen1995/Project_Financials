@@ -6,7 +6,7 @@ import {
 export const SSB_INSTITUTIONAL_SECTOR_STANDARD_VERSION = "2012";
 export const SSB_INSTITUTIONAL_SECTOR_STANDARD_REFERENCE =
   "https://www.ssb.no/klass/klassifikasjoner/39";
-export const GROUP_RELATIONSHIP_RULE_VERSION = "public-owner-boundary-v2-ssb2012";
+export const GROUP_RELATIONSHIP_RULE_VERSION = "public-owner-boundary-v3-ssb2012";
 
 export type GroupOwnerCategory =
   | "PUBLIC_NON_COMMERCIAL"

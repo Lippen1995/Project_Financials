@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   acquireOwnershipPublicationLocks,
   buildGroupRelationshipSnapshotInTransaction,
+  OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS,
   requireCompleteShareholderRegisterImport,
   type GroupRelationshipSnapshotBuildResult,
 } from "@/server/ownership/group-relationship-snapshot-builder";
@@ -135,7 +136,7 @@ export async function buildOwnershipEdgesForYear(taxYear: number): Promise<Owner
       minorityCount,
       semanticSnapshot,
     };
-  }, { maxWait: 60_000, timeout: 900_000 });
+  }, OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS);
 }
 
 /** Tax years that have register holdings available to build edges from. */

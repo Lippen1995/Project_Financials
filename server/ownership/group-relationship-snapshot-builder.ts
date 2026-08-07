@@ -11,6 +11,12 @@ import {
   SSB_INSTITUTIONAL_SECTOR_STANDARD_REFERENCE,
   SSB_INSTITUTIONAL_SECTOR_STANDARD_VERSION,
 } from "@/server/ownership/group-relationship-classifier";
+import { CONTROL_THRESHOLD_PERCENT } from "@/server/ownership/ownership-thresholds";
+
+export const OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS = {
+  maxWait: 60_000,
+  timeout: 3_600_000,
+} as const;
 
 export type GroupRelationshipSnapshotBuildResult = {
   taxYear: number;
@@ -40,10 +46,16 @@ export async function acquireOwnershipPublicationLocks(
   taxYear: number,
 ): Promise<void> {
   await tx.$executeRaw`
-    SELECT pg_advisory_xact_lock(hashtext('fjord-insight-group-relationship'), ${taxYear})
+    SELECT pg_advisory_xact_lock(
+      hashtext('fjord-insight-group-relationship'),
+      ${taxYear}::int
+    )
   `;
   await tx.$executeRaw`
-    SELECT pg_advisory_xact_lock(hashtext('fjord-insight-registry-entity-publication'), 0)
+    SELECT pg_advisory_xact_lock(
+      hashtext('fjord-insight-registry-entity-publication'),
+      0::int
+    )
   `;
 }
 
@@ -86,7 +98,7 @@ export async function buildGroupRelationshipSnapshotForYear(
       const sourceImport = await requireCompleteShareholderRegisterImport(tx, taxYear);
       return buildGroupRelationshipSnapshotInTransaction(tx, taxYear, sourceImport);
     },
-    { maxWait: 60_000, timeout: 900_000 },
+    OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS,
   );
 }
 
@@ -292,7 +304,16 @@ export async function buildGroupRelationshipSnapshotInTransaction(
         FROM "GroupRelationshipSnapshot" relationship
         WHERE relationship."buildId" = ${buildId}::uuid
           AND relationship."taxYear" = ${taxYear}
-          AND relationship."relationship" IN ('CONFLICT', 'UNKNOWN')
+          AND (
+            relationship."relationship" = 'CONFLICT'
+            OR (
+              relationship."relationship" = 'UNKNOWN'
+              AND (
+                relationship."ownershipPercent" IS NULL
+                OR relationship."ownershipPercent" > ${CONTROL_THRESHOLD_PERCENT}
+              )
+            )
+          )
         GROUP BY relationship."issuerOrgNumber"
       ), roots AS (
         SELECT DISTINCT

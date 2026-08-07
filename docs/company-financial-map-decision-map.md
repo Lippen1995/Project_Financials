@@ -190,12 +190,16 @@ Partially resolved:
    holding company, cycles, multiple apparent controlling owners and broken share totals. No
    public-body node may become a business-group root.
 
-Implementation note (5 August 2026): the schema, versioned classifier, atomic publication pointer,
+Implementation note (updated 7 August 2026): the schema, versioned classifier, atomic publication pointer,
 conflict propagation, exact source-import binding, SSB classification reference, and materialised
 membership lookup are implemented. The quantitative edge rebuild and semantic publication share a
 single transaction. The read model serves only publications backed by a `COMPLETED` Skatteetaten
 import; no partial import is promoted. Brreg entity refreshes use an isolated candidate table and an
-atomic swap so classification never reads a half-loaded mirror.
+atomic swap so classification never reads a half-loaded mirror. Rule version
+`public-owner-boundary-v3-ssb2012` propagates every conflict, but propagates an unknown relationship
+only when its ownership percentage is missing or above the control threshold. An unresolved small
+position can therefore not erase an otherwise evidenced group, while a relationship that could
+change the controlling parent remains unpublished as a resolved membership.
 
 Open: formal boundary rules for private financial sponsors and SPVs, foundations, foreign owners
 and ambiguous chains. The public-owner boundary is resolved.

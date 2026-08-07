@@ -127,6 +127,10 @@ Use this order for a full recovery or initial production bootstrap:
 5. Bootstrap distress data, then enable incremental updates.
 6. Discover and process annual-report filings.
 7. Import the latest official shareholder register and verify that the import is `COMPLETED`.
+   The Skatteetaten export is a fixed nine-field, semicolon-delimited format. Quote characters in
+   names are literal source data, and a blank shareholder name is retained when the remaining
+   official row is structurally valid; neither condition may make an otherwise complete import
+   `PARTIAL`.
 8. Rebuild ownership edges. Verify that relationship and membership publication counts were
    recorded for the exact source import ID and tax year before enabling group labels. If the import remains `PARTIAL`, keep
    the previous complete publication active or leave the feature unavailable.
