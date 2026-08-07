@@ -4,10 +4,15 @@ import { prisma } from "@/lib/prisma";
 import type {
   CompanyMapCompaniesQuery,
   CompanyMapCoverageQuery,
+  CompanyMapViewportQuery,
 } from "@/lib/company-map";
 import type { CompanyMapAddressResolutionStatus } from "@/server/company-map/address-resolution";
 import { formatCompanyMapGroupLabel } from "@/server/company-map/company-list";
 import { COMPANY_MAP_FINANCIAL_PROJECTION_VERSION } from "@/server/company-map/financial-projection";
+import {
+  getCompanyMapGridCellSize,
+  getCompanyMapViewportMode,
+} from "@/server/company-map/viewport";
 import { financialsRepository } from "@/server/financials/financials-repository";
 
 export class CompanyMapNotPublishedError extends Error {
@@ -24,7 +29,12 @@ function percentage(numerator: number, denominator: number): number {
   return Math.round((numerator / denominator) * 1_000) / 10;
 }
 
-function filterExpression(query: CompanyMapCoverageQuery): Prisma.Sql {
+function filterExpression(
+  query: Pick<
+    CompanyMapCoverageQuery,
+    "organisationForms" | "companyStatuses"
+  >,
+): Prisma.Sql {
   const organisationFormFilter = query.organisationForms
     ? Prisma.sql`entity."organisationForm" IN (${Prisma.join(query.organisationForms)})`
     : Prisma.sql`TRUE`;
@@ -33,6 +43,21 @@ function filterExpression(query: CompanyMapCoverageQuery): Prisma.Sql {
     AND entity."companyStatus"::text IN (${Prisma.join(query.companyStatuses)})
   `;
 }
+
+type CompanyMapClusterRow = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  companyCount: bigint;
+  addressCount: bigint;
+};
+
+type CompanyMapAddressRow = {
+  officialAddressId: string;
+  latitude: number;
+  longitude: number;
+  companyCount: bigint;
+};
 
 async function getPublication() {
   const publication = await prisma.companyMapPublication.findUnique({
@@ -271,6 +296,99 @@ export async function getPublishedCompanyMapCompanies(
       financialDatasetVersion: publication.build.financialDatasetVersion,
       groupBuildId: publication.build.groupBuildId,
       groupTaxYear: publication.build.groupTaxYear,
+      publishedAt: publication.publishedAt,
+    },
+  };
+}
+
+export async function getPublishedCompanyMapViewport(
+  query: CompanyMapViewportQuery,
+) {
+  const { publication } = await getPublication();
+  const filters = filterExpression(query);
+  const mode = getCompanyMapViewportMode(query.zoom);
+  const rowLimit = query.limit + 1;
+
+  if (mode === "CLUSTERS") {
+    const cellSize = getCompanyMapGridCellSize(query.zoom);
+    const rows = await prisma.$queryRaw<CompanyMapClusterRow[]>(Prisma.sql`
+      SELECT
+        concat(
+          'grid:',
+          floor(entity."latitude"::double precision / ${cellSize}),
+          ':',
+          floor(entity."longitude"::double precision / ${cellSize})
+        ) AS "id",
+        avg(entity."latitude"::double precision) AS "latitude",
+        avg(entity."longitude"::double precision) AS "longitude",
+        count(*)::bigint AS "companyCount",
+        count(DISTINCT entity."officialAddressId")::bigint AS "addressCount"
+      FROM "CompanyMapEntitySnapshot" entity
+      WHERE entity."buildId" = ${publication.buildId}::uuid
+        AND entity."resolutionStatus" = 'MATCHED'
+        AND entity."latitude" BETWEEN ${query.south} AND ${query.north}
+        AND entity."longitude" BETWEEN ${query.west} AND ${query.east}
+        AND ${filters}
+      GROUP BY
+        floor(entity."latitude"::double precision / ${cellSize}),
+        floor(entity."longitude"::double precision / ${cellSize})
+      ORDER BY count(*) DESC, "id" ASC
+      LIMIT ${rowLimit}
+    `);
+    const truncated = rows.length > query.limit;
+
+    return {
+      mode,
+      features: rows.slice(0, query.limit).map((row) => ({
+        kind: "CLUSTER" as const,
+        id: row.id,
+        latitude: Number(row.latitude),
+        longitude: Number(row.longitude),
+        companyCount: Number(row.companyCount),
+        addressCount: Number(row.addressCount),
+      })),
+      page: { limit: query.limit, truncated },
+      viewport: query,
+      provenance: {
+        buildId: publication.buildId,
+        publishedAt: publication.publishedAt,
+      },
+    };
+  }
+
+  const rows = await prisma.$queryRaw<CompanyMapAddressRow[]>(Prisma.sql`
+    SELECT
+      entity."officialAddressId" AS "officialAddressId",
+      avg(entity."latitude"::double precision) AS "latitude",
+      avg(entity."longitude"::double precision) AS "longitude",
+      count(*)::bigint AS "companyCount"
+    FROM "CompanyMapEntitySnapshot" entity
+    WHERE entity."buildId" = ${publication.buildId}::uuid
+      AND entity."resolutionStatus" = 'MATCHED'
+      AND entity."officialAddressId" IS NOT NULL
+      AND entity."latitude" BETWEEN ${query.south} AND ${query.north}
+      AND entity."longitude" BETWEEN ${query.west} AND ${query.east}
+      AND ${filters}
+    GROUP BY entity."officialAddressId"
+    ORDER BY count(*) DESC, entity."officialAddressId" ASC
+    LIMIT ${rowLimit}
+  `);
+  const truncated = rows.length > query.limit;
+
+  return {
+    mode,
+    features: rows.slice(0, query.limit).map((row) => ({
+      kind: "ADDRESS" as const,
+      id: row.officialAddressId,
+      officialAddressId: row.officialAddressId,
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+      companyCount: Number(row.companyCount),
+    })),
+    page: { limit: query.limit, truncated },
+    viewport: query,
+    provenance: {
+      buildId: publication.buildId,
       publishedAt: publication.publishedAt,
     },
   };

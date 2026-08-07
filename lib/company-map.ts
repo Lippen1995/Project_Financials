@@ -111,3 +111,44 @@ export const companyMapCompaniesQuerySchema = z.preprocess(
 export type CompanyMapCompaniesQuery = z.infer<
   typeof companyMapCompaniesQuerySchema
 >;
+
+const longitudeSchema = z.coerce.number().finite().min(-180).max(180);
+const latitudeSchema = z.coerce.number().finite().min(-90).max(90);
+
+export const companyMapViewportQuerySchema = z.preprocess(
+  (value) =>
+    value instanceof URLSearchParams
+      ? Object.fromEntries(value.entries())
+      : value,
+  z
+    .object({
+      organisationForms: organisationFormsSchema,
+      companyStatuses: companyStatusesSchema,
+      west: longitudeSchema,
+      south: latitudeSchema,
+      east: longitudeSchema,
+      north: latitudeSchema,
+      zoom: z.coerce.number().finite().min(3).max(20),
+      limit: z.coerce.number().int().min(1).max(2_000).default(1_000),
+    })
+    .superRefine((value, context) => {
+      if (value.west >= value.east) {
+        context.addIssue({
+          code: "custom",
+          message: "Viewport west must be smaller than east.",
+          path: ["east"],
+        });
+      }
+      if (value.south >= value.north) {
+        context.addIssue({
+          code: "custom",
+          message: "Viewport south must be smaller than north.",
+          path: ["north"],
+        });
+      }
+    }),
+);
+
+export type CompanyMapViewportQuery = z.infer<
+  typeof companyMapViewportQuerySchema
+>;

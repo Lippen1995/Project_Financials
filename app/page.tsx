@@ -25,9 +25,9 @@ function LandingPage() {
               <a className="text-primary border-b-2 border-primary pb-1 font-body-md text-body-md" href="#">
                 Solutions
               </a>
-              <a className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">
+              <Link className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="/company-map">
                 Data Hub
-              </a>
+              </Link>
               <a className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">
                 Network
               </a>

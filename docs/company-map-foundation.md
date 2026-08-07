@@ -114,15 +114,23 @@ ambiguous exact matches, 43,978 outside Norway and 453,287 privacy-withheld ENK 
 counts are stored independently from financial exclusions and are never inferred from what is
 visible on the map.
 
+## Browser serving contract
+
+The anonymous MVP uses `/api/company-map/viewport` as a deliberately bounded interim read path.
+It returns count-only grid clusters below zoom 9 and official-address points at higher zooms,
+never financial aggregates. Responses are capped at 1,000 features by the browser client; when
+the cap is reached, the UI discloses the incomplete viewport and asks the user to zoom in. A
+composite build/status/coordinate index supports the viewport predicates. This contract prevents the browser
+from receiving the full entity universe but does not settle the long-term national tile format.
+
 ## Deliberate next steps
 
 - Complete and publish the Skatteetaten group snapshot, run
   `npm run company-map:build -- --publish`, and verify the public pointer without weakening the
   group gate.
-- Benchmark PostGIS MVT against precomputed vector tiles before choosing the national serving
-  implementation. The browser must not receive the full entity universe.
-- Build the accessible map/list interface after the tile contract is fixed. Low-zoom clusters
-  will show counts only; they will not sum company financials.
+- Benchmark the interim indexed viewport endpoint against PostGIS MVT and precomputed vector
+  tiles before choosing the production-scale national serving implementation. The browser must
+  never receive the full entity universe.
 - Add the filter-aware omission drill-down UI on top of the existing coverage reason counts.
 
 Official source references:

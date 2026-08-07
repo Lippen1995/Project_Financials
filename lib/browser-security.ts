@@ -12,7 +12,7 @@ export function buildContentSecurityPolicy(environment = process.env.NODE_ENV) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' blob: data: https:",
-    "connect-src 'self' https://services.arcgisonline.com https://t1.openseamap.org",
+    "connect-src 'self' https://services.arcgisonline.com https://t1.openseamap.org https://cache.kartverket.no",
     "worker-src 'self' blob:",
     "media-src 'self'",
     "manifest-src 'self'",

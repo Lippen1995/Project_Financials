@@ -1267,6 +1267,7 @@ model CompanyMapEntitySnapshot {
   @@index([buildId, resolutionStatus])
   @@index([buildId, officialAddressId])
   @@index([buildId, groupRootOrgNumber])
+  @@index([buildId, resolutionStatus, longitude, latitude], map: "company_map_viewport")
 }
 
 /// Reported-only financial read model for one entity and scope. The population job must read

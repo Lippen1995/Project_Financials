@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   companyMapCompaniesQuerySchema,
   companyMapCoverageQuerySchema,
+  companyMapViewportQuerySchema,
 } from "@/lib/company-map";
 
 describe("public company-map query", () => {
@@ -119,6 +120,72 @@ describe("public company-map company list query", () => {
     expect(() =>
       companyMapCompaniesQuerySchema.parse(
         new URLSearchParams({ limit: "501" }),
+      ),
+    ).toThrow();
+  });
+});
+
+describe("public company-map viewport query", () => {
+  it("accepts a bounded Norway viewport with the default AS/ASA filter", () => {
+    expect(
+      companyMapViewportQuerySchema.parse(
+        new URLSearchParams({
+          west: "4.5",
+          south: "57.8",
+          east: "31.5",
+          north: "71.5",
+          zoom: "4",
+        }),
+      ),
+    ).toEqual({
+      organisationForms: ["AS", "ASA"],
+      companyStatuses: ["ACTIVE"],
+      west: 4.5,
+      south: 57.8,
+      east: 31.5,
+      north: 71.5,
+      zoom: 4,
+      limit: 1_000,
+    });
+  });
+
+  it("rejects inverted or unbounded viewports", () => {
+    expect(() =>
+      companyMapViewportQuerySchema.parse(
+        new URLSearchParams({
+          west: "31.5",
+          south: "57.8",
+          east: "4.5",
+          north: "71.5",
+          zoom: "4",
+        }),
+      ),
+    ).toThrow();
+
+    expect(() =>
+      companyMapViewportQuerySchema.parse(
+        new URLSearchParams({
+          west: "4.5",
+          south: "57.8",
+          east: "31.5",
+          north: "71.5",
+          zoom: "2",
+        }),
+      ),
+    ).toThrow();
+  });
+
+  it("caps the number of returned map features", () => {
+    expect(() =>
+      companyMapViewportQuerySchema.parse(
+        new URLSearchParams({
+          west: "4.5",
+          south: "57.8",
+          east: "31.5",
+          north: "71.5",
+          zoom: "10",
+          limit: "2001",
+        }),
       ),
     ).toThrow();
   });

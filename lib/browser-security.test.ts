@@ -47,6 +47,7 @@ describe("browser security policy", () => {
       "'self'",
       "https://services.arcgisonline.com",
       "https://t1.openseamap.org",
+      "https://cache.kartverket.no",
     ]);
     expect(directives.get("worker-src")).toEqual(["'self'", "blob:"]);
   });
