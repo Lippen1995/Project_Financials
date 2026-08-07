@@ -4,10 +4,11 @@ import {
   NormalizedAnnouncementDetail,
   CompanySearchResponse,
   DataAvailability,
+  FinancialDatasetVersion,
   NormalizedCompany,
   NormalizedFinancialDocument,
-  NormalizedFinancialLineItem,
-  NormalizedFinancialStatement,
+  ProvenancedFinancialLineItem,
+  ProvenancedFinancialStatement,
   RankedCompanySearchResult,
   SearchFilters,
   SearchInterpretation,
@@ -530,12 +531,16 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
   }
 
   let financials: {
-    statements: NormalizedFinancialStatement[];
-    allScopeStatements: NormalizedFinancialStatement[];
-    lineItems: NormalizedFinancialLineItem[];
+    datasetMode: "reported" | "simulated" | null;
+    financialDatasetVersion: FinancialDatasetVersion | null;
+    statements: ProvenancedFinancialStatement[];
+    allScopeStatements: ProvenancedFinancialStatement[];
+    lineItems: ProvenancedFinancialLineItem[];
     documents: NormalizedFinancialDocument[];
     availability: DataAvailability;
   } = {
+    datasetMode: null,
+    financialDatasetVersion: null,
     statements: [],
     allScopeStatements: [],
     lineItems: [],
@@ -578,6 +583,8 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
     financialStatementsAllScopes: financials.allScopeStatements,
     financialLineItems: financials.lineItems,
     financialDocuments: financials.documents,
+    financialDatasetMode: financials.datasetMode,
+    financialDatasetVersion: financials.financialDatasetVersion,
     financialsAvailability: financials.availability,
     regulatoryAvailability: {
       available: false,

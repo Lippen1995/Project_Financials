@@ -88,7 +88,8 @@ export const financialSourceAccessRegistrations = [
     path: "server/financials/published-financials-reader.ts",
     sources: ["FinancialStatement", "PublishedFinancialLineItem"],
     classification: "temporary-runtime-reader",
-    rationale: "Replace this legacy public read module with FinancialsRepository in F4.",
+    rationale:
+      "Public company financials no longer imports this module; remove it after its remaining legacy callers migrate in F4.",
   },
   {
     path: "server/persistence/company-repository.ts",

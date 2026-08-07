@@ -175,6 +175,8 @@ export async function getRegisterBackedCompanyProfile(
     financialStatementsAllScopes: [],
     financialLineItems: [],
     financialDocuments: [],
+    financialDatasetMode: null,
+    financialDatasetVersion: null,
     financialsAvailability: notLoaded(
       "Regnskap er ikke lastet inn i databasen for dette selskapet ennå. Eierskapsdata er tilgjengelig fra aksjonærregisteret.",
     ),

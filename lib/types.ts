@@ -115,6 +115,22 @@ export type NormalizedFinancialStatement = SourceMetadata & {
   assets?: number | null;
 };
 
+export type FinancialDatasetVersion =
+  | `reported:${number}`
+  | `simulated:${string}:${number}`;
+export type FinancialDatasetMode = "reported" | "simulated";
+export type FinancialStatementOrigin = "reported" | "hybrid" | "simulated";
+export type FinancialValueOrigin = "reported" | "synthetic";
+
+export type ProvenancedFinancialStatement = NormalizedFinancialStatement & {
+  liveStatementId: string;
+  reportedStatementId: string | null;
+  statementOrigin: FinancialStatementOrigin;
+  financialDatasetVersion: FinancialDatasetVersion;
+  taxonomyVersion: string | null;
+  generatorVersion: string | null;
+};
+
 export type InternalNormalizedFinancialStatement = NormalizedFinancialStatement & {
   sourceFilingId?: string | null;
   sourceExtractionRunId?: string | null;
@@ -140,7 +156,7 @@ export type NormalizedFinancialDocument = SourceMetadata & {
 
 export type NormalizedFinancialLineItem = {
   id: string;
-  filingId: string;
+  filingId: string | null;
   fiscalYear: number;
   statementType: "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW";
   statementScope: "COMPANY" | "CONSOLIDATED";
@@ -152,10 +168,30 @@ export type NormalizedFinancialLineItem = {
   unitScale: number;
   sourcePage: number | null;
   sortOrder: number;
-  publicationSource: "MANUAL_REVIEW" | "MACHINE_EXTRACTION";
+  publicationSource:
+    | "MANUAL_REVIEW"
+    | "MACHINE_EXTRACTION"
+    | "LIVE_REPORTED"
+    | "FI_SIM";
   sourceSystem: string | null;
   sourceEntityType: string | null;
   sourceId: string | null;
+};
+
+export type ProvenancedFinancialLineItem = NormalizedFinancialLineItem & {
+  liveLineId: string;
+  liveStatementId: string;
+  reportedFinancialLineItemId: string | null;
+  conceptKey: string | null;
+  valueOrigin: FinancialValueOrigin;
+  statementOrigin: FinancialStatementOrigin;
+  financialDatasetVersion: FinancialDatasetVersion;
+  taxonomyVersion: string | null;
+  generatorVersion: string | null;
+  derivationRuleId: string | null;
+  fetchedAt: Date;
+  normalizedAt: Date;
+  rawPayload?: unknown;
 };
 
 export type NormalizedAnnouncement = SourceMetadata & {
@@ -254,12 +290,15 @@ export type CompanyProfile = {
   roles: NormalizedRole[];
   rolesAvailability: DataAvailability;
   /** One headline statement per fiscal year (konsern preferred). Use for KPIs and trends. */
-  financialStatements: NormalizedFinancialStatement[];
+  financialStatements: ProvenancedFinancialStatement[];
   /** Every statement including both konsern and selskap — for the scope toggle. */
-  financialStatementsAllScopes: NormalizedFinancialStatement[];
+  financialStatementsAllScopes: ProvenancedFinancialStatement[];
   /** Original published rows in filing order, without taxonomy compression. */
-  financialLineItems: NormalizedFinancialLineItem[];
+  financialLineItems: ProvenancedFinancialLineItem[];
   financialDocuments: NormalizedFinancialDocument[];
+  /** Active live-view dataset. Null only when financials were intentionally not read. */
+  financialDatasetMode: FinancialDatasetMode | null;
+  financialDatasetVersion: FinancialDatasetVersion | null;
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;
   petroleum?: CompanyPetroleumProfile | null;

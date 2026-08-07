@@ -71,6 +71,9 @@ async function main() {
     Array<{
       canReadReportedSource: boolean;
       canReadSimulatedSource: boolean;
+      canReadDatasetMetadata: boolean;
+      canReadLegacyStatements: boolean;
+      canReadLegacyLines: boolean;
       canReadLiveStatements: boolean;
       canReadLiveLines: boolean;
     }>
@@ -80,14 +83,23 @@ async function main() {
         AS "canReadReportedSource",
       has_table_privilege('fjord_financial_runtime', '"SimulatedFinancialStatement"', 'SELECT')
         AS "canReadSimulatedSource",
+      has_table_privilege('fjord_financial_runtime', 'live_financial_dataset_v1', 'SELECT')
+        AS "canReadDatasetMetadata",
       has_table_privilege('fjord_financial_runtime', 'live_financial_statements_v1', 'SELECT')
+        AS "canReadLegacyStatements",
+      has_table_privilege('fjord_financial_runtime', 'live_financial_statements_v2', 'SELECT')
         AS "canReadLiveStatements",
       has_table_privilege('fjord_financial_runtime', 'live_financial_line_items_v1', 'SELECT')
+        AS "canReadLegacyLines",
+      has_table_privilege('fjord_financial_runtime', 'live_financial_line_items_v2', 'SELECT')
         AS "canReadLiveLines"
   `;
   if (
     runtimePermissions.canReadReportedSource ||
     runtimePermissions.canReadSimulatedSource ||
+    !runtimePermissions.canReadDatasetMetadata ||
+    runtimePermissions.canReadLegacyStatements ||
+    runtimePermissions.canReadLegacyLines ||
     !runtimePermissions.canReadLiveStatements ||
     !runtimePermissions.canReadLiveLines
   ) {
@@ -322,28 +334,81 @@ async function main() {
     });
   });
 
-  const reportedWhileFlagOff = await financialsRepository.listCompanyStatements(company.id);
+  const reportedWhileFlagOff = await financialsRepository.getCompanyFinancials({
+    companyId: company.id,
+  });
+
+  // A wildcard-bearing ID used to match the active dataset through SQL LIKE
+  // and could duplicate rows or attach the wrong provenance.
+  await prisma.simulatedFinancialDataset.create({
+    data: {
+      id: "fi%sim-dataset",
+      datasetVersion: "verification-collision-1",
+      taxonomyVersion: "FI-SIM-2026.1",
+      generatorVersion: "generator-collision-1",
+      assumptionVersion: "assumptions-collision-1",
+      profileVersion: "profiles-collision-1",
+      manifest: { purpose: "exact dataset join verification" },
+      createdByUserId: "migration-test",
+    },
+  });
   if (
-    reportedWhileFlagOff.length !== 1 ||
-    reportedWhileFlagOff[0].statementOrigin !== "reported" ||
-    reportedWhileFlagOff[0].financialDatasetVersion !== "reported:0"
+    reportedWhileFlagOff.datasetMode !== "reported" ||
+    !/^reported:[1-9]\d*$/.test(reportedWhileFlagOff.financialDatasetVersion) ||
+    reportedWhileFlagOff.statements.length !== 1 ||
+    reportedWhileFlagOff.statements[0].statementOrigin !== "reported" ||
+    reportedWhileFlagOff.statements[0].sourceSystem !== "migration-test"
   ) {
     throw new Error("Live views did not fail closed to reported data while the flag was off");
   }
 
-  const liveBeforeMapping = await withEnabledDemoRead(() =>
-    financialsRepository.listCompanyStatements(company.id),
+  const reportedRevisionBefore = Number(
+    reportedWhileFlagOff.financialDatasetVersion.split(":")[1],
   );
+  await prisma.$transaction(async (transaction) => {
+    await transaction.financialStatement.update({
+      where: { id: "fi-sim-reported-statement" },
+      data: { normalizedAt: new Date("2026-08-06T00:00:00.000Z") },
+    });
+    await transaction.financialLineItem.update({
+      where: { id: "fi-sim-reported-line" },
+      data: { sortOrder: 0 },
+    });
+  });
+  const reportedAfterOneTransaction = await financialsRepository.getCompanyFinancials({
+    companyId: company.id,
+  });
   if (
+    reportedAfterOneTransaction.financialDatasetVersion !==
+    `reported:${reportedRevisionBefore + 1}`
+  ) {
+    throw new Error("Reported revision was not coalesced to one bump per transaction");
+  }
+
+  const liveBeforeMappingSnapshot = await withEnabledDemoRead(() =>
+    financialsRepository.getCompanyFinancials({ companyId: company.id }),
+  );
+  const liveBeforeMapping = liveBeforeMappingSnapshot.statements;
+  if (
+    liveBeforeMappingSnapshot.datasetMode !== "simulated" ||
+    liveBeforeMappingSnapshot.financialDatasetVersion !==
+      "simulated:fi-sim-dataset:1" ||
     liveBeforeMapping.length !== 1 ||
     liveBeforeMapping[0].statementOrigin !== "hybrid" ||
+    liveBeforeMapping[0].sourceSystem !== "FI-SIM" ||
     liveBeforeMapping[0].revenue !== 100n ||
     liveBeforeMapping[0].assets !== 100n ||
     liveBeforeMapping[0].lines.find((line) => line.liveLineId === "simulated:fi-sim-anchor-line")
       ?.value !== 100n ||
     liveBeforeMapping[0].lines.find(
       (line) => line.liveLineId === "simulated:fi-sim-synthetic-line",
-    )?.valueOrigin !== "synthetic"
+    )?.valueOrigin !== "synthetic" ||
+    liveBeforeMapping[0].lines.find(
+      (line) => line.liveLineId === "simulated:fi-sim-synthetic-line",
+    )?.derivationRuleId !== "operating-result-residual-1" ||
+    liveBeforeMapping[0].lines.find(
+      (line) => line.liveLineId === "simulated:fi-sim-anchor-line",
+    )?.sourceEntityType !== "financial-line"
   ) {
     throw new Error("Live views did not resolve the expected hybrid statement");
   }
