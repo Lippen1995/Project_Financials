@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  hasExpectedShareholderRegisterCsvFieldCount,
   parseShareholderRegisterCsvHeader,
   splitShareholderRegisterCsvLine,
 } from "@/lib/shareholder-register-csv";
@@ -33,10 +34,38 @@ describe("splitShareholderRegisterCsvLine", () => {
     expect(values).toHaveLength(9);
     expect(values[3]).toBe("");
   });
+
+  it("rejects truncated and extended data rows", () => {
+    expect(hasExpectedShareholderRegisterCsvFieldCount(new Array(9).fill("TEST"))).toBe(true);
+    expect(hasExpectedShareholderRegisterCsvFieldCount(new Array(8).fill("TEST"))).toBe(false);
+    expect(hasExpectedShareholderRegisterCsvFieldCount(new Array(10).fill("TEST"))).toBe(false);
+  });
 });
 
 describe("parseShareholderRegisterCsvHeader", () => {
   it("accepts the required Skatteetaten shareholder-register columns", () => {
+    const result = parseShareholderRegisterCsvHeader(
+      [
+        "orgnr",
+        "selskap",
+        "aksjeklasse",
+        "navn_aksjonaer",
+        "fodselsar_orgnr",
+        "postnr_sted",
+        "landkode",
+        "antall_aksjer",
+        "antall_aksjer_selskap",
+      ].join(";"),
+    );
+
+    expect(result.missing).toEqual([]);
+    expect(result.hasExpectedFieldCount).toBe(true);
+    expect(result.indexes.issuerOrgNumber).toBe(0);
+    expect(result.indexes.shareClass).toBe(2);
+    expect(result.indexes.totalCompanyShares).toBe(8);
+  });
+
+  it("rejects a header without the fixed share-class field", () => {
     const result = parseShareholderRegisterCsvHeader(
       [
         "orgnr",
@@ -50,9 +79,8 @@ describe("parseShareholderRegisterCsvHeader", () => {
       ].join(";"),
     );
 
-    expect(result.missing).toEqual([]);
-    expect(result.indexes.issuerOrgNumber).toBe(0);
-    expect(result.indexes.totalCompanyShares).toBe(7);
+    expect(result.hasExpectedFieldCount).toBe(false);
+    expect(result.missing).toContain("shareClass");
   });
 
   it("reports missing required columns", () => {

@@ -426,6 +426,13 @@ export async function buildGroupRelationshipSnapshotInTransaction(
     `;
     const membershipCount = Number(membershipCountRaw);
 
+    const latestSourceImport = await requireCompleteShareholderRegisterImport(tx, taxYear);
+    if (latestSourceImport.id !== sourceImport.id) {
+      throw new Error(
+        `Refusing to publish group relationships from superseded import ${sourceImport.id}; latest complete import is ${latestSourceImport.id}.`,
+      );
+    }
+
     await tx.groupRelationshipPublication.upsert({
       where: { taxYear },
       create: {

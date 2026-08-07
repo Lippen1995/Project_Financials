@@ -9,7 +9,9 @@ import { spawn } from "node:child_process";
 
 import { prisma } from "@/lib/prisma";
 import {
+  hasExpectedShareholderRegisterCsvFieldCount,
   parseShareholderRegisterCsvHeader,
+  SHAREHOLDER_REGISTER_CSV_FIELD_COUNT,
   splitShareholderRegisterCsvLine,
 } from "@/lib/shareholder-register-csv";
 import { rebuildRoleChangeAttributions } from "@/server/insider-transactions/role-change-attribution-service";
@@ -191,7 +193,12 @@ async function updateImportRecord(
   importId: string,
   status: "VALIDATING" | "IMPORTING" | "COMPLETED" | "PARTIAL" | "FAILED",
   counters: Partial<ImportCounters>,
-  extra?: { checksum?: string; failureMessage?: string; completed?: boolean },
+  extra?: {
+    checksum?: string;
+    failureMessage?: string;
+    completed?: boolean;
+    taxYear?: number;
+  },
 ) {
   const sets = [
     `"status" = ${sqlLiteral(status)}`,
@@ -223,7 +230,31 @@ async function updateImportRecord(
     sets.push(`"completedAt" = ${sqlLiteral(new Date().toISOString())}`);
   }
 
-  await runPsql(`UPDATE "ShareholderRegisterImport" SET ${sets.join(", ")} WHERE "id" = ${sqlLiteral(importId)};`);
+  const updateStatement = `UPDATE "ShareholderRegisterImport" SET ${sets.join(", ")} WHERE "id" = ${sqlLiteral(importId)};`;
+  if (status !== "COMPLETED") {
+    await runPsql(updateStatement);
+    return;
+  }
+  const completionTaxYear = extra?.taxYear;
+  if (typeof completionTaxYear !== "number" || !Number.isInteger(completionTaxYear)) {
+    throw new Error("A completed shareholder-register import requires its tax year.");
+  }
+
+  // The completion transition and group publication use the same year-scoped lock. Whichever
+  // commits second must observe the first; a newer completed import also invalidates the older
+  // semantic pointer so public readers fail closed until that exact import has been rebuilt.
+  await runPsql(`
+    BEGIN;
+    SELECT pg_advisory_xact_lock(
+      hashtext('fjord-insight-group-relationship'),
+      ${completionTaxYear}::int
+    );
+    ${updateStatement}
+    DELETE FROM "GroupRelationshipPublication"
+    WHERE "taxYear" = ${completionTaxYear}
+      AND "sourceImportId" <> ${sqlLiteral(importId)};
+    COMMIT;
+  `);
 }
 
 async function clearImportRowsForRetry(importId: string) {
@@ -528,9 +559,9 @@ async function importCsv(input: {
         const parsedHeader = parseShareholderRegisterCsvHeader(line);
         headers = parsedHeader.headers;
         indexes = parsedHeader.indexes;
-        if (parsedHeader.missing.length > 0) {
+        if (!parsedHeader.hasExpectedFieldCount || parsedHeader.missing.length > 0) {
           throw new Error(
-            `CSV mangler påkrevde kolonner: ${parsedHeader.missing.join(", ")}. Headers: ${JSON.stringify(headers)}. Normalized: ${JSON.stringify(parsedHeader.normalized)}`,
+            `CSV-header matcher ikke Skatteetatens faste ${SHAREHOLDER_REGISTER_CSV_FIELD_COUNT}-feltsformat. Mangler: ${parsedHeader.missing.join(", ") || "ingen"}. Headers: ${JSON.stringify(headers)}. Normalized: ${JSON.stringify(parsedHeader.normalized)}`,
           );
         }
         continue;
@@ -538,6 +569,10 @@ async function importCsv(input: {
 
       counters.parsedRows += 1;
       const values = splitShareholderRegisterCsvLine(line);
+      if (!hasExpectedShareholderRegisterCsvFieldCount(values)) {
+        counters.skippedRows += 1;
+        continue;
+      }
       const holding = normalizeHolding(input.taxYear, sourceRowNumber, headers, values, indexes!);
       if (!holding) {
         counters.skippedRows += 1;
@@ -564,7 +599,11 @@ async function importCsv(input: {
 
     const checksum = hash.digest("hex");
     const status = counters.skippedRows > 0 || counters.errorRows > 0 ? "PARTIAL" : "COMPLETED";
-    await updateImportRecord(importId, status, counters, { checksum, completed: true });
+    await updateImportRecord(importId, status, counters, {
+      checksum,
+      completed: true,
+      taxYear: input.taxYear,
+    });
     console.log(
       `${input.taxYear}: ferdig, ${counters.importedRows.toLocaleString("nb-NO")} rader importert, ${counters.skippedRows.toLocaleString("nb-NO")} hoppet over.`,
     );

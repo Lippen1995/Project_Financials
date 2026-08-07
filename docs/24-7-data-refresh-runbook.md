@@ -130,7 +130,8 @@ Use this order for a full recovery or initial production bootstrap:
    The Skatteetaten export is a fixed nine-field, semicolon-delimited format. Quote characters in
    names are literal source data, and a blank shareholder name is retained when the remaining
    official row is structurally valid; neither condition may make an otherwise complete import
-   `PARTIAL`.
+   `PARTIAL`. A new `COMPLETED` import invalidates any group pointer for an older import of the same
+   tax year; group labels remain unavailable until step 8 publishes the matching rebuild.
 8. Rebuild ownership edges. Verify that relationship and membership publication counts were
    recorded for the exact source import ID and tax year before enabling group labels. If the import remains `PARTIAL`, keep
    the previous complete publication active or leave the feature unavailable.

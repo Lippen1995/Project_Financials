@@ -10,6 +10,12 @@ export type ShareholderRegisterCsvIndexes = {
   totalCompanyShares: number;
 };
 
+export const SHAREHOLDER_REGISTER_CSV_FIELD_COUNT = 9;
+
+export function hasExpectedShareholderRegisterCsvFieldCount(values: readonly string[]) {
+  return values.length === SHAREHOLDER_REGISTER_CSV_FIELD_COUNT;
+}
+
 export function splitShareholderRegisterCsvLine(line: string) {
   // Skatteetaten's shareholder-register export is a fixed semicolon-delimited format,
   // not an RFC 4180 CSV file. Quote characters occur literally in a few names and must
@@ -45,8 +51,14 @@ export function parseShareholderRegisterCsvHeader(line: string) {
     totalCompanyShares: normalized.indexOf("antall_aksjer_selskap"),
   };
   const missing = Object.entries(indexes)
-    .filter(([key, index]) => key !== "shareClass" && index < 0)
+    .filter(([, index]) => index < 0)
     .map(([key]) => key);
 
-  return { headers, indexes, missing, normalized };
+  return {
+    headers,
+    indexes,
+    missing,
+    normalized,
+    hasExpectedFieldCount: hasExpectedShareholderRegisterCsvFieldCount(headers),
+  };
 }

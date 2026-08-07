@@ -200,6 +200,10 @@ atomic swap so classification never reads a half-loaded mirror. Rule version
 only when its ownership percentage is missing or above the control threshold. An unresolved small
 position can therefore not erase an otherwise evidenced group, while a relationship that could
 change the controlling parent remains unpublished as a resolved membership.
+The transition of a new register import to `COMPLETED` uses the same year-scoped advisory lock as
+the semantic builder and invalidates a pointer backed by an older import. The builder rechecks the
+latest completed import before moving its pointer, so an older long-running build cannot win a
+publication race against newer official data.
 
 Open: formal boundary rules for private financial sponsors and SPVs, foundations, foreign owners
 and ambiguous chains. The public-owner boundary is resolved.
