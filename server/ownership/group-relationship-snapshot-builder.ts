@@ -27,17 +27,37 @@ export type GroupRelationshipSnapshotBuildResult = {
 };
 
 /**
- * Import states a semantic group publication may be built from. A full-register import is
- * PARTIAL as soon as a single unparseable CSV row is skipped, which is the normal outcome for
- * the Skatteetaten register; refusing those would make the group graph unpublishable. The
- * distinction is preserved on the publication so readers can disclose a partial source.
+ * Import states a semantic group publication may be built from.
+ *
+ * COMPLETED means the whole register file was read end to end. Rows that could not be
+ * interpreted are counted and disclosed, but no longer degrade the status, so PARTIAL now means
+ * what the word implies: part of the file was never read. A derived control graph must not be
+ * built from that — one unread row carrying a majority stake silently changes who controls
+ * whom, and the graph would look complete while being wrong.
+ *
+ * Deliberately stricter than the raw shareholder lists below: those rows are verbatim facts that
+ * stand on their own. Structure inferred across rows does not have that property.
  */
-export const PUBLISHABLE_SOURCE_IMPORT_STATUSES = ["COMPLETED", "PARTIAL"] as const;
+export const PUBLISHABLE_SOURCE_IMPORT_STATUSES = ["COMPLETED"] as const;
 
 export type PublishableSourceImportStatus = (typeof PUBLISHABLE_SOURCE_IMPORT_STATUSES)[number];
 
 /** SQL tuple for `"sourceImportStatus" IN (...)` predicates against a publication row. */
-export const PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL = Prisma.sql`('COMPLETED', 'PARTIAL')`;
+export const PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL = Prisma.sql`('COMPLETED')`;
+
+/**
+ * Import states the raw, per-row shareholder lists may be read from. Wider than the publishable
+ * set on purpose; the Eierskap tab discloses a partial source when one is used.
+ */
+export const READABLE_SOURCE_IMPORT_STATUSES = ["COMPLETED", "PARTIAL"] as const;
+
+export type ReadableSourceImportStatus = (typeof READABLE_SOURCE_IMPORT_STATUSES)[number];
+
+export function toReadableSourceImportStatus(
+  status: string | null | undefined,
+): ReadableSourceImportStatus | null {
+  return status === "COMPLETED" || status === "PARTIAL" ? status : null;
+}
 
 /**
  * Edge rebuild plus both recursive snapshot projections run inside one transaction so readers
@@ -54,7 +74,7 @@ export const OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS = {
 export function toPublishableSourceImportStatus(
   status: string | null | undefined,
 ): PublishableSourceImportStatus | null {
-  return status === "COMPLETED" || status === "PARTIAL" ? status : null;
+  return status === "COMPLETED" ? status : null;
 }
 
 export type PublishableShareholderRegisterImport = {
@@ -101,7 +121,7 @@ export async function requirePublishableShareholderRegisterImport(
   const status = toPublishableSourceImportStatus(sourceImport?.status);
   if (!sourceImport || !status) {
     throw new Error(
-      `Cannot publish group relationships for ${taxYear}: no completed or partial shareholder-register import exists.`,
+      `Cannot publish group relationships for ${taxYear}: no shareholder-register import was read in full.`,
     );
   }
   return { ...sourceImport, status };

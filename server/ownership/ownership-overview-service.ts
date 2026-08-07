@@ -2,7 +2,9 @@ import { prisma } from "@/lib/prisma";
 import {
   PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL,
   PUBLISHABLE_SOURCE_IMPORT_STATUSES,
+  READABLE_SOURCE_IMPORT_STATUSES,
   toPublishableSourceImportStatus,
+  toReadableSourceImportStatus,
 } from "@/server/ownership/group-relationship-snapshot-builder";
 import { getGroupStructure } from "@/server/ownership/group-structure-service";
 import { classifyRelationship, type OwnershipRelationship } from "@/server/ownership/ownership-thresholds";
@@ -52,21 +54,25 @@ async function getOwnershipSourceForYear(
       };
     }
   }
+  // No published group snapshot for this year: fall back to the raw per-row lists, which may
+  // come from a partially read import. Those rows are verbatim register facts and the tab
+  // discloses the partial source; only the derived structure above demands a complete read.
   const sourceImport = await prisma.shareholderRegisterImport.findFirst({
     where: {
       taxYear,
-      status: { in: ["COMPLETED", "PARTIAL"] },
+      status: { in: [...READABLE_SOURCE_IMPORT_STATUSES] },
       holdings: { some: {} },
     },
     orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
     select: { id: true, status: true },
   });
-  if (!sourceImport || (sourceImport.status !== "COMPLETED" && sourceImport.status !== "PARTIAL")) {
+  const readableStatus = toReadableSourceImportStatus(sourceImport?.status);
+  if (!sourceImport || !readableStatus) {
     return null;
   }
   return {
     importId: sourceImport.id,
-    status: sourceImport.status,
+    status: readableStatus,
     hasGroupPublication: false,
   };
 }
