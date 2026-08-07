@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -13,14 +14,93 @@ export type LiveFinancialDatasetMode = "reported" | "simulated";
 export type FinancialCompanyReference =
   | { companyId: string; orgNumber?: never }
   | { orgNumber: string; companyId?: never };
+export type FinancialCompaniesQuery = {
+  companyIds: string[];
+  fiscalYear?: number;
+  statementScope?: "COMPANY" | "CONSOLIDATED";
+};
+type FinancialReadQuery =
+  | FinancialCompanyReference
+  | (FinancialCompaniesQuery & { includeLines?: boolean });
 export type LiveCompanyFinancials = {
   datasetMode: LiveFinancialDatasetMode;
   financialDatasetVersion: FinancialDatasetVersion;
   statements: LiveFinancialStatement[];
 };
+export type LiveFinancialHeadline = Pick<
+  LiveFinancialStatementRecord,
+  | "liveStatementId"
+  | "companyId"
+  | "fiscalYear"
+  | "statementScope"
+  | "statementOrigin"
+  | "financialDatasetVersion"
+  | "sourceSystem"
+  | "sourceEntityType"
+  | "sourceId"
+  | "fetchedAt"
+  | "normalizedAt"
+  | "revenue"
+  | "operatingProfit"
+>;
+export type LiveCompanyFinancialHeadlines = {
+  datasetMode: LiveFinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
+  statements: LiveFinancialHeadline[];
+};
+
+const liveFinancialHeadlineSchema = z
+  .object({
+    liveStatementId: z.string().min(1),
+    companyId: z.string().min(1),
+    fiscalYear: z.number().int(),
+    statementScope: z.enum(["COMPANY", "CONSOLIDATED"]),
+    statementOrigin: z.enum(["reported", "hybrid", "simulated"]),
+    financialDatasetVersion: z.custom<FinancialDatasetVersion>((value) =>
+      typeof value === "string" &&
+      /^(?:reported:\d+|simulated:[A-Za-z0-9_-]+:\d+)$/.test(value),
+    ),
+    sourceSystem: z.string().min(1),
+    sourceEntityType: z.string().min(1),
+    sourceId: z.string().min(1),
+    fetchedAt: z.date(),
+    normalizedAt: z.date(),
+    revenue: z.bigint().nullable(),
+    operatingProfit: z.bigint().nullable(),
+  })
+  .superRefine((statement, context) => {
+    const isReported = statement.statementOrigin === "reported";
+    const expectedVersionPrefix = isReported ? "reported:" : "simulated:";
+    if (!statement.liveStatementId.startsWith(expectedVersionPrefix)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["liveStatementId"],
+        message: `Headline liveStatementId must start with ${expectedVersionPrefix}`,
+      });
+    }
+    if (!statement.financialDatasetVersion.startsWith(expectedVersionPrefix)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["statementOrigin"],
+        message: "Headline origin must match its financial dataset version.",
+      });
+    }
+    if (
+      !isReported &&
+      (statement.sourceSystem !== "FI-SIM" ||
+        statement.sourceEntityType !== "simulatedFinancialStatement" ||
+        statement.sourceId !== statement.liveStatementId)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["sourceSystem"],
+        message: "Simulated headlines require FI-SIM statement provenance.",
+      });
+    }
+  });
 
 export interface LiveFinancialsDataSource {
-  readCompanyFinancials(reference: FinancialCompanyReference): Promise<{
+  readCompanyFinancials(query: FinancialReadQuery): Promise<{
     datasetMode: LiveFinancialDatasetMode;
     financialDatasetVersion: FinancialDatasetVersion;
     statements: readonly LiveFinancialStatementRecord[];
@@ -30,6 +110,10 @@ export interface LiveFinancialsDataSource {
 
 export interface FinancialsRepository {
   getCompanyFinancials(reference: FinancialCompanyReference): Promise<LiveCompanyFinancials>;
+  getCompaniesFinancials(query: FinancialCompaniesQuery): Promise<LiveCompanyFinancials>;
+  getCompaniesFinancialHeadlines(
+    query: FinancialCompaniesQuery,
+  ): Promise<LiveCompanyFinancialHeadlines>;
   listCompanyStatements(companyId: string): Promise<LiveFinancialStatement[]>;
 }
 
@@ -45,20 +129,27 @@ export function isInvestorDemoFinancialSimulationEnabled(
 export function createFinancialsRepository(
   dataSource: LiveFinancialsDataSource,
 ): FinancialsRepository {
-  async function getCompanyFinancials(
-    reference: FinancialCompanyReference,
+  function validateDatasetVersion(
+    datasetMode: LiveFinancialDatasetMode,
+    financialDatasetVersion: FinancialDatasetVersion,
+  ) {
+    if (!financialDatasetVersion.startsWith(`${datasetMode}:`)) {
+      throw new Error(
+        `Live financial datasetMode ${datasetMode} does not match version ${financialDatasetVersion}`,
+      );
+    }
+  }
+
+  async function readFinancials(
+    query: FinancialReadQuery,
   ): Promise<LiveCompanyFinancials> {
     const {
       datasetMode,
       financialDatasetVersion,
       statements: statementRecords,
       lines: lineRecords,
-    } = await dataSource.readCompanyFinancials(reference);
-    if (!financialDatasetVersion.startsWith(`${datasetMode}:`)) {
-      throw new Error(
-        `Live financial datasetMode ${datasetMode} does not match version ${financialDatasetVersion}`,
-      );
-    }
+    } = await dataSource.readCompanyFinancials(query);
+    validateDatasetVersion(datasetMode, financialDatasetVersion);
     const linesByStatementId = new Map<string, LiveFinancialLine[]>();
     const knownStatementIds = new Set(
       statementRecords.map((statement) => statement.liveStatementId),
@@ -96,15 +187,39 @@ export function createFinancialsRepository(
   }
 
   return {
-    getCompanyFinancials,
+    getCompanyFinancials: readFinancials,
+    getCompaniesFinancials: readFinancials,
+    async getCompaniesFinancialHeadlines(query) {
+      const snapshot = await dataSource.readCompanyFinancials({
+        ...query,
+        includeLines: false,
+      });
+      validateDatasetVersion(snapshot.datasetMode, snapshot.financialDatasetVersion);
+      const statements = snapshot.statements.map((statement) =>
+        liveFinancialHeadlineSchema.parse(statement),
+      );
+      if (
+        statements.some(
+          (statement) =>
+            statement.financialDatasetVersion !== snapshot.financialDatasetVersion,
+        )
+      ) {
+        throw new Error("Live statement dataset version does not match the active dataset");
+      }
+      return {
+        datasetMode: snapshot.datasetMode,
+        financialDatasetVersion: snapshot.financialDatasetVersion,
+        statements,
+      };
+    },
     async listCompanyStatements(companyId) {
-      return (await getCompanyFinancials({ companyId })).statements;
+      return (await readFinancials({ companyId })).statements;
     },
   };
 }
 
 const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
-  async readCompanyFinancials(reference) {
+  async readCompanyFinancials(query) {
     return prisma.$transaction(
       async (transaction) => {
         if (isInvestorDemoFinancialSimulationEnabled()) {
@@ -114,14 +229,32 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
           await transaction.$executeRawUnsafe("SET LOCAL app.fi_sim_enabled = 'on'");
         }
 
-        const companyPredicate =
-          "companyId" in reference
-            ? Prisma.sql`"companyId" = ${reference.companyId}`
-            : Prisma.sql`EXISTS (
+        const predicates: Prisma.Sql[] = [];
+        if ("companyIds" in query) {
+          predicates.push(
+            query.companyIds.length > 0
+              ? Prisma.sql`financial."companyId" IN (${Prisma.join(query.companyIds)})`
+              : Prisma.sql`FALSE`,
+          );
+          if (query.fiscalYear !== undefined) {
+            predicates.push(Prisma.sql`financial."fiscalYear" = ${query.fiscalYear}`);
+          }
+          if (query.statementScope !== undefined) {
+            predicates.push(
+              Prisma.sql`financial."statementScope" = ${query.statementScope}::"StatementScope"`,
+            );
+          }
+        } else if ("companyId" in query) {
+          predicates.push(Prisma.sql`financial."companyId" = ${query.companyId}`);
+        } else {
+          predicates.push(Prisma.sql`EXISTS (
                 SELECT 1 FROM "Company" company
                 WHERE company."id" = financial."companyId"
-                  AND company."orgNumber" = ${reference.orgNumber}
-              )`;
+                  AND company."orgNumber" = ${query.orgNumber}
+              )`);
+        }
+        const companyPredicate = Prisma.join(predicates, " AND ");
+        const includeLines = !("companyIds" in query && query.includeLines === false);
         const [datasetRows, statements, lines] = await Promise.all([
           transaction.$queryRaw<
             Array<{
@@ -162,7 +295,8 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
       WHERE ${companyPredicate}
       ORDER BY "fiscalYear" DESC, "statementScope" ASC
           `),
-          transaction.$queryRaw<LiveFinancialLine[]>(Prisma.sql`
+          includeLines
+            ? transaction.$queryRaw<LiveFinancialLine[]>(Prisma.sql`
       SELECT
         "liveLineId",
         "liveStatementId",
@@ -192,7 +326,8 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
       FROM "live_financial_line_items_v2" financial
       WHERE ${companyPredicate}
       ORDER BY "fiscalYear" DESC, "statementScope" ASC, "statementType" ASC, "sortOrder" ASC
-          `),
+          `)
+            : Promise.resolve([]),
         ]);
 
         const dataset = datasetRows[0];

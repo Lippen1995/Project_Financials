@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import type { SerializableSourceMetadata } from "@/lib/types";
+import type {
+  FinancialDatasetVersion,
+  FinancialStatementOrigin,
+  SerializableSourceMetadata,
+} from "@/lib/types";
 
 const nonNegativeAmount = z.number().finite().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const optionalRange = (minimumKey: string, maximumKey: string) =>
@@ -63,6 +67,8 @@ export type CompanyUniverseCandidate = {
     operatingProfit: number | null;
     operatingMarginBps: number | null;
     source: SerializableSourceMetadata;
+    statementOrigin: FinancialStatementOrigin;
+    financialDatasetVersion: FinancialDatasetVersion;
   } | null;
 };
 

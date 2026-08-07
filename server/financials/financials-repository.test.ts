@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   createFinancialsRepository,
@@ -28,6 +28,142 @@ describe("isInvestorDemoFinancialSimulationEnabled", () => {
 });
 
 describe("FinancialsRepository", () => {
+  it("reads bulk financial headlines without loading line items", async () => {
+    const readCompanyFinancials = vi.fn().mockResolvedValue({
+      datasetMode: "reported",
+      financialDatasetVersion: "reported:21",
+      statements: [{
+        liveStatementId: "reported:statement-1",
+        reportedStatementId: "statement-1",
+        companyId: "company-1",
+        fiscalYear: 2025,
+        statementScope: "COMPANY",
+        statementOrigin: "reported",
+        financialDatasetVersion: "reported:21",
+        taxonomyVersion: null,
+        generatorVersion: null,
+        sourceSystem: "BRREG",
+        sourceEntityType: "annual-account",
+        sourceId: "statement-1",
+        fetchedAt: new Date("2026-08-07T00:00:00.000Z"),
+        normalizedAt: new Date("2026-08-07T00:01:00.000Z"),
+        rawPayload: null,
+        currency: "NOK",
+        unitScale: 1,
+        periodStart: null,
+        periodEnd: null,
+        revenue: 100n,
+        operatingProfit: 20n,
+        netIncome: 15n,
+        equity: 60n,
+        assets: 100n,
+      }],
+      lines: [],
+    });
+    const repository = createFinancialsRepository({ readCompanyFinancials });
+
+    const result = await repository.getCompaniesFinancialHeadlines({
+      companyIds: ["company-1"],
+      fiscalYear: 2025,
+    });
+
+    expect(readCompanyFinancials).toHaveBeenCalledWith({
+      companyIds: ["company-1"],
+      fiscalYear: 2025,
+      includeLines: false,
+    });
+    expect(result.statements).toEqual([expect.objectContaining({
+      companyId: "company-1",
+      fiscalYear: 2025,
+      revenue: 100n,
+      operatingProfit: 20n,
+    })]);
+    expect(result.statements[0]).not.toHaveProperty("lines");
+  });
+
+  it("rejects a headline whose statement origin downgrades simulated provenance", async () => {
+    const repository = createFinancialsRepository({
+      readCompanyFinancials: vi.fn().mockResolvedValue({
+        datasetMode: "reported",
+        financialDatasetVersion: "reported:21",
+        statements: [{
+          liveStatementId: "simulated:statement-1",
+          companyId: "company-1",
+          fiscalYear: 2025,
+          statementScope: "COMPANY",
+          statementOrigin: "hybrid",
+          financialDatasetVersion: "reported:21",
+          sourceSystem: "BRREG",
+          sourceEntityType: "annual-account",
+          sourceId: "statement-1",
+          fetchedAt: new Date("2026-08-07T00:00:00.000Z"),
+          normalizedAt: new Date("2026-08-07T00:01:00.000Z"),
+          revenue: 100n,
+          operatingProfit: 20n,
+        }],
+        lines: [],
+      }),
+    });
+
+    await expect(
+      repository.getCompaniesFinancialHeadlines({ companyIds: ["company-1"] }),
+    ).rejects.toThrow(/origin/i);
+  });
+
+  it("rejects a headline whose live ID namespace does not match its origin", async () => {
+    const repository = createFinancialsRepository({
+      readCompanyFinancials: vi.fn().mockResolvedValue({
+        datasetMode: "reported",
+        financialDatasetVersion: "reported:21",
+        statements: [{
+          liveStatementId: "simulated:statement-1",
+          companyId: "company-1",
+          fiscalYear: 2025,
+          statementScope: "COMPANY",
+          statementOrigin: "reported",
+          financialDatasetVersion: "reported:21",
+          sourceSystem: "BRREG",
+          sourceEntityType: "annual-account",
+          sourceId: "statement-1",
+          fetchedAt: new Date("2026-08-07T00:00:00.000Z"),
+          normalizedAt: new Date("2026-08-07T00:01:00.000Z"),
+          revenue: 100n,
+          operatingProfit: 20n,
+        }],
+        lines: [],
+      }),
+    });
+
+    await expect(
+      repository.getCompaniesFinancialHeadlines({ companyIds: ["company-1"] }),
+    ).rejects.toThrow(/liveStatementId/i);
+  });
+
+  it("returns a versioned reported snapshot for a set of companies", async () => {
+    const readCompanyFinancials = vi.fn().mockResolvedValue({
+      datasetMode: "reported",
+      financialDatasetVersion: "reported:21",
+      statements: [],
+      lines: [],
+    });
+    const repository = createFinancialsRepository({ readCompanyFinancials });
+
+    const result = await repository.getCompaniesFinancials({
+      companyIds: ["company-1", "company-2"],
+      statementScope: "COMPANY",
+    });
+
+    expect(readCompanyFinancials).toHaveBeenCalledWith({
+      companyIds: ["company-1", "company-2"],
+      statementScope: "COMPANY",
+    });
+    expect(result).toEqual({
+      datasetMode: "reported",
+      financialDatasetVersion: "reported:21",
+      statements: [],
+    });
+  });
+
   it("rejects dataset metadata whose mode and version disagree", async () => {
     const repository = createFinancialsRepository({
       async readCompanyFinancials() {

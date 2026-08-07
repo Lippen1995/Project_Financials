@@ -64,6 +64,8 @@ function repository(): AnalysisRepository {
     }),
     listWorklistExclusions: vi.fn().mockResolvedValue({
       universeResultVersion: "company-universe-result-v1",
+      financialDatasetMode: "reported",
+      financialDatasetVersion: "reported:21",
       screeningVersion: "company-screening-v1",
       rankingVersion: "company-ranking-v1",
       evaluatedCount: 3,
@@ -273,6 +275,8 @@ describe("analysis service", () => {
     });
     const run = vi.fn().mockResolvedValue({
       version: "company-universe-result-v1",
+      datasetMode: "reported",
+      financialDatasetVersion: "reported:21",
       status: "COMPLETE",
       screeningVersion: "company-screening-v1",
       rankingVersion: "company-ranking-v1",
@@ -315,6 +319,8 @@ describe("analysis service", () => {
       criteriaVersion: "analysis-criteria-v1",
       universeResult: {
         version: "company-universe-result-v1",
+        datasetMode: "reported",
+        financialDatasetVersion: "reported:21",
         screeningVersion: "company-screening-v1",
         rankingVersion: "company-ranking-v1",
         counts: {
@@ -367,6 +373,8 @@ describe("analysis service", () => {
     const service = createAnalysisService(repo, {
       run: vi.fn().mockResolvedValue({
         version: "company-universe-result-v1",
+        datasetMode: "reported",
+        financialDatasetVersion: "reported:21",
         status: "COMPLETE",
         screeningVersion: "company-screening-v1",
         rankingVersion: null,

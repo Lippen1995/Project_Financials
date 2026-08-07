@@ -51,6 +51,8 @@ describe("AnalysisDetailView", () => {
             purpose: "Første screening.",
             criteriaVersion: "analysis-criteria-v1",
             universeResultVersion: "company-universe-result-v1",
+            financialDatasetMode: "reported",
+            financialDatasetVersion: "reported:21",
             screeningVersion: "company-screening-v1",
             rankingVersion: "company-ranking-v1",
             evaluatedCount: 2,

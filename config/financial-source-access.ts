@@ -6,12 +6,6 @@ import type { FinancialSourceAccessRegistration } from "@/lib/financial-source-a
  */
 export const financialSourceAccessRegistrations = [
   {
-    path: "app/(app)/watchlist/page.tsx",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move watchlist financial years to FinancialsRepository in F4.",
-  },
-  {
     path: "app/api/companies/[slug]/raw-financials/route.ts",
     sources: ["PublishedFinancialLineItem"],
     classification: "temporary-runtime-reader",
@@ -77,12 +71,6 @@ export const financialSourceAccessRegistrations = [
     sources: ["FinancialStatement"],
     classification: "temporary-runtime-reader",
     rationale: "Move analysis financial evidence to FinancialsRepository in F4.",
-  },
-  {
-    path: "server/analysis/company-universe-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move financial screening SQL behind FinancialsRepository in F4.",
   },
   {
     path: "server/financials/published-financials-reader.ts",

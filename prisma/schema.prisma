@@ -4869,6 +4869,8 @@ model AnalysisWorklist {
   purpose               String
   criteriaVersion       String
   universeResultVersion String?
+  financialDatasetMode  String?
+  financialDatasetVersion String?
   screeningVersion      String?
   rankingVersion        String?
   evaluatedCount        Int?

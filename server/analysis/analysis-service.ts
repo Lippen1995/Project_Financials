@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import type { FinancialDatasetMode, FinancialDatasetVersion } from "@/lib/types";
 import { prisma } from "@/lib/prisma";
 import { requireWorkspaceMembership } from "@/server/services/workspace-service";
 import {
@@ -85,8 +86,15 @@ export const createWorklistFromUniverseSchema = z.object({
   purpose: z.string().trim().min(1).max(2_000),
 }).strict();
 
+const financialDatasetModeSchema = z.enum(["reported", "simulated"]);
+const financialDatasetVersionSchema = z
+  .string()
+  .regex(/^(?:reported:\d+|simulated:[A-Za-z0-9_-]+:\d+)$/) as z.ZodType<FinancialDatasetVersion>;
+
 const universeResultEvidenceSchema = z.object({
   version: z.literal("company-universe-result-v1"),
+  datasetMode: financialDatasetModeSchema,
+  financialDatasetVersion: financialDatasetVersionSchema,
   screeningVersion: z.literal("company-screening-v1"),
   rankingVersion: z.literal("company-ranking-v1").nullable(),
   counts: z.object({
@@ -102,6 +110,13 @@ const universeResultEvidenceSchema = z.object({
     sourceBasis: z.array(sourceMetadataSchema).min(1).max(10),
   }).strict()).max(5_000),
 }).strict().superRefine((value, context) => {
+  if (!value.financialDatasetVersion.startsWith(`${value.datasetMode}:`)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Universe dataset mode must match its financial dataset version.",
+      path: ["financialDatasetVersion"],
+    });
+  }
   if (value.counts.excluded !== value.excluded.length) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
@@ -149,6 +164,8 @@ type FeedbackInput = z.input<typeof feedbackSchema>;
 type CompanyUniverseRunner = {
   run(input: unknown): Promise<{
     version: "company-universe-result-v1";
+    datasetMode: "reported" | "simulated";
+    financialDatasetVersion: FinancialDatasetVersion;
     status: "COMPLETE" | "REFINE_REQUIRED";
     screeningVersion: "company-screening-v1";
     rankingVersion?: "company-ranking-v1" | null;
@@ -272,6 +289,8 @@ export type AnalysisRepository = {
     input: { cursor: string | null; limit: number },
   ): Promise<{
     universeResultVersion: string | null;
+    financialDatasetMode: FinancialDatasetMode | null;
+    financialDatasetVersion: FinancialDatasetVersion | null;
     screeningVersion: string | null;
     rankingVersion: string | null;
     evaluatedCount: number | null;
@@ -477,6 +496,8 @@ const prismaRepository: AnalysisRepository = {
           purpose: input.purpose,
           criteriaVersion: input.criteriaVersion,
           universeResultVersion: input.universeResult?.version ?? null,
+          financialDatasetMode: input.universeResult?.datasetMode ?? null,
+          financialDatasetVersion: input.universeResult?.financialDatasetVersion ?? null,
           screeningVersion: input.universeResult?.screeningVersion ?? null,
           rankingVersion: input.universeResult?.rankingVersion ?? null,
           evaluatedCount: input.universeResult?.counts.evaluated ?? null,
@@ -539,6 +560,8 @@ const prismaRepository: AnalysisRepository = {
       where: { id: worklistId, analysisId },
       select: {
         universeResultVersion: true,
+        financialDatasetMode: true,
+        financialDatasetVersion: true,
         screeningVersion: true,
         rankingVersion: true,
         evaluatedCount: true,
@@ -565,6 +588,12 @@ const prismaRepository: AnalysisRepository = {
     const { exclusions: _exclusions, ...metadata } = worklist;
     return {
       ...metadata,
+      financialDatasetMode: metadata.financialDatasetMode === null
+        ? null
+        : financialDatasetModeSchema.parse(metadata.financialDatasetMode),
+      financialDatasetVersion: metadata.financialDatasetVersion === null
+        ? null
+        : financialDatasetVersionSchema.parse(metadata.financialDatasetVersion),
       items,
       nextCursor: hasMore ? items.at(-1)?.orgNumber ?? null : null,
     };
@@ -847,6 +876,8 @@ export function createAnalysisService(
       });
       const universeResult = universeResultEvidenceSchema.parse({
         version: result.version,
+        datasetMode: result.datasetMode,
+        financialDatasetVersion: result.financialDatasetVersion,
         screeningVersion: result.screeningVersion,
         rankingVersion: result.rankingVersion ?? null,
         counts: result.counts,

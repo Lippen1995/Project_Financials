@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import type {
+  FinancialDatasetMode,
+  FinancialDatasetVersion,
+  FinancialStatementOrigin,
+} from "@/lib/types";
 import { addToWatchlistAction, archiveWatchlistCompanyAction } from "@/server/actions/workspace-collaboration-actions";
 
 /* ------------------------------------------------------------------ *
@@ -19,6 +24,8 @@ export type WatchlistStatement = {
   netIncome: number | null;
   equity: number | null;
   assets: number | null;
+  statementOrigin: FinancialStatementOrigin;
+  financialDatasetVersion: FinancialDatasetVersion;
 };
 
 export type WatchlistCompany = {
@@ -76,6 +83,8 @@ export type WatchlistViewProps = {
   news: WatchlistNews[];
   alerts: WatchlistAlert[];
   ddRooms: WatchlistDdRoom[];
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
 };
 
 /* ------------------------------------------------------------------ *
