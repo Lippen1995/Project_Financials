@@ -49,22 +49,10 @@ export const financialSourceAccessRegistrations = [
     rationale: "Disposable-database migration verification creates an explicit reported anchor.",
   },
   {
-    path: "server/ai-search/tools/build-mna-pro-forma.ts",
-    sources: ["FinancialStatement", "PublishedFinancialLineItem"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move Njord M&A calculations to FinancialsRepository in F4.",
-  },
-  {
     path: "server/ai-search/tools/enrich.ts",
     sources: ["FinancialStatement"],
     classification: "temporary-runtime-reader",
     rationale: "Move Njord company enrichment to FinancialsRepository in F4.",
-  },
-  {
-    path: "server/ai-search/tools/estimate-group-financials.ts",
-    sources: ["FinancialStatement", "PublishedFinancialLineItem"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move Njord group estimates to FinancialsRepository in F4.",
   },
   {
     path: "server/analysis/analysis-service.ts",

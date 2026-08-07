@@ -2,6 +2,14 @@ import { z } from "zod";
 
 import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { prisma } from "@/lib/prisma";
+import type {
+  FinancialDatasetMode,
+  FinancialDatasetVersion,
+} from "@/lib/types";
+import {
+  njordFinancialDataReader,
+  type NjordFinancialSnapshot,
+} from "@/server/financials/njord-financial-data-reader";
 import {
   getOwnershipAvailableYears,
   getSubsidiaryTraversal,
@@ -65,9 +73,14 @@ export type GroupFinancialsDeps = {
     maxDepth: number;
     maxNodes: number;
   }) => Promise<SubsidiaryTraversal>;
-  getLatestFiscalYear: (parentOrgNumber: string) => Promise<number | null>;
-  getStatements: (orgNumbers: string[], fiscalYears: number[]) => Promise<GroupFinancialStatementRow[]>;
-  getDepreciationRows: (orgNumbers: string[], fiscalYears: number[]) => Promise<GroupDepreciationRow[]>;
+  getFinancials: (orgNumbers: string[]) => Promise<GroupFinancialSnapshot>;
+};
+
+export type GroupFinancialSnapshot = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
+  statements: GroupFinancialStatementRow[];
+  depreciationRows: GroupDepreciationRow[];
 };
 
 export type SourceReference = {
@@ -100,6 +113,8 @@ type OwnershipBasis =
   | "NO_OWNERSHIP_DATA";
 
 export type EstimateGroupFinancialsOutput = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   parent: { orgNumber: string; name: string };
   requestedYears: number;
   answerStatus: "CALCULATED_UNADJUSTED_PRO_FORMA" | "INSUFFICIENT_DATA";
@@ -246,6 +261,51 @@ function chooseDepreciationRow(
   return candidates[0] ?? null;
 }
 
+function toGroupFinancialSnapshot(
+  snapshot: NjordFinancialSnapshot,
+): GroupFinancialSnapshot {
+  return {
+    financialDatasetMode: snapshot.financialDatasetMode,
+    financialDatasetVersion: snapshot.financialDatasetVersion,
+    statements: snapshot.statements.map((statement) => ({
+      id: statement.liveStatementId,
+      orgNumber: statement.orgNumber,
+      fiscalYear: statement.fiscalYear,
+      statementScope: statement.statementScope,
+      currency: statement.currency,
+      operatingProfit: statement.operatingProfit,
+      netIncome: statement.netIncome,
+      sourceFilingId: statement.liveStatementId,
+      sourceSystem: statement.sourceSystem,
+      sourceEntityType: statement.sourceEntityType,
+      sourceId: statement.sourceId,
+      fetchedAt: statement.fetchedAt,
+      normalizedAt: statement.normalizedAt,
+    })),
+    depreciationRows: snapshot.statements.flatMap((statement) => {
+      const line = statement.depreciationAmortization;
+      if (!line) return [];
+      return [{
+        id: line.liveLineId,
+        orgNumber: statement.orgNumber,
+        fiscalYear: statement.fiscalYear,
+        filingId: statement.liveStatementId,
+        currency: line.currency,
+        finalInput: line.value,
+        value: line.value,
+        unitScale: line.unitScale,
+        publicationSource: "MACHINE_EXTRACTION" as const,
+        publishedAt: line.normalizedAt,
+        sourceSystem: line.sourceSystem,
+        sourceEntityType: line.sourceEntityType,
+        sourceId: line.sourceId,
+        fetchedAt: line.fetchedAt,
+        normalizedAt: line.normalizedAt,
+      }];
+    }),
+  };
+}
+
 function productionDeps(): GroupFinancialsDeps {
   return {
     async getCompany(orgNumber) {
@@ -299,65 +359,10 @@ function productionDeps(): GroupFinancialsDeps {
       };
     },
     getSubsidiaryTraversal,
-    async getLatestFiscalYear(parentOrgNumber) {
-      const result = await prisma.financialStatement.aggregate({
-        where: {
-          statementScope: "COMPANY",
-          company: { orgNumber: parentOrgNumber },
-        },
-        _max: { fiscalYear: true },
-      });
-      return result._max.fiscalYear;
-    },
-    async getStatements(orgNumbers, fiscalYears) {
-      return prisma.financialStatement.findMany({
-        where: {
-          fiscalYear: { in: fiscalYears },
-          company: { orgNumber: { in: orgNumbers } },
-        },
-        select: {
-          id: true,
-          fiscalYear: true,
-          statementScope: true,
-          currency: true,
-          operatingProfit: true,
-          netIncome: true,
-          sourceFilingId: true,
-          sourceSystem: true,
-          sourceEntityType: true,
-          sourceId: true,
-          fetchedAt: true,
-          normalizedAt: true,
-          company: { select: { orgNumber: true } },
-        },
-      }).then((rows) => rows.map((row) => ({ ...row, orgNumber: row.company.orgNumber })));
-    },
-    async getDepreciationRows(orgNumbers, fiscalYears) {
-      return prisma.publishedFinancialLineItem.findMany({
-        where: {
-          fiscalYear: { in: fiscalYears },
-          statementScope: "COMPANY",
-          metricKey: "depreciation_amortization",
-          company: { orgNumber: { in: orgNumbers } },
-        },
-        select: {
-          id: true,
-          fiscalYear: true,
-          filingId: true,
-          currency: true,
-          finalInput: true,
-          value: true,
-          unitScale: true,
-          publicationSource: true,
-          publishedAt: true,
-          sourceSystem: true,
-          sourceEntityType: true,
-          sourceId: true,
-          fetchedAt: true,
-          normalizedAt: true,
-          company: { select: { orgNumber: true } },
-        },
-      }).then((rows) => rows.map((row) => ({ ...row, orgNumber: row.company.orgNumber })));
+    async getFinancials(orgNumbers) {
+      return toGroupFinancialSnapshot(
+        await njordFinancialDataReader.readCompanies(orgNumbers),
+      );
     },
   };
 }
@@ -410,10 +415,29 @@ export function createEstimateGroupFinancialsTool(
       const currentOwnershipProvenance = latestOwnershipYear === undefined
         ? null
         : await deps.getOwnershipProvenance(latestOwnershipYear, parentOrgNumber);
-      const latestFiscalYear = await deps.getLatestFiscalYear(parentOrgNumber);
+      const parentFinancials = await deps.getFinancials([parentOrgNumber]);
+      if (parentFinancials.financialDatasetMode === "simulated") {
+        throw new Error(
+          "Simulated Njord group estimates require value-origin labeling before use.",
+        );
+      }
+      const latestFiscalYear = parentFinancials.statements
+        .filter((statement) =>
+          statement.orgNumber === parentOrgNumber &&
+          statement.statementScope === "COMPANY",
+        )
+        .reduce<number | null>(
+          (latest, statement) =>
+            latest === null || statement.fiscalYear > latest
+              ? statement.fiscalYear
+              : latest,
+          null,
+        );
 
       if (latestFiscalYear === null) {
         return {
+          financialDatasetMode: parentFinancials.financialDatasetMode,
+          financialDatasetVersion: parentFinancials.financialDatasetVersion,
           parent,
           requestedYears: years,
           answerStatus: "INSUFFICIENT_DATA",
@@ -455,10 +479,21 @@ export function createEstimateGroupFinancialsTool(
         };
       }));
       const allOrgNumbers = [...new Set(memberships.flatMap((item) => item.entityOrgNumbers))];
-      const [statements, depreciationRows] = await Promise.all([
-        deps.getStatements(allOrgNumbers, fiscalYears),
-        deps.getDepreciationRows(allOrgNumbers, fiscalYears),
-      ]);
+      const groupFinancials = await deps.getFinancials(allOrgNumbers);
+      if (
+        groupFinancials.financialDatasetMode !==
+          parentFinancials.financialDatasetMode ||
+        groupFinancials.financialDatasetVersion !==
+          parentFinancials.financialDatasetVersion
+      ) {
+        throw new Error(
+          "Financial dataset changed while the Njord group estimate was being prepared.",
+        );
+      }
+      const statements = groupFinancials.statements.filter((statement) =>
+        fiscalYears.includes(statement.fiscalYear));
+      const depreciationRows = groupFinancials.depreciationRows.filter((row) =>
+        fiscalYears.includes(row.fiscalYear));
 
       const yearResults = memberships.map((membership) => {
         const companyStatements = statements.filter((row) =>
@@ -500,13 +535,16 @@ export function createEstimateGroupFinancialsTool(
           }
           const depreciationRow = chooseDepreciationRow(depreciationRows, statementRow);
           const depreciationValue = depreciationRow?.finalInput ?? depreciationRow?.value ?? null;
+          const scaledDepreciationValue = depreciationValue === null || !depreciationRow
+            ? null
+            : depreciationValue * BigInt(depreciationRow.unitScale);
           const depreciationSource = depreciationRow
             ? sourceFromDepreciation(depreciationRow)
             : null;
           if (
             statementRow.operatingProfit !== null &&
             depreciationRow &&
-            depreciationValue !== null &&
+            scaledDepreciationValue !== null &&
             depreciationRow.currency === statementRow.currency &&
             depreciationSource
           ) {
@@ -514,7 +552,9 @@ export function createEstimateGroupFinancialsTool(
               currency: statementRow.currency,
               value:
                 statementRow.operatingProfit +
-                (depreciationValue < 0n ? -depreciationValue : depreciationValue),
+                (scaledDepreciationValue < 0n
+                  ? -scaledDepreciationValue
+                  : scaledDepreciationValue),
               sources: [statementSource, depreciationSource],
             });
           }
@@ -548,6 +588,8 @@ export function createEstimateGroupFinancialsTool(
         year.ebit.complete && year.ebitdaLike.complete && year.netIncome.complete,
       );
       return {
+        financialDatasetMode: groupFinancials.financialDatasetMode,
+        financialDatasetVersion: groupFinancials.financialDatasetVersion,
         parent,
         requestedYears: years,
         answerStatus: hasCompleteRequestedPeriod
