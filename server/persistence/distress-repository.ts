@@ -1,14 +1,42 @@
 import { DistressStatus as PrismaDistressStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import {
+import type {
   DistressFilterOptions,
   DistressFinancialSnapshotSummary,
   DistressOverviewSectorRow,
   DistressOverviewTimelinePoint,
   DistressSearchFilters,
+  FinancialDatasetMode,
+  FinancialDatasetVersion,
   NormalizedDistressProfile,
 } from "@/lib/types";
+import {
+  financialsRepository,
+  type FinancialsRepository,
+} from "@/server/financials/financials-repository";
+export type ActiveFinancialDataset = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
+};
+
+export function matchesActiveFinancialDataset<
+  TSnapshot extends {
+    financialDatasetMode: string | null;
+    financialDatasetVersion: string | null;
+  },
+>(
+  snapshot: TSnapshot | null,
+  activeFinancialDataset: ActiveFinancialDataset,
+): snapshot is TSnapshot {
+  return Boolean(
+    snapshot &&
+      snapshot.financialDatasetMode ===
+        activeFinancialDataset.financialDatasetMode &&
+      snapshot.financialDatasetVersion ===
+        activeFinancialDataset.financialDatasetVersion,
+  );
+}
 
 function toNullableDate(value?: Date | null) {
   return value ?? null;
@@ -18,8 +46,13 @@ function toNullableDecimal(value?: number | null) {
   return value === null || value === undefined ? null : new Prisma.Decimal(value);
 }
 
-function buildSnapshotWriteData(companyOrgNumber: string, snapshot: DistressFinancialSnapshotSummary) {
+export function createDistressSnapshotWriteData(
+  companyOrgNumber: string,
+  snapshot: DistressFinancialSnapshotSummary,
+) {
   return {
+    financialDatasetMode: snapshot.financialDatasetMode,
+    financialDatasetVersion: snapshot.financialDatasetVersion,
     distressStatus: snapshot.distressStatus as PrismaDistressStatus,
     daysInStatus: snapshot.daysInStatus ?? null,
     industryCode: snapshot.industryCode ?? null,
@@ -133,7 +166,7 @@ export async function upsertDistressFinancialSnapshot(
     throw new Error(`Virksomhet ${companyOrgNumber} finnes ikke i databasen.`);
   }
 
-  const data = buildSnapshotWriteData(companyOrgNumber, snapshot);
+  const data = createDistressSnapshotWriteData(companyOrgNumber, snapshot);
 
   return prisma.distressFinancialSnapshot.upsert({
     where: { companyId: company.id },
@@ -186,7 +219,10 @@ export async function upsertDistressSyncState(input: {
   });
 }
 
-function buildDistressWhere(filters: DistressSearchFilters): Prisma.CompanyDistressProfileWhereInput {
+function buildDistressWhere(
+  filters: DistressSearchFilters,
+  activeFinancialDataset?: ActiveFinancialDataset,
+): Prisma.CompanyDistressProfileWhereInput {
   const hasSnapshotFilters = Boolean(
     (filters.sectorCodes && filters.sectorCodes.length > 0) ||
       filters.lastReportedYearFrom !== undefined ||
@@ -227,6 +263,10 @@ function buildDistressWhere(filters: DistressSearchFilters): Prisma.CompanyDistr
       distressFinancialSnapshot: hasSnapshotFilters
         ? {
             is: {
+              financialDatasetMode:
+                activeFinancialDataset?.financialDatasetMode,
+              financialDatasetVersion:
+                activeFinancialDataset?.financialDatasetVersion,
               sectorCode: hasSectorFilter
                 ? {
                     in: filters.sectorCodes,
@@ -243,9 +283,12 @@ function buildDistressWhere(filters: DistressSearchFilters): Prisma.CompanyDistr
   };
 }
 
-export async function listDistressCompanyRecords(filters: DistressSearchFilters) {
+export async function listDistressCompanyRecords(
+  filters: DistressSearchFilters,
+  activeFinancialDataset?: ActiveFinancialDataset,
+) {
   return prisma.companyDistressProfile.findMany({
-    where: buildDistressWhere(filters),
+    where: buildDistressWhere(filters, activeFinancialDataset),
     include: {
       company: {
         include: {
@@ -258,21 +301,61 @@ export async function listDistressCompanyRecords(filters: DistressSearchFilters)
   });
 }
 
-export async function getDistressCompanyRecord(orgNumberOrSlug: string) {
+async function findDistressCompany(orgNumberOrSlug: string) {
   return prisma.company.findFirst({
     where: {
-      OR: [{ orgNumber: orgNumberOrSlug }, { slug: orgNumberOrSlug }],
+      AND: [
+        { OR: [{ orgNumber: orgNumberOrSlug }, { slug: orgNumberOrSlug }] },
+        { distressProfile: { isNot: null } },
+      ],
     },
     include: {
       addresses: true,
       industryCode: true,
-      financialStatements: {
-        orderBy: { fiscalYear: "desc" },
-      },
       distressProfile: true,
       distressFinancialSnapshot: true,
     },
   });
+}
+
+export function createDistressCompanyRecordReader<TCompany extends { id: string }>(
+  companyStore: {
+    findCompany(orgNumberOrSlug: string): Promise<TCompany | null>;
+  },
+  financialRepository: Pick<FinancialsRepository, "getCompanyFinancials">,
+) {
+  return async (orgNumberOrSlug: string) => {
+    const company = await companyStore.findCompany(orgNumberOrSlug);
+    if (!company) return null;
+    if (
+      "distressProfile" in company &&
+      company.distressProfile === null
+    ) return null;
+
+    const financials = await financialRepository.getCompanyFinancials({
+      companyId: company.id,
+    });
+    if (financials.datasetMode === "simulated") {
+      throw new Error(
+        "Simulated distress financials require metric labeling before display.",
+      );
+    }
+    return {
+      ...company,
+      financialDatasetMode: financials.datasetMode,
+      financialDatasetVersion: financials.financialDatasetVersion,
+      financialStatements: financials.statements,
+    };
+  };
+}
+
+const readDistressCompanyRecord = createDistressCompanyRecordReader(
+  { findCompany: findDistressCompany },
+  financialsRepository,
+);
+
+export async function getDistressCompanyRecord(orgNumberOrSlug: string) {
+  return readDistressCompanyRecord(orgNumberOrSlug);
 }
 
 export async function listDistressFinancialBackfillCandidates(limit = 50) {
@@ -301,7 +384,9 @@ export async function listDistressFinancialBackfillCandidates(limit = 50) {
   });
 }
 
-export async function listDistressFilterOptions(): Promise<DistressFilterOptions> {
+export async function listDistressFilterOptions(
+  activeFinancialDataset: ActiveFinancialDataset,
+): Promise<DistressFilterOptions> {
   const [statuses, companies, sectorSnapshots] = await Promise.all([
     prisma.companyDistressProfile.groupBy({
       by: ["distressStatus"],
@@ -332,6 +417,9 @@ export async function listDistressFilterOptions(): Promise<DistressFilterOptions
     }),
     prisma.distressFinancialSnapshot.findMany({
       where: {
+        financialDatasetMode: activeFinancialDataset?.financialDatasetMode,
+        financialDatasetVersion:
+          activeFinancialDataset?.financialDatasetVersion,
         sectorCode: {
           not: null,
         },
@@ -370,6 +458,7 @@ export async function listDistressFilterOptions(): Promise<DistressFilterOptions
   }
 
   return {
+    ...activeFinancialDataset,
     statuses: statuses.map((status) => ({
       value: status.distressStatus,
       label: status.distressStatus,
@@ -392,7 +481,9 @@ export async function listDistressFilterOptions(): Promise<DistressFilterOptions
   };
 }
 
-export async function getDistressOverviewCounts() {
+export async function getDistressOverviewCounts(
+  activeFinancialDataset?: ActiveFinancialDataset,
+) {
   const recentCutoff = new Date();
   recentCutoff.setDate(recentCutoff.getDate() - 30);
 
@@ -406,6 +497,9 @@ export async function getDistressOverviewCounts() {
     }),
     prisma.distressFinancialSnapshot.count({
       where: {
+        financialDatasetMode: activeFinancialDataset?.financialDatasetMode,
+        financialDatasetVersion:
+          activeFinancialDataset?.financialDatasetVersion,
         dataCoverage: {
           in: ["FINANCIALS_AVAILABLE", "FINANCIALS_PARTIAL"],
         },
@@ -446,7 +540,10 @@ export async function getDistressStatusDistribution() {
   });
 }
 
-export async function getDistressSectorOverview(limit = 8): Promise<DistressOverviewSectorRow[]> {
+export async function getDistressSectorOverview(
+  limit = 8,
+  activeFinancialDataset?: ActiveFinancialDataset,
+): Promise<DistressOverviewSectorRow[]> {
   const recentCutoff = new Date();
   recentCutoff.setDate(recentCutoff.getDate() - 30);
 
@@ -454,6 +551,9 @@ export async function getDistressSectorOverview(limit = 8): Promise<DistressOver
     prisma.companyDistressProfile.count(),
     prisma.distressFinancialSnapshot.findMany({
       where: {
+        financialDatasetMode: activeFinancialDataset?.financialDatasetMode,
+        financialDatasetVersion:
+          activeFinancialDataset?.financialDatasetVersion,
         sectorCode: {
           not: null,
         },

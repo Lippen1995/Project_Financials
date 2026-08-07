@@ -86,12 +86,6 @@ export const financialSourceAccessRegistrations = [
     rationale: "Split the permitted source writer from cached runtime reads in F4.",
   },
   {
-    path: "server/persistence/distress-repository.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move distress financial reads to FinancialsRepository in F4.",
-  },
-  {
     path: "server/services/admin-hub-service.ts",
     sources: ["FinancialStatement"],
     classification: "source-observability",
@@ -108,12 +102,6 @@ export const financialSourceAccessRegistrations = [
     sources: ["FinancialStatement"],
     classification: "temporary-runtime-reader",
     rationale: "Reported statement FK validation remains direct until live IDs land in F4.",
-  },
-  {
-    path: "server/services/dd-investment-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Reported evidence reads remain direct until live IDs land in F4.",
   },
   {
     path: "server/services/financial-line-item-service.ts",

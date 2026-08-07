@@ -1190,6 +1190,8 @@ export type DistressRevenueTrendPoint = {
 };
 
 export type DistressFinancialSnapshotSummary = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   distressStatus: DistressStatus;
   daysInStatus?: number | null;
   industryCode?: string | null;
@@ -1293,6 +1295,8 @@ export type DistressCompanyRow = {
     label?: string | null;
   } | null;
   financials: {
+    financialDatasetMode: FinancialDatasetMode | null;
+    financialDatasetVersion: FinancialDatasetVersion | null;
     lastReportedYear?: number | null;
     revenue?: number | null;
     ebit?: number | null;
@@ -1321,6 +1325,8 @@ export type DistressCompanyDetail = {
     label?: string | null;
   } | null;
   financials: {
+    financialDatasetMode: FinancialDatasetMode;
+    financialDatasetVersion: FinancialDatasetVersion;
     snapshot: DistressFinancialSnapshotSummary | null;
     trends: DistressFinancialTrend[];
   };
@@ -1383,6 +1389,8 @@ export type DistressOpportunityCluster = {
 };
 
 export type DistressOverviewResponse = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   kpis: DistressOverviewKpis;
   statusDistribution: DistressOverviewStatusRow[];
   sectors: DistressOverviewSectorRow[];
@@ -1432,6 +1440,8 @@ export type DistressFilterOption = {
 };
 
 export type DistressFilterOptions = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   statuses: DistressFilterOption[];
   industryCodes: DistressFilterOption[];
   sectors: DistressFilterOption[];
@@ -1457,6 +1467,8 @@ export type DistressSearchFilters = {
 };
 
 export type DistressScreeningResponse = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   items: DistressCompanyRow[];
   totalCount: number;
   totalUniverseCount: number;
@@ -1490,6 +1502,8 @@ export type DistressModuleSectorRow = {
 };
 
 export type DistressModuleResponse = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   items: DistressCompanyRow[];
   totalCount: number;
   /** Rows matching the active filters, before paging. */
@@ -1930,6 +1944,8 @@ export type DdFindingEvidenceSummary = {
   normalizedAt?: Date | null;
   targetCompanyId?: string | null;
   targetFinancialStatementId?: string | null;
+  financialDatasetMode?: FinancialDatasetMode | null;
+  financialDatasetVersion?: FinancialDatasetVersion | null;
   targetTaskId?: string | null;
   targetFindingId?: string | null;
   targetAnnouncementId?: string | null;
@@ -2040,6 +2056,8 @@ export type DdWorkstreamSummary = {
 };
 
 export type DdEvidenceContext = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   company: {
     id: string;
     name: string;
@@ -2052,7 +2070,11 @@ export type DdEvidenceContext = {
   };
   financialStatements: Array<{
     id: string;
+    liveStatementId: string;
+    reportedStatementId: string | null;
     fiscalYear: number;
+    statementOrigin: FinancialStatementOrigin;
+    financialDatasetVersion: FinancialDatasetVersion;
     sourceSystem: string;
     sourceEntityType: string;
     sourceId: string;

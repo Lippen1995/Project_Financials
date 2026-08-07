@@ -1356,6 +1356,8 @@ model CompanyDistressProfile {
 model DistressFinancialSnapshot {
   id                  String         @id @default(cuid())
   companyId           String         @unique
+  financialDatasetMode    String?
+  financialDatasetVersion String?
   distressStatus      DistressStatus
   daysInStatus        Int?
   industryCode        String?
@@ -1386,6 +1388,7 @@ model DistressFinancialSnapshot {
   @@index([distressStatus, daysInStatus])
   @@index([sectorCode, lastReportedYear])
   @@index([distressScore])
+  @@index([financialDatasetVersion])
 }
 
 model DistressSyncState {
@@ -3244,6 +3247,9 @@ model DdFindingEvidence {
   normalizedAt                   DateTime?
   targetCompanyId                String?
   targetFinancialStatementId     String?
+  financialDatasetMode           String?
+  financialDatasetVersion        String?
+  financialDatasetQuarantined    Boolean                @default(false)
   targetTaskId                   String?
   targetFindingId                String?
   targetAnnouncementId           String?
@@ -3262,6 +3268,7 @@ model DdFindingEvidence {
   createdBy                      User                   @relation("DdFindingEvidenceCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
 
   @@index([findingId, type])
+  @@index([financialDatasetVersion])
 }
 
 model DdConclusion {
