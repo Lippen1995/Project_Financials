@@ -26,7 +26,6 @@ import {
 import { logRecoverableError } from "@/lib/recoverable-error";
 import { projectStructuredAccountsToLineItems } from "@/server/services/financial-line-item-service";
 import type { SourceMetadata } from "@/lib/types";
-import { findCompanyByOrgNumber } from "@/server/financials/published-financials-reader";
 
 const provider = new BrregFinancialsProvider();
 
@@ -469,6 +468,18 @@ export function createStructuredFinancialsService(dependencies: {
   }
 
   return { ensureForCompany };
+}
+
+/**
+ * Minimal company lookup for structured ingestion. Previously imported from the published
+ * financials reader; that module existed only to keep the OCR estate out of the live graph and
+ * is gone, so the one findUnique it still provided lives with its only caller.
+ */
+async function findCompanyByOrgNumber(orgNumber: string) {
+  return prisma.company.findUnique({
+    where: { orgNumber },
+    select: { id: true, orgNumber: true, name: true, slug: true },
+  });
 }
 
 const prismaStructuredFinancialsRepository: StructuredFinancialsRepository = {

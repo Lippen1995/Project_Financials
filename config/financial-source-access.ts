@@ -43,13 +43,6 @@ export const financialSourceAccessRegistrations = [
     rationale: "Disposable-database migration verification creates an explicit reported anchor.",
   },
   {
-    path: "server/financials/published-financials-reader.ts",
-    sources: ["FinancialStatement", "PublishedFinancialLineItem"],
-    classification: "temporary-runtime-reader",
-    rationale:
-      "Public company financials no longer imports this module; remove it after its remaining legacy callers migrate in F4.",
-  },
-  {
     path: "server/persistence/company-repository.ts",
     sources: ["FinancialStatement"],
     classification: "temporary-runtime-reader",

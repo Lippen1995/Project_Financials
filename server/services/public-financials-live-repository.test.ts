@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCompanyFinancials: vi.fn(),
-  legacyReader: vi.fn(),
   readState: vi.fn(),
   enqueue: vi.fn(),
 }));
@@ -15,10 +14,6 @@ vi.mock("@/server/financials/financials-repository", () => ({
   financialsRepository: {
     getCompanyFinancials: mocks.getCompanyFinancials,
   },
-}));
-
-vi.mock("@/server/financials/published-financials-reader", () => ({
-  getPublishedAnnualReportFinancials: mocks.legacyReader,
 }));
 
 vi.mock("@/server/services/structured-financials-service", () => ({
@@ -38,13 +33,6 @@ describe("public financial live-repository boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.readState.mockResolvedValue(null);
-    mocks.legacyReader.mockResolvedValue({
-      statements: [],
-      allScopeStatements: [],
-      lineItems: [],
-      documents: [],
-      availability: { available: false },
-    });
   });
 
   it("serves a reported statement only through the live repository snapshot", async () => {
@@ -90,7 +78,6 @@ describe("public financial live-repository boundary", () => {
     expect(mocks.getCompanyFinancials).toHaveBeenCalledWith({
       orgNumber: "912345678",
     });
-    expect(mocks.legacyReader).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       datasetMode: "reported",
       financialDatasetVersion: "reported:17",
