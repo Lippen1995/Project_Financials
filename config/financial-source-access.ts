@@ -43,12 +43,6 @@ export const financialSourceAccessRegistrations = [
     rationale: "Disposable-database migration verification creates an explicit reported anchor.",
   },
   {
-    path: "server/analysis/analysis-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move analysis financial evidence to FinancialsRepository in F4.",
-  },
-  {
     path: "server/financials/published-financials-reader.ts",
     sources: ["FinancialStatement", "PublishedFinancialLineItem"],
     classification: "temporary-runtime-reader",

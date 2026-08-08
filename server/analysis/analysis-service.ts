@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { FinancialDatasetMode, FinancialDatasetVersion } from "@/lib/types";
 import { prisma } from "@/lib/prisma";
+import { financialsRepository } from "@/server/financials/financials-repository";
 import { requireWorkspaceMembership } from "@/server/services/workspace-service";
 import {
   companyUniverseQuerySchema,
@@ -414,32 +415,39 @@ const prismaRepository: AnalysisRepository = {
       }),
       prisma.company.findMany({
         where: { orgNumber: { in: orgNumbers } },
-        select: {
-          orgNumber: true,
-          financialStatements: {
-            where: {
-              sourceSystem: "BRREG",
-              ...(fiscalYear == null ? {} : { fiscalYear }),
-            },
-            orderBy: [{ fiscalYear: "desc" }, { normalizedAt: "desc" }],
-            take: 1,
-            select: {
-              sourceSystem: true,
-              sourceEntityType: true,
-              sourceId: true,
-              fetchedAt: true,
-              normalizedAt: true,
-            },
-          },
-        },
+        select: { id: true, orgNumber: true },
       }),
     ]);
-    const financialSourceByOrgNumber = new Map(
-      financialCompanies.flatMap((company) => {
-        const statement = company.financialStatements[0];
-        return statement ? [[company.orgNumber, statement] as const] : [];
-      }),
+
+    // Only the provenance of the newest official statement is wanted here, never its figures,
+    // but it still has to come from the live dataset: an analysis run against a simulated
+    // dataset must cite that dataset's provenance rather than the reported source underneath.
+    const orgNumberByCompanyId = new Map(
+      financialCompanies.map((company) => [company.id, company.orgNumber] as const),
     );
+    const liveStatements =
+      financialCompanies.length === 0
+        ? []
+        : (
+            await financialsRepository.getCompaniesFinancials({
+              companyIds: financialCompanies.map((company) => company.id),
+              ...(fiscalYear == null ? {} : { fiscalYear }),
+            })
+          ).statements;
+
+    const financialSourceByOrgNumber = new Map<string, (typeof liveStatements)[number]>();
+    for (const statement of liveStatements) {
+      if (statement.sourceSystem !== "BRREG") continue;
+      const orgNumber = orgNumberByCompanyId.get(statement.companyId);
+      if (!orgNumber) continue;
+      const current = financialSourceByOrgNumber.get(orgNumber);
+      const isNewer =
+        !current ||
+        statement.fiscalYear > current.fiscalYear ||
+        (statement.fiscalYear === current.fiscalYear &&
+          statement.normalizedAt > current.normalizedAt);
+      if (isNewer) financialSourceByOrgNumber.set(orgNumber, statement);
+    }
     return companies.map((company) => ({
       orgNumber: company.orgNumber,
       companyName: company.name,
