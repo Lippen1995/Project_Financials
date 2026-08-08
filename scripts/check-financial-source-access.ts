@@ -47,7 +47,23 @@ if (audit.unusedRegistrations.length > 0) {
 if (audit.violations.length > 0 || audit.unusedRegistrations.length > 0) {
   process.exitCode = 1;
 } else {
-  const permittedClassifications = new Set(["source-ingest", "source-migration"]);
+  // Classifications that describe a source path which is meant to exist. Ingest and migration
+  // write the reported core; admin maintains its mapping; observability measures the health of
+  // the ingest itself; maintenance is offline analysis. None of them may be routed through the
+  // live dataset without destroying what they are for — an admin surface reporting on source
+  // health cannot report on a view that hides which source a row came from.
+  //
+  // Only temporary-runtime-reader is migration debt: a product read that should be following
+  // the active dataset and is not. Counting the permanent paths as debt made the stop criterion
+  // "activation stays disabled until the debt is zero" impossible to ever satisfy, which would
+  // have turned a real gate into one everybody learns to ignore.
+  const permittedClassifications = new Set([
+    "source-ingest",
+    "source-migration",
+    "source-admin",
+    "source-observability",
+    "source-maintenance",
+  ]);
   const prohibitedCount = audit.registeredAccess.filter(
     (entry) => !permittedClassifications.has(entry.classification),
   ).length;

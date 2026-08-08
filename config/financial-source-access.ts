@@ -43,29 +43,11 @@ export const financialSourceAccessRegistrations = [
     rationale: "Disposable-database migration verification creates an explicit reported anchor.",
   },
   {
-    path: "server/ai-search/tools/enrich.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move Njord company enrichment to FinancialsRepository in F4.",
-  },
-  {
-    path: "server/analysis/analysis-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move analysis financial evidence to FinancialsRepository in F4.",
-  },
-  {
-    path: "server/financials/published-financials-reader.ts",
-    sources: ["FinancialStatement", "PublishedFinancialLineItem"],
-    classification: "temporary-runtime-reader",
-    rationale:
-      "Public company financials no longer imports this module; remove it after its remaining legacy callers migrate in F4.",
-  },
-  {
     path: "server/persistence/company-repository.ts",
     sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Split the permitted source writer from cached runtime reads in F4.",
+    classification: "source-ingest",
+    rationale:
+      "Reported statement upsert only. The cached runtime reads that shared this module were removed; search ranking now reads the live dataset through company-search-financials-reader.",
   },
   {
     path: "server/services/admin-hub-service.ts",
@@ -80,22 +62,10 @@ export const financialSourceAccessRegistrations = [
     rationale: "Reported canonical-key administration intentionally updates source mapping.",
   },
   {
-    path: "server/services/dd-comment-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Reported statement FK validation remains direct until live IDs land in F4.",
-  },
-  {
     path: "server/services/financial-line-item-service.ts",
     sources: ["FinancialLineItem", "FinancialStatement"],
     classification: "source-ingest",
     rationale: "Structured statement projection is an explicit reported ingest job.",
-  },
-  {
-    path: "server/services/oversikt-dashboard-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move dashboard financial summaries to FinancialsRepository in F4.",
   },
   {
     path: "server/services/presentation-node-service.ts",

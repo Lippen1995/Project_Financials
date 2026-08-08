@@ -1,6 +1,5 @@
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import { upsertCompanySnapshot } from "@/server/persistence/company-repository";
-import { getPublishedAnnualReportFinancials } from "@/server/financials/published-financials-reader";
 import { ingestStructuredFinancialsForCompany } from "@/server/services/structured-financials-service";
 
 const companyProvider = new BrregCompanyProvider();
@@ -24,13 +23,16 @@ export async function importAnnualReportsForCompany(orgNumber: string) {
   }
 
   await upsertCompanySnapshot(company);
-  await ingestStructuredFinancialsForCompany(orgNumber);
-  const published = await getPublishedAnnualReportFinancials(orgNumber);
+  const ingestion = await ingestStructuredFinancialsForCompany(orgNumber);
 
+  // The count comes from the ingest result rather than a read-back of the store. That removes
+  // the last caller of the legacy published-financials reader, and reports what this run
+  // actually published instead of everything the company has ever had on file — a re-run with
+  // nothing new to fetch used to report the full historical count.
   return {
     orgNumber,
     companyName: company.name,
-    statementsImported: published.statements.length,
-    documentYears: published.documents.map((document) => document.year),
+    statementsImported: ingestion.published,
+    fiscalYears: ingestion.fiscalYears,
   };
 }

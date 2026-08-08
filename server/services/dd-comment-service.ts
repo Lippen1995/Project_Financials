@@ -7,6 +7,8 @@ import {
   DdCommentThreadTargetType,
 } from "@/lib/types";
 import { prisma } from "@/lib/prisma";
+import { financialsRepository } from "@/server/financials/financials-repository";
+import { ddFinancialEvidenceReader } from "@/server/services/dd-financial-evidence-reader";
 import { requireWorkspaceMembership } from "@/server/services/workspace-service";
 
 type CommentThreadRecord = {
@@ -509,24 +511,57 @@ export async function createAnnouncementComment(
   return createCommentForThread(actorUserId, thread, input.content, input.parentCommentId);
 }
 
+/**
+ * Statements a DD room can carry comment threads on, read from the live dataset.
+ *
+ * Every scope is listed rather than one headline row per year: a thread already attached to a
+ * company-scope statement must not vanish because a consolidated one exists for the same year.
+ * Identity stays the reported statement id, because that is what the thread's foreign key
+ * holds; a simulated dataset has no reported row to bind and is refused outright until F9
+ * labels simulated statements in the UI.
+ */
+/**
+ * Validate that a statement may carry a comment thread in this room, resolving it through the
+ * live dataset. Reuses the DD evidence reader so both DD surfaces agree on what a statement
+ * reference means and both refuse simulated statements the same way.
+ */
+async function resolveCommentableStatement(companyId: string, financialStatementId: string) {
+  try {
+    return await ddFinancialEvidenceReader.resolveReportedStatement(
+      companyId,
+      financialStatementId,
+    );
+  } catch {
+    throw new Error("Valgt regnskap horer ikke til selskapet i dette DD-rommet.");
+  }
+}
+
+async function loadRoomStatements(companyId: string) {
+  const snapshot = await financialsRepository.getCompanyFinancials({ companyId });
+  if (snapshot.datasetMode === "simulated") {
+    throw new Error(
+      "Simulerte regnskap kan ikke kommenteres i DD-rom før de er merket i visningen.",
+    );
+  }
+
+  return snapshot.statements
+    .filter((statement) => statement.reportedStatementId !== null)
+    .map((statement) => ({
+      id: statement.reportedStatementId as string,
+      fiscalYear: statement.fiscalYear,
+      sourceSystem: statement.sourceSystem,
+      sourceEntityType: statement.sourceEntityType,
+      sourceId: statement.sourceId,
+      fetchedAt: statement.fetchedAt,
+      normalizedAt: statement.normalizedAt,
+    }))
+    .sort((left, right) => right.fiscalYear - left.fiscalYear);
+}
+
 export async function listFinancialStatementCommentThreads(actorUserId: string, roomId: string) {
   const room = await getAuthorizedRoom(actorUserId, roomId);
 
-  const statements = await prisma.financialStatement.findMany({
-    where: {
-      companyId: room.primaryCompanyId,
-    },
-    orderBy: [{ fiscalYear: "desc" }],
-    select: {
-      id: true,
-      fiscalYear: true,
-      sourceSystem: true,
-      sourceEntityType: true,
-      sourceId: true,
-      fetchedAt: true,
-      normalizedAt: true,
-    },
-  });
+  const statements = await loadRoomStatements(room.primaryCompanyId);
 
   if (statements.length === 0) {
     return [];
@@ -580,17 +615,9 @@ export async function createFinancialStatementComment(
   const room = await getAuthorizedRoom(actorUserId, roomId);
   ensureActiveRoomMutation({ status: room.status, workspace: room.workspace });
 
-  const statement = await prisma.financialStatement.findUnique({
-    where: { id: financialStatementId },
-    select: {
-      id: true,
-      companyId: true,
-    },
-  });
-
-  if (!statement || statement.companyId !== room.primaryCompanyId) {
-    throw new Error("Valgt regnskap horer ikke til selskapet i dette DD-rommet.");
-  }
+  // Resolved through the live dataset, which also refuses a simulated statement: a thread's
+  // foreign key can only hold a reported row, and F9 forbids commenting simulated figures.
+  await resolveCommentableStatement(room.primaryCompanyId, financialStatementId);
 
   const thread =
     (await prisma.ddCommentThread.findFirst({
@@ -640,15 +667,7 @@ export async function listFinancialMetricCommentThreads(
 ): Promise<CompanyFinancialMetricDiscussionSummary[]> {
   const room = await getAuthorizedRoom(actorUserId, roomId);
 
-  const statements = await prisma.financialStatement.findMany({
-    where: {
-      companyId: room.primaryCompanyId,
-    },
-    select: {
-      id: true,
-      fiscalYear: true,
-    },
-  });
+  const statements = await loadRoomStatements(room.primaryCompanyId);
 
   if (statements.length === 0) {
     return [];
@@ -716,17 +735,7 @@ export async function createFinancialMetricComment(
     throw new Error("Finansiell rad mangler.");
   }
 
-  const statement = await prisma.financialStatement.findUnique({
-    where: { id: input.financialStatementId },
-    select: {
-      id: true,
-      companyId: true,
-    },
-  });
-
-  if (!statement || statement.companyId !== room.primaryCompanyId) {
-    throw new Error("Valgt regnskap horer ikke til selskapet i dette DD-rommet.");
-  }
+  await resolveCommentableStatement(room.primaryCompanyId, input.financialStatementId);
 
   const thread =
     (await prisma.ddCommentThread.findFirst({

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { getPublishedAnnualReportFinancials } from "@/server/financials/published-financials-reader";
+import { financialsRepository } from "@/server/financials/financials-repository";
+import type { LiveFinancialStatement } from "@/server/financials/live-financials-contract";
 import { getCompanyOwnershipOverview } from "@/server/ownership/ownership-overview-service";
-import type { NormalizedFinancialStatement } from "@/lib/types";
 import type {
   CompanyEventSummary,
   DistressSummary,
@@ -17,27 +17,27 @@ const PROFILE_FINANCIAL_YEARS = 3;
 /** Board-report excerpt length. The full text can be pages; a lead excerpt is enough to reason on. */
 const BUSINESS_SUMMARY_MAX_CHARS = 1200;
 
-function toSnapshot(s: NormalizedFinancialStatement): FinancialSnapshot {
-  return {
-    fiscalYear: s.fiscalYear,
-    currency: s.currency,
-    revenue: s.revenue ?? null,
-    operatingProfit: s.operatingProfit ?? null,
-    netIncome: s.netIncome ?? null,
-    equity: s.equity ?? null,
-    assets: s.assets ?? null,
-    provenance: {
-      sourceSystem: s.sourceSystem,
-      sourceEntityType: s.sourceEntityType,
-      sourceId: s.sourceId,
-      fetchedAt: s.fetchedAt.toISOString(),
-      normalizedAt: s.normalizedAt.toISOString(),
-    },
-  };
-}
-
 function bigIntToNumber(value: bigint | null): number | null {
   return value == null ? null : Number(value);
+}
+
+function toSnapshot(statement: LiveFinancialStatement): FinancialSnapshot {
+  return {
+    fiscalYear: statement.fiscalYear,
+    currency: statement.currency,
+    revenue: bigIntToNumber(statement.revenue),
+    operatingProfit: bigIntToNumber(statement.operatingProfit),
+    netIncome: bigIntToNumber(statement.netIncome),
+    equity: bigIntToNumber(statement.equity),
+    assets: bigIntToNumber(statement.assets),
+    provenance: {
+      sourceSystem: statement.sourceSystem,
+      sourceEntityType: statement.sourceEntityType,
+      sourceId: statement.sourceId,
+      fetchedAt: statement.fetchedAt.toISOString(),
+      normalizedAt: statement.normalizedAt.toISOString(),
+    },
+  };
 }
 
 /**
@@ -54,51 +54,33 @@ export async function getLatestFinancialsByOrgNumbers(
     return result;
   }
 
+  // Company identity is not a financial source, so the orgNumber → id mapping stays on Prisma;
+  // the figures themselves come from the live dataset in one read.
   const companies = await prisma.company.findMany({
     where: { orgNumber: { in: orgNumbers } },
-    select: {
-      orgNumber: true,
-      financialStatements: {
-        where: { statementScope: "COMPANY" },
-        orderBy: { fiscalYear: "desc" },
-        take: 1,
-        select: {
-          fiscalYear: true,
-          currency: true,
-          revenue: true,
-          operatingProfit: true,
-          netIncome: true,
-          equity: true,
-          assets: true,
-          sourceSystem: true,
-          sourceEntityType: true,
-          sourceId: true,
-          fetchedAt: true,
-          normalizedAt: true,
-        },
-      },
-    },
+    select: { id: true, orgNumber: true },
+  });
+  if (companies.length === 0) {
+    return result;
+  }
+
+  const { statements } = await financialsRepository.getCompaniesFinancials({
+    companyIds: companies.map((company) => company.id),
+    statementScope: "COMPANY",
   });
 
+  const latestByCompanyId = new Map<string, LiveFinancialStatement>();
+  for (const statement of statements) {
+    const current = latestByCompanyId.get(statement.companyId);
+    if (!current || statement.fiscalYear > current.fiscalYear) {
+      latestByCompanyId.set(statement.companyId, statement);
+    }
+  }
+
   for (const company of companies) {
-    const latest = company.financialStatements[0];
+    const latest = latestByCompanyId.get(company.id);
     if (!latest) continue;
-    result.set(company.orgNumber, {
-      fiscalYear: latest.fiscalYear,
-      currency: latest.currency,
-      revenue: bigIntToNumber(latest.revenue),
-      operatingProfit: bigIntToNumber(latest.operatingProfit),
-      netIncome: bigIntToNumber(latest.netIncome),
-      equity: bigIntToNumber(latest.equity),
-      assets: bigIntToNumber(latest.assets),
-      provenance: {
-        sourceSystem: latest.sourceSystem,
-        sourceEntityType: latest.sourceEntityType,
-        sourceId: latest.sourceId,
-        fetchedAt: latest.fetchedAt.toISOString(),
-        normalizedAt: latest.normalizedAt.toISOString(),
-      },
-    });
+    result.set(company.orgNumber, toSnapshot(latest));
   }
 
   return result;
@@ -107,10 +89,10 @@ export async function getLatestFinancialsByOrgNumbers(
 /** Multi-year company-scope accounts, most-recent-first, capped for the deep profile. */
 async function getFinancialSeries(orgNumber: string): Promise<FinancialSnapshot[]> {
   try {
-    const { statements } = await getPublishedAnnualReportFinancials(orgNumber);
+    const { statements } = await financialsRepository.getCompanyFinancials({ orgNumber });
     return statements
-      .filter((s) => (s.statementScope ?? "COMPANY") === "COMPANY")
-      .sort((a, b) => b.fiscalYear - a.fiscalYear)
+      .filter((statement) => statement.statementScope === "COMPANY")
+      .sort((left, right) => right.fiscalYear - left.fiscalYear)
       .slice(0, PROFILE_FINANCIAL_YEARS)
       .map(toSnapshot);
   } catch {
