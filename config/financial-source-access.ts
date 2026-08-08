@@ -68,12 +68,6 @@ export const financialSourceAccessRegistrations = [
     rationale: "Reported canonical-key administration intentionally updates source mapping.",
   },
   {
-    path: "server/services/dd-comment-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Reported statement FK validation remains direct until live IDs land in F4.",
-  },
-  {
     path: "server/services/financial-line-item-service.ts",
     sources: ["FinancialLineItem", "FinancialStatement"],
     classification: "source-ingest",
