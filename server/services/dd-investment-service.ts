@@ -246,6 +246,8 @@ function toFindingSummary(finding: {
     targetPostId: string | null;
     targetFindingId: string | null;
     targetTaskId: string | null;
+    financialDatasetVersion: string | null;
+    financialDatasetQuarantined: boolean;
     createdAt: Date;
     updatedAt: Date;
     createdBy: { id: string; name: string | null; email: string };

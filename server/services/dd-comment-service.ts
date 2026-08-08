@@ -20,6 +20,8 @@ type CommentThreadRecord = {
   targetPostId: string | null;
   targetFindingId: string | null;
   targetTaskId: string | null;
+  financialDatasetVersion: string | null;
+  financialDatasetQuarantined: boolean;
   createdAt: Date;
   updatedAt: Date;
   createdBy: {
@@ -77,6 +79,10 @@ export function toCommentThreadSummary(thread: CommentThreadRecord): DdCommentTh
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
     createdBy: toUserSummary(thread.createdBy),
+    // Carried so a note written against a dataset that is no longer active can be shown as
+    // such. Losing it here would make a stale note indistinguishable from a current one.
+    financialDatasetVersion: thread.financialDatasetVersion,
+    financialDatasetQuarantined: thread.financialDatasetQuarantined,
     commentCount: comments.length,
     latestCommentAt: comments.length ? comments[comments.length - 1].createdAt : null,
     comments,
@@ -617,7 +623,10 @@ export async function createFinancialStatementComment(
 
   // Resolved through the live dataset, which also refuses a simulated statement: a thread's
   // foreign key can only hold a reported row, and F9 forbids commenting simulated figures.
-  await resolveCommentableStatement(room.primaryCompanyId, financialStatementId);
+  const commentable = await resolveCommentableStatement(
+    room.primaryCompanyId,
+    financialStatementId,
+  );
 
   const thread =
     (await prisma.ddCommentThread.findFirst({
@@ -644,6 +653,10 @@ export async function createFinancialStatementComment(
         targetType: "FINANCIAL_STATEMENT",
         targetCompanyId: room.primaryCompanyId,
         targetFinancialStatementId: financialStatementId,
+        // Which dataset the note was written against. A later dataset switch can quarantine it
+        // rather than let it pass for a note about the figures now on screen.
+        financialDatasetMode: commentable.financialDatasetMode,
+        financialDatasetVersion: commentable.financialDatasetVersion,
         createdByUserId: actorUserId,
       },
       include: {
@@ -735,7 +748,10 @@ export async function createFinancialMetricComment(
     throw new Error("Finansiell rad mangler.");
   }
 
-  await resolveCommentableStatement(room.primaryCompanyId, input.financialStatementId);
+  const commentable = await resolveCommentableStatement(
+    room.primaryCompanyId,
+    input.financialStatementId,
+  );
 
   const thread =
     (await prisma.ddCommentThread.findFirst({
@@ -764,6 +780,8 @@ export async function createFinancialMetricComment(
         targetCompanyId: room.primaryCompanyId,
         targetFinancialStatementId: input.financialStatementId,
         targetFinancialMetricKey: metricKey,
+        financialDatasetMode: commentable.financialDatasetMode,
+        financialDatasetVersion: commentable.financialDatasetVersion,
         createdByUserId: actorUserId,
       },
       include: {

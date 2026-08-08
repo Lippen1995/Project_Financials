@@ -1864,6 +1864,10 @@ export type DdCommentThreadSummary = {
     name: string | null;
     email: string;
   };
+  /** Dataset the thread was written against; null for non-financial targets. */
+  financialDatasetVersion?: string | null;
+  /** True when the thread's dataset is unknown or no longer active. */
+  financialDatasetQuarantined?: boolean;
   commentCount: number;
   latestCommentAt?: Date | null;
   comments: DdCommentSummary[];
