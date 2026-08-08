@@ -3340,6 +3340,9 @@ model DdCommentThread {
   targetAnnouncementPublishedAt  DateTime?
   targetFinancialStatementId     String?
   targetFinancialMetricKey       String?
+  financialDatasetMode           String?
+  financialDatasetVersion        String?
+  financialDatasetQuarantined    Boolean                   @default(false)
   targetPostId                   String?
   targetFindingId                String?
   targetTaskId                   String?
@@ -3358,6 +3361,7 @@ model DdCommentThread {
   @@index([roomId, targetType])
   @@index([targetCompanyId, targetType])
   @@index([targetFinancialStatementId, targetFinancialMetricKey, targetType])
+  @@index([financialDatasetVersion])
 }
 
 model DdComment {
