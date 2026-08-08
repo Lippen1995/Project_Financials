@@ -8,18 +8,23 @@
 
 Planen er en additiv expand-and-contract-migrasjon. Ingen fase skal endre eller slette rapporterte finansdata. Hver fase har en selvstendig verifikasjonsport.
 
-## Implementasjonsstatus 7. august 2026
+## Implementasjonsstatus 8. august 2026
 
 | Fase | Status | Bevis |
 |---|---|---|
-| F0 | Delvis | Eksakt reader-register, baseline-gate og parity-test for offentlig regnskapsoutput finnes. Artefaktinventar og fjerning av resterende forbudt direkte kildetilgang gjenstår. |
-| F1 | Kontraktgrunnlag fullført | Runtime-validert live-kontrakt for IDs, datasetversjon og provenance finnes; eksisterende servicekontrakter migreres i F4. |
+| F0 | Fullført | Eksakt reader-register og baseline-gate finnes. Porten skiller nå tilsiktede kildestier fra migrasjonsgjeld: bare `temporary-runtime-reader` teller, siden `source-ingest`, `source-migration`, `source-admin`, `source-observability` og `source-maintenance` er permanente og ikke kan gå gjennom live-datasettet. |
+| F1 | Kontraktgrunnlag fullført | Runtime-validert live-kontrakt for IDs, datasetversjon og provenance. |
 | F2 | Fullført | Additive Prisma-modeller, database-constraints, immutability-triggere og verifikasjon i disposable PostgreSQL. |
-| F3 | Delvis | Versionerte views, eget metadata-view, atomisk `reportedRevision`-inkrement og et snapshot-konsistent company-repository finnes. Metoder for univers-søk og aggregering gjenstår. |
-| F4 | Delvis | Offentlig company financials service og company profile leser nå gjennom `FinancialsRepository`; datasetversjon og statement/line-proveniens følger responsen. Øvrige runtime-konsumenter gjenstår. |
-| F5–F7 | Ikke startet | Mapping-isolasjon, FI-SIM-katalog og generator er ikke implementert. |
+| F3 | Delvis | Versionerte views, eget metadata-view, atomisk `reportedRevision`-inkrement og snapshot-konsistent repository finnes. Metoder for univers-søk og aggregering gjenstår. |
+| F4 | **Fullført** | Alle sju grupper migrert. Rest-gjelden gikk fra 13 til 1 tilgang, og den siste (`presentation-node-service.ts`) hører til F5. `published-financials-reader.ts` er slettet; `company-repository.ts` er splittet i tillatt kildeskriving og live-lesing. |
+| F5 | Ikke startet | Mapping-isolasjon. Eneste gjenværende `temporary-runtime-reader`. |
+| F6–F7 | Ikke startet | FI-SIM-katalog og generator. Simuleringstabellene er tomme, så ingen demo-data finnes ennå. |
 | F8 | Delvis | DB-aktivering og live-views er fail-closed med capability-rolle, `FJORD_DEPLOYMENT_ENVIRONMENT=investor-demo` og `FJORD_FINANCIAL_SIMULATION_ENABLED=true`. Kontrollert produktkommando, audit-logg og reell runtime-principal gjenstår. |
 | F9–F11 | Ikke startet | UI/eksport/Njord, operativ demo og teardown-repetisjon gjenstår. |
+
+**Kjent asymmetri:** `DdFindingEvidence` har `financialDatasetMode`, `financialDatasetVersion` og `financialDatasetQuarantined`; `DdCommentThread` har dem ikke. En kommentartråd kan derfor ikke karantenesettes når det aktive datasettet byttes, slik evidence kan. Begge flater leser nå gjennom live-datasettet, men skjemaet mangler for tråder.
+
+**Merk om referanser:** `targetFinancialStatementId` på begge DD-tabellene er en fremmednøkkel til `FinancialStatement`. Postgres kan ikke la en fremmednøkkel peke på et view, så LIVE kan aldri være mål. Nøkkelen står som integritetsanker for rapporterte rader; ingen kode bruker den som oppslagsnøkkel.
 
 Kommandoer for fundamentet:
 
