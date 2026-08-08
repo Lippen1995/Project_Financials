@@ -92,12 +92,6 @@ export const financialSourceAccessRegistrations = [
     rationale: "Structured statement projection is an explicit reported ingest job.",
   },
   {
-    path: "server/services/oversikt-dashboard-service.ts",
-    sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move dashboard financial summaries to FinancialsRepository in F4.",
-  },
-  {
     path: "server/services/presentation-node-service.ts",
     sources: ["FinancialLineItem"],
     classification: "temporary-runtime-reader",
