@@ -45,8 +45,9 @@ export const financialSourceAccessRegistrations = [
   {
     path: "server/persistence/company-repository.ts",
     sources: ["FinancialStatement"],
-    classification: "temporary-runtime-reader",
-    rationale: "Split the permitted source writer from cached runtime reads in F4.",
+    classification: "source-ingest",
+    rationale:
+      "Reported statement upsert only. The cached runtime reads that shared this module were removed; search ranking now reads the live dataset through company-search-financials-reader.",
   },
   {
     path: "server/services/admin-hub-service.ts",

@@ -19,10 +19,10 @@ import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-pr
 import { classifyQueryIntent } from "@/server/ai-search/query-router";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { mapDbCompany, mapDbRoles } from "@/server/mappers/db-mappers";
+import { getLatestFinancialsForCompanies } from "@/server/financials/company-search-financials-reader";
 import {
   getCachedCompanyCore,
   getCachedRoles,
-  getLatestFinancialsForCompanies,
   upsertCompanySnapshot,
   upsertIndustryCodeSnapshot,
 } from "@/server/persistence/company-repository";
