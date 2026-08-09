@@ -1,7 +1,10 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { normalizeNorwegianText } from "@/lib/norwegian-text";
+import {
+  normalizeAlias,
+  resolveRegistryFields as resolveMetricRegistryFields,
+} from "@/server/financials/mapping/mapping-engine";
 import {
   CanonicalMetricKey,
   LiabilitySection,
@@ -144,34 +147,13 @@ export async function buildMetricMappingModel(): Promise<MetricMappingModel> {
 
 export class MetricAliasConflictError extends Error {}
 
-/** Resolve a metric key against the canonical-key registry, deriving the alias's
- *  statementFamily and liabilitySection from the registry entry. Rejects keys
- *  that are not in the registry (typos / removed keys). */
-async function resolveRegistryFields(metricKey: string): Promise<{
-  statementFamily: CanonicalRegistryEntry["family"];
-  liabilitySection: LiabilitySection | null;
-}> {
-  const registry = await loadCanonicalRegistry();
-  const entry = registry.find((e) => e.key === metricKey);
-  if (!entry) {
-    throw new Error(`Ukjent regnskapsnøkkel: ${metricKey}`);
-  }
-  return {
-    statementFamily: entry.family,
-    liabilitySection: entry.liabilitySection,
-  };
-}
-
-function normalizeAliasInput(rawAlias: string) {
-  const alias = rawAlias.trim();
-  if (!alias) {
-    throw new Error("Alias kan ikke være tom");
-  }
-  const normalizedAlias = normalizeNorwegianText(alias);
-  if (!normalizedAlias) {
-    throw new Error("Alias normaliseres til en tom streng");
-  }
-  return { alias, normalizedAlias };
+/**
+ * Reported mapping decides nothing on its own: normalisation and canonical-key matching come
+ * from the shared engine, so a simulated dataset's mapping resolves identically and only the
+ * store differs.
+ */
+async function resolveRegistryFields(metricKey: string) {
+  return resolveMetricRegistryFields(metricKey, await loadCanonicalRegistry());
 }
 
 export async function createAlias(input: {
@@ -179,7 +161,7 @@ export async function createAlias(input: {
   metricKey: string;
   userId?: string | null;
 }) {
-  const { alias, normalizedAlias } = normalizeAliasInput(input.alias);
+  const { alias, normalizedAlias } = normalizeAlias(input.alias);
   const { statementFamily, liabilitySection } = await resolveRegistryFields(
     input.metricKey,
   );
@@ -216,7 +198,7 @@ export async function updateAlias(input: {
   const data: Prisma.MetricAliasUpdateInput = {};
 
   if (input.alias !== undefined) {
-    const { alias, normalizedAlias } = normalizeAliasInput(input.alias);
+    const { alias, normalizedAlias } = normalizeAlias(input.alias);
     data.alias = alias;
     data.normalizedAlias = normalizedAlias;
   }
