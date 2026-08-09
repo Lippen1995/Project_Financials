@@ -158,6 +158,124 @@ async function main() {
     },
   });
 
+  // A second company exists only for the universe and aggregation reads. Keeping it apart from
+  // the anchor company means the statement-level assertions further down stay about one company
+  // with one statement, and the "one row per company" pick has something to actually choose from.
+  const universeCompany = await prisma.company.create({
+    data: {
+      id: "fi-sim-universe-company",
+      slug: "fi-sim-universe-company",
+      orgNumber: "999999992",
+      name: "FI-SIM universe verification",
+      sourceSystem: "migration-test",
+      sourceEntityType: "company",
+      sourceId: "fi-sim-universe-company",
+      fetchedAt: new Date("2026-08-06T00:00:00.000Z"),
+      normalizedAt: new Date("2026-08-06T00:00:00.000Z"),
+    },
+  });
+
+  for (const fixture of [
+    { id: "fi-sim-universe-2024", fiscalYear: 2024, statementScope: "COMPANY" as const, revenue: 40n },
+    { id: "fi-sim-universe-2025", fiscalYear: 2025, statementScope: "COMPANY" as const, revenue: 50n },
+    { id: "fi-sim-universe-2025-group", fiscalYear: 2025, statementScope: "CONSOLIDATED" as const, revenue: 90n },
+  ]) {
+    await prisma.financialStatement.create({
+      data: {
+        id: fixture.id,
+        companyId: universeCompany.id,
+        fiscalYear: fixture.fiscalYear,
+        statementScope: fixture.statementScope,
+        revenue: fixture.revenue,
+        operatingProfit: 5n,
+        sourceSystem: "migration-test",
+        sourceEntityType: "financial-statement",
+        sourceId: fixture.id,
+        fetchedAt: new Date("2026-08-06T00:00:00.000Z"),
+        normalizedAt: new Date("2026-08-06T00:00:00.000Z"),
+      },
+    });
+  }
+
+  const groupPreferred = await financialsRepository.searchCompanyUniverse({
+    companyIds: [universeCompany.id],
+    scopePreference: "CONSOLIDATED",
+    limit: 10,
+  });
+  if (
+    groupPreferred.statements.length !== 1 ||
+    groupPreferred.statements[0].fiscalYear !== 2025 ||
+    groupPreferred.statements[0].statementScope !== "CONSOLIDATED" ||
+    groupPreferred.truncated
+  ) {
+    throw new Error("Universe search did not pick the newest group statement per company");
+  }
+
+  const entityPreferred = await financialsRepository.searchCompanyUniverse({
+    companyIds: [universeCompany.id],
+    scopePreference: "COMPANY",
+    limit: 10,
+  });
+  if (
+    entityPreferred.statements.length !== 1 ||
+    entityPreferred.statements[0].statementScope !== "COMPANY" ||
+    entityPreferred.statements[0].fiscalYear !== 2025
+  ) {
+    throw new Error("Universe search ignored the caller's entity-scope preference");
+  }
+
+  const pinnedYear = await financialsRepository.searchCompanyUniverse({
+    companyIds: [universeCompany.id],
+    fiscalYear: 2024,
+    scopePreference: "COMPANY",
+    limit: 10,
+  });
+  if (pinnedYear.statements.length !== 1 || pinnedYear.statements[0].fiscalYear !== 2024) {
+    throw new Error("Universe search did not honour an explicit fiscal year");
+  }
+
+  const truncatedUniverse = await financialsRepository.searchCompanyUniverse({
+    companyIds: [company.id, universeCompany.id],
+    limit: 1,
+  });
+  if (truncatedUniverse.statements.length !== 1 || !truncatedUniverse.truncated) {
+    throw new Error("Universe search did not report a truncated company set");
+  }
+
+  const filteredUniverse = await financialsRepository.searchCompanyUniverse({
+    companyIds: [universeCompany.id],
+    reportedSourceSystems: ["BRREG"],
+    limit: 10,
+  });
+  if (filteredUniverse.statements.length !== 0) {
+    throw new Error("Universe search ignored the reported source-system filter");
+  }
+
+  const aggregate = await financialsRepository.aggregateCompanyFinancials({
+    companyIds: [universeCompany.id],
+    fiscalYears: [2025],
+  });
+  const companyScopeBucket = aggregate.buckets.find(
+    (bucket) => bucket.statementScope === "COMPANY",
+  );
+  const groupScopeBucket = aggregate.buckets.find(
+    (bucket) => bucket.statementScope === "CONSOLIDATED",
+  );
+  if (
+    aggregate.buckets.length !== 2 ||
+    companyScopeBucket?.revenue.total !== 50n ||
+    groupScopeBucket?.revenue.total !== 90n ||
+    companyScopeBucket.companyCount !== 1 ||
+    companyScopeBucket.currency !== "NOK" ||
+    companyScopeBucket.unitScale !== 1
+  ) {
+    throw new Error("Aggregation did not keep scope, currency and unit buckets apart");
+  }
+  if (aggregate.financialDatasetVersion !== groupPreferred.financialDatasetVersion) {
+    throw new Error("Aggregation and universe search disagreed about the active dataset");
+  }
+  console.log("Verified live universe search and aggregation in reported mode.");
+
   const dataset = await prisma.simulatedFinancialDataset.create({
     data: {
       id: "fi-sim-dataset",

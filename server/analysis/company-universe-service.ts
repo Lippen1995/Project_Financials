@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import type { FinancialDatasetMode, FinancialDatasetVersion } from "@/lib/types";
 import {
   financialsRepository,
-  type LiveCompanyFinancialHeadlines,
   type LiveFinancialHeadline,
 } from "@/server/financials/financials-repository";
 import {
@@ -92,29 +91,6 @@ export type CompanyUniverseRepository = {
   }>;
 };
 
-export function selectCompanyUniverseHeadlines(
-  snapshot: LiveCompanyFinancialHeadlines,
-) {
-  const eligibleStatements = snapshot.statements.filter(
-    (statement) =>
-      snapshot.datasetMode === "simulated" || statement.sourceSystem === "BRREG",
-  );
-  const headlineByCompanyId = new Map<string, LiveFinancialHeadline>();
-  for (const statement of eligibleStatements) {
-    const current = headlineByCompanyId.get(statement.companyId);
-    if (
-      !current ||
-      statement.fiscalYear > current.fiscalYear ||
-      (statement.fiscalYear === current.fiscalYear &&
-        statement.statementScope === "CONSOLIDATED" &&
-        current.statementScope !== "CONSOLIDATED")
-    ) {
-      headlineByCompanyId.set(statement.companyId, statement);
-    }
-  }
-  return headlineByCompanyId;
-}
-
 const prismaRepository: CompanyUniverseRepository = {
   async loadCandidates(query) {
     const conditions: Prisma.Sql[] = [
@@ -163,11 +139,22 @@ const prismaRepository: CompanyUniverseRepository = {
       LIMIT ${poolLimit + 1}
     `);
     const candidateRows = rows.slice(0, poolLimit);
-    const snapshot = await financialsRepository.getCompaniesFinancialHeadlines({
-      companyIds: candidateRows.flatMap((row) => (row.companyId ? [row.companyId] : [])),
+    const candidateCompanyIds = candidateRows.flatMap((row) =>
+      row.companyId ? [row.companyId] : [],
+    );
+    // One headline per company, chosen in the same snapshot that reads it. Screening prefers the
+    // group statement of a year over the entity's own, because a screen for "companies above one
+    // billion" means the group when there is one.
+    const snapshot = await financialsRepository.searchCompanyUniverse({
+      companyIds: candidateCompanyIds,
       ...(fiscalYear === null ? {} : { fiscalYear }),
+      scopePreference: "CONSOLIDATED",
+      reportedSourceSystems: ["BRREG"],
+      limit: Math.max(1, candidateCompanyIds.length),
     });
-    const headlineByCompanyId = selectCompanyUniverseHeadlines(snapshot);
+    const headlineByCompanyId = new Map<string, LiveFinancialHeadline>(
+      snapshot.statements.map((statement) => [statement.companyId, statement]),
+    );
 
     return {
       candidates: candidateRows.map((row) =>

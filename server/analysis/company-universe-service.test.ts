@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  createCompanyUniverseService,
-  selectCompanyUniverseHeadlines,
-} from "./company-universe-service";
+import { createCompanyUniverseService } from "./company-universe-service";
 
 const source = {
   sourceSystem: "BRREG",
@@ -14,48 +11,10 @@ const source = {
 };
 
 describe("company universe service", () => {
-  it("preserves reported headline selection across sources, years, and scopes", () => {
-    const timestamp = new Date("2026-08-07T00:00:00.000Z");
-    const headline = (
-      overrides: Partial<{
-        liveStatementId: string;
-        companyId: string;
-        fiscalYear: number;
-        statementScope: "COMPANY" | "CONSOLIDATED";
-        sourceSystem: string;
-        sourceId: string;
-      }> = {},
-    ) => ({
-      liveStatementId: "reported:statement-1",
-      companyId: "company-1",
-      fiscalYear: 2024,
-      statementScope: "COMPANY" as const,
-      statementOrigin: "reported" as const,
-      financialDatasetVersion: "reported:21" as const,
-      sourceSystem: "BRREG",
-      sourceEntityType: "annual-account",
-      sourceId: "statement-1",
-      fetchedAt: timestamp,
-      normalizedAt: timestamp,
-      revenue: 100n,
-      operatingProfit: 10n,
-      ...overrides,
-    });
-
-    const selected = selectCompanyUniverseHeadlines({
-      datasetMode: "reported",
-      financialDatasetVersion: "reported:21",
-      statements: [
-        headline({ fiscalYear: 2025, sourceSystem: "OTHER", sourceId: "other" }),
-        headline({ sourceId: "company-scope" }),
-        headline({ statementScope: "CONSOLIDATED", sourceId: "group-scope" }),
-        headline({ companyId: "company-2", fiscalYear: 2023, sourceId: "company-2" }),
-      ],
-    });
-
-    expect(selected.get("company-1")?.sourceId).toBe("group-scope");
-    expect(selected.get("company-2")?.sourceId).toBe("company-2");
-  });
+  // Headline selection — newest year, group statement preferred, official sources only — used to
+  // live here as a loop over every statement of every candidate. It is now one snapshot query in
+  // FinancialsRepository.searchCompanyUniverse, verified against a real database by
+  // npm run financials:verify-simulation-foundation.
 
   it("uses the same versioned screening and ranking path for callers", async () => {
     const loadCandidates = vi.fn().mockResolvedValue({ candidates: [
