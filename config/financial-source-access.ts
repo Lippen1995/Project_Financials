@@ -68,12 +68,6 @@ export const financialSourceAccessRegistrations = [
     rationale: "Structured statement projection is an explicit reported ingest job.",
   },
   {
-    path: "server/services/presentation-node-service.ts",
-    sources: ["FinancialLineItem"],
-    classification: "temporary-runtime-reader",
-    rationale: "Move presentation mapping reads to the active mapping repository in F5.",
-  },
-  {
     path: "server/services/structured-financials-service.ts",
     sources: ["FinancialStatement"],
     classification: "source-ingest",

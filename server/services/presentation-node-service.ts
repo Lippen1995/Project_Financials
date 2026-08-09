@@ -93,22 +93,19 @@ function humanizeKey(key: string): string {
  * become the "custom" canonical keys that show up in the flow automatically,
  * without any code change.
  *
- * Previously read from the reviewed-fact table, whose keys were mostly OCR
- * extraction artifacts. Reads FinancialLineItem now, so the flow reflects keys
- * that real source data uses.
+ * Read from the live dataset, not from the reported line items underneath it. The mapping flow
+ * has to reflect the keys of whichever dataset is active, so that mapping work done during a
+ * demo is about the lines actually on screen. There is deliberately no branch on dataset mode:
+ * the view resolves that, and a second read path is exactly how the two would drift apart.
  */
 async function loadObservedMetricKeys(): Promise<
   { metricKey: string; statementType: string }[]
 > {
-  const rows = await prisma.financialLineItem.findMany({
-    where: { metricKey: { not: null } },
-    distinct: ["metricKey"],
-    select: { metricKey: true, statementType: true },
-  });
-  return rows.map((row) => ({
-    metricKey: row.metricKey as string,
-    statementType: row.statementType,
-  }));
+  return prisma.$queryRaw<{ metricKey: string; statementType: string }[]>`
+    SELECT DISTINCT "metricKey", "statementType"::text AS "statementType"
+    FROM live_financial_line_items_v2
+    WHERE "metricKey" IS NOT NULL
+  `;
 }
 
 export async function buildNodeMappingModel(): Promise<NodeMappingModel> {
