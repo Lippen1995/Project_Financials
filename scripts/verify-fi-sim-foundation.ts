@@ -3,6 +3,8 @@ import "@/lib/env";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { writeSimulatedDataset } from "@/server/financials/fi-sim/generator/dataset-store";
+import { generateCompanyFinancials } from "@/server/financials/fi-sim/generator/generator";
 import { financialsRepository } from "@/server/financials/financials-repository";
 
 // Test-only fixtures are confined to a name-guarded disposable database. They
@@ -275,6 +277,83 @@ async function main() {
     throw new Error("Aggregation and universe search disagreed about the active dataset");
   }
   console.log("Verified live universe search and aggregation in reported mode.");
+
+  // F7 port: generating and storing a dataset must leave every reported record byte-identical.
+  // The generator is pure, so the risk is not in its arithmetic but in the write path around it.
+  const reportedFingerprint = async () =>
+    JSON.stringify(
+      {
+        statements: await prisma.financialStatement.findMany({ orderBy: { id: "asc" } }),
+        lines: await prisma.financialLineItem.findMany({ orderBy: { id: "asc" } }),
+        version: (await financialsRepository.getCompaniesFinancialHeadlines({ companyIds: [] }))
+          .financialDatasetVersion,
+      },
+      (_key, value) => (typeof value === "bigint" ? `${value.toString()}n` : value),
+    );
+
+  const reportedBeforeGeneration = await reportedFingerprint();
+  const generation = generateCompanyFinancials({
+    companyId: company.id,
+    orgNumber: company.orgNumber,
+    registeredAt: new Date("2005-01-01T00:00:00.000Z"),
+    signals: { industryCode: "62.010", organisationForm: "AS" },
+    fiscalYears: [2025],
+    latestCompletedFiscalYear: 2025,
+    statementScope: "COMPANY",
+    currency: "NOK",
+    unitScale: 1,
+    anchorsByFiscalYear: {
+      2025: [
+        {
+          conceptKey: "OperatingIncomeTotal",
+          reportedFinancialLineItemId: reportedLine.id,
+          value: reportedLine.value ?? 0n,
+          currency: "NOK",
+          unitScale: 1,
+        },
+      ],
+    },
+  });
+  if (generation.failures.length > 0) {
+    throw new Error(
+      `Generator failed on the verification company: ${JSON.stringify(generation.failures)}`,
+    );
+  }
+
+  const generatedReport = await writeSimulatedDataset({
+    datasetVersion: "verification-generated-1",
+    createdByUserId: "migration-test",
+    manifest: {
+      reportedDatasetVersion: "reported:verification",
+      statementScope: "COMPANY",
+      latestCompletedFiscalYear: 2025,
+      intentionallyUnmappedConcepts: [],
+    },
+    generations: [generation],
+  });
+  if (generatedReport.status !== "VALIDATED" || generatedReport.packageCount !== 1) {
+    throw new Error(
+      `Generated dataset did not validate: ${JSON.stringify({
+        status: generatedReport.status,
+        issues: generatedReport.issues,
+        exclusions: generatedReport.exclusions,
+      })}`,
+    );
+  }
+  if (generatedReport.anchoredLineCount !== 1) {
+    throw new Error("The generated dataset did not reference the reported anchor exactly once");
+  }
+  if ((await reportedFingerprint()) !== reportedBeforeGeneration) {
+    throw new Error("Generating a simulated dataset changed a reported financial record");
+  }
+
+  await expectDatabaseRejection("mutating a validated generated dataset", () =>
+    prisma.simulatedFinancialStatement.updateMany({
+      where: { datasetId: generatedReport.datasetId },
+      data: { validationStatus: "ERROR" },
+    }),
+  );
+  console.log("Verified generator output, dataset validation and reported-record immutability.");
 
   const dataset = await prisma.simulatedFinancialDataset.create({
     data: {

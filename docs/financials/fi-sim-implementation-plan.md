@@ -8,20 +8,28 @@
 
 Planen er en additiv expand-and-contract-migrasjon. Ingen fase skal endre eller slette rapporterte finansdata. Hver fase har en selvstendig verifikasjonsport.
 
-## Implementasjonsstatus 8. august 2026
+## Implementasjonsstatus 9. august 2026
 
 | Fase | Status | Bevis |
 |---|---|---|
 | F0 | Fullført | Eksakt reader-register og baseline-gate finnes. Porten skiller nå tilsiktede kildestier fra migrasjonsgjeld: bare `temporary-runtime-reader` teller, siden `source-ingest`, `source-migration`, `source-admin`, `source-observability` og `source-maintenance` er permanente og ikke kan gå gjennom live-datasettet. |
 | F1 | Kontraktgrunnlag fullført | Runtime-validert live-kontrakt for IDs, datasetversjon og provenance. |
 | F2 | Fullført | Additive Prisma-modeller, database-constraints, immutability-triggere og verifikasjon i disposable PostgreSQL. |
-| F3 | Delvis | Versionerte views, eget metadata-view, atomisk `reportedRevision`-inkrement og snapshot-konsistent repository finnes. Metoder for univers-søk og aggregering gjenstår. |
+| F3 | **Fullført** | Versionerte views, eget metadata-view, atomisk `reportedRevision`-inkrement og snapshot-konsistent repository. `searchCompanyUniverse` gjør «nyeste statement per selskap» i databasen med totalordning og valgfri scope-preferanse; `aggregateCompanyFinancials` grupperer på år, scope, valuta *og* enhetsskala. Tre flater som gjorde utvalget i JavaScript med tre ulike tie-break-regler er lagt om: company-universe, søkerangering og `analysis-service.loadOfficialCompanies`. |
 | F4 | **Fullført** | Alle sju grupper migrert. Rest-gjelden gikk fra 13 til 1 tilgang, og den siste (`presentation-node-service.ts`) hører til F5. `published-financials-reader.ts` er slettet; `company-repository.ts` er splittet i tillatt kildeskriving og live-lesing. |
 | F5 | **Nesten fullført** | Delt motor (`server/financials/mapping/mapping-engine.ts`) er ren og tar registeret som parameter. Skriving rutes av `mapping-store.ts` etter *effektiv* modus fra `live_financial_dataset_v1`, ikke fra pekeren, så gatene gjelder. Mapping-lesing går mot `live_financial_line_items_v2` uten forgrening. Kildetilgang-gjelden er **0**. Gjenstår: manifest over konsepter som skal starte umappet — det forutsetter at F6 definerer konseptene. |
 | F6 | **Fullført** | `server/financials/fi-sim/catalog/`: 56 konsepter (seksjon 4), 6 profiler (seksjon 5), 14 calculation relationships + balanselikning (seksjon 8), deterministisk profilvalg med regel-ID og ruleset-versjon (seksjon 6). Bank/kredittgivning og forsikring gir `UNSUPPORTED_SIMULATION_PROFILE`. Lint-test håndhever XBRL-grensen. **Til gjennomgang:** næringskode-reglene utover de blokkerte er en lesning av SN2007, ikke spec-diktat; organisasjonsform-steget er bevisst tomt. |
-| F7 | Ikke startet | Generator og validator. Simuleringstabellene er tomme, så ingen demo-data finnes ennå. Dette er det siste som står mellom katalogen og tall å vise. |
+| F7 | **Fullført** | `server/financials/fi-sim/generator/`: merket seed uten klokke eller global tilstand, versjonert antakelseskonfigurasjon, ankerbinding gjennom LIVE, identitetsløser med flerårsbro, residualregler etter seksjon 10, validator som re-utleder alt fra katalogen, `BUILDING → VALIDATED`-skriving og jobben `npm run fi-sim:generate`. Determinisme, egenskapssveip over alle seks profiler og ankerimmutabilitet er dekket av tester; databasenivået er dekket av verifikasjonsskriptet. |
 | F8 | Delvis | DB-aktivering og live-views er fail-closed med capability-rolle, `FJORD_DEPLOYMENT_ENVIRONMENT=investor-demo` og `FJORD_FINANCIAL_SIMULATION_ENABLED=true`. Kontrollert produktkommando, audit-logg og reell runtime-principal gjenstår. |
 | F9–F11 | Ikke startet | UI/eksport/Njord, operativ demo og teardown-repetisjon gjenstår. |
+
+**Valg i F7 som er verdt å være uenig i:**
+
+- **Generatoren leser ankere gjennom LIVE, ikke fra kildetabellene.** `live_financial_line_items_v2` eksponerer `reportedFinancialLineItemId`, så ankeret kan refereres uten en eneste ny kildelesning — kildetilgang-gjelden er fortsatt 0. Prisen er en hard forutsetning: generatoren nekter å kjøre når det aktive datasettet er simulert, ellers ville «rapporterte» ankere vært forrige demos syntetiske tall.
+- **Ett residual per statement.** To uavhengige motsigelser mellom rapporterte tall gir `UNSOLVABLE_STATEMENT_IDENTITY` i stedet for to balanserende linjer. To slike linjer ville se ut som presisjon.
+- **Statements med `MANUAL_REVIEW` skrives ikke.** De listes som ekskludert i manifestet. Alternativet er at ett statement av ti tusen hindrer aktivering, siden databasetriggeren krever at alle er `VALID`.
+- **`profileOverride` finnes.** Ingen SN2007-regel velger `DORMANT_PRE_REVENUE`, så profilen var ellers uoppnåelig. Overstyringen er manifest-eid og får sin egen regel-ID `manifest.explicit`, slik at et håndklassifisert statement fortsatt kan si hvorfor det ser ut som det gjør.
+- **Ankerbindingen `metricKey → conceptKey` er ikke mapping-orakelet.** Orakelet går motsatt vei og er testfasit. Denne tabellen sier bare hvilken rapportert linje et konsept kan *referere*; den gir aldri en simulert linje en `metricKey`. Tvetydige nøkler (`revenue`, `total_equity_and_liabilities`) står bevisst utenfor.
 
 **To F5-porter er innfridd av design, ikke av kode:** det finnes intet mapping-orakel i runtime-katalogen å flytte ut, og `SimulatedFinancialLine` har ingen `metricKey`-kolonne — mapping ligger i append-only-tabellen `SimulatedFinancialLineMapping`. Generatoren *kan* derfor ikke skrive en ikke-null `metricKey` direkte.
 
@@ -34,6 +42,7 @@ Kommandoer for fundamentet:
 ```text
 npm run financials:check-source-access
 npm run financials:verify-simulation-foundation
+npm run fi-sim:generate -- --limit 50 --years 5
 ```
 
 Verifikasjonsskriptet nekter å kjøre med mindre databasen heter `fi_sim_migration_test_*`.
@@ -151,6 +160,8 @@ Opprett en ny migrasjon etter den eksisterende, pågående company-map-migrasjon
 - Implementer `FinancialsRepository` med metoder for company, perioder, scope, aggregation og univers-søk.
 - Eksponer datasetversjon på hver rad og hvert repository-resultat.
 
+Univers-søket velger nyeste statement per selskap i databasen, i samme snapshot som leser det, med en *total* ordning (år, scope-preferanse, normalisering, live-ID) slik at to like statements kommer ut i samme rekkefølge hver gang. Aggregeringen grupperer også på valuta og enhetsskala: en sum av NOK mot EUR, eller kroner mot tusener, er feil uten å si fra.
+
 **Datasetversjon**
 
 - Rapportert modus bruker `reported:<reportedRevision>`.
@@ -234,6 +245,15 @@ Etter hver gruppe kjøres parity-test i rapportert modus før neste gruppe flytt
 - Property-tester dekker alle profiler, år, scopes og relevante ankerkombinasjoner.
 - Rapporterte anchor records har identisk hash før og etter generering.
 - Alle publiserbare statements balanserer eksakt.
+
+**Bevis (9. august 2026)**
+
+| Port | Hvor den holdes |
+|---|---|
+| Byte-stabil determinisme | `generator.test.ts`: samme input gir identisk serialisering; to organisasjonsnummer gir ulike tall; et år endrer seg ikke når kalleren ber om et annet spenn; endrede ankere gir ny tegning. |
+| Property-dekning | `generator.test.ts`: 40 selskaper × {1, 3, 5} år × {COMPANY, CONSOLIDATED} × alle seks profiler, alle validert. Ankerkombinasjoner dekkes av egne tester per feilkode og residualklasse. |
+| Ankere uendret | `generator.test.ts` hasher ankerobjektene før og etter kjøring; `verify-fi-sim-foundation.ts` hasher `FinancialStatement`- og `FinancialLineItem`-radene før og etter at et ekte datasett skrives. |
+| Eksakt balanse | Validatoren re-utleder alle relasjoner i seksjon 8 pluss balanselikningen fra katalogen, ikke fra generatorens eget regnskap. |
 
 ### F8 — Aktivering, tilgang og versjonskontroll
 

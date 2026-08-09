@@ -512,12 +512,13 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
         const where = predicates.length > 0
           ? Prisma.join(predicates, " AND ")
           : Prisma.sql`TRUE`;
-        // The scope preference has to be a stable expression rather than an interpolated column,
-        // and the trailing live statement ID makes the order total: two statements that agree on
-        // year, scope and normalisation must still come out in the same order on every run.
-        const scopeRank = query.scopePreference === undefined
-          ? Prisma.sql`0`
-          : Prisma.sql`CASE WHEN financial."statementScope" = ${query.scopePreference}::"StatementScope" THEN 0 ELSE 1 END`;
+        // Omitted rather than ordered by a constant when there is no preference: a bare integer
+        // in ORDER BY is a column position, not a value. The trailing live statement ID makes the
+        // order total, so two statements that agree on year, scope and normalisation still come
+        // out in the same order on every run.
+        const scopeOrder = query.scopePreference === undefined
+          ? Prisma.empty
+          : Prisma.sql`CASE WHEN financial."statementScope" = ${query.scopePreference}::"StatementScope" THEN 0 ELSE 1 END ASC,`;
 
         const rows = await transaction.$queryRaw<LiveFinancialStatementRecord[]>(Prisma.sql`
           SELECT * FROM (
@@ -551,7 +552,7 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
             ORDER BY
               financial."companyId" ASC,
               financial."fiscalYear" DESC,
-              ${scopeRank} ASC,
+              ${scopeOrder}
               financial."normalizedAt" DESC,
               financial."liveStatementId" ASC
           ) latest
@@ -618,15 +619,17 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
             financial."unitScale",
             COUNT(*)::int AS "statementCount",
             COUNT(DISTINCT financial."companyId")::int AS "companyCount",
-            SUM(financial."revenue") AS "revenueTotal",
+            -- SUM over bigint is numeric in Postgres, which would arrive as a decimal and turn a
+            -- kroner total into a float somewhere downstream. Money stays integral all the way.
+            SUM(financial."revenue")::bigint AS "revenueTotal",
             COUNT(financial."revenue")::int AS "revenueCount",
-            SUM(financial."operatingProfit") AS "operatingProfitTotal",
+            SUM(financial."operatingProfit")::bigint AS "operatingProfitTotal",
             COUNT(financial."operatingProfit")::int AS "operatingProfitCount",
-            SUM(financial."netIncome") AS "netIncomeTotal",
+            SUM(financial."netIncome")::bigint AS "netIncomeTotal",
             COUNT(financial."netIncome")::int AS "netIncomeCount",
-            SUM(financial."equity") AS "equityTotal",
+            SUM(financial."equity")::bigint AS "equityTotal",
             COUNT(financial."equity")::int AS "equityCount",
-            SUM(financial."assets") AS "assetsTotal",
+            SUM(financial."assets")::bigint AS "assetsTotal",
             COUNT(financial."assets")::int AS "assetsCount"
           FROM "live_financial_statements_v2" financial
           WHERE ${where}

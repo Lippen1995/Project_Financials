@@ -11,6 +11,7 @@
     "security:check-api-inputs": "tsx scripts/check-api-input-validation.ts",
     "financials:check-source-access": "tsx scripts/check-financial-source-access.ts",
     "financials:verify-simulation-foundation": "tsx scripts/verify-fi-sim-foundation.ts",
+    "fi-sim:generate": "tsx scripts/generate-fi-sim-dataset.ts",
     "security:audit": "npm audit --audit-level=high",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
