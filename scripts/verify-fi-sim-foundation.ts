@@ -3,6 +3,7 @@ import "@/lib/env";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { financialDatasetActivationService } from "@/server/financials/fi-sim/activation/activation-service";
 import { writeSimulatedDataset } from "@/server/financials/fi-sim/generator/dataset-store";
 import { generateCompanyFinancials } from "@/server/financials/fi-sim/generator/generator";
 import { financialsRepository } from "@/server/financials/financials-repository";
@@ -34,12 +35,18 @@ async function expectDatabaseRejection(label: string, action: () => Promise<unkn
 
 async function withAuthorizedDemoActivation(
   action: (transaction: Prisma.TransactionClient) => Promise<void>,
+  declaredAction: "ACTIVATE" | "ROLLBACK" | "DEACTIVATE" = "ACTIVATE",
 ) {
   await prisma.$transaction(async (transaction) => {
     await transaction.$executeRawUnsafe(
       "SET LOCAL app.deployment_environment = 'investor-demo'",
     );
     await transaction.$executeRawUnsafe("SET LOCAL app.fi_sim_enabled = 'on'");
+    // The audit trigger refuses a pointer change that nobody claims responsibility for, so an
+    // authorised session has to say who is acting, why, and which way the pointer is moving.
+    await transaction.$executeRaw`SELECT set_config('app.activation_actor', 'migration-test', true)`;
+    await transaction.$executeRaw`SELECT set_config('app.activation_reason', 'FI-SIM foundation verification', true)`;
+    await transaction.$executeRaw`SELECT set_config('app.activation_action', ${declaredAction}, true)`;
     await action(transaction);
   });
 }
@@ -662,16 +669,28 @@ async function main() {
     }),
   );
 
-  await prisma.activeFinancialDataset.update({
-    where: { id: "global" },
-    data: {
-      mode: "REPORTED",
-      simulatedDatasetId: null,
-      activationRevision: 3n,
-      activatedAt: new Date(),
-      activatedByUserId: "migration-test",
-    },
+  await expectDatabaseRejection("unaudited pointer change", () =>
+    prisma.$transaction(async (transaction) => {
+      await transaction.$executeRawUnsafe(
+        "SET LOCAL app.deployment_environment = 'investor-demo'",
+      );
+      await transaction.$executeRawUnsafe("SET LOCAL app.fi_sim_enabled = 'on'");
+      await transaction.activeFinancialDataset.update({
+        where: { id: "global" },
+        data: { activationRevision: 4n },
+      });
+    }),
+  );
+
+  // Deactivation goes through the product command, with the demo flag off. Turning the demo off
+  // is the safe direction and must not require the flag that turns it on.
+  const deactivation = await financialDatasetActivationService.deactivate({
+    actorUserId: "migration-test",
+    reason: "Foundation verification rollback",
   });
+  if (deactivation.datasetMode !== "reported" || deactivation.activationRevision <= 2n) {
+    throw new Error("The activation command did not atomically restore the reported pointer");
+  }
 
   const reportedAfterRollback = await financialsRepository.listCompanyStatements(company.id);
   if (
@@ -680,6 +699,31 @@ async function main() {
   ) {
     throw new Error("Authorized rollback did not restore reported reads with the flag off");
   }
+
+  const activations = await financialDatasetActivationService.listActivations(50);
+  const deactivations = activations.filter((entry) => entry.action === "DEACTIVATE");
+  if (
+    activations.length < 3 ||
+    deactivations.length !== 1 ||
+    deactivations[0].toMode !== "REPORTED" ||
+    deactivations[0].actorUserId !== "migration-test" ||
+    !deactivations[0].reason ||
+    !deactivations[0].databaseUser
+  ) {
+    throw new Error("The activation audit did not record every pointer change with its actor");
+  }
+  await expectDatabaseRejection("rewriting the activation audit", () =>
+    prisma.financialDatasetActivationAudit.update({
+      where: { id: activations[0].id },
+      data: { reason: "rewritten" },
+    }),
+  );
+  await expectDatabaseRejection("deleting from the activation audit", () =>
+    prisma.financialDatasetActivationAudit.delete({ where: { id: activations[0].id } }),
+  );
+  console.log(
+    `Verified controlled activation and an append-only audit of ${activations.length} pointer changes.`,
+  );
 
   console.log("FI-SIM foundation migration verification passed.");
 }

@@ -20,8 +20,17 @@ Planen er en additiv expand-and-contract-migrasjon. Ingen fase skal endre eller 
 | F5 | **Nesten fullført** | Delt motor (`server/financials/mapping/mapping-engine.ts`) er ren og tar registeret som parameter. Skriving rutes av `mapping-store.ts` etter *effektiv* modus fra `live_financial_dataset_v1`, ikke fra pekeren, så gatene gjelder. Mapping-lesing går mot `live_financial_line_items_v2` uten forgrening. Kildetilgang-gjelden er **0**. Gjenstår: manifest over konsepter som skal starte umappet — det forutsetter at F6 definerer konseptene. |
 | F6 | **Fullført** | `server/financials/fi-sim/catalog/`: 56 konsepter (seksjon 4), 6 profiler (seksjon 5), 14 calculation relationships + balanselikning (seksjon 8), deterministisk profilvalg med regel-ID og ruleset-versjon (seksjon 6). Bank/kredittgivning og forsikring gir `UNSUPPORTED_SIMULATION_PROFILE`. Lint-test håndhever XBRL-grensen. **Til gjennomgang:** næringskode-reglene utover de blokkerte er en lesning av SN2007, ikke spec-diktat; organisasjonsform-steget er bevisst tomt. |
 | F7 | **Fullført** | `server/financials/fi-sim/generator/`: merket seed uten klokke eller global tilstand, versjonert antakelseskonfigurasjon, ankerbinding gjennom LIVE, identitetsløser med flerårsbro, residualregler etter seksjon 10, validator som re-utleder alt fra katalogen, `BUILDING → VALIDATED`-skriving og jobben `npm run fi-sim:generate`. Determinisme, egenskapssveip over alle seks profiler og ankerimmutabilitet er dekket av tester; databasenivået er dekket av verifikasjonsskriptet. |
-| F8 | Delvis | DB-aktivering og live-views er fail-closed med capability-rolle, `FJORD_DEPLOYMENT_ENVIRONMENT=investor-demo` og `FJORD_FINANCIAL_SIMULATION_ENABLED=true`. Kontrollert produktkommando, audit-logg og reell runtime-principal gjenstår. |
+| F8 | Nesten fullført | DB-aktivering og live-views er fail-closed med capability-rolle, `FJORD_DEPLOYMENT_ENVIRONMENT=investor-demo` og `FJORD_FINANCIAL_SIMULATION_ENABLED=true`. Kontrollert kommando (`npm run fi-sim:activation`) med atomisk activate/rollback/deactivate finnes, og `FinancialDatasetActivationAudit` skrives av en trigger på selve pekeren — aktivering uten navngitt aktør og begrunnelse avvises av databasen. Cache, analyser, snapshots og eksporter er allerede versjonert på datasettversjon. **Gjenstår: reell runtime-principal.** |
 | F9–F11 | Ikke startet | UI/eksport/Njord, operativ demo og teardown-repetisjon gjenstår. |
+
+**Den ene gjenstående F8-tingen, sagt tydelig:** applikasjonen kobler seg fortsatt til databasen som eieren, ikke som et medlem av `fjord_financial_runtime`. `REVOKE`-ene og `pg_has_role`-sjekkene er reelle og verifiseres av porten, men de beskytter ingenting så lenge runtime-tilkoblingen er superbruker. Det er en deploy- og tilkoblingsendring, ikke en kodeendring i dette laget, og stoppkriteriet «database-rollen kan ikke begrenses til live-viewene» er ikke innfridd før den er gjort.
+
+**Valg i F8 som er verdt å være uenig i:**
+
+- **Triggeren skriver revisjonsloggen, ikke koden.** En logg som aktiveringskoden må huske å skrive, er en logg som en dag mangler akkurat den raden det gjelder. `record_financial_dataset_activation` avviser pekerendringen når ingen har sagt hvem og hvorfor, så en uauditert aktivering er umulig — også fra en psql-konsoll.
+- **Deaktivering krever ikke demo-flagget.** Å skru demoen *av* er den trygge retningen. Å kreve flagget som skrur den på for å skru den av, gjør flagget ubrukelig i nettopp den situasjonen det betyr mest.
+- **Ingen fremmednøkkel fra revisjonsloggen til datasettet.** En revisjonsrad forteller hva som skjedde; den skal ikke kunne bli uskrivbar eller usann på grunn av tilstanden i en annen tabell.
+- **Rollback leser historikken, ikke en «forrige»-kolonne.** Den peker på forrige aktiverte immutable datasett og kopierer ingenting.
 
 **Valg i F7 som er verdt å være uenig i:**
 
@@ -43,6 +52,10 @@ Kommandoer for fundamentet:
 npm run financials:check-source-access
 npm run financials:verify-simulation-foundation
 npm run fi-sim:generate -- --limit 50 --years 5
+npm run fi-sim:activation -- --action status
+npm run fi-sim:activation -- --action activate --dataset <versjon> --actor <bruker> --reason "<hvorfor>"
+npm run fi-sim:activation -- --action rollback --actor <bruker> --reason "<hvorfor>"
+npm run fi-sim:activation -- --action deactivate --actor <bruker> --reason "<hvorfor>"
 ```
 
 Verifikasjonsskriptet nekter å kjøre med mindre databasen heter `fi_sim_migration_test_*`.
@@ -272,6 +285,15 @@ Etter hver gruppe kjøres parity-test i rapportert modus før neste gruppe flytt
 - Feature flag av + simulert DB-peker gir fail-closed-adferd.
 - Runtime-rollen kan ikke lese noen kildetabell direkte.
 - Rollback aktiverer forrige immutable demo-dataset uten kopiering.
+
+**Bevis (9. august 2026)**
+
+| Port | Hvor den holdes | Status |
+|---|---|---|
+| Fail-closed med flagget av | `verify-fi-sim-foundation.ts`: simulert peker + flagg av gir rapporterte tall, og aktiveringsforsøket avvises av `validate_active_financial_dataset_pointer`. | Innfridd |
+| Runtime-rollen ser ingen kildetabell | Samme skript sjekker `has_table_privilege` for `fjord_financial_runtime` mot både kildetabeller og live-views. | Innfridd i rettighetene, **ikke i tilkoblingen** — appen kobler seg fortsatt til som eier |
+| Rollback uten kopiering | `activation-service.test.ts` peker tilbake på forrige aktiverte datasett-ID; ingen rader leses eller skrives i simuleringstabellene. | Innfridd |
+| Aktivering kan ikke skje uauditert | `verify-fi-sim-foundation.ts` avviser en pekerendring uten aktør, og avviser både `UPDATE` og `DELETE` mot revisjonsloggen. | Innfridd |
 
 ### F9 — UI, API, eksport og Njord
 
