@@ -32,7 +32,7 @@ Alt som er igjen, på ett sted. Detaljene står i fasen sin egen seksjon.
 | # | Punkt | Fase | Hvorfor det betyr noe |
 |---|---|---|---|
 | 1 | ~~Demo-datasettet er helt umappet.~~ **Lukket 9. august.** Mappet med `npm run fi-sim:map` gjennom den delte motoren: 61 357 av 93 485 linjer (65,6 %) på mappingrevisjon 1. Rapport i [fi-sim-demo-mapping-report.md](./fi-sim-demo-mapping-report.md). | F5 / F10 | De 32 128 umappede linjene er 26 konsepter motoren ikke når fra den norske etiketten — det er nettopp arbeidet mapping-funksjonen skal demonstrere, og de er listet i orakelet framfor å være tilfeldige. |
-| 2 | **Runtime-tilkoblingen er databaseeieren**, ikke et medlem av `fjord_financial_runtime`. | F8 | `REVOKE`-ene og `pg_has_role`-sjekkene er reelle og verifiseres av porten, men de beskytter ingenting så lenge runtime er superbruker. Stoppkriteriet «database-rollen kan ikke begrenses til live-viewene» er ikke innfridd. Deploy- og tilkoblingsendring, ikke kode i dette laget. |
+| 2 | **Runtime-tilkoblingen må provisjoneres.** Koden er på plass: finansielle lesninger går på `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` når den er satt. Det som gjenstår er å opprette innloggingsrollen i hvert miljø og sette variabelen. | F8 | Uten variabelen deler finanslesning tilkobling med resten av applikasjonen, og `REVOKE`-ene binder ikke. `financialRuntimeIsolation()` sier fra, og `npm run financials:verify-runtime-principal` beviser restriksjonen ved å faktisk koble til som rollen. Stoppkriteriet er innfridd i kode, ikke i deploy. |
 | 3 | **Grafer og nøkkeltall har ingen visuell markering.** | F9 | Datasettversjon og opprinnelse følger med i datamodellen, men en graf tegnet på simulerte tall ser ut som en graf tegnet på rapporterte. |
 | 4 | **`aggregateCompanyFinancials` har ingen konsument i produktet.** Bare verifikasjonsskriptet kaller den. | F3 | Metoden er en F3-leveranse og er testet og verifisert mot database, men den er ikke koblet til noen flate. Enten skal en flate ta den i bruk, eller så skal den fjernes — den skal ikke bli stående som kode ingen kaller. |
 | 5 | **Investor-demoens brukerreiser er ikke kjørt.** | F10 | Lesestien er verifisert gjennom LIVE, men ingen har klikket seg gjennom demoen. |
@@ -43,7 +43,18 @@ Alt som er igjen, på ett sted. Detaljene står i fasen sin egen seksjon.
 
 **Utenfor FI-SIM, men funnet underveis:** `npm run db:check-migrations` feiler mot utviklingsdatabasen. Fire migrasjoner fra 6. august (`connect_company_map_reported_financials`, `audit_company_map_financial_exclusions`, `preserve_map_financial_provenance`, `fold_provenance_into_financial_live_view`) er kjørt mot databasen uten å finnes i repoet — de kommer fra worktreet `.codex-worktrees/company-map-publication`. Sjekksummer og indekser stemmer. Uavhengig av dette arbeidet, men porten er rød til noen rydder.
 
-**Den ene gjenstående F8-tingen, sagt tydelig:** applikasjonen kobler seg fortsatt til databasen som eieren, ikke som et medlem av `fjord_financial_runtime`. `REVOKE`-ene og `pg_has_role`-sjekkene er reelle og verifiseres av porten, men de beskytter ingenting så lenge runtime-tilkoblingen er superbruker. Det er en deploy- og tilkoblingsendring, ikke en kodeendring i dette laget, og stoppkriteriet «database-rollen kan ikke begrenses til live-viewene» er ikke innfridd før den er gjort.
+**Runtime-principalen, sagt tydelig:** privilegier binder til en tilkobling, ikke til en kommentar. Finansielle lesninger går derfor på sin egen tilkobling — `financialRuntimePrisma()` — som autentiseres som et medlem av `fjord_financial_runtime` når `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` er satt. Alt annet beholder den delte klienten, fordi det med rette skriver og med rette leser tabeller runtime-rollen aldri skal se.
+
+Er variabelen ikke satt, faller finanslesning tilbake til den delte tilkoblingen. Det er et bevisst, stille fallback: å nekte å servere regnskapstall fordi en deploy ennå ikke er delt, ville byttet et reelt avbrudd mot et dybdeforsvar. Det den *ikke* gjør, er å se ut som om den er håndhevet når den ikke er — `financialRuntimeIsolation()` rapporterer tilstanden, og verifikasjonen skriver den ut.
+
+**Provisjonering per miljø** (gjenstår, se åpent punkt 2):
+
+```sql
+CREATE ROLE fjord_runtime LOGIN PASSWORD '<hemmelighet>' IN ROLE fjord_financial_runtime;
+GRANT CONNECT ON DATABASE <db> TO fjord_runtime;
+```
+
+Sett så `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` til den brukeren. `npm run financials:verify-runtime-principal` gjør det samme i en engangsdatabase og beviser at tilkoblingen leser de tre live-viewene og blir nektet hver kildetabell, hver simuleringstabell, revisjonsloggen og enhver skriving.
 
 **Valg i F8 som er verdt å være uenig i:**
 
@@ -71,6 +82,7 @@ Kommandoer for fundamentet:
 ```text
 npm run financials:check-source-access
 npm run financials:verify-simulation-foundation
+npm run financials:verify-runtime-principal
 npm run fi-sim:generate -- --dry-run --limit 50 --years 5 --report tmp/dryrun.md
 npm run fi-sim:generate -- --limit 50 --years 5 --dataset-version <versjon>
 npm run fi-sim:map -- --dataset <versjon> --report tmp/mapping.md
@@ -316,7 +328,7 @@ Etter hver gruppe kjøres parity-test i rapportert modus før neste gruppe flytt
 | Port | Hvor den holdes | Status |
 |---|---|---|
 | Fail-closed med flagget av | `verify-fi-sim-foundation.ts`: simulert peker + flagg av gir rapporterte tall, og aktiveringsforsøket avvises av `validate_active_financial_dataset_pointer`. | Innfridd |
-| Runtime-rollen ser ingen kildetabell | Samme skript sjekker `has_table_privilege` for `fjord_financial_runtime` mot både kildetabeller og live-views. | Innfridd i rettighetene, **ikke i tilkoblingen** — appen kobler seg fortsatt til som eier |
+| Runtime-rollen ser ingen kildetabell | `verify-fi-sim-foundation.ts` sjekker `has_table_privilege`. `verify-financial-runtime-principal.ts` går lenger og *kobler til* som et medlem av rollen: en rettighetssjekk som aldri åpner en sesjon kan ikke skille en riktig begrenset rolle fra en rolle ingen bruker. | Innfridd i kode og bevist på tilkoblingsnivå; gjenstår å provisjonere rollen per miljø |
 | Rollback uten kopiering | `activation-service.test.ts` peker tilbake på forrige aktiverte datasett-ID; ingen rader leses eller skrives i simuleringstabellene. | Innfridd |
 | Aktivering kan ikke skje uauditert | `verify-fi-sim-foundation.ts` avviser en pekerendring uten aktør, og avviser både `UPDATE` og `DELETE` mot revisjonsloggen. | Innfridd |
 

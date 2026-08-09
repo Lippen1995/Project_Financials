@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import { prisma } from "@/lib/prisma";
+import { financialRuntimePrisma } from "@/server/financials/financial-runtime-client";
 import {
   parseLiveFinancialStatement,
   type FinancialDatasetVersion,
@@ -390,7 +390,7 @@ function companyIdPredicate(companyIds: readonly string[] | undefined): Prisma.S
 
 const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
   async readCompanyFinancials(query) {
-    return prisma.$transaction(
+    return financialRuntimePrisma().$transaction(
       async (transaction) => {
         await enterInvestorDemoSession(transaction);
 
@@ -494,7 +494,7 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
   },
 
   async searchCompanyUniverse(query) {
-    return prisma.$transaction(
+    return financialRuntimePrisma().$transaction(
       async (transaction) => {
         await enterInvestorDemoSession(transaction);
         const dataset = await readLiveDataset(transaction);
@@ -571,7 +571,7 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
   },
 
   async aggregateCompanyFinancials(query) {
-    return prisma.$transaction(
+    return financialRuntimePrisma().$transaction(
       async (transaction) => {
         await enterInvestorDemoSession(transaction);
         const dataset = await readLiveDataset(transaction);

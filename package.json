@@ -11,6 +11,7 @@
     "security:check-api-inputs": "tsx scripts/check-api-input-validation.ts",
     "financials:check-source-access": "tsx scripts/check-financial-source-access.ts",
     "financials:verify-simulation-foundation": "tsx scripts/verify-fi-sim-foundation.ts",
+    "financials:verify-runtime-principal": "tsx scripts/verify-financial-runtime-principal.ts",
     "fi-sim:generate": "tsx scripts/generate-fi-sim-dataset.ts",
     "fi-sim:map": "tsx scripts/map-fi-sim-dataset.ts",
     "fi-sim:activation": "tsx scripts/manage-fi-sim-activation.ts",

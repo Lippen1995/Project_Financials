@@ -75,4 +75,4 @@ Ett unntak må håndteres i steg 6: `server/financials/mapping/mapping-store.ts`
 ## Det øvingen ikke dekker
 
 - **Steg 6 er ikke øvd.** Slettingen av filene og at `npm run build` fortsatt går, er ikke kjørt; sprengradiusen er bevist ved import-inventar, ikke ved å slette.
-- **Runtime-principalen er fortsatt databaseeieren.** Steg 10 forutsetter at den er delt ut først; se åpent punkt 2 i implementasjonsplanen.
+- **Runtime-principalen må være provisjonert før steg 10.** Koden bruker `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` når den er satt; er den ikke det, deler finanslesning tilkobling med resten av applikasjonen og steg 10 fjerner et medlemskap ingen har. Se åpent punkt 2 i implementasjonsplanen.
