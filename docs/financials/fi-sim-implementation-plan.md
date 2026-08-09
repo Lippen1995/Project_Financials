@@ -17,10 +17,12 @@ Planen er en additiv expand-and-contract-migrasjon. Ingen fase skal endre eller 
 | F2 | Fullført | Additive Prisma-modeller, database-constraints, immutability-triggere og verifikasjon i disposable PostgreSQL. |
 | F3 | Delvis | Versionerte views, eget metadata-view, atomisk `reportedRevision`-inkrement og snapshot-konsistent repository finnes. Metoder for univers-søk og aggregering gjenstår. |
 | F4 | **Fullført** | Alle sju grupper migrert. Rest-gjelden gikk fra 13 til 1 tilgang, og den siste (`presentation-node-service.ts`) hører til F5. `published-financials-reader.ts` er slettet; `company-repository.ts` er splittet i tillatt kildeskriving og live-lesing. |
-| F5 | Ikke startet | Mapping-isolasjon. Eneste gjenværende `temporary-runtime-reader`. |
+| F5 | **Nesten fullført** | Delt motor (`server/financials/mapping/mapping-engine.ts`) er ren og tar registeret som parameter. Skriving rutes av `mapping-store.ts` etter *effektiv* modus fra `live_financial_dataset_v1`, ikke fra pekeren, så gatene gjelder. Mapping-lesing går mot `live_financial_line_items_v2` uten forgrening. Kildetilgang-gjelden er **0**. Gjenstår: manifest over konsepter som skal starte umappet — det forutsetter at F6 definerer konseptene. |
 | F6–F7 | Ikke startet | FI-SIM-katalog og generator. Simuleringstabellene er tomme, så ingen demo-data finnes ennå. |
 | F8 | Delvis | DB-aktivering og live-views er fail-closed med capability-rolle, `FJORD_DEPLOYMENT_ENVIRONMENT=investor-demo` og `FJORD_FINANCIAL_SIMULATION_ENABLED=true`. Kontrollert produktkommando, audit-logg og reell runtime-principal gjenstår. |
 | F9–F11 | Ikke startet | UI/eksport/Njord, operativ demo og teardown-repetisjon gjenstår. |
+
+**To F5-porter er innfridd av design, ikke av kode:** det finnes intet mapping-orakel i runtime-katalogen å flytte ut, og `SimulatedFinancialLine` har ingen `metricKey`-kolonne — mapping ligger i append-only-tabellen `SimulatedFinancialLineMapping`. Generatoren *kan* derfor ikke skrive en ikke-null `metricKey` direkte.
 
 **Kjent asymmetri:** `DdFindingEvidence` har `financialDatasetMode`, `financialDatasetVersion` og `financialDatasetQuarantined`; `DdCommentThread` har dem ikke. En kommentartråd kan derfor ikke karantenesettes når det aktive datasettet byttes, slik evidence kan. Begge flater leser nå gjennom live-datasettet, men skjemaet mangler for tråder.
 
