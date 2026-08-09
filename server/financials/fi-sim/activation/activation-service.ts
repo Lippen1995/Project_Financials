@@ -88,6 +88,28 @@ function toOutcome(
   };
 }
 
+/**
+ * The mapping revision the pointer must carry to expose a dataset's own mapping.
+ *
+ * The live view takes the newest mapping row at or below the pointer's revision, so the pointer
+ * has to be at least as high as the dataset's newest mapping — otherwise a dataset is activated
+ * with its lines showing as unmapped, which looks exactly like a mapping that has not been done.
+ * It also may never go down: the database refuses that, and rightly, since a lower revision would
+ * retract mappings that had already been published.
+ */
+async function mappingRevisionFor(
+  transaction: ActivationTransaction,
+  params: { simulatedDatasetId: string | null; current: bigint },
+) {
+  if (params.simulatedDatasetId === null) return params.current;
+  const newest = await transaction.simulatedFinancialLineMapping.aggregate({
+    where: { line: { statement: { datasetId: params.simulatedDatasetId } } },
+    _max: { mappingRevision: true },
+  });
+  const datasetRevision = newest._max.mappingRevision ?? 0n;
+  return datasetRevision > params.current ? datasetRevision : params.current;
+}
+
 async function movePointer(
   transaction: ActivationTransaction,
   params: {
@@ -102,6 +124,10 @@ async function movePointer(
     where: { id: POINTER_ID },
   });
   const mode = params.simulatedDatasetId === null ? "REPORTED" : "SIMULATED";
+  const mappingRevision = await mappingRevisionFor(transaction, {
+    simulatedDatasetId: params.simulatedDatasetId,
+    current: current?.mappingRevision ?? 0n,
+  });
 
   if (!current) {
     return transaction.activeFinancialDataset.create({
@@ -110,6 +136,7 @@ async function movePointer(
         mode,
         simulatedDatasetId: params.simulatedDatasetId,
         activationRevision: 1n,
+        mappingRevision,
         activatedAt: new Date(),
         activatedByUserId: params.actorUserId,
       },
@@ -124,6 +151,7 @@ async function movePointer(
       // The database refuses a revision that does not increase, so the swap and the version bump
       // are one statement and a concurrent reader can never see a half-changed dataset.
       activationRevision: current.activationRevision + 1n,
+      mappingRevision,
       activatedAt: new Date(),
       activatedByUserId: params.actorUserId,
     },

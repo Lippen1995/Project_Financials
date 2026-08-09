@@ -28,6 +28,8 @@ function fakeClient(state: {
   pointer: PointerRow | null;
   datasets: Array<{ id: string; status: string; datasetVersion: string }>;
   audits: AuditRow[];
+  /** The newest mapping revision written for the dataset being activated, if any. */
+  datasetMappingRevision?: bigint;
 }) {
   const settings: string[] = [];
   const client = {
@@ -56,6 +58,11 @@ function fakeClient(state: {
     simulatedFinancialDataset: {
       async findUnique({ where }: { where: { id: string } }) {
         return state.datasets.find((dataset) => dataset.id === where.id) ?? null;
+      },
+    },
+    simulatedFinancialLineMapping: {
+      async aggregate() {
+        return { _max: { mappingRevision: state.datasetMappingRevision ?? null } };
       },
     },
     financialDatasetActivationAudit: {
@@ -174,6 +181,54 @@ describe("FI-SIM activation command", () => {
 
     expect(client.updates[0]).toMatchObject({ activationRevision: 8n, mode: "SIMULATED" });
     expect(outcome.financialDatasetVersion).toBe("simulated:dataset-2:8");
+  });
+
+  it("carries the dataset's mapping revision so activating it publishes its mapping", async () => {
+    // The live view takes the newest mapping row at or below the pointer's revision. Activating a
+    // mapped dataset with the pointer left at 0 would show every line as unmapped, which is
+    // indistinguishable from mapping never having been run.
+    inDemoDeployment();
+    const client = fakeClient({
+      pointer: null,
+      datasets: [validatedDataset],
+      audits: [],
+      datasetMappingRevision: 3n,
+    });
+
+    await createFinancialDatasetActivationService(client).activate({
+      datasetId: "dataset-2",
+      actorUserId: "simen",
+      reason: "Demo med mapping",
+    });
+
+    expect(client.updates[0]).toMatchObject({ mappingRevision: 3n });
+  });
+
+  it("never lowers the mapping revision when the next dataset has less mapping", async () => {
+    // The database refuses a decrease, and it is right to: a lower revision would retract
+    // mappings that had already been published. A higher pointer is harmless, because the view
+    // still picks each line's newest row at or below it.
+    inDemoDeployment();
+    const client = fakeClient({
+      pointer: {
+        id: "global",
+        mode: "SIMULATED",
+        simulatedDatasetId: "dataset-1",
+        activationRevision: 4n,
+        mappingRevision: 9n,
+      },
+      datasets: [validatedDataset, previousDataset],
+      audits: [],
+      datasetMappingRevision: 2n,
+    });
+
+    await createFinancialDatasetActivationService(client).activate({
+      datasetId: "dataset-2",
+      actorUserId: "simen",
+      reason: "Bytt datasett",
+    });
+
+    expect(client.updates[0]).toMatchObject({ mappingRevision: 9n });
   });
 
   it("rolls back to the previously activated dataset without copying it", async () => {

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { financialDatasetActivationService } from "@/server/financials/fi-sim/activation/activation-service";
 import { writeSimulatedDataset } from "@/server/financials/fi-sim/generator/dataset-store";
 import { generateCompanyFinancials } from "@/server/financials/fi-sim/generator/generator";
+import { mapSimulatedDataset } from "@/server/financials/fi-sim/mapping/map-simulated-dataset";
 import { financialsRepository } from "@/server/financials/financials-repository";
 
 // Test-only fixtures are confined to a name-guarded disposable database. They
@@ -760,6 +761,38 @@ async function main() {
     if (!afterFirst[0].lines.some((line) => line.valueOrigin === "synthetic")) {
       throw new Error("The activated demo statement exposed no synthetic line to mark");
     }
+    // A generated dataset arrives unmapped, so everything driven by a metric key is empty until
+    // the mapping job has run and the pointer carries its revision.
+    if (afterFirst[0].lines.some((line) => line.metricKey !== null)) {
+      throw new Error("An unmapped dataset exposed a metric key");
+    }
+
+    const mapping = await mapSimulatedDataset({
+      datasetReference: generatedReport.datasetId,
+      dryRun: false,
+      createdByUserId: "migration-test",
+    });
+    if (mapping.coverage.mapped === 0) {
+      throw new Error("Mapping the generated dataset produced no mapped line at all");
+    }
+    const beforeRepublish = await financialsRepository.listCompanyStatements(company.id);
+    if (beforeRepublish[0]?.lines.some((line) => line.metricKey !== null)) {
+      throw new Error("Mapping became visible before the pointer published its revision");
+    }
+
+    const republished = await financialDatasetActivationService.activate({
+      datasetId: generatedReport.datasetId,
+      actorUserId: "migration-test",
+      reason: "Operational rehearsal: publish the mapping",
+    });
+    versions.push(republished.financialDatasetVersion);
+    if (republished.mappingRevision !== mapping.mappingRevision) {
+      throw new Error("Activation did not carry the dataset's mapping revision");
+    }
+    const afterMapping = await financialsRepository.listCompanyStatements(company.id);
+    if (!afterMapping[0]?.lines.some((line) => line.metricKey !== null)) {
+      throw new Error("Published mapping did not reach the live line items");
+    }
 
     const second = await financialDatasetActivationService.activate({
       datasetId: secondReport.datasetId,
@@ -790,10 +823,10 @@ async function main() {
   if (new Set(versions).size !== versions.length) {
     throw new Error(`A dataset switch reused a version: ${versions.join(", ")}`);
   }
-  const rehearsalLog = await financialDatasetActivationService.listActivations(4);
+  const rehearsalLog = await financialDatasetActivationService.listActivations(5);
   if (
     rehearsalLog.map((entry) => entry.action).join(",") !==
-    "DEACTIVATE,ROLLBACK,ACTIVATE,ACTIVATE"
+    "DEACTIVATE,ROLLBACK,ACTIVATE,ACTIVATE,ACTIVATE"
   ) {
     throw new Error(
       `The rehearsal was not audited in order: ${rehearsalLog.map((entry) => entry.action).join(",")}`,
