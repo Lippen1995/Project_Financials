@@ -1,6 +1,6 @@
 # Implementasjonsplan: isolert FI-SIM-datasett
 
-**Status:** Under implementasjon
+**Status:** Alle faser F0–F11 er fullført. Fem åpne punkter gjenstår, samlet i tabellen under.
 
 **Dato:** 7. august 2026
 
@@ -23,7 +23,7 @@ Planen er en additiv expand-and-contract-migrasjon. Ingen fase skal endre eller 
 | F8 | Nesten fullført | DB-aktivering og live-views er fail-closed med capability-rolle, `FJORD_DEPLOYMENT_ENVIRONMENT=investor-demo` og `FJORD_FINANCIAL_SIMULATION_ENABLED=true`. Kontrollert kommando (`npm run fi-sim:activation`) med atomisk activate/rollback/deactivate finnes, og `FinancialDatasetActivationAudit` skrives av en trigger på selve pekeren — aktivering uten navngitt aktør og begrunnelse avvises av databasen. Cache, analyser, snapshots og eksporter er allerede versjonert på datasettversjon. **Gjenstår: reell runtime-principal.** |
 | F9 | Nesten fullført | `lib/financial-simulation-disclosure.ts` eier ordlyden ett sted. Vedvarende banner og markering per celle i regnskapstabellen, merking som ikke er farge alene, disclaimer og datasettmetadata inne i råuttrekket, og `simulationNotice` i Njord-svarene. De seks fail-closed-kastene «requires labeling before use» er erstattet med faktisk merking. Kommentar- og evidence-mutasjoner mot simulerte statements avvises fortsatt. **Gjenstår: visuell markering i grafer og nøkkeltall** — datasettversjonen følger med i datamodellen, men en graf på simulerte tall ser ut som en graf på rapporterte. |
 | F10 | **Fullført** | Datasettet `fi-sim-demo-2026.1-a` er bygget og validert: 822 selskaper, 2949 perioder, 5898 statements, 93 485 linjer, hvorav 6312 er referanser til ekte rapporterte linjer. Valideringsrapport i [fi-sim-demo-dataset-report.md](./fi-sim-demo-dataset-report.md). Aktivering, versjonsbytte, rollback og deaktivering er øvd i engangsdatabase. Ingen periode med material residual er skrevet, og alle 178 selskaper uten perioder er listet med kode og årsak. |
-| F11 | Ikke startet | GL-511-teardown-repetisjonen gjenstår. |
+| F11 | **Fullført** | Teardown-SQL i `prisma/teardown/gl-511/` — bevisst *utenfor* migrasjonskjeden, siden en forberedt migrasjon som lå i kjeden ville sluppet simuleringstabellene neste gang noen kjørte `migrate deploy`. `npm run fi-sim:rehearse-teardown` bygger et ekte datasett, aktiverer, mapper, deaktiverer, fjerner 20 databaseobjekter og krever deretter byte-identisk svar fra produktet. Sjekkliste i [gl-511-teardown-checklist.md](./gl-511-teardown-checklist.md). |
 
 ## Åpne punkter
 
@@ -37,7 +37,7 @@ Alt som er igjen, på ett sted. Detaljene står i fasen sin egen seksjon.
 | 4 | **`aggregateCompanyFinancials` har ingen konsument i produktet.** Bare verifikasjonsskriptet kaller den. | F3 | Metoden er en F3-leveranse og er testet og verifisert mot database, men den er ikke koblet til noen flate. Enten skal en flate ta den i bruk, eller så skal den fjernes — den skal ikke bli stående som kode ingen kaller. |
 | 5 | **Investor-demoens brukerreiser er ikke kjørt.** | F10 | Lesestien er verifisert gjennom LIVE, men ingen har klikket seg gjennom demoen. |
 | 6 | **Ingen avtalt selskapsmengde.** Datasettet dekker de 1 000 første etter organisasjonsnummer i utviklingsdatabasen. | F10 | Når mengden avtales, må et nytt datasett bygges. Et aktivert datasett endres aldri. |
-| 7 | **F11 er ikke startet.** | F11 | GL-511-repetisjonen skal øves før demoen, ikke først ved produksjonsforberedelse. |
+| 7 | ~~F11 er ikke startet.~~ **Lukket 9. august.** Fjerningen er øvd i engangsdatabase og sjekklisten finnes. | F11 | Steg 6 i sjekklisten — å faktisk slette filene og se at `npm run build` går — er ikke øvd. Sprengradiusen er bevist ved import-inventar (`fi-sim-teardown-surface.test.ts`): ingen kjøretidskode importerer fra `server/financials/fi-sim/`, bare fem jobber. |
 
 **Mapping fant en feil i den delte motoren, ikke bare i demoen.** Aliaset `oevrige driftsinntekter` på `other_operating_income` kunne aldri treffe noe: normalisereren gjør `ø` til `o`, ikke til `oe`. Enhver linje som het «Øvrige driftsinntekter» falt derfor gjennom til `revenue` sitt kortere alias `driftsinntekter` og ble ført som omsetning — også i rapporterte regnskaper, ikke bare i demoen. Aliaset har fått sin `o`-tvilling, og `canonical-taxonomy.test.ts` krever nå at enhver translitterert skrivemåte har en tvilling i den formen normalisereren faktisk produserer. Retningen er fremover: allerede lagrede `metricKey`-verdier settes ved ingest og endres ikke av dette.
 
@@ -78,7 +78,10 @@ npm run fi-sim:activation -- --action status
 npm run fi-sim:activation -- --action activate --dataset <versjon> --actor <bruker> --reason "<hvorfor>"
 npm run fi-sim:activation -- --action rollback --actor <bruker> --reason "<hvorfor>"
 npm run fi-sim:activation -- --action deactivate --actor <bruker> --reason "<hvorfor>"
+npm run fi-sim:rehearse-teardown
 ```
+
+`fi-sim:rehearse-teardown` nekter å kjøre mot annet enn en database som heter `gl_511_rehearsal_*`.
 
 Verifikasjonsskriptet nekter å kjøre med mindre databasen heter `fi_sim_migration_test_*`.
 
@@ -394,6 +397,19 @@ GL-511 skal øves før investor-demoen, ikke først ved produksjonsforberedelse.
 - Applikasjonen bygger og kjører uten simuleringstabeller eller `FI-SIM`-filer.
 - Ingen cache, indeks, analyse eller eksport refererer til en simulert datasetversjon.
 - Rapporterte selskaper viser samme output som før; selskaper uten data viser ærlig tomtilstand.
+
+**Bevis (9. august 2026)**
+
+| Port | Hvor den holdes | Status |
+|---|---|---|
+| Kjører uten simuleringstabeller | `rehearse-gl-511-teardown.ts` slipper 20 databaseobjekter og krever deretter identisk svar fra fire repository-metoder. | Innfridd for databasen |
+| Kjører uten `FI-SIM`-filer | `fi-sim-teardown-surface.test.ts`: ingen fil utenfor `server/financials/fi-sim/` importerer derfra bortsett fra fem jobber, og ingen kjøretidsfil rører en simulert Prisma-modell utenom `mapping-store.ts`. | **Bevist ved inventar, ikke ved å slette** |
+| Ingen referanse til en simulert datasettversjon | 14 versjonskolonner funnet gjennom `information_schema` og sjekket. Skriptet feiler også hvis det finner null kolonner, slik at sjekken ikke kan bli tom i det stille. | Innfridd |
+| Samme output, ærlig tomtilstand | Byte-sammenligning før og etter, med et selskap uten tall med i øvingen. | Innfridd |
+
+**Øvingen fant en fallgruve som bare en øving finner:** når et view redefineres, svarer Postgres neste spørring på samme tilkobling med `cached plan must not change result type` i stedet for å planlegge på nytt. Under en kjørende applikasjon ser fjerningen ut som om den ødela produktet. Applikasjonen må restartes etter migrasjonen; det er steg 8 i sjekklisten.
+
+**Teardown-SQL-en ligger bevisst utenfor `prisma/migrations/`.** En forberedt migrasjon som lå i kjeden ville sluppet simuleringstabellene neste gang noen kjørte `migrate deploy` — det motsatte av en øving.
 
 ## 4. Register over eksisterende direkte lesere
 

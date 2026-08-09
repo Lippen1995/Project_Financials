@@ -14,6 +14,7 @@
     "fi-sim:generate": "tsx scripts/generate-fi-sim-dataset.ts",
     "fi-sim:map": "tsx scripts/map-fi-sim-dataset.ts",
     "fi-sim:activation": "tsx scripts/manage-fi-sim-activation.ts",
+    "fi-sim:rehearse-teardown": "tsx scripts/rehearse-gl-511-teardown.ts",
     "security:audit": "npm audit --audit-level=high",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
