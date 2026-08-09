@@ -725,6 +725,88 @@ async function main() {
     `Verified controlled activation and an append-only audit of ${activations.length} pointer changes.`,
   );
 
+  // F10 operational rehearsal: two generated datasets, activated in turn, rolled back to the
+  // first, and switched off. Rollback must reactivate the earlier immutable rows rather than
+  // rebuild them, and every switch must move the dataset version so caches and stored analyses
+  // fall out of date by themselves.
+  const secondReport = await writeSimulatedDataset({
+    datasetVersion: "verification-generated-2",
+    createdByUserId: "migration-test",
+    manifest: {
+      reportedDatasetVersion: "reported:verification",
+      statementScope: "COMPANY",
+      latestCompletedFiscalYear: 2025,
+      intentionallyUnmappedConcepts: [],
+    },
+    generations: [generation],
+  });
+
+  const versions: string[] = [];
+  await withEnabledDemoRead(async () => {
+    const first = await financialDatasetActivationService.activate({
+      datasetId: generatedReport.datasetId,
+      actorUserId: "migration-test",
+      reason: "Operational rehearsal: first demo dataset",
+    });
+    versions.push(first.financialDatasetVersion);
+    const afterFirst = await financialsRepository.listCompanyStatements(company.id);
+    if (
+      afterFirst.length !== 1 ||
+      afterFirst[0].statementOrigin === "reported" ||
+      afterFirst[0].financialDatasetVersion !== first.financialDatasetVersion
+    ) {
+      throw new Error("Activating the generated dataset did not change what the product reads");
+    }
+    if (!afterFirst[0].lines.some((line) => line.valueOrigin === "synthetic")) {
+      throw new Error("The activated demo statement exposed no synthetic line to mark");
+    }
+
+    const second = await financialDatasetActivationService.activate({
+      datasetId: secondReport.datasetId,
+      actorUserId: "migration-test",
+      reason: "Operational rehearsal: replacement dataset",
+    });
+    versions.push(second.financialDatasetVersion);
+
+    const rolledBack = await financialDatasetActivationService.rollback({
+      actorUserId: "migration-test",
+      reason: "Operational rehearsal: rollback",
+    });
+    versions.push(rolledBack.financialDatasetVersion);
+    if (rolledBack.simulatedDatasetId !== generatedReport.datasetId) {
+      throw new Error("Rollback did not reactivate the previously activated dataset");
+    }
+    const afterRollback = await financialsRepository.listCompanyStatements(company.id);
+    if (afterRollback[0]?.financialDatasetVersion !== rolledBack.financialDatasetVersion) {
+      throw new Error("Rollback did not move the dataset version the product reads");
+    }
+  });
+
+  const finalDeactivation = await financialDatasetActivationService.deactivate({
+    actorUserId: "migration-test",
+    reason: "Operational rehearsal: demo over",
+  });
+  versions.push(finalDeactivation.financialDatasetVersion);
+  if (new Set(versions).size !== versions.length) {
+    throw new Error(`A dataset switch reused a version: ${versions.join(", ")}`);
+  }
+  const rehearsalLog = await financialDatasetActivationService.listActivations(4);
+  if (
+    rehearsalLog.map((entry) => entry.action).join(",") !==
+    "DEACTIVATE,ROLLBACK,ACTIVATE,ACTIVATE"
+  ) {
+    throw new Error(
+      `The rehearsal was not audited in order: ${rehearsalLog.map((entry) => entry.action).join(",")}`,
+    );
+  }
+  const reportedAfterRehearsal = await financialsRepository.listCompanyStatements(company.id);
+  if (reportedAfterRehearsal[0]?.statementOrigin !== "reported") {
+    throw new Error("The rehearsal did not leave the product back on reported figures");
+  }
+  console.log(
+    `Verified the operational rehearsal: activate, replace, rollback and deactivate across ${versions.length} distinct dataset versions.`,
+  );
+
   console.log("FI-SIM foundation migration verification passed.");
 }
 

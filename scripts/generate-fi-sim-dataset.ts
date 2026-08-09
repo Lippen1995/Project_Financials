@@ -1,6 +1,14 @@
 import "@/lib/env";
 
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+
 import { prisma } from "@/lib/prisma";
+import {
+  buildDatasetReport,
+  formatDatasetReportMarkdown,
+  isPublishable,
+} from "@/server/financials/fi-sim/generator/dataset-report";
 import {
   loadReportedAnchors,
   type FiSimCompanyAnchors,
@@ -34,6 +42,9 @@ type Options = {
   latestCompletedFiscalYear: number;
   statementScope: "COMPANY" | "CONSOLIDATED";
   unmappedConcepts: string[];
+  /** Generate and report without writing. A validated dataset can never be deleted. */
+  dryRun: boolean;
+  reportPath: string | null;
 };
 
 function parseOptions(argv: string[]): Options {
@@ -48,6 +59,8 @@ function parseOptions(argv: string[]): Options {
     latestCompletedFiscalYear: now.getUTCFullYear() - 1,
     statementScope: "COMPANY",
     unmappedConcepts: [],
+    dryRun: false,
+    reportPath: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -75,6 +88,10 @@ function parseOptions(argv: string[]): Options {
       options.statementScope = scope;
     } else if (argument === "--unmapped-concepts") {
       options.unmappedConcepts = requireValue().split(",").map((entry) => entry.trim()).filter(Boolean);
+    } else if (argument === "--dry-run") {
+      options.dryRun = true;
+    } else if (argument === "--report") {
+      options.reportPath = requireValue();
     } else {
       throw new Error(`Ukjent argument: ${argument}`);
     }
@@ -139,6 +156,7 @@ async function main() {
       companyId: company.id,
       orgNumber: company.orgNumber,
       registeredAt: registry?.registeredAt ?? null,
+      reportedFiscalYears: companyAnchors?.reportedFiscalYears ?? [],
       signals: {
         industryCode: registry?.naceCode ?? null,
         organisationForm: registry?.organisationForm ?? null,
@@ -151,6 +169,46 @@ async function main() {
       anchorsByFiscalYear: companyAnchors?.anchorsByFiscalYear ?? {},
     });
   });
+
+  const summary = buildDatasetReport(generations);
+  const markdown = formatDatasetReportMarkdown(summary, {
+    datasetVersion: options.datasetVersion,
+    statementScope: options.statementScope,
+    latestCompletedFiscalYear: options.latestCompletedFiscalYear,
+    reportedDatasetVersion: anchors.financialDatasetVersion,
+    dryRun: options.dryRun,
+    generatedAt: new Date(),
+  });
+  if (options.reportPath) {
+    await mkdir(dirname(resolve(options.reportPath)), { recursive: true });
+    await writeFile(resolve(options.reportPath), markdown, "utf8");
+    console.log(`Valideringsrapport skrevet til ${options.reportPath}.`);
+  }
+  console.log(
+    [
+      `Selskaper forsøkt: ${summary.companiesAttempted}. Med perioder: ${summary.companiesWithPackages}. Uten: ${summary.companiesFullyExcluded}.`,
+      `Perioder: ${summary.packages}. Ankerlinjer: ${summary.reportedAnchorLines}. Syntetiske linjer: ${summary.syntheticLines}.`,
+      `Profilfordeling: ${JSON.stringify(summary.profileCounts)}.`,
+      `Residualer: ${summary.residuals.rounding} avrunding, ${summary.residuals.review} til manuell kontroll.`,
+      `Feil: ${JSON.stringify(summary.errorCounts)}.`,
+    ].join("\n"),
+  );
+
+  if (summary.invalidPackages.length > 0) {
+    console.error(
+      `${summary.invalidPackages.length} perioder består ikke validering og ville blitt utelatt. Se rapporten.`,
+    );
+  }
+
+  if (options.dryRun) {
+    console.log("Tørrkjøring: ingenting er skrevet. Kjør uten --dry-run for å bygge datasettet.");
+    return;
+  }
+  if (!isPublishable(summary)) {
+    throw new Error(
+      "Ingen periode kan publiseres. Datasettet ble ikke opprettet.",
+    );
+  }
 
   const manifest: Omit<FiSimDatasetManifest, "exclusions"> = {
     reportedDatasetVersion: anchors.financialDatasetVersion,

@@ -4,7 +4,12 @@ import {
 } from "../catalog/calculations";
 import { FI_SIM_TAXONOMY_VERSION, findConcept } from "../catalog/concepts";
 import { permittedConcepts } from "../catalog/profiles";
-import { conceptQName, type FiSimGeneratedPackage, type FiSimGeneratedStatement } from "./generator";
+import {
+  conceptQName,
+  FI_SIM_DERIVATION_RULES,
+  type FiSimGeneratedPackage,
+  type FiSimGeneratedStatement,
+} from "./generator";
 
 /**
  * The validator, from spec section 9.2 step 8 and section 14.
@@ -82,17 +87,39 @@ function checkStatement(
     if (hasSynthetic && line.syntheticValue !== line.resolvedValue) {
       issue(line.conceptKey, "The synthetic value and the resolved value disagree");
     }
-    // A concept outside the profile is allowed only because the company reported it.
-    if (!context.permitted.has(line.conceptKey) && !hasAnchor) {
+    // A concept outside the profile is allowed for exactly two reasons: the company reported it,
+    // or a reported subtotal had nowhere else to sit. Anything else outside the profile is the
+    // generator inventing a line the profile said it must not, which is a bug and not a warning.
+    if (
+      !context.permitted.has(line.conceptKey) &&
+      !hasAnchor &&
+      line.derivationRuleId !== FI_SIM_DERIVATION_RULES.reportedStructureFallback
+    ) {
       issue(line.conceptKey, `${line.conceptKey} is not permitted by the statement's profile`);
     }
   }
 
-  const residual = statement.residual;
-  if (residual) {
-    const published = values.get(residual.conceptKey);
-    if (published !== residual.amount) {
-      issue(residual.identityId, "The residual line does not carry the recorded difference");
+  // Every recorded difference must be visible on the statement. Several small ones share a line,
+  // so the check is that each residual concept carries the sum of the differences filed under it.
+  const residuals = statement.residuals;
+  const identitiesSeen = new Set<string>();
+  const publishedByConcept = new Map<string, bigint>();
+  for (const residual of residuals) {
+    if (identitiesSeen.has(residual.identityId)) {
+      issue(residual.identityId, "The same identity has more than one recorded residual");
+    }
+    identitiesSeen.add(residual.identityId);
+    publishedByConcept.set(
+      residual.conceptKey,
+      (publishedByConcept.get(residual.conceptKey) ?? 0n) + residual.amount,
+    );
+  }
+  if (residuals.filter((residual) => residual.severity === "REVIEW").length > 1) {
+    issue("Residual", "A statement cannot absorb two material contradictions");
+  }
+  for (const [conceptKey, expected] of publishedByConcept) {
+    if (values.get(conceptKey) !== expected) {
+      issue(conceptKey, "The residual line does not carry the recorded differences");
     }
   }
 
@@ -108,7 +135,9 @@ function checkStatement(
       if (value === undefined) continue;
       sum += BigInt(operand.weight) * value;
     }
-    const allowance = residual?.identityId === relationship.parentConceptKey ? residual.amount : 0n;
+    const allowance = residuals
+      .filter((residual) => residual.identityId === relationship.parentConceptKey)
+      .reduce((total, residual) => total + residual.amount, 0n);
     if (parent !== sum + allowance) {
       issue(
         relationship.parentConceptKey,
@@ -123,7 +152,9 @@ function checkStatement(
     if (left === undefined || right === undefined) {
       issue("BalanceEquation", "A balance sheet must publish both sides of the balance equation");
     } else {
-      const allowance = residual?.identityId === "BalanceEquation" ? residual.amount : 0n;
+      const allowance = residuals
+        .filter((residual) => residual.identityId === "BalanceEquation")
+        .reduce((total, residual) => total + residual.amount, 0n);
       if (left !== right + allowance) {
         issue("BalanceEquation", `Assets are ${left} but equity and liabilities are ${right}`);
       }

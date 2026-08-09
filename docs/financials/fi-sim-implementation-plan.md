@@ -22,7 +22,8 @@ Planen er en additiv expand-and-contract-migrasjon. Ingen fase skal endre eller 
 | F7 | **Fullført** | `server/financials/fi-sim/generator/`: merket seed uten klokke eller global tilstand, versjonert antakelseskonfigurasjon, ankerbinding gjennom LIVE, identitetsløser med flerårsbro, residualregler etter seksjon 10, validator som re-utleder alt fra katalogen, `BUILDING → VALIDATED`-skriving og jobben `npm run fi-sim:generate`. Determinisme, egenskapssveip over alle seks profiler og ankerimmutabilitet er dekket av tester; databasenivået er dekket av verifikasjonsskriptet. |
 | F8 | Nesten fullført | DB-aktivering og live-views er fail-closed med capability-rolle, `FJORD_DEPLOYMENT_ENVIRONMENT=investor-demo` og `FJORD_FINANCIAL_SIMULATION_ENABLED=true`. Kontrollert kommando (`npm run fi-sim:activation`) med atomisk activate/rollback/deactivate finnes, og `FinancialDatasetActivationAudit` skrives av en trigger på selve pekeren — aktivering uten navngitt aktør og begrunnelse avvises av databasen. Cache, analyser, snapshots og eksporter er allerede versjonert på datasettversjon. **Gjenstår: reell runtime-principal.** |
 | F9 | Nesten fullført | `lib/financial-simulation-disclosure.ts` eier ordlyden ett sted. Vedvarende banner og markering per celle i regnskapstabellen, merking som ikke er farge alene, disclaimer og datasettmetadata inne i råuttrekket, og `simulationNotice` i Njord-svarene. De seks fail-closed-kastene «requires labeling before use» er erstattet med faktisk merking. Kommentar- og evidence-mutasjoner mot simulerte statements avvises fortsatt. **Gjenstår: visuell markering i grafer og nøkkeltall** — datasettversjonen følger med i datamodellen, men en graf på simulerte tall ser ut som en graf på rapporterte. |
-| F10–F11 | Ikke startet | Operativ demo og teardown-repetisjon gjenstår. |
+| F10 | **Fullført** | Datasettet `fi-sim-demo-2026.1-a` er bygget og validert: 822 selskaper, 2949 perioder, 5898 statements, 93 485 linjer, hvorav 6312 er referanser til ekte rapporterte linjer. Valideringsrapport i [fi-sim-demo-dataset-report.md](./fi-sim-demo-dataset-report.md). Aktivering, versjonsbytte, rollback og deaktivering er øvd i engangsdatabase. Ingen periode med material residual er skrevet, og alle 178 selskaper uten perioder er listet med kode og årsak. |
+| F11 | Ikke startet | GL-511-teardown-repetisjonen gjenstår. |
 
 **Den ene gjenstående F8-tingen, sagt tydelig:** applikasjonen kobler seg fortsatt til databasen som eieren, ikke som et medlem av `fjord_financial_runtime`. `REVOKE`-ene og `pg_has_role`-sjekkene er reelle og verifiseres av porten, men de beskytter ingenting så lenge runtime-tilkoblingen er superbruker. Det er en deploy- og tilkoblingsendring, ikke en kodeendring i dette laget, og stoppkriteriet «database-rollen kan ikke begrenses til live-viewene» er ikke innfridd før den er gjort.
 
@@ -340,6 +341,21 @@ Etter hver gruppe kjøres parity-test i rapportert modus før neste gruppe flytt
 - Ingen uventede generatorfeil eller material residual er aktivert.
 - Alle selskaper er enten validert eller eksplisitt listet som ikke støttet.
 - Alle viste statements og syntetiske linjer er merket.
+
+**Bevis (9. august 2026)**
+
+| Port | Hvor den holdes | Status |
+|---|---|---|
+| Ingen material residual aktivert | Rapporten: 292 avrundingsdifferanser, **0** ufordelte til manuell kontroll. Perioder med `MANUAL_REVIEW` skrives ikke i det hele tatt. Største residual er 4 000 mot balanser i hundremillionerklassen. | Innfridd |
+| Alle selskaper validert eller listet | 822 med perioder, 178 uten — hver med kode og årsak i rapporten og i datasettmanifestet. `NO_PUBLISHABLE_PERIOD` finnes som egen kode nettopp for selskaper som verken feilet eller ga noe. | Innfridd |
+| Alle statements og linjer merket | Kontraktstestene i F9 pluss den operative prøven, som leser gjennom LIVE etter aktivering og krever at statementet ikke er `reported` og at det har minst én syntetisk linje å merke. | Innfridd |
+| Aktivering, versjonsbytte og rollback | `verify-fi-sim-foundation.ts`: to genererte datasett aktiveres etter hverandre, rulles tilbake til det første og skrus av — fire distinkte datasettversjoner, revidert i rekkefølge, og produktet ender tilbake på rapporterte tall. | Innfridd, øvd i engangsdatabase |
+
+**Tørrkjøringen fant tre reelle feil i generatoren**, som alle er rettet: en oppdiktet selskapskapital ved siden av rapportert egenkapital og rapportert opptjent resultat (som fikk to konsistente tall til å se motstridende ut), en rapportert deltotal uten noen tillatt linje å sitte på, og bare ett residual per statement når ekte regnskaper er rundet i to poster samtidig.
+
+**Ikke gjort:** «kjør investor-demoens viktigste brukerreiser» er ikke gjennomført som en egen øvelse. Lesestien er verifisert gjennom LIVE i den operative prøven, men ingen har klikket seg gjennom demoen.
+
+**Merk om selskapsmengden:** det finnes ingen avtalt liste. Datasettet er bygget for de 1 000 første selskapene etter organisasjonsnummer i utviklingsdatabasen. Når mengden avtales, bygges et nytt datasett — et aktivert datasett endres aldri.
 
 ### F11 — GL-511-repetisjon
 

@@ -285,12 +285,12 @@ describe("FI-SIM generator anchors", () => {
     );
     const pkg = generation.packages[0];
 
-    expect(pkg.income.residual).toEqual({
+    expect(pkg.income.residuals).toEqual([{
       identityId: "OperatingResult",
       conceptKey: "RoundingDifferenceIncome",
       amount: 50n,
       severity: "ROUNDING",
-    });
+    }]);
     expect(valueOf(pkg, "RoundingDifferenceIncome")).toBe(50n);
     expect(pkg.validationStatus).toBe("VALID");
     expect(validatePackages([pkg]).issues).toEqual([]);
@@ -311,8 +311,8 @@ describe("FI-SIM generator anchors", () => {
     );
     const pkg = generation.packages[0];
 
-    expect(pkg.income.residual?.conceptKey).toBe("UnallocatedResidualIncome");
-    expect(pkg.income.residual?.severity).toBe("REVIEW");
+    expect(pkg.income.residuals[0]?.conceptKey).toBe("UnallocatedResidualIncome");
+    expect(pkg.income.residuals[0]?.severity).toBe("REVIEW");
     expect(pkg.validationStatus).toBe("MANUAL_REVIEW");
     expect(validatePackages([pkg]).issues).toEqual([]);
   });

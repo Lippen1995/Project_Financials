@@ -160,27 +160,59 @@ describe("FI-SIM validator", () => {
     );
   });
 
-  it("allows the recorded residual to explain exactly one identity, and no more", () => {
+  it("refuses a residual that no published line carries", () => {
     const pkg = tamper((sample) => ({
       ...sample,
       income: {
         ...sample.income,
-        residual: {
+        residuals: [{
           identityId: "OperatingIncomeTotal",
           conceptKey: "RoundingDifferenceIncome",
           amount: 5n,
           severity: "ROUNDING",
-        },
+        }],
       },
     }));
 
-    // The residual is claimed but no residual line carries it, so the statement does not balance.
     const issues = validatePackage(pkg).issues;
     expect(issues).toContainEqual(
-      expect.objectContaining({ message: expect.stringMatching(/does not carry the recorded difference/) }),
+      expect.objectContaining({
+        message: expect.stringMatching(/does not carry the recorded differences/),
+      }),
     );
     expect(issues).toContainEqual(
       expect.objectContaining({ identityId: "OperatingIncomeTotal" }),
+    );
+  });
+
+  it("refuses a statement that absorbs two material contradictions", () => {
+    // Several small rounding differences on one statement are ordinary. Two differences big
+    // enough to need a human are not something a demo gets to net off against each other.
+    const pkg = tamper((sample) => ({
+      ...sample,
+      income: {
+        ...sample.income,
+        residuals: [
+          {
+            identityId: "OperatingIncomeTotal",
+            conceptKey: "UnallocatedResidualIncome",
+            amount: 5n,
+            severity: "REVIEW" as const,
+          },
+          {
+            identityId: "ProfitBeforeTax",
+            conceptKey: "UnallocatedResidualIncome",
+            amount: 7n,
+            severity: "REVIEW" as const,
+          },
+        ],
+      },
+    }));
+
+    expect(validatePackage(pkg).issues).toContainEqual(
+      expect.objectContaining({
+        message: expect.stringMatching(/two material contradictions/),
+      }),
     );
   });
 });

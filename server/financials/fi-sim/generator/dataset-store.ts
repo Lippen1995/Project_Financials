@@ -81,17 +81,17 @@ function statementRows(pkg: FiSimGeneratedPackage, statement: FiSimGeneratedStat
     currency: pkg.currency,
     unitScale: pkg.unitScale,
     validationStatus: "VALID" as const,
-    residualAmount: statement.residual?.amount ?? null,
+    residualAmount: statement.residuals.length === 0
+      ? null
+      : statement.residuals.reduce((sum, residual) => sum + residual.amount, 0n),
     validationResult: {
       seed: pkg.seed,
-      residual: statement.residual
-        ? {
-            identityId: statement.residual.identityId,
-            conceptKey: statement.residual.conceptKey,
-            amount: statement.residual.amount.toString(),
-            severity: statement.residual.severity,
-          }
-        : null,
+      residuals: statement.residuals.map((residual) => ({
+        identityId: residual.identityId,
+        conceptKey: residual.conceptKey,
+        amount: residual.amount.toString(),
+        severity: residual.severity,
+      })),
       bridge: {
         openingAccumulatedResults: pkg.bridge.openingAccumulatedResults.toString(),
         profitForPeriod: pkg.bridge.profitForPeriod.toString(),

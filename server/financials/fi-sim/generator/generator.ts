@@ -84,6 +84,12 @@ export const FI_SIM_DERIVATION_RULES = {
   liabilitySubtotal: "balance.liability-subtotal.assumed-share",
   liabilityChild: "balance.liability.distributed",
   equityAndLiabilities: "balance.equity-and-liabilities-total.identity",
+  /**
+   * A line the profile would not have chosen, carrying a subtotal that follows from reported
+   * figures. Its own rule id, so the validator can tell it apart from a line the generator simply
+   * invented outside the profile — which would be a bug.
+   */
+  reportedStructureFallback: "structure.child.reported-subtotal-fallback",
   residual: "residual.identity-difference",
 } as const;
 
@@ -102,6 +108,12 @@ export type FiSimCompanyInput = {
   orgNumber: string;
   /** Registration date from the register. Null means the founding date is unknown. */
   registeredAt: Date | null;
+  /**
+   * Fiscal years the company actually filed accounts for. A filed statement is evidence the
+   * company existed that year, which is the only evidence available for the companies the
+   * register mirror has no row for.
+   */
+  reportedFiscalYears?: readonly number[];
   signals: CompanyProfileSignals;
   /**
    * A profile the operator classified by hand in the dataset manifest. It replaces the industry
@@ -136,8 +148,12 @@ export type FiSimGeneratedStatement = {
   statementFamily: StatementFamily;
   statementOrigin: "HYBRID" | "SIMULATED";
   lines: FiSimGeneratedLine[];
-  /** The one identity difference this statement could not solve, if any. */
-  residual: FiSimResidual | null;
+  /**
+   * Every identity difference the solver could not remove without moving an anchor, at most one
+   * per identity. They are published as at most two lines — one for rounding, one for the
+   * differences big enough to need a human — while the validator checks them identity by identity.
+   */
+  residuals: FiSimResidual[];
 };
 
 export type FiSimResidual = {
@@ -242,7 +258,7 @@ type ResolvedValue = {
 
 class StatementSolution {
   readonly values = new Map<string, ResolvedValue>();
-  residual: FiSimResidual | null = null;
+  readonly residuals: FiSimResidual[] = [];
 
   constructor(
     private readonly family: StatementFamily,
@@ -259,9 +275,13 @@ class StatementSolution {
   }
 
   /**
-   * Records a difference the solver could not remove without moving an anchor. A statement gets
-   * at most one: two independent contradictions between reported figures is not something a demo
-   * should paper over with two balancing lines.
+   * Records a difference the solver could not remove without moving an anchor.
+   *
+   * Several small ones on the same statement is ordinary: reported figures are rounded, and a
+   * filing can be a krone out in two places at once. Several *material* ones is not, and the
+   * second one is a controlled failure rather than a second balancing line — a demo that quietly
+   * absorbs two contradictions between reported figures is a demo that has stopped meaning
+   * anything.
    */
   recordResidual(params: {
     identityId: string;
@@ -270,32 +290,33 @@ class StatementSolution {
     code: FiSimErrorCode;
   }) {
     if (params.difference === 0n) return;
-    if (this.residual) {
-      throw new FiSimGenerationError(
-        "UNSOLVABLE_STATEMENT_IDENTITY",
-        `More than one identity difference on the same statement: ${this.residual.identityId} and ${params.identityId}`,
-        this.fiscalYear,
-      );
-    }
     const { rounding, review } = identityTolerances(params.parentTotal, this.unitScale);
     const magnitude = absoluteValue(params.difference);
     const income = this.family === "INCOME_STATEMENT";
     if (magnitude <= rounding) {
-      this.residual = {
+      this.residuals.push({
         identityId: params.identityId,
         conceptKey: income ? "RoundingDifferenceIncome" : "RoundingDifferenceBalance",
         amount: params.difference,
         severity: "ROUNDING",
-      };
+      });
       return;
     }
     if (magnitude <= review) {
-      this.residual = {
+      const existingReview = this.residuals.find((residual) => residual.severity === "REVIEW");
+      if (existingReview) {
+        throw new FiSimGenerationError(
+          "UNSOLVABLE_STATEMENT_IDENTITY",
+          `More than one material identity difference on the same statement: ${existingReview.identityId} and ${params.identityId}`,
+          this.fiscalYear,
+        );
+      }
+      this.residuals.push({
         identityId: params.identityId,
         conceptKey: income ? "UnallocatedResidualIncome" : "UnallocatedResidualBalance",
         amount: params.difference,
         severity: "REVIEW",
-      };
+      });
       return;
     }
     throw new FiSimGenerationError(
@@ -336,13 +357,22 @@ function selectActiveConcepts(params: {
 }
 
 /**
- * Guarantees a non-zero subtotal has somewhere to sit. Picks the first permitted child in catalog
- * order rather than a seeded one: which line appears when a company has debt at all is a structural
- * question, and a seeded pick would make two otherwise identical companies differ for no reason.
+ * Guarantees a non-zero subtotal has somewhere to sit.
+ *
+ * A profile decides what gets invented, not what gets shown. When a subtotal follows from reported
+ * figures — a service company whose reported total debt exceeds its reported current debt has
+ * long-term debt, whatever its profile expected — the line has to appear even though the profile
+ * would never have chosen it. The generic "other" bucket is preferred for that case, because
+ * putting a real amount on `Langsiktig bankgjeld` would assert a bank loan nobody reported.
+ *
+ * The pick is structural rather than seeded: which line appears when a company has debt at all is
+ * not a coin toss, and a seeded pick would make two otherwise identical companies differ for no
+ * reason.
  */
 function ensureChildForTotal(params: {
   total: bigint;
   active: Set<string>;
+  outsideProfile: Set<string>;
   parentConceptKey: string;
   profileKey: FiSimProfileKey;
   fiscalYear: number;
@@ -352,17 +382,22 @@ function ensureChildForTotal(params: {
   if (children.some((conceptKey) => params.active.has(conceptKey))) return;
 
   const permitted = permittedConcepts(params.profileKey);
-  const candidate = [...children]
-    .filter((conceptKey) => permitted.has(conceptKey))
-    .sort((left, right) => requireConcept(left).sortOrder - requireConcept(right).sortOrder)[0];
+  const ordered = [...children].sort(
+    (left, right) => requireConcept(left).sortOrder - requireConcept(right).sortOrder,
+  );
+  const candidate =
+    ordered.find((conceptKey) => permitted.has(conceptKey)) ??
+    ordered.find((conceptKey) => conceptKey.startsWith("Other")) ??
+    ordered[0];
   if (!candidate) {
     throw new FiSimGenerationError(
       "UNSOLVABLE_STATEMENT_IDENTITY",
-      `${params.parentConceptKey} is ${params.total} but the profile permits no child to carry it`,
+      `${params.parentConceptKey} is ${params.total} but the catalog has no child to carry it`,
       params.fiscalYear,
     );
   }
   params.active.add(candidate);
+  if (!permitted.has(candidate)) params.outsideProfile.add(candidate);
 }
 
 function distributeChildren(params: {
@@ -373,6 +408,7 @@ function distributeChildren(params: {
   weights: Readonly<Record<string, number>>;
   solution: StatementSolution;
   derivationRuleId: string;
+  outsideProfile?: ReadonlySet<string>;
 }) {
   const children = childKeysOf(params.parentConceptKey).filter((conceptKey) =>
     params.active.has(conceptKey),
@@ -400,7 +436,13 @@ function distributeChildren(params: {
     })),
   );
   for (const [conceptKey, value] of distributed) {
-    params.solution.set(conceptKey, value, params.derivationRuleId);
+    params.solution.set(
+      conceptKey,
+      value,
+      params.outsideProfile?.has(conceptKey)
+        ? FI_SIM_DERIVATION_RULES.reportedStructureFallback
+        : params.derivationRuleId,
+    );
   }
   return 0n;
 }
@@ -424,6 +466,8 @@ function solveIncomeStatement(params: {
     anchoredConcepts: new Set(anchors.keys()),
     optionalConceptRate: assumptions.optionalConceptRate,
   });
+  // Concepts published only because a reported subtotal needs somewhere to sit.
+  const outsideProfile = new Set<string>();
   const anchorOf = (conceptKey: string) => anchors.get(conceptKey) ?? null;
 
   // 1. Operating income. The base is drawn once per company so the series has a shape, and each
@@ -573,6 +617,7 @@ function solveIncomeStatement(params: {
   ensureChildForTotal({
     total: operatingExpense,
     active,
+    outsideProfile,
     parentConceptKey: "OperatingExpenseTotal",
     profileKey: params.profileKey,
     fiscalYear,
@@ -580,6 +625,7 @@ function solveIncomeStatement(params: {
   ensureChildForTotal({
     total: operatingIncome,
     active,
+    outsideProfile,
     parentConceptKey: "OperatingIncomeTotal",
     profileKey: params.profileKey,
     fiscalYear,
@@ -592,6 +638,7 @@ function solveIncomeStatement(params: {
     anchors,
     weights: assumptions.incomeWeights,
     solution,
+    outsideProfile,
     derivationRuleId: FI_SIM_DERIVATION_RULES.operatingIncomeChild,
   });
   solution.recordResidual({
@@ -608,6 +655,7 @@ function solveIncomeStatement(params: {
     anchors,
     weights: assumptions.expenseWeights,
     solution,
+    outsideProfile,
     derivationRuleId: FI_SIM_DERIVATION_RULES.operatingExpenseChild,
   });
   solution.recordResidual({
@@ -689,6 +737,8 @@ function solveBalanceSheet(params: {
     anchoredConcepts: new Set(anchors.keys()),
     optionalConceptRate: assumptions.optionalConceptRate,
   });
+  // Concepts published only because a reported subtotal needs somewhere to sit.
+  const outsideProfile = new Set<string>();
   const anchorOf = (conceptKey: string) => anchors.get(conceptKey) ?? null;
 
   // 1. Total assets.
@@ -704,15 +754,34 @@ function solveBalanceSheet(params: {
 
   // 2. Equity, through the multi-year bridge of spec section 9.4.
   const anchoredShareCapital = anchorOf("ShareCapital");
-  const shareCapital = anchoredShareCapital
-    ? anchoredShareCapital.value
-    : fromNumber(bandValue(params.companyStream, "share-capital", assumptions.shareCapital));
   const anchoredPremium = anchorOf("PaidInPremium");
-  const paidInPremium = anchoredPremium
-    ? anchoredPremium.value
-    : active.has("PaidInPremium")
-      ? fromRate(shareCapital, params.companyStream.between("paid-in-premium", 0.2, 3))
-      : null;
+  const anchoredAccumulated = anchorOf("AccumulatedResults");
+  const anchoredEquity = anchorOf("EquityTotal");
+
+  // Reported equity and reported accumulated results together determine the paid-in capital.
+  // Inventing a share capital alongside them is what makes two perfectly consistent reported
+  // figures look like they contradict each other — a company with accumulated losses larger than
+  // its equity is ordinary, and its share capital is exactly the difference.
+  let paidInPremium = anchoredPremium ? anchoredPremium.value : null;
+  let shareCapital: bigint;
+  if (anchoredShareCapital) {
+    shareCapital = anchoredShareCapital.value;
+  } else if (anchoredEquity && anchoredAccumulated) {
+    const solved = anchoredEquity.value - (paidInPremium ?? 0n) - anchoredAccumulated.value;
+    // A negative registered capital is not a thing. When the reported figures imply one, the
+    // difference belongs on a residual line where a reader can see it.
+    shareCapital = solved < 0n ? 0n : solved;
+  } else {
+    shareCapital = fromNumber(
+      bandValue(params.companyStream, "share-capital", assumptions.shareCapital),
+    );
+    if (!anchoredPremium && active.has("PaidInPremium")) {
+      paidInPremium = fromRate(
+        shareCapital,
+        params.companyStream.between("paid-in-premium", 0.2, 3),
+      );
+    }
+  }
   if (paidInPremium !== null) active.add("PaidInPremium");
 
   const assumedDistribution = params.openingAccumulatedResults === null || params.profitForPeriod <= 0n
@@ -732,8 +801,6 @@ function solveBalanceSheet(params: {
       (paidInPremium ?? 0n)
     : openingAccumulated + params.profitForPeriod - assumedDistribution;
 
-  const anchoredAccumulated = anchorOf("AccumulatedResults");
-  const anchoredEquity = anchorOf("EquityTotal");
   let accumulatedResults = anchoredAccumulated ? anchoredAccumulated.value : bridgedAccumulated;
   let equityTotal = shareCapital + (paidInPremium ?? 0n) + accumulatedResults;
 
@@ -900,6 +967,7 @@ function solveBalanceSheet(params: {
     ensureChildForTotal({
       total,
       active,
+      outsideProfile,
       parentConceptKey,
       profileKey: params.profileKey,
       fiscalYear,
@@ -911,6 +979,7 @@ function solveBalanceSheet(params: {
       anchors,
       weights,
       solution,
+      outsideProfile,
       derivationRuleId: rule,
     });
     solution.recordResidual({
@@ -938,9 +1007,13 @@ function toStatement(
   fiscalYear: number,
 ): FiSimGeneratedStatement {
   const values = new Map(solution.values);
-  if (solution.residual) {
-    values.set(solution.residual.conceptKey, {
-      value: solution.residual.amount,
+  // One published line per residual concept, carrying the sum of the differences of that kind.
+  // The validator keeps checking identity by identity from `residuals`, so aggregating for
+  // display does not aggregate away the check.
+  for (const residual of solution.residuals) {
+    const existing = values.get(residual.conceptKey);
+    values.set(residual.conceptKey, {
+      value: (existing?.value ?? 0n) + residual.amount,
       anchor: null,
       derivationRuleId: FI_SIM_DERIVATION_RULES.residual,
     });
@@ -977,7 +1050,7 @@ function toStatement(
     statementFamily: family,
     statementOrigin: hasReported ? "HYBRID" : "SIMULATED",
     lines,
-    residual: solution.residual,
+    residuals: solution.residuals,
   };
 }
 
@@ -1073,10 +1146,10 @@ export function generateCompanyFinancials(
         `${input.fiscalYears.length} fiscal years requested, at most ${FI_SIM_MAX_FISCAL_YEARS} may be generated`,
       );
     }
-    if (input.registeredAt === null) {
+    if (input.registeredAt === null && (input.reportedFiscalYears ?? []).length === 0) {
       throw new FiSimGenerationError(
         "INVALID_PERIOD",
-        "The company has no registration date, so no period can be proved to start after it was founded",
+        "The company has neither a registration date nor a filed statement, so no period can be proved to fall after it was founded",
       );
     }
   } catch (error) {
@@ -1097,7 +1170,17 @@ export function generateCompanyFinancials(
       });
       continue;
     }
-    if (input.registeredAt > periodStart) {
+    if (input.registeredAt === null) {
+      // No registration date. The company filed accounts for these years, and nothing else, so
+      // these are the only years it can be shown to have existed for.
+      if (!(input.reportedFiscalYears ?? []).includes(fiscalYear)) {
+        skipped.push({
+          fiscalYear,
+          reason: "No registration date and no filed statement for this year",
+        });
+        continue;
+      }
+    } else if (input.registeredAt > periodStart) {
       skipped.push({
         fiscalYear,
         reason: `The company was registered ${input.registeredAt.toISOString().slice(0, 10)}, after this period starts`,
@@ -1138,9 +1221,7 @@ export function generateCompanyFinancials(
 
       const incomeStatement = toStatement("INCOME_STATEMENT", income.solution, fiscalYear);
       const balanceStatement = toStatement("BALANCE_SHEET", balance.solution, fiscalYear);
-      const residuals = [incomeStatement.residual, balanceStatement.residual].filter(
-        (residual): residual is FiSimResidual => residual !== null,
-      );
+      const residuals = [...incomeStatement.residuals, ...balanceStatement.residuals];
 
       packages.push({
         companyId: input.companyId,

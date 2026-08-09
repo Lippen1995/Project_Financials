@@ -62,6 +62,12 @@ export const FI_SIM_ANCHOR_BINDINGS: Readonly<Record<string, string>> = {
 export type FiSimCompanyAnchors = {
   companyId: string;
   anchorsByFiscalYear: Record<number, FiSimAnchor[]>;
+  /**
+   * Every fiscal year the company has a live statement for, whether or not any of its lines could
+   * be bound. It is the generator's fallback evidence of existence for a company the register
+   * mirror has no row for.
+   */
+  reportedFiscalYears: number[];
   /** Metric keys that appeared more than once in a period and were left unbound. */
   ambiguous: Array<{ fiscalYear: number; metricKey: string; count: number }>;
 };
@@ -100,13 +106,21 @@ export async function loadReportedAnchors(
   const wantedYears = new Set(params.fiscalYears);
   const companies = new Map<string, FiSimCompanyAnchors>();
   for (const companyId of params.companyIds) {
-    companies.set(companyId, { companyId, anchorsByFiscalYear: {}, ambiguous: [] });
+    companies.set(companyId, {
+      companyId,
+      anchorsByFiscalYear: {},
+      reportedFiscalYears: [],
+      ambiguous: [],
+    });
   }
 
   for (const statement of snapshot.statements) {
     if (!wantedYears.has(statement.fiscalYear)) continue;
     const company = companies.get(statement.companyId);
     if (!company) continue;
+    if (!company.reportedFiscalYears.includes(statement.fiscalYear)) {
+      company.reportedFiscalYears.push(statement.fiscalYear);
+    }
 
     const byConcept = new Map<string, { anchor: FiSimAnchor; metricKey: string; count: number }>();
     for (const line of statement.lines) {
