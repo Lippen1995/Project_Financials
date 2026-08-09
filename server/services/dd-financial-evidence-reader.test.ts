@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { SIMULATED_FINANCIALS_NOTICE } from "@/lib/financial-simulation-disclosure";
 import {
   assertFinancialEvidenceDataset,
   createDdFinancialEvidenceReader,
@@ -136,10 +137,13 @@ describe("DD financial evidence reader", () => {
 
     await expect(
       reader.resolveReportedStatement("company-1", "statement-company"),
-    ).rejects.toThrow(/labeling/i);
+    ).rejects.toThrow(/cannot be stored in reported evidence references/i);
   });
 
-  it("fails closed when simulated evidence cannot yet be labeled in the DD UI", async () => {
+  it("labels simulated evidence for display instead of refusing to show it", async () => {
+    // Spec section 12: a simulated statement may be shown as long as it is disclosed. Spec
+    // section 13 is the other half — it still cannot become a reported evidence reference, which
+    // the test above holds.
     const reader = createDdFinancialEvidenceReader({
       getCompanyFinancials: vi.fn().mockResolvedValue({
         datasetMode: "simulated",
@@ -148,7 +152,14 @@ describe("DD financial evidence reader", () => {
       }),
     });
 
-    await expect(reader.loadCompanyStatements("company-1")).rejects.toThrow(/labeling/i);
+    const result = await reader.loadCompanyStatements("company-1");
+
+    expect(result.disclosure).toEqual({
+      financialDatasetMode: "simulated",
+      financialDatasetVersion: "simulated:demo-1:3",
+      simulated: true,
+      notice: SIMULATED_FINANCIALS_NOTICE,
+    });
   });
 
   it("rejects persisted evidence from inactive or unknown datasets", () => {

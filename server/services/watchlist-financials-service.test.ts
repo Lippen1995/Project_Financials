@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  financialDisclosureFor,
+  SIMULATED_FINANCIALS_NOTICE,
+} from "@/lib/financial-simulation-disclosure";
 import { createWatchlistFinancialsService } from "@/server/services/watchlist-financials-service";
 
 const timestamp = new Date("2026-08-07T00:00:00.000Z");
@@ -36,6 +40,7 @@ describe("watchlist financials service", () => {
     expect(result).toEqual({
       datasetMode: "reported",
       financialDatasetVersion: "reported:21",
+      disclosure: financialDisclosureFor("reported", "reported:21"),
       statementsByCompany: {
         "company-1": [
           {
@@ -53,7 +58,7 @@ describe("watchlist financials service", () => {
     });
   });
 
-  it("fails closed when simulated statements cannot yet be labeled in the watchlist", async () => {
+  it("labels a simulated watchlist snapshot instead of refusing to render it", async () => {
     const service = createWatchlistFinancialsService({
       getCompaniesFinancials: vi.fn().mockResolvedValue({
         datasetMode: "simulated",
@@ -62,6 +67,13 @@ describe("watchlist financials service", () => {
       }),
     });
 
-    await expect(service.load(["company-1"])).rejects.toThrow(/labeling/i);
+    const snapshot = await service.load(["company-1"]);
+
+    expect(snapshot.disclosure).toEqual({
+      financialDatasetMode: "simulated",
+      financialDatasetVersion: "simulated:dataset-1:4",
+      simulated: true,
+      notice: SIMULATED_FINANCIALS_NOTICE,
+    });
   });
 });

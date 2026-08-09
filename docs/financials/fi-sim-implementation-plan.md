@@ -21,7 +21,8 @@ Planen er en additiv expand-and-contract-migrasjon. Ingen fase skal endre eller 
 | F6 | **Fullført** | `server/financials/fi-sim/catalog/`: 56 konsepter (seksjon 4), 6 profiler (seksjon 5), 14 calculation relationships + balanselikning (seksjon 8), deterministisk profilvalg med regel-ID og ruleset-versjon (seksjon 6). Bank/kredittgivning og forsikring gir `UNSUPPORTED_SIMULATION_PROFILE`. Lint-test håndhever XBRL-grensen. **Til gjennomgang:** næringskode-reglene utover de blokkerte er en lesning av SN2007, ikke spec-diktat; organisasjonsform-steget er bevisst tomt. |
 | F7 | **Fullført** | `server/financials/fi-sim/generator/`: merket seed uten klokke eller global tilstand, versjonert antakelseskonfigurasjon, ankerbinding gjennom LIVE, identitetsløser med flerårsbro, residualregler etter seksjon 10, validator som re-utleder alt fra katalogen, `BUILDING → VALIDATED`-skriving og jobben `npm run fi-sim:generate`. Determinisme, egenskapssveip over alle seks profiler og ankerimmutabilitet er dekket av tester; databasenivået er dekket av verifikasjonsskriptet. |
 | F8 | Nesten fullført | DB-aktivering og live-views er fail-closed med capability-rolle, `FJORD_DEPLOYMENT_ENVIRONMENT=investor-demo` og `FJORD_FINANCIAL_SIMULATION_ENABLED=true`. Kontrollert kommando (`npm run fi-sim:activation`) med atomisk activate/rollback/deactivate finnes, og `FinancialDatasetActivationAudit` skrives av en trigger på selve pekeren — aktivering uten navngitt aktør og begrunnelse avvises av databasen. Cache, analyser, snapshots og eksporter er allerede versjonert på datasettversjon. **Gjenstår: reell runtime-principal.** |
-| F9–F11 | Ikke startet | UI/eksport/Njord, operativ demo og teardown-repetisjon gjenstår. |
+| F9 | Nesten fullført | `lib/financial-simulation-disclosure.ts` eier ordlyden ett sted. Vedvarende banner og markering per celle i regnskapstabellen, merking som ikke er farge alene, disclaimer og datasettmetadata inne i råuttrekket, og `simulationNotice` i Njord-svarene. De seks fail-closed-kastene «requires labeling before use» er erstattet med faktisk merking. Kommentar- og evidence-mutasjoner mot simulerte statements avvises fortsatt. **Gjenstår: visuell markering i grafer og nøkkeltall** — datasettversjonen følger med i datamodellen, men en graf på simulerte tall ser ut som en graf på rapporterte. |
+| F10–F11 | Ikke startet | Operativ demo og teardown-repetisjon gjenstår. |
 
 **Den ene gjenstående F8-tingen, sagt tydelig:** applikasjonen kobler seg fortsatt til databasen som eieren, ikke som et medlem av `fjord_financial_runtime`. `REVOKE`-ene og `pg_has_role`-sjekkene er reelle og verifiseres av porten, men de beskytter ingenting så lenge runtime-tilkoblingen er superbruker. Det er en deploy- og tilkoblingsendring, ikke en kodeendring i dette laget, og stoppkriteriet «database-rollen kan ikke begrenses til live-viewene» er ikke innfridd før den er gjort.
 
@@ -312,6 +313,18 @@ Etter hver gruppe kjøres parity-test i rapportert modus før neste gruppe flytt
 - E2E-test dekker tabell, graf, metric, eksport og Njord i begge modi.
 - Tilgjengelighetstest bekrefter at markering ikke bare kommuniseres med farge.
 - API-contract test hindrer syntetisk provenance i å bli serialisert som rapportert.
+
+**Bevis (9. august 2026)**
+
+| Port | Hvor den holdes | Status |
+|---|---|---|
+| Begge modi dekket | `financial-time-series-table.test.ts` (banner og markering, med og uten simulering), `raw-financials-reader.test.ts` (uttrekk i begge modi), `estimate-group-financials.test.ts` og `build-mna-pro-forma.test.ts` (Njord i begge modi), `watchlist-financials-service.test.ts`, `dd-financial-evidence-reader.test.ts`, `distress-repository.test.ts`. | Innfridd for tabell, uttrekk og Njord |
+| Markering ikke bare farge | Markøren er en tekstforkortelse med `sr-only`-setning bak og `data-value-origin="synthetic"`. Testen sjekker teksten, ikke klassenavnet. | Innfridd |
+| Ingen nedgradert proveniens | `raw-financials-reader.test.ts` går gjennom hver syntetiske linje og krever FI-SIM-kilde, ingen `reportedFinancialLineItemId`, ingen sidereferanse, ingen publiseringsdato og en `simulated:`-datasettversjon. | Innfridd |
+
+**Ikke gjort, og verdt å vite:** grafer og nøkkeltall viderefører datasettversjon og opprinnelse i datamodellen, men har ingen egen visuell markering ennå. Regnskapstabellen og uttrekket er merket; en graf tegnet på simulerte tall ser i dag ut som en graf tegnet på rapporterte. Det hører til samme port og er ikke innfridd.
+
+**Merk om verifisering i nettleser:** regnskapsfanen ligger bak innlogging, så rendringen er verifisert med komponenttester og en 200-respons fra dev-serveren uten server- eller konsollfeil, ikke ved å se på fanen.
 
 ### F10 — Demo-dataset og operativ prøve
 

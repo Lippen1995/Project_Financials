@@ -3,6 +3,11 @@ import React from "react";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  SIMULATED_FINANCIALS_NOTICE,
+  SIMULATED_LINE_MARKER,
+  SIMULATED_LINE_NOTICE,
+} from "@/lib/financial-simulation-disclosure";
 import { FinancialTimeSeriesTable } from "@/components/company/financial-time-series-table";
 import type {
   DataAvailability,
@@ -436,5 +441,137 @@ describe("FinancialTimeSeriesTable", () => {
     expect(rowMarkup("total_assets")).toContain("bg-[var(--px-accent-soft)]");
     expect(rowMarkup("total_equity_and_liabilities")).toContain("font-bold");
     expect(rowMarkup("total_equity_and_liabilities")).toContain("bg-[var(--px-accent-soft)]");
+  });
+});
+
+describe("FinancialTimeSeriesTable simulated disclosure", () => {
+  const simulatedStatement: NormalizedFinancialStatement = {
+    sourceSystem: "FI-SIM",
+    sourceEntityType: "simulatedFinancialStatement",
+    sourceId: "simulated:demo-1:company-1:2025:COMPANY",
+    fetchedAt: new Date("2026-08-09T10:00:00.000Z"),
+    normalizedAt: new Date("2026-08-09T10:00:00.000Z"),
+    fiscalYear: 2025,
+    currency: "NOK",
+    statementScope: "COMPANY",
+    revenue: 1_000,
+    operatingProfit: 100,
+    netIncome: 80,
+    equity: 400,
+    assets: 900,
+  };
+
+  function simulatedLine(
+    overrides: Partial<NormalizedFinancialLineItem> = {},
+  ): NormalizedFinancialLineItem {
+    return {
+      id: "simulated:line-1",
+      filingId: null,
+      fiscalYear: 2025,
+      statementType: "INCOME_STATEMENT",
+      statementScope: "COMPANY",
+      metricKey: null,
+      label: "Sum driftsinntekter",
+      originalValue: null,
+      value: 1_000,
+      currency: "NOK",
+      unitScale: 1,
+      sourcePage: null,
+      sortOrder: 60,
+      publicationSource: "FI_SIM",
+      sourceSystem: "FI-SIM",
+      sourceEntityType: "simulatedFinancialLine",
+      sourceId: "simulated:line-1",
+      ...overrides,
+    };
+  }
+
+  const disclosure = {
+    financialDatasetMode: "simulated" as const,
+    financialDatasetVersion: "simulated:demo-1:3" as const,
+    simulated: true,
+    notice: SIMULATED_FINANCIALS_NOTICE,
+  };
+
+  it("shows a persistent banner naming the dataset above the statements", () => {
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable
+        statements={[simulatedStatement]}
+        documents={[]}
+        lineItems={[simulatedLine()]}
+        companySlug="company-test"
+        disclosure={disclosure}
+      />,
+    );
+
+    expect(html).toContain(SIMULATED_FINANCIALS_NOTICE);
+    expect(html).toContain("simulated:demo-1:3");
+    expect(html).toContain('role="note"');
+  });
+
+  it("shows no banner on reported figures", () => {
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable
+        statements={[{ ...simulatedStatement, sourceSystem: "BRREG" }]}
+        documents={[]}
+        companySlug="company-test"
+        disclosure={{
+          financialDatasetMode: "reported",
+          financialDatasetVersion: "reported:21",
+          simulated: false,
+          notice: null,
+        }}
+      />,
+    );
+
+    expect(html).not.toContain(SIMULATED_FINANCIALS_NOTICE);
+  });
+
+  it("marks a synthetic figure in text a screen reader can announce, not by colour", () => {
+    // FI-SIM-2026.1 section 12 requires every synthetic line to be marked. A marker that only
+    // exists as a class name or a colour would pass a visual review and fail a real reader.
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable
+        statements={[simulatedStatement]}
+        documents={[]}
+        lineItems={[simulatedLine()]}
+        companySlug="company-test"
+        disclosure={disclosure}
+      />,
+    );
+
+    expect(html).toContain('data-value-origin="synthetic"');
+    expect(html).toContain(SIMULATED_LINE_MARKER);
+    expect(html).toContain(SIMULATED_LINE_NOTICE);
+    expect(html).toContain("sr-only");
+  });
+
+  it("marks only the years whose figure is synthetic", () => {
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable
+        statements={[
+          simulatedStatement,
+          { ...simulatedStatement, fiscalYear: 2024, sourceSystem: "BRREG" },
+        ]}
+        documents={[]}
+        lineItems={[
+          simulatedLine(),
+          simulatedLine({
+            id: "reported:line-2",
+            fiscalYear: 2024,
+            filingId: "statement-2024",
+            publicationSource: "LIVE_REPORTED",
+            sourceSystem: "BRREG",
+            sourceEntityType: "structuredAnnualAccountsLine",
+            sourceId: "reported:line-2",
+          }),
+        ]}
+        companySlug="company-test"
+        disclosure={disclosure}
+      />,
+    );
+
+    // One marked cell for the simulated year, and no second one for the reported year.
+    expect(html.match(/data-value-origin="synthetic"/g) ?? []).toHaveLength(2);
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { financialDisclosureFor } from "@/lib/financial-simulation-disclosure";
 import { BrregFinancialsProvider } from "@/integrations/brreg/brreg-financials-provider";
 import type { StructuredAnnualAccounts } from "@/integrations/brreg/structured-regnskap";
 import {
@@ -48,6 +49,7 @@ function publicFinancials(
     reportedStatementId: account.sourceId,
     statementOrigin: "reported",
     financialDatasetVersion: "reported:1",
+    disclosure: financialDisclosureFor("reported", "reported:1"),
     taxonomyVersion: null,
     generatorVersion: null,
     sourceSystem: account.sourceSystem,
@@ -74,6 +76,7 @@ function publicFinancials(
   return {
     datasetMode: "reported",
     financialDatasetVersion: "reported:1",
+    disclosure: financialDisclosureFor("reported", "reported:1"),
     statements,
     allScopeStatements: statements,
     lineItems: [],

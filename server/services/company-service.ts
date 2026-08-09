@@ -1,3 +1,4 @@
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
 import { mergeIndustryCodeClassification } from "@/lib/industry-code";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import {
@@ -533,6 +534,9 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
   let financials: {
     datasetMode: "reported" | "simulated" | null;
     financialDatasetVersion: FinancialDatasetVersion | null;
+    // Null until financials have actually been read: a profile assembled without them has made
+    // no claim about which dataset it is on, and must not appear to have cleared a simulated one.
+    disclosure: FinancialDisclosure | null;
     statements: ProvenancedFinancialStatement[];
     allScopeStatements: ProvenancedFinancialStatement[];
     lineItems: ProvenancedFinancialLineItem[];
@@ -541,6 +545,7 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
   } = {
     datasetMode: null,
     financialDatasetVersion: null,
+    disclosure: null,
     statements: [],
     allScopeStatements: [],
     lineItems: [],
@@ -585,6 +590,7 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
     financialDocuments: financials.documents,
     financialDatasetMode: financials.datasetMode,
     financialDatasetVersion: financials.financialDatasetVersion,
+    financialDisclosure: financials.disclosure,
     financialsAvailability: financials.availability,
     regulatoryAvailability: {
       available: false,

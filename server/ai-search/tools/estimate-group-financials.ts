@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  simulatedAnswerNotice,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
 import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import { prisma } from "@/lib/prisma";
 import type {
@@ -79,6 +83,7 @@ export type GroupFinancialsDeps = {
 export type GroupFinancialSnapshot = {
   financialDatasetMode: FinancialDatasetMode;
   financialDatasetVersion: FinancialDatasetVersion;
+  disclosure: FinancialDisclosure;
   statements: GroupFinancialStatementRow[];
   depreciationRows: GroupDepreciationRow[];
 };
@@ -115,6 +120,12 @@ type OwnershipBasis =
 export type EstimateGroupFinancialsOutput = {
   financialDatasetMode: FinancialDatasetMode;
   financialDatasetVersion: FinancialDatasetVersion;
+  /**
+   * Present and non-null whenever the figures below are simulated. The tool description tells the
+   * model it must repeat it; the field is here so a caller that renders the result without a model
+   * in the loop shows it too.
+   */
+  simulationNotice: string | null;
   parent: { orgNumber: string; name: string };
   requestedYears: number;
   answerStatus: "CALCULATED_UNADJUSTED_PRO_FORMA" | "INSUFFICIENT_DATA";
@@ -267,6 +278,7 @@ function toGroupFinancialSnapshot(
   return {
     financialDatasetMode: snapshot.financialDatasetMode,
     financialDatasetVersion: snapshot.financialDatasetVersion,
+    disclosure: snapshot.disclosure,
     statements: snapshot.statements.map((statement) => ({
       id: statement.liveStatementId,
       orgNumber: statement.orgNumber,
@@ -416,11 +428,7 @@ export function createEstimateGroupFinancialsTool(
         ? null
         : await deps.getOwnershipProvenance(latestOwnershipYear, parentOrgNumber);
       const parentFinancials = await deps.getFinancials([parentOrgNumber]);
-      if (parentFinancials.financialDatasetMode === "simulated") {
-        throw new Error(
-          "Simulated Njord group estimates require value-origin labeling before use.",
-        );
-      }
+      const simulationNotice = simulatedAnswerNotice(parentFinancials.disclosure);
       const latestFiscalYear = parentFinancials.statements
         .filter((statement) =>
           statement.orgNumber === parentOrgNumber &&
@@ -438,6 +446,7 @@ export function createEstimateGroupFinancialsTool(
         return {
           financialDatasetMode: parentFinancials.financialDatasetMode,
           financialDatasetVersion: parentFinancials.financialDatasetVersion,
+          simulationNotice,
           parent,
           requestedYears: years,
           answerStatus: "INSUFFICIENT_DATA",
@@ -590,6 +599,7 @@ export function createEstimateGroupFinancialsTool(
       return {
         financialDatasetMode: groupFinancials.financialDatasetMode,
         financialDatasetVersion: groupFinancials.financialDatasetVersion,
+        simulationNotice,
         parent,
         requestedYears: years,
         answerStatus: hasCompleteRequestedPeriod

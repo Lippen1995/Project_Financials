@@ -418,6 +418,7 @@ export default async function CompanyPage({
     financialLineItems,
     financialDocuments,
     financialsAvailability,
+    financialDisclosure,
   } = profile;
 
   const [petroleumVisibility, ipOverview, watchInfo] = await Promise.all([
@@ -656,6 +657,7 @@ export default async function CompanyPage({
             discussionStatements={financialDiscussions}
             discussionThreads={financialMetricDiscussions}
             availability={financialsAvailability}
+            disclosure={financialDisclosure ?? undefined}
           />
 
           {financialDocuments.length > 0 ? (

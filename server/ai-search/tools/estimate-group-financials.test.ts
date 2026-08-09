@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  financialDisclosureFor,
+  SIMULATED_FINANCIALS_NOTICE,
+} from "@/lib/financial-simulation-disclosure";
+import {
   createEstimateGroupFinancialsTool,
   type GroupFinancialSnapshot,
   type GroupFinancialsDeps,
@@ -70,6 +74,7 @@ function financials(
   return {
     financialDatasetMode: "reported",
     financialDatasetVersion: "reported:22",
+    disclosure: financialDisclosureFor("reported", "reported:22"),
     statements,
     depreciationRows,
   };
@@ -261,18 +266,21 @@ describe("estimate_group_financials", () => {
     expect(result.answerStatus).toBe("INSUFFICIENT_DATA");
   });
 
-  it("rejects an injected simulated snapshot until value-origin labels are supported", async () => {
+  it("states in the result that a simulated group estimate is a demonstration", async () => {
     const tool = createEstimateGroupFinancialsTool(deps({
       getFinancials: async () => ({
         ...financials(),
         financialDatasetMode: "simulated",
         financialDatasetVersion: "simulated:investor-demo:23",
+        disclosure: financialDisclosureFor("simulated", "simulated:investor-demo:23"),
       }),
     }));
 
-    await expect(
-      tool.execute({ parentOrgNumber: "111111111", years: 1 }),
-    ).rejects.toThrow(/labeling/);
+    const result = await tool.execute({ parentOrgNumber: "111111111", years: 1 });
+
+    expect(result.financialDatasetMode).toBe("simulated");
+    expect(result.simulationNotice).toContain(SIMULATED_FINANCIALS_NOTICE);
+    expect(result.simulationNotice).toContain("simulated:investor-demo:23");
   });
 
   it("rejects a calculation when the live dataset version changes between reads", async () => {

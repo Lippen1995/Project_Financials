@@ -1,3 +1,7 @@
+import {
+  buildFinancialDisclosure,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
 import type {
   FinancialDatasetMode,
   FinancialDatasetVersion,
@@ -24,6 +28,7 @@ export type WatchlistFinancialStatement = {
 export type WatchlistFinancialsSnapshot = {
   datasetMode: FinancialDatasetMode;
   financialDatasetVersion: FinancialDatasetVersion;
+  disclosure: FinancialDisclosure;
   statementsByCompany: Record<string, WatchlistFinancialStatement[]>;
 };
 
@@ -40,11 +45,6 @@ export function createWatchlistFinancialsService(
         companyIds,
         statementScope: "COMPANY",
       });
-      if (snapshot.datasetMode === "simulated") {
-        throw new Error(
-          "Simulated watchlist financials require statement labeling before display.",
-        );
-      }
       const statementsByCompany: Record<string, WatchlistFinancialStatement[]> = {};
 
       for (const statement of snapshot.statements) {
@@ -69,6 +69,7 @@ export function createWatchlistFinancialsService(
       return {
         datasetMode: snapshot.datasetMode,
         financialDatasetVersion: snapshot.financialDatasetVersion,
+        disclosure: buildFinancialDisclosure(snapshot),
         statementsByCompany,
       };
     },

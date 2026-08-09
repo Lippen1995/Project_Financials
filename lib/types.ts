@@ -122,6 +122,20 @@ export type FinancialDatasetMode = "reported" | "simulated";
 export type FinancialStatementOrigin = "reported" | "hybrid" | "simulated";
 export type FinancialValueOrigin = "reported" | "synthetic";
 
+/**
+ * What a surface has to tell the reader about where its figures came from. The wording and the
+ * rules for building one live in `lib/financial-simulation-disclosure`; the shape lives here with
+ * the rest of the financial contract so every payload type can carry it.
+ */
+export type FinancialDisclosure = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
+  /** True when any figure on this surface is synthetic rather than reported. */
+  simulated: boolean;
+  /** The sentence the surface must show when `simulated`. Null when nothing is simulated. */
+  notice: string | null;
+};
+
 export type ProvenancedFinancialStatement = NormalizedFinancialStatement & {
   liveStatementId: string;
   reportedStatementId: string | null;
@@ -299,6 +313,8 @@ export type CompanyProfile = {
   /** Active live-view dataset. Null only when financials were intentionally not read. */
   financialDatasetMode: FinancialDatasetMode | null;
   financialDatasetVersion: FinancialDatasetVersion | null;
+  /** What the page must tell the reader about where these figures came from. Null with the above. */
+  financialDisclosure: FinancialDisclosure | null;
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;
   petroleum?: CompanyPetroleumProfile | null;

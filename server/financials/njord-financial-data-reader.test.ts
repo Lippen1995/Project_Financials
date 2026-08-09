@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { SIMULATED_FINANCIALS_NOTICE } from "@/lib/financial-simulation-disclosure";
 import { createNjordFinancialDataReader } from "./njord-financial-data-reader";
 
 const observedAt = new Date("2026-08-07T00:00:00.000Z");
@@ -74,7 +75,7 @@ describe("Njord financial data reader", () => {
     });
   });
 
-  it("fails closed when simulated Njord values cannot yet be labeled", async () => {
+  it("labels a simulated snapshot rather than refusing to answer from it", async () => {
     const reader = createNjordFinancialDataReader(
       {
         findCompanies: vi.fn().mockResolvedValue([
@@ -90,9 +91,14 @@ describe("Njord financial data reader", () => {
       },
     );
 
-    await expect(reader.readCompanies(["111111111"])).rejects.toThrow(
-      /labeling/i,
-    );
+    const snapshot = await reader.readCompanies(["111111111"]);
+
+    expect(snapshot.disclosure).toEqual({
+      financialDatasetMode: "simulated",
+      financialDatasetVersion: "simulated:demo-1:3",
+      simulated: true,
+      notice: SIMULATED_FINANCIALS_NOTICE,
+    });
   });
 
   it("withholds D&A when the live statement has more than one mapped candidate", async () => {

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  SIMULATED_EXPORT_DISCLAIMER,
+  SIMULATED_FINANCIALS_NOTICE,
+} from "@/lib/financial-simulation-disclosure";
 import { createRawFinancialsReader } from "./raw-financials-reader";
 
 const observedAt = new Date("2026-08-07T00:00:00.000Z");
@@ -313,5 +317,69 @@ describe("raw financials reader", () => {
       "reported:line-consolidated",
       "reported:line-older",
     ]);
+  });
+});
+
+describe("raw financials export disclosure", () => {
+  it("carries the export disclaimer and dataset metadata inside the extract", async () => {
+    // A raw extract is the surface most likely to be pasted somewhere else, so the disclaimer has
+    // to be inside the payload rather than added by whoever renders it.
+    const reader = createRawFinancialsReader(
+      { findCompany: vi.fn().mockResolvedValue({ id: "company-1" }) },
+      { getCompaniesFinancials: vi.fn().mockResolvedValue(simulatedSnapshot()) },
+    );
+
+    const result = await reader.readCompany({ companyReference: "931075268" });
+
+    expect(result?.disclosure).toEqual({
+      financialDatasetMode: "simulated",
+      financialDatasetVersion: "simulated:dataset-1:5",
+      simulated: true,
+      notice: SIMULATED_FINANCIALS_NOTICE,
+      disclaimer: SIMULATED_EXPORT_DISCLAIMER,
+    });
+  });
+
+  it("adds no disclaimer to a reported extract", async () => {
+    const reader = createRawFinancialsReader(
+      { findCompany: vi.fn().mockResolvedValue({ id: "company-1" }) },
+      { getCompaniesFinancials: vi.fn().mockResolvedValue(reportedSnapshot()) },
+    );
+
+    const result = await reader.readCompany({ companyReference: "931075268" });
+
+    expect(result?.disclosure).toMatchObject({
+      simulated: false,
+      notice: null,
+      disclaimer: null,
+    });
+  });
+
+  it("never serialises a synthetic line as a reported one", async () => {
+    // The API contract port: a synthetic value must not reach a caller wearing reported clothes,
+    // and must never carry a filing, document or submission reference it does not have.
+    const reader = createRawFinancialsReader(
+      { findCompany: vi.fn().mockResolvedValue({ id: "company-1" }) },
+      { getCompaniesFinancials: vi.fn().mockResolvedValue(simulatedSnapshot()) },
+    );
+
+    const result = await reader.readCompany({ companyReference: "931075268" });
+    const synthetic = result!.data.filter((line) => line.valueOrigin === "synthetic");
+
+    expect(synthetic.length).toBeGreaterThan(0);
+    for (const line of synthetic) {
+      expect(line.publicationSource).toBe("FI_SIM");
+      expect(line.sourceSystem).toBe("FI-SIM");
+      expect(line.reportedFinancialLineItemId).toBeNull();
+      expect(line.sourcePage).toBeNull();
+      expect(line.sourceExtractionRunId).toBeNull();
+      expect(line.publishedAt).toBeNull();
+      expect(line.derivationRuleId).not.toBeNull();
+      expect(line.financialDatasetVersion.startsWith("simulated:")).toBe(true);
+    }
+    for (const statement of result!.statements) {
+      expect(statement.statementOrigin).not.toBe("reported");
+      expect(statement.reportedStatementId).toBeNull();
+    }
   });
 });

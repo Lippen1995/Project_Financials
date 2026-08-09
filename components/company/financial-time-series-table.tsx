@@ -5,6 +5,11 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import { buildThreadedComments, ThreadedCommentNode } from "@/lib/comment-thread";
 import {
+  SIMULATED_LINE_MARKER,
+  SIMULATED_LINE_NOTICE,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
+import {
   buildFinancialReportDataset,
   calculateGrowth,
   financialReportRows,
@@ -32,6 +37,44 @@ import {
 import { cn } from "@/lib/utils";
 
 const MINUS = "−";
+
+/**
+ * The marker on a single simulated figure.
+ *
+ * It is a text abbreviation with a screen-reader sentence behind it, not a colour or an icon.
+ * FI-SIM-2026.1 section 12 requires every synthetic line to be marked, and a mark that only a
+ * sighted reader with a working colour display can see is not a mark.
+ */
+function SimulatedValueMarker() {
+  return (
+    <sup
+      data-value-origin="synthetic"
+      title={SIMULATED_LINE_NOTICE}
+      className="ml-1 align-super font-sans text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--px-muted)]"
+    >
+      <span aria-hidden="true">{SIMULATED_LINE_MARKER}</span>
+      <span className="sr-only">{SIMULATED_LINE_NOTICE}</span>
+    </sup>
+  );
+}
+
+/** The persistent statement-level banner, from FI-SIM-2026.1 section 12. */
+function SimulatedFinancialsBanner({ disclosure }: { disclosure: FinancialDisclosure }) {
+  return (
+    <div
+      role="note"
+      data-financial-dataset-mode={disclosure.financialDatasetMode}
+      className="rounded-lg border border-[var(--px-border-subtle)] bg-[var(--px-subtle)] px-4 py-3"
+    >
+      <p className="text-[13px] font-semibold text-[var(--px-text)]">{disclosure.notice}</p>
+      <p className="mt-1 text-[12px] text-[var(--px-muted)]">
+        Tall merket <span className="font-semibold">{SIMULATED_LINE_MARKER}</span> er generert for
+        demonstrasjon og er ikke hentet fra virksomhetens innsendte regnskap. Datasett{" "}
+        <span className="font-mono">{disclosure.financialDatasetVersion}</span>.
+      </p>
+    </div>
+  );
+}
 
 // A statement never shows more than this many years at once; older years are
 // reached with the pager. Matches the design's six-column document window.
@@ -550,10 +593,13 @@ export function FinancialTimeSeriesTable({
   discussionStatements,
   discussionThreads = [],
   availability,
+  disclosure,
 }: {
   statements: NormalizedFinancialStatement[];
   documents: NormalizedFinancialDocument[];
   lineItems?: NormalizedFinancialLineItem[];
+  /** Says whether these figures come from a demonstration dataset. */
+  disclosure?: FinancialDisclosure;
   companySlug: string;
   discussionRoomId?: string | null;
   discussionRoomName?: string | null;
@@ -1396,17 +1442,25 @@ export function FinancialTimeSeriesTable({
                       <td className="px-2 py-2 text-center font-mono text-[11px] text-[var(--px-muted)]">
                         {latestVisibleItem?.sourcePage ?? ""}
                       </td>
-                      {visibleYears.map((year) => (
-                        <td
-                          key={year}
-                          className={cn(
-                            "tabular-nums px-2 py-2.5 text-right font-mono text-[13px]",
-                            year === latestYear ? "text-[var(--px-text)]" : "text-[var(--px-muted)]",
-                          )}
-                        >
-                          {formatUnitAmount(row.valuesByYear.get(year)?.value ?? null, unit, { report: true })}
-                        </td>
-                      ))}
+                      {visibleYears.map((year) => {
+                        const item = row.valuesByYear.get(year);
+                        // Marked per cell, not per row: on a hybrid statement the same line can be
+                        // a reported figure one year and a generated one the next.
+                        const synthetic = item?.publicationSource === "FI_SIM";
+                        return (
+                          <td
+                            key={year}
+                            data-value-origin={synthetic ? "synthetic" : undefined}
+                            className={cn(
+                              "tabular-nums px-2 py-2.5 text-right font-mono text-[13px]",
+                              year === latestYear ? "text-[var(--px-text)]" : "text-[var(--px-muted)]",
+                            )}
+                          >
+                            {formatUnitAmount(item?.value ?? null, unit, { report: true })}
+                            {synthetic ? <SimulatedValueMarker /> : null}
+                          </td>
+                        );
+                      })}
                     </tr>
                   </React.Fragment>
                 );
@@ -1420,6 +1474,7 @@ export function FinancialTimeSeriesTable({
 
   return (
     <div className="space-y-5">
+      {disclosure?.simulated ? <SimulatedFinancialsBanner disclosure={disclosure} /> : null}
       {/* heading — floats above the document card */}
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 px-1">
         <div className="min-w-0">
