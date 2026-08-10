@@ -86,6 +86,10 @@ async function main() {
       canReadLegacyLines: boolean;
       canReadLiveStatements: boolean;
       canReadLiveLines: boolean;
+      canReadCompanyMapDataset: boolean;
+      canReadCompanyMapEntities: boolean;
+      canReadCompanyMapFinancials: boolean;
+      canReadCompanyMapSnapshot: boolean;
     }>
   >`
     SELECT
@@ -102,7 +106,15 @@ async function main() {
       has_table_privilege('fjord_financial_runtime', 'live_financial_line_items_v1', 'SELECT')
         AS "canReadLegacyLines",
       has_table_privilege('fjord_financial_runtime', 'live_financial_line_items_v2', 'SELECT')
-        AS "canReadLiveLines"
+        AS "canReadLiveLines",
+      has_table_privilege('fjord_financial_runtime', 'live_company_map_dataset_v1', 'SELECT')
+        AS "canReadCompanyMapDataset",
+      has_table_privilege('fjord_financial_runtime', 'live_company_map_entities_v1', 'SELECT')
+        AS "canReadCompanyMapEntities",
+      has_table_privilege('fjord_financial_runtime', 'live_company_map_financials_v1', 'SELECT')
+        AS "canReadCompanyMapFinancials",
+      has_table_privilege('fjord_financial_runtime', '"CompanyMapFinancialSnapshot"', 'SELECT')
+        AS "canReadCompanyMapSnapshot"
   `;
   if (
     runtimePermissions.canReadReportedSource ||
@@ -111,7 +123,11 @@ async function main() {
     runtimePermissions.canReadLegacyStatements ||
     runtimePermissions.canReadLegacyLines ||
     !runtimePermissions.canReadLiveStatements ||
-    !runtimePermissions.canReadLiveLines
+    !runtimePermissions.canReadLiveLines ||
+    !runtimePermissions.canReadCompanyMapDataset ||
+    !runtimePermissions.canReadCompanyMapEntities ||
+    !runtimePermissions.canReadCompanyMapFinancials ||
+    runtimePermissions.canReadCompanyMapSnapshot
   ) {
     throw new Error("Runtime role privileges do not enforce live-view-only financial reads");
   }

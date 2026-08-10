@@ -168,6 +168,13 @@ export type CompanyMapFinancialRanking = {
   rows: CompanyMapFinancialRankingRow[];
 };
 
+export class CompanyMapFinancialDatasetInactiveError extends Error {
+  constructor() {
+    super("The published company-map financial dataset is no longer active.");
+    this.name = "CompanyMapFinancialDatasetInactiveError";
+  }
+}
+
 const liveFinancialHeadlineSchema = z
   .object({
     liveStatementId: z.string().min(1),
@@ -507,13 +514,11 @@ function companyMapPublishedFinancialsCte(
 ) {
   return Prisma.sql`
     latest_financials AS (
-      SELECT company."id" AS "companyId", financial.*
-      FROM "CompanyMapFinancialSnapshot" financial
-      JOIN "Company" company ON company."orgNumber" = financial."orgNumber"
+      SELECT financial.*
+      FROM "live_company_map_financials_v1" financial
       WHERE financial."buildId" = ${query.buildId}::uuid
         AND financial."statementScope" = ${query.statementScope}::"StatementScope"
         AND financial."currency" = ${query.currency}
-        AND financial."valueOrigin" = 'reported'
     )
   `;
 }
@@ -526,6 +531,17 @@ function companyMapEntityFilters(query: CompanyMapFinancialQuery) {
     entity."buildId" = ${query.buildId}::uuid
     AND ${organisationForms}
     AND entity."companyStatus"::text IN (${Prisma.join(query.companyStatuses)})
+  `;
+}
+
+function companyMapFinancialFilters(query: CompanyMapFinancialQuery) {
+  const organisationForms = query.organisationForms
+    ? Prisma.sql`financial."organisationForm" IN (${Prisma.join(query.organisationForms)})`
+    : Prisma.sql`TRUE`;
+  return Prisma.sql`
+    financial."buildId" = ${query.buildId}::uuid
+    AND ${organisationForms}
+    AND financial."companyStatus"::text IN (${Prisma.join(query.companyStatuses)})
   `;
 }
 
@@ -549,14 +565,17 @@ async function readCompanyMapBuildFinancialVersion(
   transaction: Prisma.TransactionClient,
   buildId: string,
 ) {
-  const build = await transaction.companyMapBuild.findUnique({
-    where: { id: buildId },
-    select: { financialDatasetVersion: true },
-  });
-  if (!build || build.financialDatasetVersion === "reported-only:pending-live-view") {
-    throw new Error("Company-map financial publication is unavailable.");
+  const [dataset] = await transaction.$queryRaw<
+    Array<{ financialDatasetVersion: string }>
+  >(Prisma.sql`
+    SELECT "financialDatasetVersion"
+    FROM "live_company_map_dataset_v1"
+    WHERE "buildId" = ${buildId}::uuid
+  `);
+  if (!dataset) {
+    throw new CompanyMapFinancialDatasetInactiveError();
   }
-  return build.financialDatasetVersion;
+  return dataset.financialDatasetVersion;
 }
 
 const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
@@ -941,12 +960,16 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
     );
   },
   async readCompanyMapFinancialRanking(query) {
-    return prisma.$transaction(
+    return financialRuntimePrisma().$transaction(
       async (transaction) => {
         const ctes = companyMapPublishedFinancialsCte(query);
         const filters = companyMapEntityFilters(query);
-        const addressFilter = query.officialAddressId
+        const financialFilters = companyMapFinancialFilters(query);
+        const entityAddressFilter = query.officialAddressId
           ? Prisma.sql`AND entity."officialAddressId" = ${query.officialAddressId}`
+          : Prisma.empty;
+        const financialAddressFilter = query.officialAddressId
+          ? Prisma.sql`AND financial."officialAddressId" = ${query.officialAddressId}`
           : Prisma.empty;
         const [financialDatasetVersion, [counts], rows] = await Promise.all([
           readCompanyMapBuildFinancialVersion(transaction, query.buildId),
@@ -955,28 +978,34 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
           >(Prisma.sql`
             WITH ${ctes}
             SELECT
-              count(*)::bigint AS "totalCount",
-              count(financial."revenue")::bigint AS "withRevenueCount"
-            FROM "CompanyMapEntitySnapshot" entity
-            LEFT JOIN latest_financials financial
-              ON financial."orgNumber" = entity."orgNumber"
-            WHERE ${filters}
-              AND entity."resolutionStatus" = 'MATCHED'
-              ${addressFilter}
+              (
+                SELECT count(*)::bigint
+                FROM "live_company_map_entities_v1" entity
+                WHERE ${filters}
+                  AND entity."resolutionStatus" = 'MATCHED'
+                  ${entityAddressFilter}
+              ) AS "totalCount",
+              (
+                SELECT count(financial."revenue")::bigint
+                FROM latest_financials financial
+                WHERE ${financialFilters}
+                  AND financial."resolutionStatus" = 'MATCHED'
+                  ${financialAddressFilter}
+              ) AS "withRevenueCount"
           `),
           transaction.$queryRaw<CompanyMapFinancialRankingDatabaseRow[]>(Prisma.sql`
             WITH ${ctes}
             SELECT
-              entity."orgNumber",
-              entity."name",
-              entity."organisationForm",
-              entity."employeeCount",
-              entity."municipality",
-              entity."officialAddressId",
-              entity."latitude",
-              entity."longitude",
-              entity."groupRootOrgNumber",
-              entity."groupRootName",
+              financial."orgNumber",
+              financial."name",
+              financial."organisationForm",
+              financial."employeeCount",
+              financial."municipality",
+              financial."officialAddressId",
+              financial."latitude",
+              financial."longitude",
+              financial."groupRootOrgNumber",
+              financial."groupRootName",
               financial."companyId",
               financial."reportedStatementId",
               financial."fiscalYear",
@@ -999,14 +1028,11 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
               financial."financialFetchedAt",
               financial."financialNormalizedAt"
             FROM latest_financials financial
-            JOIN "CompanyMapEntitySnapshot" entity
-              ON entity."buildId" = ${query.buildId}::uuid
-              AND entity."orgNumber" = financial."orgNumber"
             WHERE financial."revenue" IS NOT NULL
-              AND ${filters}
-              AND entity."resolutionStatus" = 'MATCHED'
-              ${addressFilter}
-            ORDER BY financial."revenue" DESC, entity."name" ASC, entity."orgNumber" ASC
+              AND ${financialFilters}
+              AND financial."resolutionStatus" = 'MATCHED'
+              ${financialAddressFilter}
+            ORDER BY financial."revenue" DESC, financial."name" ASC, financial."orgNumber" ASC
             LIMIT ${query.limit}
             OFFSET ${query.offset}
           `),
@@ -1053,13 +1079,13 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
                 financial."publishedAt",
                 financial."financialFetchedAt",
                 financial."financialNormalizedAt"
-              FROM "CompanyMapEntitySnapshot" entity
+              FROM "live_company_map_entities_v1" entity
               LEFT JOIN latest_financials financial
                 ON financial."orgNumber" = entity."orgNumber"
               WHERE ${filters}
                 AND entity."resolutionStatus" = 'MATCHED'
                 AND financial."revenue" IS NULL
-                ${addressFilter}
+                ${entityAddressFilter}
               ORDER BY entity."name" ASC, entity."orgNumber" ASC
               LIMIT ${remaining}
               OFFSET ${nullRevenueOffset}
@@ -1123,7 +1149,7 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
     );
   },
   async readCompanyMapMetricCoverage(query) {
-    return prisma.$transaction(
+    return financialRuntimePrisma().$transaction(
       async (transaction) => {
         const metricExpression = companyMapMetricExpressions[query.metric];
         const coverageQuery =
@@ -1134,7 +1160,7 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
                   count(entity."employeeCount") FILTER (
                     WHERE entity."resolutionStatus" = 'MATCHED'
                   )::bigint AS "plottedWithMetric"
-                FROM "CompanyMapEntitySnapshot" entity
+                FROM "live_company_map_entities_v1" entity
                 WHERE ${companyMapEntityFilters(query)}
               `
             : Prisma.sql`
@@ -1142,13 +1168,10 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
                 SELECT
                   count(${metricExpression})::bigint AS "withMetric",
                   count(${metricExpression}) FILTER (
-                    WHERE entity."resolutionStatus" = 'MATCHED'
+                    WHERE financial."resolutionStatus" = 'MATCHED'
                   )::bigint AS "plottedWithMetric"
                 FROM latest_financials financial
-                JOIN "CompanyMapEntitySnapshot" entity
-                  ON entity."buildId" = ${query.buildId}::uuid
-                  AND entity."orgNumber" = financial."orgNumber"
-                WHERE ${companyMapEntityFilters(query)}
+                WHERE ${companyMapFinancialFilters(query)}
               `;
         const [financialDatasetVersion, [coverage]] = await Promise.all([
           readCompanyMapBuildFinancialVersion(transaction, query.buildId),

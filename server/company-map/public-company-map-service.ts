@@ -13,7 +13,10 @@ import {
   getCompanyMapGridCellSize,
   getCompanyMapViewportMode,
 } from "@/server/company-map/viewport";
-import { financialsRepository } from "@/server/financials/financials-repository";
+import {
+  CompanyMapFinancialDatasetInactiveError,
+  financialsRepository,
+} from "@/server/financials/financials-repository";
 
 export class CompanyMapNotPublishedError extends Error {
   constructor() {
@@ -27,6 +30,17 @@ type OmissionStatus = Exclude<CompanyMapAddressResolutionStatus, "MATCHED">;
 function percentage(numerator: number, denominator: number): number {
   if (denominator === 0) return 0;
   return Math.round((numerator / denominator) * 1_000) / 10;
+}
+
+async function requireActiveCompanyMapFinancials<T>(read: () => Promise<T>) {
+  try {
+    return await read();
+  } catch (error) {
+    if (error instanceof CompanyMapFinancialDatasetInactiveError) {
+      throw new CompanyMapNotPublishedError();
+    }
+    throw error;
+  }
 }
 
 function filterExpression(
@@ -150,15 +164,15 @@ export async function getPublishedCompanyMapCoverage(
   );
   const eligible = Number(totals?.eligible ?? 0n);
   const plotted = Number(totals?.plotted ?? 0n);
-  const metricCoverage = await financialsRepository.getCompanyMapMetricCoverage(
-    {
+  const metricCoverage = await requireActiveCompanyMapFinancials(() =>
+    financialsRepository.getCompanyMapMetricCoverage({
       buildId: publication.buildId,
       organisationForms: query.organisationForms,
       companyStatuses: query.companyStatuses,
       statementScope: query.statementScope,
       currency: query.currency,
       metric: query.metric,
-    },
+    }),
   );
   if (
     metricCoverage.financialDatasetVersion !==
@@ -229,16 +243,18 @@ export async function getPublishedCompanyMapCompanies(
   query: CompanyMapCompaniesQuery,
 ) {
   const { publication } = await getPublication();
-  const ranking = await financialsRepository.listCompanyMapFinancialRanking({
-    buildId: publication.buildId,
-    organisationForms: query.organisationForms,
-    companyStatuses: query.companyStatuses,
-    statementScope: query.statementScope,
-    currency: query.currency,
-    officialAddressId: query.officialAddressId,
-    limit: query.limit,
-    offset: query.offset,
-  });
+  const ranking = await requireActiveCompanyMapFinancials(() =>
+    financialsRepository.listCompanyMapFinancialRanking({
+      buildId: publication.buildId,
+      organisationForms: query.organisationForms,
+      companyStatuses: query.companyStatuses,
+      statementScope: query.statementScope,
+      currency: query.currency,
+      officialAddressId: query.officialAddressId,
+      limit: query.limit,
+      offset: query.offset,
+    }),
+  );
   if (
     ranking.financialDatasetVersion !==
     publication.build.financialDatasetVersion

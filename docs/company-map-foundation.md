@@ -60,10 +60,12 @@ every request rejects a publication whose reported dataset revision is no longer
 complete candidate has passed the reported-only financial gate and is atomically published, they
 return `503` rather than exposing partial, stale or simulated data.
 
-Public ranking and metric coverage are bounded repository/database queries against
-`live_financial_statements_v1`; the application never materializes the national financial
-population or ranks it in memory. The live statement view is also the sole financial provenance
-read surface and remains the only statement view granted to the restricted runtime role.
+Public ranking and metric coverage are bounded repository/database queries against the versioned
+`live_company_map_*_v1` views; the application never materializes the national population or ranks
+it in memory. Those views expose only the atomically published reported snapshot whose version
+still matches the current reported dataset revision. The queries and version check run in one
+repeatable-read transaction through `financialRuntimePrisma()`. The restricted runtime role can
+read the views but has no direct access to the map snapshot, entity, company or revision tables.
 
 ## First national address audit (6 August 2026)
 

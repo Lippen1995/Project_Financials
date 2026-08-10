@@ -368,9 +368,13 @@ async function main() {
       has_table_privilege('fjord_financial_runtime', 'live_financial_statements_v2', 'SELECT')
         AND has_table_privilege('fjord_financial_runtime', 'live_financial_line_items_v2', 'SELECT')
         AND has_table_privilege('fjord_financial_runtime', 'live_financial_dataset_v1', 'SELECT')
+        AND has_table_privilege('fjord_financial_runtime', 'live_company_map_dataset_v1', 'SELECT')
+        AND has_table_privilege('fjord_financial_runtime', 'live_company_map_entities_v1', 'SELECT')
+        AND has_table_privilege('fjord_financial_runtime', 'live_company_map_financials_v1', 'SELECT')
         AS "canReadViews",
       has_table_privilege('fjord_financial_runtime', '"FinancialStatement"', 'SELECT')
         OR has_table_privilege('fjord_financial_runtime', '"FinancialLineItem"', 'SELECT')
+        OR has_table_privilege('fjord_financial_runtime', '"CompanyMapFinancialSnapshot"', 'SELECT')
         AS "canReadSource"
   `;
   if (!permissions?.canReadViews || permissions.canReadSource) {

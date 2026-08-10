@@ -64,7 +64,7 @@ async function main() {
   });
 
   try {
-    // What it must be able to do: every product read goes through these three views.
+    // What it must be able to do: every product read goes through versioned live views.
     const dataset = await probe.$queryRawUnsafe<Array<{ datasetMode: string }>>(
       `SELECT "datasetMode" FROM live_financial_dataset_v1`,
     );
@@ -73,7 +73,10 @@ async function main() {
     }
     await probe.$queryRawUnsafe(`SELECT 1 FROM live_financial_statements_v2 LIMIT 1`);
     await probe.$queryRawUnsafe(`SELECT 1 FROM live_financial_line_items_v2 LIMIT 1`);
-    console.log("  allowed: the three live views");
+    await probe.$queryRawUnsafe(`SELECT 1 FROM live_company_map_dataset_v1 LIMIT 1`);
+    await probe.$queryRawUnsafe(`SELECT 1 FROM live_company_map_entities_v1 LIMIT 1`);
+    await probe.$queryRawUnsafe(`SELECT 1 FROM live_company_map_financials_v1 LIMIT 1`);
+    console.log("  allowed: the six versioned live views");
 
     // What it must not be able to do. Reading the source directly is the thing the whole live-view
     // architecture exists to prevent, and writing anything at all is outside its purpose.
@@ -94,6 +97,12 @@ async function main() {
     );
     await expectDenied("the activation audit", () =>
       probe.$queryRawUnsafe(`SELECT 1 FROM "FinancialDatasetActivationAudit" LIMIT 1`),
+    );
+    await expectDenied("the company-map financial snapshot", () =>
+      probe.$queryRawUnsafe(`SELECT 1 FROM "CompanyMapFinancialSnapshot" LIMIT 1`),
+    );
+    await expectDenied("the company-map entity snapshot", () =>
+      probe.$queryRawUnsafe(`SELECT 1 FROM "CompanyMapEntitySnapshot" LIMIT 1`),
     );
     await expectDenied("a write to the reported core", () =>
       probe.$executeRawUnsafe(
