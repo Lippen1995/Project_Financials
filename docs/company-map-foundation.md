@@ -1,7 +1,7 @@
 # Public company map foundation
 
-Status: Complete address and reported-financial candidate implemented; public publication remains
-blocked until a complete Skatteetaten group snapshot is available.
+Status: Complete address, reported-financial and Skatteetaten-group dataset published in the local
+environment. Deployment integration remains separate from this data publication.
 
 ## Product contract implemented here
 
@@ -114,6 +114,39 @@ ambiguous exact matches, 43,978 outside Norway and 453,287 privacy-withheld ENK 
 counts are stored independently from financial exclusions and are never inferred from what is
 visible on the map.
 
+## First complete public publication (10 August 2026)
+
+Build `dc95ab35-85a7-4d65-b30d-3c53fdb3e620` passed the database publication gates and became the
+local `public` pointer. It binds the same immutable versions across every anonymous read:
+
+- 1,170,717 Brreg legal entities retained
+- 599,335 plotted entities and 571,382 explicit address omissions across all forms
+- group build `ba25088f-fe11-44d6-b5dd-725adbe28f75`, tax year 2025, backed by the exact
+  `COMPLETED` Skatteetaten import
+- 520,038 classified ownership relationships, 164,404 group-membership rows and 3,726 public
+  financial positions
+- reported financial version `reported:0`, with 5,685 statements for 5,400 legal entities and
+  32,946 non-null key metrics
+- zero non-reported rows in the published financial snapshot
+
+For the default active AS/ASA filter, 400,256 of 421,112 entities are plotted: 95.0% exact address
+coverage and 20,856 omissions. The omission reasons are 8,904 incomplete/invalid addresses, 8,139
+without an exact Matrikkelen match, 3,758 without a business address, 44 ambiguous exact matches,
+10 non-geographic addresses and 1 entity outside Norway.
+
+The default NOK company-account view has reported revenue for 1,163 eligible entities, including
+1,104 plotted entities. This low metric coverage is disclosed in the API and UI; it is not inferred
+or filled. Company, consolidated and other currency selections remain independently filterable.
+
+The group audit resolves Equinor Energy AS directly to Equinor ASA. The state's 67% position in
+Equinor ASA is classified as `FINANCIAL_POSITION`; no public-administration entity is a resolved
+commercial-group root, and no public AS/ASA holding is classified as a non-financial group
+relationship.
+
+Direct anonymous probes of coverage, companies and viewport returned HTTP 200 with `no-store` and
+the same build, group and financial provenance. Revenue ordering and the bounded address-point
+viewport were both exercised against the published dataset.
+
 ## Browser serving contract
 
 The anonymous MVP uses `/api/company-map/viewport` as a deliberately bounded interim read path.
@@ -125,9 +158,9 @@ from receiving the full entity universe but does not settle the long-term nation
 
 ## Deliberate next steps
 
-- Complete and publish the Skatteetaten group snapshot, run
-  `npm run company-map:build -- --publish`, and verify the public pointer without weakening the
-  group gate.
+- Integrate this feature branch into the deployment branch and configure the production refresh
+  sequence. Every refresh must rebuild the group projection after a new `COMPLETED` shareholder
+  import, then publish a new map candidate without weakening the gates.
 - Benchmark the interim indexed viewport endpoint against PostGIS MVT and precomputed vector
   tiles before choosing the production-scale national serving implementation. The browser must
   never receive the full entity universe.
