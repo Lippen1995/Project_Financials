@@ -1,10 +1,10 @@
-# FI-SIM valideringsrapport: fi-sim-investor-2026.1-20260810-b
+# FI-SIM valideringsrapport: fi-sim-investor-2026.1-20260810-c
 
 Datasettet er skrevet og validert.
 
 | | |
 |---|---|
-| Kjørt | 2026-08-10T20:22:32.387Z |
+| Kjørt | 2026-08-10T20:45:20.933Z |
 | Taksonomi | FI-SIM-2026.1 |
 | Generator | fi-sim-generator-2026.1 |
 | Antakelser | fi-sim-assumptions-2026.1 |
@@ -17,34 +17,34 @@ Datasettet er skrevet og validert.
 
 | | |
 |---|---|
-| Selskaper forsøkt | 9004 |
-| Selskaper med minst én periode | 7388 |
-| Selskaper uten noen periode | 1616 |
-| Perioder | 25874 |
-| Statements | 51748 |
-| – hybride | 9980 |
-| – helt simulerte | 41768 |
-| Rapporterte ankerlinjer | 62449 |
-| Syntetiske linjer | 758066 |
-| Andel linjer som er rapporterte ankere | 7.6 % |
-| År hoppet over (før stiftelse eller ikke avsluttet) | 14883 |
+| Selskaper forsøkt | 10843 |
+| Selskaper med minst én periode | 9004 |
+| Selskaper uten noen periode | 1839 |
+| Perioder | 33354 |
+| Statements | 66708 |
+| – hybride | 11926 |
+| – helt simulerte | 54782 |
+| Rapporterte ankerlinjer | 74747 |
+| Syntetiske linjer | 982771 |
+| Andel linjer som er rapporterte ankere | 7.1 % |
+| År hoppet over (før stiftelse eller ikke avsluttet) | 15855 |
 
 ## Profilfordeling
 
 | Profil | Antall |
 |---|---|
-| SERVICE | 13789 |
-| TRADE | 5094 |
-| MANUFACTURING_CONSTRUCTION | 4570 |
-| PROPERTY | 2214 |
-| HOLDING_INVESTMENT | 207 |
+| SERVICE | 17667 |
+| TRADE | 6512 |
+| MANUFACTURING_CONSTRUCTION | 5873 |
+| PROPERTY | 2988 |
+| HOLDING_INVESTMENT | 314 |
 
 ## Scopefordeling
 
 | Scope | Antall |
 |---|---|
-| COMPANY | 25091 |
-| CONSOLIDATED | 783 |
+| COMPANY | 32291 |
+| CONSOLIDATED | 1063 |
 
 ## Ankertyper
 
@@ -52,34 +52,34 @@ Hvilke konsepter som ble bundet til en rapportert linje, og hvor ofte.
 
 | Konsept | Antall |
 |---|---|
-| ProfitForPeriod | 4990 |
-| AssetsTotal | 4990 |
-| EquityTotal | 4988 |
-| CurrentAssetsTotal | 4976 |
-| LiabilitiesTotal | 4959 |
-| ProfitBeforeTax | 4956 |
-| OperatingResult | 4834 |
-| OperatingIncomeTotal | 4802 |
-| OperatingExpenseTotal | 4779 |
-| CurrentLiabilitiesTotal | 4749 |
-| AccumulatedResults | 4726 |
-| NetFinancialResult | 4607 |
-| LongTermLiabilitiesTotal | 4093 |
+| ProfitForPeriod | 5963 |
+| AssetsTotal | 5963 |
+| EquityTotal | 5960 |
+| CurrentAssetsTotal | 5949 |
+| LiabilitiesTotal | 5929 |
+| ProfitBeforeTax | 5925 |
+| OperatingResult | 5797 |
+| OperatingIncomeTotal | 5763 |
+| OperatingExpenseTotal | 5741 |
+| CurrentLiabilitiesTotal | 5709 |
+| AccumulatedResults | 5645 |
+| NetFinancialResult | 5559 |
+| LongTermLiabilitiesTotal | 4844 |
 
 ## Residualer
 
 | | |
 |---|---|
-| Avrundingsdifferanser | 2692 |
+| Avrundingsdifferanser | 3281 |
 | Ufordelte differanser til manuell kontroll | 0 |
 | Største absolutte residual | 2000000 |
 
 | Identitet | Antall |
 |---|---|
-| BalanceEquation | 1127 |
-| ProfitBeforeTax | 746 |
-| OperatingResult | 625 |
-| LiabilitiesTotal | 193 |
+| BalanceEquation | 1364 |
+| ProfitBeforeTax | 913 |
+| OperatingResult | 770 |
+| LiabilitiesTotal | 233 |
 | EquityTotal | 1 |
 
 ## Mappinggrad
@@ -92,11 +92,11 @@ Alle genererte linjer skrives med `metricKey = null`, jf. spec seksjon 11. Mappi
 
 | Feilkode | Antall |
 |---|---|
-| CONTRADICTORY_REPORTED_ANCHORS | 1022 |
-| INVALID_PERIOD | 685 |
-| UNSOLVABLE_STATEMENT_IDENTITY | 108 |
-| INVALID_UNIT_OR_CURRENCY | 83 |
-| UNSUPPORTED_SIMULATION_PROFILE | 65 |
+| CONTRADICTORY_REPORTED_ANCHORS | 1216 |
+| INVALID_PERIOD | 830 |
+| INVALID_UNIT_OR_CURRENCY | 117 |
+| UNSUPPORTED_SIMULATION_PROFILE | 85 |
+| UNSOLVABLE_STATEMENT_IDENTITY | 37 |
 
 ## Selskaper som ikke støttes
 
@@ -161,7 +161,6 @@ Alle genererte linjer skrives med `metricKey = null`, jf. spec seksjon 11. Mappi
 | 829231212 | COMPANY | UNSOLVABLE_STATEMENT_IDENTITY | Operating expenses solve to -27217, which no statement can publish |
 | 829290162 | COMPANY | CONTRADICTORY_REPORTED_ANCHORS | Reported equity 461264 exceeds reported total assets 458458 |
 | 829401142 | COMPANY | INVALID_PERIOD | The company has neither a registration date nor a filed statement, so no period can be proved to fall after it was founded |
-| 829997282 | COMPANY | UNSOLVABLE_STATEMENT_IDENTITY | Operating expenses solve to -27226, which no statement can publish |
 | 830087192 | COMPANY | CONTRADICTORY_REPORTED_ANCHORS | OperatingResult is off by -163183990 against reported anchors, beyond the review tolerance of 14 |
 | 830162852 | COMPANY | CONTRADICTORY_REPORTED_ANCHORS | OperatingResult is off by -121776278 against reported anchors, beyond the review tolerance of 29 |
 | 830306862 | COMPANY | INVALID_PERIOD | The company has neither a registration date nor a filed statement, so no period can be proved to fall after it was founded |
@@ -202,7 +201,8 @@ Alle genererte linjer skrives med `metricKey = null`, jf. spec seksjon 11. Mappi
 | 834929422 | COMPANY | INVALID_PERIOD | The company has neither a registration date nor a filed statement, so no period can be proved to fall after it was founded |
 | 834940132 | COMPANY | NO_PUBLISHABLE_PERIOD | The company was registered 2025-01-29, after this period starts |
 | 835054462 | COMPANY | NO_PUBLISHABLE_PERIOD | The company was registered 2025-02-18, after this period starts |
-| … og 1586 til | | | |
+| 835145972 | COMPANY | INVALID_PERIOD | The company has neither a registration date nor a filed statement, so no period can be proved to fall after it was founded |
+| … og 1805 til | | | |
 
 ## Perioder som ikke kan publiseres
 
@@ -220,3 +220,13 @@ _Ingen. Alle perioder består validering._
 | 938702675 | COMPANY | 2024 | 2000000 |
 | 938702675 | COMPANY | 2025 | -1000000 |
 | 963865724 | COMPANY | 2024 | 2000000 |
+| 986529551 | COMPANY | 2024 | 1000000 |
+| 986529551 | COMPANY | 2025 | 1000000 |
+| 986529551 | CONSOLIDATED | 2025 | -1000000 |
+| 991036393 | CONSOLIDATED | 2025 | -1000 |
+| 991279539 | COMPANY | 2025 | -1000000 |
+| 991279539 | CONSOLIDATED | 2025 | -1000000 |
+| 991478450 | COMPANY | 2025 | 1000000 |
+| 992614145 | COMPANY | 2024 | -1000000 |
+| 996739848 | CONSOLIDATED | 2025 | -2000000 |
+| 999256864 | CONSOLIDATED | 2024 | -1000000 |
