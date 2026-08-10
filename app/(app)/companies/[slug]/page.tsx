@@ -455,9 +455,7 @@ export default async function CompanyPage({
     { id: "konsern", label: "Konsern" },
     { id: "aksjonaerer", label: "Aksjonærer og roller" },
     { id: "kunngjoringer", label: "Kunngjøringer" },
-    { id: "dokumenter", label: "Dokumenter" },
     { id: "nyheter", label: "Nyheter" },
-    { id: "nettilknytning", label: "Nettilknytning" },
   ];
   if (petroleumVisibility.available) {
     availableTabs.push({ id: "sokkeleksponering", label: "Sokkeleksponering" });
