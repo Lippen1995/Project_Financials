@@ -143,9 +143,10 @@ Equinor ASA is classified as `FINANCIAL_POSITION`; no public-administration enti
 commercial-group root, and no public AS/ASA holding is classified as a non-financial group
 relationship.
 
-Direct anonymous probes of coverage, companies and viewport returned HTTP 200 with `no-store` and
-the same build, group and financial provenance. Revenue ordering and the bounded address-point
-viewport were both exercised against the published dataset.
+Direct anonymous probes of coverage, companies and viewport returned HTTP 200 with `no-store`.
+Coverage and companies returned matching build, group and financial provenance; viewport returned
+the same build provenance and passed the same publication gates. Revenue ordering and the bounded
+address-point viewport were both exercised against the published dataset.
 
 ## Browser serving contract
 
