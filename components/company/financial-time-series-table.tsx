@@ -582,12 +582,20 @@ export function FinancialTimeSeriesTable({
     }
     return scopes;
   }, [lineItems, statements]);
-  // Scope/basis/view/density are fixed to the 5C mock defaults — the extra
-  // toggles were removed to match the design. Konsern is preferred when both
-  // statement scopes are available.
-  const activeScope: "COMPANY" | "CONSOLIDATED" = availableScopes.has("CONSOLIDATED")
+  // Konsern is the default when a company publishes both, because that is the set a reader of a
+  // group's accounts means. But it cannot be the only one available: for a holding company the
+  // parent's own figures are the interesting ones, and for Reach Subsea ASA the difference is
+  // 2,7 milliarder against 26 millioner — two entirely different companies on the same page.
+  const [preferredScope, setPreferredScope] = useState<"COMPANY" | "CONSOLIDATED" | null>(null);
+  const defaultScope: "COMPANY" | "CONSOLIDATED" = availableScopes.has("CONSOLIDATED")
     ? "CONSOLIDATED"
     : "COMPANY";
+  const activeScope: "COMPANY" | "CONSOLIDATED" =
+    preferredScope && availableScopes.has(preferredScope) ? preferredScope : defaultScope;
+  const scopeOptions = ([
+    { value: "CONSOLIDATED", label: "Konsern" },
+    { value: "COMPANY", label: "Selskap" },
+  ] as const).filter((option) => availableScopes.has(option.value));
   const scopedStatements = useMemo(
     () =>
       availableScopes.size > 1
@@ -607,9 +615,14 @@ export function FinancialTimeSeriesTable({
   // Default is always "Som rapportert" when the as-reported statements exist;
   // a subtle toggle lets the user switch to the standardized view. View and
   // density stay fixed to the 5C mock defaults.
-  const [basis, setBasis] = useState<"standardized" | "reported">(
+  const [preferredBasis, setBasis] = useState<"standardized" | "reported">(
     scopedLineItems.length > 0 ? "reported" : "standardized",
   );
+  // The as-reported view is built from line items, and the two scopes do not always both have
+  // them — a company can file a full group statement and only headline figures for the parent.
+  // Without this, switching scope could leave the reader looking at an empty page.
+  const basis: "standardized" | "reported" =
+    scopedLineItems.length > 0 ? preferredBasis : "standardized";
   const mode: FinancialValueMode = "amount";
   const densityMode: FinancialDensityMode = "all";
   const [unit, setUnit] = useState<FinancialUnit>("MNOK");
@@ -1459,7 +1472,7 @@ export function FinancialTimeSeriesTable({
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 px-1">
         <div className="min-w-0">
           <div className="data-label text-[11px] uppercase text-[var(--px-muted)]">
-            Årsregnskap · {availableScopes.has("CONSOLIDATED") ? "Konsern" : "Selskap"} ·{" "}
+            Årsregnskap · {activeScope === "CONSOLIDATED" ? "Konsern" : "Selskap"} ·{" "}
             {basis === "reported"
               ? disclosure?.simulated
                 ? "FI-SIM-visning"
@@ -1472,6 +1485,18 @@ export function FinancialTimeSeriesTable({
         </div>
 
         <div className="flex items-center gap-3">
+          {scopeOptions.length > 1 ? (
+            <SegmentedControl
+              value={activeScope}
+              onChange={(scope) => {
+                setPreferredScope(scope);
+                // The two scopes rarely span the same years, so an offset from the previous one
+                // would land the reader in an empty window.
+                setOffset(0);
+              }}
+              options={scopeOptions}
+            />
+          ) : null}
           {scopedLineItems.length > 0 ? (
             <button
               type="button"
@@ -1558,7 +1583,7 @@ export function FinancialTimeSeriesTable({
           <div>
             <div className="mb-1.5">
               <div className="data-label text-[10.5px] uppercase text-[var(--px-muted)]">
-                {availableScopes.has("CONSOLIDATED") && activeScope === "CONSOLIDATED" ? "Konsern · " : ""}
+                {activeScope === "CONSOLIDATED" ? "Konsern · " : "Selskap · "}
                 Tall i {unitLabel}
               </div>
             </div>

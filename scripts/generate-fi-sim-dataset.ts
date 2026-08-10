@@ -189,6 +189,7 @@ async function main() {
         orgNumber: company.orgNumber,
         registeredAt: registry?.registeredAt ?? null,
         reportedFiscalYears: companyAnchors?.reportedFiscalYears ?? [],
+        reportedHeadlineByFiscalYear: companyAnchors?.reportedHeadlineByFiscalYear ?? {},
         signals: {
           industryCode: registry?.naceCode ?? null,
           organisationForm: registry?.organisationForm ?? null,
