@@ -532,3 +532,79 @@ describe("FI-SIM generator scale", () => {
     expect(line?.resolvedValue).toBe(2_500_000_000n);
   });
 });
+
+describe("FI-SIM generator soft reported constraints", () => {
+  it("does not read a reported revenue field as the whole operating income", () => {
+    // A company with modest sales and large other operating income reports a driftsresultat
+    // bigger than its salgsinntekt. Reading the first as OperatingIncomeTotal implies negative
+    // costs, which threw the company out of the demo entirely.
+    const generation = generateCompanyFinancials(
+      input({
+        fiscalYears: [2025],
+        reportedHeadlineByFiscalYear: {
+          2025: {
+            revenue: 100_000n,
+            operatingProfit: 4_000_000n,
+            netIncome: null,
+            equity: null,
+            assets: null,
+          },
+        },
+      }),
+    );
+
+    expect(generation.failures).toEqual([]);
+    const pkg = generation.packages[0];
+    expect(valueOf(pkg, "OperatingResult")).toBe(4_000_000n);
+    expect(valueOf(pkg, "OperatingIncomeTotal")).toBeGreaterThan(4_000_000n);
+    expect(valueOf(pkg, "OperatingExpenseTotal")).toBeGreaterThan(0n);
+    expect(validatePackages([pkg]).issues).toEqual([]);
+  });
+
+  it("lets a headline give way to another reported figure instead of failing the company", () => {
+    // 888 787 in equity against 888 532 in assets is a rounding artefact between two reported
+    // fields, not a contradiction worth removing a company from the demo for. Authority runs
+    // anchor > headline > assumption, so the softer figure moves.
+    const generation = generateCompanyFinancials(
+      input({
+        fiscalYears: [2025],
+        reportedHeadlineByFiscalYear: {
+          2025: {
+            revenue: 2_000_000n,
+            operatingProfit: 100_000n,
+            netIncome: null,
+            equity: 888_787n,
+            assets: 888_532n,
+          },
+        },
+      }),
+    );
+
+    expect(generation.failures).toEqual([]);
+    const pkg = generation.packages[0];
+    expect(valueOf(pkg, "AssetsTotal")).toBe(valueOf(pkg, "EquityAndLiabilitiesTotal"));
+    expect(validatePackages([pkg]).issues).toEqual([]);
+  });
+
+  it("still refuses when two line-level anchors genuinely contradict each other", () => {
+    // Softening applies to headlines only. An anchor is immutable, and two of them that cannot
+    // both be true is still a controlled failure rather than a quiet adjustment.
+    const generation = generateCompanyFinancials(
+      input({
+        fiscalYears: [2025],
+        anchorsByFiscalYear: {
+          2025: [
+            anchor("AssetsTotal", 1_000_000n),
+            anchor("EquityTotal", 5_000_000n),
+            anchor("AccumulatedResults", 4_000_000n),
+          ],
+        },
+      }),
+    );
+
+    expect(generation.packages).toEqual([]);
+    expect(generation.failures).toEqual([
+      expect.objectContaining({ code: "CONTRADICTORY_REPORTED_ANCHORS" }),
+    ]);
+  });
+});

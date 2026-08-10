@@ -582,6 +582,19 @@ function solveIncomeStatement(params: {
   } else {
     operatingExpense = operatingIncome - operatingResult;
   }
+
+  // A reported `revenue` field is not always the whole operating income: a company with modest
+  // sales and large other operating income reports a driftsresultat larger than its salgsinntekt,
+  // and reading the first as `OperatingIncomeTotal` then implies negative costs. When that
+  // happens the headline is simply the wrong figure for this concept, so it stops being used —
+  // the operating result keeps its reported value and the income total is solved above it.
+  if (operatingExpense < 0n && !anchoredIncome && !anchoredExpense) {
+    operatingExpense = fromNumber(
+      bandValue(yearStream, "base-operating-expense", assumptions.baseOperatingExpense),
+    );
+    operatingIncome = operatingResult + operatingExpense;
+    operatingIncomeRule = FI_SIM_DERIVATION_RULES.operatingIncome;
+  }
   if (operatingExpense < 0n) {
     throw new FiSimGenerationError(
       "UNSOLVABLE_STATEMENT_IDENTITY",
@@ -922,16 +935,33 @@ function solveBalanceSheet(params: {
   // Retained profits compound; an assumed asset turnover does not. Left alone, a fifth-year
   // company would need negative liabilities to balance. Whichever side is not a reported anchor
   // gives way, and if both are anchored the two reported figures genuinely contradict each other.
+  //
+  // Authority runs anchor > headline > assumption. An anchor is immutable; a headline is a
+  // reported figure that could not be bound to a line and may be a few kroner out against
+  // another reported field on the same statement — 888 787 in equity against 888 532 in assets is
+  // a rounding artefact, not a contradiction worth throwing a company out of the demo for. So a
+  // headline gives way to an anchor, and the difference becomes a residual a reader can see.
   if (equityTotal > assetsTotal) {
     const headroom = bandValue(yearStream, "liability-headroom", assumptions.liabilityHeadroom);
-    // A reported figure — anchored or headline — is not the side that gives way.
-    const assetsAreReported = Boolean(anchoredAssets) || headlineAssets !== null;
+    const assetsAreAnchored = Boolean(anchoredAssets);
+    const equityIsAnchored = Boolean(anchoredEquity) || Boolean(anchoredAccumulated);
+    const assetsAreReported = assetsAreAnchored || headlineAssets !== null;
     if (!assetsAreReported) {
       assetsTotal = equityTotal + fromRate(absoluteValue(equityTotal), headroom);
     } else if (!targetEquity && !anchoredAccumulated) {
       const target = assetsTotal - fromRate(absoluteValue(assetsTotal), headroom);
       accumulatedResults += target - equityTotal;
       equityTotal = target;
+    } else if (!assetsAreAnchored && equityIsAnchored) {
+      // Anchored equity wins over a headline balance-sheet total. No residual: the soft side gave
+      // way completely, so every identity still holds exactly. What changed is that the published
+      // assets figure is no longer the reported headline, and its derivation rule says so.
+      assetsTotal = equityTotal;
+      assetsRule = FI_SIM_DERIVATION_RULES.assets;
+    } else if (!equityIsAnchored) {
+      // Both are headlines, or the assets are anchored: the equity side is the softer one.
+      accumulatedResults += assetsTotal - equityTotal;
+      equityTotal = assetsTotal;
     } else {
       throw new FiSimGenerationError(
         "CONTRADICTORY_REPORTED_ANCHORS",
