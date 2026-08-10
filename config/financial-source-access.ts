@@ -37,6 +37,20 @@ export const financialSourceAccessRegistrations = [
     rationale: "Ingest coverage reporting intentionally observes source records.",
   },
   {
+    path: "scripts/verify-financial-runtime-principal.ts",
+    sources: ["FinancialStatement", "FinancialLineItem", "PublishedFinancialLineItem"],
+    classification: "source-migration",
+    rationale:
+      "Names the source tables only to prove a runtime connection is denied them; it never reads one successfully.",
+  },
+  {
+    path: "scripts/rehearse-gl-511-teardown.ts",
+    sources: ["FinancialStatement", "FinancialLineItem"],
+    classification: "source-migration",
+    rationale:
+      "The GL-511 teardown rehearsal builds a reported core in a disposable database so the removal has something real to leave behind.",
+  },
+  {
     path: "scripts/verify-fi-sim-foundation.ts",
     sources: ["FinancialStatement", "FinancialLineItem"],
     classification: "source-migration",

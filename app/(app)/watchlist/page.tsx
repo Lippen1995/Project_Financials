@@ -139,8 +139,7 @@ export default async function WatchlistPage() {
       news={news}
       alerts={alerts}
       ddRooms={ddRooms}
-      financialDatasetMode={financialSnapshot.datasetMode}
-      financialDatasetVersion={financialSnapshot.financialDatasetVersion}
+      financialDisclosure={financialSnapshot.disclosure}
     />
   );
 }

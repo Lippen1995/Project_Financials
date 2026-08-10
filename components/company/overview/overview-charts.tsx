@@ -2,9 +2,11 @@
 
 import * as React from "react";
 
+import { SimulatedValueMarker } from "@/components/company/simulated-financials-notice";
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
 import { formatCompactNok, getReportingCurrency } from "@/lib/overview-chart";
 import { formatMetricPercent, getOverviewMetricSeries, OverviewMetric } from "@/lib/overview-metrics";
-import { NormalizedFinancialStatement } from "@/lib/types";
+import { NormalizedFinancialLineItem, NormalizedFinancialStatement } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const NDASH = "–";
@@ -22,12 +24,12 @@ function fmtValue(metric: Pick<OverviewMetric, "type"> | null, value: number | n
   return metric.type === "mar" ? formatMetricPercent(value) : (formatCompactNok(value, currency) ?? NDASH);
 }
 
-function lastDefined(values: (number | null)[]): number | null {
+function lastDefinedIndex(values: (number | null)[]): number {
   for (let i = values.length - 1; i >= 0; i -= 1) {
     const v = values[i];
-    if (v !== null && Number.isFinite(v)) return v;
+    if (v !== null && Number.isFinite(v)) return i;
   }
-  return null;
+  return -1;
 }
 
 /* ── one compact metric chart (bar or line), null-safe ──────────────────── */
@@ -110,8 +112,19 @@ function MiniChart({
   );
 }
 
-export function OverviewCharts({ statements }: { statements: NormalizedFinancialStatement[] }) {
-  const { years: allYears, metrics } = React.useMemo(() => getOverviewMetricSeries(statements), [statements]);
+export function OverviewCharts({
+  statements,
+  lineItems,
+  disclosure,
+}: {
+  statements: NormalizedFinancialStatement[];
+  lineItems: NormalizedFinancialLineItem[];
+  disclosure?: FinancialDisclosure;
+}) {
+  const { years: allYears, metrics } = React.useMemo(
+    () => getOverviewMetricSeries(statements, lineItems),
+    [lineItems, statements],
+  );
   const currency = React.useMemo(() => getReportingCurrency(statements), [statements]);
 
   const byKey = React.useMemo(() => new Map(metrics.map((m) => [m.key, m])), [metrics]);
@@ -267,7 +280,10 @@ export function OverviewCharts({ statements }: { statements: NormalizedFinancial
                   {m.type === "mar" ? "%" : currency}
                 </span>
                 <span className="shrink-0 whitespace-nowrap font-mono text-[12.5px] font-semibold tabular-nums text-[var(--px-text)]">
-                  {fmtValue(m, lastDefined(m.values), currency)}
+                  {fmtValue(m, m.values[lastDefinedIndex(m.values)] ?? null, currency)}
+                  {m.origins[lastDefinedIndex(m.values)] === "synthetic" ? (
+                    <SimulatedValueMarker />
+                  ) : null}
                 </span>
               </button>
             );
@@ -284,8 +300,10 @@ export function OverviewCharts({ statements }: { statements: NormalizedFinancial
           </button>
         ) : null}
         <p className="mt-3.5 border-t border-[var(--px-border-subtle)] pt-3 text-[11px] leading-relaxed text-[var(--px-muted)]">
-          Beløp i {currency} der ikke annet er oppgitt. Marger og avkastning vises i prosent. Kilde: BRREG ·
-          Regnskapsregisteret.
+          Beløp i {currency} der ikke annet er oppgitt. Marger og avkastning vises i prosent.{" "}
+          {disclosure?.simulated
+            ? "Kilde: FI-SIM demonstrasjonsdatasett."
+            : "Kilde: BRREG · Regnskapsregisteret."}
         </p>
       </div>
     </div>

@@ -335,11 +335,6 @@ export function createDistressCompanyRecordReader<TCompany extends { id: string 
     const financials = await financialRepository.getCompanyFinancials({
       companyId: company.id,
     });
-    if (financials.datasetMode === "simulated") {
-      throw new Error(
-        "Simulated distress financials require metric labeling before display.",
-      );
-    }
     return {
       ...company,
       financialDatasetMode: financials.datasetMode,

@@ -1,4 +1,8 @@
 import env from "@/lib/env";
+import {
+  buildFinancialDisclosure,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
 import { getHeadlineFinancialStatements } from "@/lib/financial-statements";
 import type {
   DataAvailability,
@@ -31,6 +35,8 @@ export type PublicFinancialLineItem = ProvenancedFinancialLineItem;
 export type PublicCompanyFinancials = {
   datasetMode: FinancialDatasetMode;
   financialDatasetVersion: FinancialDatasetVersion;
+  /** What the surface has to tell the reader about where these figures came from. */
+  disclosure: FinancialDisclosure;
   statements: PublicFinancialStatement[];
   allScopeStatements: PublicFinancialStatement[];
   lineItems: PublicFinancialLineItem[];
@@ -177,6 +183,7 @@ function mapLiveCompanyFinancials(snapshot: LiveCompanyFinancials): PublicCompan
   return {
     datasetMode: snapshot.datasetMode,
     financialDatasetVersion: snapshot.financialDatasetVersion,
+    disclosure: buildFinancialDisclosure(snapshot),
     statements,
     allScopeStatements,
     lineItems,

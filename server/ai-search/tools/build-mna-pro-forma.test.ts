@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  financialDisclosureFor,
+  SIMULATED_FINANCIALS_NOTICE,
+} from "@/lib/financial-simulation-disclosure";
+import {
   createBuildMnaProFormaTool,
   type MnaDepreciationRow,
   type MnaFinancialSnapshot,
@@ -93,6 +97,7 @@ function financials(
   return {
     financialDatasetMode: "reported",
     financialDatasetVersion: "reported:22",
+    disclosure: financialDisclosureFor("reported", "reported:22"),
     statements,
     depreciationAmortization,
   };
@@ -405,15 +410,24 @@ describe("build_mna_pro_forma", () => {
     });
   });
 
-  it("rejects an injected simulated financial snapshot until value-origin labels are supported", async () => {
+  it("states in the result that a simulated pro forma is a demonstration", async () => {
     const localDeps = deps();
     vi.mocked(localDeps.getFinancials).mockResolvedValue({
       ...financials(),
       financialDatasetMode: "simulated",
       financialDatasetVersion: "simulated:investor-demo:23",
+      disclosure: financialDisclosureFor("simulated", "simulated:investor-demo:23"),
     });
     const tool = createBuildMnaProFormaTool({ userQuery: query, deps: localDeps });
 
-    await expect(tool.execute(toolInput)).rejects.toThrow(/labeling/);
+    const result = await tool.execute(toolInput);
+
+    expect(result).toMatchObject({
+      financialDatasetMode: "simulated",
+      simulationNotice: expect.stringContaining(SIMULATED_FINANCIALS_NOTICE),
+    });
+    expect(result).toMatchObject({
+      simulationNotice: expect.stringContaining("simulated:investor-demo:23"),
+    });
   });
 });

@@ -1,5 +1,13 @@
 import { getHeadlineFinancialStatements } from "@/lib/financial-statements";
-import { NormalizedFinancialStatement } from "@/lib/types";
+import {
+  combineFinancialValueOrigins,
+  financialHeadlineOriginsForStatement,
+} from "@/lib/financial-value-origin";
+import type {
+  FinancialValueOrigin,
+  NormalizedFinancialLineItem,
+  NormalizedFinancialStatement,
+} from "@/lib/types";
 
 /**
  * "abs" metrics are nominal amounts in NOK (rendered as bars / compact NOK);
@@ -14,6 +22,7 @@ export type OverviewMetric = {
   group: string;
   /** One value per entry in `years`, aligned by index. `null` = not available. */
   values: (number | null)[];
+  origins: (FinancialValueOrigin | null)[];
 };
 
 export type OverviewMetricSeries = {
@@ -49,6 +58,7 @@ function num(value: number | null | undefined): number | null {
  */
 export function getOverviewMetricSeries(
   statements: NormalizedFinancialStatement[],
+  lineItems: readonly NormalizedFinancialLineItem[] = [],
 ): OverviewMetricSeries {
   const headline = getHeadlineFinancialStatements(statements)
     .slice()
@@ -62,6 +72,7 @@ export function getOverviewMetricSeries(
       const equity = num(statement.equity);
       const assets = num(statement.assets);
       const debt = assets !== null && equity !== null ? assets - equity : null;
+      const origins = financialHeadlineOriginsForStatement(statement, lineItems);
 
       return {
         fiscalYear: statement.fiscalYear,
@@ -71,6 +82,7 @@ export function getOverviewMetricSeries(
         equity,
         assets,
         debt,
+        origins,
         ebitMargin: ratio(ebit, revenue),
         netMargin: ratio(net, revenue),
         equityRatio: ratio(equity, assets),
@@ -95,21 +107,23 @@ export function getOverviewMetricSeries(
     type: OverviewMetricType;
     group: string;
     pick: (row: (typeof rows)[number]) => number | null;
+    origin: (row: (typeof rows)[number]) => FinancialValueOrigin | null;
   }> = [
-    { key: "rev", label: "Driftsinntekter", type: "abs", group: "Resultat", pick: (r) => r.revenue },
-    { key: "ebit", label: "Driftsresultat (EBIT)", type: "abs", group: "Resultat", pick: (r) => r.ebit },
-    { key: "ebitM", label: "Driftsmargin", type: "mar", group: "Resultat", pick: (r) => r.ebitMargin },
-    { key: "net", label: "Årsresultat", type: "abs", group: "Resultat", pick: (r) => r.net },
-    { key: "netM", label: "Nettomargin", type: "mar", group: "Resultat", pick: (r) => r.netMargin },
-    { key: "equity", label: "Egenkapital", type: "abs", group: "Balanse", pick: (r) => r.equity },
-    { key: "assets", label: "Sum eiendeler", type: "abs", group: "Balanse", pick: (r) => r.assets },
-    { key: "debt", label: "Gjeld", type: "abs", group: "Balanse", pick: (r) => r.debt },
+    { key: "rev", label: "Driftsinntekter", type: "abs", group: "Resultat", pick: (r) => r.revenue, origin: (r) => r.origins.revenue },
+    { key: "ebit", label: "Driftsresultat (EBIT)", type: "abs", group: "Resultat", pick: (r) => r.ebit, origin: (r) => r.origins.operatingProfit },
+    { key: "ebitM", label: "Driftsmargin", type: "mar", group: "Resultat", pick: (r) => r.ebitMargin, origin: (r) => combineFinancialValueOrigins(r.origins.operatingProfit, r.origins.revenue) },
+    { key: "net", label: "Årsresultat", type: "abs", group: "Resultat", pick: (r) => r.net, origin: (r) => r.origins.netIncome },
+    { key: "netM", label: "Nettomargin", type: "mar", group: "Resultat", pick: (r) => r.netMargin, origin: (r) => combineFinancialValueOrigins(r.origins.netIncome, r.origins.revenue) },
+    { key: "equity", label: "Egenkapital", type: "abs", group: "Balanse", pick: (r) => r.equity, origin: (r) => r.origins.equity },
+    { key: "assets", label: "Sum eiendeler", type: "abs", group: "Balanse", pick: (r) => r.assets, origin: (r) => r.origins.assets },
+    { key: "debt", label: "Gjeld", type: "abs", group: "Balanse", pick: (r) => r.debt, origin: (r) => combineFinancialValueOrigins(r.origins.assets, r.origins.equity) },
     {
       key: "eqPct",
       label: "Egenkapitalandel",
       type: "mar",
       group: "Soliditet og avkastning",
       pick: (r) => r.equityRatio,
+      origin: (r) => combineFinancialValueOrigins(r.origins.equity, r.origins.assets),
     },
     {
       key: "roe",
@@ -117,6 +131,7 @@ export function getOverviewMetricSeries(
       type: "mar",
       group: "Soliditet og avkastning",
       pick: (r) => r.roe,
+      origin: (r) => combineFinancialValueOrigins(r.origins.netIncome, r.origins.equity),
     },
   ];
 
@@ -127,6 +142,7 @@ export function getOverviewMetricSeries(
       type: def.type,
       group: def.group,
       values: rows.map((row) => def.pick(row)),
+      origins: rows.map((row) => def.origin(row)),
     }))
     // Drop metrics with no data in any year — never show an all-empty row.
     .filter((metric) => metric.values.some((value) => value !== null));

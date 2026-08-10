@@ -544,12 +544,11 @@ async function resolveCommentableStatement(companyId: string, financialStatement
 
 async function loadRoomStatements(companyId: string) {
   const snapshot = await financialsRepository.getCompanyFinancials({ companyId });
-  if (snapshot.datasetMode === "simulated") {
-    throw new Error(
-      "Simulerte regnskap kan ikke kommenteres i DD-rom før de er merket i visningen.",
-    );
-  }
 
+  // A comment thread hangs off a reported FinancialStatement foreign key, and spec section 13
+  // refuses to let a simulated statement stand in for one. In a demo dataset no statement has a
+  // reported id, so the filter below empties the list — the panel shows nothing to comment on
+  // rather than failing, and the mutation path rejects separately in the evidence reader.
   return snapshot.statements
     .filter((statement) => statement.reportedStatementId !== null)
     .map((statement) => ({

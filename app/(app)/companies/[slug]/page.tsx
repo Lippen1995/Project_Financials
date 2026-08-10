@@ -397,7 +397,11 @@ export default async function CompanyPage({
   const session = await safeAuth();
   let profile: RegisterBackedProfile | null = await getCompanyProfile(slug, {
     rolesMode: parsedTab === "oversikt" ? "full" : "none",
-    financialsMode: parsedTab === "regnskap" ? "full" : "summary",
+    // These three surfaces render exact per-value provenance, so they need the live lines as well
+    // as the statement headlines. Summary mode deliberately strips line items.
+    financialsMode: ["oversikt", "regnskap", "nokkeltall"].includes(parsedTab)
+      ? "full"
+      : "summary",
   });
 
   // Fall back to a register-backed minimal profile so ownership drill-through resolves any
@@ -418,6 +422,7 @@ export default async function CompanyPage({
     financialLineItems,
     financialDocuments,
     financialsAvailability,
+    financialDisclosure,
   } = profile;
 
   const [petroleumVisibility, ipOverview, watchInfo] = await Promise.all([
@@ -450,9 +455,7 @@ export default async function CompanyPage({
     { id: "konsern", label: "Konsern" },
     { id: "aksjonaerer", label: "Aksjonærer og roller" },
     { id: "kunngjoringer", label: "Kunngjøringer" },
-    { id: "dokumenter", label: "Dokumenter" },
     { id: "nyheter", label: "Nyheter" },
-    { id: "nettilknytning", label: "Nettilknytning" },
   ];
   if (petroleumVisibility.available) {
     availableTabs.push({ id: "sokkeleksponering", label: "Sokkeleksponering" });
@@ -633,7 +636,9 @@ export default async function CompanyPage({
           statements={
             financialStatementsAllScopes.length > 0 ? financialStatementsAllScopes : financialStatements
           }
+          lineItems={financialLineItems}
           financialsAvailability={financialsAvailability}
+          disclosure={financialDisclosure ?? undefined}
           owners={overviewOwners}
           ownersTaxYear={overviewOwnersYear}
           announcements={overviewAnnouncements?.announcements ?? []}
@@ -656,6 +661,7 @@ export default async function CompanyPage({
             discussionStatements={financialDiscussions}
             discussionThreads={financialMetricDiscussions}
             availability={financialsAvailability}
+            disclosure={financialDisclosure ?? undefined}
           />
 
           {financialDocuments.length > 0 ? (
@@ -696,6 +702,8 @@ export default async function CompanyPage({
           statements={
             financialStatementsAllScopes.length > 0 ? financialStatementsAllScopes : financialStatements
           }
+          lineItems={financialLineItems}
+          disclosure={financialDisclosure ?? undefined}
         />
       ) : null}
 

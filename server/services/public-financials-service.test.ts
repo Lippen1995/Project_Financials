@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { financialDisclosureFor } from "@/lib/financial-simulation-disclosure";
 import type { PublicCompanyFinancials } from "@/server/services/public-financials-service";
 import type { LiveCompanyFinancials } from "@/server/financials/financials-repository";
 import {
@@ -134,6 +135,7 @@ describe("public financial source policy", () => {
       availability: { available: true, sourceSystem: "BRREG" },
       datasetMode: "reported",
       financialDatasetVersion: "reported:17",
+      disclosure: financialDisclosureFor("reported", "reported:17"),
     };
 
     const result = applyPublicFinancialSourcePolicy(financials, true);
@@ -178,6 +180,7 @@ describe("public financial source policy", () => {
       {
         datasetMode: "reported",
         financialDatasetVersion: "reported:17",
+        disclosure: financialDisclosureFor("reported", "reported:17"),
         // Mirrors the reader: `statements` is already deduped with the
         // consolidated row winning 2024.
         statements: [outsideConsolidated],
@@ -207,6 +210,7 @@ describe("public financial source policy", () => {
       {
         datasetMode: "reported",
         financialDatasetVersion: "reported:17",
+        disclosure: financialDisclosureFor("reported", "reported:17"),
         statements: [consolidated],
         allScopeStatements: [company, consolidated],
         lineItems: [],
@@ -227,6 +231,7 @@ describe("public financial source policy", () => {
       {
         datasetMode: "reported",
         financialDatasetVersion: "reported:17",
+        disclosure: financialDisclosureFor("reported", "reported:17"),
         statements: [extracted],
         allScopeStatements: [extracted],
         lineItems: [],
@@ -247,6 +252,7 @@ describe("public financial source policy", () => {
     const financials: PublicCompanyFinancials = {
       datasetMode: "reported",
       financialDatasetVersion: "reported:17",
+      disclosure: financialDisclosureFor("reported", "reported:17"),
       statements: [extracted],
       allScopeStatements: [extracted],
       lineItems: [],

@@ -1,3 +1,7 @@
+import {
+  buildFinancialDisclosure,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
 import type {
   FinancialDatasetMode,
   FinancialDatasetVersion,
@@ -57,6 +61,7 @@ export type NjordFinancialStatement = {
 export type NjordFinancialSnapshot = {
   financialDatasetMode: FinancialDatasetMode;
   financialDatasetVersion: FinancialDatasetVersion;
+  disclosure: FinancialDisclosure;
   statements: NjordFinancialStatement[];
 };
 
@@ -73,15 +78,11 @@ export function createNjordFinancialDataReader(
       const financials = await repository.getCompaniesFinancials({
         companyIds: companies.map((company) => company.id),
       });
-      if (financials.datasetMode === "simulated") {
-        throw new Error(
-          "Simulated Njord financial calculations require value-origin labeling before use.",
-        );
-      }
 
       return {
         financialDatasetMode: financials.datasetMode,
         financialDatasetVersion: financials.financialDatasetVersion,
+        disclosure: buildFinancialDisclosure(financials),
         statements: financials.statements.flatMap((statement) => {
           const company = companyById.get(statement.companyId);
           if (!company) return [];

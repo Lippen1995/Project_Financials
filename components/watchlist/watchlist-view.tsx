@@ -3,8 +3,17 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  SimulatedChartCaption,
+  SimulatedFinancialsBanner,
+  SimulatedValueMarker,
+} from "@/components/company/simulated-financials-notice";
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
+import {
+  combineFinancialValueOrigins,
+  type FinancialHeadlineOrigins,
+} from "@/lib/financial-value-origin";
 import type {
-  FinancialDatasetMode,
   FinancialDatasetVersion,
   FinancialStatementOrigin,
 } from "@/lib/types";
@@ -24,6 +33,7 @@ export type WatchlistStatement = {
   netIncome: number | null;
   equity: number | null;
   assets: number | null;
+  origins: FinancialHeadlineOrigins;
   statementOrigin: FinancialStatementOrigin;
   financialDatasetVersion: FinancialDatasetVersion;
 };
@@ -83,8 +93,7 @@ export type WatchlistViewProps = {
   news: WatchlistNews[];
   alerts: WatchlistAlert[];
   ddRooms: WatchlistDdRoom[];
-  financialDatasetMode: FinancialDatasetMode;
-  financialDatasetVersion: FinancialDatasetVersion;
+  financialDisclosure: FinancialDisclosure;
 };
 
 /* ------------------------------------------------------------------ *
@@ -150,6 +159,12 @@ function revenueDelta(c: WatchlistCompany): number | null {
   return (cur - prev) / Math.abs(prev);
 }
 
+function revenueDeltaOrigin(c: WatchlistCompany) {
+  const current = c.statements.at(-1);
+  const previous = c.statements.at(-2);
+  return combineFinancialValueOrigins(previous?.origins.revenue, current?.origins.revenue);
+}
+
 /* ------------------------------------------------------------------ *
  * Small presentational primitives (recreated from the Fjord Insight
  * design-system components referenced in the source design).
@@ -206,7 +221,7 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
-function MetricTile({ label, value }: { label: string; value: string }) {
+function MetricTile({ label, value, simulated = false }: { label: string; value: string; simulated?: boolean }) {
   return (
     <div
       style={{
@@ -221,6 +236,7 @@ function MetricTile({ label, value }: { label: string; value: string }) {
       </div>
       <div className="tabular-nums" style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--px-text)" }}>
         {value}
+        {simulated && value !== "—" ? <SimulatedValueMarker /> : null}
       </div>
     </div>
   );
@@ -243,7 +259,14 @@ const btnGhost: React.CSSProperties = {
 
 /* ------------------------------------------------------------------ */
 
-export function WatchlistView({ workspaceId, companies, news, alerts, ddRooms }: WatchlistViewProps) {
+export function WatchlistView({
+  workspaceId,
+  companies,
+  news,
+  alerts,
+  ddRooms,
+  financialDisclosure,
+}: WatchlistViewProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -255,7 +278,9 @@ export function WatchlistView({ workspaceId, companies, news, alerts, ddRooms }:
 
   const storageKey = `fjord-watchlist-arrangement:${workspaceId}`;
 
-  const [arrangement, setArrangement] = useState<Arrangement>([]);
+  const [arrangement, setArrangement] = useState<Arrangement>(() =>
+    companies.map((company) => ({ kind: "company", org: company.orgNumber })),
+  );
   const [hydrated, setHydrated] = useState(false);
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -462,6 +487,10 @@ export function WatchlistView({ workspaceId, companies, news, alerts, ddRooms }:
         .wl-sortbtn:hover { color: var(--px-accent) !important; }
       `}</style>
 
+      {financialDisclosure.simulated ? (
+        <SimulatedFinancialsBanner disclosure={financialDisclosure} className="mb-6" />
+      ) : null}
+
       {/* Page header */}
       <div
         style={{
@@ -649,6 +678,7 @@ export function WatchlistView({ workspaceId, companies, news, alerts, ddRooms }:
                   const c = row.company;
                   const latest = latestStatement(c);
                   const delta = revenueDelta(c);
+                  const deltaOrigin = revenueDeltaOrigin(c);
                   const deltaColor = delta === null ? "var(--px-muted)" : delta >= 0 ? "var(--px-success)" : "var(--px-error)";
                   const series = c.statements.map((s) => s.revenue).filter((v): v is number => v !== null);
                   return (
@@ -692,14 +722,26 @@ export function WatchlistView({ workspaceId, companies, news, alerts, ddRooms }:
                       </td>
                       <td style={{ padding: "14px 16px", verticalAlign: "middle", fontSize: 13, color: "var(--px-muted)", maxWidth: 190 }}>{c.industry ?? "—"}</td>
                       <td className="tabular-nums" style={{ padding: "14px 16px", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono), monospace", fontSize: 13 }}>
-                        <div>{fmtCompact(latest?.revenue)}</div>
-                        {delta !== null ? <div style={{ fontSize: 11, marginTop: 3, color: deltaColor }}>{pctSigned(delta)}</div> : null}
+                        <div>
+                          {fmtCompact(latest?.revenue)}
+                          {latest?.revenue != null && latest.origins.revenue === "synthetic" ? (
+                            <SimulatedValueMarker />
+                          ) : null}
+                        </div>
+                        {delta !== null ? <div style={{ fontSize: 11, marginTop: 3, color: deltaColor }}>{pctSigned(delta)}{deltaOrigin === "synthetic" ? <SimulatedValueMarker /> : null}</div> : null}
                       </td>
-                      <td className="tabular-nums" style={{ padding: "14px 16px", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono), monospace", fontSize: 13 }}>{fmtCompact(latest?.operatingProfit)}</td>
-                      <td className="tabular-nums" style={{ padding: "14px 16px", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono), monospace", fontSize: 13 }}>{fmtCompact(latest?.equity)}</td>
+                      <td className="tabular-nums" style={{ padding: "14px 16px", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono), monospace", fontSize: 13 }}>
+                        {fmtCompact(latest?.operatingProfit)}
+                        {latest?.operatingProfit != null && latest.origins.operatingProfit === "synthetic" ? <SimulatedValueMarker /> : null}
+                      </td>
+                      <td className="tabular-nums" style={{ padding: "14px 16px", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono), monospace", fontSize: 13 }}>
+                        {fmtCompact(latest?.equity)}
+                        {latest?.equity != null && latest.origins.equity === "synthetic" ? <SimulatedValueMarker /> : null}
+                      </td>
                       <td style={{ padding: "14px 16px", verticalAlign: "middle", textAlign: "center" }}>
                         <div style={{ display: "inline-flex" }}>
                           <Sparkline values={series} />
+                          {c.statements.some((statement) => statement.revenue != null && statement.origins.revenue === "synthetic") ? <SimulatedValueMarker /> : null}
                         </div>
                       </td>
                     </tr>
@@ -836,7 +878,7 @@ export function WatchlistView({ workspaceId, companies, news, alerts, ddRooms }:
       </footer>
 
       {alertsOpen ? <AlertsModal alerts={alerts} onClose={() => setAlertsOpen(false)} /> : null}
-      {selected ? <CompanyDrawer company={selected} news={news} onClose={() => setSelectedOrg(null)} onRemove={() => { removeCompany(selected.watchId); setSelectedOrg(null); }} /> : null}
+      {selected ? <CompanyDrawer company={selected} news={news} disclosure={financialDisclosure} onClose={() => setSelectedOrg(null)} onRemove={() => { removeCompany(selected.watchId); setSelectedOrg(null); }} /> : null}
       {addOpen ? (
         <AddCompanyModal
           workspaceId={workspaceId}
@@ -957,7 +999,19 @@ function AlertsModal({ alerts, onClose }: { alerts: WatchlistAlert[]; onClose: (
  * Company detail drawer — real financials + register info + events.
  * ------------------------------------------------------------------ */
 
-function CompanyDrawer({ company, news, onClose, onRemove }: { company: WatchlistCompany; news: WatchlistNews[]; onClose: () => void; onRemove: () => void }) {
+function CompanyDrawer({
+  company,
+  news,
+  disclosure,
+  onClose,
+  onRemove,
+}: {
+  company: WatchlistCompany;
+  news: WatchlistNews[];
+  disclosure: FinancialDisclosure;
+  onClose: () => void;
+  onRemove: () => void;
+}) {
   const meta = STATUS_META[company.status];
   const statements = company.statements;
   const latest = statements.length ? statements[statements.length - 1] : null;
@@ -965,6 +1019,7 @@ function CompanyDrawer({ company, news, onClose, onRemove }: { company: Watchlis
   const revValues = chartYears.map((s) => s.revenue ?? 0);
   const maxRev = Math.max(...revValues, 1);
   const delta = revenueDelta(company);
+  const deltaOrigin = revenueDeltaOrigin(company);
   const deltaColor = delta === null ? "var(--px-muted)" : delta >= 0 ? "var(--px-success)" : "var(--px-error)";
 
   const withRevenue = statements.filter((s) => s.revenue !== null && s.revenue !== 0);
@@ -972,6 +1027,9 @@ function CompanyDrawer({ company, news, onClose, onRemove }: { company: Watchlis
     withRevenue.length >= 2
       ? Math.pow((withRevenue[withRevenue.length - 1].revenue as number) / (withRevenue[0].revenue as number), 1 / (withRevenue.length - 1)) - 1
       : null;
+  const cagrOrigin = withRevenue.length >= 2
+    ? combineFinancialValueOrigins(withRevenue[0].origins.revenue, withRevenue.at(-1)?.origins.revenue)
+    : null;
   const ratio = (num: number | null | undefined, den: number | null | undefined): number | null =>
     num === null || num === undefined || den === null || den === undefined || den === 0 ? null : num / den;
   const ebitMargin = ratio(latest?.operatingProfit, latest?.revenue);
@@ -981,18 +1039,19 @@ function CompanyDrawer({ company, news, onClose, onRemove }: { company: Watchlis
 
   const last3 = statements.slice(-3);
   const yearCols = last3.map((s) => s.year);
-  const stmtRow = (label: string, pick: (s: WatchlistStatement) => number | null) => ({
+  const stmtRow = (label: string, originKey: keyof FinancialHeadlineOrigins, pick: (s: WatchlistStatement) => number | null) => ({
     label,
     values: last3.map((s) => pick(s)),
+    origins: last3.map((s) => s.origins[originKey]),
   });
   const plRows = [
-    stmtRow("Driftsinntekter", (s) => s.revenue),
-    stmtRow("EBIT (driftsresultat)", (s) => s.operatingProfit),
-    stmtRow("Årsresultat", (s) => s.netIncome),
+    stmtRow("Driftsinntekter", "revenue", (s) => s.revenue),
+    stmtRow("EBIT (driftsresultat)", "operatingProfit", (s) => s.operatingProfit),
+    stmtRow("Årsresultat", "netIncome", (s) => s.netIncome),
   ];
   const balRows = [
-    stmtRow("Sum egenkapital", (s) => s.equity),
-    stmtRow("Sum eiendeler", (s) => s.assets),
+    stmtRow("Sum egenkapital", "equity", (s) => s.equity),
+    stmtRow("Sum eiendeler", "assets", (s) => s.assets),
   ];
 
   const info = [
@@ -1032,18 +1091,24 @@ function CompanyDrawer({ company, news, onClose, onRemove }: { company: Watchlis
         </div>
 
         <div style={{ overflowY: "auto", flex: 1, padding: 28 }}>
+          {disclosure.simulated ? (
+            <SimulatedFinancialsBanner disclosure={disclosure} className="mb-6" />
+          ) : null}
           {chartYears.length >= 1 && chartYears.some((s) => s.revenue !== null) ? (
             <div style={{ border: "1px solid var(--px-border-subtle)", background: "var(--px-surface-strong)", borderRadius: "var(--radius-lg)", padding: "18px 20px 16px", marginBottom: 24 }}>
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
                 <div>
                   <div className="data-label" style={{ fontSize: 10, color: "var(--px-muted)", marginBottom: 8 }}>OMSETNING PER ÅR · MNOK</div>
-                  <div className="tabular-nums" style={{ fontSize: 25, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--px-text)" }}>{fmtMnok(latest?.revenue)}</div>
-                  {delta !== null ? <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, color: deltaColor }}>{pctSigned(delta)} mot fjoråret</div> : null}
+                  <div className="tabular-nums" style={{ fontSize: 25, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--px-text)" }}>
+                    {fmtMnok(latest?.revenue)}
+                    {latest?.revenue != null && latest.origins.revenue === "synthetic" ? <SimulatedValueMarker /> : null}
+                  </div>
+                  {delta !== null ? <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, color: deltaColor }}>{pctSigned(delta)} mot fjoråret{deltaOrigin === "synthetic" ? <SimulatedValueMarker /> : null}</div> : null}
                 </div>
                 {cagr !== null ? (
                   <div style={{ textAlign: "right" }}>
                     <div className="data-label" style={{ fontSize: 10, color: "var(--px-muted)", marginBottom: 6 }}>CAGR</div>
-                    <div className="tabular-nums" style={{ fontSize: 19, fontWeight: 600, color: cagr >= 0 ? "var(--px-success)" : "var(--px-error)" }}>{pctSigned(cagr)}</div>
+                    <div className="tabular-nums" style={{ fontSize: 19, fontWeight: 600, color: cagr >= 0 ? "var(--px-success)" : "var(--px-error)" }}>{pctSigned(cagr)}{cagrOrigin === "synthetic" ? <SimulatedValueMarker /> : null}</div>
                   </div>
                 ) : null}
               </div>
@@ -1065,6 +1130,7 @@ function CompanyDrawer({ company, news, onClose, onRemove }: { company: Watchlis
                   <span key={s.year} className="data-label tabular-nums" style={{ flex: 1, textAlign: "center", fontSize: 10, color: i === chartYears.length - 1 ? "var(--px-text)" : "var(--px-muted)" }}>{s.year}</span>
                 ))}
               </div>
+              {disclosure.simulated ? <SimulatedChartCaption disclosure={disclosure} /> : null}
             </div>
           ) : (
             <div style={{ border: "1px solid var(--px-border-subtle)", background: "var(--px-surface-strong)", borderRadius: "var(--radius-lg)", padding: "24px 20px", marginBottom: 24, textAlign: "center" }}>
@@ -1076,11 +1142,11 @@ function CompanyDrawer({ company, news, onClose, onRemove }: { company: Watchlis
             <>
               <div className="data-label" style={{ fontSize: 10, color: "var(--px-muted)", marginBottom: 12 }}>NØKKELTALL · VEKST OG LØNNSOMHET</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 28 }}>
-                <MetricTile label="Inntektsvekst (CAGR)" value={pctSigned(cagr)} />
-                <MetricTile label="EBIT-margin" value={pctSigned(ebitMargin)} />
-                <MetricTile label="Nettomargin" value={pctSigned(nettoMargin)} />
-                <MetricTile label="Egenkapitalandel" value={pctSigned(equityRatio)} />
-                <MetricTile label="Egenkapitalavkastning" value={pctSigned(roe)} />
+                <MetricTile label="Inntektsvekst (CAGR)" value={pctSigned(cagr)} simulated={cagrOrigin === "synthetic"} />
+                <MetricTile label="EBIT-margin" value={pctSigned(ebitMargin)} simulated={combineFinancialValueOrigins(latest.origins.operatingProfit, latest.origins.revenue) === "synthetic"} />
+                <MetricTile label="Nettomargin" value={pctSigned(nettoMargin)} simulated={combineFinancialValueOrigins(latest.origins.netIncome, latest.origins.revenue) === "synthetic"} />
+                <MetricTile label="Egenkapitalandel" value={pctSigned(equityRatio)} simulated={combineFinancialValueOrigins(latest.origins.equity, latest.origins.assets) === "synthetic"} />
+                <MetricTile label="Egenkapitalavkastning" value={pctSigned(roe)} simulated={combineFinancialValueOrigins(latest.origins.netIncome, latest.origins.equity) === "synthetic"} />
               </div>
 
               <div className="data-label" style={{ fontSize: 10, color: "var(--px-muted)", marginBottom: 12 }}>RESULTAT OG BALANSE · SISTE ÅR (MNOK)</div>
@@ -1100,7 +1166,10 @@ function CompanyDrawer({ company, news, onClose, onRemove }: { company: Watchlis
                       <tr key={r.label} style={{ borderBottom: "1px solid var(--px-border-subtle)" }}>
                         <td style={{ padding: "10px 14px", color: "var(--px-text)" }}>{r.label}</td>
                         {r.values.map((v, i) => (
-                          <td key={i} className="tabular-nums" style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono), monospace", fontWeight: i === r.values.length - 1 ? 600 : 400, color: i === r.values.length - 1 ? "var(--px-text)" : "var(--px-muted)" }}>{fmtMnok(v)}</td>
+                          <td key={i} className="tabular-nums" style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono), monospace", fontWeight: i === r.values.length - 1 ? 600 : 400, color: i === r.values.length - 1 ? "var(--px-text)" : "var(--px-muted)" }}>
+                            {fmtMnok(v)}
+                            {v != null && r.origins[i] === "synthetic" ? <SimulatedValueMarker /> : null}
+                          </td>
                         ))}
                       </tr>
                     ))}
@@ -1109,7 +1178,10 @@ function CompanyDrawer({ company, news, onClose, onRemove }: { company: Watchlis
                       <tr key={r.label} style={{ borderBottom: "1px solid var(--px-border-subtle)" }}>
                         <td style={{ padding: "10px 14px", color: "var(--px-text)" }}>{r.label}</td>
                         {r.values.map((v, i) => (
-                          <td key={i} className="tabular-nums" style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono), monospace", fontWeight: i === r.values.length - 1 ? 600 : 400, color: i === r.values.length - 1 ? "var(--px-text)" : "var(--px-muted)" }}>{fmtMnok(v)}</td>
+                          <td key={i} className="tabular-nums" style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono), monospace", fontWeight: i === r.values.length - 1 ? 600 : 400, color: i === r.values.length - 1 ? "var(--px-text)" : "var(--px-muted)" }}>
+                            {fmtMnok(v)}
+                            {v != null && r.origins[i] === "synthetic" ? <SimulatedValueMarker /> : null}
+                          </td>
                         ))}
                       </tr>
                     ))}

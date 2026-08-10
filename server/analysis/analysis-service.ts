@@ -429,24 +429,19 @@ const prismaRepository: AnalysisRepository = {
       financialCompanies.length === 0
         ? []
         : (
-            await financialsRepository.getCompaniesFinancials({
+            await financialsRepository.searchCompanyUniverse({
               companyIds: financialCompanies.map((company) => company.id),
               ...(fiscalYear == null ? {} : { fiscalYear }),
+              reportedSourceSystems: ["BRREG"],
+              limit: financialCompanies.length,
             })
           ).statements;
 
     const financialSourceByOrgNumber = new Map<string, (typeof liveStatements)[number]>();
     for (const statement of liveStatements) {
-      if (statement.sourceSystem !== "BRREG") continue;
       const orgNumber = orgNumberByCompanyId.get(statement.companyId);
       if (!orgNumber) continue;
-      const current = financialSourceByOrgNumber.get(orgNumber);
-      const isNewer =
-        !current ||
-        statement.fiscalYear > current.fiscalYear ||
-        (statement.fiscalYear === current.fiscalYear &&
-          statement.normalizedAt > current.normalizedAt);
-      if (isNewer) financialSourceByOrgNumber.set(orgNumber, statement);
+      financialSourceByOrgNumber.set(orgNumber, statement);
     }
     return companies.map((company) => ({
       orgNumber: company.orgNumber,

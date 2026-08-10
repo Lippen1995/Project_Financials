@@ -23,9 +23,14 @@ export type CompanySearchFinancials = {
  * Prisma resolves organisation numbers to company ids — company identity, not a financial
  * source. Organisation numbers absent from the Company table simply have no entry, which
  * callers must read as "no figures" rather than zero.
+ *
+ * The "latest year wins" pick is the repository's universe search rather than a loop here, so
+ * ranking no longer loads every line item of every result to read five headline figures, and the
+ * tie between an entity statement and a group statement of the same year is decided explicitly:
+ * search ranks a company on its own accounts.
  */
 export function createCompanySearchFinancialsReader(
-  repository: Pick<FinancialsRepository, "getCompaniesFinancials"> = financialsRepository,
+  repository: Pick<FinancialsRepository, "searchCompanyUniverse"> = financialsRepository,
 ) {
   return async function getLatestFinancialsForCompanies(
     orgNumbers: string[],
@@ -46,15 +51,15 @@ export function createCompanySearchFinancialsReader(
     const orgNumberByCompanyId = new Map(
       companies.map((company) => [company.id, company.orgNumber] as const),
     );
-    const { statements } = await repository.getCompaniesFinancials({
+    const { statements } = await repository.searchCompanyUniverse({
       companyIds: companies.map((company) => company.id),
+      scopePreference: "COMPANY",
+      limit: companies.length,
     });
 
     for (const statement of statements) {
       const orgNumber = orgNumberByCompanyId.get(statement.companyId);
       if (!orgNumber) continue;
-      const current = lookup.get(orgNumber);
-      if (current && (current.fiscalYear ?? -1) >= statement.fiscalYear) continue;
       lookup.set(orgNumber, {
         revenue: toSafeNumber(statement.revenue),
         operatingProfit: toSafeNumber(statement.operatingProfit),

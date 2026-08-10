@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  simulatedAnswerNotice,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
 import type { FinancialDatasetMode, FinancialDatasetVersion } from "@/lib/types";
 import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
 import {
@@ -102,6 +106,7 @@ export type MnaDepreciationRow = {
 export type MnaFinancialSnapshot = {
   financialDatasetMode: FinancialDatasetMode;
   financialDatasetVersion: FinancialDatasetVersion;
+  disclosure: FinancialDisclosure;
   statements: MnaStatementRow[];
   depreciationAmortization: MnaDepreciationRow[];
 };
@@ -133,6 +138,7 @@ export type BuildMnaProFormaOutput =
     status: "INSUFFICIENT_BASE_DATA";
     financialDatasetMode: FinancialDatasetMode;
     financialDatasetVersion: FinancialDatasetVersion;
+    simulationNotice: string | null;
     fiscalYear?: number;
     missingBaseData: string[];
     baseStatements?: BaseStatementSummary[];
@@ -140,6 +146,8 @@ export type BuildMnaProFormaOutput =
   | MnaProFormaResult & {
     financialDatasetMode: FinancialDatasetMode;
     financialDatasetVersion: FinancialDatasetVersion;
+    /** Non-null whenever the pro forma rests on simulated figures. */
+    simulationNotice: string | null;
     accessRequirement: "DUE_DILIGENCE";
     method: "UNAUDITED_USER_ASSUMPTION_PRO_FORMA";
     ownershipAssumption: "100_PERCENT_ACQUISITION";
@@ -399,6 +407,7 @@ function toMnaFinancialSnapshot(snapshot: NjordFinancialSnapshot): MnaFinancialS
   return {
     financialDatasetMode: snapshot.financialDatasetMode,
     financialDatasetVersion: snapshot.financialDatasetVersion,
+    disclosure: snapshot.disclosure,
     statements: snapshot.statements.map((statement) => ({
       id: statement.liveStatementId,
       orgNumber: statement.orgNumber,
@@ -500,15 +509,11 @@ export function createBuildMnaProFormaTool(options: {
         input.buyerOrgNumber,
         input.targetOrgNumber,
       ]);
-      if (financials.financialDatasetMode === "simulated") {
-        throw new Error(
-          "Simulated M&A pro-forma calculations require value-origin labeling before use.",
-        );
-      }
       const rows = financials.statements;
       const datasetIdentity = {
         financialDatasetMode: financials.financialDatasetMode,
         financialDatasetVersion: financials.financialDatasetVersion,
+        simulationNotice: simulatedAnswerNotice(financials.disclosure),
       };
       const fiscalYear = input.fiscalYear ?? commonFiscalYear(
         rows,

@@ -1,8 +1,16 @@
+import {
+  buildFinancialDisclosure,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
 import type {
   FinancialDatasetMode,
   FinancialDatasetVersion,
   FinancialStatementOrigin,
 } from "@/lib/types";
+import {
+  financialHeadlineOrigins,
+  type FinancialHeadlineOrigins,
+} from "@/lib/financial-value-origin";
 import {
   financialsRepository,
   type FinancialCompaniesQuery,
@@ -17,6 +25,7 @@ export type WatchlistFinancialStatement = {
   netIncome: number | null;
   equity: number | null;
   assets: number | null;
+  origins: FinancialHeadlineOrigins;
   statementOrigin: FinancialStatementOrigin;
   financialDatasetVersion: FinancialDatasetVersion;
 };
@@ -24,6 +33,7 @@ export type WatchlistFinancialStatement = {
 export type WatchlistFinancialsSnapshot = {
   datasetMode: FinancialDatasetMode;
   financialDatasetVersion: FinancialDatasetVersion;
+  disclosure: FinancialDisclosure;
   statementsByCompany: Record<string, WatchlistFinancialStatement[]>;
 };
 
@@ -40,11 +50,6 @@ export function createWatchlistFinancialsService(
         companyIds,
         statementScope: "COMPANY",
       });
-      if (snapshot.datasetMode === "simulated") {
-        throw new Error(
-          "Simulated watchlist financials require statement labeling before display.",
-        );
-      }
       const statementsByCompany: Record<string, WatchlistFinancialStatement[]> = {};
 
       for (const statement of snapshot.statements) {
@@ -56,6 +61,7 @@ export function createWatchlistFinancialsService(
           netIncome: toSafeNumber(statement.netIncome),
           equity: toSafeNumber(statement.equity),
           assets: toSafeNumber(statement.assets),
+          origins: financialHeadlineOrigins(statement.lines),
           statementOrigin: statement.statementOrigin,
           financialDatasetVersion: statement.financialDatasetVersion,
         });
@@ -69,6 +75,7 @@ export function createWatchlistFinancialsService(
       return {
         datasetMode: snapshot.datasetMode,
         financialDatasetVersion: snapshot.financialDatasetVersion,
+        disclosure: buildFinancialDisclosure(snapshot),
         statementsByCompany,
       };
     },

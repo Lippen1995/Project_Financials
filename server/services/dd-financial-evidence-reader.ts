@@ -1,3 +1,7 @@
+import {
+  buildFinancialDisclosure,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
 import type {
   FinancialDatasetMode,
   FinancialDatasetVersion,
@@ -79,17 +83,14 @@ export function createDdFinancialEvidenceReader(
     async loadCompanyStatements(companyId: string): Promise<{
       financialDatasetMode: FinancialDatasetMode;
       financialDatasetVersion: FinancialDatasetVersion;
+      disclosure: FinancialDisclosure;
       statements: DdFinancialEvidenceStatement[];
     }> {
       const snapshot = await read(companyId);
-      if (snapshot.datasetMode === "simulated") {
-        throw new Error(
-          "Simulated DD financial evidence requires statement labeling before display.",
-        );
-      }
       return {
         financialDatasetMode: snapshot.datasetMode,
         financialDatasetVersion: snapshot.financialDatasetVersion,
+        disclosure: buildFinancialDisclosure(snapshot),
         statements: selectHeadlineStatements(snapshot).map((statement) => ({
           id: statement.reportedStatementId ?? statement.liveStatementId,
           liveStatementId: statement.liveStatementId,
@@ -107,10 +108,14 @@ export function createDdFinancialEvidenceReader(
     },
 
     async resolveReportedStatement(companyId: string, liveStatementId: string) {
+      // Reading a simulated statement is fine and labelled; storing one as a reported evidence
+      // reference is not, from spec section 13. The dataset mode is checked as well as the
+      // statement's own origin: while a demo dataset is active there is no reported statement to
+      // point a foreign key at, whatever a row happens to call itself.
       const snapshot = await read(companyId);
       if (snapshot.datasetMode === "simulated") {
         throw new Error(
-          "Simulated DD financial evidence requires statement labeling before use.",
+          "Simulated or synthetic financial statements cannot be stored in reported evidence references.",
         );
       }
       const statement = snapshot.statements.find(

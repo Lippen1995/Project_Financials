@@ -1695,6 +1695,34 @@ model ActiveFinancialDataset {
   @@index([mode, activationRevision, mappingRevision])
 }
 
+/// Append-only activation history. Written by a database trigger on every pointer change, so a
+/// dataset cannot be activated or rolled back without a named actor and a recorded reason.
+model FinancialDatasetActivationAudit {
+  id                     BigInt                           @id @default(autoincrement())
+  action                 FinancialDatasetActivationAction
+  fromMode               FinancialDatasetMode?
+  fromSimulatedDatasetId String?
+  fromActivationRevision BigInt?
+  toMode                 FinancialDatasetMode
+  toSimulatedDatasetId   String?
+  toActivationRevision   BigInt
+  mappingRevision        BigInt
+  actorUserId            String
+  reason                 String
+  deploymentEnvironment  String
+  databaseUser           String
+  createdAt              DateTime                         @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([toSimulatedDatasetId, id(sort: Desc)])
+}
+
+enum FinancialDatasetActivationAction {
+  ACTIVATE
+  ROLLBACK
+  DEACTIVATE
+}
+
 /// Monotonic revision for cache invalidation when reported ingest publishes changes.
 model FinancialDatasetRevision {
   id               String   @id @default("global")

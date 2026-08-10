@@ -123,6 +123,35 @@ export const userProfilePatchSchema = z.object({
 
 export type UserProfilePatchInput = z.infer<typeof userProfilePatchSchema>;
 
+/**
+ * The profile view contains server-owned status fields that the strict PATCH endpoint correctly
+ * rejects. Onboarding edits and "skip" must project that view into the writable contract instead
+ * of posting the whole read model back to the server.
+ */
+export function buildUserProfilePatchPayload(
+  profile: UserProfileState,
+  options: {
+    fallbackEmail: string;
+    onboardingStep: number;
+    extra?: Partial<UserProfilePatchInput>;
+  },
+): UserProfilePatchInput {
+  const {
+    profileCompletenessScore: _profileCompletenessScore,
+    onboardingCompletedAt: _onboardingCompletedAt,
+    linkedinConnected: _linkedinConnected,
+    linkedinProviderAccountId: _linkedinProviderAccountId,
+    ...writableProfile
+  } = profile;
+
+  return {
+    ...writableProfile,
+    workEmail: writableProfile.workEmail ?? options.fallbackEmail,
+    onboardingStep: options.onboardingStep,
+    ...options.extra,
+  };
+}
+
 function normalizeNullableString(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;

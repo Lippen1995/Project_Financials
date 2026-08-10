@@ -78,11 +78,6 @@ async function getActiveDistressFinancialDataset(): Promise<ActiveFinancialDatas
   const snapshot = await financialsRepository.getCompaniesFinancialHeadlines({
     companyIds: [],
   });
-  if (snapshot.datasetMode === "simulated") {
-    throw new Error(
-      "Simulated distress financials require metric labeling before display.",
-    );
-  }
   return {
     financialDatasetMode: snapshot.datasetMode,
     financialDatasetVersion: snapshot.financialDatasetVersion,

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -110,11 +110,18 @@ describe("FI-SIM profiles", () => {
 });
 
 describe("XBRL boundary", () => {
-  const catalogDir = path.join(process.cwd(), "server/financials/fi-sim/catalog");
-  const sources = ["concepts.ts", "profiles.ts"].map((name) => ({
-    name,
-    text: readFileSync(path.join(catalogDir, name), "utf8"),
-  }));
+  // Spec section 2 draws the boundary around the FI-SIM layer, not around two files, so the check
+  // walks the whole tree: the generator writes qualified names and labels too.
+  const fiSimDir = path.join(process.cwd(), "server/financials/fi-sim");
+  const sources = readdirSync(fiSimDir, { recursive: true, withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isFile() && entry.name.endsWith(".ts") && !entry.name.includes(".test."),
+    )
+    .map((entry) => ({
+      name: entry.name,
+      text: readFileSync(path.join(entry.parentPath, entry.name), "utf8"),
+    }));
 
   /**
    * Comments are stripped before checking. Prose documenting the IFRS boundary is exactly the

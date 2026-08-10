@@ -1,6 +1,6 @@
 ﻿# Fjord Insight
 
-Fjord Insight er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeScript, Tailwind, Prisma, PostgreSQL og NextAuth. Repoet følger en streng regel: ingen mock data, ingen seed-data og ingen syntetisk utfylling av virksomhetsinformasjon.
+Fjord Insight er et MVP for selskapsinformasjon og innsikt bygget med Next.js, TypeScript, Tailwind, Prisma, PostgreSQL og NextAuth. Repoet følger en streng regel: ingen mock data, ingen seed-data og ingen syntetisk utfylling av virksomhetsinformasjon. Det eneste tidsavgrensede unntaket er det isolerte FI-SIM-laget for resultatregnskap og balanse i et eksplisitt investor-demo-miljø; selskapsmaster, personer, roller og regulatoriske data er alltid reelle.
 
 ## Stack
 
@@ -303,6 +303,12 @@ Den åpne kilden gir siste innsendte regnskap og et begrenset sett nøkkeltall.
 Historikk, detaljerte linjer og enkelte oppstillingsplaner kan mangle. UI-et
 viser da en dokumentert tom- eller feiltilstand; det fyller aldri hull med
 konstruerte tall.
+
+### Midlertidig FI-SIM investor-demo
+
+Investor-demoen kan bruke et separat, immutable FI-SIM-datasett for resultatregnskap og balanse. Rapporterte linjer forblir urørt og refereres som ankere; alle produktlesninger går gjennom de versjonerte live-viewene. Hele flaten viser demo-banner og datasettversjon, og hver syntetiske linje eller beregnet demo-verdi er merket `SIM`.
+
+Simulering er av som standard. Den kan bare aktiveres når miljøet er eksakt `investor-demo`, feature-flagget er `true`, og `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` peker på en databasebruker som bare kan lese live-viewene. Manglende runtime-tilkobling feiler lukket. Operatørflyt, valideringsrapporter og GL-511-planen for full fjerning før beta/produksjon står i [FI-SIM-implementasjonsplanen](./docs/financials/fi-sim-implementation-plan.md).
 
 ### Uttrekk av styrets årsberetning
 
@@ -866,6 +872,9 @@ Dette vil:
 ## Miljøvariabler
 
 - `DATABASE_URL`: PostgreSQL-tilkobling
+- `FJORD_DEPLOYMENT_ENVIRONMENT`: må være eksakt `investor-demo` for å tillate FI-SIM; andre verdier bruker rapportert datasett
+- `FJORD_FINANCIAL_SIMULATION_ENABLED`: `true` bare i godkjent investor-demo; standard og alle produksjonsmiljøer er `false`
+- `FJORD_FINANCIAL_RUNTIME_DATABASE_URL`: separat least-privilege-tilkobling som bare kan lese finansielle live-views; obligatorisk når investor-demoen er aktiv
 - `AUTH_SECRET`: primær secret for Auth.js/NextAuth-sesjoner
 - `NEXTAUTH_SECRET`: secret for auth-sesjoner
 - `NEXTAUTH_URL`: lokal base-URL

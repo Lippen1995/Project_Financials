@@ -73,7 +73,7 @@ describe("distress company financial reader", () => {
     expect(getCompanyFinancials).not.toHaveBeenCalled();
   });
 
-  it("fails closed when simulated distress metrics cannot yet be labeled", async () => {
+  it("returns simulated distress figures with the active dataset version attached", async () => {
     const read = createDistressCompanyRecordReader(
       { findCompany: vi.fn().mockResolvedValue({ id: "company-1" }) },
       {
@@ -85,7 +85,13 @@ describe("distress company financial reader", () => {
       },
     );
 
-    await expect(read("company-1")).rejects.toThrow(/labeling/i);
+    // Every distress snapshot is stamped with the dataset version it was computed on, and
+    // `matchesActiveFinancialDataset` drops one computed on any other. A simulated dataset is
+    // therefore visible as itself rather than hidden behind a refusal.
+    expect(await read("company-1")).toMatchObject({
+      financialDatasetMode: "simulated",
+      financialDatasetVersion: "simulated:demo-1:3",
+    });
   });
 
   it("keeps the financial dataset version on derived distress snapshots", () => {

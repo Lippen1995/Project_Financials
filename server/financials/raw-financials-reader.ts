@@ -1,3 +1,8 @@
+import {
+  SIMULATED_EXPORT_DISCLAIMER,
+  buildFinancialDisclosure,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
 import { prisma } from "@/lib/prisma";
 import type {
   FinancialDatasetMode,
@@ -107,6 +112,11 @@ export type RawCompanyFinancials = {
   source: "live";
   datasetMode: FinancialDatasetMode;
   financialDatasetVersion: FinancialDatasetVersion;
+  /**
+   * Travels with the payload rather than being left to the caller to reconstruct. A raw extract is
+   * the surface most likely to be pasted somewhere else, so the disclaimer has to be inside it.
+   */
+  disclosure: FinancialDisclosure & { disclaimer: string | null };
   statements: RawFinancialStatement[];
   data: RawFinancialLine[];
 };
@@ -133,10 +143,15 @@ export function createRawFinancialsReader(
         .filter(isPublicRawStatement)
         .sort(compareStatements);
 
+      const disclosure = buildFinancialDisclosure(snapshot);
       return {
         source: "live",
         datasetMode: snapshot.datasetMode,
         financialDatasetVersion: snapshot.financialDatasetVersion,
+        disclosure: {
+          ...disclosure,
+          disclaimer: disclosure.simulated ? SIMULATED_EXPORT_DISCLAIMER : null,
+        },
         statements: statements.map((statement) => ({
           liveStatementId: statement.liveStatementId,
           reportedStatementId: statement.reportedStatementId,
