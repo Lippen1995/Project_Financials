@@ -1,13 +1,15 @@
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
 import { mergeIndustryCodeClassification } from "@/lib/industry-code";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import {
   NormalizedAnnouncementDetail,
   CompanySearchResponse,
   DataAvailability,
+  FinancialDatasetVersion,
   NormalizedCompany,
   NormalizedFinancialDocument,
-  NormalizedFinancialLineItem,
-  NormalizedFinancialStatement,
+  ProvenancedFinancialLineItem,
+  ProvenancedFinancialStatement,
   RankedCompanySearchResult,
   SearchFilters,
   SearchInterpretation,
@@ -18,10 +20,10 @@ import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-pr
 import { classifyQueryIntent } from "@/server/ai-search/query-router";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { mapDbCompany, mapDbRoles } from "@/server/mappers/db-mappers";
+import { getLatestFinancialsForCompanies } from "@/server/financials/company-search-financials-reader";
 import {
   getCachedCompanyCore,
   getCachedRoles,
-  getLatestFinancialsForCompanies,
   upsertCompanySnapshot,
   upsertIndustryCodeSnapshot,
 } from "@/server/persistence/company-repository";
@@ -530,12 +532,20 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
   }
 
   let financials: {
-    statements: NormalizedFinancialStatement[];
-    allScopeStatements: NormalizedFinancialStatement[];
-    lineItems: NormalizedFinancialLineItem[];
+    datasetMode: "reported" | "simulated" | null;
+    financialDatasetVersion: FinancialDatasetVersion | null;
+    // Null until financials have actually been read: a profile assembled without them has made
+    // no claim about which dataset it is on, and must not appear to have cleared a simulated one.
+    disclosure: FinancialDisclosure | null;
+    statements: ProvenancedFinancialStatement[];
+    allScopeStatements: ProvenancedFinancialStatement[];
+    lineItems: ProvenancedFinancialLineItem[];
     documents: NormalizedFinancialDocument[];
     availability: DataAvailability;
   } = {
+    datasetMode: null,
+    financialDatasetVersion: null,
+    disclosure: null,
     statements: [],
     allScopeStatements: [],
     lineItems: [],
@@ -578,6 +588,9 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
     financialStatementsAllScopes: financials.allScopeStatements,
     financialLineItems: financials.lineItems,
     financialDocuments: financials.documents,
+    financialDatasetMode: financials.datasetMode,
+    financialDatasetVersion: financials.financialDatasetVersion,
+    financialDisclosure: financials.disclosure,
     financialsAvailability: financials.availability,
     regulatoryAvailability: {
       available: false,

@@ -37,6 +37,8 @@ describe("buildNjordAnalysisContextPrompt", () => {
         purpose: "Første utvalg",
         criteriaVersion: "analysis-criteria-v1",
         universeResultVersion: null,
+        financialDatasetMode: null,
+        financialDatasetVersion: null,
         screeningVersion: null,
         rankingVersion: null,
         evaluatedCount: null,

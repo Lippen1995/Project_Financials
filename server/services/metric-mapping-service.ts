@@ -1,7 +1,5 @@
-import { Prisma } from "@prisma/client";
-
 import { prisma } from "@/lib/prisma";
-import { normalizeNorwegianText } from "@/lib/norwegian-text";
+import { mappingStore } from "@/server/financials/mapping/mapping-store";
 import {
   CanonicalMetricKey,
   LiabilitySection,
@@ -11,10 +9,7 @@ import {
   defaultMetricDefinitions,
   metricLayoutGroupLabels,
 } from "@/server/financials/canonical-taxonomy";
-import {
-  CanonicalRegistryEntry,
-  loadCanonicalRegistry,
-} from "@/server/services/canonical-registry-service";
+import { loadCanonicalRegistry } from "@/server/services/canonical-registry-service";
 
 // ---------------------------------------------------------------------------
 // UI model
@@ -142,109 +137,13 @@ export async function buildMetricMappingModel(): Promise<MetricMappingModel> {
 // from the (fixed) canonical key, never supplied by the client.
 // ---------------------------------------------------------------------------
 
-export class MetricAliasConflictError extends Error {}
+/**
+ * Alias mutations are delegated to the mapping store, which routes the write to the store that
+ * matches the dataset currently being read. Reads still come from LIVE; only the destination of
+ * a reviewer decision varies, so mapping done during a demo cannot change a reported alias.
+ */
+export { MetricAliasConflictError } from "@/server/financials/mapping/mapping-store";
 
-/** Resolve a metric key against the canonical-key registry, deriving the alias's
- *  statementFamily and liabilitySection from the registry entry. Rejects keys
- *  that are not in the registry (typos / removed keys). */
-async function resolveRegistryFields(metricKey: string): Promise<{
-  statementFamily: CanonicalRegistryEntry["family"];
-  liabilitySection: LiabilitySection | null;
-}> {
-  const registry = await loadCanonicalRegistry();
-  const entry = registry.find((e) => e.key === metricKey);
-  if (!entry) {
-    throw new Error(`Ukjent regnskapsnøkkel: ${metricKey}`);
-  }
-  return {
-    statementFamily: entry.family,
-    liabilitySection: entry.liabilitySection,
-  };
-}
-
-function normalizeAliasInput(rawAlias: string) {
-  const alias = rawAlias.trim();
-  if (!alias) {
-    throw new Error("Alias kan ikke være tom");
-  }
-  const normalizedAlias = normalizeNorwegianText(alias);
-  if (!normalizedAlias) {
-    throw new Error("Alias normaliseres til en tom streng");
-  }
-  return { alias, normalizedAlias };
-}
-
-export async function createAlias(input: {
-  alias: string;
-  metricKey: string;
-  userId?: string | null;
-}) {
-  const { alias, normalizedAlias } = normalizeAliasInput(input.alias);
-  const { statementFamily, liabilitySection } = await resolveRegistryFields(
-    input.metricKey,
-  );
-
-  try {
-    return await prisma.metricAlias.create({
-      data: {
-        metricKey: input.metricKey,
-        alias,
-        normalizedAlias,
-        statementFamily,
-        liabilitySection,
-        createdByUserId: input.userId ?? null,
-      },
-    });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      throw new MetricAliasConflictError(
-        "Dette aliaset er allerede koblet til denne nøkkelen",
-      );
-    }
-    throw error;
-  }
-}
-
-export async function updateAlias(input: {
-  id: string;
-  alias?: string;
-  metricKey?: string;
-}) {
-  const data: Prisma.MetricAliasUpdateInput = {};
-
-  if (input.alias !== undefined) {
-    const { alias, normalizedAlias } = normalizeAliasInput(input.alias);
-    data.alias = alias;
-    data.normalizedAlias = normalizedAlias;
-  }
-
-  if (input.metricKey !== undefined) {
-    const { statementFamily, liabilitySection } = await resolveRegistryFields(
-      input.metricKey,
-    );
-    data.metricKey = input.metricKey;
-    data.statementFamily = statementFamily;
-    data.liabilitySection = liabilitySection;
-  }
-
-  try {
-    return await prisma.metricAlias.update({ where: { id: input.id }, data });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      throw new MetricAliasConflictError(
-        "Dette aliaset er allerede koblet til denne nøkkelen",
-      );
-    }
-    throw error;
-  }
-}
-
-export async function deleteAlias(id: string) {
-  await prisma.metricAlias.delete({ where: { id } });
-}
+export const createAlias = mappingStore.createAlias;
+export const updateAlias = mappingStore.updateAlias;
+export const deleteAlias = mappingStore.deleteAlias;

@@ -3,7 +3,12 @@
 import React, { ReactNode, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
+import {
+  SimulatedFinancialsBanner,
+  SimulatedValueMarker,
+} from "@/components/company/simulated-financials-notice";
 import { buildThreadedComments, ThreadedCommentNode } from "@/lib/comment-thread";
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
 import {
   buildFinancialReportDataset,
   calculateGrowth,
@@ -32,6 +37,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const MINUS = "−";
+
 
 // A statement never shows more than this many years at once; older years are
 // reached with the pager. Matches the design's six-column document window.
@@ -550,10 +556,13 @@ export function FinancialTimeSeriesTable({
   discussionStatements,
   discussionThreads = [],
   availability,
+  disclosure,
 }: {
   statements: NormalizedFinancialStatement[];
   documents: NormalizedFinancialDocument[];
   lineItems?: NormalizedFinancialLineItem[];
+  /** Says whether these figures come from a demonstration dataset. */
+  disclosure?: FinancialDisclosure;
   companySlug: string;
   discussionRoomId?: string | null;
   discussionRoomName?: string | null;
@@ -745,27 +754,70 @@ export function FinancialTimeSeriesTable({
       : null;
 
   const unitLabel = FINANCIAL_UNIT_LABELS[unit];
+
+  // Provenance for the figures on screen. A STALE availability is otherwise unobservable:
+  // nothing else in the app renders that state, so without this line the user is shown
+  // official-looking figures with no indication that the snapshot is out of date.
+  const latestSourceStatement = [...scopedStatements].sort(
+    (left, right) => right.fetchedAt.getTime() - left.fetchedAt.getTime(),
+  )[0];
+  const sourceName =
+    latestSourceStatement?.sourceSystem === "BRREG"
+      ? "Brønnøysundregistrene"
+      : latestSourceStatement?.sourceSystem;
+  const sourceDate = latestSourceStatement?.fetchedAt
+    ? new Intl.DateTimeFormat("nb-NO", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Europe/Oslo",
+      }).format(latestSourceStatement.fetchedAt)
+    : null;
+  const staleSuffix = availability?.status === "STALE" ? " · utdatert snapshot" : "";
+  const sourceText =
+    sourceName && sourceDate
+      ? `Kilde: ${sourceName} strukturert API · hentet ${sourceDate}${staleSuffix}`
+      : sourceName
+        ? `Kilde: ${sourceName}${staleSuffix}`
+        : null;
   const unitSuffix = FINANCIAL_UNIT_SUFFIXES[unit];
-  const kpis: { label: string; value: string; delta: string }[] = [
+  const latestMetricIsSynthetic = (...metricKeys: string[]) => {
+    if (!latestYear || !disclosure?.simulated) return false;
+
+    const matchingLines = scopedLineItems.filter(
+      (item) => item.fiscalYear === latestYear && item.metricKey != null && metricKeys.includes(item.metricKey),
+    );
+    if (matchingLines.length > 0) {
+      return matchingLines.some((item) => item.publicationSource === "FI_SIM");
+    }
+    return false;
+  };
+  const kpis: { label: string; value: string; delta: string; synthetic: boolean }[] = [
     {
       label: "Driftsinntekter",
       value: `${formatUnitAmount(revenueLatest, unit)} ${unitSuffix}`,
       delta: formatSignedPercent(kpiGrowth("total_operating_revenue")),
+      synthetic: latestMetricIsSynthetic("total_operating_revenue", "total_operating_income"),
     },
     {
       label: "Driftsresultat (EBIT)",
       value: `${formatUnitAmount(ebitLatest, unit)} ${unitSuffix}`,
       delta: formatSignedPercent(kpiGrowth("ebit")),
+      synthetic: latestMetricIsSynthetic("ebit", "operating_profit"),
     },
     {
       label: "EBIT-margin",
       value: formatPercent(marginLatest),
       delta: formatPpDelta(marginLatest, marginPrev),
+      synthetic:
+        latestMetricIsSynthetic("total_operating_revenue", "total_operating_income") ||
+        latestMetricIsSynthetic("ebit", "operating_profit"),
     },
     {
       label: "Sum eiendeler",
       value: `${formatUnitAmount(latestValues?.total_assets ?? null, unit)} ${unitSuffix}`,
       delta: formatSignedPercent(kpiGrowth("total_assets")),
+      synthetic: latestMetricIsSynthetic("total_assets"),
     },
   ];
 
@@ -1370,17 +1422,25 @@ export function FinancialTimeSeriesTable({
                       <td className="px-2 py-2 text-center font-mono text-[11px] text-[var(--px-muted)]">
                         {latestVisibleItem?.sourcePage ?? ""}
                       </td>
-                      {visibleYears.map((year) => (
-                        <td
-                          key={year}
-                          className={cn(
-                            "tabular-nums px-2 py-2.5 text-right font-mono text-[13px]",
-                            year === latestYear ? "text-[var(--px-text)]" : "text-[var(--px-muted)]",
-                          )}
-                        >
-                          {formatUnitAmount(row.valuesByYear.get(year)?.value ?? null, unit, { report: true })}
-                        </td>
-                      ))}
+                      {visibleYears.map((year) => {
+                        const item = row.valuesByYear.get(year);
+                        // Marked per cell, not per row: on a hybrid statement the same line can be
+                        // a reported figure one year and a generated one the next.
+                        const synthetic = item?.publicationSource === "FI_SIM";
+                        return (
+                          <td
+                            key={year}
+                            data-value-origin={synthetic ? "synthetic" : undefined}
+                            className={cn(
+                              "tabular-nums px-2 py-2.5 text-right font-mono text-[13px]",
+                              year === latestYear ? "text-[var(--px-text)]" : "text-[var(--px-muted)]",
+                            )}
+                          >
+                            {formatUnitAmount(item?.value ?? null, unit, { report: true })}
+                            {synthetic ? <SimulatedValueMarker /> : null}
+                          </td>
+                        );
+                      })}
                     </tr>
                   </React.Fragment>
                 );
@@ -1394,12 +1454,17 @@ export function FinancialTimeSeriesTable({
 
   return (
     <div className="space-y-5">
+      {disclosure?.simulated ? <SimulatedFinancialsBanner disclosure={disclosure} /> : null}
       {/* heading — floats above the document card */}
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 px-1">
         <div className="min-w-0">
           <div className="data-label text-[11px] uppercase text-[var(--px-muted)]">
             Årsregnskap · {availableScopes.has("CONSOLIDATED") ? "Konsern" : "Selskap"} ·{" "}
-            {basis === "reported" ? "Som rapportert" : "Standardisert"}
+            {basis === "reported"
+              ? disclosure?.simulated
+                ? "FI-SIM-visning"
+                : "Som rapportert"
+              : "Standardisert"}
           </div>
           <h2 className="editorial-display mt-1.5 text-[32px] tracking-[-0.03em] text-[var(--px-text)]">
             Regnskap over tid
@@ -1416,7 +1481,11 @@ export function FinancialTimeSeriesTable({
               }}
               className="cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-1.5 text-[12.5px] font-medium text-[var(--px-muted)] transition-colors hover:text-[var(--px-text)]"
             >
-              {basis === "reported" ? "Vis standardisert" : "Vis som rapportert"}
+              {basis === "reported"
+                ? "Vis standardisert"
+                : disclosure?.simulated
+                  ? "Vis FI-SIM-visning"
+                  : "Vis som rapportert"}
             </button>
           ) : null}
           <SegmentedControl value={unit} onChange={setUnit} options={unitOptions} />
@@ -1458,6 +1527,7 @@ export function FinancialTimeSeriesTable({
                 </div>
                 <div className="tabular-nums mt-1.5 whitespace-nowrap text-[22px] font-semibold tracking-[-0.02em] text-[var(--px-text)]">
                   {item.value}
+                  {item.synthetic ? <SimulatedValueMarker /> : null}
                 </div>
                 <div className="mt-1 flex items-baseline gap-1.5">
                   <span
@@ -1509,14 +1579,28 @@ export function FinancialTimeSeriesTable({
                 {renderAsReportedSection("INCOME_STATEMENT")}
                 {renderAsReportedSection("BALANCE_SHEET")}
                 {renderAsReportedSection("CASH_FLOW")}
-                <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3.5 text-[12px] leading-6 text-[var(--px-muted)]">
-                  Linjenavn og rekkefølge følger den nyeste publiserte hovedoppstillingen. Historiske år
-                  kobles til de samme regnskapspostene. «Side» viser kildesiden i den aktuelle årsrapporten.
-                  Tall i parentes er negative; blanke felt betyr at posten ikke finnes eller ikke har en
-                  publisert verdi for året.
-                </p>
+                {disclosure?.simulated ? (
+                  <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3.5 text-[12px] leading-6 text-[var(--px-muted)]">
+                    Linjenavn og rekkefølge følger FI-SIM-konseptkatalogen. Historiske år kobles til de
+                    samme konseptene. «Side» vises bare for rapporterte ankere. Tall i parentes er negative;
+                    blanke felt betyr at konseptet ikke finnes eller ikke har en verdi for året.
+                  </p>
+                ) : (
+                  <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3.5 text-[12px] leading-6 text-[var(--px-muted)]">
+                    Linjenavn og rekkefølge følger den nyeste publiserte hovedoppstillingen. Historiske år
+                    kobles til de samme regnskapspostene. «Side» viser kildesiden i den aktuelle årsrapporten.
+                    Tall i parentes er negative; blanke felt betyr at posten ikke finnes eller ikke har en
+                    publisert verdi for året.
+                  </p>
+                )}
               </>
             )}
+
+            {sourceText ? (
+              <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3.5 text-[12px] leading-6 text-[var(--px-muted)]">
+                {sourceText}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

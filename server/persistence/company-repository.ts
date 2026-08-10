@@ -13,7 +13,6 @@ import { toSafeNumber } from "@/server/financials/number-utils";
 function toBigInt(value: number | null | undefined) {
   return value === null || value === undefined ? null : BigInt(Math.round(value));
 }
-
 export async function upsertCompanySnapshot(company: NormalizedCompany) {
   const existingCompany = await prisma.company.findUnique({
     where: { orgNumber: company.orgNumber },
@@ -180,33 +179,6 @@ export async function upsertIndustryCodeSnapshot(industryCode: NormalizedIndustr
   });
 }
 
-export async function getCachedCompany(orgNumberOrSlug: string, maxAgeHours: number) {
-  const company = await prisma.company.findFirst({
-    where: {
-      AND: [
-        { sourceSystem: "BRREG" },
-        { OR: [{ orgNumber: orgNumberOrSlug }, { slug: orgNumberOrSlug }] },
-      ],
-    },
-    include: {
-      addresses: true,
-      industryCode: true,
-      roles: {
-        where: { sourceSystem: "BRREG" },
-        include: { person: true },
-        orderBy: [{ isBoardRole: "desc" }, { title: "asc" }],
-      },
-      financialStatements: { orderBy: { fiscalYear: "desc" } },
-    },
-  });
-
-  if (!company) {
-    return null;
-  }
-
-  const ageMs = Date.now() - company.fetchedAt.getTime();
-  return ageMs <= maxAgeHours * 60 * 60 * 1000 ? company : null;
-}
 
 export async function getCachedCompanyCore(orgNumberOrSlug: string, maxAgeHours: number) {
   const company = await prisma.company.findFirst({
@@ -253,26 +225,6 @@ export async function getCachedRoles(orgNumber: string, maxAgeHours: number) {
   return ageMs <= maxAgeHours * 60 * 60 * 1000 ? company.roles : null;
 }
 
-export async function getCachedFinancialStatements(orgNumber: string, maxAgeHours: number) {
-  const company = await prisma.company.findUnique({
-    where: { orgNumber },
-    select: {
-      financialStatements: {
-        orderBy: { fiscalYear: "desc" },
-      },
-    },
-  });
-
-  if (!company || company.financialStatements.length === 0) {
-    return null;
-  }
-
-  const freshestStatement = company.financialStatements.reduce((latest, statement) =>
-    statement.fetchedAt > latest.fetchedAt ? statement : latest,
-  );
-  const ageMs = Date.now() - freshestStatement.fetchedAt.getTime();
-  return ageMs <= maxAgeHours * 60 * 60 * 1000 ? company.financialStatements : null;
-}
 
 export async function upsertRolesSnapshot(companyOrgNumber: string, roles: NormalizedRole[]) {
   const company = await prisma.company.findUnique({
@@ -336,7 +288,6 @@ export async function upsertRolesSnapshot(companyOrgNumber: string, roles: Norma
     });
   }
 }
-
 export async function upsertFinancialStatementsSnapshot(
   companyOrgNumber: string,
   statements: InternalNormalizedFinancialStatement[],
@@ -407,64 +358,4 @@ export async function upsertFinancialStatementsSnapshot(
       },
     });
   }
-}
-
-export async function getLatestFinancialsForCompanies(orgNumbers: string[]) {
-  if (orgNumbers.length === 0) {
-    return new Map<
-      string,
-      {
-        revenue: number | null;
-        operatingProfit: number | null;
-        netIncome: number | null;
-        fiscalYear: number | null;
-      }
-    >();
-  }
-
-  const statements = await prisma.financialStatement.findMany({
-    where: {
-      company: {
-        orgNumber: {
-          in: orgNumbers,
-        },
-      },
-    },
-    orderBy: [{ companyId: "asc" }, { fiscalYear: "desc" }],
-    select: {
-      revenue: true,
-      operatingProfit: true,
-      netIncome: true,
-      fiscalYear: true,
-      company: {
-        select: {
-          orgNumber: true,
-        },
-      },
-    },
-  });
-
-  const lookup = new Map<
-    string,
-    {
-      revenue: number | null;
-      operatingProfit: number | null;
-      netIncome: number | null;
-      fiscalYear: number | null;
-    }
-  >();
-
-  for (const statement of statements) {
-    const orgNumber = statement.company.orgNumber;
-    if (!lookup.has(orgNumber)) {
-      lookup.set(orgNumber, {
-        revenue: toSafeNumber(statement.revenue),
-        operatingProfit: toSafeNumber(statement.operatingProfit),
-        netIncome: toSafeNumber(statement.netIncome),
-        fiscalYear: statement.fiscalYear,
-      });
-    }
-  }
-
-  return lookup;
 }

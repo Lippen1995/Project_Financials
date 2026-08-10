@@ -37,7 +37,9 @@ import {
   NormalizedFinancialStatement,
 } from "@/lib/types";
 import { mapDbCompany, mapDbFinancialStatements } from "@/server/mappers/db-mappers";
+import { financialsRepository } from "@/server/financials/financials-repository";
 import {
+  type ActiveFinancialDataset,
   countDistressProfiles,
   deleteCompanyDistressData,
   getDistressCompanyRecord,
@@ -49,6 +51,7 @@ import {
   getDistressSyncState,
   listDistressFilterOptions,
   listDistressCompanyRecords,
+  matchesActiveFinancialDataset,
   upsertCompanyDistressProfile,
   upsertDistressFinancialSnapshot,
   upsertDistressSyncState,
@@ -70,6 +73,16 @@ const DISTRESS_DEFAULT_BOOTSTRAP_CONCURRENCY = 16;
 const DISTRESS_DEFAULT_UPDATES_CONCURRENCY = 20;
 const DISTRESS_BEST_FIT_LIMIT = 500;
 const DISTRESS_REVENUE_TREND_YEARS = 5;
+
+async function getActiveDistressFinancialDataset(): Promise<ActiveFinancialDataset> {
+  const snapshot = await financialsRepository.getCompaniesFinancialHeadlines({
+    companyIds: [],
+  });
+  return {
+    financialDatasetMode: snapshot.datasetMode,
+    financialDatasetVersion: snapshot.financialDatasetVersion,
+  };
+}
 /**
  * Balance-sheet total over which the module counts a company as one with something worth bidding
  * for. It deliberately keys off total assets rather than anleggsmidler + varelager: those line items
@@ -554,6 +567,8 @@ export async function refreshDistressFinancialSnapshotForCompany(orgNumber: stri
   });
 
   const snapshot: DistressFinancialSnapshotSummary = {
+    financialDatasetMode: record.financialDatasetMode,
+    financialDatasetVersion: record.financialDatasetVersion,
     distressStatus: record.distressProfile.distressStatus,
     daysInStatus: record.distressProfile.daysInStatus ?? null,
     industryCode: company.industryCode?.code ?? null,
@@ -854,13 +869,22 @@ async function ensureDistressCoverage() {
   }
 }
 
-function mapRow(record: Awaited<ReturnType<typeof listDistressCompanyRecords>>[number]): DistressCompanyRow {
+function mapRow(
+  record: Awaited<ReturnType<typeof listDistressCompanyRecords>>[number],
+  activeFinancialDataset: ActiveFinancialDataset,
+): DistressCompanyRow {
   const company = mapDbCompany({
     ...record.company,
     roles: [],
     financialStatements: [],
   });
-  const snapshot = record.company.distressFinancialSnapshot;
+  const storedSnapshot = record.company.distressFinancialSnapshot;
+  const snapshot = matchesActiveFinancialDataset(
+    storedSnapshot,
+    activeFinancialDataset,
+  )
+    ? storedSnapshot
+    : null;
 
   return {
     company: {
@@ -891,6 +915,18 @@ function mapRow(record: Awaited<ReturnType<typeof listDistressCompanyRecords>>[n
         }
       : null,
     financials: {
+      financialDatasetMode:
+        snapshot?.financialDatasetMode === "reported" ||
+        snapshot?.financialDatasetMode === "simulated"
+          ? snapshot.financialDatasetMode
+          : null,
+      financialDatasetVersion:
+        typeof snapshot?.financialDatasetVersion === "string" &&
+        /^(?:reported:\d+|simulated:[A-Za-z0-9_-]+:\d+)$/.test(
+          snapshot.financialDatasetVersion,
+        )
+          ? snapshot.financialDatasetVersion as DistressCompanyRow["financials"]["financialDatasetVersion"]
+          : null,
       lastReportedYear: snapshot?.lastReportedYear ?? null,
       revenue: toNumber(snapshot?.revenue),
       ebit: toNumber(snapshot?.ebit),
@@ -1056,13 +1092,17 @@ export async function listDistressCompaniesForWorkspace(
   const view = filters.view ?? "BEST_FIT";
   const page = Math.max(0, filters.page ?? 0);
   const size = Math.max(1, Math.min(filters.size ?? 50, 200));
-  const allRows = (await listDistressCompanyRecords(filters)).map(mapRow);
+  const activeFinancialDataset = await getActiveDistressFinancialDataset();
+  const allRows = (
+    await listDistressCompanyRecords(filters, activeFinancialDataset)
+  ).map((record) => mapRow(record, activeFinancialDataset));
   const visibleRows = view === "BEST_FIT" ? buildBestFitRows(allRows) : allRows;
   const resolvedSort = resolveSort(filters.sort);
   const rows = view === "BEST_FIT" && !resolvedSort ? visibleRows : sortRows(visibleRows, resolvedSort);
   const start = page * size;
 
   return {
+    ...activeFinancialDataset,
     items: rows.slice(start, start + size),
     totalCount: rows.length,
     totalUniverseCount: allRows.length,
@@ -1168,12 +1208,21 @@ function buildModuleSectors(rows: DistressCompanyRow[]): DistressModuleSectorRow
 export async function getDistressUniverseForWorkspace(
   actorUserId: string,
   workspaceId: string,
-): Promise<{ rows: DistressCompanyRow[]; sectors: DistressModuleSectorRow[] }> {
+): Promise<{
+  financialDatasetMode: ActiveFinancialDataset["financialDatasetMode"];
+  financialDatasetVersion: ActiveFinancialDataset["financialDatasetVersion"];
+  rows: DistressCompanyRow[];
+  sectors: DistressModuleSectorRow[];
+}> {
   await requireWorkspaceMembership(actorUserId, workspaceId);
   await ensureDistressCoverage();
 
-  const rows = (await listDistressCompanyRecords({})).map(mapRow);
+  const activeFinancialDataset = await getActiveDistressFinancialDataset();
+  const rows = (
+    await listDistressCompanyRecords({}, activeFinancialDataset)
+  ).map((record) => mapRow(record, activeFinancialDataset));
   return {
+    ...activeFinancialDataset,
     rows,
     sectors: buildModuleSectors(rows),
   };
@@ -1195,17 +1244,21 @@ export async function getDistressModuleForWorkspace(
   const view = filters.view ?? "BEST_FIT";
   const page = Math.max(0, filters.page ?? 0);
   const size = Math.max(1, Math.min(filters.size ?? 50, 200));
-  const allRows = (await listDistressCompanyRecords(filters)).map(mapRow);
+  const activeFinancialDataset = await getActiveDistressFinancialDataset();
+  const allRows = (
+    await listDistressCompanyRecords(filters, activeFinancialDataset)
+  ).map((record) => mapRow(record, activeFinancialDataset));
   const visibleRows = view === "BEST_FIT" ? buildBestFitRows(allRows) : allRows;
   const resolvedSort = resolveSort(filters.sort);
   const rows = view === "BEST_FIT" && !resolvedSort ? visibleRows : sortRows(visibleRows, resolvedSort);
   const start = page * size;
-  const [filterOptions, distressUniverseCount] = await Promise.all([
-    getDistressFilterOptionsForWorkspace(actorUserId, workspaceId),
+  const [rawFilterOptions, distressUniverseCount] = await Promise.all([
+    listDistressFilterOptions(activeFinancialDataset),
     countDistressProfiles(),
   ]);
 
   return {
+    ...activeFinancialDataset,
     items: rows.slice(start, start + size),
     totalCount: rows.length,
     totalUniverseCount: allRows.length,
@@ -1215,7 +1268,36 @@ export async function getDistressModuleForWorkspace(
     view,
     kpis: buildModuleKpis(allRows),
     sectors: buildModuleSectors(allRows),
-    filterOptions,
+    filterOptions: mapDistressFilterOptions(rawFilterOptions),
+  };
+}
+
+function mapDistressFilterOptions(
+  options: DistressFilterOptions,
+): DistressFilterOptions {
+  return {
+    financialDatasetMode: options.financialDatasetMode,
+    financialDatasetVersion: options.financialDatasetVersion,
+    statuses: options.statuses.map((option) => ({
+      ...option,
+      label: getDistressStatusLabel(
+        option.value as DistressCompanyRow["distress"]["status"],
+      ),
+    })),
+    industryCodes: options.industryCodes.map((option) => ({
+      ...option,
+      label:
+        option.label && option.label !== option.value
+          ? `${option.value} ${option.label}`
+          : option.value,
+    })),
+    sectors: options.sectors.map((option) => ({
+      ...option,
+      label:
+        option.label && option.label !== option.value
+          ? `${option.value} ${option.label}`
+          : option.value,
+    })),
   };
 }
 
@@ -1226,22 +1308,10 @@ export async function getDistressFilterOptionsForWorkspace(
   await requireWorkspaceMembership(actorUserId, workspaceId);
   await ensureDistressCoverage();
 
-  const options = await listDistressFilterOptions();
-
-  return {
-    statuses: options.statuses.map((option) => ({
-      ...option,
-      label: getDistressStatusLabel(option.value as DistressCompanyRow["distress"]["status"]),
-    })),
-    industryCodes: options.industryCodes.map((option) => ({
-      ...option,
-      label: option.label && option.label !== option.value ? `${option.value} ${option.label}` : option.value,
-    })),
-    sectors: options.sectors.map((option) => ({
-      ...option,
-      label: option.label && option.label !== option.value ? `${option.value} ${option.label}` : option.value,
-    })),
-  };
+  const activeFinancialDataset = await getActiveDistressFinancialDataset();
+  return mapDistressFilterOptions(
+    await listDistressFilterOptions(activeFinancialDataset),
+  );
 }
 
 export async function getDistressOverviewForWorkspace(
@@ -1251,10 +1321,11 @@ export async function getDistressOverviewForWorkspace(
   await requireWorkspaceMembership(actorUserId, workspaceId);
   await ensureDistressCoverage();
 
+  const activeFinancialDataset = await getActiveDistressFinancialDataset();
   const [counts, statusDistribution, sectors, timeline, recentAnnouncements] = await Promise.all([
-    getDistressOverviewCounts(),
+    getDistressOverviewCounts(activeFinancialDataset),
     getDistressStatusDistribution(),
-    getDistressSectorOverview(),
+    getDistressSectorOverview(8, activeFinancialDataset),
     getDistressTimelineByMonth(12),
     getDistressRecentAnnouncements(8),
   ]);
@@ -1345,6 +1416,7 @@ export async function getDistressOverviewForWorkspace(
   ];
 
   return {
+    ...activeFinancialDataset,
     kpis: {
       totalActiveCases: counts.totalActiveCases,
       recentAnnouncements30d: counts.recentAnnouncements30d,
@@ -1393,9 +1465,14 @@ export async function getDistressCompanyDetailForWorkspace(
   const extractedSections = null;
 
   const latestStatement = profile.financialStatements[0] ?? null;
+  if (!profile.financialDatasetMode || !profile.financialDatasetVersion) {
+    throw new Error("Financial dataset metadata is unavailable for distress analysis.");
+  }
   const persistedSnapshot = record.distressFinancialSnapshot;
   const shouldRefreshSnapshot =
     !persistedSnapshot ||
+    persistedSnapshot.financialDatasetMode !== profile.financialDatasetMode ||
+    persistedSnapshot.financialDatasetVersion !== profile.financialDatasetVersion ||
     (latestStatement !== null &&
       (persistedSnapshot.lastReportedYear !== latestStatement.fiscalYear ||
         persistedSnapshot.dataCoverage === "NO_FINANCIALS" ||
@@ -1408,6 +1485,8 @@ export async function getDistressCompanyDetailForWorkspace(
     ? await refreshDistressFinancialSnapshotForCompany(record.orgNumber)
     : persistedSnapshot
       ? {
+          financialDatasetMode: profile.financialDatasetMode,
+          financialDatasetVersion: profile.financialDatasetVersion,
           distressStatus: persistedSnapshot.distressStatus as PrismaDistressStatus,
           daysInStatus: persistedSnapshot.daysInStatus,
           industryCode: persistedSnapshot.industryCode,
@@ -1426,6 +1505,12 @@ export async function getDistressCompanyDetailForWorkspace(
           updatedAt: persistedSnapshot.updatedAt,
         }
       : null;
+  if (
+    snapshot &&
+    snapshot.financialDatasetVersion !== profile.financialDatasetVersion
+  ) {
+    throw new Error("Financial dataset changed while distress analysis was being prepared.");
+  }
   const trends = profile.financialStatements
     .slice(0, 5)
     .map(buildDistressFinancialTrend)
@@ -1447,6 +1532,8 @@ export async function getDistressCompanyDetailForWorkspace(
     },
     sector,
     financials: {
+      financialDatasetMode: profile.financialDatasetMode,
+      financialDatasetVersion: profile.financialDatasetVersion,
       snapshot: snapshot ?? null,
       trends,
     },

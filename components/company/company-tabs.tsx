@@ -20,9 +20,7 @@ export const defaultCompanyTabs: { id: CompanyTabId; label: string }[] = [
   { id: "konsern", label: "Konsern" },
   { id: "aksjonaerer", label: "Aksjonærer" },
   { id: "kunngjoringer", label: "Kunngjøringer" },
-  { id: "dokumenter", label: "Dokumenter" },
   { id: "nyheter", label: "Nyheter" },
-  { id: "nettilknytning", label: "Nettilknytning" },
   { id: "sokkeleksponering", label: "Sokkeleksponering" },
   { id: "immaterielt", label: "Immaterielle rettigheter" },
 ];

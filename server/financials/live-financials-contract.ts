@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { FinancialDatasetVersion } from "@/lib/types";
+
 const reportedDatasetVersionSchema = z.string().regex(/^reported:\d+$/);
 const simulatedDatasetVersionSchema = z
   .string()
@@ -7,7 +9,7 @@ const simulatedDatasetVersionSchema = z
 const financialDatasetVersionSchema = z.union([
   reportedDatasetVersionSchema,
   simulatedDatasetVersionSchema,
-]);
+]) as z.ZodType<FinancialDatasetVersion>;
 
 const latestReportedCompanyMetricsSchema = z.object({
   companyId: z.string().min(1),
@@ -42,9 +44,7 @@ const latestReportedCompanyMetricsSnapshotSchema = z
   .superRefine((snapshot, context) => {
     const seen = new Set<string>();
     snapshot.statements.forEach((statement, index) => {
-      if (
-        statement.financialDatasetVersion !== snapshot.financialDatasetVersion
-      ) {
+      if (statement.financialDatasetVersion !== snapshot.financialDatasetVersion) {
         context.addIssue({
           code: "custom",
           path: ["statements", index, "financialDatasetVersion"],
@@ -56,8 +56,7 @@ const latestReportedCompanyMetricsSnapshotSchema = z
         context.addIssue({
           code: "custom",
           path: ["statements", index],
-          message:
-            "latest metric snapshot can contain only one row per company and scope",
+          message: "latest metric snapshot can contain only one row per company and scope",
         });
       }
       seen.add(key);
@@ -74,6 +73,7 @@ const liveFinancialLineSchema = z.object({
   metricKey: z.string().min(1).nullable(),
   value: z.bigint().nullable(),
   valueOrigin: z.enum(["reported", "synthetic"]),
+  statementOrigin: z.enum(["reported", "hybrid", "simulated"]),
   financialDatasetVersion: financialDatasetVersionSchema,
   taxonomyVersion: z.string().min(1).nullable(),
   generatorVersion: z.string().min(1).nullable(),
@@ -82,6 +82,13 @@ const liveFinancialLineSchema = z.object({
   sortOrder: z.number().int(),
   reportedSourceSystem: z.string().min(1).nullable(),
   reportedSourceId: z.string().min(1).nullable(),
+  sourceSystem: z.string().min(1),
+  sourceEntityType: z.string().min(1),
+  sourceId: z.string().min(1),
+  fetchedAt: z.date(),
+  normalizedAt: z.date(),
+  rawPayload: z.unknown().nullish(),
+  derivationRuleId: z.string().min(1).nullable(),
 });
 
 const liveFinancialStatementSchema = z
@@ -95,6 +102,12 @@ const liveFinancialStatementSchema = z
     financialDatasetVersion: financialDatasetVersionSchema,
     taxonomyVersion: z.string().min(1).nullable(),
     generatorVersion: z.string().min(1).nullable(),
+    sourceSystem: z.string().min(1),
+    sourceEntityType: z.string().min(1),
+    sourceId: z.string().min(1),
+    fetchedAt: z.date(),
+    normalizedAt: z.date(),
+    rawPayload: z.unknown().nullish(),
     currency: z.string().length(3),
     unitScale: z.number().int().positive(),
     periodStart: z.date().nullable(),
@@ -108,12 +121,8 @@ const liveFinancialStatementSchema = z
   })
   .superRefine((statement, context) => {
     const isReportedStatement = statement.statementOrigin === "reported";
-    const expectedStatementPrefix = isReportedStatement
-      ? "reported:"
-      : "simulated:";
-    const expectedDatasetPrefix = isReportedStatement
-      ? "reported:"
-      : "simulated:";
+    const expectedStatementPrefix = isReportedStatement ? "reported:" : "simulated:";
+    const expectedDatasetPrefix = isReportedStatement ? "reported:" : "simulated:";
 
     if (!statement.liveStatementId.startsWith(expectedStatementPrefix)) {
       context.addIssue({
@@ -138,10 +147,7 @@ const liveFinancialStatementSchema = z
           message: "reported statements require reportedStatementId",
         });
       }
-      if (
-        statement.taxonomyVersion !== null ||
-        statement.generatorVersion !== null
-      ) {
+      if (statement.taxonomyVersion !== null || statement.generatorVersion !== null) {
         context.addIssue({
           code: "custom",
           path: ["taxonomyVersion"],
@@ -149,28 +155,37 @@ const liveFinancialStatementSchema = z
         });
       }
     } else {
+      if (
+        statement.sourceSystem !== "FI-SIM" ||
+        statement.sourceEntityType !== "simulatedFinancialStatement" ||
+        statement.sourceId !== statement.liveStatementId
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["sourceSystem"],
+          message:
+            "hybrid and simulated statements require FI-SIM provenance bound to the live statement ID",
+        });
+      }
       if (statement.reportedStatementId !== null) {
         context.addIssue({
           code: "custom",
           path: ["reportedStatementId"],
-          message:
-            "simulated live statements cannot use a reported statement ID",
+          message: "simulated live statements cannot use a reported statement ID",
         });
       }
       if (!statement.taxonomyVersion?.match(/^FI-SIM-\d{4}\.\d+$/)) {
         context.addIssue({
           code: "custom",
           path: ["taxonomyVersion"],
-          message:
-            "taxonomyVersion is required for hybrid and simulated statements",
+          message: "taxonomyVersion is required for hybrid and simulated statements",
         });
       }
       if (statement.generatorVersion === null) {
         context.addIssue({
           code: "custom",
           path: ["generatorVersion"],
-          message:
-            "generatorVersion is required for hybrid and simulated statements",
+          message: "generatorVersion is required for hybrid and simulated statements",
         });
       }
     }
@@ -202,20 +217,21 @@ const liveFinancialStatementSchema = z
           message: "line and statement dataset versions must match",
         });
       }
-      if (
-        line.valueOrigin === "reported" &&
-        line.reportedFinancialLineItemId === null
-      ) {
+      if (line.statementOrigin !== statement.statementOrigin) {
+        context.addIssue({
+          code: "custom",
+          path: ["lines", index, "statementOrigin"],
+          message: "line and statement origins must match",
+        });
+      }
+      if (line.valueOrigin === "reported" && line.reportedFinancialLineItemId === null) {
         context.addIssue({
           code: "custom",
           path: ["lines", index, "reportedFinancialLineItemId"],
           message: "reported lines require a reported source line ID",
         });
       }
-      if (
-        line.valueOrigin === "synthetic" &&
-        line.reportedFinancialLineItemId !== null
-      ) {
+      if (line.valueOrigin === "synthetic" && line.reportedFinancialLineItemId !== null) {
         context.addIssue({
           code: "custom",
           path: ["lines", index, "reportedFinancialLineItemId"],
@@ -240,6 +256,30 @@ const liveFinancialStatementSchema = z
           code: "custom",
           path: ["lines", index, "reportedSourceSystem"],
           message: "synthetic lines cannot carry reported source metadata",
+        });
+      }
+      if (line.valueOrigin === "reported") {
+        if (
+          line.sourceSystem !== line.reportedSourceSystem ||
+          line.sourceId !== line.reportedSourceId ||
+          line.derivationRuleId !== null
+        ) {
+          context.addIssue({
+            code: "custom",
+            path: ["lines", index, "sourceSystem"],
+            message: "reported line provenance must match its reported source",
+          });
+        }
+      } else if (
+        line.sourceSystem !== "FI-SIM" ||
+        line.sourceEntityType !== "simulatedFinancialLine" ||
+        line.sourceId !== line.liveLineId ||
+        line.derivationRuleId === null
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["lines", index, "sourceSystem"],
+          message: "synthetic lines require FI-SIM source and derivation provenance",
         });
       }
       if (isReportedStatement) {
@@ -288,9 +328,7 @@ const liveFinancialStatementSchema = z
     }
   });
 
-export type FinancialDatasetVersion = z.infer<
-  typeof financialDatasetVersionSchema
->;
+export type { FinancialDatasetVersion } from "@/lib/types";
 export type LatestReportedCompanyMetrics = z.infer<
   typeof latestReportedCompanyMetricsSchema
 >;
@@ -298,13 +336,9 @@ export type LatestReportedCompanyMetricsSnapshot = z.infer<
   typeof latestReportedCompanyMetricsSnapshotSchema
 >;
 export type LiveFinancialLine = z.infer<typeof liveFinancialLineSchema>;
-export type LiveFinancialStatement = z.infer<
-  typeof liveFinancialStatementSchema
->;
+export type LiveFinancialStatement = z.infer<typeof liveFinancialStatementSchema>;
 
-export function parseLiveFinancialStatement(
-  input: unknown,
-): LiveFinancialStatement {
+export function parseLiveFinancialStatement(input: unknown): LiveFinancialStatement {
   return liveFinancialStatementSchema.parse(input);
 }
 

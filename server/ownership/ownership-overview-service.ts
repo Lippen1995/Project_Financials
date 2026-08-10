@@ -1,4 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import {
+  PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL,
+  PUBLISHABLE_SOURCE_IMPORT_STATUSES,
+  READABLE_SOURCE_IMPORT_STATUSES,
+  toPublishableSourceImportStatus,
+  toReadableSourceImportStatus,
+} from "@/server/ownership/group-relationship-snapshot-builder";
 import { getGroupStructure } from "@/server/ownership/group-structure-service";
 import { classifyRelationship, type OwnershipRelationship } from "@/server/ownership/ownership-thresholds";
 import type { GroupStructure } from "@/server/ownership/types";
@@ -26,41 +33,46 @@ async function getOwnershipSourceForYear(
   hasGroupPublication: boolean;
 } | null> {
   const publication = await prisma.groupRelationshipPublication.findFirst({
-    where: { taxYear, sourceImportStatus: "COMPLETED" },
+    where: { taxYear, sourceImportStatus: { in: [...PUBLISHABLE_SOURCE_IMPORT_STATUSES] } },
     select: { sourceImportId: true },
   });
   if (publication) {
     const publishedImport = await prisma.shareholderRegisterImport.findFirst({
       where: {
         id: publication.sourceImportId,
-        status: "COMPLETED",
+        status: { in: [...PUBLISHABLE_SOURCE_IMPORT_STATUSES] },
         holdings: { some: {} },
       },
-      select: { id: true },
+      select: { id: true, status: true },
     });
-    if (publishedImport) {
+    const publishedStatus = toPublishableSourceImportStatus(publishedImport?.status);
+    if (publishedImport && publishedStatus) {
       return {
         importId: publishedImport.id,
-        status: "COMPLETED",
+        status: publishedStatus,
         hasGroupPublication: true,
       };
     }
   }
+  // No published group snapshot for this year: fall back to the raw per-row lists, which may
+  // come from a partially read import. Those rows are verbatim register facts and the tab
+  // discloses the partial source; only the derived structure above demands a complete read.
   const sourceImport = await prisma.shareholderRegisterImport.findFirst({
     where: {
       taxYear,
-      status: { in: ["COMPLETED", "PARTIAL"] },
+      status: { in: [...READABLE_SOURCE_IMPORT_STATUSES] },
       holdings: { some: {} },
     },
     orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
     select: { id: true, status: true },
   });
-  if (!sourceImport || (sourceImport.status !== "COMPLETED" && sourceImport.status !== "PARTIAL")) {
+  const readableStatus = toReadableSourceImportStatus(sourceImport?.status);
+  if (!sourceImport || !readableStatus) {
     return null;
   }
   return {
     importId: sourceImport.id,
-    status: sourceImport.status,
+    status: readableStatus,
     hasGroupPublication: false,
   };
 }
@@ -175,6 +187,9 @@ export async function getRegisterBackedCompanyProfile(
     financialStatementsAllScopes: [],
     financialLineItems: [],
     financialDocuments: [],
+    financialDatasetMode: null,
+    financialDatasetVersion: null,
+    financialDisclosure: null,
     financialsAvailability: notLoaded(
       "Regnskap er ikke lastet inn i databasen for dette selskapet ennå. Eierskapsdata er tilgjengelig fra aksjonærregisteret.",
     ),
@@ -269,7 +284,7 @@ async function getDirectHoldings(
     FROM "ShareholderRegisterHolding" holding
     LEFT JOIN "GroupRelationshipPublication" publication
       ON publication."taxYear" = holding."taxYear"
-     AND publication."sourceImportStatus" = 'COMPLETED'
+     AND publication."sourceImportStatus" IN ${PUBLISHABLE_SOURCE_IMPORT_STATUS_SQL}
      AND publication."sourceImportId" = holding."importId"
     LEFT JOIN "GroupRelationshipSnapshot" semantic
       ON semantic."buildId" = publication."buildId"

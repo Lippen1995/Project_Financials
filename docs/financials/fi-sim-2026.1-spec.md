@@ -88,27 +88,27 @@ Tabellene under er den normative katalogen for `FI-SIM-2026.1`. Kolonnen «mappi
 
 | Concept key | Original label | Balance | Mapping-orakel |
 |---|---|---:|---|
-| `ServiceRevenue` | Tjenesteomsetning | credit | `sales_revenue` |
-| `MerchandiseRevenue` | Vareomsetning | credit | `sales_revenue` |
-| `ContractRevenue` | Prosjekt- og kontraktsinntekter | credit | `sales_revenue` |
-| `RentalRevenue` | Leieinntekter | credit | `sales_revenue` |
-| `OtherOperatingIncome` | Øvrige driftsinntekter | credit | `other_operating_revenue` |
-| `OperatingIncomeTotal` | Sum driftsinntekter | credit | `total_operating_revenue` |
+| `ServiceRevenue` | Tjenesteomsetning | credit | `revenue` |
+| `MerchandiseRevenue` | Vareomsetning | credit | `revenue` |
+| `ContractRevenue` | Prosjekt- og kontraktsinntekter | credit | `revenue` |
+| `RentalRevenue` | Leieinntekter | credit | `revenue` |
+| `OtherOperatingIncome` | Øvrige driftsinntekter | credit | `other_operating_income` |
+| `OperatingIncomeTotal` | Sum driftsinntekter | credit | `total_operating_income` |
 | `MerchandiseCost` | Vareforbruk | debit | `cost_of_goods_sold` |
 | `MaterialsAndSubcontractors` | Materialer og underleverandører | debit | `cost_of_goods_sold` |
-| `PersonnelExpense` | Personalkostnader | debit | `salary_costs` |
-| `PropertyOperatingExpense` | Eiendomsrelaterte driftskostnader | debit | `other_operating_costs` |
-| `AdministrativeExpense` | Administrasjonskostnader | debit | `other_operating_costs` |
-| `OtherOperatingExpense` | Øvrige driftskostnader | debit | `other_operating_costs` |
-| `DepreciationExpense` | Avskrivninger | debit | `depreciation` |
-| `OperatingExpenseTotal` | Sum driftskostnader | debit | `total_operating_costs` |
-| `OperatingResult` | Driftsresultat | credit | `ebit` |
-| `InterestIncome` | Renteinntekter | credit | `other_interest_income` |
-| `DividendIncome` | Utbytteinntekter | credit | `other_financial_income` |
-| `InvestmentGainLoss` | Resultat fra investeringer | none | `other_financial_income` |
-| `InterestExpense` | Rentekostnader | debit | `other_interest_cost` |
-| `OtherFinancialExpense` | Øvrige finanskostnader | debit | `other_financial_cost` |
-| `NetFinancialResult` | Netto finansresultat | none | `net_finance` |
+| `PersonnelExpense` | Personalkostnader | debit | `payroll_expense` |
+| `PropertyOperatingExpense` | Eiendomsrelaterte driftskostnader | debit | `other_operating_expense` |
+| `AdministrativeExpense` | Administrasjonskostnader | debit | `other_operating_expense` |
+| `OtherOperatingExpense` | Øvrige driftskostnader | debit | `other_operating_expense` |
+| `DepreciationExpense` | Avskrivninger | debit | `depreciation_amortization` |
+| `OperatingExpenseTotal` | Sum driftskostnader | debit | `total_operating_expenses` |
+| `OperatingResult` | Driftsresultat | credit | `operating_profit` |
+| `InterestIncome` | Renteinntekter | credit | `financial_income` |
+| `DividendIncome` | Utbytteinntekter | credit | `financial_income` |
+| `InvestmentGainLoss` | Resultat fra investeringer | none | `financial_income` |
+| `InterestExpense` | Rentekostnader | debit | `financial_expense` |
+| `OtherFinancialExpense` | Øvrige finanskostnader | debit | `financial_expense` |
+| `NetFinancialResult` | Netto finansresultat | none | `net_financial_items` |
 | `ProfitBeforeTax` | Resultat før skatt | credit | `profit_before_tax` |
 | `TaxExpense` | Skattekostnad | debit | `tax_expense` |
 | `ProfitForPeriod` | Årsresultat | credit | `net_income` |
@@ -125,29 +125,29 @@ Alle resultatkonsepter har `periodType = duration`.
 | `PropertyPlantEquipment` | Varige driftsmidler | debit | `tangible_assets` |
 | `InvestmentProperty` | Investeringseiendom | debit | `tangible_assets` |
 | `LongTermInvestments` | Langsiktige investeringer | debit | `financial_fixed_assets` |
-| `OtherNoncurrentAssets` | Øvrige langsiktige eiendeler | debit | `financial_fixed_assets` |
-| `NoncurrentAssetsTotal` | Sum langsiktige eiendeler | debit | `total_fixed_assets` |
+| `OtherNoncurrentAssets` | Øvrige langsiktige eiendeler | debit | `null` |
+| `NoncurrentAssetsTotal` | Sum langsiktige eiendeler | debit | `null` |
 | `Inventory` | Varelager | debit | `inventory` |
-| `ContractAssets` | Opptjente ikke fakturerte inntekter | debit | `other_short_term_receivables` |
-| `TradeReceivables` | Kundefordringer | debit | `accounts_receivable` |
-| `OtherReceivables` | Øvrige kortsiktige fordringer | debit | `other_short_term_receivables` |
-| `Cash` | Bankinnskudd og kontanter | debit | `cash_and_equivalents` |
-| `CurrentAssetsTotal` | Sum kortsiktige eiendeler | debit | `total_current_assets` |
+| `ContractAssets` | Opptjente ikke fakturerte inntekter | debit | `other_receivables` |
+| `TradeReceivables` | Kundefordringer | debit | `trade_receivables` |
+| `OtherReceivables` | Øvrige kortsiktige fordringer | debit | `other_receivables` |
+| `Cash` | Bankinnskudd og kontanter | debit | `cash_and_cash_equivalents` |
+| `CurrentAssetsTotal` | Sum kortsiktige eiendeler | debit | `current_assets` |
 | `AssetsTotal` | Sum eiendeler | debit | `total_assets` |
-| `ShareCapital` | Selskapskapital | credit | `paid_in_equity` |
-| `PaidInPremium` | Annen innskutt kapital | credit | `paid_in_equity` |
+| `ShareCapital` | Selskapskapital | credit | `share_capital` |
+| `PaidInPremium` | Annen innskutt kapital | credit | `share_premium` |
 | `AccumulatedResults` | Opptjente resultater | credit | `retained_earnings` |
 | `EquityTotal` | Sum egenkapital | credit | `total_equity` |
-| `LongTermBankBorrowings` | Langsiktig bankgjeld | credit | `long_term_debt` |
-| `OtherLongTermLiabilities` | Øvrig langsiktig gjeld | credit | `provisions` |
-| `LongTermLiabilitiesTotal` | Sum langsiktig gjeld | credit | `total_long_term_debt` |
-| `ShortTermBankBorrowings` | Kortsiktig bankgjeld | credit | `other_short_term_debt` |
-| `TradePayables` | Leverandørgjeld | credit | `supplier_debt` |
+| `LongTermBankBorrowings` | Langsiktig bankgjeld | credit | `long_term_debt_credit_institutions` |
+| `OtherLongTermLiabilities` | Øvrig langsiktig gjeld | credit | `long_term_liabilities` |
+| `LongTermLiabilitiesTotal` | Sum langsiktig gjeld | credit | `long_term_liabilities` |
+| `ShortTermBankBorrowings` | Kortsiktig bankgjeld | credit | `short_term_debt_credit_institutions` |
+| `TradePayables` | Leverandørgjeld | credit | `trade_payables` |
 | `TaxPayable` | Betalbar skatt | credit | `tax_payable` |
-| `PayrollAndPublicDutiesPayable` | Skyldige lønns- og offentlige avgifter | credit | `public_charges` |
-| `OtherCurrentLiabilities` | Øvrig kortsiktig gjeld | credit | `other_short_term_debt` |
-| `CurrentLiabilitiesTotal` | Sum kortsiktig gjeld | credit | `total_short_term_debt` |
-| `LiabilitiesTotal` | Sum gjeld | credit | `null` |
+| `PayrollAndPublicDutiesPayable` | Skyldige lønns- og offentlige avgifter | credit | `public_duties_payable` |
+| `OtherCurrentLiabilities` | Øvrig kortsiktig gjeld | credit | `other_current_liabilities` |
+| `CurrentLiabilitiesTotal` | Sum kortsiktig gjeld | credit | `current_liabilities` |
+| `LiabilitiesTotal` | Sum gjeld | credit | `total_liabilities` |
 | `EquityAndLiabilitiesTotal` | Sum egenkapital og gjeld | credit | `total_equity_and_liabilities` |
 | `RoundingDifferenceBalance` | Avrundingsdifferanse balanse | none | `null` |
 | `UnallocatedResidualBalance` | Ufordelt differanse balanse | none | `null` |

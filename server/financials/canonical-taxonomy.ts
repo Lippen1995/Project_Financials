@@ -85,7 +85,10 @@ export type MetricDefinition = {
 // definitions array loaded from the database instead (see metric-mapping-service).
 export const defaultMetricDefinitions: MetricDefinition[] = [
   { key: "revenue", statementFamily: "INCOME_STATEMENT", aliases: ["salgsinntekter", "salgsinntekt", "driftsinntekter", "omsetning", "revenue", "operating revenue"] },
-  { key: "other_operating_income", statementFamily: "INCOME_STATEMENT", aliases: ["andre driftsinntekter", "annen driftsinntekt", "oevrige driftsinntekter", "other operating income"] },
+  // "ovrige" as well as "oevrige": the normaliser turns ø into o, so the oe-spelling can never
+  // match a real Norwegian label. Without the o-twin, "Øvrige driftsinntekter" fell through to
+  // revenue's shorter "driftsinntekter" alias and was mapped as turnover.
+  { key: "other_operating_income", statementFamily: "INCOME_STATEMENT", aliases: ["andre driftsinntekter", "annen driftsinntekt", "ovrige driftsinntekter", "oevrige driftsinntekter", "other operating income"] },
   { key: "total_operating_income", statementFamily: "INCOME_STATEMENT", aliases: ["sum driftsinntekter", "sum inntekter", "totale driftsinntekter", "total operating income"] },
   { key: "cost_of_goods_sold", statementFamily: "INCOME_STATEMENT", aliases: ["varekostnad", "kostnad solgte varer"] },
   { key: "payroll_expense", statementFamily: "INCOME_STATEMENT", aliases: ["lonnskostnad", "lonnskostnader", "personalkostnader"] },

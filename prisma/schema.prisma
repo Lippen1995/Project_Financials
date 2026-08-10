@@ -1373,6 +1373,8 @@ model CompanyDistressProfile {
 model DistressFinancialSnapshot {
   id                  String         @id @default(cuid())
   companyId           String         @unique
+  financialDatasetMode    String?
+  financialDatasetVersion String?
   distressStatus      DistressStatus
   daysInStatus        Int?
   industryCode        String?
@@ -1403,6 +1405,7 @@ model DistressFinancialSnapshot {
   @@index([distressStatus, daysInStatus])
   @@index([sectorCode, lastReportedYear])
   @@index([distressScore])
+  @@index([financialDatasetVersion])
 }
 
 model DistressSyncState {
@@ -1707,6 +1710,34 @@ model ActiveFinancialDataset {
   simulatedDataset   SimulatedFinancialDataset? @relation(fields: [simulatedDatasetId], references: [id], onDelete: Restrict)
 
   @@index([mode, activationRevision, mappingRevision])
+}
+
+/// Append-only activation history. Written by a database trigger on every pointer change, so a
+/// dataset cannot be activated or rolled back without a named actor and a recorded reason.
+model FinancialDatasetActivationAudit {
+  id                     BigInt                           @id @default(autoincrement())
+  action                 FinancialDatasetActivationAction
+  fromMode               FinancialDatasetMode?
+  fromSimulatedDatasetId String?
+  fromActivationRevision BigInt?
+  toMode                 FinancialDatasetMode
+  toSimulatedDatasetId   String?
+  toActivationRevision   BigInt
+  mappingRevision        BigInt
+  actorUserId            String
+  reason                 String
+  deploymentEnvironment  String
+  databaseUser           String
+  createdAt              DateTime                         @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([toSimulatedDatasetId, id(sort: Desc)])
+}
+
+enum FinancialDatasetActivationAction {
+  ACTIVATE
+  ROLLBACK
+  DEACTIVATE
 }
 
 /// Monotonic revision for cache invalidation when reported ingest publishes changes.
@@ -3261,6 +3292,9 @@ model DdFindingEvidence {
   normalizedAt                   DateTime?
   targetCompanyId                String?
   targetFinancialStatementId     String?
+  financialDatasetMode           String?
+  financialDatasetVersion        String?
+  financialDatasetQuarantined    Boolean                @default(false)
   targetTaskId                   String?
   targetFindingId                String?
   targetAnnouncementId           String?
@@ -3279,6 +3313,7 @@ model DdFindingEvidence {
   createdBy                      User                   @relation("DdFindingEvidenceCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
 
   @@index([findingId, type])
+  @@index([financialDatasetVersion])
 }
 
 model DdConclusion {
@@ -3350,6 +3385,9 @@ model DdCommentThread {
   targetAnnouncementPublishedAt  DateTime?
   targetFinancialStatementId     String?
   targetFinancialMetricKey       String?
+  financialDatasetMode           String?
+  financialDatasetVersion        String?
+  financialDatasetQuarantined    Boolean                   @default(false)
   targetPostId                   String?
   targetFindingId                String?
   targetTaskId                   String?
@@ -3368,6 +3406,7 @@ model DdCommentThread {
   @@index([roomId, targetType])
   @@index([targetCompanyId, targetType])
   @@index([targetFinancialStatementId, targetFinancialMetricKey, targetType])
+  @@index([financialDatasetVersion])
 }
 
 model DdComment {
@@ -4886,6 +4925,8 @@ model AnalysisWorklist {
   purpose               String
   criteriaVersion       String
   universeResultVersion String?
+  financialDatasetMode  String?
+  financialDatasetVersion String?
   screeningVersion      String?
   rankingVersion        String?
   evaluatedCount        Int?

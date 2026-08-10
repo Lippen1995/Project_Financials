@@ -34,6 +34,7 @@ export default async function DashboardPage() {
       news={data.news}
       bankruptcies={data.bankruptcies}
       bankruptciesLastWeek={data.bankruptciesLastWeek}
+      financialDisclosure={data.financialDisclosure}
     />
   );
 }

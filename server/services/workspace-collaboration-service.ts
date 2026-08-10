@@ -1554,6 +1554,12 @@ async function syncWatchFinancials(watch: {
   // reports its new year on a later sync.
   const financials = await getPublicCompanyFinancials(watch.company.orgNumber);
 
+  // Watch state is not dataset-versioned yet. Until that F8 migration lands,
+  // never persist demo years or emit notifications derived from FI-SIM.
+  if (financials.datasetMode !== "reported") {
+    return 0;
+  }
+
   const fiscalYears = financials.statements.map((statement) => statement.fiscalYear);
   const latestYear = fiscalYears.length ? Math.max(...fiscalYears) : null;
 

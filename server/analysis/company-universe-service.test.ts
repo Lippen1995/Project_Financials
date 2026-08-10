@@ -11,6 +11,11 @@ const source = {
 };
 
 describe("company universe service", () => {
+  // Headline selection — newest year, group statement preferred, official sources only — used to
+  // live here as a loop over every statement of every candidate. It is now one snapshot query in
+  // FinancialsRepository.searchCompanyUniverse, verified against a real database by
+  // npm run financials:verify-simulation-foundation.
+
   it("uses the same versioned screening and ranking path for callers", async () => {
     const loadCandidates = vi.fn().mockResolvedValue({ candidates: [
       {
@@ -27,6 +32,8 @@ describe("company universe service", () => {
           revenue: 100,
           operatingProfit: 10,
           operatingMarginBps: 1_000,
+          statementOrigin: "reported",
+          financialDatasetVersion: "reported:21",
           source: { ...source, sourceEntityType: "annual-account" },
         },
       },
@@ -44,6 +51,8 @@ describe("company universe service", () => {
           revenue: 200,
           operatingProfit: 30,
           operatingMarginBps: 1_500,
+          statementOrigin: "reported",
+          financialDatasetVersion: "reported:21",
           source: {
             ...source,
             sourceId: "statement-100000002",
@@ -51,7 +60,7 @@ describe("company universe service", () => {
           },
         },
       },
-    ], truncated: false });
+    ], truncated: false, datasetMode: "reported", financialDatasetVersion: "reported:21" });
     const service = createCompanyUniverseService({ loadCandidates });
 
     const result = await service.run({
@@ -72,6 +81,8 @@ describe("company universe service", () => {
     }));
     expect(result).toMatchObject({
       version: "company-universe-result-v1",
+      datasetMode: "reported",
+      financialDatasetVersion: "reported:21",
       status: "COMPLETE",
       screeningVersion: "company-screening-v1",
       rankingVersion: "company-ranking-v1",
@@ -81,7 +92,12 @@ describe("company universe service", () => {
 
   it("refuses to rank an incomplete candidate pool", async () => {
     const service = createCompanyUniverseService({
-      loadCandidates: vi.fn().mockResolvedValue({ candidates: [], truncated: true }),
+      loadCandidates: vi.fn().mockResolvedValue({
+        candidates: [],
+        truncated: true,
+        datasetMode: "reported",
+        financialDatasetVersion: "reported:21",
+      }),
     });
 
     const result = await service.run({

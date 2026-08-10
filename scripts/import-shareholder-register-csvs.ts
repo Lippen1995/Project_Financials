@@ -9,12 +9,14 @@ import { spawn } from "node:child_process";
 
 import { prisma } from "@/lib/prisma";
 import {
-  hasExpectedShareholderRegisterCsvFieldCount,
   parseShareholderRegisterCsvHeader,
-  SHAREHOLDER_REGISTER_CSV_FIELD_COUNT,
+  reconcileSurplusCsvFields,
   splitShareholderRegisterCsvLine,
 } from "@/lib/shareholder-register-csv";
 import { rebuildRoleChangeAttributions } from "@/server/insider-transactions/role-change-attribution-service";
+
+/** How many uninterpretable rows to echo verbatim before summarising the rest. */
+const SKIPPED_SAMPLE_LIMIT = 50;
 
 const DEFAULT_DIR = path.join(
   process.env.USERPROFILE ?? "",
@@ -193,12 +195,7 @@ async function updateImportRecord(
   importId: string,
   status: "VALIDATING" | "IMPORTING" | "COMPLETED" | "PARTIAL" | "FAILED",
   counters: Partial<ImportCounters>,
-  extra?: {
-    checksum?: string;
-    failureMessage?: string;
-    completed?: boolean;
-    taxYear?: number;
-  },
+  extra?: { checksum?: string; failureMessage?: string; completed?: boolean },
 ) {
   const sets = [
     `"status" = ${sqlLiteral(status)}`,
@@ -230,31 +227,7 @@ async function updateImportRecord(
     sets.push(`"completedAt" = ${sqlLiteral(new Date().toISOString())}`);
   }
 
-  const updateStatement = `UPDATE "ShareholderRegisterImport" SET ${sets.join(", ")} WHERE "id" = ${sqlLiteral(importId)};`;
-  if (status !== "COMPLETED") {
-    await runPsql(updateStatement);
-    return;
-  }
-  const completionTaxYear = extra?.taxYear;
-  if (typeof completionTaxYear !== "number" || !Number.isInteger(completionTaxYear)) {
-    throw new Error("A completed shareholder-register import requires its tax year.");
-  }
-
-  // The completion transition and group publication use the same year-scoped lock. Whichever
-  // commits second must observe the first; a newer completed import also invalidates the older
-  // semantic pointer so public readers fail closed until that exact import has been rebuilt.
-  await runPsql(`
-    BEGIN;
-    SELECT pg_advisory_xact_lock(
-      hashtext('fjord-insight-group-relationship'),
-      ${completionTaxYear}::int
-    );
-    ${updateStatement}
-    DELETE FROM "GroupRelationshipPublication"
-    WHERE "taxYear" = ${completionTaxYear}
-      AND "sourceImportId" <> ${sqlLiteral(importId)};
-    COMMIT;
-  `);
+  await runPsql(`UPDATE "ShareholderRegisterImport" SET ${sets.join(", ")} WHERE "id" = ${sqlLiteral(importId)};`);
 }
 
 async function clearImportRowsForRetry(importId: string) {
@@ -361,7 +334,13 @@ function normalizeHolding(
   const numberOfShares = parseBigIntSafe(values[indexes.numberOfShares]);
   const totalCompanyShares = parseBigIntSafe(values[indexes.totalCompanyShares]);
 
-  if (!/^\d{9}$/.test(issuerOrgNumber) || !issuerName || !numberOfShares || numberOfShares <= 0n) {
+  // The register is the record of truth. A row is unusable only when it cannot be interpreted
+  // at all: no identifiable issuer, or no share count. Everything else — a missing shareholder
+  // name, a missing company name — is a real register state, not a defect. Skatteetaten leaves
+  // the holder unnamed for some entries and the company unnamed for a handful; the holding
+  // itself is still exact, and the names are recoverable from the registry. Discarding those
+  // rows threw away ownership we had, to protect a display field we did not need.
+  if (!/^\d{9}$/.test(issuerOrgNumber) || !numberOfShares || numberOfShares <= 0n) {
     return null;
   }
 
@@ -544,6 +523,7 @@ async function importCsv(input: {
   let indexes: Record<string, number> | null = null;
   let sourceRowNumber = 0;
   let lastProgressAt = Date.now();
+  const skippedSamples: string[] = [];
 
   try {
     await updateImportRecord(importId, "IMPORTING", counters);
@@ -559,23 +539,29 @@ async function importCsv(input: {
         const parsedHeader = parseShareholderRegisterCsvHeader(line);
         headers = parsedHeader.headers;
         indexes = parsedHeader.indexes;
-        if (!parsedHeader.hasExpectedFieldCount || parsedHeader.missing.length > 0) {
+        if (parsedHeader.missing.length > 0) {
           throw new Error(
-            `CSV-header matcher ikke Skatteetatens faste ${SHAREHOLDER_REGISTER_CSV_FIELD_COUNT}-feltsformat. Mangler: ${parsedHeader.missing.join(", ") || "ingen"}. Headers: ${JSON.stringify(headers)}. Normalized: ${JSON.stringify(parsedHeader.normalized)}`,
+            `CSV mangler påkrevde kolonner: ${parsedHeader.missing.join(", ")}. Headers: ${JSON.stringify(headers)}. Normalized: ${JSON.stringify(parsedHeader.normalized)}`,
           );
         }
         continue;
       }
 
       counters.parsedRows += 1;
-      const values = splitShareholderRegisterCsvLine(line);
-      if (!hasExpectedShareholderRegisterCsvFieldCount(values)) {
-        counters.skippedRows += 1;
-        continue;
-      }
+      const values = reconcileSurplusCsvFields(
+        splitShareholderRegisterCsvLine(line),
+        headers.length,
+        indexes!.postal,
+      );
       const holding = normalizeHolding(input.taxYear, sourceRowNumber, headers, values, indexes!);
       if (!holding) {
         counters.skippedRows += 1;
+        // A skipped row is a claim about our parser, not about the register. Record enough of
+        // it to be inspected: without this the only way to find out what was dropped is to
+        // reverse-engineer the gaps in sourceRowNumber afterwards.
+        if (skippedSamples.length < SKIPPED_SAMPLE_LIMIT) {
+          skippedSamples.push(`  linje ${sourceRowNumber}: ${line.slice(0, 200)}`);
+        }
       } else {
         const canContinue = copy.stdin.write(`${toCopyLine(importId, holding, now)}\n`);
         counters.importedRows += 1;
@@ -598,15 +584,38 @@ async function importCsv(input: {
     await copyDone;
 
     const checksum = hash.digest("hex");
-    const status = counters.skippedRows > 0 || counters.errorRows > 0 ? "PARTIAL" : "COMPLETED";
+
+    // Status reports whether the whole file was ingested — nothing else. The register is the
+    // record of truth, so a row we could not interpret is evidence about this parser, not a
+    // defect in the source, and it must not downgrade an import that was read end to end.
+    // Completeness is the byte count: the read loop only exits at end-of-stream, and every
+    // line's bytes are accumulated, so a full read reconciles exactly with the file size.
+    // Skipped rows are still counted, reported and logged individually for inspection.
+    const unreadBytes = BigInt(fileStat.size) - counters.processedBytes;
+    const status = unreadBytes === 0n ? "COMPLETED" : "PARTIAL";
     await updateImportRecord(importId, status, counters, {
       checksum,
       completed: true,
-      taxYear: input.taxYear,
+      failureMessage:
+        status === "PARTIAL"
+          ? `Leste ${counters.processedBytes} av ${fileStat.size} byte — ${unreadBytes} byte ble ikke lest.`
+          : undefined,
     });
     console.log(
-      `${input.taxYear}: ferdig, ${counters.importedRows.toLocaleString("nb-NO")} rader importert, ${counters.skippedRows.toLocaleString("nb-NO")} hoppet over.`,
+      `${input.taxYear}: ferdig, ${counters.importedRows.toLocaleString("nb-NO")} rader importert, ${counters.skippedRows.toLocaleString("nb-NO")} hoppet over, status ${status}.`,
     );
+    if (skippedSamples.length > 0) {
+      console.log(`${input.taxYear}: rader som ikke lot seg tolke:`);
+      console.log(skippedSamples.join("\n"));
+      if (counters.skippedRows > skippedSamples.length) {
+        console.log(`  … og ${(counters.skippedRows - skippedSamples.length).toLocaleString("nb-NO")} til.`);
+      }
+    }
+    if (status === "PARTIAL") {
+      console.warn(
+        `${input.taxYear}: ADVARSEL — ${unreadBytes} byte av fila ble aldri lest. Importen er ufullstendig.`,
+      );
+    }
   } catch (error) {
     copy.stdin.destroy();
     await updateImportRecord(importId, "FAILED", counters, {

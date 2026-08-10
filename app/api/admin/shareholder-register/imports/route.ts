@@ -161,10 +161,8 @@ export async function POST(request: NextRequest) {
         body: request.body,
         filePath,
         maxBytes: contentLength,
-        validateHeader: (header) => {
-          const parsed = parseShareholderRegisterCsvHeader(header);
-          return parsed.hasExpectedFieldCount && parsed.missing.length === 0;
-        },
+        validateHeader: (header) =>
+          parseShareholderRegisterCsvHeader(header).missing.length === 0,
         onProgress(bytes) {
           uploadedBytes = BigInt(bytes);
           if (Date.now() - lastUpdateAt > 1000) {

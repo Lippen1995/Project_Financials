@@ -1,7 +1,14 @@
-import { DistressStatus, StatementScope, WorkspaceWatchStatus } from "@prisma/client";
+import { DistressStatus, WorkspaceWatchStatus } from "@prisma/client";
 
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
+import type { FinancialDatasetVersion, FinancialValueOrigin } from "@/lib/types";
+import { combineFinancialValueOrigins } from "@/lib/financial-value-origin";
 import { prisma } from "@/lib/prisma";
 import { getDashboardRelevantInsights } from "@/server/news/dashboard-insights-service";
+import {
+  watchlistFinancialsService,
+  type WatchlistFinancialStatement,
+} from "@/server/services/watchlist-financials-service";
 
 const TREND_YEARS = 5;
 const WATCH_LIMIT = 6;
@@ -13,6 +20,7 @@ export type OversiktWatchRow = {
   slug: string;
   /** Revenue in NOK, oldest → newest. */
   revenueSeries: number[];
+  revenueOrigins: Array<FinancialValueOrigin | null>;
 };
 
 export type OversiktNewsRow = {
@@ -32,10 +40,13 @@ export type OversiktBankruptcyRow = {
   sector: string;
   filedDaysAgo: number | null;
   latestRevenue: number | null;
+  latestRevenueOrigin: FinancialValueOrigin | null;
   /** Revenue in NOK, oldest → newest. */
   revenueSeries: number[];
+  revenueOrigins: Array<FinancialValueOrigin | null>;
   /** EBIT margin in percent, oldest → newest. */
   ebitMarginSeries: number[];
+  ebitMarginOrigins: Array<FinancialValueOrigin | null>;
 };
 
 export type OversiktDashboardData = {
@@ -43,12 +54,13 @@ export type OversiktDashboardData = {
   news: OversiktNewsRow[];
   bankruptcies: OversiktBankruptcyRow[];
   bankruptciesLastWeek: number;
+  /** Which live dataset every figure on this dashboard came from. */
+  financialDatasetVersion: FinancialDatasetVersion;
+  /** Presentation contract for every financial figure on this dashboard. */
+  financialDisclosure: FinancialDisclosure;
 };
 
-type StatementRow = {
-  revenue: bigint | null;
-  operatingProfit: bigint | null;
-};
+type StatementRow = Pick<WatchlistFinancialStatement, "revenue" | "operatingProfit" | "origins">;
 
 function daysAgo(days: number) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -69,25 +81,49 @@ function relativeTimeLabel(iso: string) {
   return `${Math.floor(days / 7)} u`;
 }
 
-function revenueSeries(statements: StatementRow[]) {
+/** Exported for tests: the dashboard's figure assembly, independent of Prisma. */
+export function revenueSeries(statements: StatementRow[]) {
   return statements
-    .map((statement) => (statement.revenue == null ? null : Number(statement.revenue)))
+    .map((statement) => statement.revenue)
     .filter((value): value is number => value != null)
     .slice(-TREND_YEARS);
 }
 
-function ebitMarginSeries(statements: StatementRow[]) {
+export function revenueOrigins(statements: StatementRow[]) {
+  return statements
+    .filter((statement) => statement.revenue != null)
+    .map((statement) => statement.origins.revenue)
+    .slice(-TREND_YEARS);
+}
+
+export function ebitMarginSeries(statements: StatementRow[]) {
   return statements
     .map((statement) =>
-      statement.revenue == null || statement.operatingProfit == null || statement.revenue === 0n
+      statement.revenue == null || statement.operatingProfit == null || statement.revenue === 0
         ? null
-        : (Number(statement.operatingProfit) / Number(statement.revenue)) * 100,
+        : (statement.operatingProfit / statement.revenue) * 100,
     )
     .filter((value): value is number => value != null)
     .slice(-TREND_YEARS);
 }
 
-async function getWatchRows(userId: string): Promise<OversiktWatchRow[]> {
+export function ebitMarginOrigins(statements: StatementRow[]) {
+  return statements
+    .filter(
+      (statement) =>
+        statement.revenue != null && statement.operatingProfit != null && statement.revenue !== 0,
+    )
+    .map((statement) =>
+      combineFinancialValueOrigins(
+        statement.origins.operatingProfit,
+        statement.origins.revenue,
+      ),
+    )
+    .slice(-TREND_YEARS);
+}
+
+/** Watched companies, identity only. Figures come from the live dataset afterwards. */
+async function getWatchedCompanies(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { lastWorkspaceId: true },
@@ -98,30 +134,15 @@ async function getWatchRows(userId: string): Promise<OversiktWatchRow[]> {
     where: { workspaceId: user.lastWorkspaceId, status: WorkspaceWatchStatus.ACTIVE },
     orderBy: { updatedAt: "desc" },
     take: WATCH_LIMIT,
-    include: {
-      company: {
-        select: {
-          name: true,
-          slug: true,
-          financialStatements: {
-            where: { statementScope: StatementScope.COMPANY },
-            orderBy: { fiscalYear: "asc" },
-            select: { revenue: true, operatingProfit: true },
-          },
-        },
-      },
-    },
+    include: { company: { select: { id: true, name: true, slug: true } } },
   });
 
-  return watches.map((watch) => ({
-    name: watch.company.name,
-    slug: watch.company.slug,
-    revenueSeries: revenueSeries(watch.company.financialStatements),
-  }));
+  return watches.map((watch) => watch.company);
 }
 
-async function getBankruptcyRows(): Promise<OversiktBankruptcyRow[]> {
-  const profiles = await prisma.companyDistressProfile.findMany({
+/** Recently bankrupt companies, identity and distress context only. */
+async function getBankruptCompanies() {
+  return prisma.companyDistressProfile.findMany({
     where: {
       distressStatus: DistressStatus.BANKRUPTCY,
       bankruptcyDate: { gte: daysAgo(BANKRUPTCY_LOOKBACK_DAYS) },
@@ -129,31 +150,32 @@ async function getBankruptcyRows(): Promise<OversiktBankruptcyRow[]> {
     include: {
       company: {
         select: {
+          id: true,
           name: true,
           slug: true,
           industryCode: { select: { title: true } },
-          distressFinancialSnapshot: { select: { revenue: true, sectorLabel: true } },
-          financialStatements: {
-            where: { statementScope: StatementScope.COMPANY },
-            orderBy: { fiscalYear: "asc" },
-            select: { revenue: true, operatingProfit: true },
-          },
+          distressFinancialSnapshot: { select: { sectorLabel: true } },
         },
       },
     },
   });
+}
 
+export type BankruptCompany = Awaited<ReturnType<typeof getBankruptCompanies>>[number];
+
+export function toBankruptcyRows(
+  profiles: BankruptCompany[],
+  statementsByCompany: Record<string, WatchlistFinancialStatement[]>,
+): OversiktBankruptcyRow[] {
   const now = new Date();
 
   return profiles
     .map((profile) => {
       const company = profile.company;
-      const revenue = revenueSeries(company.financialStatements);
-      const snapshotRevenue =
-        company.distressFinancialSnapshot?.revenue == null
-          ? null
-          : Number(company.distressFinancialSnapshot.revenue);
-      const latestRevenue = revenue.at(-1) ?? snapshotRevenue;
+      const statements = statementsByCompany[company.id] ?? [];
+      const revenue = revenueSeries(statements);
+      const revenueValueOrigins = revenueOrigins(statements);
+      const latestRevenue = revenue.at(-1) ?? null;
 
       return {
         name: company.name,
@@ -162,8 +184,11 @@ async function getBankruptcyRows(): Promise<OversiktBankruptcyRow[]> {
           company.industryCode?.title ?? company.distressFinancialSnapshot?.sectorLabel ?? "—",
         filedDaysAgo: profile.bankruptcyDate ? daysBetween(profile.bankruptcyDate, now) : null,
         latestRevenue,
+        latestRevenueOrigin: revenueValueOrigins.at(-1) ?? null,
         revenueSeries: revenue,
-        ebitMarginSeries: ebitMarginSeries(company.financialStatements),
+        revenueOrigins: revenueValueOrigins,
+        ebitMarginSeries: ebitMarginSeries(statements),
+        ebitMarginOrigins: ebitMarginOrigins(statements),
       } satisfies OversiktBankruptcyRow;
     })
     .filter((row) => row.latestRevenue != null && row.latestRevenue > 0)
@@ -198,12 +223,31 @@ async function getBankruptciesLastWeek() {
 }
 
 export async function getOversiktDashboardData(userId: string): Promise<OversiktDashboardData> {
-  const [watch, news, bankruptcies, bankruptciesLastWeek] = await Promise.all([
-    getWatchRows(userId),
+  const [watched, bankrupt, news, bankruptciesLastWeek] = await Promise.all([
+    getWatchedCompanies(userId),
+    getBankruptCompanies(),
     getNewsRows(userId),
-    getBankruptcyRows(),
     getBankruptciesLastWeek(),
   ]);
 
-  return { watch, news, bankruptcies, bankruptciesLastWeek };
+  // One read for both tables, so every figure on the dashboard comes from a single live
+  // snapshot. Two calls could straddle a dataset pointer switch and mix versions.
+  const companyIds = [
+    ...new Set([...watched.map((company) => company.id), ...bankrupt.map((p) => p.company.id)]),
+  ];
+  const financials = await watchlistFinancialsService.load(companyIds);
+
+  return {
+    watch: watched.map((company) => ({
+      name: company.name,
+      slug: company.slug,
+      revenueSeries: revenueSeries(financials.statementsByCompany[company.id] ?? []),
+      revenueOrigins: revenueOrigins(financials.statementsByCompany[company.id] ?? []),
+    })),
+    news,
+    bankruptcies: toBankruptcyRows(bankrupt, financials.statementsByCompany),
+    bankruptciesLastWeek,
+    financialDatasetVersion: financials.financialDatasetVersion,
+    financialDisclosure: financials.disclosure,
+  };
 }

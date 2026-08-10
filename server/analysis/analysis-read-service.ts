@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import type {
+  FinancialDatasetMode,
+  FinancialDatasetVersion,
+} from "@/lib/types";
 
 export type AnalysisWorkflow = "MNA_SCREENING" | "SOURCING" | "COMPETITOR_ANALYSIS";
 export type AnalysisStatus = "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "ARCHIVED";
@@ -43,6 +47,8 @@ type AnalysisWorklistRow = {
   purpose: string;
   criteriaVersion: string;
   universeResultVersion: string | null;
+  financialDatasetMode: FinancialDatasetMode | null;
+  financialDatasetVersion: FinancialDatasetVersion | null;
   screeningVersion: string | null;
   rankingVersion: string | null;
   evaluatedCount: number | null;
@@ -77,6 +83,30 @@ type AnalysisDetailRow = {
   updatedAt: Date;
   worklists: AnalysisWorklistRow[];
 };
+
+function parseStoredFinancialDataset(
+  mode: string | null,
+  version: string | null,
+): {
+  financialDatasetMode: FinancialDatasetMode | null;
+  financialDatasetVersion: FinancialDatasetVersion | null;
+} {
+  if (mode === null && version === null) {
+    return { financialDatasetMode: null, financialDatasetVersion: null };
+  }
+  if (
+    (mode !== "reported" && mode !== "simulated") ||
+    version === null ||
+    !version.match(/^(?:reported:\d+|simulated:[A-Za-z0-9_-]+:\d+)$/) ||
+    !version.startsWith(`${mode}:`)
+  ) {
+    throw new Error("Stored worklist financial dataset provenance is invalid.");
+  }
+  return {
+    financialDatasetMode: mode,
+    financialDatasetVersion: version as FinancialDatasetVersion,
+  };
+}
 
 export type AnalysisDetail = Omit<
   AnalysisDetailRow,
@@ -176,6 +206,8 @@ const prismaRepository: AnalysisReadRepository = {
             purpose: true,
             criteriaVersion: true,
             universeResultVersion: true,
+            financialDatasetMode: true,
+            financialDatasetVersion: true,
             screeningVersion: true,
             rankingVersion: true,
             evaluatedCount: true,
@@ -207,6 +239,13 @@ const prismaRepository: AnalysisReadRepository = {
     return {
       ...detail,
       workspaceName: workspace.name,
+      worklists: detail.worklists.map((worklist) => ({
+        ...worklist,
+        ...parseStoredFinancialDataset(
+          worklist.financialDatasetMode,
+          worklist.financialDatasetVersion,
+        ),
+      })),
     };
   },
 };

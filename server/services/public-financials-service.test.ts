@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { financialDisclosureFor } from "@/lib/financial-simulation-disclosure";
 import type { PublicCompanyFinancials } from "@/server/services/public-financials-service";
+import type { LiveCompanyFinancials } from "@/server/financials/financials-repository";
 import {
   applyPublicFinancialSourcePolicy,
   getPublicCompanyFinancials,
@@ -12,14 +14,16 @@ vi.mock("@/lib/env", () => ({
   default: { betaStructuredFinancialsOnly: true },
 }));
 
-const getPublishedAnnualReportFinancials = vi.fn();
+const getCompanyFinancials = vi.fn();
 const readStructuredFinancialsState = vi.fn();
 const ensureStructuredFinancialsForCompany = vi.fn();
 const enqueueStructuredFinancialsFetch = vi.fn();
 
-vi.mock("@/server/financials/published-financials-reader", () => ({
-  getPublishedAnnualReportFinancials: (orgNumber: string) =>
-    getPublishedAnnualReportFinancials(orgNumber),
+vi.mock("@/server/financials/financials-repository", () => ({
+  financialsRepository: {
+    getCompanyFinancials: (reference: { orgNumber: string }) =>
+      getCompanyFinancials(reference),
+  },
 }));
 
 vi.mock("@/server/services/structured-financials-service", () => ({
@@ -40,6 +44,12 @@ function sourceRecord(
   fiscalYear: number,
 ): PublicCompanyFinancials["statements"][number] {
   return {
+    liveStatementId: `reported:${sourceEntityType}:${fiscalYear}`,
+    reportedStatementId: `${sourceEntityType}:${fiscalYear}`,
+    statementOrigin: "reported",
+    financialDatasetVersion: "reported:17",
+    taxonomyVersion: null,
+    generatorVersion: null,
     fiscalYear,
     statementScope: "COMPANY",
     currency: "NOK",
@@ -73,6 +83,10 @@ describe("public financial source policy", () => {
       lineItems: [
         {
           id: "line",
+          liveLineId: "reported:line",
+          liveStatementId: "reported:annualReportFinancialStatement:2024",
+          reportedFinancialLineItemId: "line",
+          conceptKey: null,
           filingId: "filing",
           fiscalYear: 2024,
           statementType: "INCOME_STATEMENT",
@@ -86,9 +100,18 @@ describe("public financial source policy", () => {
           sourcePage: null,
           sortOrder: 0,
           publicationSource: "MACHINE_EXTRACTION",
+          valueOrigin: "reported",
+          statementOrigin: "reported",
+          financialDatasetVersion: "reported:17",
+          taxonomyVersion: null,
+          generatorVersion: null,
+          derivationRuleId: null,
           sourceSystem: "BRREG",
           sourceEntityType: "annualReportLineItem",
           sourceId: "line",
+          fetchedAt: timestamp,
+          normalizedAt: timestamp,
+          rawPayload: null,
         },
       ],
       documents: [
@@ -110,6 +133,9 @@ describe("public financial source policy", () => {
         },
       ],
       availability: { available: true, sourceSystem: "BRREG" },
+      datasetMode: "reported",
+      financialDatasetVersion: "reported:17",
+      disclosure: financialDisclosureFor("reported", "reported:17"),
     };
 
     const result = applyPublicFinancialSourcePolicy(financials, true);
@@ -152,6 +178,9 @@ describe("public financial source policy", () => {
 
     const result = applyPublicFinancialSourcePolicy(
       {
+        datasetMode: "reported",
+        financialDatasetVersion: "reported:17",
+        disclosure: financialDisclosureFor("reported", "reported:17"),
         // Mirrors the reader: `statements` is already deduped with the
         // consolidated row winning 2024.
         statements: [outsideConsolidated],
@@ -179,6 +208,9 @@ describe("public financial source policy", () => {
 
     const result = applyPublicFinancialSourcePolicy(
       {
+        datasetMode: "reported",
+        financialDatasetVersion: "reported:17",
+        disclosure: financialDisclosureFor("reported", "reported:17"),
         statements: [consolidated],
         allScopeStatements: [company, consolidated],
         lineItems: [],
@@ -197,6 +229,9 @@ describe("public financial source policy", () => {
     const extracted = sourceRecord("annualReportFinancialStatement", 2024);
     const result = applyPublicFinancialSourcePolicy(
       {
+        datasetMode: "reported",
+        financialDatasetVersion: "reported:17",
+        disclosure: financialDisclosureFor("reported", "reported:17"),
         statements: [extracted],
         allScopeStatements: [extracted],
         lineItems: [],
@@ -215,6 +250,9 @@ describe("public financial source policy", () => {
   it("preserves the existing public result when structured-only mode is disabled", () => {
     const extracted = sourceRecord("annualReportFinancialStatement", 2024);
     const financials: PublicCompanyFinancials = {
+      datasetMode: "reported",
+      financialDatasetVersion: "reported:17",
+      disclosure: financialDisclosureFor("reported", "reported:17"),
       statements: [extracted],
       allScopeStatements: [extracted],
       lineItems: [],
@@ -226,24 +264,47 @@ describe("public financial source policy", () => {
   });
 });
 
-function emptyPublished(): PublicCompanyFinancials {
+function emptySnapshot(): LiveCompanyFinancials {
   return {
+    datasetMode: "reported",
+    financialDatasetVersion: "reported:17",
     statements: [],
-    allScopeStatements: [],
-    lineItems: [],
-    documents: [],
-    availability: { available: false, sourceSystem: "BRREG" },
   };
 }
 
-function publishedWithStructured(): PublicCompanyFinancials {
-  const structured = sourceRecord("structuredAnnualAccounts", 2025);
+function snapshotWithStructured(): LiveCompanyFinancials {
   return {
-    statements: [structured],
-    allScopeStatements: [structured],
-    lineItems: [],
-    documents: [],
-    availability: { available: true, sourceSystem: "BRREG" },
+    datasetMode: "reported",
+    financialDatasetVersion: "reported:17",
+    statements: [
+      {
+        liveStatementId: "reported:structuredAnnualAccounts:2025",
+        reportedStatementId: "structuredAnnualAccounts:2025",
+        companyId: "company-1",
+        fiscalYear: 2025,
+        statementScope: "COMPANY",
+        statementOrigin: "reported",
+        financialDatasetVersion: "reported:17",
+        taxonomyVersion: null,
+        generatorVersion: null,
+        sourceSystem: "BRREG",
+        sourceEntityType: "structuredAnnualAccounts",
+        sourceId: "structuredAnnualAccounts:2025",
+        fetchedAt: timestamp,
+        normalizedAt: timestamp,
+        rawPayload: {},
+        currency: "NOK",
+        unitScale: 1,
+        periodStart: null,
+        periodEnd: null,
+        revenue: 100n,
+        operatingProfit: 20n,
+        netIncome: 15n,
+        equity: 60n,
+        assets: 100n,
+        lines: [],
+      },
+    ],
   };
 }
 
@@ -277,7 +338,7 @@ describe("getPublicCompanyFinancials", () => {
   });
 
   it("never calls the read-through Brreg fetch from the request path", async () => {
-    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    getCompanyFinancials.mockResolvedValue(emptySnapshot());
     readStructuredFinancialsState.mockResolvedValue(null);
 
     await getPublicCompanyFinancials("912345678");
@@ -286,7 +347,7 @@ describe("getPublicCompanyFinancials", () => {
   });
 
   it("enqueues and reports PENDING when the company has never been fetched", async () => {
-    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    getCompanyFinancials.mockResolvedValue(emptySnapshot());
     readStructuredFinancialsState.mockResolvedValue(null);
 
     const result = await getPublicCompanyFinancials("912345678");
@@ -299,7 +360,7 @@ describe("getPublicCompanyFinancials", () => {
   });
 
   it("reports PENDING without re-enqueueing a company already in the queue", async () => {
-    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    getCompanyFinancials.mockResolvedValue(emptySnapshot());
     readStructuredFinancialsState.mockResolvedValue(fetchState({ status: "PENDING" }));
 
     const result = await getPublicCompanyFinancials("912345678");
@@ -309,7 +370,7 @@ describe("getPublicCompanyFinancials", () => {
   });
 
   it("distinguishes an honest empty source from a queued company", async () => {
-    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    getCompanyFinancials.mockResolvedValue(emptySnapshot());
     readStructuredFinancialsState.mockResolvedValue(fetchState({ status: "UNAVAILABLE" }));
 
     const result = await getPublicCompanyFinancials("912345678");
@@ -320,7 +381,7 @@ describe("getPublicCompanyFinancials", () => {
   });
 
   it("never leaks a raw transport reason into user-facing copy", async () => {
-    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    getCompanyFinancials.mockResolvedValue(emptySnapshot());
     readStructuredFinancialsState.mockResolvedValue(
       fetchState({ status: "UNAVAILABLE", unavailableReason: "HTTP 404: ingen regnskap" }),
     );
@@ -333,7 +394,7 @@ describe("getPublicCompanyFinancials", () => {
   });
 
   it("surfaces a reason that genuinely explains the gap to a user", async () => {
-    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    getCompanyFinancials.mockResolvedValue(emptySnapshot());
     readStructuredFinancialsState.mockResolvedValue(
       fetchState({
         status: "UNAVAILABLE",
@@ -347,7 +408,7 @@ describe("getPublicCompanyFinancials", () => {
   });
 
   it("serves stored numbers as AVAILABLE without enqueueing", async () => {
-    getPublishedAnnualReportFinancials.mockResolvedValue(publishedWithStructured());
+    getCompanyFinancials.mockResolvedValue(snapshotWithStructured());
     readStructuredFinancialsState.mockResolvedValue(fetchState({ status: "AVAILABLE" }));
 
     const result = await getPublicCompanyFinancials("912345678");
@@ -358,7 +419,7 @@ describe("getPublicCompanyFinancials", () => {
   });
 
   it("marks stored numbers STALE when the last fetch errored", async () => {
-    getPublishedAnnualReportFinancials.mockResolvedValue(publishedWithStructured());
+    getCompanyFinancials.mockResolvedValue(snapshotWithStructured());
     readStructuredFinancialsState.mockResolvedValue(
       fetchState({ status: "ERROR", lastErrorCode: "BRREG_UNAVAILABLE" }),
     );
@@ -371,7 +432,7 @@ describe("getPublicCompanyFinancials", () => {
   });
 
   it("reports ERROR when the fetch failed and no numbers are stored", async () => {
-    getPublishedAnnualReportFinancials.mockResolvedValue(emptyPublished());
+    getCompanyFinancials.mockResolvedValue(emptySnapshot());
     readStructuredFinancialsState.mockResolvedValue(
       fetchState({ status: "ERROR", lastErrorCode: "BRREG_UNAVAILABLE" }),
     );

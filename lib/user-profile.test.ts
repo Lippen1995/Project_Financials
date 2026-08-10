@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateProfileCompleteness,
+  buildUserProfilePatchPayload,
   getProfileAffiliationSubtitle,
   getProfileCompletenessHint,
   getProfileDisplayName,
@@ -9,9 +10,45 @@ import {
   getProfileInitials,
   getProfileLocationLabel,
   userProfilePatchSchema,
+  type UserProfileState,
 } from "@/lib/user-profile";
 
 describe("user profile helpers", () => {
+  it("removes read-only profile fields before onboarding saves or skips", () => {
+    const profile = {
+      displayName: "Investor Demo",
+      workEmail: null,
+      profileCompletenessScore: 9,
+      onboardingCompleted: false,
+      onboardingCompletedAt: null,
+      onboardingStep: 1,
+      linkedinConnected: false,
+      linkedinProviderAccountId: null,
+      expertiseAreas: [],
+      sectorsOfInterest: [],
+      education: [],
+      careerHistory: [],
+    } as unknown as UserProfileState;
+
+    const payload = buildUserProfilePatchPayload(profile, {
+      fallbackEmail: "investor@example.com",
+      onboardingStep: 1,
+      extra: { skipOnboarding: true },
+    });
+
+    expect(userProfilePatchSchema.safeParse(payload).success).toBe(true);
+    expect(payload).not.toHaveProperty("profileCompletenessScore");
+    expect(payload).not.toHaveProperty("onboardingCompletedAt");
+    expect(payload).not.toHaveProperty("linkedinConnected");
+    expect(payload).not.toHaveProperty("linkedinProviderAccountId");
+    expect(payload).toMatchObject({
+      displayName: "Investor Demo",
+      workEmail: "investor@example.com",
+      onboardingStep: 1,
+      skipOnboarding: true,
+    });
+  });
+
   it("calculates completeness deterministically for professional profiles", () => {
     const first = calculateProfileCompleteness({
       displayName: "Simen Lippestad",

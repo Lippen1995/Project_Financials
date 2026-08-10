@@ -19,8 +19,16 @@ import {
   DdFindingEvidenceSummary,
   DdFindingSummary,
   DdMandateSummary,
+  FinancialDatasetMode,
+  FinancialDatasetVersion,
 } from "@/lib/types";
 import { prisma } from "@/lib/prisma";
+import { financialsRepository } from "@/server/financials/financials-repository";
+import {
+  assertFinancialEvidenceDataset,
+  ddFinancialEvidenceReader,
+  type FinancialDatasetIdentity,
+} from "@/server/services/dd-financial-evidence-reader";
 import { toCommentThreadSummary } from "@/server/services/dd-comment-service";
 import { getWorkstreamConfig } from "@/server/services/dd-workflow-service";
 import { getUserWorkspaceCapabilities, requireWorkspaceMembership } from "@/server/services/workspace-service";
@@ -28,6 +36,35 @@ import { getUserWorkspaceCapabilities, requireWorkspaceMembership } from "@/serv
 function trimToNull(value?: string | null) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function parseFinancialDatasetProvenance(
+  mode: string | null,
+  version: string | null,
+): {
+  financialDatasetMode: FinancialDatasetMode | null;
+  financialDatasetVersion: FinancialDatasetVersion | null;
+} {
+  const valid =
+    (mode === "reported" && /^reported:\d+$/.test(version ?? "")) ||
+    (mode === "simulated" &&
+      /^simulated:[A-Za-z0-9_-]+:\d+$/.test(version ?? ""));
+  return valid
+    ? {
+        financialDatasetMode: mode,
+        financialDatasetVersion: version as FinancialDatasetVersion,
+      }
+    : { financialDatasetMode: null, financialDatasetVersion: null };
+}
+
+async function getActiveDdFinancialDataset(): Promise<FinancialDatasetIdentity> {
+  const snapshot = await financialsRepository.getCompaniesFinancialHeadlines({
+    companyIds: [],
+  });
+  return {
+    financialDatasetMode: snapshot.datasetMode,
+    financialDatasetVersion: snapshot.financialDatasetVersion,
+  };
 }
 
 function isResolvedFindingStatus(status: DdFindingStatus) {
@@ -105,6 +142,9 @@ function toEvidenceSummary(evidence: {
   normalizedAt: Date | null;
   targetCompanyId: string | null;
   targetFinancialStatementId: string | null;
+  financialDatasetMode: string | null;
+  financialDatasetVersion: string | null;
+  financialDatasetQuarantined: boolean;
   targetTaskId: string | null;
   targetFindingId: string | null;
   targetAnnouncementId: string | null;
@@ -114,7 +154,19 @@ function toEvidenceSummary(evidence: {
   targetCompanyProfileField: DdCompanyProfileField | null;
   createdAt: Date;
   createdBy: { id: string; name: string | null; email: string };
-}): DdFindingEvidenceSummary {
+}, activeFinancialDataset?: FinancialDatasetIdentity): DdFindingEvidenceSummary {
+  if (evidence.type === DdFindingEvidenceType.FINANCIAL_STATEMENT) {
+    if (!activeFinancialDataset) {
+      throw new Error(
+        "Active financial dataset is required to read financial evidence.",
+      );
+    }
+    assertFinancialEvidenceDataset(evidence, activeFinancialDataset);
+  }
+  const financialDataset = parseFinancialDatasetProvenance(
+    evidence.financialDatasetMode,
+    evidence.financialDatasetVersion,
+  );
   return {
     id: evidence.id,
     type: evidence.type,
@@ -127,6 +179,7 @@ function toEvidenceSummary(evidence: {
     normalizedAt: evidence.normalizedAt,
     targetCompanyId: evidence.targetCompanyId,
     targetFinancialStatementId: evidence.targetFinancialStatementId,
+    ...financialDataset,
     targetTaskId: evidence.targetTaskId,
     targetFindingId: evidence.targetFindingId,
     targetAnnouncementId: evidence.targetAnnouncementId,
@@ -171,6 +224,9 @@ function toFindingSummary(finding: {
     normalizedAt: Date | null;
     targetCompanyId: string | null;
     targetFinancialStatementId: string | null;
+    financialDatasetMode: string | null;
+    financialDatasetVersion: string | null;
+    financialDatasetQuarantined: boolean;
     targetTaskId: string | null;
     targetFindingId: string | null;
     targetAnnouncementId: string | null;
@@ -190,6 +246,8 @@ function toFindingSummary(finding: {
     targetPostId: string | null;
     targetFindingId: string | null;
     targetTaskId: string | null;
+    financialDatasetVersion: string | null;
+    financialDatasetQuarantined: boolean;
     createdAt: Date;
     updatedAt: Date;
     createdBy: { id: string; name: string | null; email: string };
@@ -204,7 +262,7 @@ function toFindingSummary(finding: {
     }>;
   }>;
   handoffWatch: { id: string; status: WorkspaceWatchStatus; companyId: string; createdAt: Date } | null;
-}): DdFindingSummary {
+}, activeFinancialDataset?: FinancialDatasetIdentity): DdFindingSummary {
   const primaryThread = finding.commentThreads[0] ?? null;
 
   return {
@@ -227,7 +285,8 @@ function toFindingSummary(finding: {
     assignee: finding.assignee ? toUserSummary(finding.assignee) : null,
     createdBy: toUserSummary(finding.createdBy),
     linkedTask: finding.task ? { id: finding.task.id, title: finding.task.title } : null,
-    evidence: finding.evidence.map(toEvidenceSummary),
+    evidence: finding.evidence.map((evidence) =>
+      toEvidenceSummary(evidence, activeFinancialDataset)),
     commentThread: primaryThread ? toCommentThreadSummary(primaryThread) : null,
     handoffWatch: finding.handoffWatch
       ? {
@@ -396,7 +455,17 @@ export async function getRoomFindings(roomId: string) {
     orderBy: [{ severity: "desc" }, { updatedAt: "desc" }],
   });
 
-  return findings.map(toFindingSummary);
+  const hasFinancialEvidence = findings.some((finding) =>
+    finding.evidence.some(
+      (evidence) =>
+        evidence.type === DdFindingEvidenceType.FINANCIAL_STATEMENT,
+    ),
+  );
+  const activeFinancialDataset = hasFinancialEvidence
+    ? await getActiveDdFinancialDataset()
+    : undefined;
+  return findings.map((finding) =>
+    toFindingSummary(finding, activeFinancialDataset));
 }
 
 export function buildFindingsSummary(findings: DdFindingSummary[], activeWorkstream: DdWorkstream | null = null) {
@@ -543,6 +612,14 @@ export async function updateDdFinding(
           workspace: true,
         },
       },
+      evidence: {
+        select: {
+          type: true,
+          financialDatasetMode: true,
+          financialDatasetVersion: true,
+          financialDatasetQuarantined: true,
+        },
+      },
     },
   });
 
@@ -552,6 +629,18 @@ export async function updateDdFinding(
 
   const membership = await requireWorkspaceMembership(actorUserId, finding.room.workspaceId);
   ensureActiveRoomMutation({ status: finding.room.status, workspace: membership.workspace });
+
+  const financialEvidence = finding.evidence.filter(
+    (evidence) =>
+      evidence.type === DdFindingEvidenceType.FINANCIAL_STATEMENT,
+  );
+  let activeFinancialDataset: FinancialDatasetIdentity | undefined;
+  if (financialEvidence.length > 0) {
+    activeFinancialDataset = await getActiveDdFinancialDataset();
+    for (const evidence of financialEvidence) {
+      assertFinancialEvidenceDataset(evidence, activeFinancialDataset);
+    }
+  }
 
   if (input.assigneeUserId) {
     const assigneeMembership = await prisma.workspaceMember.findUnique({
@@ -632,7 +721,7 @@ export async function updateDdFinding(
   });
 
   await touchRoom(finding.roomId);
-  return toFindingSummary(updated);
+  return toFindingSummary(updated, activeFinancialDataset);
 }
 
 export async function getEvidenceContext(roomId: string): Promise<DdEvidenceContext> {
@@ -645,22 +734,9 @@ export async function getEvidenceContext(roomId: string): Promise<DdEvidenceCont
     throw new Error("DD-rommet finnes ikke.");
   }
 
-  const financialStatements = await prisma.financialStatement.findMany({
-    where: { companyId: room.primaryCompanyId },
-    // One row per fiscal year. statementScope desc puts CONSOLIDATED before
-    // COMPANY, so distinct keeps the consolidated (headline) statement.
-    orderBy: [{ fiscalYear: "desc" }, { statementScope: "desc" }],
-    distinct: ["fiscalYear"],
-    select: {
-      id: true,
-      fiscalYear: true,
-      sourceSystem: true,
-      sourceEntityType: true,
-      sourceId: true,
-      fetchedAt: true,
-      normalizedAt: true,
-    },
-  });
+  const financials = await ddFinancialEvidenceReader.loadCompanyStatements(
+    room.primaryCompanyId,
+  );
 
   const company = room.primaryCompany;
   const companyProfileFields: DdEvidenceContext["companyProfileFields"] = [
@@ -673,6 +749,8 @@ export async function getEvidenceContext(roomId: string): Promise<DdEvidenceCont
   ];
 
   return {
+    financialDatasetMode: financials.financialDatasetMode,
+    financialDatasetVersion: financials.financialDatasetVersion,
     company: {
       id: company.id,
       name: company.name,
@@ -683,7 +761,7 @@ export async function getEvidenceContext(roomId: string): Promise<DdEvidenceCont
       fetchedAt: company.fetchedAt,
       normalizedAt: company.normalizedAt,
     },
-    financialStatements,
+    financialStatements: financials.statements,
     companyProfileFields,
   };
 }
@@ -733,6 +811,8 @@ export async function createDdFindingEvidence(
     normalizedAt?: Date | null;
     targetCompanyId?: string | null;
     targetFinancialStatementId?: string | null;
+    financialDatasetMode?: FinancialDatasetMode | null;
+    financialDatasetVersion?: FinancialDatasetVersion | null;
     targetTaskId?: string | null;
     targetFindingId?: string | null;
     targetAnnouncementId?: string | null;
@@ -778,10 +858,10 @@ export async function createDdFindingEvidence(
       throw new Error("Velg et finansregnskap som evidens.");
     }
 
-    const statement = await prisma.financialStatement.findUnique({ where: { id: input.financialStatementId } });
-    if (!statement || statement.companyId !== finding.room.primaryCompanyId) {
-      throw new Error("Valgt finansregnskap horer ikke til primarselskapet.");
-    }
+    const statement = await ddFinancialEvidenceReader.resolveReportedStatement(
+      finding.room.primaryCompanyId,
+      input.financialStatementId,
+    );
 
     payload = {
       label: `Arsregnskap ${statement.fiscalYear}`,
@@ -790,7 +870,9 @@ export async function createDdFindingEvidence(
       sourceId: statement.sourceId,
       fetchedAt: statement.fetchedAt,
       normalizedAt: statement.normalizedAt,
-      targetFinancialStatementId: statement.id,
+      targetFinancialStatementId: statement.reportedStatementId,
+      financialDatasetMode: statement.financialDatasetMode,
+      financialDatasetVersion: statement.financialDatasetVersion,
     };
   } else if (input.type === "TASK") {
     if (!input.taskId) {
@@ -855,6 +937,17 @@ export async function createDdFindingEvidence(
     throw new Error("Ugyldig evidenstype.");
   }
 
+  let financialDatasetForWrite: FinancialDatasetIdentity | undefined;
+  if (input.type === DdFindingEvidenceType.FINANCIAL_STATEMENT) {
+    if (!payload.financialDatasetMode || !payload.financialDatasetVersion) {
+      throw new Error("Financial evidence requires active dataset provenance.");
+    }
+    financialDatasetForWrite = {
+      financialDatasetMode: payload.financialDatasetMode,
+      financialDatasetVersion: payload.financialDatasetVersion,
+    };
+  }
+
   const evidence = await prisma.ddFindingEvidence.create({
     data: {
       findingId,
@@ -868,6 +961,8 @@ export async function createDdFindingEvidence(
       normalizedAt: payload.normalizedAt ?? null,
       targetCompanyId: payload.targetCompanyId ?? null,
       targetFinancialStatementId: payload.targetFinancialStatementId ?? null,
+      financialDatasetMode: payload.financialDatasetMode ?? null,
+      financialDatasetVersion: payload.financialDatasetVersion ?? null,
       targetTaskId: payload.targetTaskId ?? null,
       targetFindingId: payload.targetFindingId ?? null,
       targetAnnouncementId: payload.targetAnnouncementId ?? null,
@@ -883,7 +978,7 @@ export async function createDdFindingEvidence(
   });
 
   await touchRoom(finding.roomId);
-  return toEvidenceSummary(evidence);
+  return toEvidenceSummary(evidence, financialDatasetForWrite);
 }
 
 export async function getDdConclusion(roomId: string): Promise<DdConclusionSummary | null> {

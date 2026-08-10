@@ -11,6 +11,11 @@
     "security:check-api-inputs": "tsx scripts/check-api-input-validation.ts",
     "financials:check-source-access": "tsx scripts/check-financial-source-access.ts",
     "financials:verify-simulation-foundation": "tsx scripts/verify-fi-sim-foundation.ts",
+    "financials:verify-runtime-principal": "tsx scripts/verify-financial-runtime-principal.ts",
+    "fi-sim:generate": "tsx scripts/generate-fi-sim-dataset.ts",
+    "fi-sim:map": "tsx scripts/map-fi-sim-dataset.ts",
+    "fi-sim:activation": "tsx scripts/manage-fi-sim-activation.ts",
+    "fi-sim:rehearse-teardown": "tsx scripts/rehearse-gl-511-teardown.ts",
     "security:audit": "npm audit --audit-level=high",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -57,7 +62,8 @@
     "news:intelligence:prepare-macro-review": "tsx scripts/prepare-manual-macro-company-evaluation.ts",
     "newsweb:sync-insider-transactions": "tsx scripts/sync-newsweb-insider-transactions.ts",
     "njord:evaluate": "tsx scripts/evaluate-njord.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "ownership:reimport": "tsx scripts/reimport-and-republish-ownership.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

@@ -6,6 +6,8 @@ import {
 export const SSB_INSTITUTIONAL_SECTOR_STANDARD_VERSION = "2012";
 export const SSB_INSTITUTIONAL_SECTOR_STANDARD_REFERENCE =
   "https://www.ssb.no/klass/klassifikasjoner/39";
+// v3 narrows membership ambiguity to control-relevant edges: an unclassifiable owner below the
+// control threshold can never be the group root, so it no longer voids the issuer's structure.
 export const GROUP_RELATIONSHIP_RULE_VERSION = "public-owner-boundary-v3-ssb2012";
 
 export type GroupOwnerCategory =

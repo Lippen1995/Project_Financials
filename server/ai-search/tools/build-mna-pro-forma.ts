@@ -1,7 +1,15 @@
 import { z } from "zod";
 
+import {
+  simulatedAnswerNotice,
+  type FinancialDisclosure,
+} from "@/lib/financial-simulation-disclosure";
+import type { FinancialDatasetMode, FinancialDatasetVersion } from "@/lib/types";
 import { norwegianOrganizationNumberSchema } from "@/lib/norwegian-organization-number";
-import { prisma } from "@/lib/prisma";
+import {
+  njordFinancialDataReader,
+  type NjordFinancialSnapshot,
+} from "@/server/financials/njord-financial-data-reader";
 import {
   calculateMnaProForma,
   type MnaBaseFinancials,
@@ -85,6 +93,7 @@ export type MnaDepreciationRow = {
   statementScope: "COMPANY" | "CONSOLIDATED";
   value: bigint;
   currency: string;
+  unitScale: number;
   publicationSource: "MANUAL_REVIEW" | "MACHINE_EXTRACTION";
   publishedAt: Date;
   sourceSystem: string;
@@ -94,9 +103,16 @@ export type MnaDepreciationRow = {
   normalizedAt: Date;
 };
 
+export type MnaFinancialSnapshot = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
+  disclosure: FinancialDisclosure;
+  statements: MnaStatementRow[];
+  depreciationAmortization: MnaDepreciationRow[];
+};
+
 export type MnaProFormaToolDeps = {
-  getStatements: (orgNumbers: string[]) => Promise<MnaStatementRow[]>;
-  getDepreciationAmortization: (filingIds: string[]) => Promise<MnaDepreciationRow[]>;
+  getFinancials: (orgNumbers: string[]) => Promise<MnaFinancialSnapshot>;
 };
 
 type ToolProvenance = {
@@ -120,11 +136,18 @@ export type BuildMnaProFormaOutput =
   | { status: "INVALID_USER_INPUT_EVIDENCE"; issues: string[] }
   | {
     status: "INSUFFICIENT_BASE_DATA";
+    financialDatasetMode: FinancialDatasetMode;
+    financialDatasetVersion: FinancialDatasetVersion;
+    simulationNotice: string | null;
     fiscalYear?: number;
     missingBaseData: string[];
     baseStatements?: BaseStatementSummary[];
   }
   | MnaProFormaResult & {
+    financialDatasetMode: FinancialDatasetMode;
+    financialDatasetVersion: FinancialDatasetVersion;
+    /** Non-null whenever the pro forma rests on simulated figures. */
+    simulationNotice: string | null;
     accessRequirement: "DUE_DILIGENCE";
     method: "UNAUDITED_USER_ASSUMPTION_PRO_FORMA";
     ownershipAssumption: "100_PERCENT_ACQUISITION";
@@ -380,85 +403,58 @@ function statementProvenance(row: MnaStatementRow) {
   };
 }
 
+function toMnaFinancialSnapshot(snapshot: NjordFinancialSnapshot): MnaFinancialSnapshot {
+  return {
+    financialDatasetMode: snapshot.financialDatasetMode,
+    financialDatasetVersion: snapshot.financialDatasetVersion,
+    disclosure: snapshot.disclosure,
+    statements: snapshot.statements.map((statement) => ({
+      id: statement.liveStatementId,
+      orgNumber: statement.orgNumber,
+      name: statement.name,
+      fiscalYear: statement.fiscalYear,
+      statementScope: statement.statementScope,
+      currency: statement.currency,
+      revenue: statement.revenue,
+      operatingProfit: statement.operatingProfit,
+      netIncome: statement.netIncome,
+      assets: statement.assets,
+      equity: statement.equity,
+      sourceFilingId: statement.liveStatementId,
+      sourceSystem: statement.sourceSystem,
+      sourceEntityType: statement.sourceEntityType,
+      sourceId: statement.sourceId,
+      fetchedAt: statement.fetchedAt,
+      normalizedAt: statement.normalizedAt,
+    })),
+    depreciationAmortization: snapshot.statements.flatMap((statement) => {
+      const line = statement.depreciationAmortization;
+      if (!line) return [];
+      return [{
+        orgNumber: statement.orgNumber,
+        filingId: statement.liveStatementId,
+        statementScope: statement.statementScope,
+        value: line.value,
+        currency: line.currency,
+        unitScale: line.unitScale,
+        publicationSource: "MACHINE_EXTRACTION" as const,
+        publishedAt: line.normalizedAt,
+        sourceSystem: line.sourceSystem,
+        sourceEntityType: line.sourceEntityType,
+        sourceId: line.sourceId,
+        fetchedAt: line.fetchedAt,
+        normalizedAt: line.normalizedAt,
+      }];
+    }),
+  };
+}
+
 function productionDeps(): MnaProFormaToolDeps {
   return {
-    async getStatements(orgNumbers) {
-      const rows = await prisma.financialStatement.findMany({
-        where: { company: { orgNumber: { in: orgNumbers } } },
-        select: {
-          id: true,
-          fiscalYear: true,
-          statementScope: true,
-          currency: true,
-          revenue: true,
-          operatingProfit: true,
-          netIncome: true,
-          assets: true,
-          equity: true,
-          sourceFilingId: true,
-          sourceSystem: true,
-          sourceEntityType: true,
-          sourceId: true,
-          fetchedAt: true,
-          normalizedAt: true,
-          company: { select: { orgNumber: true, name: true } },
-        },
-      });
-      return rows.map((row) => ({
-        ...row,
-        orgNumber: row.company.orgNumber,
-        name: row.company.name,
-      }));
-    },
-    async getDepreciationAmortization(filingIds) {
-      if (filingIds.length === 0) return [];
-      const rows = await prisma.publishedFinancialLineItem.findMany({
-        where: {
-          filingId: { in: filingIds },
-          metricKey: "depreciation_amortization",
-          finalInput: { not: null },
-          sourceSystem: { not: null },
-          sourceEntityType: { not: null },
-          sourceId: { not: null },
-          fetchedAt: { not: null },
-          normalizedAt: { not: null },
-        },
-        orderBy: { publishedAt: "desc" },
-        select: {
-          filingId: true,
-          statementScope: true,
-          finalInput: true,
-          currency: true,
-          publicationSource: true,
-          publishedAt: true,
-          sourceSystem: true,
-          sourceEntityType: true,
-          sourceId: true,
-          fetchedAt: true,
-          normalizedAt: true,
-          company: { select: { orgNumber: true } },
-        },
-      });
-      return rows.flatMap((row) => {
-        if (
-          row.finalInput === null || !row.sourceSystem || !row.sourceEntityType ||
-          !row.sourceId || !row.fetchedAt || !row.normalizedAt
-        ) return [];
-        return [{
-          orgNumber: row.company.orgNumber,
-          filingId: row.filingId,
-          statementScope: row.statementScope,
-          value: row.finalInput,
-          currency: row.currency,
-          publicationSource: row.publicationSource,
-          publishedAt: row.publishedAt,
-          sourceSystem: row.sourceSystem,
-          sourceEntityType: row.sourceEntityType,
-          sourceId: row.sourceId,
-          fetchedAt: row.fetchedAt,
-          normalizedAt: row.normalizedAt,
-        }];
-      });
+    async getFinancials(orgNumbers) {
+      return toMnaFinancialSnapshot(
+        await njordFinancialDataReader.readCompanies(orgNumbers),
+      );
     },
   };
 }
@@ -509,7 +505,16 @@ export function createBuildMnaProFormaTool(options: {
         return { status: "INVALID_USER_INPUT_EVIDENCE" as const, issues };
       }
 
-      const rows = await deps.getStatements([input.buyerOrgNumber, input.targetOrgNumber]);
+      const financials = await deps.getFinancials([
+        input.buyerOrgNumber,
+        input.targetOrgNumber,
+      ]);
+      const rows = financials.statements;
+      const datasetIdentity = {
+        financialDatasetMode: financials.financialDatasetMode,
+        financialDatasetVersion: financials.financialDatasetVersion,
+        simulationNotice: simulatedAnswerNotice(financials.disclosure),
+      };
       const fiscalYear = input.fiscalYear ?? commonFiscalYear(
         rows,
         input.buyerOrgNumber,
@@ -520,6 +525,7 @@ export function createBuildMnaProFormaTool(options: {
       if (fiscalYear === null) {
         return {
           status: "INSUFFICIENT_BASE_DATA" as const,
+          ...datasetIdentity,
           missingBaseData: ["COMMON_FISCAL_YEAR"],
         };
       }
@@ -538,6 +544,7 @@ export function createBuildMnaProFormaTool(options: {
       if (!buyerRow || !targetRow) {
         return {
           status: "INSUFFICIENT_BASE_DATA" as const,
+          ...datasetIdentity,
           fiscalYear,
           missingBaseData: [
             ...(!buyerRow ? [`${input.buyerOrgNumber}.statement`] : []),
@@ -553,6 +560,7 @@ export function createBuildMnaProFormaTool(options: {
       if (missingBaseData.length > 0) {
         return {
           status: "INSUFFICIENT_BASE_DATA" as const,
+          ...datasetIdentity,
           fiscalYear,
           missingBaseData,
           baseStatements: [buyerRow, targetRow].map((row) => ({
@@ -564,9 +572,7 @@ export function createBuildMnaProFormaTool(options: {
         };
       }
 
-      const filingIds = [buyerRow.sourceFilingId, targetRow.sourceFilingId]
-        .filter((value): value is string => Boolean(value));
-      const depreciationRows = await deps.getDepreciationAmortization(filingIds);
+      const depreciationRows = financials.depreciationAmortization;
       const dAndAFor = (row: MnaStatementRow, override: { valueNok: string } | null) => {
         if (override) {
           return {
@@ -592,7 +598,7 @@ export function createBuildMnaProFormaTool(options: {
           return { value: null, origin: "UNAVAILABLE" as const, provenance: null };
         }
         return {
-          value: published.value,
+          value: published.value * BigInt(published.unitScale),
           origin: "OFFICIAL_FILING" as const,
           provenance: {
             sourceSystem: published.sourceSystem,
@@ -637,6 +643,7 @@ export function createBuildMnaProFormaTool(options: {
       } catch (error) {
         return {
           status: "INSUFFICIENT_BASE_DATA" as const,
+          ...datasetIdentity,
           fiscalYear,
           missingBaseData: [error instanceof Error ? error.message : "CALCULATION_FAILED"],
         };
@@ -670,6 +677,7 @@ export function createBuildMnaProFormaTool(options: {
 
       return {
         ...calculation,
+        ...datasetIdentity,
         accessRequirement: "DUE_DILIGENCE" as const,
         method: "UNAUDITED_USER_ASSUMPTION_PRO_FORMA" as const,
         ownershipAssumption: "100_PERCENT_ACQUISITION" as const,

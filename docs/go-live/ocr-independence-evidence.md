@@ -38,7 +38,7 @@ Følgende flater går gjennom kildeporten:
 - nøkkeltall på selskapsprofil;
 - `GET /api/companies/[slug]/financials`.
 
-`GET /api/companies/[slug]/raw-financials` returnerer ingen PDF-/OCR-avledede linjeposter i strukturert beta-modus. Årsrapportlenker skjules når den offentlige tjenesten har filtrert dokumentene bort.
+`GET /api/companies/[slug]/raw-financials` leser nå bare den versjonerte live-flaten. Dermed returnerer den strukturerte Brreg-linjer eller tydelig merkede FI-SIM-linjer i investordemoen, aldri PDF-/OCR-avledede publikasjonsposter. Årsrapportlenker skjules når den offentlige tjenesten har filtrert dokumentene bort.
 
 ## Implementasjonsbevis
 
@@ -47,13 +47,13 @@ Følgende flater går gjennom kildeporten:
 | Sikker standard | `lib/env.ts` og `.env.example` | `BETA_STRUCTURED_FINANCIALS_ONLY=true` dersom variabelen ikke er satt |
 | Offentlig kildeport | `server/services/public-financials-service.ts` | Bare strukturerte Brreg-poster beholdes |
 | Profil og finans-API | `server/services/company-service.ts` | Både `summary` og `full` bruker offentlig kildeport |
-| Detaljlinjer | `app/api/companies/[slug]/raw-financials/route.ts` | Returnerer tomt datasett i strukturert beta-modus |
+| Detaljlinjer | `app/api/companies/[slug]/raw-financials/route.ts` | Leser bare live-viewet og returnerer datasetversjon samt statement- og linjeopprinnelse |
 | Dokumenter | `app/(app)/companies/[slug]/page.tsx` | Dokumentflate rendres ikke uten godkjente offentlige dokumenter |
 | Tomtilstand | selskapsprofil og regnskapstabell | Viser at regnskap ikke er tilgjengelig; ingen konstruerte tall |
 
 ## Testbevis
 
-Kjørt 24. juli 2026:
+Historisk kjøring 24. juli 2026:
 
 | Kommando / testgruppe | Resultat |
 | --- | --- |
@@ -62,13 +62,28 @@ Kjørt 24. juli 2026:
 | `npm.cmd run typecheck` | Bestått |
 | `npm.cmd run build` | Produksjonsbygg bestått; tre eksisterende, ikke-blokkerende lint-advarsler om font og `img` |
 
-De nye anti-fallback-testene verifiserer at:
+Oppdatert kontroll 7. august 2026:
+
+| Kommando / testgruppe | Resultat |
+| --- | --- |
+| `npx vitest run app/api/companies/[slug]/raw-financials/route.test.ts server/financials/raw-financials-reader.test.ts` | 2 testfiler, 7 tester bestått |
+| `npm run financials:check-source-access` | 17 registrerte kildelesere; 13 ikke-tillatte direkte runtime-lesere gjenstår som migrasjonsgjeld |
+| `npm run typecheck` | Bestått |
+| `npm run build` | Produksjonsbygg bestått; to eksisterende, ikke-blokkerende lint-advarsler om font og `img` |
+
+Den historiske anti-fallback-kontrollen verifiserte at:
 
 1. strukturerte Brreg-poster beholdes;
 2. PDF-/OCR-avledede statements filtreres bort;
 3. detaljlinjer og dokumenter fjernes;
-4. bare OCR-/PDF-avledede data gir `available=false`;
-5. rålinje-API-et returnerer tomt datasett i beta-modus.
+4. bare OCR-/PDF-avledede data gir `available=false`.
+
+Den oppdaterte rålinje-regresjonen verifiserer at:
+
+1. API-et leser den versjonerte live-flaten og returnerer datasetversjon;
+2. source-policyen filtrerer bort rapporterte PDF-/OCR-statements og tilhørende linjer;
+3. FI-SIM-statements og syntetiske linjer beholder eksplisitt opprinnelsesmerking;
+4. interne `rawPayload`-felt ikke eksponeres.
 
 ## Begrensninger og senere porter
 

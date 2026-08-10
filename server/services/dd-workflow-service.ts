@@ -172,6 +172,8 @@ function toTaskSummary(task: {
     targetPostId: string | null;
     targetFindingId: string | null;
     targetTaskId: string | null;
+    financialDatasetVersion: string | null;
+    financialDatasetQuarantined: boolean;
     createdAt: Date;
     updatedAt: Date;
     createdBy: {

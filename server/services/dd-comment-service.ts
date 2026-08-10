@@ -7,6 +7,8 @@ import {
   DdCommentThreadTargetType,
 } from "@/lib/types";
 import { prisma } from "@/lib/prisma";
+import { financialsRepository } from "@/server/financials/financials-repository";
+import { ddFinancialEvidenceReader } from "@/server/services/dd-financial-evidence-reader";
 import { requireWorkspaceMembership } from "@/server/services/workspace-service";
 
 type CommentThreadRecord = {
@@ -18,6 +20,8 @@ type CommentThreadRecord = {
   targetPostId: string | null;
   targetFindingId: string | null;
   targetTaskId: string | null;
+  financialDatasetVersion: string | null;
+  financialDatasetQuarantined: boolean;
   createdAt: Date;
   updatedAt: Date;
   createdBy: {
@@ -75,6 +79,10 @@ export function toCommentThreadSummary(thread: CommentThreadRecord): DdCommentTh
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
     createdBy: toUserSummary(thread.createdBy),
+    // Carried so a note written against a dataset that is no longer active can be shown as
+    // such. Losing it here would make a stale note indistinguishable from a current one.
+    financialDatasetVersion: thread.financialDatasetVersion,
+    financialDatasetQuarantined: thread.financialDatasetQuarantined,
     commentCount: comments.length,
     latestCommentAt: comments.length ? comments[comments.length - 1].createdAt : null,
     comments,
@@ -509,24 +517,56 @@ export async function createAnnouncementComment(
   return createCommentForThread(actorUserId, thread, input.content, input.parentCommentId);
 }
 
+/**
+ * Statements a DD room can carry comment threads on, read from the live dataset.
+ *
+ * Every scope is listed rather than one headline row per year: a thread already attached to a
+ * company-scope statement must not vanish because a consolidated one exists for the same year.
+ * Identity stays the reported statement id, because that is what the thread's foreign key
+ * holds; a simulated dataset has no reported row to bind and is refused outright until F9
+ * labels simulated statements in the UI.
+ */
+/**
+ * Validate that a statement may carry a comment thread in this room, resolving it through the
+ * live dataset. Reuses the DD evidence reader so both DD surfaces agree on what a statement
+ * reference means and both refuse simulated statements the same way.
+ */
+async function resolveCommentableStatement(companyId: string, financialStatementId: string) {
+  try {
+    return await ddFinancialEvidenceReader.resolveReportedStatement(
+      companyId,
+      financialStatementId,
+    );
+  } catch {
+    throw new Error("Valgt regnskap horer ikke til selskapet i dette DD-rommet.");
+  }
+}
+
+async function loadRoomStatements(companyId: string) {
+  const snapshot = await financialsRepository.getCompanyFinancials({ companyId });
+
+  // A comment thread hangs off a reported FinancialStatement foreign key, and spec section 13
+  // refuses to let a simulated statement stand in for one. In a demo dataset no statement has a
+  // reported id, so the filter below empties the list — the panel shows nothing to comment on
+  // rather than failing, and the mutation path rejects separately in the evidence reader.
+  return snapshot.statements
+    .filter((statement) => statement.reportedStatementId !== null)
+    .map((statement) => ({
+      id: statement.reportedStatementId as string,
+      fiscalYear: statement.fiscalYear,
+      sourceSystem: statement.sourceSystem,
+      sourceEntityType: statement.sourceEntityType,
+      sourceId: statement.sourceId,
+      fetchedAt: statement.fetchedAt,
+      normalizedAt: statement.normalizedAt,
+    }))
+    .sort((left, right) => right.fiscalYear - left.fiscalYear);
+}
+
 export async function listFinancialStatementCommentThreads(actorUserId: string, roomId: string) {
   const room = await getAuthorizedRoom(actorUserId, roomId);
 
-  const statements = await prisma.financialStatement.findMany({
-    where: {
-      companyId: room.primaryCompanyId,
-    },
-    orderBy: [{ fiscalYear: "desc" }],
-    select: {
-      id: true,
-      fiscalYear: true,
-      sourceSystem: true,
-      sourceEntityType: true,
-      sourceId: true,
-      fetchedAt: true,
-      normalizedAt: true,
-    },
-  });
+  const statements = await loadRoomStatements(room.primaryCompanyId);
 
   if (statements.length === 0) {
     return [];
@@ -580,17 +620,12 @@ export async function createFinancialStatementComment(
   const room = await getAuthorizedRoom(actorUserId, roomId);
   ensureActiveRoomMutation({ status: room.status, workspace: room.workspace });
 
-  const statement = await prisma.financialStatement.findUnique({
-    where: { id: financialStatementId },
-    select: {
-      id: true,
-      companyId: true,
-    },
-  });
-
-  if (!statement || statement.companyId !== room.primaryCompanyId) {
-    throw new Error("Valgt regnskap horer ikke til selskapet i dette DD-rommet.");
-  }
+  // Resolved through the live dataset, which also refuses a simulated statement: a thread's
+  // foreign key can only hold a reported row, and F9 forbids commenting simulated figures.
+  const commentable = await resolveCommentableStatement(
+    room.primaryCompanyId,
+    financialStatementId,
+  );
 
   const thread =
     (await prisma.ddCommentThread.findFirst({
@@ -617,6 +652,10 @@ export async function createFinancialStatementComment(
         targetType: "FINANCIAL_STATEMENT",
         targetCompanyId: room.primaryCompanyId,
         targetFinancialStatementId: financialStatementId,
+        // Which dataset the note was written against. A later dataset switch can quarantine it
+        // rather than let it pass for a note about the figures now on screen.
+        financialDatasetMode: commentable.financialDatasetMode,
+        financialDatasetVersion: commentable.financialDatasetVersion,
         createdByUserId: actorUserId,
       },
       include: {
@@ -640,15 +679,7 @@ export async function listFinancialMetricCommentThreads(
 ): Promise<CompanyFinancialMetricDiscussionSummary[]> {
   const room = await getAuthorizedRoom(actorUserId, roomId);
 
-  const statements = await prisma.financialStatement.findMany({
-    where: {
-      companyId: room.primaryCompanyId,
-    },
-    select: {
-      id: true,
-      fiscalYear: true,
-    },
-  });
+  const statements = await loadRoomStatements(room.primaryCompanyId);
 
   if (statements.length === 0) {
     return [];
@@ -716,17 +747,10 @@ export async function createFinancialMetricComment(
     throw new Error("Finansiell rad mangler.");
   }
 
-  const statement = await prisma.financialStatement.findUnique({
-    where: { id: input.financialStatementId },
-    select: {
-      id: true,
-      companyId: true,
-    },
-  });
-
-  if (!statement || statement.companyId !== room.primaryCompanyId) {
-    throw new Error("Valgt regnskap horer ikke til selskapet i dette DD-rommet.");
-  }
+  const commentable = await resolveCommentableStatement(
+    room.primaryCompanyId,
+    input.financialStatementId,
+  );
 
   const thread =
     (await prisma.ddCommentThread.findFirst({
@@ -755,6 +779,8 @@ export async function createFinancialMetricComment(
         targetCompanyId: room.primaryCompanyId,
         targetFinancialStatementId: input.financialStatementId,
         targetFinancialMetricKey: metricKey,
+        financialDatasetMode: commentable.financialDatasetMode,
+        financialDatasetVersion: commentable.financialDatasetVersion,
         createdByUserId: actorUserId,
       },
       include: {

@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  financialDisclosureFor,
+  SIMULATED_FINANCIALS_NOTICE,
+} from "@/lib/financial-simulation-disclosure";
+import {
   createBuildMnaProFormaTool,
   type MnaDepreciationRow,
+  type MnaFinancialSnapshot,
   type MnaProFormaToolDeps,
   type MnaStatementRow,
 } from "./build-mna-pro-forma";
@@ -85,10 +90,22 @@ const toolInput = {
   },
 };
 
+function financials(
+  statements = [statement("111111111"), statement("222222222")],
+  depreciationAmortization: MnaDepreciationRow[] = [],
+): MnaFinancialSnapshot {
+  return {
+    financialDatasetMode: "reported",
+    financialDatasetVersion: "reported:22",
+    disclosure: financialDisclosureFor("reported", "reported:22"),
+    statements,
+    depreciationAmortization,
+  };
+}
+
 function deps(): MnaProFormaToolDeps {
   return {
-    getStatements: vi.fn(async () => [statement("111111111"), statement("222222222")]),
-    getDepreciationAmortization: vi.fn(async () => []),
+    getFinancials: vi.fn(async () => financials()),
   };
 }
 
@@ -103,6 +120,7 @@ function depreciation(
     statementScope: "COMPANY",
     value,
     currency,
+    unitScale: 1,
     publicationSource: "MANUAL_REVIEW",
     publishedAt: observedAt,
     sourceSystem: "BRREG",
@@ -121,6 +139,8 @@ describe("build_mna_pro_forma", () => {
 
     expect(result).toMatchObject({
       status: "COMPLETE",
+      financialDatasetMode: "reported",
+      financialDatasetVersion: "reported:22",
       accessRequirement: "DUE_DILIGENCE",
       fiscalYear: 2025,
       incomeStatement: {
@@ -163,7 +183,7 @@ describe("build_mna_pro_forma", () => {
       status: "INVALID_USER_INPUT_EVIDENCE",
       issues: [expect.stringContaining("purchasePriceNok")],
     });
-    expect(localDeps.getStatements).not.toHaveBeenCalled();
+    expect(localDeps.getFinancials).not.toHaveBeenCalled();
   });
 
   it("rejects a rate that does not match the quoted percentage", async () => {
@@ -182,7 +202,7 @@ describe("build_mna_pro_forma", () => {
       status: "INVALID_USER_INPUT_EVIDENCE",
       issues: [expect.stringContaining("annualInterestRateBps")],
     });
-    expect(localDeps.getStatements).not.toHaveBeenCalled();
+    expect(localDeps.getFinancials).not.toHaveBeenCalled();
   });
 
   it("accepts Norwegian dot-separated thousands in assumption evidence", async () => {
@@ -235,18 +255,19 @@ describe("build_mna_pro_forma", () => {
         expect.stringContaining("includeTransactionCostsInIncomeStatement"),
       ]),
     });
-    expect(localDeps.getStatements).not.toHaveBeenCalled();
+    expect(localDeps.getFinancials).not.toHaveBeenCalled();
   });
 
   it("keeps exact provenance for published depreciation and amortisation", async () => {
     const localDeps = deps();
-    vi.mocked(localDeps.getDepreciationAmortization).mockResolvedValue([
+    vi.mocked(localDeps.getFinancials).mockResolvedValue(financials(undefined, [
       {
         orgNumber: "111111111",
         filingId: "filing-111111111",
         statementScope: "COMPANY",
         value: 999n,
         currency: "NOK",
+        unitScale: 1,
         publicationSource: "MACHINE_EXTRACTION",
         publishedAt: new Date("2026-07-22T09:00:00.000Z"),
         sourceSystem: "BRREG",
@@ -261,6 +282,7 @@ describe("build_mna_pro_forma", () => {
         statementScope: "COMPANY",
         value: 50n,
         currency: "NOK",
+        unitScale: 1,
         publicationSource: "MANUAL_REVIEW",
         publishedAt: observedAt,
         sourceSystem: "BRREG",
@@ -275,6 +297,7 @@ describe("build_mna_pro_forma", () => {
         statementScope: "COMPANY",
         value: 20n,
         currency: "NOK",
+        unitScale: 1,
         publicationSource: "MANUAL_REVIEW",
         publishedAt: observedAt,
         sourceSystem: "BRREG",
@@ -283,7 +306,7 @@ describe("build_mna_pro_forma", () => {
         fetchedAt: observedAt,
         normalizedAt: observedAt,
       },
-    ]);
+    ]));
     const tool = createBuildMnaProFormaTool({ userQuery: query, deps: localDeps });
 
     const result = await tool.execute({
@@ -315,10 +338,10 @@ describe("build_mna_pro_forma", () => {
 
   it("does not combine a depreciation line in another currency with NOK EBIT", async () => {
     const localDeps = deps();
-    vi.mocked(localDeps.getDepreciationAmortization).mockResolvedValue([
+    vi.mocked(localDeps.getFinancials).mockResolvedValue(financials(undefined, [
       depreciation("111111111", 50n, "USD"),
       depreciation("222222222", 20n),
-    ]);
+    ]));
     const tool = createBuildMnaProFormaTool({ userQuery: query, deps: localDeps });
 
     const result = await tool.execute({
@@ -344,17 +367,67 @@ describe("build_mna_pro_forma", () => {
 
   it("returns missing base-data fields instead of treating them as zero", async () => {
     const localDeps = deps();
-    vi.mocked(localDeps.getStatements).mockResolvedValue([
+    vi.mocked(localDeps.getFinancials).mockResolvedValue(financials([
       statement("111111111"),
       statement("222222222", { assets: null }),
-    ]);
+    ]));
     const tool = createBuildMnaProFormaTool({ userQuery: query, deps: localDeps });
 
     const result = await tool.execute(toolInput);
 
     expect(result).toMatchObject({
       status: "INSUFFICIENT_BASE_DATA",
+      financialDatasetMode: "reported",
+      financialDatasetVersion: "reported:22",
       missingBaseData: ["222222222.assets"],
+    });
+  });
+
+  it("applies the live line unit scale to depreciation and amortisation", async () => {
+    const localDeps = deps();
+    vi.mocked(localDeps.getFinancials).mockResolvedValue(financials(undefined, [
+      { ...depreciation("111111111", 50n), unitScale: 1_000 },
+      depreciation("222222222", 20n),
+    ]));
+    const tool = createBuildMnaProFormaTool({ userQuery: query, deps: localDeps });
+
+    const result = await tool.execute({
+      ...toolInput,
+      assumptions: {
+        ...toolInput.assumptions,
+        buyerBaseDepreciationAmortizationOverrideNok: null,
+        targetBaseDepreciationAmortizationOverrideNok: null,
+      },
+    });
+
+    if (result.status !== "COMPLETE" && result.status !== "PARTIAL") {
+      throw new Error(`Unexpected result status: ${result.status}`);
+    }
+    expect(result.baseDepreciationAmortization[0]).toMatchObject({
+      orgNumber: "111111111",
+      origin: "OFFICIAL_FILING",
+      valueNok: "50000",
+    });
+  });
+
+  it("states in the result that a simulated pro forma is a demonstration", async () => {
+    const localDeps = deps();
+    vi.mocked(localDeps.getFinancials).mockResolvedValue({
+      ...financials(),
+      financialDatasetMode: "simulated",
+      financialDatasetVersion: "simulated:investor-demo:23",
+      disclosure: financialDisclosureFor("simulated", "simulated:investor-demo:23"),
+    });
+    const tool = createBuildMnaProFormaTool({ userQuery: query, deps: localDeps });
+
+    const result = await tool.execute(toolInput);
+
+    expect(result).toMatchObject({
+      financialDatasetMode: "simulated",
+      simulationNotice: expect.stringContaining(SIMULATED_FINANCIALS_NOTICE),
+    });
+    expect(result).toMatchObject({
+      simulationNotice: expect.stringContaining("simulated:investor-demo:23"),
     });
   });
 });

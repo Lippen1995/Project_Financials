@@ -5,7 +5,7 @@ import {
   acquireOwnershipPublicationLocks,
   buildGroupRelationshipSnapshotInTransaction,
   OWNERSHIP_PUBLICATION_TRANSACTION_OPTIONS,
-  requireCompleteShareholderRegisterImport,
+  requirePublishableShareholderRegisterImport,
   type GroupRelationshipSnapshotBuildResult,
 } from "@/server/ownership/group-relationship-snapshot-builder";
 import {
@@ -40,7 +40,7 @@ export async function buildOwnershipEdgesForYear(taxYear: number): Promise<Owner
     // transaction. Readers therefore keep seeing the previous published snapshot until every
     // replacement edge, relationship and membership row is ready.
     await acquireOwnershipPublicationLocks(tx, taxYear);
-    const sourceImport = await requireCompleteShareholderRegisterImport(tx, taxYear);
+    const sourceImport = await requirePublishableShareholderRegisterImport(tx, taxYear);
 
     await tx.$executeRaw`DELETE FROM "OwnershipEdge" WHERE "taxYear" = ${taxYear}`;
 

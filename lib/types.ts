@@ -115,6 +115,36 @@ export type NormalizedFinancialStatement = SourceMetadata & {
   assets?: number | null;
 };
 
+export type FinancialDatasetVersion =
+  | `reported:${number}`
+  | `simulated:${string}:${number}`;
+export type FinancialDatasetMode = "reported" | "simulated";
+export type FinancialStatementOrigin = "reported" | "hybrid" | "simulated";
+export type FinancialValueOrigin = "reported" | "synthetic";
+
+/**
+ * What a surface has to tell the reader about where its figures came from. The wording and the
+ * rules for building one live in `lib/financial-simulation-disclosure`; the shape lives here with
+ * the rest of the financial contract so every payload type can carry it.
+ */
+export type FinancialDisclosure = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
+  /** True when any figure on this surface is synthetic rather than reported. */
+  simulated: boolean;
+  /** The sentence the surface must show when `simulated`. Null when nothing is simulated. */
+  notice: string | null;
+};
+
+export type ProvenancedFinancialStatement = NormalizedFinancialStatement & {
+  liveStatementId: string;
+  reportedStatementId: string | null;
+  statementOrigin: FinancialStatementOrigin;
+  financialDatasetVersion: FinancialDatasetVersion;
+  taxonomyVersion: string | null;
+  generatorVersion: string | null;
+};
+
 export type InternalNormalizedFinancialStatement = NormalizedFinancialStatement & {
   sourceFilingId?: string | null;
   sourceExtractionRunId?: string | null;
@@ -140,7 +170,7 @@ export type NormalizedFinancialDocument = SourceMetadata & {
 
 export type NormalizedFinancialLineItem = {
   id: string;
-  filingId: string;
+  filingId: string | null;
   fiscalYear: number;
   statementType: "INCOME_STATEMENT" | "BALANCE_SHEET" | "CASH_FLOW";
   statementScope: "COMPANY" | "CONSOLIDATED";
@@ -152,10 +182,30 @@ export type NormalizedFinancialLineItem = {
   unitScale: number;
   sourcePage: number | null;
   sortOrder: number;
-  publicationSource: "MANUAL_REVIEW" | "MACHINE_EXTRACTION";
+  publicationSource:
+    | "MANUAL_REVIEW"
+    | "MACHINE_EXTRACTION"
+    | "LIVE_REPORTED"
+    | "FI_SIM";
   sourceSystem: string | null;
   sourceEntityType: string | null;
   sourceId: string | null;
+};
+
+export type ProvenancedFinancialLineItem = NormalizedFinancialLineItem & {
+  liveLineId: string;
+  liveStatementId: string;
+  reportedFinancialLineItemId: string | null;
+  conceptKey: string | null;
+  valueOrigin: FinancialValueOrigin;
+  statementOrigin: FinancialStatementOrigin;
+  financialDatasetVersion: FinancialDatasetVersion;
+  taxonomyVersion: string | null;
+  generatorVersion: string | null;
+  derivationRuleId: string | null;
+  fetchedAt: Date;
+  normalizedAt: Date;
+  rawPayload?: unknown;
 };
 
 export type NormalizedAnnouncement = SourceMetadata & {
@@ -254,12 +304,17 @@ export type CompanyProfile = {
   roles: NormalizedRole[];
   rolesAvailability: DataAvailability;
   /** One headline statement per fiscal year (konsern preferred). Use for KPIs and trends. */
-  financialStatements: NormalizedFinancialStatement[];
+  financialStatements: ProvenancedFinancialStatement[];
   /** Every statement including both konsern and selskap — for the scope toggle. */
-  financialStatementsAllScopes: NormalizedFinancialStatement[];
+  financialStatementsAllScopes: ProvenancedFinancialStatement[];
   /** Original published rows in filing order, without taxonomy compression. */
-  financialLineItems: NormalizedFinancialLineItem[];
+  financialLineItems: ProvenancedFinancialLineItem[];
   financialDocuments: NormalizedFinancialDocument[];
+  /** Active live-view dataset. Null only when financials were intentionally not read. */
+  financialDatasetMode: FinancialDatasetMode | null;
+  financialDatasetVersion: FinancialDatasetVersion | null;
+  /** What the page must tell the reader about where these figures came from. Null with the above. */
+  financialDisclosure: FinancialDisclosure | null;
   financialsAvailability: DataAvailability;
   regulatoryAvailability: DataAvailability;
   petroleum?: CompanyPetroleumProfile | null;
@@ -1151,6 +1206,8 @@ export type DistressRevenueTrendPoint = {
 };
 
 export type DistressFinancialSnapshotSummary = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   distressStatus: DistressStatus;
   daysInStatus?: number | null;
   industryCode?: string | null;
@@ -1254,6 +1311,8 @@ export type DistressCompanyRow = {
     label?: string | null;
   } | null;
   financials: {
+    financialDatasetMode: FinancialDatasetMode | null;
+    financialDatasetVersion: FinancialDatasetVersion | null;
     lastReportedYear?: number | null;
     revenue?: number | null;
     ebit?: number | null;
@@ -1282,6 +1341,8 @@ export type DistressCompanyDetail = {
     label?: string | null;
   } | null;
   financials: {
+    financialDatasetMode: FinancialDatasetMode;
+    financialDatasetVersion: FinancialDatasetVersion;
     snapshot: DistressFinancialSnapshotSummary | null;
     trends: DistressFinancialTrend[];
   };
@@ -1344,6 +1405,8 @@ export type DistressOpportunityCluster = {
 };
 
 export type DistressOverviewResponse = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   kpis: DistressOverviewKpis;
   statusDistribution: DistressOverviewStatusRow[];
   sectors: DistressOverviewSectorRow[];
@@ -1393,6 +1456,8 @@ export type DistressFilterOption = {
 };
 
 export type DistressFilterOptions = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   statuses: DistressFilterOption[];
   industryCodes: DistressFilterOption[];
   sectors: DistressFilterOption[];
@@ -1418,6 +1483,8 @@ export type DistressSearchFilters = {
 };
 
 export type DistressScreeningResponse = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   items: DistressCompanyRow[];
   totalCount: number;
   totalUniverseCount: number;
@@ -1451,6 +1518,8 @@ export type DistressModuleSectorRow = {
 };
 
 export type DistressModuleResponse = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   items: DistressCompanyRow[];
   totalCount: number;
   /** Rows matching the active filters, before paging. */
@@ -1811,6 +1880,10 @@ export type DdCommentThreadSummary = {
     name: string | null;
     email: string;
   };
+  /** Dataset the thread was written against; null for non-financial targets. */
+  financialDatasetVersion?: string | null;
+  /** True when the thread's dataset is unknown or no longer active. */
+  financialDatasetQuarantined?: boolean;
   commentCount: number;
   latestCommentAt?: Date | null;
   comments: DdCommentSummary[];
@@ -1891,6 +1964,8 @@ export type DdFindingEvidenceSummary = {
   normalizedAt?: Date | null;
   targetCompanyId?: string | null;
   targetFinancialStatementId?: string | null;
+  financialDatasetMode?: FinancialDatasetMode | null;
+  financialDatasetVersion?: FinancialDatasetVersion | null;
   targetTaskId?: string | null;
   targetFindingId?: string | null;
   targetAnnouncementId?: string | null;
@@ -2001,6 +2076,8 @@ export type DdWorkstreamSummary = {
 };
 
 export type DdEvidenceContext = {
+  financialDatasetMode: FinancialDatasetMode;
+  financialDatasetVersion: FinancialDatasetVersion;
   company: {
     id: string;
     name: string;
@@ -2013,7 +2090,11 @@ export type DdEvidenceContext = {
   };
   financialStatements: Array<{
     id: string;
+    liveStatementId: string;
+    reportedStatementId: string | null;
     fiscalYear: number;
+    statementOrigin: FinancialStatementOrigin;
+    financialDatasetVersion: FinancialDatasetVersion;
     sourceSystem: string;
     sourceEntityType: string;
     sourceId: string;
