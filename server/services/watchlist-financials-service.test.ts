@@ -26,6 +26,13 @@ describe("watchlist financials service", () => {
           assets: 100n,
           fetchedAt: timestamp,
           normalizedAt: timestamp,
+          lines: [
+            { conceptKey: "OperatingIncomeTotal", metricKey: "total_operating_income", value: 100n, valueOrigin: "reported" },
+            { conceptKey: "OperatingResult", metricKey: "operating_profit", value: 20n, valueOrigin: "synthetic" },
+            { conceptKey: "ProfitForPeriod", metricKey: "net_income", value: 15n, valueOrigin: "reported" },
+            { conceptKey: "EquityTotal", metricKey: "total_equity", value: 60n, valueOrigin: "reported" },
+            { conceptKey: "AssetsTotal", metricKey: "total_assets", value: 100n, valueOrigin: "reported" },
+          ],
         },
       ],
     });
@@ -50,6 +57,13 @@ describe("watchlist financials service", () => {
             netIncome: 15,
             equity: 60,
             assets: 100,
+            origins: {
+              revenue: "reported",
+              operatingProfit: "synthetic",
+              netIncome: "reported",
+              equity: "reported",
+              assets: "reported",
+            },
             statementOrigin: "reported",
             financialDatasetVersion: "reported:21",
           },

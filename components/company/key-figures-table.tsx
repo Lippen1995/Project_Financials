@@ -3,13 +3,27 @@
 import * as React from "react";
 
 import {
+  SimulatedFinancialsBanner,
+  SimulatedValueMarker,
+} from "@/components/company/simulated-financials-notice";
+import {
   FINANCIAL_UNIT_LABELS,
   FinancialUnit,
   formatPercent,
   formatUnitAmount,
 } from "@/lib/financial-report";
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
 import { getHeadlineFinancialStatements } from "@/lib/financial-statements";
-import { NormalizedFinancialStatement } from "@/lib/types";
+import {
+  combineFinancialValueOrigins,
+  financialHeadlineOriginsForStatement,
+  type FinancialHeadlineOrigins,
+} from "@/lib/financial-value-origin";
+import type {
+  FinancialValueOrigin,
+  NormalizedFinancialLineItem,
+  NormalizedFinancialStatement,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const UNIT_OPTIONS: FinancialUnit[] = ["NOK", "kNOK", "MNOK"];
@@ -24,6 +38,7 @@ type FigureDef = {
   info: string;
   /** value per year index, aligned to `years`. null = not available. */
   pick: (row: YearRow) => number | null;
+  origin: (row: YearRow) => FinancialValueOrigin | null;
 };
 
 type YearRow = {
@@ -36,6 +51,8 @@ type YearRow = {
   debt: number | null;
   prevRevenue: number | null;
   prevNet: number | null;
+  origins: FinancialHeadlineOrigins;
+  prevOrigins: FinancialHeadlineOrigins | null;
 };
 
 function num(value: number | null | undefined): number | null {
@@ -52,7 +69,10 @@ function growth(current: number | null, previous: number | null): number | null 
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
-function buildYearRows(statements: NormalizedFinancialStatement[]): YearRow[] {
+function buildYearRows(
+  statements: NormalizedFinancialStatement[],
+  lineItems: readonly NormalizedFinancialLineItem[],
+): YearRow[] {
   const headline = getHeadlineFinancialStatements(statements)
     .slice()
     .sort((a, b) => a.fiscalYear - b.fiscalYear);
@@ -71,31 +91,33 @@ function buildYearRows(statements: NormalizedFinancialStatement[]): YearRow[] {
       debt: assets !== null && equity !== null ? assets - equity : null,
       prevRevenue: prev ? num(prev.revenue) : null,
       prevNet: prev ? num(prev.netIncome) : null,
+      origins: financialHeadlineOriginsForStatement(s, lineItems),
+      prevOrigins: prev ? financialHeadlineOriginsForStatement(prev, lineItems) : null,
     };
   });
 }
 
 const FIGURE_DEFS: FigureDef[] = [
   // Hovedtall — absolute amounts (respond to the unit toggle)
-  { key: "rev", label: "Driftsinntekter", group: "Hovedtall", type: "amount", info: "Sum driftsinntekter fra resultatregnskapet.", pick: (r) => r.revenue },
-  { key: "ebit", label: "Driftsresultat (EBIT)", group: "Hovedtall", type: "amount", info: "Driftsinntekter minus driftskostnader.", pick: (r) => r.ebit },
-  { key: "net", label: "Årsresultat", group: "Hovedtall", type: "amount", info: "Resultat etter skatt for regnskapsåret.", pick: (r) => r.net },
-  { key: "equity", label: "Egenkapital", group: "Hovedtall", type: "amount", info: "Sum egenkapital ved årets slutt.", pick: (r) => r.equity },
-  { key: "assets", label: "Sum eiendeler", group: "Hovedtall", type: "amount", info: "Sum eiendeler i balansen ved årets slutt.", pick: (r) => r.assets },
+  { key: "rev", label: "Driftsinntekter", group: "Hovedtall", type: "amount", info: "Sum driftsinntekter fra resultatregnskapet.", pick: (r) => r.revenue, origin: (r) => r.origins.revenue },
+  { key: "ebit", label: "Driftsresultat (EBIT)", group: "Hovedtall", type: "amount", info: "Driftsinntekter minus driftskostnader.", pick: (r) => r.ebit, origin: (r) => r.origins.operatingProfit },
+  { key: "net", label: "Årsresultat", group: "Hovedtall", type: "amount", info: "Resultat etter skatt for regnskapsåret.", pick: (r) => r.net, origin: (r) => r.origins.netIncome },
+  { key: "equity", label: "Egenkapital", group: "Hovedtall", type: "amount", info: "Sum egenkapital ved årets slutt.", pick: (r) => r.equity, origin: (r) => r.origins.equity },
+  { key: "assets", label: "Sum eiendeler", group: "Hovedtall", type: "amount", info: "Sum eiendeler i balansen ved årets slutt.", pick: (r) => r.assets, origin: (r) => r.origins.assets },
 
   // Lønnsomhet — profitability ratios (%)
-  { key: "ebitM", label: "Driftsmargin", group: "Lønnsomhet", type: "pct", info: "Driftsresultat i prosent av driftsinntekter.", pick: (r) => ratio(r.ebit, r.revenue) },
-  { key: "netM", label: "Nettomargin", group: "Lønnsomhet", type: "pct", info: "Årsresultat i prosent av driftsinntekter.", pick: (r) => ratio(r.net, r.revenue) },
-  { key: "roe", label: "Egenkapitalavkastning", group: "Lønnsomhet", type: "pct", info: "Årsresultat i prosent av egenkapital (ROE).", pick: (r) => ratio(r.net, r.equity) },
-  { key: "roa", label: "Totalrentabilitet", group: "Lønnsomhet", type: "pct", info: "Driftsresultat i prosent av sum eiendeler (ROA).", pick: (r) => ratio(r.ebit, r.assets) },
+  { key: "ebitM", label: "Driftsmargin", group: "Lønnsomhet", type: "pct", info: "Driftsresultat i prosent av driftsinntekter.", pick: (r) => ratio(r.ebit, r.revenue), origin: (r) => combineFinancialValueOrigins(r.origins.operatingProfit, r.origins.revenue) },
+  { key: "netM", label: "Nettomargin", group: "Lønnsomhet", type: "pct", info: "Årsresultat i prosent av driftsinntekter.", pick: (r) => ratio(r.net, r.revenue), origin: (r) => combineFinancialValueOrigins(r.origins.netIncome, r.origins.revenue) },
+  { key: "roe", label: "Egenkapitalavkastning", group: "Lønnsomhet", type: "pct", info: "Årsresultat i prosent av egenkapital (ROE).", pick: (r) => ratio(r.net, r.equity), origin: (r) => combineFinancialValueOrigins(r.origins.netIncome, r.origins.equity) },
+  { key: "roa", label: "Totalrentabilitet", group: "Lønnsomhet", type: "pct", info: "Driftsresultat i prosent av sum eiendeler (ROA).", pick: (r) => ratio(r.ebit, r.assets), origin: (r) => combineFinancialValueOrigins(r.origins.operatingProfit, r.origins.assets) },
 
   // Soliditet — solvency
-  { key: "eqPct", label: "Egenkapitalandel", group: "Soliditet", type: "pct", info: "Egenkapital i prosent av sum eiendeler.", pick: (r) => ratio(r.equity, r.assets) },
-  { key: "gjeld", label: "Gjeldsgrad", group: "Soliditet", type: "ratio", info: "Gjeld delt på egenkapital (ganger).", pick: (r) => (r.debt !== null && r.equity !== null && r.equity !== 0 ? r.debt / r.equity : null) },
+  { key: "eqPct", label: "Egenkapitalandel", group: "Soliditet", type: "pct", info: "Egenkapital i prosent av sum eiendeler.", pick: (r) => ratio(r.equity, r.assets), origin: (r) => combineFinancialValueOrigins(r.origins.equity, r.origins.assets) },
+  { key: "gjeld", label: "Gjeldsgrad", group: "Soliditet", type: "ratio", info: "Gjeld delt på egenkapital (ganger).", pick: (r) => (r.debt !== null && r.equity !== null && r.equity !== 0 ? r.debt / r.equity : null), origin: (r) => combineFinancialValueOrigins(r.origins.assets, r.origins.equity) },
 
   // Vekst — year-over-year growth (%)
-  { key: "revG", label: "Omsetningsvekst", group: "Vekst", type: "pct", info: "Endring i driftsinntekter fra året før.", pick: (r) => growth(r.revenue, r.prevRevenue) },
-  { key: "netG", label: "Resultatvekst", group: "Vekst", type: "pct", info: "Endring i årsresultat fra året før.", pick: (r) => growth(r.net, r.prevNet) },
+  { key: "revG", label: "Omsetningsvekst", group: "Vekst", type: "pct", info: "Endring i driftsinntekter fra året før.", pick: (r) => growth(r.revenue, r.prevRevenue), origin: (r) => combineFinancialValueOrigins(r.origins.revenue, r.prevOrigins?.revenue) },
+  { key: "netG", label: "Resultatvekst", group: "Vekst", type: "pct", info: "Endring i årsresultat fra året før.", pick: (r) => growth(r.net, r.prevNet), origin: (r) => combineFinancialValueOrigins(r.origins.netIncome, r.prevOrigins?.netIncome) },
 ];
 
 const GROUP_ORDER = ["Hovedtall", "Lønnsomhet", "Soliditet", "Vekst"];
@@ -105,10 +127,19 @@ function formatRatio(value: number | null): string {
   return `${new Intl.NumberFormat("nb-NO", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)}×`;
 }
 
-export function KeyFiguresTable({ statements }: { statements: NormalizedFinancialStatement[] }) {
+export function KeyFiguresTable({
+  statements,
+  lineItems,
+  disclosure,
+}: {
+  statements: NormalizedFinancialStatement[];
+  lineItems: NormalizedFinancialLineItem[];
+  /** Says whether the statements these ratios are computed from are generated. */
+  disclosure?: FinancialDisclosure;
+}) {
   const [unit, setUnit] = React.useState<FinancialUnit>("MNOK");
 
-  const rows = React.useMemo(() => buildYearRows(statements), [statements]);
+  const rows = React.useMemo(() => buildYearRows(statements, lineItems), [lineItems, statements]);
   const years = rows.map((r) => r.fiscalYear);
   const latestYear = years.at(-1) ?? null;
 
@@ -142,6 +173,9 @@ export function KeyFiguresTable({ statements }: { statements: NormalizedFinancia
 
   return (
     <div className="pt-6">
+      {disclosure?.simulated ? (
+        <SimulatedFinancialsBanner disclosure={disclosure} className="mb-5" />
+      ) : null}
       <header className="mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="min-w-0">
           <div className="data-label text-[11px] uppercase text-[var(--px-muted)]">
@@ -152,7 +186,9 @@ export function KeyFiguresTable({ statements }: { statements: NormalizedFinancia
           </h2>
           <p className="mt-2 flex items-center gap-1.5 text-[12.5px] leading-relaxed text-[var(--px-muted)]">
             <span className="material-symbols-outlined text-[15px]">insights</span>
-            Beregnet av Fjord Insight fra innleverte regnskapstall. Eldste år til venstre.
+            {disclosure?.simulated
+              ? "Beregnet av Fjord Insight fra simulerte demonstrasjonstall. Eldste år til venstre."
+              : "Beregnet av Fjord Insight fra innleverte regnskapstall. Eldste år til venstre."}
           </p>
         </div>
 
@@ -228,6 +264,9 @@ export function KeyFiguresTable({ statements }: { statements: NormalizedFinancia
                         )}
                       >
                         {formatCell(def, def.pick(r))}
+                        {def.pick(r) !== null && def.origin(r) === "synthetic" ? (
+                          <SimulatedValueMarker />
+                        ) : null}
                       </td>
                     ))}
                   </tr>
@@ -239,7 +278,10 @@ export function KeyFiguresTable({ statements }: { statements: NormalizedFinancia
       </div>
 
       <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3 text-[11px] leading-relaxed text-[var(--px-muted)]">
-        Nøkkeltall er beregnet av Fjord Insight fra innleverte og verifiserte regnskapstall. Hovedtall vises i{" "}
+        {disclosure?.simulated
+          ? "Nøkkeltall er beregnet av Fjord Insight fra simulerte demonstrasjonstall."
+          : "Nøkkeltall er beregnet av Fjord Insight fra innleverte og verifiserte regnskapstall."}{" "}
+        Hovedtall vises i{" "}
         {FINANCIAL_UNIT_LABELS[unit]}; marginer og avkastning i prosent, gjeldsgrad i ganger. Tomme felt betyr at
         grunnlaget ikke er tilgjengelig for året. Hold pekeren over{" "}
         <span className="material-symbols-outlined align-middle text-[13px]">info</span> for definisjon.

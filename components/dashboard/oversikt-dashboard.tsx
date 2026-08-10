@@ -18,6 +18,12 @@ import {
   DashboardSearchSuggestionList,
   dashboardSuggestionOptionId,
 } from "@/components/dashboard/dashboard-search-suggestion-list";
+import {
+  SimulatedFinancialsBanner,
+  SimulatedValueMarker,
+} from "@/components/company/simulated-financials-notice";
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
+import { combineFinancialValueOrigins } from "@/lib/financial-value-origin";
 import type {
   OversiktBankruptcyRow,
   OversiktNewsRow,
@@ -102,6 +108,7 @@ export function OversiktDashboard({
   news,
   bankruptcies,
   bankruptciesLastWeek,
+  financialDisclosure,
 }: {
   firstName: string;
   dateLabel: string;
@@ -109,6 +116,7 @@ export function OversiktDashboard({
   news: OversiktNewsRow[];
   bankruptcies: OversiktBankruptcyRow[];
   bankruptciesLastWeek: number;
+  financialDisclosure?: FinancialDisclosure;
 }) {
   const [newsExpanded, setNewsExpanded] = useState(false);
   const visibleNews = newsExpanded ? news : news.slice(0, 4);
@@ -229,6 +237,11 @@ export function OversiktDashboard({
 
   return (
     <div className="pt-12 pb-10 sm:pt-16 lg:px-10 lg:pt-[72px]">
+      {financialDisclosure?.simulated ? (
+        <div className="mx-auto mb-8 max-w-[1160px]">
+          <SimulatedFinancialsBanner disclosure={financialDisclosure} />
+        </div>
+      ) : null}
       {/* Greeting + search */}
       <div className="mx-auto mb-[52px] max-w-[760px] text-center">
         <p className="data-label mb-[18px] text-xs text-[var(--px-accent)]">
@@ -366,6 +379,12 @@ export function OversiktDashboard({
             const meta = hasTrend
               ? `${c.revenueSeries.length - 1}-års omsetnings-CAGR ${fmtPct(cagr(c.revenueSeries))}`
               : "Ingen regnskapstall tilgjengelig";
+            const cagrOrigin = hasTrend
+              ? combineFinancialValueOrigins(c.revenueOrigins[0], c.revenueOrigins.at(-1))
+              : null;
+            const yoyOrigin = hasTrend
+              ? combineFinancialValueOrigins(c.revenueOrigins.at(-2), c.revenueOrigins.at(-1))
+              : null;
             return (
               <a
                 key={c.slug}
@@ -376,7 +395,10 @@ export function OversiktDashboard({
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-[var(--px-text)]">{c.name}</p>
-                  <p className="data-label mt-px text-[9px] text-[var(--px-muted)]">{meta}</p>
+                  <p className="data-label mt-px text-[9px] text-[var(--px-muted)]">
+                    {meta}
+                    {cagrOrigin === "synthetic" ? <SimulatedValueMarker /> : null}
+                  </p>
                 </div>
                 {change != null ? (
                   <div className="flex flex-shrink-0 items-center gap-2.5">
@@ -386,6 +408,7 @@ export function OversiktDashboard({
                       style={{ color: changeColor(change >= 0) }}
                     >
                       {fmtPct(change)}
+                      {yoyOrigin === "synthetic" ? <SimulatedValueMarker /> : null}
                     </span>
                   </div>
                 ) : (
@@ -491,6 +514,14 @@ export function OversiktDashboard({
             const ebit = k.ebitMarginSeries;
             const ebitTrend = ebit.length >= 2;
             const ebitDelta = ebitTrend ? ebit[ebit.length - 1] - ebit[ebit.length - 2] : null;
+            const revDeltaOrigin = combineFinancialValueOrigins(
+              k.revenueOrigins.at(-2),
+              k.revenueOrigins.at(-1),
+            );
+            const ebitDeltaOrigin = combineFinancialValueOrigins(
+              k.ebitMarginOrigins.at(-2),
+              k.ebitMarginOrigins.at(-1),
+            );
             return (
               <a
                 key={k.slug}
@@ -508,10 +539,14 @@ export function OversiktDashboard({
                 <div>
                   <p className="text-sm tabular-nums text-[var(--px-text)]">
                     {k.latestRevenue == null ? "—" : fmtRevenue(k.latestRevenue)}
+                    {k.latestRevenue != null && k.latestRevenueOrigin === "synthetic" ? (
+                      <SimulatedValueMarker />
+                    ) : null}
                   </p>
                   {revChange != null ? (
                     <p className="data-label mt-px text-[9px]" style={{ color: changeColor(revChange >= 0) }}>
                       {fmtPct(revChange)}
+                      {revDeltaOrigin === "synthetic" ? <SimulatedValueMarker /> : null}
                     </p>
                   ) : null}
                 </div>
@@ -523,10 +558,14 @@ export function OversiktDashboard({
                 <div>
                   <p className="text-sm tabular-nums text-[var(--px-text)]">
                     {ebit.length > 0 ? fmtPct(ebit[ebit.length - 1]) : "—"}
+                    {ebit.length > 0 && k.ebitMarginOrigins.at(-1) === "synthetic" ? (
+                      <SimulatedValueMarker />
+                    ) : null}
                   </p>
                   {ebitDelta != null ? (
                     <p className="data-label mt-px text-[9px]" style={{ color: changeColor(ebitDelta >= 0) }}>
                       {fmtPct(ebitDelta)} p.e.
+                      {ebitDeltaOrigin === "synthetic" ? <SimulatedValueMarker /> : null}
                     </p>
                   ) : null}
                 </div>

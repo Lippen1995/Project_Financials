@@ -507,6 +507,10 @@ describe("FinancialTimeSeriesTable simulated disclosure", () => {
     expect(html).toContain(SIMULATED_FINANCIALS_NOTICE);
     expect(html).toContain("simulated:demo-1:3");
     expect(html).toContain('role="note"');
+    expect(html).toContain("FI-SIM-visning");
+    expect(html).not.toContain("Som rapportert");
+    expect(html).toContain("FI-SIM-konseptkatalogen");
+    expect(html.match(/title="Simulert linje/g) ?? []).toHaveLength(1);
   });
 
   it("shows no banner on reported figures", () => {
@@ -572,6 +576,6 @@ describe("FinancialTimeSeriesTable simulated disclosure", () => {
     );
 
     // One marked cell for the simulated year, and no second one for the reported year.
-    expect(html.match(/data-value-origin="synthetic"/g) ?? []).toHaveLength(2);
+    expect(html.match(/<td data-value-origin="synthetic"/g) ?? []).toHaveLength(1);
   });
 });

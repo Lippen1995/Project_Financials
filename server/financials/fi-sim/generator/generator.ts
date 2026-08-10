@@ -203,6 +203,7 @@ export type FiSimSkippedYear = {
 export type FiSimCompanyGeneration = {
   companyId: string;
   orgNumber: string;
+  statementScope: "COMPANY" | "CONSOLIDATED";
   profile: FiSimProfileKey | null;
   profileRuleId: string;
   profileRulesetVersion: string;
@@ -1105,6 +1106,7 @@ export function generateCompanyFinancials(
   const base = {
     companyId: input.companyId,
     orgNumber: input.orgNumber,
+    statementScope: input.statementScope,
     profileRulesetVersion: FI_SIM_PROFILE_RULESET_VERSION,
     taxonomyVersion: FI_SIM_TAXONOMY_VERSION,
     assumptionVersion: FI_SIM_ASSUMPTION_VERSION,

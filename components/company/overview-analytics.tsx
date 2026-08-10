@@ -4,13 +4,21 @@ import {
   DataAvailability,
   NormalizedAnnouncement,
   NormalizedCompany,
+  NormalizedFinancialLineItem,
   NormalizedFinancialStatement,
   NormalizedRole,
 } from "@/lib/types";
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
 import { formatCompactNok, getReportingCurrency } from "@/lib/overview-chart";
 import { formatMetricPercent, getOverviewMetricSeries, OverviewMetric } from "@/lib/overview-metrics";
+import { combineFinancialValueOrigins } from "@/lib/financial-value-origin";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
+import {
+  SimulatedChartCaption,
+  SimulatedFinancialsBanner,
+  SimulatedValueMarker,
+} from "./simulated-financials-notice";
 import { OverviewCharts } from "./overview/overview-charts";
 
 const NDASH = "–";
@@ -37,7 +45,7 @@ function byKeyMap(metrics: OverviewMetric[]) {
   return new Map(metrics.map((m) => [m.key, m]));
 }
 
-function lastTwo(values: (number | null)[]): { last: number; prev: number | null } | null {
+function lastTwo(values: (number | null)[]): { last: number; prev: number | null; lastIdx: number; prevIdx: number } | null {
   let last: number | null = null;
   let lastIdx = -1;
   for (let i = values.length - 1; i >= 0; i -= 1) {
@@ -49,13 +57,15 @@ function lastTwo(values: (number | null)[]): { last: number; prev: number | null
   }
   if (last === null) return null;
   let prev: number | null = null;
+  let prevIdx = -1;
   for (let i = lastIdx - 1; i >= 0; i -= 1) {
     if (values[i] !== null && Number.isFinite(values[i] as number)) {
       prev = values[i] as number;
+      prevIdx = i;
       break;
     }
   }
-  return { last, prev };
+  return { last, prev, lastIdx, prevIdx };
 }
 
 /* ── AI-vurdering — surface chrome only; no synthetic prose (product rule) ── */
@@ -119,7 +129,11 @@ function KeyFiguresStrip({
           };
         }
       }
-      return { label: m.label, value, delta };
+      const origin = m.origins[pair.lastIdx] ?? null;
+      const deltaOrigin = pair.prevIdx >= 0
+        ? combineFinancialValueOrigins(origin, m.origins[pair.prevIdx])
+        : null;
+      return { label: m.label, value, delta, origin, deltaOrigin };
     })
     .filter((c): c is NonNullable<typeof c> => c !== null);
 
@@ -138,6 +152,7 @@ function KeyFiguresStrip({
             <div className="data-label text-[9px] text-[var(--px-muted)]">{c.label}</div>
             <div className="mt-1.5 whitespace-nowrap text-[23px] font-semibold tracking-[-0.02em] tabular-nums text-[var(--px-text)]">
               {c.value}
+              {c.origin === "synthetic" ? <SimulatedValueMarker /> : null}
             </div>
             {c.delta ? (
               <div
@@ -145,6 +160,7 @@ function KeyFiguresStrip({
                 style={{ color: c.delta.positive ? "var(--px-success)" : "var(--px-error)" }}
               >
                 {c.delta.text}
+                {c.deltaOrigin === "synthetic" ? <SimulatedValueMarker /> : null}
               </div>
             ) : (
               <div className="mt-0.5 text-[11px] text-[var(--px-muted)]">{NDASH}</div>
@@ -404,7 +420,9 @@ export function OverviewAnalytics({
   company,
   roles,
   statements,
+  lineItems,
   financialsAvailability,
+  disclosure,
   owners = [],
   ownersTaxYear = null,
   announcements = [],
@@ -412,12 +430,15 @@ export function OverviewAnalytics({
   company: NormalizedCompany;
   roles: NormalizedRole[];
   statements: NormalizedFinancialStatement[];
+  lineItems: NormalizedFinancialLineItem[];
   financialsAvailability: DataAvailability;
+  /** Says whether the figures behind these key numbers and graphs are generated. */
+  disclosure?: FinancialDisclosure;
   owners?: OverviewOwner[];
   ownersTaxYear?: number | null;
   announcements?: NormalizedAnnouncement[];
 }) {
-  const { years, metrics } = getOverviewMetricSeries(statements);
+  const { years, metrics } = getOverviewMetricSeries(statements, lineItems);
   const currency = getReportingCurrency(statements);
   const latestYear = years.at(-1) ?? null;
   const firstYear = years[0] ?? null;
@@ -426,7 +447,15 @@ export function OverviewAnalytics({
     <div className="min-w-0">
       <AiAssessment company={company} hasFinancials={financialsAvailability.available && metrics.length > 0} />
 
-      <KeyFiguresStrip metrics={metrics} latestYear={latestYear} currency={currency} />
+      {disclosure?.simulated ? (
+        <SimulatedFinancialsBanner disclosure={disclosure} className="mt-4" />
+      ) : null}
+
+      <KeyFiguresStrip
+        metrics={metrics}
+        latestYear={latestYear}
+        currency={currency}
+      />
 
       <div className="border-b border-[var(--px-border)] py-6">
         <SectionLabel>
@@ -436,7 +465,8 @@ export function OverviewAnalytics({
           Trykk på en graf for å velge den, og velg deretter en linje i listen til høyre for å bytte hvilket tall grafen
           viser.
         </p>
-        <OverviewCharts statements={statements} />
+        <OverviewCharts statements={statements} lineItems={lineItems} disclosure={disclosure} />
+        {disclosure?.simulated ? <SimulatedChartCaption disclosure={disclosure} /> : null}
       </div>
 
       <OwnershipAndAnnouncements

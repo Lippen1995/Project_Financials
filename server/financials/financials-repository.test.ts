@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createFinancialsRepository,
   isInvestorDemoFinancialSimulationEnabled,
+  resolveFinancialCompanyId,
   type LiveFinancialsDataSource,
 } from "@/server/financials/financials-repository";
 
@@ -82,6 +83,19 @@ describe("isInvestorDemoFinancialSimulationEnabled", () => {
         FJORD_DEPLOYMENT_ENVIRONMENT: "investor-demo",
       }),
     ).toBe(false);
+  });
+});
+
+describe("resolveFinancialCompanyId", () => {
+  it("resolves company identity before the least-privilege financial transaction", async () => {
+    const lookup = vi.fn().mockResolvedValue("company-1");
+
+    await expect(resolveFinancialCompanyId("922493626", lookup)).resolves.toBe("company-1");
+    expect(lookup).toHaveBeenCalledWith("922493626");
+  });
+
+  it("returns null for an unknown organisation number", async () => {
+    await expect(resolveFinancialCompanyId("000000000", vi.fn().mockResolvedValue(null))).resolves.toBeNull();
   });
 });
 

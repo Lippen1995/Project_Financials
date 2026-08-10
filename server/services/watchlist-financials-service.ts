@@ -8,6 +8,10 @@ import type {
   FinancialStatementOrigin,
 } from "@/lib/types";
 import {
+  financialHeadlineOrigins,
+  type FinancialHeadlineOrigins,
+} from "@/lib/financial-value-origin";
+import {
   financialsRepository,
   type FinancialCompaniesQuery,
   type LiveCompanyFinancials,
@@ -21,6 +25,7 @@ export type WatchlistFinancialStatement = {
   netIncome: number | null;
   equity: number | null;
   assets: number | null;
+  origins: FinancialHeadlineOrigins;
   statementOrigin: FinancialStatementOrigin;
   financialDatasetVersion: FinancialDatasetVersion;
 };
@@ -56,6 +61,7 @@ export function createWatchlistFinancialsService(
           netIncome: toSafeNumber(statement.netIncome),
           equity: toSafeNumber(statement.equity),
           assets: toSafeNumber(statement.assets),
+          origins: financialHeadlineOrigins(statement.lines),
           statementOrigin: statement.statementOrigin,
           financialDatasetVersion: statement.financialDatasetVersion,
         });

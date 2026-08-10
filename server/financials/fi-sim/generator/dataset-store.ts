@@ -29,6 +29,7 @@ import { validatePackage, type FiSimValidationIssue } from "./validator";
 export type FiSimDatasetExclusion = {
   companyId: string;
   orgNumber: string;
+  statementScope: "COMPANY" | "CONSOLIDATED";
   fiscalYear: number | null;
   reason: string;
   code: string;
@@ -55,7 +56,7 @@ export type FiSimDatasetManifest = {
    * is exactly one place to read them from.
    */
   reportedDatasetVersion: string;
-  statementScope: "COMPANY" | "CONSOLIDATED";
+  statementScope: "COMPANY" | "CONSOLIDATED" | "BOTH";
   latestCompletedFiscalYear: number;
   /**
    * Concepts left deliberately unmapped so the demo can show the mapping feature working, from
@@ -137,6 +138,7 @@ export async function writeSimulatedDataset(
       exclusions.push({
         companyId: generation.companyId,
         orgNumber: generation.orgNumber,
+        statementScope: generation.statementScope,
         fiscalYear: failure.fiscalYear,
         reason: failure.message,
         code: failure.code,
@@ -149,6 +151,7 @@ export async function writeSimulatedDataset(
         exclusions.push({
           companyId: pkg.companyId,
           orgNumber: pkg.orgNumber,
+          statementScope: pkg.statementScope,
           fiscalYear: pkg.fiscalYear,
           reason: validation.issues.map((issue) => issue.message).join("; "),
           code: "FAILED_VALIDATION",
@@ -159,6 +162,7 @@ export async function writeSimulatedDataset(
         exclusions.push({
           companyId: pkg.companyId,
           orgNumber: pkg.orgNumber,
+          statementScope: pkg.statementScope,
           fiscalYear: pkg.fiscalYear,
           reason: "The statement carries a residual that needs manual review",
           code: "MANUAL_REVIEW",

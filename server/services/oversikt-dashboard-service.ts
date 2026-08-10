@@ -1,6 +1,8 @@
 import { DistressStatus, WorkspaceWatchStatus } from "@prisma/client";
 
-import type { FinancialDatasetVersion } from "@/lib/types";
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
+import type { FinancialDatasetVersion, FinancialValueOrigin } from "@/lib/types";
+import { combineFinancialValueOrigins } from "@/lib/financial-value-origin";
 import { prisma } from "@/lib/prisma";
 import { getDashboardRelevantInsights } from "@/server/news/dashboard-insights-service";
 import {
@@ -18,6 +20,7 @@ export type OversiktWatchRow = {
   slug: string;
   /** Revenue in NOK, oldest → newest. */
   revenueSeries: number[];
+  revenueOrigins: Array<FinancialValueOrigin | null>;
 };
 
 export type OversiktNewsRow = {
@@ -37,10 +40,13 @@ export type OversiktBankruptcyRow = {
   sector: string;
   filedDaysAgo: number | null;
   latestRevenue: number | null;
+  latestRevenueOrigin: FinancialValueOrigin | null;
   /** Revenue in NOK, oldest → newest. */
   revenueSeries: number[];
+  revenueOrigins: Array<FinancialValueOrigin | null>;
   /** EBIT margin in percent, oldest → newest. */
   ebitMarginSeries: number[];
+  ebitMarginOrigins: Array<FinancialValueOrigin | null>;
 };
 
 export type OversiktDashboardData = {
@@ -50,9 +56,11 @@ export type OversiktDashboardData = {
   bankruptciesLastWeek: number;
   /** Which live dataset every figure on this dashboard came from. */
   financialDatasetVersion: FinancialDatasetVersion;
+  /** Presentation contract for every financial figure on this dashboard. */
+  financialDisclosure: FinancialDisclosure;
 };
 
-type StatementRow = Pick<WatchlistFinancialStatement, "revenue" | "operatingProfit">;
+type StatementRow = Pick<WatchlistFinancialStatement, "revenue" | "operatingProfit" | "origins">;
 
 function daysAgo(days: number) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -81,6 +89,13 @@ export function revenueSeries(statements: StatementRow[]) {
     .slice(-TREND_YEARS);
 }
 
+export function revenueOrigins(statements: StatementRow[]) {
+  return statements
+    .filter((statement) => statement.revenue != null)
+    .map((statement) => statement.origins.revenue)
+    .slice(-TREND_YEARS);
+}
+
 export function ebitMarginSeries(statements: StatementRow[]) {
   return statements
     .map((statement) =>
@@ -89,6 +104,21 @@ export function ebitMarginSeries(statements: StatementRow[]) {
         : (statement.operatingProfit / statement.revenue) * 100,
     )
     .filter((value): value is number => value != null)
+    .slice(-TREND_YEARS);
+}
+
+export function ebitMarginOrigins(statements: StatementRow[]) {
+  return statements
+    .filter(
+      (statement) =>
+        statement.revenue != null && statement.operatingProfit != null && statement.revenue !== 0,
+    )
+    .map((statement) =>
+      combineFinancialValueOrigins(
+        statement.origins.operatingProfit,
+        statement.origins.revenue,
+      ),
+    )
     .slice(-TREND_YEARS);
 }
 
@@ -124,7 +154,7 @@ async function getBankruptCompanies() {
           name: true,
           slug: true,
           industryCode: { select: { title: true } },
-          distressFinancialSnapshot: { select: { revenue: true, sectorLabel: true } },
+          distressFinancialSnapshot: { select: { sectorLabel: true } },
         },
       },
     },
@@ -144,11 +174,8 @@ export function toBankruptcyRows(
       const company = profile.company;
       const statements = statementsByCompany[company.id] ?? [];
       const revenue = revenueSeries(statements);
-      const snapshotRevenue =
-        company.distressFinancialSnapshot?.revenue == null
-          ? null
-          : Number(company.distressFinancialSnapshot.revenue);
-      const latestRevenue = revenue.at(-1) ?? snapshotRevenue;
+      const revenueValueOrigins = revenueOrigins(statements);
+      const latestRevenue = revenue.at(-1) ?? null;
 
       return {
         name: company.name,
@@ -157,8 +184,11 @@ export function toBankruptcyRows(
           company.industryCode?.title ?? company.distressFinancialSnapshot?.sectorLabel ?? "—",
         filedDaysAgo: profile.bankruptcyDate ? daysBetween(profile.bankruptcyDate, now) : null,
         latestRevenue,
+        latestRevenueOrigin: revenueValueOrigins.at(-1) ?? null,
         revenueSeries: revenue,
+        revenueOrigins: revenueValueOrigins,
         ebitMarginSeries: ebitMarginSeries(statements),
+        ebitMarginOrigins: ebitMarginOrigins(statements),
       } satisfies OversiktBankruptcyRow;
     })
     .filter((row) => row.latestRevenue != null && row.latestRevenue > 0)
@@ -212,10 +242,12 @@ export async function getOversiktDashboardData(userId: string): Promise<Oversikt
       name: company.name,
       slug: company.slug,
       revenueSeries: revenueSeries(financials.statementsByCompany[company.id] ?? []),
+      revenueOrigins: revenueOrigins(financials.statementsByCompany[company.id] ?? []),
     })),
     news,
     bankruptcies: toBankruptcyRows(bankrupt, financials.statementsByCompany),
     bankruptciesLastWeek,
     financialDatasetVersion: financials.financialDatasetVersion,
+    financialDisclosure: financials.disclosure,
   };
 }

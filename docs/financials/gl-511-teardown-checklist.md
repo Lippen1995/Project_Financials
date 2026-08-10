@@ -56,7 +56,7 @@ Prisma-modellene `SimulatedFinancial*`, `SimulatedMetricAlias`, `ActiveFinancial
 
 ## Merkingen som kan bli stående
 
-`lib/financial-simulation-disclosure.ts` og de ti filene som bruker den overlever fjerningen uskadd: uten et simulert datasett rapporterer den alltid `simulated: false` og et null-varsel, så banneret og linjemarkøren slutter simpelthen å vises. De kan fjernes senere som ryddearbeid. Listen står i `fi-sim-teardown-surface.test.ts`.
+`lib/financial-simulation-disclosure.ts` og filene som bruker den overlever fjerningen uskadd: uten et simulert datasett rapporterer den alltid `simulated: false` og et null-varsel, så banneret og linjemarkøren slutter simpelthen å vises. De kan fjernes senere som ryddearbeid. Den eksakte, maskinverifiserte listen står i `fi-sim-teardown-surface.test.ts`.
 
 Ett unntak må håndteres i steg 6: `server/financials/mapping/mapping-store.ts` skriver til `SimulatedMetricAlias` når datasettet er simulert. Den grenen fjernes, og `resolveActiveMappingTarget` blir konstant `{ kind: "reported" }`.
 
@@ -75,4 +75,4 @@ Ett unntak må håndteres i steg 6: `server/financials/mapping/mapping-store.ts`
 ## Det øvingen ikke dekker
 
 - **Steg 6 er ikke øvd.** Slettingen av filene og at `npm run build` fortsatt går, er ikke kjørt; sprengradiusen er bevist ved import-inventar, ikke ved å slette.
-- **Runtime-principalen må være provisjonert før steg 10.** Koden bruker `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` når den er satt; er den ikke det, deler finanslesning tilkobling med resten av applikasjonen og steg 10 fjerner et medlemskap ingen har. Se åpent punkt 2 i implementasjonsplanen.
+- **Runtime-principalen må være provisjonert før steg 10.** Når investor-demoen er aktiv, avviser koden finanslesing dersom `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` mangler. Steg 10 fjerner deretter medlemskapet og bekrefter rapportert-only-tilgang. Se F8 i implementasjonsplanen.

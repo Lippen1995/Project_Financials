@@ -15,12 +15,9 @@ import { prisma } from "@/lib/prisma";
  * else — ingest, admin, auth, due diligence — keeps the shared client, because it legitimately
  * writes and legitimately reads tables the runtime role must never see.
  *
- * When `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` is unset the shared client is used instead. That
- * keeps development and tests working with one connection string, and it is deliberately a silent
- * fallback rather than a failure: refusing to serve financials because a deployment has not been
- * split yet would take the product down to enforce a defence-in-depth measure. What it must not
- * do is look like it is enforced when it is not, which is why `financialRuntimeIsolation()` exists
- * and the verification port reports it.
+ * When `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` is unset the shared client is used in ordinary
+ * reported development. The investor-demo exception is stricter: once simulation is enabled,
+ * financial reads fail closed unless the dedicated role is actually bound to the connection.
  */
 
 const globalForFinancialRuntime = globalThis as unknown as {
@@ -29,6 +26,13 @@ const globalForFinancialRuntime = globalThis as unknown as {
 
 function runtimeDatabaseUrl() {
   return process.env.FJORD_FINANCIAL_RUNTIME_DATABASE_URL?.trim() ?? "";
+}
+
+function enabledInvestorDemo() {
+  return (
+    process.env.FJORD_DEPLOYMENT_ENVIRONMENT === "investor-demo" &&
+    process.env.FJORD_FINANCIAL_SIMULATION_ENABLED === "true"
+  );
 }
 
 export function financialRuntimeIsolation() {
@@ -47,7 +51,14 @@ export function financialRuntimeIsolation() {
  */
 export function financialRuntimePrisma(): PrismaClient {
   const url = runtimeDatabaseUrl();
-  if (!url) return prisma;
+  if (!url) {
+    if (enabledInvestorDemo()) {
+      throw new Error(
+        "Enabled investor-demo financial simulation requires a dedicated least-privilege connection in FJORD_FINANCIAL_RUNTIME_DATABASE_URL.",
+      );
+    }
+    return prisma;
+  }
   if (globalForFinancialRuntime.financialRuntimePrisma) {
     return globalForFinancialRuntime.financialRuntimePrisma;
   }

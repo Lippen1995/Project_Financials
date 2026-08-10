@@ -19,6 +19,7 @@ import {
   PROFILE_BIO_MAX_LENGTH,
   PROFILE_EXPERTISE_PRESETS,
   PROFILE_TOTAL_STEPS,
+  buildUserProfilePatchPayload,
   calculateProfileCompleteness,
   getProfileDisplayName,
   getProfileHeadline,
@@ -26,6 +27,7 @@ import {
   type ProfileCompanySearchResult,
   type ProfileEducationEntry,
   type UserProfileState,
+  type UserProfilePatchInput,
 } from "@/lib/user-profile";
 
 type OnboardingMode = "create" | "edit";
@@ -356,14 +358,12 @@ export function ProfileOnboardingClient({
     }
   }
 
-  function buildSavePayload(extra: Record<string, unknown> = {}) {
-    return {
-      ...profile,
-      workEmail: profile.workEmail ?? email,
-      profileCompletenessScore: completeness,
+  function buildSavePayload(extra: Partial<UserProfilePatchInput> = {}) {
+    return buildUserProfilePatchPayload(profile, {
+      fallbackEmail: email,
       onboardingStep: step,
-      ...extra,
-    };
+      extra,
+    });
   }
 
   function handleContinue() {

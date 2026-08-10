@@ -61,6 +61,12 @@ describe("GL-511 teardown surface", () => {
     // rendering. These are the files to revisit when the wording is removed for good.
     expect(importersOf("financial-simulation-disclosure")).toEqual([
       "components/company/financial-time-series-table.tsx",
+      "components/company/key-figures-table.tsx",
+      "components/company/overview-analytics.tsx",
+      "components/company/overview/overview-charts.tsx",
+      "components/company/simulated-financials-notice.tsx",
+      "components/dashboard/oversikt-dashboard.tsx",
+      "components/watchlist/watchlist-view.tsx",
       "lib/types.ts",
       "server/ai-search/tools/build-mna-pro-forma.ts",
       "server/ai-search/tools/estimate-group-financials.ts",
@@ -68,6 +74,7 @@ describe("GL-511 teardown surface", () => {
       "server/financials/raw-financials-reader.ts",
       "server/services/company-service.ts",
       "server/services/dd-financial-evidence-reader.ts",
+      "server/services/oversikt-dashboard-service.ts",
       "server/services/public-financials-service.ts",
       "server/services/watchlist-financials-service.ts",
     ]);
@@ -95,5 +102,15 @@ describe("GL-511 teardown surface", () => {
     // mapping-store.ts is the one exception and is deliberate: mapping writes have to reach a
     // table because a view is not writable, and it resolves which table from the active dataset.
     expect(offenders).toEqual(["server/financials/mapping/mapping-store.ts"]);
+  });
+
+  it("loads live lines for every company surface that displays per-value provenance", () => {
+    const companyPage = readFileSync(
+      path.join(process.cwd(), "app/(app)/companies/[slug]/page.tsx"),
+      "utf8",
+    );
+
+    expect(companyPage).toContain('["oversikt", "regnskap", "nokkeltall"].includes(parsedTab)');
+    expect(companyPage).toContain('financialsMode: ["oversikt", "regnskap", "nokkeltall"]');
   });
 });

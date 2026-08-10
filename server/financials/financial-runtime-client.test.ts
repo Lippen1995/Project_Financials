@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -8,6 +8,12 @@ import {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+});
+
+beforeEach(() => {
+  // Tests must not inherit an operator's active local demo configuration from `.env`.
+  vi.stubEnv("FJORD_DEPLOYMENT_ENVIRONMENT", "development");
+  vi.stubEnv("FJORD_FINANCIAL_SIMULATION_ENABLED", "false");
 });
 
 describe("financial runtime connection", () => {
@@ -29,6 +35,14 @@ describe("financial runtime connection", () => {
     vi.stubEnv("FJORD_FINANCIAL_RUNTIME_DATABASE_URL", "");
 
     expect(financialRuntimePrisma()).toBe(prisma);
+  });
+
+  it("fails closed when an enabled investor demo lacks the least-privilege connection", () => {
+    vi.stubEnv("FJORD_DEPLOYMENT_ENVIRONMENT", "investor-demo");
+    vi.stubEnv("FJORD_FINANCIAL_SIMULATION_ENABLED", "true");
+    vi.stubEnv("FJORD_FINANCIAL_RUNTIME_DATABASE_URL", "");
+
+    expect(() => financialRuntimePrisma()).toThrow(/dedicated least-privilege connection/i);
   });
 
   it("reports isolation once a dedicated connection is configured", () => {

@@ -397,7 +397,11 @@ export default async function CompanyPage({
   const session = await safeAuth();
   let profile: RegisterBackedProfile | null = await getCompanyProfile(slug, {
     rolesMode: parsedTab === "oversikt" ? "full" : "none",
-    financialsMode: parsedTab === "regnskap" ? "full" : "summary",
+    // These three surfaces render exact per-value provenance, so they need the live lines as well
+    // as the statement headlines. Summary mode deliberately strips line items.
+    financialsMode: ["oversikt", "regnskap", "nokkeltall"].includes(parsedTab)
+      ? "full"
+      : "summary",
   });
 
   // Fall back to a register-backed minimal profile so ownership drill-through resolves any
@@ -634,7 +638,9 @@ export default async function CompanyPage({
           statements={
             financialStatementsAllScopes.length > 0 ? financialStatementsAllScopes : financialStatements
           }
+          lineItems={financialLineItems}
           financialsAvailability={financialsAvailability}
+          disclosure={financialDisclosure ?? undefined}
           owners={overviewOwners}
           ownersTaxYear={overviewOwnersYear}
           announcements={overviewAnnouncements?.announcements ?? []}
@@ -698,6 +704,8 @@ export default async function CompanyPage({
           statements={
             financialStatementsAllScopes.length > 0 ? financialStatementsAllScopes : financialStatements
           }
+          lineItems={financialLineItems}
+          disclosure={financialDisclosure ?? undefined}
         />
       ) : null}
 

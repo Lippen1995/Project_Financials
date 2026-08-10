@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import { prisma } from "@/lib/prisma";
 import { financialRuntimePrisma } from "@/server/financials/financial-runtime-client";
 import {
   parseLiveFinancialStatement,
@@ -388,8 +389,32 @@ function companyIdPredicate(companyIds: readonly string[] | undefined): Prisma.S
     : Prisma.sql`FALSE`;
 }
 
+type FinancialCompanyIdLookup = (orgNumber: string) => Promise<string | null>;
+
+/**
+ * Company identity is not financial data and is intentionally resolved before entering the
+ * least-privilege financial transaction. The runtime principal can read only the live financial
+ * views; letting an org-number predicate reach for Company inside that connection would either
+ * weaken the role or make an otherwise valid demo fail closed.
+ */
+export async function resolveFinancialCompanyId(
+  orgNumber: string,
+  lookup: FinancialCompanyIdLookup = async (value) => {
+    const company = await prisma.company.findUnique({
+      where: { orgNumber: value },
+      select: { id: true },
+    });
+    return company?.id ?? null;
+  },
+) {
+  return lookup(orgNumber);
+}
+
 const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
   async readCompanyFinancials(query) {
+    const resolvedCompanyId = "orgNumber" in query && query.orgNumber
+      ? await resolveFinancialCompanyId(query.orgNumber)
+      : null;
     return financialRuntimePrisma().$transaction(
       async (transaction) => {
         await enterInvestorDemoSession(transaction);
@@ -412,11 +437,11 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
         } else if ("companyId" in query) {
           predicates.push(Prisma.sql`financial."companyId" = ${query.companyId}`);
         } else {
-          predicates.push(Prisma.sql`EXISTS (
-                SELECT 1 FROM "Company" company
-                WHERE company."id" = financial."companyId"
-                  AND company."orgNumber" = ${query.orgNumber}
-              )`);
+          predicates.push(
+            resolvedCompanyId
+              ? Prisma.sql`financial."companyId" = ${resolvedCompanyId}`
+              : Prisma.sql`FALSE`,
+          );
         }
         const companyPredicate = Prisma.join(predicates, " AND ");
         const includeLines = !("companyIds" in query && query.includeLines === false);
@@ -489,7 +514,15 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
 
         return { ...dataset, statements, lines };
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        // Full-universe FI-SIM generation reads every reported anchor in one snapshot. The
+        // default five-second interactive-transaction timeout is suitable for request-sized
+        // reads, but it aborts that explicit background job before Postgres can return the
+        // snapshot. Keep one transaction (rather than batching across revisions) and give the
+        // bounded read enough time to complete.
+        timeout: 60_000,
+      },
     );
   },
 

@@ -40,7 +40,7 @@ type Options = {
   limit: number;
   years: number;
   latestCompletedFiscalYear: number;
-  statementScope: "COMPANY" | "CONSOLIDATED";
+  statementScope: "COMPANY" | "CONSOLIDATED" | "BOTH";
   unmappedConcepts: string[];
   /** Generate and report without writing. A validated dataset can never be deleted. */
   dryRun: boolean;
@@ -82,8 +82,8 @@ function parseOptions(argv: string[]): Options {
       options.latestCompletedFiscalYear = Number.parseInt(requireValue(), 10);
     } else if (argument === "--scope") {
       const scope = requireValue();
-      if (scope !== "COMPANY" && scope !== "CONSOLIDATED") {
-        throw new Error("--scope må være COMPANY eller CONSOLIDATED.");
+      if (scope !== "COMPANY" && scope !== "CONSOLIDATED" && scope !== "BOTH") {
+        throw new Error("--scope må være COMPANY, CONSOLIDATED eller BOTH.");
       }
       options.statementScope = scope;
     } else if (argument === "--unmapped-concepts") {
@@ -143,52 +143,89 @@ async function main() {
     { length: options.years },
     (_, offset) => options.latestCompletedFiscalYear - offset,
   );
-  const anchors = await loadReportedAnchors({
-    companyIds: companies.map((company) => company.id),
-    fiscalYears,
-    statementScope: options.statementScope,
-  });
+  const requestedScopes: Array<"COMPANY" | "CONSOLIDATED"> = options.statementScope === "BOTH"
+    ? ["COMPANY", "CONSOLIDATED"]
+    : [options.statementScope];
+  const anchorSnapshots = await Promise.all(
+    requestedScopes.map(async (statementScope) => ({
+      statementScope,
+      snapshot: await loadReportedAnchors({
+        companyIds: companies.map((company) => company.id),
+        fiscalYears,
+        statementScope,
+      }),
+    })),
+  );
+  const reportedDatasetVersions = new Set(
+    anchorSnapshots.map(({ snapshot }) => snapshot.financialDatasetVersion),
+  );
+  if (reportedDatasetVersions.size !== 1) {
+    throw new Error(
+      "Rapportert datasett endret seg mellom scope-lesingene; ingen blandet simulering ble bygget.",
+    );
+  }
+  const reportedDatasetVersion = anchorSnapshots[0].snapshot.financialDatasetVersion;
+  const anchorsByScope = new Map(
+    anchorSnapshots.map(({ statementScope, snapshot }) => [statementScope, snapshot]),
+  );
 
-  const generations: FiSimCompanyGeneration[] = companies.map((company) => {
+  const generations: FiSimCompanyGeneration[] = companies.flatMap((company) => {
     const registry = registryByOrgNumber.get(company.orgNumber);
-    const companyAnchors: FiSimCompanyAnchors | undefined = anchors.companies.get(company.id);
-    return generateCompanyFinancials({
-      companyId: company.id,
-      orgNumber: company.orgNumber,
-      registeredAt: registry?.registeredAt ?? null,
-      reportedFiscalYears: companyAnchors?.reportedFiscalYears ?? [],
-      signals: {
-        industryCode: registry?.naceCode ?? null,
-        organisationForm: registry?.organisationForm ?? null,
-      },
-      fiscalYears,
-      latestCompletedFiscalYear: options.latestCompletedFiscalYear,
-      statementScope: options.statementScope,
-      currency: "NOK",
-      unitScale: 1,
-      anchorsByFiscalYear: companyAnchors?.anchorsByFiscalYear ?? {},
+    return requestedScopes.flatMap((statementScope) => {
+      const companyAnchors: FiSimCompanyAnchors | undefined = anchorsByScope
+        .get(statementScope)
+        ?.companies.get(company.id);
+      if (
+        options.statementScope === "BOTH" &&
+        statementScope === "CONSOLIDATED" &&
+        (companyAnchors?.reportedFiscalYears.length ?? 0) === 0
+      ) {
+        // A group statement is generated only when the reported live dataset proves that the
+        // company has filed one. COMPANY remains the universal legal-entity scope.
+        return [];
+      }
+      return [generateCompanyFinancials({
+        companyId: company.id,
+        orgNumber: company.orgNumber,
+        registeredAt: registry?.registeredAt ?? null,
+        reportedFiscalYears: companyAnchors?.reportedFiscalYears ?? [],
+        signals: {
+          industryCode: registry?.naceCode ?? null,
+          organisationForm: registry?.organisationForm ?? null,
+        },
+        fiscalYears,
+        latestCompletedFiscalYear: options.latestCompletedFiscalYear,
+        statementScope,
+        currency: "NOK",
+        unitScale: 1,
+        anchorsByFiscalYear: companyAnchors?.anchorsByFiscalYear ?? {},
+      })];
     });
   });
 
-  const summary = buildDatasetReport(generations);
-  const markdown = formatDatasetReportMarkdown(summary, {
-    datasetVersion: options.datasetVersion,
-    statementScope: options.statementScope,
-    latestCompletedFiscalYear: options.latestCompletedFiscalYear,
-    reportedDatasetVersion: anchors.financialDatasetVersion,
-    dryRun: options.dryRun,
-    generatedAt: new Date(),
-  });
-  if (options.reportPath) {
+  // A real build reports the exact publishable subset written by dataset-store. Dry runs retain
+  // all generated candidates so a go/no-go review can see what would be excluded before writing.
+  const summary = buildDatasetReport(generations, { publishableOnly: !options.dryRun });
+  const writeValidationReport = async () => {
+    if (!options.reportPath) return;
+    const markdown = formatDatasetReportMarkdown(summary, {
+      datasetVersion: options.datasetVersion,
+      statementScope: options.statementScope,
+      latestCompletedFiscalYear: options.latestCompletedFiscalYear,
+      reportedDatasetVersion,
+      dryRun: options.dryRun,
+      generatedAt: new Date(),
+    });
     await mkdir(dirname(resolve(options.reportPath)), { recursive: true });
     await writeFile(resolve(options.reportPath), markdown, "utf8");
     console.log(`Valideringsrapport skrevet til ${options.reportPath}.`);
-  }
+  };
   console.log(
     [
       `Selskaper forsøkt: ${summary.companiesAttempted}. Med perioder: ${summary.companiesWithPackages}. Uten: ${summary.companiesFullyExcluded}.`,
       `Perioder: ${summary.packages}. Ankerlinjer: ${summary.reportedAnchorLines}. Syntetiske linjer: ${summary.syntheticLines}.`,
       `Profilfordeling: ${JSON.stringify(summary.profileCounts)}.`,
+      `Scopefordeling: ${JSON.stringify(summary.scopeCounts)}.`,
       `Residualer: ${summary.residuals.rounding} avrunding, ${summary.residuals.review} til manuell kontroll.`,
       `Feil: ${JSON.stringify(summary.errorCounts)}.`,
     ].join("\n"),
@@ -201,6 +238,7 @@ async function main() {
   }
 
   if (options.dryRun) {
+    await writeValidationReport();
     console.log("Tørrkjøring: ingenting er skrevet. Kjør uten --dry-run for å bygge datasettet.");
     return;
   }
@@ -211,7 +249,7 @@ async function main() {
   }
 
   const manifest: Omit<FiSimDatasetManifest, "exclusions"> = {
-    reportedDatasetVersion: anchors.financialDatasetVersion,
+    reportedDatasetVersion,
     statementScope: options.statementScope,
     latestCompletedFiscalYear: options.latestCompletedFiscalYear,
     intentionallyUnmappedConcepts: options.unmappedConcepts,
@@ -224,6 +262,20 @@ async function main() {
     generations,
   });
 
+  if (
+    report.status !== "VALIDATED" ||
+    report.companyCount !== summary.companiesWithPackages ||
+    report.packageCount !== summary.packages ||
+    report.statementCount !== summary.statements ||
+    report.anchoredLineCount !== summary.reportedAnchorLines ||
+    report.syntheticLineCount !== summary.syntheticLines
+  ) {
+    throw new Error(
+      "Persisted FI-SIM dataset does not match the validation summary; report was not written.",
+    );
+  }
+  await writeValidationReport();
+
   console.log(
     [
       `Dataset ${report.datasetVersion} (${report.datasetId}) er ${report.status}.`,
@@ -234,7 +286,9 @@ async function main() {
     ].join("\n"),
   );
   for (const exclusion of report.exclusions.slice(0, 20)) {
-    console.log(`  ${exclusion.orgNumber} ${exclusion.fiscalYear ?? "-"} ${exclusion.code}: ${exclusion.reason}`);
+    console.log(
+      `  ${exclusion.orgNumber} ${exclusion.statementScope} ${exclusion.fiscalYear ?? "-"} ${exclusion.code}: ${exclusion.reason}`,
+    );
   }
   if (report.exclusions.length > 20) {
     console.log(`  … og ${report.exclusions.length - 20} til. Hele listen ligger i manifestet.`);

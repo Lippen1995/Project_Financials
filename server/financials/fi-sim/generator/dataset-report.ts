@@ -36,6 +36,8 @@ export type FiSimDatasetReportSummary = {
   syntheticLines: number;
   hybridStatements: number;
   simulatedStatements: number;
+  /** Generated periods by legal-entity or group scope. */
+  scopeCounts: Record<string, number>;
   profileCounts: Record<string, number>;
   /** Which concepts were bound to a reported line, and how often. */
   anchoredConceptCounts: Record<string, number>;
@@ -49,10 +51,10 @@ export type FiSimDatasetReportSummary = {
   skippedYearCounts: number;
   fiscalYearCounts: Record<number, number>;
   /** Companies the demo cannot support, listed rather than silently missing. */
-  unsupportedCompanies: Array<{ orgNumber: string; code: string; reason: string }>;
+  unsupportedCompanies: Array<{ orgNumber: string; statementScope: string; code: string; reason: string }>;
   /** Packages the generator produced but the validator rejected. Must be zero to publish. */
-  invalidPackages: Array<{ orgNumber: string; fiscalYear: number; issues: string[] }>;
-  manualReviewPackages: Array<{ orgNumber: string; fiscalYear: number; amount: string }>;
+  invalidPackages: Array<{ orgNumber: string; statementScope: string; fiscalYear: number; issues: string[] }>;
+  manualReviewPackages: Array<{ orgNumber: string; statementScope: string; fiscalYear: number; amount: string }>;
 };
 
 function countInto(counts: Record<string, number>, key: string) {
@@ -65,13 +67,16 @@ function absolute(value: bigint) {
 
 export function buildDatasetReport(
   generations: readonly FiSimCompanyGeneration[],
+  options: { publishableOnly?: boolean } = {},
 ): FiSimDatasetReportSummary {
+  const attemptedCompanyIds = new Set(generations.map((generation) => generation.companyId));
+  const companyIdsWithPackages = new Set<string>();
   const summary: FiSimDatasetReportSummary = {
     taxonomyVersion: FI_SIM_TAXONOMY_VERSION,
     generatorVersion: FI_SIM_GENERATOR_VERSION,
     assumptionVersion: FI_SIM_ASSUMPTION_VERSION,
     profileVersion: FI_SIM_PROFILE_RULESET_VERSION,
-    companiesAttempted: generations.length,
+    companiesAttempted: attemptedCompanyIds.size,
     companiesWithPackages: 0,
     companiesFullyExcluded: 0,
     packages: 0,
@@ -80,6 +85,7 @@ export function buildDatasetReport(
     syntheticLines: 0,
     hybridStatements: 0,
     simulatedStatements: 0,
+    scopeCounts: {},
     profileCounts: {},
     anchoredConceptCounts: {},
     residuals: { rounding: 0, review: 0, largestAbsolute: null, byIdentity: {} },
@@ -98,19 +104,20 @@ export function buildDatasetReport(
       if (failure.code === "UNSUPPORTED_SIMULATION_PROFILE" || generation.packages.length === 0) {
         summary.unsupportedCompanies.push({
           orgNumber: generation.orgNumber,
+          statementScope: generation.statementScope,
           code: failure.code,
           reason: failure.message,
         });
       }
     }
     if (generation.packages.length === 0) {
-      summary.companiesFullyExcluded += 1;
       // The port is that every company is either validated or explicitly listed as unsupported.
       // A company that produced nothing and failed nothing — every year skipped — would otherwise
       // just be quietly missing from the demo.
       if (generation.failures.length === 0) {
         summary.unsupportedCompanies.push({
           orgNumber: generation.orgNumber,
+          statementScope: generation.statementScope,
           code: "NO_PUBLISHABLE_PERIOD",
           reason:
             generation.skipped[0]?.reason ?? "No fiscal year in the requested span could be generated",
@@ -118,11 +125,31 @@ export function buildDatasetReport(
       }
       continue;
     }
-    summary.companiesWithPackages += 1;
-
     for (const pkg of generation.packages) {
+      const validation = validatePackage(pkg);
+      if (!validation.valid) {
+        summary.invalidPackages.push({
+          orgNumber: pkg.orgNumber,
+          statementScope: pkg.statementScope,
+          fiscalYear: pkg.fiscalYear,
+          issues: validation.issues.map((issue) => issue.message),
+        });
+        if (options.publishableOnly) continue;
+      }
+      if (pkg.validationStatus === "MANUAL_REVIEW") {
+        summary.manualReviewPackages.push({
+          orgNumber: pkg.orgNumber,
+          statementScope: pkg.statementScope,
+          fiscalYear: pkg.fiscalYear,
+          amount: (pkg.residualAmount ?? 0n).toString(),
+        });
+        if (options.publishableOnly) continue;
+      }
+
+      companyIdsWithPackages.add(generation.companyId);
       summary.packages += 1;
       summary.statements += 2;
+      countInto(summary.scopeCounts, pkg.statementScope);
       countInto(summary.profileCounts, pkg.profile satisfies FinancialSimulationProfile);
       summary.fiscalYearCounts[pkg.fiscalYear] =
         (summary.fiscalYearCounts[pkg.fiscalYear] ?? 0) + 1;
@@ -151,24 +178,13 @@ export function buildDatasetReport(
           }
         }
       }
-
-      const validation = validatePackage(pkg);
-      if (!validation.valid) {
-        summary.invalidPackages.push({
-          orgNumber: pkg.orgNumber,
-          fiscalYear: pkg.fiscalYear,
-          issues: validation.issues.map((issue) => issue.message),
-        });
-      }
-      if (pkg.validationStatus === "MANUAL_REVIEW") {
-        summary.manualReviewPackages.push({
-          orgNumber: pkg.orgNumber,
-          fiscalYear: pkg.fiscalYear,
-          amount: (pkg.residualAmount ?? 0n).toString(),
-        });
-      }
     }
   }
+
+  summary.companiesWithPackages = companyIdsWithPackages.size;
+  summary.companiesFullyExcluded = [...attemptedCompanyIds].filter(
+    (companyId) => !companyIdsWithPackages.has(companyId),
+  ).length;
 
   return summary;
 }
@@ -241,6 +257,10 @@ export function formatDatasetReportMarkdown(
     "",
     countTable("Profil", summary.profileCounts),
     "",
+    "## Scopefordeling",
+    "",
+    countTable("Scope", summary.scopeCounts),
+    "",
     "## Ankertyper",
     "",
     "Hvilke konsepter som ble bundet til en rapportert linje, og hvor ofte.",
@@ -279,13 +299,13 @@ export function formatDatasetReportMarkdown(
     summary.unsupportedCompanies.length === 0
       ? "_Ingen._"
       : [
-          "| Orgnr | Kode | Årsak |",
-          "|---|---|---|",
+          "| Orgnr | Scope | Kode | Årsak |",
+          "|---|---|---|---|",
           ...summary.unsupportedCompanies
             .slice(0, 100)
-            .map((entry) => `| ${entry.orgNumber} | ${entry.code} | ${entry.reason} |`),
+            .map((entry) => `| ${entry.orgNumber} | ${entry.statementScope} | ${entry.code} | ${entry.reason} |`),
           ...(summary.unsupportedCompanies.length > 100
-            ? [`| … og ${summary.unsupportedCompanies.length - 100} til | | |`]
+            ? [`| … og ${summary.unsupportedCompanies.length - 100} til | | | |`]
             : []),
         ].join("\n"),
     "",
@@ -294,11 +314,11 @@ export function formatDatasetReportMarkdown(
     summary.invalidPackages.length === 0
       ? "_Ingen. Alle perioder består validering._"
       : [
-          "| Orgnr | År | Avvik |",
-          "|---|---|---|",
+          "| Orgnr | Scope | År | Avvik |",
+          "|---|---|---|---|",
           ...summary.invalidPackages
             .slice(0, 50)
-            .map((entry) => `| ${entry.orgNumber} | ${entry.fiscalYear} | ${entry.issues.join("; ")} |`),
+            .map((entry) => `| ${entry.orgNumber} | ${entry.statementScope} | ${entry.fiscalYear} | ${entry.issues.join("; ")} |`),
         ].join("\n"),
     "",
     "## Perioder som venter på manuell kontroll",
@@ -306,11 +326,11 @@ export function formatDatasetReportMarkdown(
     summary.manualReviewPackages.length === 0
       ? "_Ingen._"
       : [
-          "| Orgnr | År | Residual |",
-          "|---|---|---|",
+          "| Orgnr | Scope | År | Residual |",
+          "|---|---|---|---|",
           ...summary.manualReviewPackages
             .slice(0, 50)
-            .map((entry) => `| ${entry.orgNumber} | ${entry.fiscalYear} | ${entry.amount} |`),
+            .map((entry) => `| ${entry.orgNumber} | ${entry.statementScope} | ${entry.fiscalYear} | ${entry.amount} |`),
         ].join("\n"),
     "",
   ].join("\n");

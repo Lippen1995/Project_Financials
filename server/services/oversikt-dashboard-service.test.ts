@@ -22,6 +22,13 @@ function statement(
     netIncome: null,
     equity: null,
     assets: null,
+    origins: {
+      revenue: "reported",
+      operatingProfit: "reported",
+      netIncome: null,
+      equity: null,
+      assets: null,
+    },
     statementOrigin: "reported",
     financialDatasetVersion: "reported:21",
   };
@@ -100,12 +107,10 @@ describe("oversikt bankruptcy rows", () => {
     expect(rows[0].latestRevenue).toBe(900);
   });
 
-  it("falls back to the distress snapshot when the live dataset has no statement", () => {
+  it("rejects a stale distress snapshot when the live dataset has no statement", () => {
     const rows = toBankruptcyRows([profile("c1", "Fallback", { snapshotRevenue: 750 })], {});
 
-    expect(rows).toHaveLength(1);
-    expect(rows[0].latestRevenue).toBe(750);
-    expect(rows[0].revenueSeries).toEqual([]);
+    expect(rows).toEqual([]);
   });
 
   it("excludes a company with neither live figures nor a usable snapshot", () => {
@@ -120,7 +125,11 @@ describe("oversikt bankruptcy rows", () => {
         profile("c2", "LabelOnly", { sectorLabel: "Handel", snapshotRevenue: 1 }),
         profile("c3", "Neither", { snapshotRevenue: 1 }),
       ],
-      {},
+      {
+        c1: [statement(2025, 1, 1)],
+        c2: [statement(2025, 1, 1)],
+        c3: [statement(2025, 1, 1)],
+      },
     );
 
     expect(rows.map((row) => row.sector)).toEqual(["Bygg", "Handel", "—"]);

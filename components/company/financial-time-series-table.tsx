@@ -3,12 +3,12 @@
 import React, { ReactNode, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
-import { buildThreadedComments, ThreadedCommentNode } from "@/lib/comment-thread";
 import {
-  SIMULATED_LINE_MARKER,
-  SIMULATED_LINE_NOTICE,
-  type FinancialDisclosure,
-} from "@/lib/financial-simulation-disclosure";
+  SimulatedFinancialsBanner,
+  SimulatedValueMarker,
+} from "@/components/company/simulated-financials-notice";
+import { buildThreadedComments, ThreadedCommentNode } from "@/lib/comment-thread";
+import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
 import {
   buildFinancialReportDataset,
   calculateGrowth,
@@ -38,43 +38,6 @@ import { cn } from "@/lib/utils";
 
 const MINUS = "−";
 
-/**
- * The marker on a single simulated figure.
- *
- * It is a text abbreviation with a screen-reader sentence behind it, not a colour or an icon.
- * FI-SIM-2026.1 section 12 requires every synthetic line to be marked, and a mark that only a
- * sighted reader with a working colour display can see is not a mark.
- */
-function SimulatedValueMarker() {
-  return (
-    <sup
-      data-value-origin="synthetic"
-      title={SIMULATED_LINE_NOTICE}
-      className="ml-1 align-super font-sans text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--px-muted)]"
-    >
-      <span aria-hidden="true">{SIMULATED_LINE_MARKER}</span>
-      <span className="sr-only">{SIMULATED_LINE_NOTICE}</span>
-    </sup>
-  );
-}
-
-/** The persistent statement-level banner, from FI-SIM-2026.1 section 12. */
-function SimulatedFinancialsBanner({ disclosure }: { disclosure: FinancialDisclosure }) {
-  return (
-    <div
-      role="note"
-      data-financial-dataset-mode={disclosure.financialDatasetMode}
-      className="rounded-lg border border-[var(--px-border-subtle)] bg-[var(--px-subtle)] px-4 py-3"
-    >
-      <p className="text-[13px] font-semibold text-[var(--px-text)]">{disclosure.notice}</p>
-      <p className="mt-1 text-[12px] text-[var(--px-muted)]">
-        Tall merket <span className="font-semibold">{SIMULATED_LINE_MARKER}</span> er generert for
-        demonstrasjon og er ikke hentet fra virksomhetens innsendte regnskap. Datasett{" "}
-        <span className="font-mono">{disclosure.financialDatasetVersion}</span>.
-      </p>
-    </div>
-  );
-}
 
 // A statement never shows more than this many years at once; older years are
 // reached with the pager. Matches the design's six-column document window.
@@ -818,26 +781,43 @@ export function FinancialTimeSeriesTable({
         ? `Kilde: ${sourceName}${staleSuffix}`
         : null;
   const unitSuffix = FINANCIAL_UNIT_SUFFIXES[unit];
-  const kpis: { label: string; value: string; delta: string }[] = [
+  const latestMetricIsSynthetic = (...metricKeys: string[]) => {
+    if (!latestYear || !disclosure?.simulated) return false;
+
+    const matchingLines = scopedLineItems.filter(
+      (item) => item.fiscalYear === latestYear && item.metricKey != null && metricKeys.includes(item.metricKey),
+    );
+    if (matchingLines.length > 0) {
+      return matchingLines.some((item) => item.publicationSource === "FI_SIM");
+    }
+    return false;
+  };
+  const kpis: { label: string; value: string; delta: string; synthetic: boolean }[] = [
     {
       label: "Driftsinntekter",
       value: `${formatUnitAmount(revenueLatest, unit)} ${unitSuffix}`,
       delta: formatSignedPercent(kpiGrowth("total_operating_revenue")),
+      synthetic: latestMetricIsSynthetic("total_operating_revenue", "total_operating_income"),
     },
     {
       label: "Driftsresultat (EBIT)",
       value: `${formatUnitAmount(ebitLatest, unit)} ${unitSuffix}`,
       delta: formatSignedPercent(kpiGrowth("ebit")),
+      synthetic: latestMetricIsSynthetic("ebit", "operating_profit"),
     },
     {
       label: "EBIT-margin",
       value: formatPercent(marginLatest),
       delta: formatPpDelta(marginLatest, marginPrev),
+      synthetic:
+        latestMetricIsSynthetic("total_operating_revenue", "total_operating_income") ||
+        latestMetricIsSynthetic("ebit", "operating_profit"),
     },
     {
       label: "Sum eiendeler",
       value: `${formatUnitAmount(latestValues?.total_assets ?? null, unit)} ${unitSuffix}`,
       delta: formatSignedPercent(kpiGrowth("total_assets")),
+      synthetic: latestMetricIsSynthetic("total_assets"),
     },
   ];
 
@@ -1480,7 +1460,11 @@ export function FinancialTimeSeriesTable({
         <div className="min-w-0">
           <div className="data-label text-[11px] uppercase text-[var(--px-muted)]">
             Årsregnskap · {availableScopes.has("CONSOLIDATED") ? "Konsern" : "Selskap"} ·{" "}
-            {basis === "reported" ? "Som rapportert" : "Standardisert"}
+            {basis === "reported"
+              ? disclosure?.simulated
+                ? "FI-SIM-visning"
+                : "Som rapportert"
+              : "Standardisert"}
           </div>
           <h2 className="editorial-display mt-1.5 text-[32px] tracking-[-0.03em] text-[var(--px-text)]">
             Regnskap over tid
@@ -1497,7 +1481,11 @@ export function FinancialTimeSeriesTable({
               }}
               className="cursor-pointer rounded-full border-0 bg-transparent px-2.5 py-1.5 text-[12.5px] font-medium text-[var(--px-muted)] transition-colors hover:text-[var(--px-text)]"
             >
-              {basis === "reported" ? "Vis standardisert" : "Vis som rapportert"}
+              {basis === "reported"
+                ? "Vis standardisert"
+                : disclosure?.simulated
+                  ? "Vis FI-SIM-visning"
+                  : "Vis som rapportert"}
             </button>
           ) : null}
           <SegmentedControl value={unit} onChange={setUnit} options={unitOptions} />
@@ -1539,6 +1527,7 @@ export function FinancialTimeSeriesTable({
                 </div>
                 <div className="tabular-nums mt-1.5 whitespace-nowrap text-[22px] font-semibold tracking-[-0.02em] text-[var(--px-text)]">
                   {item.value}
+                  {item.synthetic ? <SimulatedValueMarker /> : null}
                 </div>
                 <div className="mt-1 flex items-baseline gap-1.5">
                   <span
@@ -1590,12 +1579,20 @@ export function FinancialTimeSeriesTable({
                 {renderAsReportedSection("INCOME_STATEMENT")}
                 {renderAsReportedSection("BALANCE_SHEET")}
                 {renderAsReportedSection("CASH_FLOW")}
-                <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3.5 text-[12px] leading-6 text-[var(--px-muted)]">
-                  Linjenavn og rekkefølge følger den nyeste publiserte hovedoppstillingen. Historiske år
-                  kobles til de samme regnskapspostene. «Side» viser kildesiden i den aktuelle årsrapporten.
-                  Tall i parentes er negative; blanke felt betyr at posten ikke finnes eller ikke har en
-                  publisert verdi for året.
-                </p>
+                {disclosure?.simulated ? (
+                  <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3.5 text-[12px] leading-6 text-[var(--px-muted)]">
+                    Linjenavn og rekkefølge følger FI-SIM-konseptkatalogen. Historiske år kobles til de
+                    samme konseptene. «Side» vises bare for rapporterte ankere. Tall i parentes er negative;
+                    blanke felt betyr at konseptet ikke finnes eller ikke har en verdi for året.
+                  </p>
+                ) : (
+                  <p className="mt-6 border-t border-[var(--px-border-subtle)] pt-3.5 text-[12px] leading-6 text-[var(--px-muted)]">
+                    Linjenavn og rekkefølge følger den nyeste publiserte hovedoppstillingen. Historiske år
+                    kobles til de samme regnskapspostene. «Side» viser kildesiden i den aktuelle årsrapporten.
+                    Tall i parentes er negative; blanke felt betyr at posten ikke finnes eller ikke har en
+                    publisert verdi for året.
+                  </p>
+                )}
               </>
             )}
 
