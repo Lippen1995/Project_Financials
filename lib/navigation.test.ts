@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildGlobalNavItems, isGlobalNavItemActive } from "@/lib/navigation";
+import {
+  buildGlobalNavItems,
+  buildGlobalNavMenuCategories,
+  isGlobalNavItemActive,
+} from "@/lib/navigation";
 
 describe("buildGlobalNavItems", () => {
   it("shows Admin nav for ADMIN users", () => {
@@ -41,5 +45,34 @@ describe("buildGlobalNavItems", () => {
 
     expect(companyMap).toMatchObject({ label: "Selskapskart", icon: "map" });
     expect(isGlobalNavItemActive(companyMap!, "/company-map")).toBe(true);
+  });
+});
+
+describe("buildGlobalNavMenuCategories", () => {
+  it("keeps search outside the menu and groups the product destinations", () => {
+    const categories = buildGlobalNavMenuCategories(
+      buildGlobalNavItems({ appRole: "ADMIN" }),
+    );
+
+    expect(categories).toEqual([
+      {
+        id: "explore",
+        label: "Utforsk",
+        items: [
+          { href: "/company-map", label: "Selskapskart", icon: "map" },
+          { href: "/people", label: "Personer", icon: "person_search" },
+          { href: "/watchlist", label: "Overvåkning", icon: "star" },
+          { href: "/market/distress", label: "Distress", icon: "warning" },
+        ],
+      },
+      {
+        id: "analysis",
+        label: "Analyse",
+        items: [
+          { href: "/analyses", label: "Analyse", icon: "analytics" },
+          { href: "/market/oil-gas", label: "Olje og gass", icon: "oil_barrel" },
+        ],
+      },
+    ]);
   });
 });
