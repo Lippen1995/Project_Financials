@@ -20,7 +20,11 @@ import { ShareholdersTab } from "@/components/company/ownership/shareholders-tab
 import { OverviewAnalytics, type OverviewOwner } from "@/components/company/overview-analytics";
 import { Card } from "@/components/ui/card";
 import { safeAuth } from "@/lib/auth";
-import { deriveHealthScore, deriveRating, deriveRisk, toneColor } from "@/lib/company-health";
+import {
+  healthToneColor,
+  scoreCompanyHealth,
+  type HealthScoreResult,
+} from "@/lib/health-score";
 import { prisma } from "@/lib/prisma";
 import { CompanyProfile, NormalizedCompany, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -35,6 +39,7 @@ import {
   getCompanyProfile,
 } from "@/server/services/company-service";
 import { getCompanyGridConnectionProfile } from "@/server/services/company-grid-connection-service";
+import { resolveHealthScoreModel } from "@/server/services/admin-health-score-service";
 import { getGroupIpOverview } from "@/server/ip/ip-data";
 import {
   listFinancialMetricCommentThreads,
@@ -318,19 +323,17 @@ function HeaderStat({
 
 function CompanyHeader({
   profile,
-  healthScore,
+  health,
   watchInfo,
   slug,
 }: {
   profile: CompanyProfile;
-  healthScore: number;
+  health: HealthScoreResult;
   watchInfo: { watchId: string | null; workspaceId: string } | null;
   slug: string;
 }) {
   const { company } = profile;
   const municipality = company.municipality ?? company.addresses[0]?.city ?? null;
-  const rating = deriveRating(healthScore, company.status);
-  const risk = deriveRisk(healthScore, company.status);
 
   const identityLine = [company.legalForm, `ORG.NR ${company.orgNumber}`, municipality]
     .filter(Boolean)
@@ -361,9 +364,22 @@ function CompanyHeader({
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-6 self-center">
-        <HeaderStat value={String(healthScore)} label="HELSE" color={toneColor(risk.tone)} />
-        <HeaderStat value={rating.grade} label="RATING" color={toneColor(rating.tone)} serif />
-        <HeaderStat value={risk.label} label="RISIKO" color={toneColor(risk.tone)} />
+        <HeaderStat
+          value={String(health.score)}
+          label="HELSE"
+          color={healthToneColor(health.riskTone)}
+        />
+        <HeaderStat
+          value={health.grade}
+          label="RATING"
+          color={healthToneColor(health.gradeTone)}
+          serif
+        />
+        <HeaderStat
+          value={health.riskLabel}
+          label="RISIKO"
+          color={healthToneColor(health.riskTone)}
+        />
         {watchInfo ? (
           <WatchButton
             variant="pill"
@@ -562,7 +578,16 @@ export default async function CompanyPage({
   })();
   const overviewOwnersYear = overviewShareholding?.snapshot?.taxYear ?? null;
 
-  const healthScore = deriveHealthScore(company, financialStatements);
+  // The admin-owned scoring model, picked by the company's own NACE code.
+  const healthModel = await resolveHealthScoreModel(company.industryCode?.code ?? null);
+  // Scored from the statements alone. Their `financialValues` (canonicalValues) ride on every
+  // statement in both the "full" and "summary" financial reads, while line items are dropped in
+  // summary mode — so leaving line items out is what keeps the header score identical on every
+  // tab instead of drifting when the reader switches.
+  const health = scoreCompanyHealth(
+    { company, statements: financialStatements },
+    healthModel.config,
+  );
 
   return (
     <main className="space-y-4 pb-10 sm:space-y-6">
@@ -573,7 +598,7 @@ export default async function CompanyPage({
         <span className="material-symbols-outlined text-[14px]">chevron_right</span>
         <span className="text-[var(--px-text)]">SELSKAPSPROFIL</span>
       </div>
-      <CompanyHeader profile={profile} healthScore={healthScore} watchInfo={watchInfo} slug={slug} />
+      <CompanyHeader profile={profile} health={health} watchInfo={watchInfo} slug={slug} />
 
       <div>
         <div className="space-y-4 sm:space-y-6">
@@ -639,6 +664,9 @@ export default async function CompanyPage({
           lineItems={financialLineItems}
           financialsAvailability={financialsAvailability}
           disclosure={financialDisclosure ?? undefined}
+          health={health}
+          healthModelName={healthModel.modelName}
+          healthMatchedNacePrefix={healthModel.matchedNacePrefix}
           owners={overviewOwners}
           ownersTaxYear={overviewOwnersYear}
           announcements={overviewAnnouncements?.announcements ?? []}

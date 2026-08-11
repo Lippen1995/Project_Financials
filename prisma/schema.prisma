@@ -692,6 +692,8 @@ model User {
   analysesCreated                 Analysis[]                        @relation("AnalysisCreatedBy")
   analysisWorklistsCreated        AnalysisWorklist[]                @relation("AnalysisWorklistCreatedBy")
   njordFeedback                   NjordFeedback[]
+  healthScoreModelsUpdated        HealthScoreModel[]                @relation("HealthScoreModelUpdatedBy")
+  healthScoreModelChanges         HealthScoreModelAudit[]           @relation("HealthScoreModelAuditActor")
 }
 
 model Subscription {
@@ -762,6 +764,63 @@ model AiEconomicsChangeAudit {
   actor       User     @relation("AiEconomicsChangeActor", fields: [actorUserId], references: [id], onDelete: Restrict)
 
   @@index([entityType, entityKey, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
+}
+
+/// An admin-owned financial-health scoring model: which metrics count, what each
+/// weighs, how a raw ratio becomes points, and where the grade and risk lines
+/// fall. `config` holds the whole model as JSON validated by the zod schema in
+/// `server/health-score/domain`; keeping it out of columns means adding a metric
+/// to the catalog never needs a migration. Exactly one row carries
+/// `isFallback` — the model used when no industry rule matches.
+model HealthScoreModel {
+  id              String                         @id @default(cuid())
+  key             String                         @unique
+  name            String
+  description     String?
+  /// The model applied when a company's NACE code matches no rule. Exactly one row.
+  isFallback      Boolean                        @default(false)
+  /// Inactive models keep their config and history but are never applied.
+  active          Boolean                        @default(true)
+  config          Json
+  version         Int                            @default(1)
+  updatedByUserId String
+  createdAt       DateTime                       @default(now())
+  updatedAt       DateTime                       @updatedAt
+  updatedBy       User                           @relation("HealthScoreModelUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict)
+  industryRules   HealthScoreModelIndustryRule[]
+
+  @@index([active, key])
+}
+
+/// Binds a scoring model to a NACE prefix. Resolution takes the longest matching
+/// prefix, so "68.20" beats "68". The prefix is globally unique so a company can
+/// never match two models at the same specificity.
+model HealthScoreModelIndustryRule {
+  id          String           @id @default(cuid())
+  modelId     String
+  /// NACE prefix without dots stripped, e.g. "68" or "68.20".
+  nacePrefix  String           @unique
+  note        String?
+  createdAt   DateTime         @default(now())
+  model       HealthScoreModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+}
+
+/// Before/after trail for every change to a scoring model. Scores shown to users
+/// move when this config moves, so each edit has to be attributable.
+model HealthScoreModelAudit {
+  id          String   @id @default(cuid())
+  actorUserId String
+  modelKey    String
+  action      String
+  beforeState Json?
+  afterState  Json?
+  createdAt   DateTime @default(now())
+  actor       User     @relation("HealthScoreModelAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([modelKey, createdAt(sort: Desc)])
   @@index([actorUserId, createdAt(sort: Desc)])
 }
 

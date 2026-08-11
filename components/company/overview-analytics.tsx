@@ -9,6 +9,7 @@ import {
   NormalizedRole,
 } from "@/lib/types";
 import type { FinancialDisclosure } from "@/lib/financial-simulation-disclosure";
+import type { HealthScoreResult } from "@/lib/health-score";
 import { formatCompactNok, getReportingCurrency } from "@/lib/overview-chart";
 import { formatMetricPercent, getOverviewMetricSeries, OverviewMetric } from "@/lib/overview-metrics";
 import { combineFinancialValueOrigins } from "@/lib/financial-value-origin";
@@ -19,6 +20,7 @@ import {
   SimulatedFinancialsBanner,
   SimulatedValueMarker,
 } from "./simulated-financials-notice";
+import { FinancialHealthSection } from "./overview/financial-health-section";
 import { OverviewCharts } from "./overview/overview-charts";
 
 const NDASH = "–";
@@ -423,6 +425,9 @@ export function OverviewAnalytics({
   lineItems,
   financialsAvailability,
   disclosure,
+  health,
+  healthModelName,
+  healthMatchedNacePrefix = null,
   owners = [],
   ownersTaxYear = null,
   announcements = [],
@@ -434,6 +439,10 @@ export function OverviewAnalytics({
   financialsAvailability: DataAvailability;
   /** Says whether the figures behind these key numbers and graphs are generated. */
   disclosure?: FinancialDisclosure;
+  /** Scored against the admin-owned model; the same result the page header shows. */
+  health?: HealthScoreResult;
+  healthModelName?: string;
+  healthMatchedNacePrefix?: string | null;
   owners?: OverviewOwner[];
   ownersTaxYear?: number | null;
   announcements?: NormalizedAnnouncement[];
@@ -456,6 +465,14 @@ export function OverviewAnalytics({
         latestYear={latestYear}
         currency={currency}
       />
+
+      {health && financialsAvailability.available ? (
+        <FinancialHealthSection
+          result={health}
+          modelName={healthModelName ?? "Standardmodell"}
+          matchedNacePrefix={healthMatchedNacePrefix}
+        />
+      ) : null}
 
       <div className="border-b border-[var(--px-border)] py-6">
         <SectionLabel>

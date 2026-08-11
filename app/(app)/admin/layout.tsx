@@ -31,6 +31,7 @@ export default async function AdminLayout({
           { href: "/admin/shareholder-register", label: "Aksjonærregister" },
           { href: "/admin/users", label: "Brukere og roller" },
           { href: "/admin/ai-economics", label: "AI-økonomi" },
+          { href: "/admin/health-score", label: "Finansiell helse" },
         ]
       : []),
     { href: "/admin/annual-report-unified-confidence", label: "Datakvalitet" },
