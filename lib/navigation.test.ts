@@ -33,4 +33,13 @@ describe("buildGlobalNavItems", () => {
     expect(analyses).toMatchObject({ label: "Analyser", icon: "analytics" });
     expect(isGlobalNavItemActive(analyses!, "/analyses/analysis-1")).toBe(true);
   });
+
+  it("exposes the account-free company map and marks it active", () => {
+    const companyMap = buildGlobalNavItems(null).find(
+      (item) => item.href === "/company-map",
+    );
+
+    expect(companyMap).toMatchObject({ label: "Selskapskart", icon: "map" });
+    expect(isGlobalNavItemActive(companyMap!, "/company-map")).toBe(true);
+  });
 });
