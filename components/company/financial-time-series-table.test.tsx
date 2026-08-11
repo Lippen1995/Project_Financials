@@ -579,3 +579,95 @@ describe("FinancialTimeSeriesTable simulated disclosure", () => {
     expect(html.match(/<td data-value-origin="synthetic"/g) ?? []).toHaveLength(1);
   });
 });
+
+describe("FinancialTimeSeriesTable scope selection", () => {
+  function statement(
+    fiscalYear: number,
+    statementScope: "COMPANY" | "CONSOLIDATED",
+    revenue: number,
+  ): NormalizedFinancialStatement {
+    return {
+      sourceSystem: "BRREG",
+      sourceEntityType: "structuredAnnualAccounts",
+      sourceId: `${statementScope}-${fiscalYear}`,
+      fetchedAt: new Date("2026-08-09T00:00:00.000Z"),
+      normalizedAt: new Date("2026-08-09T00:00:00.000Z"),
+      fiscalYear,
+      currency: "NOK",
+      statementScope,
+      revenue,
+      operatingProfit: 10,
+      netIncome: 5,
+      equity: 100,
+      assets: 200,
+    };
+  }
+
+  const bothScopes = [
+    statement(2024, "CONSOLIDATED", 2_717_702_000),
+    statement(2024, "COMPANY", 26_444_000),
+  ];
+
+  it("offers a scope control when the company publishes both sets", () => {
+    // Reach Subsea ASA reports 2,7 milliarder as a group and 26 millioner as a parent. Showing
+    // only one of them with no way to reach the other is showing a different company.
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable statements={bothScopes} documents={[]} companySlug="c" />,
+    );
+
+    expect(html).toContain("Konsern");
+    expect(html).toContain("Selskap");
+  });
+
+  it("offers no scope control when only one set exists", () => {
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable
+        statements={[statement(2024, "COMPANY", 26_444_000)]}
+        documents={[]}
+        companySlug="c"
+      />,
+    );
+
+    expect(html).not.toContain("Konsern");
+  });
+
+  it("defaults to the group figures", () => {
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable statements={bothScopes} documents={[]} companySlug="c" />,
+    );
+
+    expect(html).toContain("Årsregnskap · Konsern");
+  });
+});
+
+describe("FinancialTimeSeriesTable scope basis", () => {
+  it("falls back to the standardized view for a scope that has no line items", () => {
+    // A company can file a full group statement and only headline figures for the parent. The
+    // as-reported view is built from line items, so switching to the parent must not leave the
+    // reader looking at an empty page.
+    const statements: NormalizedFinancialStatement[] = [
+      {
+        sourceSystem: "BRREG",
+        sourceEntityType: "structuredAnnualAccounts",
+        sourceId: "company-2024",
+        fetchedAt: new Date("2026-08-09T00:00:00.000Z"),
+        normalizedAt: new Date("2026-08-09T00:00:00.000Z"),
+        fiscalYear: 2024,
+        currency: "NOK",
+        statementScope: "COMPANY",
+        revenue: 26_444_000,
+        operatingProfit: -9_164_000,
+        netIncome: -5_000_000,
+        equity: 589_798_000,
+        assets: 881_938_000,
+      },
+    ];
+
+    const html = renderToStaticMarkup(
+      <FinancialTimeSeriesTable statements={statements} documents={[]} lineItems={[]} companySlug="c" />,
+    );
+
+    expect(html).toContain("Standardisert");
+    expect(html).not.toContain("Som rapportert");
+  });
+});

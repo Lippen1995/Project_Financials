@@ -69,6 +69,19 @@ Sett så `FJORD_FINANCIAL_RUNTIME_DATABASE_URL` til den brukeren. `npm run finan
 - **Ingen fremmednøkkel fra revisjonsloggen til datasettet.** En revisjonsrad forteller hva som skjedde; den skal ikke kunne bli uskrivbar eller usann på grunn av tilstanden i en annen tabell.
 - **Rollback leser historikken, ikke en «forrige»-kolonne.** Den peker på forrige aktiverte immutable datasett og kopierer ingenting.
 
+**Autoritetsrekkefølgen: anker > hovedtall > antakelse.**
+
+Et anker er en linjepost generatoren *refererer*; den er ukrenkelig, og to ankere som ikke kan være sanne samtidig er en kontrollert feil. Et **hovedtall** er en rapportert verdi på statement-nivå som skjemaet ikke lar noen linje binde seg til — `FinancialStatement.revenue` og de fire andre — og som derfor ikke kan bli et anker. Den normale formen for alt som er lest inn fra en årsrapport i stedet for fra Regnskapsregisterets strukturerte feed er nettopp dette: hovedtall uten linjeposter.
+
+Hovedtall brukes nå som mål for de fem hodekonseptene. Verdien er den rapporterte, men linjen forblir merket syntetisk med avledningsregelen `calibration.reported-headline`, fordi proveniens handler om hvor et tall kom fra og dette ble ikke løst gjennom en rapportert linje. Et år uten noe rapportert vokser fra nærmeste år som har noe (`calibration.nearest-reported-year`), slik at en serie ikke kan hoppe to størrelsesordener mellom naboår.
+
+Hovedtall er **myke**. De viker for et anker, og de viker for hverandre, uten at selskapet kastes ut av demoen. Det er nødvendig fordi rapporterte felt ikke alltid er innbyrdes konsistente:
+
+- Et rapportert `revenue`-felt er ikke alltid hele driftsinntekten. Et selskap med lite salg og store andre driftsinntekter har et driftsresultat større enn salgsinntekten; leses det første som `OperatingIncomeTotal` blir kostnadene negative. Da er hovedtallet feil figur for konseptet og slutter å brukes.
+- 888 787 i egenkapital mot 888 532 i eiendeler er en avrundingsartefakt mellom to rapporterte felt, ikke en motsigelse.
+
+Da hovedtall først ble behandlet like hardt som ankere, falt **1 616 selskaper** ut av datasettet. Det ble oppdaget ved å sammenligne dekning mot det aktive datasettet før aktivering — ikke av testene.
+
 **Valg i F7 som er verdt å være uenig i:**
 
 - **Generatoren leser ankere gjennom LIVE, ikke fra kildetabellene.** `live_financial_line_items_v2` eksponerer `reportedFinancialLineItemId`, så ankeret kan refereres uten en eneste ny kildelesning — kildetilgang-gjelden er fortsatt 0. Prisen er en hard forutsetning: generatoren nekter å kjøre når det aktive datasettet er simulert, ellers ville «rapporterte» ankere vært forrige demos syntetiske tall.

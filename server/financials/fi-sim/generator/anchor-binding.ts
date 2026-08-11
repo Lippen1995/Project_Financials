@@ -68,8 +68,26 @@ export type FiSimCompanyAnchors = {
    * mirror has no row for.
    */
   reportedFiscalYears: number[];
+  /**
+   * The reported headline figures per year, normalised to whole units.
+   *
+   * These are real reported numbers that cannot be *anchored*: the schema binds an anchor to a
+   * `FinancialLineItem`, and a company can have a reported statement with headline figures and no
+   * line items at all — which is the normal case for anything ingested from an annual report
+   * rather than from Regnskapsregisteret's structured feed. Ignoring them is what let a company
+   * with 2,7 milliarder in reported group revenue be simulated at 27 millioner the year before.
+   */
+  reportedHeadlineByFiscalYear: Record<number, FiSimReportedHeadline>;
   /** Metric keys that appeared more than once in a period and were left unbound. */
   ambiguous: Array<{ fiscalYear: number; metricKey: string; count: number }>;
+};
+
+export type FiSimReportedHeadline = {
+  revenue: bigint | null;
+  operatingProfit: bigint | null;
+  netIncome: bigint | null;
+  equity: bigint | null;
+  assets: bigint | null;
 };
 
 export type FiSimAnchorSnapshot = {
@@ -110,6 +128,7 @@ export async function loadReportedAnchors(
       companyId,
       anchorsByFiscalYear: {},
       reportedFiscalYears: [],
+      reportedHeadlineByFiscalYear: {},
       ambiguous: [],
     });
   }
@@ -121,6 +140,19 @@ export async function loadReportedAnchors(
     if (!company.reportedFiscalYears.includes(statement.fiscalYear)) {
       company.reportedFiscalYears.push(statement.fiscalYear);
     }
+
+    // Statements arrive in their own unit scale — an annual-report ingest reports thousands, the
+    // structured feed reports whole kroner. The generator works in whole units, so normalise here
+    // rather than leaving every consumer to remember.
+    const scale = BigInt(statement.unitScale);
+    const scaled = (value: bigint | null) => (value === null ? null : value * scale);
+    company.reportedHeadlineByFiscalYear[statement.fiscalYear] = {
+      revenue: scaled(statement.revenue),
+      operatingProfit: scaled(statement.operatingProfit),
+      netIncome: scaled(statement.netIncome),
+      equity: scaled(statement.equity),
+      assets: scaled(statement.assets),
+    };
 
     const byConcept = new Map<string, { anchor: FiSimAnchor; metricKey: string; count: number }>();
     for (const line of statement.lines) {

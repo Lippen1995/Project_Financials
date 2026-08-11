@@ -425,3 +425,186 @@ describe("FI-SIM generator periods and profiles", () => {
     expect(byManifest.profileRuleId).toBe("manifest.explicit");
   });
 });
+
+describe("FI-SIM generator scale", () => {
+  const reachHeadlines = {
+    // Reach Subsea ASA's real group figures, in whole kroner.
+    2025: { revenue: 2_677_042_000n, operatingProfit: 149_431_000n, netIncome: null, equity: 1_218_266_000n, assets: 3_605_794_000n },
+    2024: { revenue: 2_717_702_000n, operatingProfit: 363_756_000n, netIncome: null, equity: 1_091_913_000n, assets: 3_247_702_000n },
+    2023: { revenue: 1_995_903_000n, operatingProfit: 331_786_000n, netIncome: null, equity: 928_005_000n, assets: 2_687_882_000n },
+  };
+
+  it("publishes the figure the company reported when there is nothing to anchor to", () => {
+    // A statement ingested from an annual report has headline figures and no line items, so the
+    // schema has nothing to anchor. Inventing a number next to the reported one is worse than
+    // useless — this is the defect that put 27 millioner beside a reported 2,7 milliarder.
+    const generation = generateCompanyFinancials(
+      input({
+        fiscalYears: [2023, 2024, 2025],
+        statementScope: "CONSOLIDATED",
+        reportedHeadlineByFiscalYear: reachHeadlines,
+      }),
+    );
+
+    expect(generation.failures).toEqual([]);
+    for (const pkg of generation.packages) {
+      const expected = reachHeadlines[pkg.fiscalYear as keyof typeof reachHeadlines];
+      expect(valueOf(pkg, "OperatingIncomeTotal")).toBe(expected.revenue);
+      expect(valueOf(pkg, "OperatingResult")).toBe(expected.operatingProfit);
+      expect(valueOf(pkg, "AssetsTotal")).toBe(expected.assets);
+      expect(valueOf(pkg, "EquityTotal")).toBe(expected.equity);
+    }
+    expect(validatePackages(generation.packages).issues).toEqual([]);
+  });
+
+  it("sizes a year with no reported figures from the nearest year that has them", () => {
+    // 2021 and 2022 have nothing. Without calibration they were drawn from an industry band and
+    // came out two orders of magnitude below the years on either side.
+    const generation = generateCompanyFinancials(
+      input({
+        fiscalYears: [2021, 2022, 2023, 2024, 2025],
+        statementScope: "CONSOLIDATED",
+        reportedHeadlineByFiscalYear: reachHeadlines,
+      }),
+    );
+
+    expect(generation.failures).toEqual([]);
+    const revenueByYear = new Map(
+      generation.packages.map((pkg) => [pkg.fiscalYear, valueOf(pkg, "OperatingIncomeTotal")]),
+    );
+    for (const fiscalYear of [2021, 2022]) {
+      const revenue = revenueByYear.get(fiscalYear)!;
+      // Within an order of magnitude of the nearest reported year, rather than 1/70th of it.
+      expect(revenue).toBeGreaterThan(reachHeadlines[2023].revenue / 10n);
+      expect(revenue).toBeLessThan(reachHeadlines[2023].revenue * 10n);
+    }
+  });
+
+  it("keeps drawing from the profile band for a company that reported nothing at all", () => {
+    const withHeadlines = generateCompanyFinancials(
+      input({ fiscalYears: [2025], reportedHeadlineByFiscalYear: reachHeadlines }),
+    );
+    const without = generateCompanyFinancials(input({ fiscalYears: [2025] }));
+
+    expect(valueOf(withHeadlines.packages[0], "OperatingIncomeTotal")).toBe(
+      reachHeadlines[2025].revenue,
+    );
+    expect(valueOf(without.packages[0], "OperatingIncomeTotal")).not.toBe(
+      reachHeadlines[2025].revenue,
+    );
+  });
+
+  it("says on the line where a reported headline figure came from", () => {
+    // The value is the reported one but the line is still synthetic, because it was not resolved
+    // through a reported line item. The rule id is what tells the two apart afterwards.
+    const generation = generateCompanyFinancials(
+      input({ fiscalYears: [2024], reportedHeadlineByFiscalYear: reachHeadlines }),
+    );
+    const line = lineFor(generation.packages[0], "OperatingIncomeTotal");
+
+    expect(line?.reportedFinancialLineItemId).toBeNull();
+    expect(line?.syntheticValue).toBe(reachHeadlines[2024].revenue);
+    expect(line?.derivationRuleId).toBe("calibration.reported-headline");
+  });
+
+  it("still lets a real anchor win over a headline figure", () => {
+    // The headline is the fallback for a figure that could not be anchored. Where a line item does
+    // exist, it is the anchor that binds — the headline never overrides it.
+    const generation = generateCompanyFinancials(
+      input({
+        fiscalYears: [2024],
+        reportedHeadlineByFiscalYear: {
+          2024: {
+            revenue: 2_717_702_000n,
+            operatingProfit: null,
+            netIncome: null,
+            equity: null,
+            assets: null,
+          },
+        },
+        anchorsByFiscalYear: { 2024: [anchor("OperatingIncomeTotal", 2_500_000_000n)] },
+      }),
+    );
+    const line = lineFor(generation.packages[0], "OperatingIncomeTotal");
+
+    expect(line?.reportedFinancialLineItemId).toBe("line-OperatingIncomeTotal");
+    expect(line?.syntheticValue).toBeNull();
+    expect(line?.resolvedValue).toBe(2_500_000_000n);
+  });
+});
+
+describe("FI-SIM generator soft reported constraints", () => {
+  it("does not read a reported revenue field as the whole operating income", () => {
+    // A company with modest sales and large other operating income reports a driftsresultat
+    // bigger than its salgsinntekt. Reading the first as OperatingIncomeTotal implies negative
+    // costs, which threw the company out of the demo entirely.
+    const generation = generateCompanyFinancials(
+      input({
+        fiscalYears: [2025],
+        reportedHeadlineByFiscalYear: {
+          2025: {
+            revenue: 100_000n,
+            operatingProfit: 4_000_000n,
+            netIncome: null,
+            equity: null,
+            assets: null,
+          },
+        },
+      }),
+    );
+
+    expect(generation.failures).toEqual([]);
+    const pkg = generation.packages[0];
+    expect(valueOf(pkg, "OperatingResult")).toBe(4_000_000n);
+    expect(valueOf(pkg, "OperatingIncomeTotal")).toBeGreaterThan(4_000_000n);
+    expect(valueOf(pkg, "OperatingExpenseTotal")).toBeGreaterThan(0n);
+    expect(validatePackages([pkg]).issues).toEqual([]);
+  });
+
+  it("lets a headline give way to another reported figure instead of failing the company", () => {
+    // 888 787 in equity against 888 532 in assets is a rounding artefact between two reported
+    // fields, not a contradiction worth removing a company from the demo for. Authority runs
+    // anchor > headline > assumption, so the softer figure moves.
+    const generation = generateCompanyFinancials(
+      input({
+        fiscalYears: [2025],
+        reportedHeadlineByFiscalYear: {
+          2025: {
+            revenue: 2_000_000n,
+            operatingProfit: 100_000n,
+            netIncome: null,
+            equity: 888_787n,
+            assets: 888_532n,
+          },
+        },
+      }),
+    );
+
+    expect(generation.failures).toEqual([]);
+    const pkg = generation.packages[0];
+    expect(valueOf(pkg, "AssetsTotal")).toBe(valueOf(pkg, "EquityAndLiabilitiesTotal"));
+    expect(validatePackages([pkg]).issues).toEqual([]);
+  });
+
+  it("still refuses when two line-level anchors genuinely contradict each other", () => {
+    // Softening applies to headlines only. An anchor is immutable, and two of them that cannot
+    // both be true is still a controlled failure rather than a quiet adjustment.
+    const generation = generateCompanyFinancials(
+      input({
+        fiscalYears: [2025],
+        anchorsByFiscalYear: {
+          2025: [
+            anchor("AssetsTotal", 1_000_000n),
+            anchor("EquityTotal", 5_000_000n),
+            anchor("AccumulatedResults", 4_000_000n),
+          ],
+        },
+      }),
+    );
+
+    expect(generation.packages).toEqual([]);
+    expect(generation.failures).toEqual([
+      expect.objectContaining({ code: "CONTRADICTORY_REPORTED_ANCHORS" }),
+    ]);
+  });
+});

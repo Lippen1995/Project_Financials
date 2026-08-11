@@ -90,6 +90,18 @@ export const FI_SIM_DERIVATION_RULES = {
    * invented outside the profile — which would be a bug.
    */
   reportedStructureFallback: "structure.child.reported-subtotal-fallback",
+  /**
+   * A synthetic line carrying a figure the company actually reported at statement level.
+   *
+   * The schema binds an anchor to a `FinancialLineItem`, so a reported statement with headline
+   * figures and no line items — the normal shape of anything ingested from an annual report — has
+   * nothing to anchor to. The value is still the reported one, and it is still marked synthetic,
+   * because provenance is about where a number came from and this one was not resolved through a
+   * reported line. Its own rule id says which of the two it is.
+   */
+  reportedHeadline: "calibration.reported-headline",
+  /** A figure grown from the nearest year the company has reported figures for. */
+  calibratedScale: "calibration.nearest-reported-year",
   residual: "residual.identity-difference",
 } as const;
 
@@ -129,6 +141,21 @@ export type FiSimCompanyInput = {
   currency: string;
   unitScale: number;
   anchorsByFiscalYear: Readonly<Record<number, readonly FiSimAnchor[]>>;
+  /**
+   * Reported headline figures per year, in whole units. They are not anchors — nothing in the
+   * schema lets a line reference them — but they are the company's real size, and generating a
+   * year without consulting them is how a group with 2,7 milliarder in reported revenue ends up
+   * simulated at 27 millioner the year before.
+   */
+  reportedHeadlineByFiscalYear?: Readonly<Record<number, FiSimReportedHeadlineInput>>;
+};
+
+export type FiSimReportedHeadlineInput = {
+  revenue: bigint | null;
+  operatingProfit: bigint | null;
+  netIncome: bigint | null;
+  equity: bigint | null;
+  assets: bigint | null;
 };
 
 export type FiSimGeneratedLine = {
@@ -448,6 +475,13 @@ function distributeChildren(params: {
   return 0n;
 }
 
+/** The nearest year the company reported figures for, used to keep an invented series continuous. */
+export type FiSimScaleReference = {
+  fiscalYear: number;
+  revenue: bigint;
+  assets: bigint | null;
+};
+
 function solveIncomeStatement(params: {
   fiscalYear: number;
   yearIndex: number;
@@ -456,6 +490,8 @@ function solveIncomeStatement(params: {
   companyStream: FiSimValueStream;
   yearStream: FiSimValueStream;
   anchors: ReadonlyMap<string, FiSimAnchor>;
+  headline: FiSimReportedHeadlineInput | null;
+  scaleReference: FiSimScaleReference | null;
   unitScale: number;
 }) {
   const { assumptions, yearStream, anchors, fiscalYear } = params;
@@ -474,33 +510,60 @@ function solveIncomeStatement(params: {
   // 1. Operating income. The base is drawn once per company so the series has a shape, and each
   //    later year compounds a growth rate drawn for that year.
   const anchoredIncome = anchorOf("OperatingIncomeTotal");
+  const headlineIncome = params.headline?.revenue ?? null;
   let operatingIncome: bigint;
+  let operatingIncomeRule: string = FI_SIM_DERIVATION_RULES.operatingIncome;
   if (anchoredIncome) {
     operatingIncome = anchoredIncome.value;
+  } else if (headlineIncome !== null) {
+    // The company reported this figure. It could not be anchored because the statement has no
+    // line items, but inventing a different number next to it would be worse than useless.
+    operatingIncome = headlineIncome;
+    operatingIncomeRule = FI_SIM_DERIVATION_RULES.reportedHeadline;
   } else {
-    const base = bandValue(
-      params.companyStream,
-      "base-operating-income",
-      assumptions.baseOperatingIncome,
-    );
     const growth = bandValue(
       yearStream,
       "operating-income-growth",
       assumptions.operatingIncomeGrowth,
     );
-    operatingIncome = fromRate(
-      fromNumber(base),
-      Math.pow(1 + growth, params.yearIndex),
-    );
+    if (params.scaleReference) {
+      // Grow from the nearest year the company actually reported, so the series is continuous
+      // instead of jumping two orders of magnitude between a reported year and its neighbour.
+      operatingIncome = fromRate(
+        params.scaleReference.revenue,
+        Math.pow(1 + growth, params.fiscalYear - params.scaleReference.fiscalYear),
+      );
+      operatingIncomeRule = FI_SIM_DERIVATION_RULES.calibratedScale;
+    } else {
+      const base = bandValue(
+        params.companyStream,
+        "base-operating-income",
+        assumptions.baseOperatingIncome,
+      );
+      operatingIncome = fromRate(fromNumber(base), Math.pow(1 + growth, params.yearIndex));
+    }
   }
 
   // 2. Operating result, then the expense total that the identity forces.
   const anchoredResult = anchorOf("OperatingResult");
-  let operatingResult = anchoredResult
-    ? anchoredResult.value
-    : operatingIncome === 0n
-      ? -fromNumber(bandValue(yearStream, "base-operating-expense", assumptions.baseOperatingExpense))
-      : fromRate(operatingIncome, bandValue(yearStream, "operating-margin", assumptions.operatingMargin));
+  const headlineResult = params.headline?.operatingProfit ?? null;
+  let operatingResultRule: string = FI_SIM_DERIVATION_RULES.operatingResult;
+  let operatingResult: bigint;
+  if (anchoredResult) {
+    operatingResult = anchoredResult.value;
+  } else if (headlineResult !== null) {
+    operatingResult = headlineResult;
+    operatingResultRule = FI_SIM_DERIVATION_RULES.reportedHeadline;
+  } else if (operatingIncome === 0n) {
+    operatingResult = -fromNumber(
+      bandValue(yearStream, "base-operating-expense", assumptions.baseOperatingExpense),
+    );
+  } else {
+    operatingResult = fromRate(
+      operatingIncome,
+      bandValue(yearStream, "operating-margin", assumptions.operatingMargin),
+    );
+  }
 
   const anchoredExpense = anchorOf("OperatingExpenseTotal");
   let operatingExpense: bigint;
@@ -518,6 +581,19 @@ function solveIncomeStatement(params: {
     }
   } else {
     operatingExpense = operatingIncome - operatingResult;
+  }
+
+  // A reported `revenue` field is not always the whole operating income: a company with modest
+  // sales and large other operating income reports a driftsresultat larger than its salgsinntekt,
+  // and reading the first as `OperatingIncomeTotal` then implies negative costs. When that
+  // happens the headline is simply the wrong figure for this concept, so it stops being used —
+  // the operating result keeps its reported value and the income total is solved above it.
+  if (operatingExpense < 0n && !anchoredIncome && !anchoredExpense) {
+    operatingExpense = fromNumber(
+      bandValue(yearStream, "base-operating-expense", assumptions.baseOperatingExpense),
+    );
+    operatingIncome = operatingResult + operatingExpense;
+    operatingIncomeRule = FI_SIM_DERIVATION_RULES.operatingIncome;
   }
   if (operatingExpense < 0n) {
     throw new FiSimGenerationError(
@@ -596,6 +672,10 @@ function solveIncomeStatement(params: {
   } else if (anchoredProfit) {
     profitForPeriod = anchoredProfit.value;
     taxExpense = profitBeforeTax - profitForPeriod;
+  } else if (params.headline?.netIncome != null) {
+    // The reported result for the period settles the tax line, exactly as an anchored one would.
+    profitForPeriod = params.headline.netIncome;
+    taxExpense = profitBeforeTax - profitForPeriod;
   } else {
     taxExpense = profitBeforeTax > 0n ? fromRate(profitBeforeTax, assumptions.taxRate) : 0n;
     profitForPeriod = profitBeforeTax - taxExpense;
@@ -607,9 +687,9 @@ function solveIncomeStatement(params: {
     if (anchor) solution.bind(conceptKey, anchor);
     else solution.set(conceptKey, value, rule);
   };
-  setTotal("OperatingIncomeTotal", operatingIncome, FI_SIM_DERIVATION_RULES.operatingIncome);
+  setTotal("OperatingIncomeTotal", operatingIncome, operatingIncomeRule);
   setTotal("OperatingExpenseTotal", operatingExpense, FI_SIM_DERIVATION_RULES.operatingExpenseTotal);
-  setTotal("OperatingResult", operatingResult, FI_SIM_DERIVATION_RULES.operatingResult);
+  setTotal("OperatingResult", operatingResult, operatingResultRule);
   setTotal("NetFinancialResult", netFinancial, FI_SIM_DERIVATION_RULES.netFinancialResult);
   setTotal("ProfitBeforeTax", profitBeforeTax, FI_SIM_DERIVATION_RULES.profitBeforeTax);
   setTotal("TaxExpense", taxExpense, FI_SIM_DERIVATION_RULES.taxExpense);
@@ -724,6 +804,8 @@ function solveBalanceSheet(params: {
   companyStream: FiSimValueStream;
   yearStream: FiSimValueStream;
   anchors: ReadonlyMap<string, FiSimAnchor>;
+  headline: FiSimReportedHeadlineInput | null;
+  scaleReference: FiSimScaleReference | null;
   unitScale: number;
   operatingIncome: bigint;
   profitForPeriod: bigint;
@@ -744,14 +826,34 @@ function solveBalanceSheet(params: {
 
   // 1. Total assets.
   const anchoredAssets = anchorOf("AssetsTotal");
-  let assetsTotal = anchoredAssets
-    ? anchoredAssets.value
-    : params.operatingIncome === 0n
-      ? fromNumber(bandValue(params.companyStream, "base-assets", assumptions.baseAssets))
-      : fromRate(
-          params.operatingIncome,
-          1 / bandValue(yearStream, "asset-turnover", assumptions.assetTurnover),
-        );
+  const headlineAssets = params.headline?.assets ?? null;
+  let assetsRule: string = FI_SIM_DERIVATION_RULES.assets;
+  let assetsTotal: bigint;
+  if (anchoredAssets) {
+    assetsTotal = anchoredAssets.value;
+  } else if (headlineAssets !== null) {
+    assetsTotal = headlineAssets;
+    assetsRule = FI_SIM_DERIVATION_RULES.reportedHeadline;
+  } else if (params.scaleReference?.assets != null) {
+    // The company's own reported balance sheet from a nearby year, scaled by how much activity
+    // moved. An industry turnover ratio is a poor substitute whenever this exists, and a terrible
+    // one for a parent company: Reach Subsea ASA carries 880 millioner in assets against 26
+    // millioner of revenue, so sizing its balance sheet from turnover understates it a hundredfold.
+    const reference = params.scaleReference;
+    const referenceAssets = reference.assets as bigint;
+    assetsTotal =
+      reference.revenue > 0n && params.operatingIncome > 0n
+        ? (referenceAssets * params.operatingIncome) / reference.revenue
+        : referenceAssets;
+    assetsRule = FI_SIM_DERIVATION_RULES.calibratedScale;
+  } else if (params.operatingIncome !== 0n) {
+    assetsTotal = fromRate(
+      params.operatingIncome,
+      1 / bandValue(yearStream, "asset-turnover", assumptions.assetTurnover),
+    );
+  } else {
+    assetsTotal = fromNumber(bandValue(params.companyStream, "base-assets", assumptions.baseAssets));
+  }
 
   // 2. Equity, through the multi-year bridge of spec section 9.4.
   const anchoredShareCapital = anchorOf("ShareCapital");
@@ -763,12 +865,21 @@ function solveBalanceSheet(params: {
   // Inventing a share capital alongside them is what makes two perfectly consistent reported
   // figures look like they contradict each other — a company with accumulated losses larger than
   // its equity is ordinary, and its share capital is exactly the difference.
+  // Reported equity settles the equity block whether it arrived as an anchor or as a headline
+  // figure the schema had nothing to bind to. The only difference is which rule id the resulting
+  // line carries.
+  const targetEquity: { value: bigint; rule: string } | null = anchoredEquity
+    ? { value: anchoredEquity.value, rule: FI_SIM_DERIVATION_RULES.equityTotal }
+    : params.headline?.equity != null
+      ? { value: params.headline.equity, rule: FI_SIM_DERIVATION_RULES.reportedHeadline }
+      : null;
+
   let paidInPremium = anchoredPremium ? anchoredPremium.value : null;
   let shareCapital: bigint;
   if (anchoredShareCapital) {
     shareCapital = anchoredShareCapital.value;
-  } else if (anchoredEquity && anchoredAccumulated) {
-    const solved = anchoredEquity.value - (paidInPremium ?? 0n) - anchoredAccumulated.value;
+  } else if (targetEquity && anchoredAccumulated) {
+    const solved = targetEquity.value - (paidInPremium ?? 0n) - anchoredAccumulated.value;
     // A negative registered capital is not a thing. When the reported figures imply one, the
     // difference belongs on a residual line where a reader can see it.
     shareCapital = solved < 0n ? 0n : solved;
@@ -805,12 +916,12 @@ function solveBalanceSheet(params: {
   let accumulatedResults = anchoredAccumulated ? anchoredAccumulated.value : bridgedAccumulated;
   let equityTotal = shareCapital + (paidInPremium ?? 0n) + accumulatedResults;
 
-  if (anchoredEquity) {
-    const difference = anchoredEquity.value - equityTotal;
+  if (targetEquity) {
+    const difference = targetEquity.value - equityTotal;
     if (anchoredAccumulated) {
       solution.recordResidual({
         identityId: "EquityTotal",
-        parentTotal: anchoredEquity.value,
+        parentTotal: targetEquity.value,
         difference,
         code: "CONTRADICTORY_REPORTED_ANCHORS",
       });
@@ -819,19 +930,38 @@ function solveBalanceSheet(params: {
       // constraint, so the bridge absorbs the difference instead of the anchor being moved.
       accumulatedResults += difference;
     }
-    equityTotal = anchoredEquity.value;
+    equityTotal = targetEquity.value;
   }
   // Retained profits compound; an assumed asset turnover does not. Left alone, a fifth-year
   // company would need negative liabilities to balance. Whichever side is not a reported anchor
   // gives way, and if both are anchored the two reported figures genuinely contradict each other.
+  //
+  // Authority runs anchor > headline > assumption. An anchor is immutable; a headline is a
+  // reported figure that could not be bound to a line and may be a few kroner out against
+  // another reported field on the same statement — 888 787 in equity against 888 532 in assets is
+  // a rounding artefact, not a contradiction worth throwing a company out of the demo for. So a
+  // headline gives way to an anchor, and the difference becomes a residual a reader can see.
   if (equityTotal > assetsTotal) {
     const headroom = bandValue(yearStream, "liability-headroom", assumptions.liabilityHeadroom);
-    if (!anchoredAssets) {
+    const assetsAreAnchored = Boolean(anchoredAssets);
+    const equityIsAnchored = Boolean(anchoredEquity) || Boolean(anchoredAccumulated);
+    const assetsAreReported = assetsAreAnchored || headlineAssets !== null;
+    if (!assetsAreReported) {
       assetsTotal = equityTotal + fromRate(absoluteValue(equityTotal), headroom);
-    } else if (!anchoredEquity && !anchoredAccumulated) {
+    } else if (!targetEquity && !anchoredAccumulated) {
       const target = assetsTotal - fromRate(absoluteValue(assetsTotal), headroom);
       accumulatedResults += target - equityTotal;
       equityTotal = target;
+    } else if (!assetsAreAnchored && equityIsAnchored) {
+      // Anchored equity wins over a headline balance-sheet total. No residual: the soft side gave
+      // way completely, so every identity still holds exactly. What changed is that the published
+      // assets figure is no longer the reported headline, and its derivation rule says so.
+      assetsTotal = equityTotal;
+      assetsRule = FI_SIM_DERIVATION_RULES.assets;
+    } else if (!equityIsAnchored) {
+      // Both are headlines, or the assets are anchored: the equity side is the softer one.
+      accumulatedResults += assetsTotal - equityTotal;
+      equityTotal = assetsTotal;
     } else {
       throw new FiSimGenerationError(
         "CONTRADICTORY_REPORTED_ANCHORS",
@@ -926,7 +1056,7 @@ function solveBalanceSheet(params: {
   };
   setTotal("NoncurrentAssetsTotal", noncurrentAssets, FI_SIM_DERIVATION_RULES.assetSubtotal);
   setTotal("CurrentAssetsTotal", currentAssets, FI_SIM_DERIVATION_RULES.assetSubtotal);
-  setTotal("AssetsTotal", assetsTotal, FI_SIM_DERIVATION_RULES.assets);
+  setTotal("AssetsTotal", assetsTotal, assetsRule);
   setTotal("ShareCapital", shareCapital, FI_SIM_DERIVATION_RULES.shareCapital);
   if (paidInPremium !== null) {
     setTotal("PaidInPremium", paidInPremium, FI_SIM_DERIVATION_RULES.paidInPremium);
@@ -1161,6 +1291,34 @@ export function generateCompanyFinancials(
   const assumptions = FI_SIM_ASSUMPTIONS[selection.profile];
   const companyStream = createValueStream(seed);
   const orderedYears = [...new Set(input.fiscalYears)].sort((left, right) => left - right);
+  const headlines = input.reportedHeadlineByFiscalYear ?? {};
+  const headlineFor = (fiscalYear: number) => headlines[fiscalYear] ?? null;
+
+  /**
+   * The nearest year with a reported revenue, for sizing a year that has none.
+   *
+   * Nearest rather than latest, and by absolute distance, because a company's size is better
+   * predicted by the year next door than by the newest one on file. Ties go to the earlier year
+   * so the choice does not depend on iteration order.
+   */
+  const scaleReferenceFor = (fiscalYear: number): FiSimScaleReference | null => {
+    const candidates = Object.entries(headlines)
+      .map(([year, headline]) => ({ fiscalYear: Number(year), headline }))
+      .filter((entry) => entry.headline.revenue !== null && entry.fiscalYear !== fiscalYear)
+      .sort(
+        (left, right) =>
+          Math.abs(left.fiscalYear - fiscalYear) - Math.abs(right.fiscalYear - fiscalYear) ||
+          left.fiscalYear - right.fiscalYear,
+      );
+    const nearest = candidates[0];
+    if (!nearest) return null;
+    return {
+      fiscalYear: nearest.fiscalYear,
+      revenue: nearest.headline.revenue!,
+      assets: nearest.headline.assets,
+    };
+  };
+
   let openingAccumulatedResults: bigint | null = null;
 
   for (const fiscalYear of orderedYears) {
@@ -1206,6 +1364,8 @@ export function generateCompanyFinancials(
         companyStream,
         yearStream,
         anchors,
+        headline: headlineFor(fiscalYear),
+        scaleReference: scaleReferenceFor(fiscalYear),
         unitScale: input.unitScale,
       });
       const balance = solveBalanceSheet({
@@ -1215,6 +1375,8 @@ export function generateCompanyFinancials(
         companyStream,
         yearStream,
         anchors,
+        headline: headlineFor(fiscalYear),
+        scaleReference: scaleReferenceFor(fiscalYear),
         unitScale: input.unitScale,
         operatingIncome: income.solution.values.get("OperatingIncomeTotal")?.value ?? 0n,
         profitForPeriod: income.profitForPeriod,
