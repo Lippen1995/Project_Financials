@@ -2,6 +2,11 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import {
+  companyMapEntityPredicate,
+  companyMapFinancialRangePredicate,
+  type CompanyMapFilterSelection,
+} from "@/server/company-map/company-map-filters";
 import { financialRuntimePrisma } from "@/server/financials/financial-runtime-client";
 import {
   parseLatestReportedCompanyMetricsSnapshot,
@@ -133,16 +138,20 @@ export type CompanyMapMetricKey =
   | "totalAssets"
   | "employees";
 
-export type CompanyMapFinancialQuery = {
+export type CompanyMapFinancialQuery = CompanyMapFilterSelection & {
   buildId: string;
-  organisationForms: string[] | null;
-  companyStatuses: Array<"ACTIVE" | "DISSOLVED" | "BANKRUPT">;
   statementScope: "COMPANY" | "CONSOLIDATED";
   currency: string;
 };
 
 export type CompanyMapFinancialRankingQuery = CompanyMapFinancialQuery & {
   officialAddressId: string | null;
+  viewport: {
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+  } | null;
   limit: number;
   offset: number;
 };
@@ -523,25 +532,59 @@ function companyMapPublishedFinancialsCte(
   `;
 }
 
+const ENTITY_ALIAS = Prisma.raw("entity");
+const FINANCIAL_ALIAS = Prisma.raw("financial");
+const RANGE_ALIAS = Prisma.raw("range_financial");
+
+/**
+ * Counting entities under a financial range means asking whether a published statement for the
+ * selected scope satisfies it. An entity with no such statement is out of scope, which is what
+ * "revenue between X and Y" has to mean for a register that does not publish every account.
+ */
+function companyMapRangeExistsFilter(query: CompanyMapFinancialQuery) {
+  const rangePredicate = companyMapFinancialRangePredicate({
+    alias: RANGE_ALIAS,
+    filters: query,
+  });
+  if (!rangePredicate) return Prisma.empty;
+  return Prisma.sql`
+    AND EXISTS (
+      SELECT 1
+      FROM latest_financials ${RANGE_ALIAS}
+      WHERE ${RANGE_ALIAS}."orgNumber" = entity."orgNumber"
+        AND ${rangePredicate}
+    )
+  `;
+}
+
 function companyMapEntityFilters(query: CompanyMapFinancialQuery) {
-  const organisationForms = query.organisationForms
-    ? Prisma.sql`entity."organisationForm" IN (${Prisma.join(query.organisationForms)})`
-    : Prisma.sql`TRUE`;
   return Prisma.sql`
     entity."buildId" = ${query.buildId}::uuid
-    AND ${organisationForms}
-    AND entity."companyStatus"::text IN (${Prisma.join(query.companyStatuses)})
+    AND ${companyMapEntityPredicate({ alias: ENTITY_ALIAS, filters: query })}
+    ${companyMapRangeExistsFilter(query)}
   `;
 }
 
 function companyMapFinancialFilters(query: CompanyMapFinancialQuery) {
-  const organisationForms = query.organisationForms
-    ? Prisma.sql`financial."organisationForm" IN (${Prisma.join(query.organisationForms)})`
-    : Prisma.sql`TRUE`;
+  const rangePredicate = companyMapFinancialRangePredicate({
+    alias: FINANCIAL_ALIAS,
+    filters: query,
+  });
   return Prisma.sql`
     financial."buildId" = ${query.buildId}::uuid
-    AND ${organisationForms}
-    AND financial."companyStatus"::text IN (${Prisma.join(query.companyStatuses)})
+    AND ${companyMapEntityPredicate({ alias: FINANCIAL_ALIAS, filters: query })}
+    ${rangePredicate ? Prisma.sql`AND ${rangePredicate}` : Prisma.empty}
+  `;
+}
+
+function companyMapViewportFilter(
+  alias: Prisma.Sql,
+  viewport: CompanyMapFinancialRankingQuery["viewport"],
+) {
+  if (!viewport) return Prisma.empty;
+  return Prisma.sql`
+    AND ${alias}."latitude" BETWEEN ${viewport.south} AND ${viewport.north}
+    AND ${alias}."longitude" BETWEEN ${viewport.west} AND ${viewport.east}
   `;
 }
 
@@ -965,12 +1008,24 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
         const ctes = companyMapPublishedFinancialsCte(query);
         const filters = companyMapEntityFilters(query);
         const financialFilters = companyMapFinancialFilters(query);
-        const entityAddressFilter = query.officialAddressId
-          ? Prisma.sql`AND entity."officialAddressId" = ${query.officialAddressId}`
-          : Prisma.empty;
-        const financialAddressFilter = query.officialAddressId
-          ? Prisma.sql`AND financial."officialAddressId" = ${query.officialAddressId}`
-          : Prisma.empty;
+        // Address selection and map viewport narrow the same ranked list, so both halves of the
+        // query carry them together rather than one being applied to the rows but not the count.
+        const entityAddressFilter = Prisma.sql`
+          ${
+            query.officialAddressId
+              ? Prisma.sql`AND entity."officialAddressId" = ${query.officialAddressId}`
+              : Prisma.empty
+          }
+          ${companyMapViewportFilter(ENTITY_ALIAS, query.viewport)}
+        `;
+        const financialAddressFilter = Prisma.sql`
+          ${
+            query.officialAddressId
+              ? Prisma.sql`AND financial."officialAddressId" = ${query.officialAddressId}`
+              : Prisma.empty
+          }
+          ${companyMapViewportFilter(FINANCIAL_ALIAS, query.viewport)}
+        `;
         const [financialDatasetVersion, [counts], rows] = await Promise.all([
           readCompanyMapBuildFinancialVersion(transaction, query.buildId),
           transaction.$queryRaw<
@@ -1155,6 +1210,7 @@ const prismaLiveFinancialsDataSource: LiveFinancialsDataSource = {
         const coverageQuery =
           query.metric === "employees"
             ? Prisma.sql`
+                WITH ${companyMapPublishedFinancialsCte(query)}
                 SELECT
                   count(entity."employeeCount")::bigint AS "withMetric",
                   count(entity."employeeCount") FILTER (

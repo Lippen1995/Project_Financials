@@ -6,6 +6,14 @@ export type GlobalNavItem = {
   icon: string;
 };
 
+export type GlobalNavMenuCategoryId = "explore" | "analysis";
+
+export type GlobalNavMenuCategory = {
+  id: GlobalNavMenuCategoryId;
+  label: string;
+  items: GlobalNavItem[];
+};
+
 export function isGlobalNavItemActive(item: GlobalNavItem, pathname: string) {
   if (item.href === "/") {
     return pathname === "/";
@@ -35,4 +43,35 @@ export function buildGlobalNavItems(user?: { appRole?: string | null } | null): 
   }
 
   return items;
+}
+
+export function buildGlobalNavMenuCategories(
+  items: GlobalNavItem[],
+): GlobalNavMenuCategory[] {
+  const itemsByHref = new Map(items.map((item) => [item.href, item]));
+
+  const pick = (href: string, label?: string) => {
+    const item = itemsByHref.get(href);
+    return item ? { ...item, label: label ?? item.label } : null;
+  };
+
+  return [
+    {
+      id: "explore",
+      label: "Utforsk",
+      items: [
+        pick("/company-map"),
+        pick("/people"),
+        pick("/watchlist"),
+        pick("/market/distress"),
+      ].filter((item): item is GlobalNavItem => item !== null),
+    },
+    {
+      id: "analysis",
+      label: "Analyse",
+      items: [pick("/analyses", "Analyse"), pick("/market/oil-gas", "Olje og gass")].filter(
+        (item): item is GlobalNavItem => item !== null,
+      ),
+    },
+  ];
 }

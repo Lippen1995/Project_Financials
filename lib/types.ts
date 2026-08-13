@@ -227,6 +227,13 @@ export type NormalizedAnnouncementDetail = SourceMetadata & {
   contentHtml: string;
 };
 
+/** One historic company name with the period Brønnøysund registered it for. */
+export type NormalizedPreviousName = {
+  name: string;
+  fromDate: Date | null;
+  toDate: Date | null;
+};
+
 export type NormalizedCompany = SourceMetadata & {
   orgNumber: string;
   name: string;
@@ -245,6 +252,22 @@ export type NormalizedCompany = SourceMetadata & {
   shareCount?: number | null;
   lastSubmittedAnnualReportYear?: number | null;
   announcementsUrl?: string | null;
+  /** Registered purpose from the articles of association (vedtektsfestet formål). */
+  statutoryPurpose?: string | null;
+  /** Registered activity — only worth showing separately when it differs from the purpose. */
+  activityDescription?: string | null;
+  statutesDate?: Date | null;
+  languageForm?: string | null;
+  institutionalSectorCode?: string | null;
+  institutionalSectorDescription?: string | null;
+  registeredInBusinessRegister?: boolean | null;
+  businessRegisterRegisteredAt?: Date | null;
+  capitalType?: string | null;
+  shareCapitalRegisteredAt?: Date | null;
+  /** Oldest first, as Brreg orders historiskeNavn. */
+  previousNames?: NormalizedPreviousName[];
+  /** Set when a search hit came from a former name rather than the current one. */
+  matchedPreviousName?: string | null;
   addresses: NormalizedAddress[];
   industryCode?: NormalizedIndustryCode | null;
   roles?: NormalizedRole[];

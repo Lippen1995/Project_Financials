@@ -11,6 +11,12 @@ export type BrregAddress = {
   landkode?: string;
 };
 
+export type BrregHistoricName = {
+  navn?: string;
+  fraDato?: string;
+  tilDato?: string;
+};
+
 export type BrregRegistryEntity = {
   organisasjonsnummer?: string;
   navn?: string;
@@ -27,6 +33,30 @@ export type BrregRegistryEntity = {
   underAvvikling?: boolean;
   underTvangsavviklingEllerTvangsopplosning?: boolean;
   slettedato?: string;
+  historiskeNavn?: BrregHistoricName[];
+  stiftelsesdato?: string;
+  vedtektsdato?: string;
+  vedtektsfestetFormaal?: string[];
+  aktivitet?: string[];
+  maalform?: string;
+  registrertIMvaregisteret?: boolean;
+  registrertIForetaksregisteret?: boolean;
+  registreringsdatoForetaksregisteret?: string;
+  sisteInnsendteAarsregnskap?: string | number;
+  kapital?: {
+    belop?: number | string;
+    antallAksjer?: number | string;
+    type?: string;
+    valuta?: string;
+    innfortDato?: string;
+  };
+};
+
+/** A single historic company name with the period Brreg registered it for. */
+export type RegistryPreviousName = {
+  name: string;
+  fromDate: string | null;
+  toDate: string | null;
 };
 
 function deriveStatus(entity: BrregRegistryEntity): CompanyStatus {
@@ -45,6 +75,109 @@ function toDate(value?: string): Date | null {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function toNumber(value?: number | string | null): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toBigInt(value?: number | string | null): bigint | null {
+  const parsed = toNumber(value);
+  return parsed === null ? null : BigInt(Math.round(parsed));
+}
+
+/**
+ * Brreg wraps free text at ~70 characters and ships one array element per line, so the
+ * elements have to be re-joined to read as the sentence the articles of association state.
+ */
+function joinTextLines(lines?: string[]): string | null {
+  if (!Array.isArray(lines)) return null;
+  const joined = lines
+    .filter((line): line is string => typeof line === "string")
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return joined === "" ? null : joined;
+}
+
+/** Brreg stamps historic names as "1996-01-22 21:03:00"; normalize to a parseable ISO shape. */
+function toTimestampText(value?: string): string | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  return value.trim().replace(" ", "T");
+}
+
+/** One row per name the entity has carried, for the flattened name index. */
+export type RegistryNameRow = {
+  orgNumber: string;
+  name: string;
+  normalizedName: string;
+  isCurrent: boolean;
+  fromDate: Date | null;
+  toDate: Date | null;
+};
+
+export function normalizeEntityName(value: string) {
+  return value.trim().toUpperCase();
+}
+
+/**
+ * Flattens the entity's current and historic names. Adjacent duplicates are kept here — the
+ * index answers "who carried this name", and collapsing periods is a presentation concern.
+ */
+export function mapBrregEntityNames(entity: BrregRegistryEntity): RegistryNameRow[] {
+  const orgNumber = entity.organisasjonsnummer;
+  if (!orgNumber) {
+    return [];
+  }
+
+  const rows: RegistryNameRow[] = [];
+  const currentName = entity.navn?.trim();
+  const previousNames = mapBrregPreviousNames(entity) ?? [];
+
+  if (currentName) {
+    rows.push({
+      orgNumber,
+      name: currentName,
+      normalizedName: normalizeEntityName(currentName),
+      isCurrent: true,
+      fromDate: toDate(previousNames.at(-1)?.toDate ?? undefined),
+      toDate: null,
+    });
+  }
+
+  for (const previous of previousNames) {
+    rows.push({
+      orgNumber,
+      name: previous.name,
+      normalizedName: normalizeEntityName(previous.name),
+      isCurrent: false,
+      fromDate: toDate(previous.fromDate ?? undefined),
+      toDate: toDate(previous.toDate ?? undefined),
+    });
+  }
+
+  return rows;
+}
+
+export function mapBrregPreviousNames(entity: BrregRegistryEntity): RegistryPreviousName[] | null {
+  if (!Array.isArray(entity.historiskeNavn) || entity.historiskeNavn.length === 0) {
+    return null;
+  }
+
+  const names = entity.historiskeNavn
+    .filter((entry): entry is BrregHistoricName => Boolean(entry) && typeof entry.navn === "string")
+    .map((entry) => ({
+      name: entry.navn!.trim(),
+      fromDate: toTimestampText(entry.fraDato),
+      toDate: toTimestampText(entry.tilDato),
+    }))
+    .filter((entry) => entry.name !== "");
+
+  return names.length > 0 ? names : null;
 }
 
 export function mapBrregRegistryEntity(entity: BrregRegistryEntity) {
@@ -72,6 +205,22 @@ export function mapBrregRegistryEntity(entity: BrregRegistryEntity) {
     status: deriveStatus(entity),
     employeeCount: typeof entity.antallAnsatte === "number" ? entity.antallAnsatte : null,
     registeredAt: toDate(entity.registreringsdatoEnhetsregisteret),
+    foundedAt: toDate(entity.stiftelsesdato),
+    statutesDate: toDate(entity.vedtektsdato),
+    statutoryPurpose: joinTextLines(entity.vedtektsfestetFormaal),
+    activityDescription: joinTextLines(entity.aktivitet),
+    languageForm: entity.maalform ?? null,
+    vatRegistered: typeof entity.registrertIMvaregisteret === "boolean" ? entity.registrertIMvaregisteret : null,
+    registeredInBusinessRegister:
+      typeof entity.registrertIForetaksregisteret === "boolean" ? entity.registrertIForetaksregisteret : null,
+    businessRegisterRegisteredAt: toDate(entity.registreringsdatoForetaksregisteret),
+    lastSubmittedAnnualReportYear: toNumber(entity.sisteInnsendteAarsregnskap),
+    capitalType: entity.kapital?.type ?? null,
+    shareCapital: toNumber(entity.kapital?.belop),
+    shareCapitalCurrency: entity.kapital?.valuta ?? null,
+    shareCount: toBigInt(entity.kapital?.antallAksjer),
+    shareCapitalRegisteredAt: toDate(entity.kapital?.innfortDato),
+    previousNames: mapBrregPreviousNames(entity),
     website: entity.hjemmeside ?? null,
     addressStreet,
     postalCode: displayAddress.postnummer ?? null,

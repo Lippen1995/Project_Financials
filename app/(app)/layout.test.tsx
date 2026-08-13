@@ -68,4 +68,29 @@ describe("app layout navigation", () => {
     expect(html).not.toContain(">Konto<");
     expect(html).not.toContain(">Logg ut<");
   });
+
+  it("keeps search in the top bar and moves product navigation into one menu", async () => {
+    authMocks.safeAuth.mockResolvedValue({
+      user: {
+        id: "user-1",
+        name: "User Example",
+        email: "user@example.com",
+        appRole: "USER",
+      },
+    });
+
+    const layoutModule = await import("@/app/(app)/layout");
+    const html = renderToStaticMarkup(
+      await layoutModule.default({ children: <div>child</div> }),
+    );
+
+    expect(html).toContain(">Søk<");
+    expect(html).toContain('aria-label="Åpne hovedmeny"');
+    expect(html).not.toContain('href="/company-map"');
+    expect(html).not.toContain('href="/people"');
+    expect(html).not.toContain('href="/watchlist"');
+    expect(html).not.toContain('href="/market/distress"');
+    expect(html).not.toContain('href="/analyses"');
+    expect(html).not.toContain('href="/market/oil-gas"');
+  });
 });

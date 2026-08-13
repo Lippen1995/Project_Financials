@@ -1,11 +1,18 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import type {
-  CompanyMapCompaniesQuery,
-  CompanyMapCoverageQuery,
-  CompanyMapViewportQuery,
+import {
+  collectCompanyMapRanges,
+  type CompanyMapCompaniesQuery,
+  type CompanyMapCoverageQuery,
+  type CompanyMapRangeQuery,
+  type CompanyMapViewportQuery,
 } from "@/lib/company-map";
+import {
+  companyMapEntityPredicate,
+  companyMapFinancialRangePredicate,
+  type CompanyMapFilterSelection,
+} from "@/server/company-map/company-map-filters";
 import type { CompanyMapAddressResolutionStatus } from "@/server/company-map/address-resolution";
 import { formatCompanyMapGroupLabel } from "@/server/company-map/company-list";
 import { COMPANY_MAP_FINANCIAL_PROJECTION_VERSION } from "@/server/company-map/financial-projection";
@@ -43,18 +50,68 @@ async function requireActiveCompanyMapFinancials<T>(read: () => Promise<T>) {
   }
 }
 
-function filterExpression(
-  query: Pick<
+const ENTITY_ALIAS = Prisma.raw("entity");
+const RANGE_ALIAS = Prisma.raw("range_financial");
+
+type CompanyMapQueryFilters = CompanyMapRangeQuery &
+  Pick<
     CompanyMapCoverageQuery,
-    "organisationForms" | "companyStatuses"
-  >,
+    | "organisationForms"
+    | "companyStatuses"
+    | "search"
+    | "counties"
+    | "onlyGroupMembers"
+    | "requirePublishedFinancials"
+    | "statementScope"
+    | "currency"
+  >;
+
+/**
+ * The coverage and viewport queries read the entity snapshot directly, so a financial range has to
+ * be answered by a matching published statement rather than a column on the row in hand. The
+ * dataset version is pinned to the publication the caller already validated.
+ */
+function filterSelection(
+  query: CompanyMapQueryFilters,
+): CompanyMapFilterSelection {
+  return {
+    organisationForms: query.organisationForms,
+    companyStatuses: query.companyStatuses,
+    search: query.search,
+    counties: query.counties,
+    onlyGroupMembers: query.onlyGroupMembers,
+    requirePublishedFinancials: query.requirePublishedFinancials,
+    ranges: collectCompanyMapRanges(query),
+  };
+}
+
+function filterExpression(
+  query: CompanyMapQueryFilters,
+  build: { buildId: string; financialDatasetVersion: string },
 ): Prisma.Sql {
-  const organisationFormFilter = query.organisationForms
-    ? Prisma.sql`entity."organisationForm" IN (${Prisma.join(query.organisationForms)})`
-    : Prisma.sql`TRUE`;
+  const filters = filterSelection(query);
+  const rangePredicate = companyMapFinancialRangePredicate({
+    alias: RANGE_ALIAS,
+    filters,
+  });
+  const rangeFilter = rangePredicate
+    ? Prisma.sql`
+        AND EXISTS (
+          SELECT 1
+          FROM "CompanyMapFinancialSnapshot" ${RANGE_ALIAS}
+          WHERE ${RANGE_ALIAS}."buildId" = ${build.buildId}::uuid
+            AND ${RANGE_ALIAS}."orgNumber" = entity."orgNumber"
+            AND ${RANGE_ALIAS}."statementScope" = ${query.statementScope}::"StatementScope"
+            AND ${RANGE_ALIAS}."currency" = ${query.currency}
+            AND ${RANGE_ALIAS}."valueOrigin" = 'reported'
+            AND ${RANGE_ALIAS}."financialDatasetVersion" = ${build.financialDatasetVersion}
+            AND ${rangePredicate}
+        )
+      `
+    : Prisma.empty;
   return Prisma.sql`
-    ${organisationFormFilter}
-    AND entity."companyStatus"::text IN (${Prisma.join(query.companyStatuses)})
+    ${companyMapEntityPredicate({ alias: ENTITY_ALIAS, filters })}
+    ${rangeFilter}
   `;
 }
 
@@ -72,6 +129,46 @@ type CompanyMapAddressRow = {
   longitude: number;
   companyCount: bigint;
 };
+
+export function buildCompanyMapClusterQuery({
+  buildId,
+  filters,
+  viewport,
+  cellSize,
+  rowLimit,
+}: {
+  buildId: string;
+  filters: Prisma.Sql;
+  viewport: Pick<
+    CompanyMapViewportQuery,
+    "south" | "north" | "west" | "east"
+  >;
+  cellSize: number;
+  rowLimit: number;
+}) {
+  return Prisma.sql`
+    SELECT
+      concat(
+        'grid:',
+        floor(entity."latitude"::double precision / ${cellSize}),
+        ':',
+        floor(entity."longitude"::double precision / ${cellSize})
+      ) AS "id",
+      avg(entity."latitude"::double precision) AS "latitude",
+      avg(entity."longitude"::double precision) AS "longitude",
+      count(*)::bigint AS "companyCount",
+      count(DISTINCT entity."officialAddressId")::bigint AS "addressCount"
+    FROM "CompanyMapEntitySnapshot" entity
+    WHERE entity."buildId" = ${buildId}::uuid
+      AND entity."resolutionStatus" = 'MATCHED'
+      AND entity."latitude" BETWEEN ${viewport.south} AND ${viewport.north}
+      AND entity."longitude" BETWEEN ${viewport.west} AND ${viewport.east}
+      AND ${filters}
+    GROUP BY 1
+    ORDER BY count(*) DESC, "id" ASC
+    LIMIT ${rowLimit}
+  `;
+}
 
 async function getPublication() {
   const publication = await prisma.companyMapPublication.findUnique({
@@ -136,7 +233,10 @@ export async function getPublishedCompanyMapCoverage(
   query: CompanyMapCoverageQuery,
 ) {
   const { publication, financialPublication } = await getPublication();
-  const filters = filterExpression(query);
+  const filters = filterExpression(query, {
+    buildId: publication.buildId,
+    financialDatasetVersion: publication.build.financialDatasetVersion,
+  });
   const [totals] = await prisma.$queryRaw<
     Array<{ eligible: bigint; plotted: bigint }>
   >(
@@ -167,8 +267,7 @@ export async function getPublishedCompanyMapCoverage(
   const metricCoverage = await requireActiveCompanyMapFinancials(() =>
     financialsRepository.getCompanyMapMetricCoverage({
       buildId: publication.buildId,
-      organisationForms: query.organisationForms,
-      companyStatuses: query.companyStatuses,
+      ...filterSelection(query),
       statementScope: query.statementScope,
       currency: query.currency,
       metric: query.metric,
@@ -246,11 +345,22 @@ export async function getPublishedCompanyMapCompanies(
   const ranking = await requireActiveCompanyMapFinancials(() =>
     financialsRepository.listCompanyMapFinancialRanking({
       buildId: publication.buildId,
-      organisationForms: query.organisationForms,
-      companyStatuses: query.companyStatuses,
+      ...filterSelection(query),
       statementScope: query.statementScope,
       currency: query.currency,
       officialAddressId: query.officialAddressId,
+      viewport:
+        query.west !== null &&
+        query.south !== null &&
+        query.east !== null &&
+        query.north !== null
+          ? {
+              west: query.west,
+              south: query.south,
+              east: query.east,
+              north: query.north,
+            }
+          : null,
       limit: query.limit,
       offset: query.offset,
     }),
@@ -321,36 +431,24 @@ export async function getPublishedCompanyMapViewport(
   query: CompanyMapViewportQuery,
 ) {
   const { publication } = await getPublication();
-  const filters = filterExpression(query);
+  const filters = filterExpression(query, {
+    buildId: publication.buildId,
+    financialDatasetVersion: publication.build.financialDatasetVersion,
+  });
   const mode = getCompanyMapViewportMode(query.zoom);
   const rowLimit = query.limit + 1;
 
   if (mode === "CLUSTERS") {
     const cellSize = getCompanyMapGridCellSize(query.zoom);
-    const rows = await prisma.$queryRaw<CompanyMapClusterRow[]>(Prisma.sql`
-      SELECT
-        concat(
-          'grid:',
-          floor(entity."latitude"::double precision / ${cellSize}),
-          ':',
-          floor(entity."longitude"::double precision / ${cellSize})
-        ) AS "id",
-        avg(entity."latitude"::double precision) AS "latitude",
-        avg(entity."longitude"::double precision) AS "longitude",
-        count(*)::bigint AS "companyCount",
-        count(DISTINCT entity."officialAddressId")::bigint AS "addressCount"
-      FROM "CompanyMapEntitySnapshot" entity
-      WHERE entity."buildId" = ${publication.buildId}::uuid
-        AND entity."resolutionStatus" = 'MATCHED'
-        AND entity."latitude" BETWEEN ${query.south} AND ${query.north}
-        AND entity."longitude" BETWEEN ${query.west} AND ${query.east}
-        AND ${filters}
-      GROUP BY
-        floor(entity."latitude"::double precision / ${cellSize}),
-        floor(entity."longitude"::double precision / ${cellSize})
-      ORDER BY count(*) DESC, "id" ASC
-      LIMIT ${rowLimit}
-    `);
+    const rows = await prisma.$queryRaw<CompanyMapClusterRow[]>(
+      buildCompanyMapClusterQuery({
+        buildId: publication.buildId,
+        filters,
+        viewport: query,
+        cellSize,
+        rowLimit,
+      }),
+    );
     const truncated = rows.length > query.limit;
 
     return {

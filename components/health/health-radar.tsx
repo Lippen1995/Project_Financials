@@ -51,11 +51,15 @@ export function HealthRadar({
 }) {
   const [active, setActive] = React.useState<string | null>(null);
 
-  // The label ring needs room outside the plot, so the plot radius is well short
-  // of half the viewport.
+  // The side labels are anchored at the label ring and run outward, so the ring
+  // has to sit far enough inside the box for the longest of them to fit. At the
+  // 6-axis layout the widest case is a label like "Likviditet" starting at
+  // cos(30°) — these radii keep it inside the viewport instead of clipping it at
+  // the edge, which costs some wheel size but never truncates a dimension name.
   const center = size / 2;
-  const radius = size * 0.32;
-  const labelRadius = radius + size * 0.105;
+  const radius = size * 0.265;
+  const labelRadius = radius + size * 0.08;
+  const labelFontSize = 10;
 
   const stroke = variant === "dark" ? "rgba(255,255,255,0.16)" : "var(--px-chart-grid)";
   const axisStroke = variant === "dark" ? "rgba(255,255,255,0.22)" : "rgba(15,23,42,0.14)";
@@ -168,7 +172,7 @@ export function HealthRadar({
               y={vertex.label.y + dy}
               textAnchor={anchor}
               fill={active === vertex.axis.key ? shapeStroke : labelFill}
-              fontSize={10.5}
+              fontSize={labelFontSize}
               letterSpacing="0.02em"
             >
               {vertex.axis.label}

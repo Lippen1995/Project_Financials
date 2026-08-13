@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
 
+import { AppPrimaryNavigationMenu } from "@/components/navigation/app-primary-navigation-menu";
+import { NavSearch } from "@/components/navigation/nav-search";
 import {
   buildAccountMenuSections,
   getViewerDisplayName,
@@ -14,10 +15,8 @@ import {
   isViewerVerified,
   type AppViewer,
 } from "@/lib/account-menu";
-import { type GlobalNavItem, isGlobalNavItemActive } from "@/lib/navigation";
-import { cn } from "@/lib/utils";
+import { buildGlobalNavMenuCategories, type GlobalNavItem } from "@/lib/navigation";
 import { logoutAction } from "@/server/actions/auth-actions";
-import { NavSearch } from "@/components/navigation/nav-search";
 
 type AppTopNavigationProps = {
   adminNotification?: React.ReactNode;
@@ -77,6 +76,11 @@ export function AppTopNavigation({
   const profileHref = getViewerProfileHref();
   const sections = buildAccountMenuSections(viewer);
   const showVerified = isViewerVerified(viewer);
+  const searchItem = navItems.find((item) => item.href === "/search");
+  const primaryNavCategories = useMemo(
+    () => buildGlobalNavMenuCategories(navItems),
+    [navItems],
+  );
 
   useEffect(() => {
     setOpen(false);
@@ -116,44 +120,27 @@ export function AppTopNavigation({
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--px-border-subtle)] bg-[rgba(248,249,255,0.92)] backdrop-blur-sm">
-      <div className="mx-auto flex h-16 max-w-[1480px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
+    <header className="sticky top-0 z-40 border-b border-[var(--px-border-subtle)] bg-[var(--px-bg)]">
+      <div className="mx-auto flex h-16 max-w-[1480px] items-center justify-between gap-4 px-3 sm:px-6 lg:px-10">
         <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-8">
           <Link href={logoHref as never} className="shrink-0 flex-col -space-y-0.5">
-            <span className="block text-[1.1rem] font-semibold tracking-[-0.03em] text-[var(--px-text)]">
+            <span className="block text-base font-semibold tracking-[-0.03em] text-[var(--px-text)] sm:text-[1.1rem]">
               Fjord Insight
             </span>
-            <span className="data-label block text-[9px] text-[var(--px-muted)] opacity-70">
+            <span className="data-label hidden text-[9px] text-[var(--px-muted)] opacity-70 sm:block">
               Enterprise Tier
             </span>
           </Link>
 
-          <nav aria-label="Primærnavigasjon" className="min-w-0 flex-1 overflow-x-auto">
-            <div className="flex min-w-max items-center gap-1 pr-2">
-              {navItems.map((item) => {
-                const active = isGlobalNavItemActive(item, pathname);
-
-                if (item.href === "/search") {
-                  return <NavSearch key={item.href} item={item} active={active} />;
-                }
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href as never}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-2 border-b-2 px-3 py-1.5 text-sm transition-colors",
-                      active
-                        ? "border-[var(--px-accent)] font-semibold text-[var(--px-accent)]"
-                        : "border-transparent font-medium text-[var(--px-muted)] hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]",
-                    )}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+          <nav aria-label="Primærnavigasjon" className="min-w-0 flex-1">
+            <div className="flex items-center gap-4">
+              {searchItem ? (
+                <NavSearch
+                  item={searchItem}
+                  active={pathname === searchItem.href || pathname.startsWith(`${searchItem.href}/`)}
+                />
+              ) : null}
+              <AppPrimaryNavigationMenu categories={primaryNavCategories} />
             </div>
           </nav>
         </div>

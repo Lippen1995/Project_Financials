@@ -23,19 +23,31 @@ import { Prisma } from "@prisma/client";
 import env from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import {
+  mapBrregEntityNames,
   mapBrregRegistryEntity,
   type BrregRegistryEntity,
+  type RegistryNameRow,
 } from "@/server/providers/brreg-registry-entity-mapper";
 
 const BULK_URL = `${env.brregBaseUrl}/enheter/lastned`;
 const ACCEPT = "application/vnd.brreg.enhetsregisteret.enhet.v2+gzip";
-// 36 bound values per row; 900 * 36 = 32400 stays under PostgreSQL's 32767 parameter limit.
-const BATCH_SIZE = 900;
+// 51 bound values per row; 600 * 51 = 30600 stays under PostgreSQL's 32767 parameter limit.
+const BATCH_SIZE = 600;
+// 14 bound values per name row.
+const NAME_BATCH_SIZE = 2000;
 let cleanupStageTable: string | null = null;
+let cleanupNameStageTable: string | null = null;
 
 function quotedStageTable(tableName: string): Prisma.Sql {
   if (!/^RegistryEntityStage_[a-f0-9]{32}$/.test(tableName)) {
     throw new Error("Invalid registry staging-table identifier.");
+  }
+  return Prisma.raw(`"${tableName}"`);
+}
+
+function quotedNameStageTable(tableName: string): Prisma.Sql {
+  if (!/^RegistryEntityNameStage_[a-f0-9]{32}$/.test(tableName)) {
+    throw new Error("Invalid registry name staging-table identifier.");
   }
   return Prisma.raw(`"${tableName}"`);
 }
@@ -159,7 +171,16 @@ async function main() {
     Prisma.sql`CREATE UNLOGGED TABLE ${stageIdentifier} (LIKE "RegistryEntity" INCLUDING DEFAULTS)`,
   );
 
+  const nameStageTable = `RegistryEntityNameStage_${randomUUID().replaceAll("-", "")}`;
+  cleanupNameStageTable = nameStageTable;
+  const nameStageIdentifier = quotedNameStageTable(nameStageTable);
+  await prisma.$executeRaw(
+    Prisma.sql`CREATE UNLOGGED TABLE ${nameStageIdentifier} (LIKE "RegistryEntityName" INCLUDING DEFAULTS)`,
+  );
+
   let batch: ReturnType<typeof mapBrregRegistryEntity>[] = [];
+  let nameBatch: RegistryNameRow[] = [];
+  let namesInserted = 0;
   let inserted = 0;
   let scanned = 0;
   let invalidObjects = 0;
@@ -198,6 +219,11 @@ async function main() {
         ${r.businessAddressCountryCode}, ${r.businessAddressNormalizedName},
         ${r.businessAddressHouseNumber}, ${r.businessAddressHouseLetter},
         ${r.businessAddressUnitNumber}, ${r.registerUpdatedAt},
+        ${r.foundedAt}, ${r.statutesDate}, ${r.statutoryPurpose}, ${r.activityDescription},
+        ${r.languageForm}, ${r.vatRegistered}, ${r.registeredInBusinessRegister},
+        ${r.businessRegisterRegisteredAt}, ${r.lastSubmittedAnnualReportYear}, ${r.capitalType},
+        ${r.shareCapital}, ${r.shareCapitalCurrency}, ${r.shareCount}, ${r.shareCapitalRegisteredAt},
+        ${r.previousNames ? JSON.stringify(r.previousNames) : null}::jsonb,
         ${snapshotAt}, ${"BRREG"}, ${"enhet"}, ${r.orgNumber}, ${now}, ${now}, ${now}
       )`,
     );
@@ -212,6 +238,11 @@ async function main() {
         "businessAddressCountryCode",
         "businessAddressNormalizedName", "businessAddressHouseNumber",
         "businessAddressHouseLetter", "businessAddressUnitNumber", "registerUpdatedAt",
+        "foundedAt", "statutesDate", "statutoryPurpose", "activityDescription",
+        "languageForm", "vatRegistered", "registeredInBusinessRegister",
+        "businessRegisterRegisteredAt", "lastSubmittedAnnualReportYear", "capitalType",
+        "shareCapital", "shareCapitalCurrency", "shareCount", "shareCapitalRegisteredAt",
+        "previousNames",
         "sourceSnapshotAt", "sourceSystem", "sourceEntityType", "sourceId", "fetchedAt",
         "normalizedAt", "updatedAt"
       ) VALUES ${Prisma.join(tuples)}
@@ -219,6 +250,27 @@ async function main() {
     inserted += batch.length;
     batch = [];
     process.stdout.write(`\r  scanned ${scanned} · inserted ${inserted}`);
+  }
+
+  async function flushNames() {
+    if (nameBatch.length === 0) return;
+    const now = new Date();
+    const tuples = nameBatch.map(
+      (r) => Prisma.sql`(
+        ${randomUUID()}, ${r.orgNumber}, ${r.name}, ${r.normalizedName}, ${r.isCurrent},
+        ${r.fromDate}, ${r.toDate}, ${snapshotAt}, ${"BRREG"}, ${"enhetNavn"}, ${r.orgNumber},
+        ${now}, ${now}, ${now}
+      )`,
+    );
+    await prisma.$executeRaw(Prisma.sql`
+      INSERT INTO ${nameStageIdentifier} (
+        "id", "orgNumber", "name", "normalizedName", "isCurrent",
+        "fromDate", "toDate", "sourceSnapshotAt", "sourceSystem", "sourceEntityType", "sourceId",
+        "fetchedAt", "normalizedAt", "updatedAt"
+      ) VALUES ${Prisma.join(tuples)}
+    `);
+    namesInserted += nameBatch.length;
+    nameBatch = [];
   }
 
   for await (const chunk of gunzip) {
@@ -243,7 +295,9 @@ async function main() {
       )
         continue;
       batch.push(mapBrregRegistryEntity(entity));
+      nameBatch.push(...mapBrregEntityNames(entity));
       if (batch.length >= BATCH_SIZE) await flush();
+      if (nameBatch.length >= NAME_BATCH_SIZE) await flushNames();
       if (inserted + batch.length >= limit) break;
     }
     if (inserted + batch.length >= limit) break;
@@ -262,6 +316,7 @@ async function main() {
           (entity.naeringskode1?.kode ?? "").startsWith(nacePrefix)
         ) {
           batch.push(mapBrregRegistryEntity(entity));
+          nameBatch.push(...mapBrregEntityNames(entity));
         }
       } catch {
         invalidObjects += 1;
@@ -269,6 +324,7 @@ async function main() {
     }
   }
   await flush();
+  await flushNames();
 
   const isFullArtifact = !nacePrefix && limit === Infinity;
   if (isFullArtifact) {
@@ -312,6 +368,12 @@ async function main() {
         await tx.$executeRaw(
           Prisma.sql`INSERT INTO "RegistryEntity" SELECT * FROM ${stageIdentifier}`,
         );
+        // The name index is derived from the same snapshot, so it is replaced in the same
+        // transaction — a name index describing a different snapshot would be worse than none.
+        await tx.$executeRaw`TRUNCATE TABLE "RegistryEntityName"`;
+        await tx.$executeRaw(
+          Prisma.sql`INSERT INTO "RegistryEntityName" SELECT * FROM ${nameStageIdentifier}`,
+        );
         const completedAt = new Date();
         await tx.registryEntityImport.create({
           data: {
@@ -348,17 +410,30 @@ async function main() {
 
   await prisma.$executeRaw(Prisma.sql`DROP TABLE ${stageIdentifier}`);
   cleanupStageTable = null;
+  await prisma.$executeRaw(Prisma.sql`DROP TABLE ${nameStageIdentifier}`);
+  cleanupNameStageTable = null;
 
-  // The published table keeps its indexes across the atomic truncate-and-replace operation.
+  // The published tables keep their indexes across the atomic truncate-and-replace operation.
   await prisma.$executeRawUnsafe("CREATE EXTENSION IF NOT EXISTS pg_trgm");
   await prisma.$executeRawUnsafe(
     'CREATE INDEX IF NOT EXISTS registry_entity_name_trgm ON "RegistryEntity" USING gin ("name" gin_trgm_ops)',
   );
+  await prisma.$executeRawUnsafe(
+    'CREATE INDEX IF NOT EXISTS registry_entity_name_value_trgm ON "RegistryEntityName" USING gin ("name" gin_trgm_ops)',
+  );
+
+  // A truncate-and-replace leaves the planner with no statistics for the new contents, and it
+  // picks sequential scans over the trigram indexes until autovacuum catches up. Analyze right
+  // away so the first search after an import is as fast as the last one before it.
+  if (canPublishSnapshot) {
+    await prisma.$executeRawUnsafe('ANALYZE "RegistryEntity"');
+    await prisma.$executeRawUnsafe('ANALYZE "RegistryEntityName"');
+  }
 
   const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
   process.stdout.write("\n");
   console.log(
-    `Done: scanned ${scanned} entities, inserted ${inserted} in ${seconds}s`,
+    `Done: scanned ${scanned} entities, inserted ${inserted} entities and ${namesInserted} names in ${seconds}s`,
   );
 }
 
@@ -371,6 +446,11 @@ main()
     if (cleanupStageTable) {
       await prisma.$executeRaw(
         Prisma.sql`DROP TABLE IF EXISTS ${quotedStageTable(cleanupStageTable)}`,
+      );
+    }
+    if (cleanupNameStageTable) {
+      await prisma.$executeRaw(
+        Prisma.sql`DROP TABLE IF EXISTS ${quotedNameStageTable(cleanupNameStageTable)}`,
       );
     }
     await prisma.$disconnect();

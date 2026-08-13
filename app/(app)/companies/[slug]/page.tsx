@@ -3,6 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
+import {
+  CompanyNameHistorySection,
+  RelatedNameHoldersSection,
+} from "@/components/company/company-name-history";
+import { buildCompanyNameHistory, findBankruptcyOpening } from "@/lib/company-history";
+import { getRelatedNameHolders } from "@/server/registry/related-name-holders";
 import { CompanyFinancialDiscussions } from "@/components/company/company-financial-discussions";
 import { CompanyGridConnectionTab } from "@/components/company/company-grid-connection-tab";
 import { IpTab } from "@/components/company/ip/ip-tab";
@@ -490,6 +496,7 @@ export default async function CompanyPage({
     ownershipOverview,
     shareholdersOverview,
     announcementsData,
+    relatedNameHolders,
     narratives,
     gridConnectionProfile,
     companyRoles,
@@ -504,6 +511,7 @@ export default async function CompanyPage({
       ? getCompanyShareholdingOverview(company.orgNumber)
       : Promise.resolve(null),
     activeTab === "kunngjoringer" ? getCompanyAnnouncements(company.orgNumber) : Promise.resolve(null),
+    activeTab === "kunngjoringer" ? getRelatedNameHolders(company.orgNumber) : Promise.resolve([]),
     activeTab === "dokumenter"
       ? prisma.annualReportNarrative.findMany({
           where: { company: { slug } },
@@ -550,6 +558,17 @@ export default async function CompanyPage({
       ? listFinancialMetricCommentThreads(session.user.id, discussionContext.selectedRoomId)
       : Promise.resolve([]),
   ]);
+
+  // Brreg keys announcements on the org number, so filings made under an earlier name are
+  // already in this feed — the name lineage is what makes them readable as one story.
+  const announcementNameHistory =
+    announcementsData && (company.previousNames?.length ?? 0) > 0
+      ? buildCompanyNameHistory({
+          currentName: company.name,
+          previousNames: company.previousNames ?? [],
+          announcements: announcementsData.announcements,
+        })
+      : null;
 
   const [overviewShareholding, overviewAnnouncements] = await Promise.all([
     activeTab === "oversikt" ? getCompanyShareholdingOverview(company.orgNumber) : Promise.resolve(null),
@@ -760,7 +779,20 @@ export default async function CompanyPage({
                 Her finner du foretakets registrerte kunngjøringer og formelle historikk.
               </p>
             </div>
-            <div className="mt-6">
+            <div className="mt-6 space-y-6">
+              {announcementNameHistory ? (
+                <CompanyNameHistorySection
+                  history={announcementNameHistory}
+                  orgNumber={company.orgNumber}
+                />
+              ) : null}
+              <RelatedNameHoldersSection
+                holders={relatedNameHolders}
+                companyName={company.name}
+                bankruptcyOpenedAt={
+                  announcementsData ? findBankruptcyOpening(announcementsData.announcements) : null
+                }
+              />
               {announcementsData ? (
                 <CompanyAnnouncementsTimeline
                   companyName={company.name}

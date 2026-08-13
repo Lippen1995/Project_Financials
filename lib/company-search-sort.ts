@@ -14,6 +14,8 @@ export type CompanySearchRow = {
   groupEmployeeTraversalTruncated?: boolean;
   groupEmployeeCompanyCount?: number;
   groupEmployeeOwnershipYear?: number;
+  /** Set when the hit came from a name the company used to carry, not its current one. */
+  matchedPreviousName?: string | null;
 };
 
 export type CompanySearchSortKey =

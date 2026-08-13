@@ -140,4 +140,72 @@ describe("CompanySearchWorkspace", () => {
 
     expect(html).toContain("Konsern minst 307");
   });
+
+  it("says which former name a hit came from", () => {
+    const html = renderToStaticMarkup(
+      <CompanySearchWorkspace
+        rows={[
+          {
+            orgNumber: "922493626",
+            name: "REACH SUBSEA ASA",
+            status: "ACTIVE",
+            industry: null,
+            city: "HAUGESUND",
+            matchedPreviousName: "GREEN REEFERS ASA",
+            revenue: null,
+            revenueFiscalYear: null,
+            operatingProfit: null,
+            netIncome: null,
+            employeeCount: 5,
+          },
+        ]}
+        params={{
+          query: "Green Reefers",
+          industryCode: "",
+          city: "",
+          legalForm: "",
+          status: "",
+          aiEnabled: false,
+        }}
+        searchError={null}
+      />,
+    );
+
+    expect(html).toContain("REACH SUBSEA ASA");
+    expect(html).toContain("GREEN REEFERS ASA");
+    expect(html).toContain("Tidligere");
+  });
+
+  it("leaves the former-name line out for a plain current-name hit", () => {
+    const html = renderToStaticMarkup(
+      <CompanySearchWorkspace
+        rows={[
+          {
+            orgNumber: "922493626",
+            name: "REACH SUBSEA ASA",
+            status: "ACTIVE",
+            industry: null,
+            city: "HAUGESUND",
+            matchedPreviousName: null,
+            revenue: null,
+            revenueFiscalYear: null,
+            operatingProfit: null,
+            netIncome: null,
+            employeeCount: 5,
+          },
+        ]}
+        params={{
+          query: "Reach Subsea",
+          industryCode: "",
+          city: "",
+          legalForm: "",
+          status: "",
+          aiEnabled: false,
+        }}
+        searchError={null}
+      />,
+    );
+
+    expect(html).not.toContain("Tidligere");
+  });
 });

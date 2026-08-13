@@ -216,14 +216,14 @@ export function NavSearch({ item, active }: { item: GlobalNavItem; active: boole
         aria-current={active ? "page" : undefined}
         onClick={() => setOpen(true)}
         className={cn(
-          "flex items-center gap-2 border-b-2 px-3 py-1.5 text-sm transition-colors",
+          "flex items-center gap-4 border-b-2 px-2 py-1.5 text-sm transition-colors sm:px-3",
           active
             ? "border-[var(--px-accent)] font-semibold text-[var(--px-accent)]"
             : "border-transparent font-medium text-[var(--px-muted)] hover:bg-[var(--px-subtle)] hover:text-[var(--px-text)]",
         )}
       >
         <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-        <span>{item.label}</span>
+        <span className="sr-only sm:not-sr-only">{item.label}</span>
       </button>
     );
   }
