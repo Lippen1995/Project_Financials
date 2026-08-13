@@ -502,6 +502,14 @@ export function CompanySearchWorkspace({
                           >
                             {row.name}
                           </button>
+                          {row.matchedPreviousName ? (
+                            <div className="mt-1 text-xs text-[var(--px-muted)]">
+                              Tidligere{" "}
+                              <span className="font-medium text-[var(--px-text)]">
+                                {row.matchedPreviousName}
+                              </span>
+                            </div>
+                          ) : null}
                           {row.city ? (
                             <div className="mt-1 text-xs text-[var(--px-muted)]">{row.city}</div>
                           ) : null}

@@ -1121,6 +1121,24 @@ model RegistryEntity {
   status                         CompanyStatus @default(ACTIVE)
   employeeCount                  Int?
   registeredAt                   DateTime?
+  foundedAt                      DateTime?
+  statutesDate                   DateTime?
+  /// vedtektsfestetFormaal, joined into one paragraph (Brreg ships it line-wrapped).
+  statutoryPurpose               String?
+  /// aktivitet — usually equal to the statutory purpose, but kept apart when it differs.
+  activityDescription            String?
+  languageForm                   String?
+  vatRegistered                  Boolean?
+  registeredInBusinessRegister   Boolean?
+  businessRegisterRegisteredAt   DateTime?
+  lastSubmittedAnnualReportYear  Int?
+  capitalType                    String?
+  shareCapital                   Decimal?      @db.Decimal(20, 2)
+  shareCapitalCurrency           String?
+  shareCount                     BigInt?
+  shareCapitalRegisteredAt       DateTime?
+  /// historiskeNavn as [{ name, fromDate, toDate }] in Brreg order (oldest first).
+  previousNames                  Json?
   website                        String?
   addressStreet                  String?
   postalCode                     String?
@@ -1154,6 +1172,34 @@ model RegistryEntity {
   @@index([status])
   @@index([municipalityNumber])
   @@index([businessAddressMunicipalityNumber, businessAddressNormalizedName, businessAddressHouseNumber], map: "registry_entity_exact_address")
+}
+
+/// Every name an entity has carried — current and historic — flattened out of
+/// RegistryEntity.previousNames so a name can be looked up without scanning jsonb. Two things
+/// depend on it: company search matching former names, and finding the other entities that
+/// have carried a name (how a business continued in a new company after a bankruptcy).
+/// Written and replaced atomically together with RegistryEntity by the register import.
+model RegistryEntityName {
+  id               String    @id @default(cuid())
+  orgNumber        String    @db.VarChar(9)
+  name             String
+  /// upper(btrim(name)) — the exact-match key. Kept as a column so the index is plain btree.
+  normalizedName   String
+  isCurrent        Boolean
+  fromDate         DateTime?
+  toDate           DateTime?
+  sourceSnapshotAt DateTime  @default(now())
+  sourceSystem     String
+  sourceEntityType String
+  sourceId         String
+  fetchedAt        DateTime
+  normalizedAt     DateTime
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([normalizedName])
+  @@index([orgNumber])
+  @@index([isCurrent])
 }
 
 enum RegistryEntityImportStatus {

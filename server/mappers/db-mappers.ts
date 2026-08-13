@@ -15,6 +15,7 @@ import {
   mergeIndustryCodeClassification,
 } from "@/lib/industry-code";
 import { toSafeNumber } from "@/server/financials/number-utils";
+import type { RegistryCompanyFacts } from "@/server/registry/registry-entity-facts";
 
 type FinancialStatementRecord = {
   sourceSystem: string;
@@ -97,7 +98,48 @@ function deriveRoleHolder(role: Role & { person: Person }) {
   };
 }
 
-export function mapDbCompany(company: CompanyWithRelations): NormalizedCompany {
+/**
+ * Company.rawPayload only holds a Brreg enhet document for rows written by the older
+ * per-company sync; rows promoted from the register mirror carry an empty payload and get
+ * these facts from RegistryEntity instead.
+ */
+function readCapitalField(rawPayload: unknown, field: string): unknown {
+  if (typeof rawPayload !== "object" || !rawPayload || !("kapital" in rawPayload)) {
+    return null;
+  }
+  const capital = (rawPayload as { kapital?: unknown }).kapital;
+  if (typeof capital !== "object" || !capital || !(field in capital)) {
+    return null;
+  }
+  return (capital as Record<string, unknown>)[field];
+}
+
+function readCapitalNumber(rawPayload: unknown, field: string): number | null {
+  const value = readCapitalField(rawPayload, field);
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function readCapitalText(rawPayload: unknown, field: string): string | null {
+  const value = readCapitalField(rawPayload, field);
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+function readLastAnnualReportYear(rawPayload: unknown): number | null {
+  if (typeof rawPayload !== "object" || !rawPayload || !("sisteInnsendteAarsregnskap" in rawPayload)) {
+    return null;
+  }
+  const value = (rawPayload as { sisteInnsendteAarsregnskap?: unknown }).sisteInnsendteAarsregnskap;
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function mapDbCompany(
+  company: CompanyWithRelations,
+  registryFacts?: RegistryCompanyFacts | null,
+): NormalizedCompany {
   const registeredIndustryCode = buildRegisteredIndustryCode({
     orgNumber: company.orgNumber,
     industryPayload:
@@ -123,46 +165,29 @@ export function mapDbCompany(company: CompanyWithRelations): NormalizedCompany {
     legalForm: company.legalForm,
     status: company.status,
     registeredAt: company.registeredAt,
-    foundedAt: company.foundedAt,
+    foundedAt: registryFacts?.foundedAt ?? company.foundedAt,
     website: company.website,
     employeeCount: company.employeeCount,
     description: company.description,
     municipality: company.addresses[0]?.region ?? null,
-    vatRegistered: null,
-    shareCapital:
-      typeof company.rawPayload === "object" &&
-      company.rawPayload &&
-      "kapital" in company.rawPayload &&
-      typeof company.rawPayload.kapital === "object" &&
-      company.rawPayload.kapital &&
-      "belop" in company.rawPayload.kapital
-        ? Number(company.rawPayload.kapital.belop)
-        : null,
+    vatRegistered: registryFacts?.vatRegistered ?? null,
+    statutoryPurpose: registryFacts?.statutoryPurpose ?? null,
+    activityDescription: registryFacts?.activityDescription ?? null,
+    statutesDate: registryFacts?.statutesDate ?? null,
+    languageForm: registryFacts?.languageForm ?? null,
+    institutionalSectorCode: registryFacts?.institutionalSectorCode ?? null,
+    institutionalSectorDescription: registryFacts?.institutionalSectorDescription ?? null,
+    registeredInBusinessRegister: registryFacts?.registeredInBusinessRegister ?? null,
+    businessRegisterRegisteredAt: registryFacts?.businessRegisterRegisteredAt ?? null,
+    capitalType: registryFacts?.capitalType ?? null,
+    shareCapitalRegisteredAt: registryFacts?.shareCapitalRegisteredAt ?? null,
+    previousNames: registryFacts?.previousNames ?? [],
+    shareCapital: registryFacts?.shareCapital ?? readCapitalNumber(company.rawPayload, "belop"),
     shareCapitalCurrency:
-      typeof company.rawPayload === "object" &&
-      company.rawPayload &&
-      "kapital" in company.rawPayload &&
-      typeof company.rawPayload.kapital === "object" &&
-      company.rawPayload.kapital &&
-      "valuta" in company.rawPayload.kapital
-        ? String(company.rawPayload.kapital.valuta)
-        : null,
-    shareCount:
-      typeof company.rawPayload === "object" &&
-      company.rawPayload &&
-      "kapital" in company.rawPayload &&
-      typeof company.rawPayload.kapital === "object" &&
-      company.rawPayload.kapital &&
-      "antallAksjer" in company.rawPayload.kapital
-        ? Number(company.rawPayload.kapital.antallAksjer)
-        : null,
+      registryFacts?.shareCapitalCurrency ?? readCapitalText(company.rawPayload, "valuta"),
+    shareCount: registryFacts?.shareCount ?? readCapitalNumber(company.rawPayload, "antallAksjer"),
     lastSubmittedAnnualReportYear:
-      typeof company.rawPayload === "object" &&
-      company.rawPayload &&
-      "sisteInnsendteAarsregnskap" in company.rawPayload &&
-      company.rawPayload.sisteInnsendteAarsregnskap
-        ? Number(company.rawPayload.sisteInnsendteAarsregnskap)
-        : null,
+      registryFacts?.lastSubmittedAnnualReportYear ?? readLastAnnualReportYear(company.rawPayload),
     announcementsUrl: `https://w2.brreg.no/kunngjoring/hent_nr.jsp?orgnr=${company.orgNumber}`,
     addresses: company.addresses.map((address) => ({
       sourceSystem: address.sourceSystem,

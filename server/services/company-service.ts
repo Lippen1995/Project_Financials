@@ -19,6 +19,7 @@ import { OpenAiSearchIntentProvider } from "@/integrations/openai/openai-search-
 import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
 import { classifyQueryIntent } from "@/server/ai-search/query-router";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
+import { getRegistryCompanyFacts } from "@/server/registry/registry-entity-facts";
 import { mapDbCompany, mapDbRoles } from "@/server/mappers/db-mappers";
 import { getLatestFinancialsForCompanies } from "@/server/financials/company-search-financials-reader";
 import {
@@ -490,7 +491,14 @@ export async function getCompanyProfile(idOrSlug: string, options: CompanyProfil
     return null;
   }
 
-  const company = mapDbCompany(cachedCompany);
+  let registryFacts = null;
+  try {
+    registryFacts = await getRegistryCompanyFacts(cachedCompany.orgNumber);
+  } catch (error) {
+    logRecoverableError("company-service.getRegistryCompanyFacts", error, { idOrSlug });
+  }
+
+  const company = mapDbCompany(cachedCompany, registryFacts);
   const companyDbId = cachedCompany.id;
   const rolesMode = options.rolesMode ?? "full";
   const financialsMode = options.financialsMode ?? "full";

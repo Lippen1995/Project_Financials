@@ -294,6 +294,7 @@ export default async function SearchPage({
             .join(" ")
         : null,
       city: result.company.addresses[0]?.city ?? null,
+      matchedPreviousName: result.company.matchedPreviousName ?? null,
       revenue: result.revenue ?? null,
       revenueFiscalYear: result.revenueFiscalYear ?? null,
       operatingProfit: result.operatingProfit ?? null,

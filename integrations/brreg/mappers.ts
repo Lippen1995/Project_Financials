@@ -1,6 +1,11 @@
 import { buildRegisteredIndustryCode } from "@/lib/industry-code";
 import { slugify } from "@/lib/utils";
-import { NormalizedCompany, NormalizedFinancialStatement, NormalizedRole } from "@/lib/types";
+import {
+  NormalizedCompany,
+  NormalizedFinancialStatement,
+  NormalizedPreviousName,
+  NormalizedRole,
+} from "@/lib/types";
 
 function deriveStatus(payload: Record<string, any>): "ACTIVE" | "DISSOLVED" | "BANKRUPT" {
   if (payload.konkurs || payload.underKonkursbehandling) {
@@ -20,6 +25,43 @@ function deriveStatus(payload: Record<string, any>): "ACTIVE" | "DISSOLVED" | "B
 
 function buildSlug(name: string, orgNumber: string) {
   return `${orgNumber}-${slugify(name)}`;
+}
+
+function joinBrregTextLines(lines: unknown): string | null {
+  if (!Array.isArray(lines)) {
+    return null;
+  }
+
+  const joined = lines
+    .filter((line): line is string => typeof line === "string")
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return joined === "" ? null : joined;
+}
+
+function toBrregDate(value: unknown): Date | null {
+  if (typeof value !== "string" || value.trim() === "") {
+    return null;
+  }
+  // Historic names are stamped "1996-01-22 21:03:00" rather than in ISO form.
+  const date = new Date(value.trim().replace(" ", "T"));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function mapBrregHistoricNames(historicNames: unknown): NormalizedPreviousName[] {
+  if (!Array.isArray(historicNames)) {
+    return [];
+  }
+
+  return historicNames
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+    .map((entry) => ({
+      name: typeof entry.navn === "string" ? entry.navn.trim() : "",
+      fromDate: toBrregDate(entry.fraDato),
+      toDate: toBrregDate(entry.tilDato),
+    }))
+    .filter((entry) => entry.name !== "");
 }
 
 export function mapBrregCompany(payload: Record<string, any>): NormalizedCompany {
@@ -55,6 +97,20 @@ export function mapBrregCompany(payload: Record<string, any>): NormalizedCompany
     lastSubmittedAnnualReportYear: payload.sisteInnsendteAarsregnskap
       ? Number(payload.sisteInnsendteAarsregnskap)
       : null,
+    // Brreg line-wraps free text into an array of ~70-character fragments.
+    statutoryPurpose: joinBrregTextLines(payload.vedtektsfestetFormaal),
+    activityDescription: joinBrregTextLines(payload.aktivitet),
+    statutesDate: payload.vedtektsdato ? new Date(payload.vedtektsdato) : null,
+    languageForm: payload.maalform ?? null,
+    institutionalSectorCode: payload.institusjonellSektorkode?.kode ?? null,
+    institutionalSectorDescription: payload.institusjonellSektorkode?.beskrivelse ?? null,
+    registeredInBusinessRegister: payload.registrertIForetaksregisteret ?? null,
+    businessRegisterRegisteredAt: payload.registreringsdatoForetaksregisteret
+      ? new Date(payload.registreringsdatoForetaksregisteret)
+      : null,
+    capitalType: payload.kapital?.type ?? null,
+    shareCapitalRegisteredAt: payload.kapital?.innfortDato ? new Date(payload.kapital.innfortDato) : null,
+    previousNames: mapBrregHistoricNames(payload.historiskeNavn),
     announcementsUrl: orgNumber
       ? `https://w2.brreg.no/kunngjoring/hent_nr.jsp?orgnr=${orgNumber}`
       : null,

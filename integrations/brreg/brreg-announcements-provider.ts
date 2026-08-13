@@ -52,8 +52,11 @@ function parseNorwegianDate(value: string) {
     return null;
   }
 
+  // Brreg publishes a calendar date with no time of day. Anchoring it at UTC midnight keeps
+  // the day (and therefore the year the timeline groups on) intact regardless of the
+  // timezone the app renders in; a fixed +01:00 anchor slipped a day every summer.
   const [, day, month, year] = match;
-  return new Date(`${year}-${month}-${day}T00:00:00+01:00`);
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
 }
 
 function buildAnnouncementUrl(path: string) {
@@ -99,25 +102,43 @@ function sanitizeAnnouncementHtml(fragment: string) {
     .trim();
 }
 
+/**
+ * Brreg prints the publication date once per filing and leaves the date cell empty on the
+ * following rows, so several announcements published together only carry the date on the
+ * first of them. The date is carried forward to keep those rows on the timeline instead of
+ * dropping them into "dato ikke oppgitt".
+ */
 function extractAnnouncementRows(html: string) {
-  const pattern =
-    /<tr[^>]*>\s*<td[^>]*>[\s\S]*?<\/td>\s*<td[^>]*nowrap[^>]*>\s*<p>([\s\S]*?)<\/p>\s*<\/td>\s*<td[^>]*>[\s\S]*?<\/td>\s*<td[^>]*nowrap[^>]*>\s*<p>\s*<a href="(hent_en\.jsp\?[^"]+)">([\s\S]*?)<\/a>\s*<\/p>/gi;
+  const rowPattern = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  const cellPattern = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+  const detailLinkPattern = /<a href="(hent_en\.jsp\?[^"]+)">([\s\S]*?)<\/a>/i;
   const rows: Array<{ dateText: string; detailPath: string; title: string }> = [];
-  let match = pattern.exec(html);
+  let carriedDate = "";
 
-  while (match) {
+  for (const rowMatch of html.matchAll(rowPattern)) {
+    const rowHtml = rowMatch[1];
+    const cells = Array.from(rowHtml.matchAll(cellPattern), (cell) => stripTags(cell[1]));
+    const dateCell = cells.find((cell) => DATE_PATTERN.test(cell));
+    if (dateCell) {
+      carriedDate = dateCell;
+    }
+
+    const detailLink = rowHtml.match(detailLinkPattern);
+    if (!detailLink) {
+      continue;
+    }
+
     rows.push({
-      dateText: stripTags(match[1]),
-      detailPath: decodeHtmlEntities(match[2]),
-      title: stripTags(match[3]),
+      dateText: carriedDate,
+      detailPath: decodeHtmlEntities(detailLink[1]),
+      title: stripTags(detailLink[2]),
     });
-    match = pattern.exec(html);
   }
 
   return rows;
 }
 
-function parseAnnouncementList(
+export function parseAnnouncementList(
   orgNumber: string,
   html: string,
 ): {
