@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 
 import {
@@ -13,7 +14,7 @@ import type { HealthScoreResult } from "@/lib/health-score";
 import { formatCompactNok, getReportingCurrency } from "@/lib/overview-chart";
 import { formatMetricPercent, getOverviewMetricSeries, OverviewMetric } from "@/lib/overview-metrics";
 import { combineFinancialValueOrigins } from "@/lib/financial-value-origin";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 
 import {
   SimulatedChartCaption,
@@ -272,19 +273,52 @@ function GeneralInfo({ company, roles }: { company: NormalizedCompany; roles: No
       ? new Date(company.registeredAt).getFullYear()
       : null;
   const findRole = (pattern: RegExp) => roles.find((r) => pattern.test(r.title))?.person.fullName ?? null;
+  const previousNames = company.previousNames ?? [];
+  // Brreg fills "aktivitet" with a copy of the statutory purpose for most companies; only the
+  // cases where the two genuinely differ are worth a second paragraph.
+  const activity =
+    company.activityDescription && company.activityDescription !== company.statutoryPurpose
+      ? company.activityDescription
+      : null;
 
   const facts: Array<[string, string | null]> = [
     ["Organisasjonsform", company.legalForm ?? null],
-    ["Stiftet", foundedYear ? String(foundedYear) : null],
+    ["Stiftelsesdato", company.foundedAt ? formatDate(company.foundedAt) : foundedYear ? String(foundedYear) : null],
+    ["Registrert i Enhetsregisteret", company.registeredAt ? formatDate(company.registeredAt) : null],
+    [
+      "Registrert i Foretaksregisteret",
+      company.businessRegisterRegisteredAt ? formatDate(company.businessRegisterRegisteredAt) : null,
+    ],
+    ["Vedtektsdato", company.statutesDate ? formatDate(company.statutesDate) : null],
     [
       "Næringskode (NACE)",
       company.industryCode?.code
         ? `${company.industryCode.code}${company.industryCode.title ? ` — ${company.industryCode.title}` : ""}`
         : null,
     ],
+    [
+      "Institusjonell sektorkode",
+      company.institutionalSectorCode
+        ? `${company.institutionalSectorCode}${
+            company.institutionalSectorDescription ? ` ${company.institutionalSectorDescription}` : ""
+          }`
+        : null,
+    ],
     ["Antall ansatte", company.employeeCount != null ? formatNumber(company.employeeCount) : null],
-    ["Aksjekapital", company.shareCapital != null ? formatCurrency(company.shareCapital) : null],
+    [
+      company.capitalType ?? "Aksjekapital",
+      company.shareCapital != null
+        ? `${formatCurrency(company.shareCapital)}${
+            company.shareCapitalRegisteredAt ? ` (${formatDate(company.shareCapitalRegisteredAt)})` : ""
+          }`
+        : null,
+    ],
     ["Antall aksjer", company.shareCount != null ? formatNumber(company.shareCount) : null],
+    [
+      "Sist innsendte årsregnskap",
+      company.lastSubmittedAnnualReportYear ? String(company.lastSubmittedAnnualReportYear) : null,
+    ],
+    ["Målform", company.languageForm ?? null],
     ["Daglig leder", findRole(/daglig leder/i)],
     ["Styreleder", findRole(/styre(ts)?\s*leder/i)],
     [
@@ -306,7 +340,7 @@ function GeneralInfo({ company, roles }: { company: NormalizedCompany; roles: No
     registrations.push(`Regnskap levert ${company.lastSubmittedAnnualReportYear}`);
   if (company.registeredAt) registrations.push("Registrert i Enhetsregisteret");
 
-  if (present.length === 0 && registrations.length === 0) return null;
+  if (present.length === 0 && registrations.length === 0 && !company.statutoryPurpose) return null;
 
   return (
     <div className="border-b border-[var(--px-border)] py-6">
@@ -319,6 +353,52 @@ function GeneralInfo({ company, roles }: { company: NormalizedCompany; roles: No
           </div>
         ))}
       </div>
+
+      {company.statutoryPurpose ? (
+        <div className="mt-6">
+          <div className="data-label mb-2 text-[9px] uppercase text-[var(--px-muted)]">Vedtektsfestet formål</div>
+          <p className="m-0 max-w-[92ch] border-l-2 border-[var(--px-border)] pl-4 text-[13.5px] leading-relaxed text-[var(--px-text)] [text-wrap:pretty]">
+            {company.statutoryPurpose}
+          </p>
+        </div>
+      ) : null}
+
+      {activity ? (
+        <div className="mt-5">
+          <div className="data-label mb-2 text-[9px] uppercase text-[var(--px-muted)]">Aktivitet</div>
+          <p className="m-0 max-w-[92ch] border-l-2 border-[var(--px-border)] pl-4 text-[13.5px] leading-relaxed text-[var(--px-text)] [text-wrap:pretty]">
+            {activity}
+          </p>
+        </div>
+      ) : null}
+
+      {previousNames.length > 0 ? (
+        <div className="mt-6">
+          <div className="data-label mb-2 text-[9px] uppercase text-[var(--px-muted)]">Tidligere navn</div>
+          <div className="max-w-[92ch]">
+            {[...previousNames].reverse().map((entry) => (
+              <div
+                key={`${entry.name}-${entry.fromDate?.toISOString() ?? "start"}`}
+                className="flex justify-between gap-5 border-b border-[var(--px-border-subtle)] py-2"
+              >
+                <span className="text-[13px] text-[var(--px-text)]">{entry.name}</span>
+                <span className="shrink-0 text-[13px] tabular-nums text-[var(--px-muted)]">
+                  {entry.fromDate ? formatDate(entry.fromDate) : "ukjent"}
+                  {NDASH}
+                  {entry.toDate ? formatDate(entry.toDate) : "ukjent"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <Link
+            href={`/companies/${company.slug || company.orgNumber}?tab=kunngjoringer`}
+            className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[var(--px-accent)]"
+          >
+            Se navnehistorikken med kunngjøringer
+            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </Link>
+        </div>
+      ) : null}
       {registrations.length > 0 ? (
         <div className="mt-4 flex flex-wrap gap-2">
           {registrations.map((r) => (
@@ -372,6 +452,25 @@ function EventTimeline({ company }: { company: NormalizedCompany }) {
       dot: "var(--px-chart-2)",
     });
   }
+  // Each historic name ends where the next one begins, so the register's name list is itself
+  // a list of dated events — the detail and the announcement behind it live on the
+  // "Kunngjøringer"-tab.
+  const nameChain = [...(company.previousNames ?? [])].sort(
+    (left, right) => (left.fromDate?.getTime() ?? 0) - (right.fromDate?.getTime() ?? 0),
+  );
+  nameChain.forEach((entry, index) => {
+    const nextName = nameChain[index + 1]?.name ?? company.name;
+    const changedAt = entry.toDate ?? nameChain[index + 1]?.fromDate ?? null;
+    if (!changedAt) return;
+    events.push({
+      year: new Date(changedAt).getFullYear(),
+      tag: "NAVN",
+      title: "Navneendring",
+      text: `${entry.name} ble til ${nextName}.`,
+      dot: "var(--px-chart-2)",
+    });
+  });
+
   if (company.lastSubmittedAnnualReportYear) {
     events.push({
       year: company.lastSubmittedAnnualReportYear,
@@ -466,6 +565,18 @@ export function OverviewAnalytics({
         currency={currency}
       />
 
+      <div className="border-b border-[var(--px-border)] py-6">
+        <SectionLabel>
+          Utvikling{firstYear && latestYear ? ` · ${firstYear}–${latestYear}` : ""}
+        </SectionLabel>
+        <p className="mb-5 text-[12px] text-[var(--px-muted)]">
+          Trykk på en graf for å velge den, og velg deretter en linje i listen til høyre for å bytte hvilket tall grafen
+          viser. Trykk utenfor grafene (eller på Escape) for å avmarkere.
+        </p>
+        <OverviewCharts statements={statements} lineItems={lineItems} disclosure={disclosure} />
+        {disclosure?.simulated ? <SimulatedChartCaption disclosure={disclosure} /> : null}
+      </div>
+
       {health && financialsAvailability.available ? (
         <FinancialHealthSection
           result={health}
@@ -473,18 +584,6 @@ export function OverviewAnalytics({
           matchedNacePrefix={healthMatchedNacePrefix}
         />
       ) : null}
-
-      <div className="border-b border-[var(--px-border)] py-6">
-        <SectionLabel>
-          Utvikling{firstYear && latestYear ? ` · ${firstYear}–${latestYear}` : ""}
-        </SectionLabel>
-        <p className="mb-5 text-[12px] text-[var(--px-muted)]">
-          Trykk på en graf for å velge den, og velg deretter en linje i listen til høyre for å bytte hvilket tall grafen
-          viser.
-        </p>
-        <OverviewCharts statements={statements} lineItems={lineItems} disclosure={disclosure} />
-        {disclosure?.simulated ? <SimulatedChartCaption disclosure={disclosure} /> : null}
-      </div>
 
       <OwnershipAndAnnouncements
         owners={owners}
