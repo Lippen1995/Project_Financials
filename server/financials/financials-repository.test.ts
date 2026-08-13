@@ -471,6 +471,11 @@ describe("FinancialsRepository", () => {
       buildId: "00000000-0000-0000-0000-000000000000",
       organisationForms: ["AS", "ASA"],
       companyStatuses: ["ACTIVE" as const],
+      search: null,
+      counties: null,
+      onlyGroupMembers: false,
+      requirePublishedFinancials: false,
+      ranges: [],
       statementScope: "COMPANY" as const,
       currency: "NOK",
     };
@@ -479,6 +484,7 @@ describe("FinancialsRepository", () => {
       repository.listCompanyMapFinancialRanking({
         ...query,
         officialAddressId: null,
+        viewport: null,
         limit: 100,
         offset: 0,
       }),

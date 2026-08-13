@@ -1373,6 +1373,7 @@ model CompanyMapEntitySnapshot {
   @@index([buildId, officialAddressId])
   @@index([buildId, groupRootOrgNumber])
   @@index([buildId, resolutionStatus, longitude, latitude], map: "company_map_viewport")
+  @@index([buildId, municipalityNumber], map: "company_map_entity_municipality_number")
 }
 
 /// Reported-only financial read model for one entity and scope. The population job must read
