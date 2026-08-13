@@ -22,4 +22,10 @@ export default defineConfig({
       "@": path.resolve(__dirname),
     },
   },
+  // Next compiles components with the automatic JSX runtime, so they do not import React.
+  // Without this, esbuild's classic transform makes any such component throw when rendered
+  // in a test.
+  esbuild: {
+    jsx: "automatic",
+  },
 });
