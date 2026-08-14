@@ -1,9 +1,8 @@
 import React from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Users } from "lucide-react";
+import { Users } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
-import type { CompanyNameHistory, NameChangeContextKind } from "@/lib/company-history";
 import type { RelatedNameHolder } from "@/server/registry/related-name-holders";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -19,28 +18,6 @@ const STATUS_STYLES: Record<RelatedNameHolder["status"], string> = {
   ACTIVE: "border-[rgba(52,101,77,0.16)] bg-[rgba(233,245,236,0.9)] text-[#36564a]",
   BANKRUPT: "border-[rgba(159,47,47,0.18)] bg-[rgba(253,240,240,0.9)] text-[#8a2b2b]",
   DISSOLVED: "border-[rgba(146,91,33,0.18)] bg-[rgba(255,246,236,0.9)] text-[#8a5b21]",
-};
-
-const CONTEXT_STYLES: Record<NameChangeContextKind, string> = {
-  fusjon: "border-[rgba(47,93,159,0.2)] bg-[rgba(238,244,252,0.9)] text-[#28527f]",
-  fisjon: "border-[rgba(47,93,159,0.2)] bg-[rgba(238,244,252,0.9)] text-[#28527f]",
-  konkurs: "border-[rgba(159,47,47,0.18)] bg-[rgba(253,240,240,0.9)] text-[#8a2b2b]",
-  avvikling: "border-[rgba(146,91,33,0.18)] bg-[rgba(255,246,236,0.9)] text-[#8a5b21]",
-  omlegging: "border-[rgba(146,91,33,0.18)] bg-[rgba(255,246,236,0.9)] text-[#8a5b21]",
-  "navn-alene": "border-[rgba(15,23,42,0.1)] bg-[rgba(248,249,250,0.9)] text-slate-600",
-  "samtidige-endringer": "border-[rgba(15,23,42,0.1)] bg-[rgba(248,249,250,0.9)] text-slate-600",
-  "ingen-kunngjoring": "border-[rgba(15,23,42,0.1)] bg-[rgba(248,249,250,0.9)] text-slate-500",
-};
-
-const CONTEXT_TAGS: Record<NameChangeContextKind, string> = {
-  fusjon: "Fusjon",
-  fisjon: "Fisjon",
-  konkurs: "Konkursbehandling",
-  avvikling: "Avvikling",
-  omlegging: "Større omlegging",
-  "navn-alene": "Kun navneendring",
-  "samtidige-endringer": "Andre endringer samme dag",
-  "ingen-kunngjoring": "Uten kunngjøring",
 };
 
 function formatPeriod(fromDate: Date | null, toDate: Date | null) {
@@ -183,119 +160,3 @@ export function RelatedNameHoldersSection({
   );
 }
 
-/**
- * The name lineage read as a story: every change is shown with the announcement that
- * registered it and with the other filings from the same day, which is what tells a merger
- * apart from a bankruptcy or a plain rebranding.
- */
-export function CompanyNameHistorySection({
-  history,
-  orgNumber,
-}: {
-  history: CompanyNameHistory;
-  orgNumber: string;
-}) {
-  if (history.segments.length <= 1) {
-    return null;
-  }
-
-  return (
-    <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)] shadow-[0_8px_20px_rgba(15,23,42,0.03)]">
-      <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
-        <div className="data-label text-[11px] font-semibold uppercase text-slate-500">Navnehistorikk</div>
-        <h3 className="mt-2 text-[1.55rem] font-semibold tracking-tight text-slate-950">
-          Foretaket har hatt {history.segments.length} navn
-        </h3>
-        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">
-          Kunngjøringer er knyttet til organisasjonsnummeret {orgNumber}, ikke til navnet. Kunngjøringer fra
-          tiden under tidligere navn ligger derfor i den samme tidslinjen nedenfor.
-        </p>
-      </div>
-
-      <ol className="mt-5 space-y-2">
-        {[...history.segments].reverse().map((segment) => (
-          <li
-            key={`${segment.name}-${segment.fromDate?.toISOString() ?? "start"}`}
-            className={cn(
-              "flex flex-col gap-1 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
-              segment.isCurrent
-                ? "border-[rgba(52,101,77,0.18)] bg-[rgba(233,245,236,0.75)]"
-                : "border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.72)]",
-            )}
-          >
-            <span className="text-[0.95rem] font-semibold text-slate-950">{segment.name}</span>
-            <span className="flex items-center gap-2 text-sm text-slate-600">
-              {formatPeriod(segment.fromDate, segment.toDate)}
-              {segment.isCurrent ? (
-                <span className="data-label rounded-full border border-[rgba(52,101,77,0.16)] bg-white px-2.5 py-1 text-[10px] font-semibold uppercase text-[#36564a]">
-                  Gjeldende
-                </span>
-              ) : null}
-            </span>
-          </li>
-        ))}
-      </ol>
-
-      {history.changes.length > 0 ? (
-        <div className="mt-6 space-y-3">
-          <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-            Hva skjedde ved hvert navnebytte
-          </div>
-          {history.changes.map((change) => (
-            <div
-              key={`${change.fromName}-${change.toName}`}
-              className="rounded-xl border border-[rgba(15,23,42,0.08)] bg-white p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="data-label rounded-full border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.9)] px-2.5 py-1 text-[11px] font-semibold uppercase text-slate-500">
-                  {change.changedAt ? formatDate(change.changedAt) : "Dato ikke oppgitt"}
-                </span>
-                <span
-                  className={cn(
-                    "data-label rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase",
-                    CONTEXT_STYLES[change.contextKind],
-                  )}
-                >
-                  {CONTEXT_TAGS[change.contextKind]}
-                </span>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-[1.05rem] font-semibold tracking-tight text-slate-950">
-                <span>{change.fromName}</span>
-                <ArrowRight className="size-4 text-slate-400" />
-                <span>{change.toName}</span>
-              </div>
-
-              <p className="mt-1.5 text-sm leading-6 text-slate-600">{change.contextLabel}</p>
-
-              {change.context.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {change.context.map((item) => (
-                    <span
-                      key={item.id}
-                      className="rounded-full border border-[rgba(15,23,42,0.08)] bg-[rgba(248,249,250,0.9)] px-2.5 py-1 text-xs text-slate-600"
-                    >
-                      {item.title}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-
-              {change.announcement ? (
-                <a
-                  href={change.announcement.detailUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[#2f5d9f] transition hover:text-[#1f4578]"
-                >
-                  Åpne kunngjøringen om navneendringen
-                  <ArrowUpRight className="size-3.5" />
-                </a>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </Card>
-  );
-}

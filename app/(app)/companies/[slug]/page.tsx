@@ -2,12 +2,10 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { CompanyAnnouncementsTimeline } from "@/components/company/company-announcements-timeline";
-import {
-  CompanyNameHistorySection,
-  RelatedNameHoldersSection,
-} from "@/components/company/company-name-history";
-import { buildCompanyNameHistory, findBankruptcyOpening } from "@/lib/company-history";
+import { CompanyAnnouncementStory } from "@/components/company/company-announcement-story";
+import { RelatedNameHoldersSection } from "@/components/company/company-name-history";
+import { buildAnnouncementStory } from "@/lib/announcement-story";
+import { findBankruptcyOpening } from "@/lib/company-history";
 import { getRelatedNameHolders } from "@/server/registry/related-name-holders";
 import { CompanyFinancialDiscussions } from "@/components/company/company-financial-discussions";
 import { CompanyGridConnectionTab } from "@/components/company/company-grid-connection-tab";
@@ -285,6 +283,12 @@ function ExecutiveSnapshot({ profile }: { profile: CompanyProfile }) {
   );
 }
 
+const COMPANY_STATUS_LABELS: Record<NormalizedCompany["status"], string> = {
+  ACTIVE: "Aktiv",
+  BANKRUPT: "Konkurs",
+  DISSOLVED: "Oppløst",
+};
+
 function StatusPill({ status }: { status: NormalizedCompany["status"] }) {
   const map = {
     ACTIVE: { label: "Aktiv", icon: "check_circle", color: "var(--px-success)", border: "var(--px-success-border)" },
@@ -560,15 +564,15 @@ export default async function CompanyPage({
   ]);
 
   // Brreg keys announcements on the org number, so filings made under an earlier name are
-  // already in this feed — the name lineage is what makes them readable as one story.
-  const announcementNameHistory =
-    announcementsData && (company.previousNames?.length ?? 0) > 0
-      ? buildCompanyNameHistory({
-          currentName: company.name,
-          previousNames: company.previousNames ?? [],
-          announcements: announcementsData.announcements,
-        })
-      : null;
+  // already in this feed — the name lineage is what splits it into readable chapters.
+  const announcementStory = announcementsData
+    ? buildAnnouncementStory({
+        companyName: company.name,
+        previousNames: company.previousNames ?? [],
+        announcements: announcementsData.announcements,
+        statusLabel: COMPANY_STATUS_LABELS[company.status],
+      })
+    : null;
 
   const [overviewShareholding, overviewAnnouncements] = await Promise.all([
     activeTab === "oversikt" ? getCompanyShareholdingOverview(company.orgNumber) : Promise.resolve(null),
@@ -767,53 +771,37 @@ export default async function CompanyPage({
 
       {activeTab === "kunngjoringer" ? (
         <div className="space-y-6">
-          <Card className="border-[rgba(15,23,42,0.08)] bg-[rgba(255,255,255,0.86)]">
-            <div className="border-b border-[rgba(15,23,42,0.08)] pb-4">
-              <div className="data-label text-[11px] font-semibold uppercase text-slate-500">
-                Kunngjøringer og historikk
-              </div>
-              <h2 className="mt-2 text-[1.55rem] font-semibold text-slate-950">
-                Offisielle kunngjøringer
-              </h2>
-              <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                Her finner du foretakets registrerte kunngjøringer og formelle historikk.
-              </p>
-            </div>
-            <div className="mt-6 space-y-6">
-              {announcementNameHistory ? (
-                <CompanyNameHistorySection
-                  history={announcementNameHistory}
-                  orgNumber={company.orgNumber}
-                />
-              ) : null}
-              <RelatedNameHoldersSection
-                holders={relatedNameHolders}
+          {announcementsData && announcementStory ? (
+            <Card className="border-[var(--px-border-subtle)] bg-[var(--px-surface)] px-6 py-8 sm:px-10">
+              <CompanyAnnouncementStory
                 companyName={company.name}
-                bankruptcyOpenedAt={
-                  announcementsData ? findBankruptcyOpening(announcementsData.announcements) : null
+                companySlug={company.orgNumber}
+                story={announcementStory}
+                availabilityMessage={
+                  announcementsData.availability.message ?? "Kunngjøringer er tilgjengelige."
                 }
+                available={announcementsData.availability.available}
+                allAnnouncementsUrl={announcementsData.allAnnouncementsUrl ?? company.announcementsUrl}
+                initialDetail={initialAnnouncementDetail}
+                discussionRoomId={discussionContext?.selectedRoomId ?? null}
+                discussionRoomName={discussionContext?.selectedRoomName ?? null}
               />
-              {announcementsData ? (
-                <CompanyAnnouncementsTimeline
-                  companyName={company.name}
-                  companySlug={company.orgNumber}
-                  announcements={announcementsData.announcements}
-                  availabilityMessage={
-                    announcementsData.availability.message ?? "Kunngjøringer er tilgjengelige."
-                  }
-                  available={announcementsData.availability.available}
-                  allAnnouncementsUrl={announcementsData.allAnnouncementsUrl ?? company.announcementsUrl}
-                  initialDetail={initialAnnouncementDetail}
-                  discussionRoomId={discussionContext?.selectedRoomId ?? null}
-                  discussionRoomName={discussionContext?.selectedRoomName ?? null}
-                />
-              ) : (
-                <div className="rounded-xl border border-dashed border-[rgba(15,23,42,0.14)] bg-[rgba(248,249,250,0.62)] p-6 text-sm leading-6 text-slate-600">
-                  Kunngjøringer kunne ikke lastes akkurat nå.
-                </div>
-              )}
-            </div>
-          </Card>
+            </Card>
+          ) : (
+            <Card className="border-[var(--px-border-subtle)] bg-[var(--px-surface)]">
+              <div className="rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] p-6 text-sm leading-6 text-[var(--px-muted)]">
+                Kunngjøringer kunne ikke lastes akkurat nå.
+              </div>
+            </Card>
+          )}
+
+          <RelatedNameHoldersSection
+            holders={relatedNameHolders}
+            companyName={company.name}
+            bankruptcyOpenedAt={
+              announcementsData ? findBankruptcyOpening(announcementsData.announcements) : null
+            }
+          />
         </div>
       ) : null}
 
