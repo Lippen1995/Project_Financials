@@ -16,10 +16,16 @@ function formatDateTime(value: Date | string) {
   }).format(new Date(value));
 }
 
+/** Everything the panel needs to key a thread — a NormalizedAnnouncement satisfies it. */
+export type DiscussableAnnouncement = Pick<
+  NormalizedAnnouncement,
+  "id" | "sourceId" | "sourceSystem" | "publishedAt"
+>;
+
 type AnnouncementDiscussionPanelProps = {
   roomId: string;
   roomName: string;
-  announcement: NormalizedAnnouncement | null;
+  announcement: DiscussableAnnouncement | null;
 };
 
 export function AnnouncementDiscussionPanel({
