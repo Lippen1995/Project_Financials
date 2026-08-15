@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   logRecoverableError: vi.fn(),
   getAnalysis: vi.fn(),
   getEconomics: vi.fn(),
+  createJob: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: mocks.safeAuth }));
@@ -32,10 +33,14 @@ vi.mock("@/lib/env", () => ({
     njordInputNokPerMillion: 10,
     njordCachedInputNokPerMillion: 1,
     njordOutputNokPerMillion: 80,
+    cronSecret: "cron-secret",
   },
 }));
 vi.mock("@/lib/recoverable-error", () => ({
   logRecoverableError: mocks.logRecoverableError,
+}));
+vi.mock("@/lib/prisma", () => ({
+  prisma: { aiSearchJob: { create: mocks.createJob } },
 }));
 vi.mock("@/server/ai-search/agent/agent-loop", () => ({ runAgent: mocks.runAgent }));
 vi.mock("@/server/ai-search/agent/company-rows", () => ({
@@ -84,7 +89,7 @@ vi.mock("@/server/services/search-history-service", () => ({
   getAiSearchUsageStatus: mocks.getUsageStatus,
 }));
 
-import { POST } from "./route";
+import { POST as enqueueAiSearch } from "./route";
 
 const billingPeriod = {
   periodStart: new Date("2026-07-01T00:00:00.000Z"),
@@ -99,6 +104,18 @@ function request() {
     body: JSON.stringify({ query: "Hva gjelder etter IFRS 16?" }),
     headers: { "content-type": "application/json" },
   });
+}
+
+async function POST(input: NextRequest) {
+  const body = await input.json() as Record<string, unknown>;
+  return enqueueAiSearch(new NextRequest("http://localhost/api/ai-search", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer cron-secret",
+    },
+    body: JSON.stringify({ ...body, userId: "user-1" }),
+  }));
 }
 
 describe("POST /api/ai-search", () => {
@@ -145,6 +162,20 @@ describe("POST /api/ai-search", () => {
       billingPeriod,
     });
     mocks.getAnalysis.mockResolvedValue(null);
+    mocks.createJob.mockResolvedValue({ id: "job-1", status: "PENDING" });
+  });
+
+  it("queues premium AI work without invoking the model in the user request", async () => {
+    const response = await enqueueAiSearch(request());
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({ jobId: "job-1", status: "PENDING" });
+    expect(mocks.createJob).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: "user-1", query: "Hva gjelder etter IFRS 16?" }),
+      select: { id: true, status: true },
+    });
+    expect(mocks.runAgent).not.toHaveBeenCalled();
+    expect(mocks.reserveUsage).not.toHaveBeenCalled();
   });
 
   it("uses the real LLM path and records aggregate provider usage", async () => {

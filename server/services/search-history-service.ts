@@ -703,7 +703,7 @@ export async function releaseAiSearchUsage(userId: string, reservationId: string
 
 export async function deleteExpiredSearchHistory(now = new Date()) {
   const cutoff = getSearchHistoryCutoff(now);
-  const [history, reservations] = await prisma.$transaction([
+  const [history, reservations, aiJobs] = await prisma.$transaction([
     prisma.$executeRaw(Prisma.sql`
       DELETE FROM "CompanySearchEvent"
       WHERE "searchedAt" < ${cutoff}
@@ -712,6 +712,10 @@ export async function deleteExpiredSearchHistory(now = new Date()) {
       DELETE FROM "AiSearchUsageEvent"
       WHERE "status" = 'RESERVED' AND "expiresAt" <= ${now}
     `),
+    prisma.$executeRaw(Prisma.sql`
+      DELETE FROM "AiSearchJob"
+      WHERE "createdAt" < ${cutoff}
+    `),
   ]);
-  return history + reservations;
+  return history + reservations + aiJobs;
 }

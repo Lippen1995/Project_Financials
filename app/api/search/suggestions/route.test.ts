@@ -15,8 +15,8 @@ vi.mock("@/server/registry/role-search-service", () => ({
   searchPersons: mocks.searchPersons,
   searchRoleTypes: mocks.searchRoleTypes,
 }));
-vi.mock("@/integrations/ssb/ssb-industry-code-provider", () => ({
-  SsbIndustryCodeProvider: class {
+vi.mock("@/server/registry/ssb-classification-repository", () => ({
+  SsbClassificationRepository: class {
     searchIndustryCodes = mocks.searchIndustryCodes;
   },
 }));

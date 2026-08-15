@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { safeAuth } from "@/lib/auth";
 import env from "@/lib/env";
+import { prisma } from "@/lib/prisma";
 import { calculateAiUsageTokens } from "@/lib/ai-search-usage";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import { consumeRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
@@ -36,13 +37,21 @@ const requestSchema = z
   })
   .strict();
 
+const backgroundRequestSchema = requestSchema.extend({
+  userId: z.string().trim().min(1).max(128),
+}).strict();
+
+/* GL_A01_BACKGROUND_ONLY_BEGIN */
 /**
  * AI-search agent endpoint. Runs the guarded tool loop with the real LLM when billing and an API key
  * are configured. There is intentionally no deterministic answer fallback: Njord capabilities
  * belong in grounded tools and the LLM prompt, not in a parallel rule model.
  */
-export async function POST(request: NextRequest) {
-  const session = await safeAuth();
+async function executeAiSearchRequest(
+  request: NextRequest,
+  sessionOverride?: { user: { id: string } },
+) {
+  const session = sessionOverride ?? await safeAuth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
   }
@@ -394,4 +403,115 @@ export async function POST(request: NextRequest) {
       ? { analysisId, analysisVersion: analysisContextVersion }
       : null,
   });
+}
+
+/* GL_A01_BACKGROUND_ONLY_END */
+
+/**
+ * User-facing AI endpoint. It validates entitlement and persists a job only;
+ * the model adapter is invoked exclusively by the leased background worker.
+ */
+export async function POST(request: NextRequest) {
+  if (
+    env.cronSecret &&
+    request.headers.get("authorization") === `Bearer ${env.cronSecret}`
+  ) {
+    let backgroundBody: unknown;
+    try {
+      backgroundBody = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Ugyldig bakgrunnsforespørsel." }, { status: 400 });
+    }
+    const parsedBackground = backgroundRequestSchema.safeParse(backgroundBody);
+    if (!parsedBackground.success) {
+      return NextResponse.json({ error: "Ugyldig AI-jobb." }, { status: 400 });
+    }
+    const executionRequest = new NextRequest("http://localhost/api/ai-search/worker", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        query: parsedBackground.data.query,
+        ...(parsedBackground.data.analysisId ? { analysisId: parsedBackground.data.analysisId } : {}),
+      }),
+    });
+    return executeAiSearchRequest(executionRequest, {
+      user: { id: parsedBackground.data.userId },
+    });
+  }
+
+  const session = await safeAuth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
+  }
+
+  const requestLimit = consumeRateLimit("njord-ai-search-enqueue", session.user.id, {
+    limit: 10,
+    windowMs: 5 * 60_000,
+  });
+  if (!requestLimit.allowed) {
+    return NextResponse.json(
+      { error: "For mange Njord-forespørsler. Prøv igjen senere." },
+      { status: 429, headers: rateLimitHeaders(requestLimit) },
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Ugyldig forespørsel." }, { status: 400 });
+  }
+  const parsedBody = requestSchema.safeParse(body);
+  if (!parsedBody.success) {
+    return NextResponse.json(
+      { error: "Ugyldig søk. Maksimal lengde er 4000 tegn." },
+      { status: 400 },
+    );
+  }
+
+  const inspection = inspectNjordUserQuery(parsedBody.data.query);
+  if (!inspection.allowed) {
+    return NextResponse.json(
+      { error: "Njord kan ikke hente hemmeligheter, interne instrukser eller omgå tilgangskontroll." },
+      { status: 400 },
+    );
+  }
+
+  const economics = await getAiRuntimeEconomicsConfig();
+  if (!env.aiSearchBillingEnabled || !env.openAiApiKey || !economics?.runtimeEnabled) {
+    return NextResponse.json(
+      { error: "Njord er pauset eller mangler økonomikonfigurasjon i admin." },
+      { status: 503 },
+    );
+  }
+  const subscription = await getAiSearchSubscriptionContext(
+    session.user.id,
+    new Date(),
+    economics,
+  );
+  if (!subscription.premium) {
+    return NextResponse.json(
+      { error: "Njord krever et aktivt Premium-abonnement." },
+      { status: 403 },
+    );
+  }
+  if (!subscription.billingPeriod) {
+    return NextResponse.json(
+      { error: "Abonnementsperioden for Njord er ikke tilgjengelig." },
+      { status: 503 },
+    );
+  }
+
+  const job = await prisma.aiSearchJob.create({
+    data: {
+      userId: session.user.id,
+      query: parsedBody.data.query,
+      analysisId: parsedBody.data.analysisId ?? null,
+      status: "PENDING",
+      nextAttemptAt: new Date(),
+    },
+    select: { id: true, status: true },
+  });
+
+  return NextResponse.json({ jobId: job.id, status: job.status }, { status: 202 });
 }

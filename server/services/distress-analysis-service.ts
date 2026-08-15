@@ -4,7 +4,7 @@ import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcem
 import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import { BrregDistressProvider } from "@/integrations/brreg/brreg-distress-provider";
 import { mapBrregCompany } from "@/integrations/brreg/mappers";
-import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
+import { SsbClassificationRepository } from "@/server/registry/ssb-classification-repository";
 import {
   DISTRESS_SCORE_VERSION,
   buildDistressFinancialTrend,
@@ -64,11 +64,9 @@ import { requireWorkspaceMembership } from "@/server/services/workspace-service"
 const companyProvider = new BrregCompanyProvider();
 const distressProvider = new BrregDistressProvider();
 const announcementsProvider = new BrregAnnouncementsProvider();
-const industryCodeProvider = new SsbIndustryCodeProvider();
+const industryCodeProvider = new SsbClassificationRepository();
 
 const DISTRESS_SYNC_KEY = "brreg-distress-enheter";
-const DISTRESS_WARM_START_SIZE = 250;
-const DISTRESS_SYNC_STALE_MS = 15 * 60 * 1000;
 const DISTRESS_DEFAULT_BOOTSTRAP_CONCURRENCY = 16;
 const DISTRESS_DEFAULT_UPDATES_CONCURRENCY = 20;
 const DISTRESS_BEST_FIT_LIMIT = 500;
@@ -91,10 +89,6 @@ async function getActiveDistressFinancialDataset(): Promise<ActiveFinancialDatas
  * as a permanent zero, which is worse than a coarser number that is actually true.
  */
 const DISTRESS_ASSETS_THRESHOLD = 100_000_000;
-
-let distressBootstrapPromise: Promise<unknown> | null = null;
-let distressUpdatesPromise: Promise<unknown> | null = null;
-let distressWarmStartPromise: Promise<unknown> | null = null;
 
 type SortKey = NonNullable<DistressSearchFilters["sort"]>;
 
@@ -796,77 +790,10 @@ export async function backfillDistressFinancials(options?: {
   };
 }
 
-function hasCompletedFullBootstrap(metadata: unknown) {
-  if (!metadata || typeof metadata !== "object") {
-    return false;
-  }
-
-  const record = metadata as Record<string, unknown>;
-  return record.bootstrapCompleted === true;
-}
-
-function isSyncStale(lastRunAt?: Date | null) {
-  if (!lastRunAt) {
-    return true;
-  }
-
-  return Date.now() - lastRunAt.getTime() > DISTRESS_SYNC_STALE_MS;
-}
-
-function queueFullDistressBootstrap() {
-  if (!distressBootstrapPromise) {
-    distressBootstrapPromise = syncDistressBootstrap({
-      concurrency: DISTRESS_DEFAULT_BOOTSTRAP_CONCURRENCY,
-    }).finally(() => {
-      distressBootstrapPromise = null;
-    });
-  }
-
-  return distressBootstrapPromise;
-}
-
-function queueDistressUpdates() {
-  if (!distressUpdatesPromise) {
-    distressUpdatesPromise = syncDistressUpdates({
-      concurrency: DISTRESS_DEFAULT_UPDATES_CONCURRENCY,
-    }).finally(() => {
-      distressUpdatesPromise = null;
-    });
-  }
-
-  return distressUpdatesPromise;
-}
-
-function queueDistressWarmStart() {
-  if (!distressWarmStartPromise) {
-    distressWarmStartPromise = syncDistressBootstrap({
-      limit: DISTRESS_WARM_START_SIZE,
-      concurrency: DISTRESS_DEFAULT_BOOTSTRAP_CONCURRENCY,
-    }).finally(() => {
-      distressWarmStartPromise = null;
-    });
-  }
-
-  return distressWarmStartPromise;
-}
-
 async function ensureDistressCoverage() {
-  const [profileCount, syncState] = await Promise.all([
-    countDistressProfiles(),
-    getDistressSyncState(DISTRESS_SYNC_KEY),
-  ]);
-
-  if (profileCount === 0) {
-    await queueDistressWarmStart();
-    void queueFullDistressBootstrap();
-    return;
-  }
-
-  if (!hasCompletedFullBootstrap(syncState?.metadata)) {
-    void queueFullDistressBootstrap();
-  } else if (isSyncStale(syncState?.lastRunAt)) {
-    void queueDistressUpdates();
-  }
+  // GL-A01: request-time reads never warm or refresh the external Brreg
+  // distress mirror. The scheduled sync script owns population and freshness.
+  return;
 }
 
 function mapRow(

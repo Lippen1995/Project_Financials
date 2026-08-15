@@ -2,15 +2,12 @@ import crypto from "node:crypto";
 
 import { ShareholdingGraphSnapshot, ShareholderType } from "@/lib/types";
 import { prisma } from "@/lib/prisma";
-import { SkatteetatenShareholdingProvider } from "@/integrations/skatteetaten/aksjonaer-i-virksomhet-provider";
 import {
   getShareholdingAvailableYears,
   getShareholdingSnapshot,
 } from "@/server/shareholdings/shareholding-repository";
 import { getRegisteredOwnersForCompany } from "@/server/shareholdings/shareholder-register-repository";
 import { resolveUltimateOwners, type UltimateOwner } from "@/server/ownership/ultimate-owner-service";
-
-const skatteetatenProvider = new SkatteetatenShareholdingProvider();
 
 // The shareholders tab only ever shows the largest holders; a widely-held company can have
 // hundreds of thousands of register rows that add no value and make the page slow. Cap the
@@ -278,23 +275,6 @@ export async function getCompanyShareholdingOverview(orgNumber: string, requeste
   const selectedYear = requestedYear ?? availableYears[0] ?? latestExpectedYear;
   const companyName = companyRow?.name ?? orgNumber;
 
-  if (skatteetatenProvider.canFetch()) {
-    try {
-      const liveSnapshot = await skatteetatenProvider.getShareholdingSnapshot(orgNumber, requestedYear);
-      if (liveSnapshot) {
-        liveSnapshot.companyName = companyRow?.name ?? liveSnapshot.companyName;
-        return {
-          snapshot: liveSnapshot,
-          availableYears: Array.from(new Set([liveSnapshot.taxYear, ...availableYears])).sort((a, b) => b - a),
-          latestExpectedYear,
-          ultimateOwners: await buildUltimateOwners(liveSnapshot),
-        };
-      }
-    } catch {
-      // Fall back to persisted or imported shareholder-register data if the live API is unavailable.
-    }
-  }
-
   const persistedSnapshot = await getShareholdingSnapshot(
     orgNumber,
     selectedYear,
@@ -323,11 +303,9 @@ export async function getCompanyShareholdingOverview(orgNumber: string, requeste
       sourceImportedAt: new Date(),
       latestAvailableYear: latestExpectedYear,
       dataQualityNote: null,
-      availabilityMessage: !skatteetatenProvider.canFetch()
-        ? "Aksjonærdata er ikke tilgjengelig fordi Skatteetatens API ikke er konfigurert, og det finnes heller ikke importerte registerrader for valgt år."
-        : selectedYear > latestExpectedYear
-          ? `Aksjonærdata for ${selectedYear} er normalt ikke tilgjengelig ennå. Siste forventede tilgjengelige år er ${latestExpectedYear}.`
-          : "Aksjonærdata ikke tilgjengelig for valgt år.",
+      availabilityMessage: selectedYear > latestExpectedYear
+        ? `Aksjonærdata for ${selectedYear} er normalt ikke tilgjengelig ennå. Siste forventede tilgjengelige år er ${latestExpectedYear}.`
+        : "Aksjonærdata er ikke lastet inn i det lokale registeret for valgt år.",
       nodes: [],
       edges: [],
       ownerships: [],

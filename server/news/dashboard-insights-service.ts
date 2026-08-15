@@ -234,7 +234,7 @@ async function fetchObxConstituentNames() {
   }
 }
 
-async function getObxCompanyIds() {
+export async function refreshObxCompanyIds() {
   if (obxCache && obxCache.expiresAt > Date.now()) {
     return obxCache.companyIds;
   }
@@ -689,7 +689,9 @@ async function getPersonalCandidates(priorities: CompanyPriority[], limit: numbe
 }
 
 async function getFallbackCandidates(limit: number): Promise<InsightCandidate[]> {
-  const obxCompanyIds = await getObxCompanyIds();
+  // OBX membership must be populated by a background sync. Until that local
+  // read model exists, the request path uses stored macro/prominent events.
+  const obxCompanyIds: string[] = [];
 
   const [obxEvents, macroEvents] = await Promise.all([
     obxCompanyIds.length > 0

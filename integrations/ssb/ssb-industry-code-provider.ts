@@ -4,15 +4,17 @@ import { IndustryCodeProvider } from "@/integrations/provider-interface";
 import { logRecoverableError } from "@/lib/recoverable-error";
 import { NormalizedIndustryCode } from "@/lib/types";
 
+export type SsbClassificationCode = {
+  code: string;
+  name?: string;
+  shortName?: string;
+  parentCode?: string;
+  level?: string;
+  notes?: string;
+};
+
 type SsbCodesResponse = {
-  codes?: Array<{
-    code: string;
-    name?: string;
-    shortName?: string;
-    parentCode?: string;
-    level?: string;
-    notes?: string;
-  }>;
+  codes?: SsbClassificationCode[];
 };
 
 type GeographicResolution = {
@@ -41,7 +43,7 @@ export class SsbIndustryCodeProvider implements IndustryCodeProvider {
   private countyCodeCache: SsbCodesResponse["codes"] | null = null;
   private municipalityCodeCache: SsbCodesResponse["codes"] | null = null;
 
-  private async getCodes(classificationId: string, includeNotes = false) {
+  async fetchClassificationCodes(classificationId: string, includeNotes = false) {
     const now = new Date();
     const date = now.toISOString().slice(0, 10);
     const params = new URLSearchParams({
@@ -107,7 +109,7 @@ export class SsbIndustryCodeProvider implements IndustryCodeProvider {
     }
 
     if (!this.industryCodeCache) {
-      this.industryCodeCache = await this.getCodes(env.ssbIndustryClassificationId, true);
+      this.industryCodeCache = await this.fetchClassificationCodes(env.ssbIndustryClassificationId, true);
     }
 
     const normalizedTerms = Array.from(new Set(terms.map(normalizeText).filter(Boolean)));
@@ -166,11 +168,11 @@ export class SsbIndustryCodeProvider implements IndustryCodeProvider {
     }
 
     if (!this.countyCodeCache) {
-      this.countyCodeCache = await this.getCodes("104");
+      this.countyCodeCache = await this.fetchClassificationCodes("104");
     }
 
     if (!this.municipalityCodeCache) {
-      this.municipalityCodeCache = await this.getCodes("131");
+      this.municipalityCodeCache = await this.fetchClassificationCodes("131");
     }
 
     if (typeHint === "COUNTY" || !typeHint) {

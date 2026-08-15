@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
 import {
   getOwnershipAvailableYears,
   getSubsidiaryTraversal,
@@ -39,25 +38,7 @@ const defaultDependencies: GroupEmployeeDependencies = {
       where: { orgNumber: { in: orgNumbers } },
       select: { orgNumber: true, employeeCount: true },
     });
-    const counts = new Map(companies.map((company) => [company.orgNumber, company.employeeCount]));
-    const missingOrgNumbers = orgNumbers.filter((orgNumber) => counts.get(orgNumber) == null);
-    const provider = new BrregCompanyProvider();
-    let nextIndex = 0;
-    async function fetchWorker() {
-      while (nextIndex < missingOrgNumbers.length) {
-        const orgNumber = missingOrgNumbers[nextIndex++]!;
-        try {
-          const company = await provider.getCompany(orgNumber);
-          if (company) counts.set(orgNumber, company.employeeCount ?? null);
-        } catch {
-          // A failed Brreg fallback leaves this member uncovered; the caller labels the sum "minst".
-        }
-      }
-    }
-    await Promise.all(
-      Array.from({ length: Math.min(6, missingOrgNumbers.length) }, () => fetchWorker()),
-    );
-    return counts;
+    return new Map(companies.map((company) => [company.orgNumber, company.employeeCount]));
   },
 };
 

@@ -9,6 +9,18 @@
       "schedule": "5 * * * *"
     },
     {
+      "path": "/api/internal/company-announcements/scheduled",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/internal/ai-search-jobs/scheduled",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/ssb-classifications/scheduled",
+      "schedule": "0 3 * * *"
+    },
+    {
       "path": "/api/internal/petroleum-sync/scheduled",
       "schedule": "15 * * * *"
     },

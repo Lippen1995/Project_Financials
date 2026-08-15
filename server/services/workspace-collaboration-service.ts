@@ -20,20 +20,13 @@ import {
 } from "@/lib/types";
 import env from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
-import { BrregCompanyProvider } from "@/integrations/brreg/brreg-company-provider";
-import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
-import {
-  upsertCompanySnapshot,
-} from "@/server/persistence/company-repository";
+import { SsbClassificationRepository } from "@/server/registry/ssb-classification-repository";
 import { syncCompanyEventNotificationsForWatches } from "@/server/news/company-event-alert-service";
 import { getPublicCompanyFinancials } from "@/server/services/public-financials-service";
-import { getCompanyProfile, searchCompanies } from "@/server/services/company-service";
+import { getCompanyAnnouncements, getCompanyProfile, searchCompanies } from "@/server/services/company-service";
 import { getUserWorkspaceCapabilities } from "@/server/services/workspace-service";
 
-const announcementsProvider = new BrregAnnouncementsProvider();
-const companyProvider = new BrregCompanyProvider();
-const industryCodeProvider = new SsbIndustryCodeProvider();
+const industryCodeProvider = new SsbClassificationRepository();
 
 const RECENT_ACTIVITY_DAYS = 7;
 const DIGEST_LOOKBACK_HOURS = 24;
@@ -1493,7 +1486,7 @@ async function syncWatchAnnouncements(watch: {
   createdAt: Date;
   lastAnnouncementPublishedAt: Date | null;
 }) {
-  const response = await announcementsProvider.getAnnouncements(watch.company.orgNumber);
+  const response = await getCompanyAnnouncements(watch.company.orgNumber);
   const baseline = watch.lastAnnouncementPublishedAt ?? watch.createdAt;
   let newestPublishedAt = watch.lastAnnouncementPublishedAt;
   let createdCount = 0;
@@ -1610,12 +1603,15 @@ async function syncWatchStatus(watch: {
   company: { orgNumber: string; name: string };
   lastObservedCompanyStatus: CompanyStatus | null;
 }) {
-  const latestCompany = await companyProvider.getCompany(watch.company.orgNumber);
-  if (!latestCompany) {
+  const profile = await getCompanyProfile(watch.company.orgNumber, {
+    rolesMode: "none",
+    financialsMode: "none",
+  });
+  if (!profile) {
     return 0;
   }
 
-  await upsertCompanySnapshot(latestCompany);
+  const latestCompany = profile.company;
 
   const nextStatus = latestCompany.status as CompanyStatus;
   const previousStatus = watch.lastObservedCompanyStatus;

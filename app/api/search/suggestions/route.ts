@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
 import { buildDashboardSearchHref } from "@/lib/dashboard-search";
 import type { NavSearchSuggestion } from "@/lib/nav-search";
 import {
@@ -11,6 +10,7 @@ import {
 } from "@/lib/rate-limit";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { searchPersons, searchRoleTypes } from "@/server/registry/role-search-service";
+import { SsbClassificationRepository } from "@/server/registry/ssb-classification-repository";
 
 const MIN_QUERY_LENGTH = 2;
 const MAX_QUERY_LENGTH = 200;
@@ -22,7 +22,7 @@ const querySchema = z
       .default("all"),
   })
   .strict();
-const industryCodeProvider = new SsbIndustryCodeProvider();
+const industryCodeProvider = new SsbClassificationRepository();
 
 export async function GET(request: NextRequest) {
   const requestLimit = consumeRateLimit(

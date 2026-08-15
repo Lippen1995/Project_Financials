@@ -1,22 +1,10 @@
-import { StatnettGridConnectionProvider } from "@/integrations/statnett/statnett-grid-connection-provider";
-import { logRecoverableError } from "@/lib/recoverable-error";
-import {
+import type {
   CompanyGridConnectionOverview,
   CompanyGridConnectionProfile,
   GridConnectionRecord,
 } from "@/lib/types";
 
-const provider = new StatnettGridConnectionProvider();
-
-// The public Statnett feed carries no organisation number, so a case can only be tied to a
-// company by name. Legal forms are ignored and the distinctive tokens are compared as a set, so
-// "Nord Kraft AS" matches "Nord Kraft AS" but NOT the separate entity "Nord Kraft Holding AS".
 const LEGAL_FORM_TOKENS = new Set(["as", "asa", "ans", "ba", "da", "sa", "nuf", "kf", "iks", "sf", "fkf"]);
-
-// Curated equivalences for companies whose register name and Statnett name differ by a corporate
-// prefix/suffix (e.g. register "Nscale" appears as "Aker Nscale AS"). Each group lists distinctive
-// tokens that denote the same entity; a company and a case match when both carry a token from the
-// same group. Kept deliberately narrow to avoid false attributions.
 const ALIAS_GROUPS: string[][] = [["nscale"]];
 
 function normalizeCompanyName(value: string | null | undefined) {
@@ -41,11 +29,9 @@ function shareAliasGroup(a: Set<string>, b: Set<string>) {
 
 function namesMatch(companyName: string, candidate: string | null) {
   if (!candidate) return false;
-
   const company = normalizeCompanyName(companyName);
   const other = normalizeCompanyName(candidate);
   if (company && company === other) return true;
-
   const companyTokens = coreTokens(companyName);
   const candidateTokens = coreTokens(candidate);
   return sameTokenSet(companyTokens, candidateTokens) || shareAliasGroup(companyTokens, candidateTokens);
@@ -55,22 +41,18 @@ export function buildCompanyGridConnectionOverview(records: GridConnectionRecord
   return records.reduce(
     (overview, record) => {
       overview.totalCapacityMw += record.capacityMw;
-
       if (record.status === "QUEUE") {
         overview.queueCapacityMw += record.capacityMw;
         overview.queueCount += 1;
       }
-
       if (record.status === "RESERVED") {
         overview.reservedCapacityMw += record.capacityMw;
         overview.reservedCount += 1;
       }
-
       if (record.status === "CONNECTED") {
         overview.connectedCapacityMw += record.capacityMw;
         overview.connectedCount += 1;
       }
-
       return overview;
     },
     {
@@ -101,42 +83,16 @@ export async function getCompanyGridConnectionProfile(input: {
   orgNumber: string;
   companyName: string;
 }): Promise<CompanyGridConnectionProfile> {
-  try {
-    const allRecords = await provider.listGridConnections();
-    const records = filterGridConnectionsForCompany({
-      records: allRecords,
-      orgNumber: input.orgNumber,
-      companyName: input.companyName,
-    });
-
-    return {
-      records,
-      overview: buildCompanyGridConnectionOverview(records),
-      availability: {
-        available: records.length > 0,
-        reliable: true,
-        sourceSystem: "STATNETT",
-        sourceUrl: records[0]?.sourceUrl ?? null,
-        message:
-          records.length > 0
-            ? "Offentlige Statnett-saker er matchet mot selskapet på navn (kilden oppgir ikke organisasjonsnummer)."
-            : allRecords.length > 0
-              ? "Ingen offentlige Statnett-saker kunne matches mot selskapet."
-              : "Fant ingen offentlige Statnett-saker for nettkø eller reservasjon akkurat nå.",
-      },
-    };
-  } catch (error) {
-    logRecoverableError("company-grid-connection-service.getCompanyGridConnectionProfile", error, input);
-    return {
-      records: [],
-      overview: buildCompanyGridConnectionOverview([]),
-      availability: {
-        available: false,
-        reliable: false,
-        sourceSystem: "STATNETT",
-        sourceUrl: null,
-        message: "Statnett-data for nettilknytning kunne ikke hentes akkurat nå.",
-      },
-    };
-  }
+  void input;
+  return {
+    records: [],
+    overview: buildCompanyGridConnectionOverview([]),
+    availability: {
+      available: false,
+      reliable: false,
+      sourceSystem: "STATNETT",
+      sourceUrl: null,
+      message: "Statnett-data er ikke lastet inn i det lokale datasettet ennå.",
+    },
+  };
 }

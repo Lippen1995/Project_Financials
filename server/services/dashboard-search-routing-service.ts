@@ -1,13 +1,10 @@
-import {
-  OpenAiDashboardSearchScopeProvider,
-  type ScopeClassificationBudget,
-} from "@/integrations/openai/openai-dashboard-search-scope-provider";
-import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
+import type { ScopeClassificationBudget } from "@/integrations/openai/openai-dashboard-search-scope-provider";
 import {
   buildDashboardSearchHref,
   type ResolvedDashboardSearchScope,
 } from "@/lib/dashboard-search";
 import { searchPersons, searchRoleTypes } from "@/server/registry/role-search-service";
+import { SsbClassificationRepository } from "@/server/registry/ssb-classification-repository";
 import { searchCompanies } from "@/server/services/company-service";
 
 export type RoutingDependencies = {
@@ -32,8 +29,7 @@ export type RoutingDependencies = {
 
 const BANKRUPTCY_TERMS = /\b(konkurs|konkurser|konkursrammet|tvangsavvikl(?:et|ing))\b/i;
 const INDUSTRY_CODE = /^\d{2}(?:\.\d{1,3})?$/;
-const industryCodeProvider = new SsbIndustryCodeProvider();
-const aiScopeProvider = new OpenAiDashboardSearchScopeProvider();
+const industryCodeProvider = new SsbClassificationRepository();
 
 function normalize(value: string) {
   return value
@@ -50,7 +46,9 @@ const defaultDependencies: RoutingDependencies = {
   searchPersonMatches: (query) => searchPersons(query, { limit: 5 }),
   searchIndustryMatches: (query) => industryCodeProvider.searchIndustryCodes([query], 5),
   searchRoleMatches: (query) => searchRoleTypes(query, { limit: 5 }),
-  classifyWithAi: (query, budget) => aiScopeProvider.classify(query, budget),
+  // Scope classification is asynchronous under GL-A01. The request path uses
+  // deterministic, database-backed routing until a stored classification exists.
+  classifyWithAi: async () => null,
 };
 
 function nameScore(name: string | null | undefined, query: string, fallback: number) {

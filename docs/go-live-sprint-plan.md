@@ -209,11 +209,14 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
 
 ### Status 15. august 2026
 
-- GL-A01 er implementert for strukturert regnskap: selskapssiden og
-  `GET /api/companies/[slug]/financials` leser databasen, legger ukjente
-  virksomheter i kø og viser en ærlig ventetilstand. Verifisert uten utgående
-  HTTP i forespørselsveien. Kunngjøringer fra Brreg, SSB Klass-oppslag og
-  søkeintensjon gjenstår.
+- GL-A01 er teknisk lukket i aktiv kode. Strukturert regnskap og Brreg-
+  kunngjøringer bruker per-selskap-kø ved manglende dekning, SSB Klass leses fra
+  et versjonert lokalt speil, og eldre read-throughs for sekundærkilder er
+  fjernet. Premium AI-søk beholdes: brukerens kall oppretter en jobb, den
+  leasede cron-workerens modellkall følger budsjett/reservasjon/forbruksføring,
+  og klienten poller lagret resultat. Inventartesten avviser provider-fallback i
+  de registrerte leseflatene. Se
+  [G1-inventaret for forespørselsveien](./go-live/g1-request-path-network-inventory.md).
 - GL-A02 er implementert som `financials:drain-queue` og en hemmelighetsbeskyttet
   planlagt rute; kø, etterslep og feil vises i kontrollsenteret.
 - GL-A03 er teknisk lukket på K0: Njord, søkeintensjonen og

@@ -14,10 +14,7 @@ import {
   SearchFilters,
   SearchInterpretation,
 } from "@/lib/types";
-import { BrregAnnouncementsProvider } from "@/integrations/brreg/brreg-announcements-provider";
-import { OpenAiSearchIntentProvider } from "@/integrations/openai/openai-search-intent-provider";
-import { SsbIndustryCodeProvider } from "@/integrations/ssb/ssb-industry-code-provider";
-import { classifyQueryIntent } from "@/server/ai-search/query-router";
+import { SsbClassificationRepository } from "@/server/registry/ssb-classification-repository";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import { getRegistryCompanyFacts } from "@/server/registry/registry-entity-facts";
 import { mapDbCompany, mapDbRoles } from "@/server/mappers/db-mappers";
@@ -29,10 +26,12 @@ import {
   upsertIndustryCodeSnapshot,
 } from "@/server/persistence/company-repository";
 import { getPublicCompanyFinancials } from "@/server/services/public-financials-service";
+import {
+  getStoredCompanyAnnouncementDetail,
+  getStoredCompanyAnnouncements,
+} from "@/server/services/company-announcement-read-service";
 
-const announcementsProvider = new BrregAnnouncementsProvider();
-const industryCodeProvider = new SsbIndustryCodeProvider();
-const searchIntentProvider = new OpenAiSearchIntentProvider();
+const industryCodeProvider = new SsbClassificationRepository();
 
 type SearchIndustryMatch = Awaited<ReturnType<typeof buildIndustryMatches>>[number];
 type ResolvedSearchGeography = Awaited<ReturnType<typeof industryCodeProvider.resolveGeography>>;
@@ -354,34 +353,24 @@ export async function searchCompanies(
     return buildFallbackResponse();
   }
 
-  const shouldInterpretWithAi = Boolean(
-    filters.aiAssisted &&
-    filters.query?.trim() &&
-    options.onAiUsage &&
-    options.onAiUsageFailure &&
-    classifyQueryIntent(filters.query).intent !== "DIRECT_LOOKUP",
-  );
-  const interpretation: SearchInterpretation = shouldInterpretWithAi
-    ? await searchIntentProvider.interpretQuery(filters.query ?? "", {
-      maxCompletionTokens: options.maxAiOutputTokens,
-      onAiUsageFailure: options.onAiUsageFailure,
-    })
-    : {
-        originalQuery: filters.query ?? "",
-        rewrittenQuery: filters.query ?? "",
-        aiAssisted: false,
-        fallbackReason: null,
-        companyTerms: filters.query?.trim() ? [filters.query.trim()] : [],
-        industryTerms: [],
-        geographicTerm: null,
-        geographicType: null,
-        intentSummary: null,
-        matchedIndustryCodes: [],
-      };
-
-  if (interpretation.aiUsage) {
-    await options.onAiUsage?.(interpretation.aiUsage);
-  }
+  // GL-A01: a search request may only read local state. The premium AI
+  // interpretation is deliberately not invoked here; it must be supplied by
+  // the asynchronous AI-search workflow once that job has completed.
+  void options;
+  const interpretation: SearchInterpretation = {
+    originalQuery: filters.query ?? "",
+    rewrittenQuery: filters.query ?? "",
+    aiAssisted: false,
+    fallbackReason: filters.aiAssisted
+      ? "AI-tolkning behandles i bakgrunnen. Det ordinære databasesøket vises mens analysen pågår."
+      : null,
+    companyTerms: filters.query?.trim() ? [filters.query.trim()] : [],
+    industryTerms: [],
+    geographicTerm: null,
+    geographicType: null,
+    intentSummary: null,
+    matchedIndustryCodes: [],
+  };
 
   const matchedIndustryCodes = await buildIndustryMatches(filters, interpretation);
   interpretation.matchedIndustryCodes = matchedIndustryCodes.map((item) => ({
@@ -623,13 +612,13 @@ export async function getCompanyFinancials(orgNumber: string) {
 }
 
 export async function getCompanyAnnouncements(orgNumber: string) {
-  return announcementsProvider.getAnnouncements(orgNumber);
+  return getStoredCompanyAnnouncements(orgNumber);
 }
 
 export async function getCompanyAnnouncementDetail(
   orgNumber: string,
   announcementId: string,
-  publishedAt?: Date | null,
+  _publishedAt?: Date | null,
 ): Promise<NormalizedAnnouncementDetail | null> {
-  return announcementsProvider.getAnnouncementDetail(orgNumber, announcementId, publishedAt);
+  return getStoredCompanyAnnouncementDetail(orgNumber, announcementId);
 }

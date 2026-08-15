@@ -31,6 +31,33 @@ type ChatMessage = {
   feedback?: "USEFUL" | "INCORRECT" | "SAVING" | "ERROR" | null;
 };
 
+type AiSearchResponsePayload = {
+  jobId?: string;
+  status?: string;
+  result?: AiSearchResponsePayload | null;
+  answerKey?: string;
+  answer?: string;
+  error?: string;
+  quota?: AiSearchUsageSummary;
+  companies?: CompanySearchRow[];
+  visualization?: NjordVisualization | null;
+  claimEvidence?: NjordClaimEvidenceResult;
+};
+
+async function waitForAiSearchJob(jobId: string) {
+  for (let attempt = 0; attempt < 90; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    const response = await fetch(`/api/ai-search/${encodeURIComponent(jobId)}`, { cache: "no-store" });
+    const payload = (await response.json()) as AiSearchResponsePayload;
+    if (!response.ok) return { ok: false, data: payload };
+    if (payload.status === "COMPLETED" && payload.result) return { ok: true, data: payload.result };
+    if (payload.status === "FAILED") {
+      return { ok: false, data: { error: payload.error ?? "AI-søket kunne ikke fullføres." } };
+    }
+  }
+  return { ok: false, data: { error: "AI-søket står fortsatt i kø. Prøv igjen om litt." } };
+}
+
 export type AiSearchUsageSummary = {
   enabled: boolean;
   tokenLimit: number;
@@ -207,16 +234,14 @@ export function AiSearchPanel({
           ...(analysisId ? { analysisId } : {}),
         }),
       });
-      const data = (await res.json()) as {
-        answerKey?: string;
-        answer?: string;
-        error?: string;
-        quota?: AiSearchUsageSummary;
-        companies?: CompanySearchRow[];
-        visualization?: NjordVisualization | null;
-        claimEvidence?: NjordClaimEvidenceResult;
-      };
-      const content = res.ok
+      let data = (await res.json()) as AiSearchResponsePayload;
+      let succeeded = res.ok;
+      if (res.status === 202 && data.jobId) {
+        const completed = await waitForAiSearchJob(data.jobId);
+        succeeded = completed.ok;
+        data = completed.data;
+      }
+      const content = succeeded
         ? stripNjordCitationMarkers(data.answer ?? "Fant ikke noe svar.")
         : (data.error ?? "Noe gikk galt med AI-søket.");
       setMessages((prev) => [
@@ -225,15 +250,15 @@ export function AiSearchPanel({
           id: `a-${turn}`,
           role: "assistant",
           content,
-          visualization: res.ok ? (data.visualization ?? null) : null,
-          claimEvidence: res.ok ? (data.claimEvidence ?? null) : null,
-          answerKey: res.ok ? (data.answerKey ?? null) : null,
+          visualization: succeeded ? (data.visualization ?? null) : null,
+          claimEvidence: succeeded ? (data.claimEvidence ?? null) : null,
+          answerKey: succeeded ? (data.answerKey ?? null) : null,
           feedback: null,
         },
       ]);
       if (data.quota) setUsage(data.quota);
       // Let the agent's ranked companies take over the result table.
-      if (res.ok && data.companies) onCompanies?.(data.companies);
+      if (succeeded && data.companies) onCompanies?.(data.companies);
     } catch {
       setMessages((prev) => [
         ...prev,

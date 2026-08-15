@@ -30,7 +30,6 @@ const ON_DEMAND_NEWS_LOOKBACK_DAYS = 45;
 const OFFICIAL_CONTEXT_LOOKBACK_DAYS = 120;
 const EXTERNAL_DISCOVERY_THRESHOLD = 0.16;
 const NEWSWEB_DIRECT_SCORE = 0.78;
-const NEWSWEB_LIST_SHARE = 0.25;
 const MAX_EXTRACTED_TEXT_CHARS = 8_000;
 const OIL_GAS_INDUSTRY_PREFIXES = new Set(["05", "06", "09", "19"]);
 const OFFICIAL_OIL_GAS_CONTEXT_SOURCE_IDS = [
@@ -450,7 +449,7 @@ function isLowValueMarketDisclosureTitle(title: string, category: string | null 
   return ROUTINE_NEWSWEB_PATTERNS.some((pattern) => text.includes(normalizeForMatch(pattern)));
 }
 
-async function getExternallyDiscoveredCompanyNews(companyId: string, limit: number, after?: Date) {
+export async function discoverExternalCompanyNews(companyId: string, limit: number, after?: Date) {
   const [company, context] = await Promise.all([
     prisma.company.findUnique({
       where: { id: companyId },
@@ -578,7 +577,7 @@ async function getExternallyDiscoveredCompanyNews(companyId: string, limit: numb
     .slice(0, limit);
 }
 
-async function getNewswebCompanyNews(companyId: string, limit: number, after?: Date) {
+export async function fetchNewswebCompanyNews(companyId: string, limit: number, after?: Date) {
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     select: { name: true },
@@ -1515,7 +1514,6 @@ export async function getCompanyNews(companyId: string, limit = 20) {
 
 export async function getCompanyNewsWithRelevance(companyId: string, limit = 30, after?: Date) {
   const collectedArticles = [];
-  const newswebLimit = Math.max(3, Math.min(8, Math.min(limit, Math.ceil(limit * NEWSWEB_LIST_SHARE))));
 
   if (await hasNewsEnginePersistenceSchema()) {
     try {
@@ -1570,22 +1568,13 @@ export async function getCompanyNewsWithRelevance(companyId: string, limit = 30,
     }
   }
 
-  const [
-    newswebNews,
-    officialSectorContextNews,
-    onDemandRelevantNews,
-    externallyDiscoveredNews,
-  ] = await Promise.all([
-    getNewswebCompanyNews(companyId, newswebLimit, after),
+  const [officialSectorContextNews, onDemandRelevantNews] = await Promise.all([
     getOfficialSectorContextNews(companyId, limit, after),
     getOnDemandRelevantNews(companyId, limit, after),
-    getExternallyDiscoveredCompanyNews(companyId, limit, after),
   ]);
   collectedArticles.push(
-    ...newswebNews,
     ...officialSectorContextNews,
     ...onDemandRelevantNews,
-    ...externallyDiscoveredNews,
   );
 
   if (collectedArticles.length > 0) {

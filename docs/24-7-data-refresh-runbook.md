@@ -19,7 +19,9 @@ Complete these items before enabling continuous production operation:
 
 ## Existing production schedules
 
-The current Vercel configuration invokes four internal routes every hour. Each service may apply its own freshness threshold.
+The Vercel configuration invokes the established hourly jobs plus bounded
+request-path population workers. Each service applies its own lease and
+freshness threshold.
 
 | Dataset or process | Effective cadence | Production status | Notes |
 |---|---:|---|---|
@@ -31,6 +33,9 @@ The current Vercel configuration invokes four internal routes every hour. Each s
 | Petroleum snapshots | Every 6 hours when stale | Scheduled | Rebuilds fast read models. A core or metrics refresh also triggers a rebuild. |
 | Petroleum company exposure | Every 6 hours when stale | Scheduled | Rebuilds company-level petroleum exposure after snapshot changes. |
 | Annual-report filing discovery and processing | Hourly | Scheduled | Checks due companies, detects new or revised source documents, and processes pending filings. |
+| Brreg company announcements | Every 5 minutes | Scheduled | Drains `CompanyAnnouncementFetchState`; profile requests only enqueue/read. |
+| Premium AI search jobs | Every minute | Scheduled | Executes only jobs created by entitled Premium users; model usage is reserved and finalized in the worker. Recoverable failures retry with bounded backoff, and stale `RUNNING` rows return to the queue. |
+| SSB industry and geography classifications | Daily | Scheduled | Atomically replaces the local versioned Klass mirror. Empty source responses fail the run and preserve the last good mirror. |
 
 Annual-report company checks use state-dependent delays:
 
@@ -60,19 +65,21 @@ The repository already contains scripts or services for these processes, but `ve
 | Company shareholding snapshots | After shareholder-source updates | **Required operational procedure** | `npm run import:shareholding` | Rebuild materialized ownership data for changed source years. |
 | Ownership graph edges and semantic group snapshots | After ownership updates | **Required operational procedure** | `npm run ownership:build-edges` | Publish only from a `COMPLETED` shareholder-register import. The command builds quantitative edges, semantic relationships, and group memberships atomically before company exposure and ultimate-owner rebuilds. |
 | Retail chains and franchise memberships | After entity or subunit refresh | **Required operational procedure** | `npm run franchise:discover-chains` | Recompute only from current official registry records. |
-| SSB industry and geography classifications | Weekly and on classification-version change | **Required before go-live** | Add a scheduled classification sync | Persist current effective codes and invalidate process-local lookup caches. |
+| SSB classification-version reconciliation | On announced classification-version change | **Required operational procedure** | Trigger `/api/internal/ssb-classifications/scheduled` after configuration update | The daily schedule maintains the configured versions; a version change still requires explicit validation. |
 
-## Request-driven refreshes
+## Local-only request behavior
 
-These integrations refresh through user or batch traffic. They do not currently require an independent cron, but operations must monitor their cache age and upstream failures.
+These integrations previously used read-through fetching. GL-A01 now forbids
+that behavior. A request reads stored state and either queues background work or
+returns an honest empty state.
 
 | Dataset | Current behavior | Production policy |
 |---|---|---|
-| Brreg company announcements | Fetched live for company profiles | Keep live fetching. The hourly workspace job separately checks watched companies. |
-| Statnett grid queue and reservations | Fetched from the public Power BI source for each relevant company request | Monitor latency and upstream schema changes. Add a shared snapshot if traffic makes live fetching unreliable. |
-| Patentstyret patents, trademarks, and designs | Read-through cache with `PROJECTX_CACHE_HOURS`, default 24 hours | Keep the 24-hour maximum age. Consider a proactive refresh for watched companies. |
-| NVE electricity certificates | Uses the same read-through cache policy | Keep the 24-hour maximum age. Consider a proactive refresh for watched companies. |
-| SSB lookups | Fetches codes effective on the current date and keeps process-local lists | The scheduled classification sync above must protect persisted search and filter data from becoming stale. |
+| Brreg company announcements | Reads `SourceDocument`; creates a due `PENDING` state when uncovered | Monitor queue age, failures, and the five-minute worker. |
+| Statnett grid queue and reservations | Returns unavailable until a local snapshot is populated | Do not reactivate the provider in the company request; build a scheduled read model first. |
+| Patentstyret and NVE rights | Returns an empty state; the old disk read-through cache is not part of the request path | Build a database read model and scheduled population job before promising coverage. |
+| SSB lookups | Reads `SsbClassificationCode` | Alert if daily sync or configured dataset version is stale. |
+| Premium AI search | Creates `AiSearchJob` and polls it | Monitor PENDING age, FAILED count, lease overlap, usage closure and cost stops. |
 
 ## Derived rebuilds after changes
 
@@ -152,5 +159,5 @@ Use this order for a full recovery or initial production bootstrap:
 - Workspace notification checks: `server/services/workspace-collaboration-service.ts`
 - Brreg full imports: `scripts/ingest-brreg-entities.ts`, `scripts/ingest-brreg-subunits.ts`, and `scripts/ingest-brreg-roles.ts`
 - Distress incremental updates: `server/services/distress-analysis-service.ts`
-- Request-driven IP and NVE caches: `server/ip/ip-data.ts` and `server/persistence/ip-cache.ts`
-- Request-driven Statnett data: `server/services/company-grid-connection-service.ts`
+- GL-A01 request-path inventory: `docs/go-live/g1-request-path-network-inventory.md`
+- AI, announcement, and SSB scheduled routes: `app/api/internal/ai-search-jobs/scheduled`, `app/api/internal/company-announcements/scheduled`, and `app/api/internal/ssb-classifications/scheduled`

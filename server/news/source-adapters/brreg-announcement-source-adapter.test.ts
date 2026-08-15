@@ -39,6 +39,12 @@ function provider() {
         },
       ],
     })),
+    getAnnouncementDetail: vi.fn(async (orgNumber: string, announcementId: string) => ({
+      id: announcementId,
+      orgNumber,
+      sourceLabel: "Foretaksregisteret 01.06.2026",
+      contentHtml: "<p>Offisiell kunngjoring.</p>",
+    })),
   };
 }
 
@@ -55,6 +61,11 @@ describe("brreg announcement source adapter", () => {
 
     expect(prismaMock.company.findMany).not.toHaveBeenCalled();
     expect(providerMock.getAnnouncements).toHaveBeenCalledWith("923609016");
+    expect(providerMock.getAnnouncementDetail).toHaveBeenCalledWith(
+      "923609016",
+      "kid-923609016",
+      new Date("2026-06-01T00:00:00Z"),
+    );
     expect(result.documents).toHaveLength(1);
     expect(result.documents[0]).toMatchObject({
       sourceId: "brreg-announcements",
@@ -63,6 +74,8 @@ describe("brreg announcement source adapter", () => {
       rawPayload: expect.objectContaining({
         companyId: "company-1",
         orgNumber: "923609016",
+        sourceLabel: "Foretaksregisteret 01.06.2026",
+        contentHtml: "<p>Offisiell kunngjoring.</p>",
       }),
     });
   });
