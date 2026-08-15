@@ -17,6 +17,7 @@ import { getAiRuntimeEconomicsConfig } from "@/server/services/admin-ai-economic
 import { searchCompanies } from "@/server/services/company-service";
 import { searchRegistryCompanies } from "@/server/registry/entity-search-service";
 import {
+  failAiSearchUsage,
   finalizeAiSearchUsage,
   recordCompanySearch,
   releaseAiSearchUsage,
@@ -168,6 +169,7 @@ export async function GET(request: NextRequest) {
   }
 
   let usageFinalized = false;
+  let usageClosureAttempted = false;
   let searchResult: Awaited<ReturnType<typeof searchCompanies>>;
   try {
     searchResult = await searchCompanies(
@@ -179,6 +181,7 @@ export async function GET(request: NextRequest) {
             const cost = economics
               ? calculateUsageCost(usage, economics)
               : null;
+            usageClosureAttempted = true;
             await finalizeAiSearchUsage(session.user.id, reservationId, {
               ...usage,
               estimatedCostNok: cost?.estimatedCostNok,
@@ -191,10 +194,26 @@ export async function GET(request: NextRequest) {
             usageFinalized = true;
           }
         },
+        onAiUsageFailure: async (errorCode) => {
+          if (session?.user?.id && reservationId) {
+            usageClosureAttempted = true;
+            await failAiSearchUsage(session.user.id, reservationId, {
+              errorCode,
+              durationMs: 0,
+              retainReservation: true,
+            });
+            usageFinalized = true;
+          }
+        },
       },
     );
   } finally {
-    if (session?.user?.id && reservationId && !usageFinalized) {
+    if (
+      session?.user?.id &&
+      reservationId &&
+      !usageFinalized &&
+      !usageClosureAttempted
+    ) {
       await releaseAiSearchUsage(session.user.id, reservationId);
     }
   }

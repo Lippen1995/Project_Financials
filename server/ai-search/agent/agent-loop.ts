@@ -14,8 +14,16 @@ import {
   type NjordClaimEvidenceResult,
 } from "@/server/ai-search/evidence/claim-evidence";
 
-export type AgentBudget = { maxTurns: number; maxToolCalls: number };
-export const DEFAULT_BUDGET: AgentBudget = { maxTurns: 8, maxToolCalls: 16 };
+export type AgentBudget = {
+  maxTurns: number;
+  maxToolCalls: number;
+  maxOutputTokensPerTurn: number;
+};
+export const DEFAULT_BUDGET: AgentBudget = {
+  maxTurns: 8,
+  maxToolCalls: 16,
+  maxOutputTokensPerTurn: 1_800,
+};
 
 export type AgentToolInvocation = {
   name: string;
@@ -333,6 +341,7 @@ export async function runAgent(params: {
       messages,
       tools: activeToolDefs,
       toolChoice: forceAnswer ? "none" : groundingSatisfied ? "auto" : "required",
+      maxOutputTokens: budget.maxOutputTokensPerTurn,
     });
     if (result.usage) {
       usage.inputTokens += result.usage.inputTokens;

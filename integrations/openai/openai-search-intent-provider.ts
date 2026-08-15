@@ -1,21 +1,17 @@
 import env from "@/lib/env";
 import { calculateAiUsageTokens, type AiTokenUsage } from "@/lib/ai-search-usage";
 import { SearchInterpretation, SearchInterpretationLocationType } from "@/lib/types";
-
-type OpenAiChatCompletionResponse = {
-  id?: string;
-  model?: string;
-  usage?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    prompt_tokens_details?: { cached_tokens?: number };
-  };
-  choices?: Array<{
-    message?: {
-      content?: string | null;
-    };
-  }>;
-};
+import { OpenAiLlmClient } from "@/server/ai-search/llm/openai-client";
+import {
+  LlmProviderAccountingError,
+  LlmProviderResponseError,
+  type LlmClient,
+  type LlmRunResult,
+} from "@/server/ai-search/llm/types";
+import {
+  buildSecureNjordSystemPrompt,
+  inspectNjordUserQuery,
+} from "@/server/ai-search/runtime-policy";
 
 type SearchIntentPayload = {
   rewrittenQuery?: string;
@@ -55,6 +51,29 @@ function normalizeList(values: unknown) {
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter(Boolean)
     .slice(0, 8);
+}
+
+function toObservedAiUsage(
+  usage: LlmRunResult["usage"],
+  fallbackModel: string,
+): AiTokenUsage | null {
+  if (!usage?.sourceId) return null;
+  const inputTokens = Math.max(0, usage.inputTokens);
+  const cachedInputTokens = Math.max(0, usage.cachedInputTokens ?? 0);
+  const outputTokens = Math.max(0, usage.outputTokens);
+  const fetchedAt = new Date();
+  return {
+    model: usage.model ?? fallbackModel,
+    sourceSystem: "OPENAI",
+    sourceEntityType: "chat.completion",
+    sourceId: usage.sourceId,
+    fetchedAt,
+    normalizedAt: new Date(),
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    usageTokens: calculateAiUsageTokens({ inputTokens, cachedInputTokens, outputTokens }),
+  };
 }
 
 function buildFallbackInterpretation(
@@ -108,9 +127,21 @@ function buildFallbackInterpretation(
 }
 
 export class OpenAiSearchIntentProvider {
+  private readonly llm: LlmClient;
+
+  constructor(options: { llm?: LlmClient } = {}) {
+    this.llm = options.llm ?? new OpenAiLlmClient({
+      apiKey: env.openAiApiKey,
+      model: env.openAiSearchModel,
+    });
+  }
+
   async interpretQuery(
     query: string,
-    options: { maxCompletionTokens?: number } = {},
+    options: {
+      maxCompletionTokens?: number;
+      onAiUsageFailure?: (errorCode: "PROVIDER_ACCOUNTING_MISSING") => Promise<void>;
+    } = {},
   ): Promise<SearchInterpretation> {
     const trimmed = query.trim();
     if (!trimmed) {
@@ -120,75 +151,65 @@ export class OpenAiSearchIntentProvider {
       };
     }
 
+    if (
+      options.maxCompletionTokens == null ||
+      !Number.isSafeInteger(options.maxCompletionTokens) ||
+      options.maxCompletionTokens < 1 ||
+      typeof options.onAiUsageFailure !== "function"
+    ) {
+      return buildFallbackInterpretation(trimmed, "Eksplisitt tokenbudsjett mangler.");
+    }
+
+    if (!env.aiSearchBillingEnabled) {
+      return buildFallbackInterpretation(trimmed, "Betalt AI-søk er deaktivert.");
+    }
     if (!env.openAiApiKey) {
       return buildFallbackInterpretation(trimmed, "OPENAI_API_KEY mangler.");
+    }
+    if (!inspectNjordUserQuery(trimmed).allowed) {
+      return buildFallbackInterpretation(
+        trimmed,
+        "AI-tolkning ble avvist av sikkerhetskontrollen.",
+      );
     }
 
     let observedAiUsage: AiTokenUsage | null = null;
     try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${env.openAiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: env.openAiSearchModel,
-          temperature: 0,
-          max_completion_tokens: Math.max(
-            1,
-            Math.min(500, Math.trunc(options.maxCompletionTokens ?? 500)),
-          ),
-          response_format: {
-            type: "json_object",
-          },
-          messages: [
-            {
-              role: "system",
-              content:
-                "You convert Norwegian company search queries into structured intent. " +
+      const result = await this.llm.run({
+        tools: [],
+        temperature: 0,
+        maxOutputTokens: Math.max(
+          1,
+          Math.min(500, Math.trunc(options.maxCompletionTokens)),
+        ),
+        responseFormat: "json_object",
+        messages: [
+          {
+            role: "system",
+            content: buildSecureNjordSystemPrompt(
+              "You convert Norwegian company search queries into structured intent. " +
                 "Return strict JSON only with keys rewrittenQuery, companyTerms, industryTerms, geographicTerm, geographicType, intentSummary. " +
                 "Use geographicType values MUNICIPALITY, COUNTY, POSTAL_CITY, or UNKNOWN. " +
                 "Do not invent company names, codes, or facts.",
-            },
-            {
-              role: "user",
-              content:
-                `Analyze this Norwegian business search query: "${trimmed}". ` +
-                "Extract likely industry/activity terms, keep explicit company-name hints separate, and summarize the intent in Norwegian.",
-            },
-          ],
-        }),
+            ),
+          },
+          {
+            role: "user",
+            content:
+              `Analyze this Norwegian business search query: "${trimmed}". ` +
+              "Extract likely industry/activity terms, keep explicit company-name hints separate, and summarize the intent in Norwegian.",
+          },
+        ],
       });
-
-      if (!response.ok) {
-        throw new Error(`OpenAI request failed with status ${response.status}`);
+      observedAiUsage = toObservedAiUsage(result.usage, this.llm.model);
+      if (!observedAiUsage) {
+        await options.onAiUsageFailure("PROVIDER_ACCOUNTING_MISSING");
+        return buildFallbackInterpretation(
+          trimmed,
+          "Modellsvaret manglet påkrevd forbruksmetadata.",
+        );
       }
-
-      const payload = (await response.json()) as OpenAiChatCompletionResponse;
-      const promptTokens = Math.max(0, payload.usage?.prompt_tokens ?? 0);
-      const cachedInputTokens = Math.min(
-        promptTokens,
-        Math.max(0, payload.usage?.prompt_tokens_details?.cached_tokens ?? 0),
-      );
-      const inputTokens = promptTokens - cachedInputTokens;
-      const outputTokens = Math.max(0, payload.usage?.completion_tokens ?? 0);
-      if (payload.id && payload.usage) {
-        const fetchedAt = new Date();
-        observedAiUsage = {
-          model: payload.model ?? env.openAiSearchModel,
-          sourceSystem: "OPENAI",
-          sourceEntityType: "chat.completion",
-          sourceId: payload.id,
-          fetchedAt,
-          normalizedAt: new Date(),
-          inputTokens,
-          cachedInputTokens,
-          outputTokens,
-          usageTokens: calculateAiUsageTokens({ inputTokens, cachedInputTokens, outputTokens }),
-        };
-      }
-      const content = payload.choices?.[0]?.message?.content;
+      const content = result.content;
       if (!content) {
         throw new Error("OpenAI returned empty content.");
       }
@@ -208,6 +229,13 @@ export class OpenAiSearchIntentProvider {
         matchedIndustryCodes: [],
       };
     } catch (error) {
+      if (error instanceof LlmProviderAccountingError) {
+        await options.onAiUsageFailure("PROVIDER_ACCOUNTING_MISSING");
+        return buildFallbackInterpretation(trimmed, error.message);
+      }
+      if (error instanceof LlmProviderResponseError) {
+        observedAiUsage = toObservedAiUsage(error.usage, this.llm.model);
+      }
       const reason = error instanceof Error ? error.message : "AI-tolkning feilet.";
       return buildFallbackInterpretation(trimmed, reason, observedAiUsage);
     }

@@ -5,6 +5,7 @@ import type {
   LlmToolCall,
   LlmClient,
 } from "./types";
+import { LlmProviderAccountingError, LlmProviderResponseError } from "./types";
 import { estimateNjordCostNok, type NjordPricing } from "../runtime-policy";
 
 const MAX_COMPLETION_TOKENS = 1_800;
@@ -85,7 +86,10 @@ export class OpenAiLlmClient implements LlmClient {
         parameters: tool.parameters,
       },
     }));
-    let maxCompletionTokens = MAX_COMPLETION_TOKENS;
+    if (!Number.isSafeInteger(options.maxOutputTokens) || options.maxOutputTokens < 1) {
+      throw new Error("LLM maxOutputTokens must be a positive finite integer.");
+    }
+    let maxCompletionTokens = Math.min(MAX_COMPLETION_TOKENS, options.maxOutputTokens);
     if (this.pricing && this.requestCostLimitNok != null) {
       const serializedInputBytes = Buffer.byteLength(JSON.stringify({ messages, tools }), "utf8");
       const conservativeInputTokens = serializedInputBytes + TOKENIZATION_OVERHEAD_TOKENS;
@@ -94,7 +98,7 @@ export class OpenAiLlmClient implements LlmClient {
       const remainingForOutputNok =
         this.requestCostLimitNok - this.spentCostNok - inputUpperCostNok;
       maxCompletionTokens = Math.min(
-        MAX_COMPLETION_TOKENS,
+        maxCompletionTokens,
         Math.floor(
           remainingForOutputNok * 1_000_000 / this.pricing.outputNokPerMillion,
         ),
@@ -112,10 +116,17 @@ export class OpenAiLlmClient implements LlmClient {
       body: JSON.stringify({
         model: this.model,
         messages,
-        tools,
-        tool_choice: options.toolChoice ?? "auto",
-        parallel_tool_calls: false,
+        ...(tools.length > 0
+          ? {
+              tools,
+              tool_choice: options.toolChoice ?? "auto",
+              parallel_tool_calls: false,
+            }
+          : {}),
         max_completion_tokens: maxCompletionTokens,
+        ...(options.responseFormat === "json_object"
+          ? { response_format: { type: "json_object" } }
+          : {}),
         ...(options.temperature == null ? {} : { temperature: options.temperature }),
       }),
     });
@@ -124,6 +135,16 @@ export class OpenAiLlmClient implements LlmClient {
       throw new Error(`OpenAI Njord request failed with status ${response.status}.`);
     }
     const payload = (await response.json()) as OpenAiResponse;
+    if (
+      !payload.id ||
+      !payload.usage ||
+      !Number.isFinite(payload.usage.prompt_tokens) ||
+      !Number.isFinite(payload.usage.completion_tokens)
+    ) {
+      throw new LlmProviderAccountingError(
+        "OpenAI response omitted required usage accounting metadata.",
+      );
+    }
     const promptTokens = Math.max(0, payload.usage?.prompt_tokens ?? 0);
     const cachedInputTokens = Math.min(
       promptTokens,
@@ -142,7 +163,18 @@ export class OpenAiLlmClient implements LlmClient {
       }, this.pricing);
     }
     const message = payload.choices?.[0]?.message;
-    if (!message) throw new Error("OpenAI Njord response contained no message.");
+    if (!message) {
+      throw new LlmProviderResponseError(
+        "OpenAI Njord response contained no message.",
+        {
+          inputTokens: promptTokens - cachedInputTokens,
+          cachedInputTokens,
+          outputTokens,
+          model: payload.model ?? this.model,
+          sourceId: payload.id,
+        },
+      );
+    }
 
     const toolCalls: LlmToolCall[] = (message.tool_calls ?? []).flatMap((call) => {
       const id = call.id;

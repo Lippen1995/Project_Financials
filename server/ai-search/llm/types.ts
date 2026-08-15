@@ -46,7 +46,30 @@ export type LlmRunOptions = {
   /** Force the model to stop calling tools and answer (final synthesis turn). */
   toolChoice?: "auto" | "required" | "none";
   temperature?: number;
+  /** Required caller-owned ceiling. The adapter may lower it further to enforce cost limits. */
+  maxOutputTokens: number;
+  /** Request a machine-readable JSON object without exposing provider-specific request fields. */
+  responseFormat?: "json_object";
 };
+
+/** Provider charged for a response, but the response could not satisfy the LLM contract. */
+export class LlmProviderResponseError extends Error {
+  constructor(
+    message: string,
+    readonly usage: NonNullable<LlmRunResult["usage"]>,
+  ) {
+    super(message);
+    this.name = "LlmProviderResponseError";
+  }
+}
+
+/** Provider omitted the metadata required to account for a potentially charged response. */
+export class LlmProviderAccountingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LlmProviderAccountingError";
+  }
+}
 
 /**
  * One model turn. The agent loop owns iteration, tool execution, and the budget caps; the

@@ -1,7 +1,7 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { searchCompaniesMock, getGroupEmployeeSummariesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, releaseAiSearchUsageMock, getAiSearchSubscriptionContextMock, getEconomicsMock, envMock } = vi.hoisted(() => ({
+const { searchCompaniesMock, getGroupEmployeeSummariesMock, safeAuthMock, recordCompanySearchMock, getAiSearchUsageStatusMock, reserveAiSearchUsageMock, finalizeAiSearchUsageMock, failAiSearchUsageMock, releaseAiSearchUsageMock, getAiSearchSubscriptionContextMock, getEconomicsMock, envMock } = vi.hoisted(() => ({
   searchCompaniesMock: vi.fn(),
   getGroupEmployeeSummariesMock: vi.fn(),
   safeAuthMock: vi.fn(),
@@ -9,6 +9,7 @@ const { searchCompaniesMock, getGroupEmployeeSummariesMock, safeAuthMock, record
   getAiSearchUsageStatusMock: vi.fn(),
   reserveAiSearchUsageMock: vi.fn(),
   finalizeAiSearchUsageMock: vi.fn(),
+  failAiSearchUsageMock: vi.fn(),
   releaseAiSearchUsageMock: vi.fn(),
   getAiSearchSubscriptionContextMock: vi.fn(),
   getEconomicsMock: vi.fn(),
@@ -35,6 +36,7 @@ vi.mock("@/server/services/search-history-service", () => ({
   getAiSearchUsageStatus: getAiSearchUsageStatusMock,
   reserveAiSearchUsage: reserveAiSearchUsageMock,
   finalizeAiSearchUsage: finalizeAiSearchUsageMock,
+  failAiSearchUsage: failAiSearchUsageMock,
   releaseAiSearchUsage: releaseAiSearchUsageMock,
 }));
 
@@ -51,6 +53,7 @@ describe("SearchPage", () => {
     getAiSearchUsageStatusMock.mockReset();
     reserveAiSearchUsageMock.mockReset();
     finalizeAiSearchUsageMock.mockReset();
+    failAiSearchUsageMock.mockReset();
     releaseAiSearchUsageMock.mockReset();
     getAiSearchSubscriptionContextMock.mockReset();
     getEconomicsMock.mockReset();
@@ -135,6 +138,47 @@ describe("SearchPage", () => {
       }),
       expect.any(Object),
     );
+  });
+
+  it("fails the reservation instead of releasing it when provider accounting is missing", async () => {
+    envMock.aiSearchBillingEnabled = true;
+    safeAuthMock.mockResolvedValue({
+      user: { id: "user-1", subscriptionPlan: "premium", subscriptionStatus: "ACTIVE" },
+    });
+    failAiSearchUsageMock.mockResolvedValue(1);
+    searchCompaniesMock.mockImplementation(async (_filters, options) => {
+      await options.onAiUsageFailure("PROVIDER_ACCOUNTING_MISSING");
+      return {
+        results: [],
+        interpretation: {
+          originalQuery: "havvind",
+          rewrittenQuery: "havvind",
+          aiAssisted: false,
+          fallbackReason: "Leverandoren manglet regnskapsmetadata.",
+          companyTerms: [],
+          industryTerms: [],
+          geographicTerm: null,
+          geographicType: null,
+          intentSummary: null,
+          matchedIndustryCodes: [],
+        },
+      };
+    });
+
+    await SearchPage({
+      searchParams: Promise.resolve({ query: "havvind", ai: "1" }),
+    });
+
+    expect(failAiSearchUsageMock).toHaveBeenCalledWith(
+      "user-1",
+      "reservation-1",
+      {
+        errorCode: "PROVIDER_ACCOUNTING_MISSING",
+        durationMs: 0,
+        retainReservation: true,
+      },
+    );
+    expect(releaseAiSearchUsageMock).not.toHaveBeenCalled();
   });
 
   it("keeps only companies in matched SSB industries for the industry scope", async () => {

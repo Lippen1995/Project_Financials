@@ -625,7 +625,13 @@ export async function finalizeAiSearchUsage(
 export async function failAiSearchUsage(
   userId: string,
   reservationId: string,
-  failure: { errorCode: string; durationMs: number; usage?: AiTokenUsage },
+  failure: {
+    errorCode: string;
+    durationMs: number;
+    usage?: AiTokenUsage;
+    /** Keep the full reserved allowance charged when provider usage cannot be reconciled. */
+    retainReservation?: boolean;
+  },
 ) {
   const occurredAt = new Date();
   if (failure.usage) {
@@ -659,6 +665,20 @@ export async function failAiSearchUsage(
           "fetchedAt" = ${usage.fetchedAt},
           "normalizedAt" = ${usage.normalizedAt},
           "occurredAt" = ${usage.fetchedAt}
+      WHERE "id" = ${reservationId} AND "userId" = ${userId} AND "status" = 'RESERVED'
+    `);
+  }
+  if (failure.retainReservation) {
+    return prisma.$executeRaw(Prisma.sql`
+      UPDATE "AiSearchUsageEvent"
+      SET "status" = 'FAILED',
+          "usageTokens" = "reservedTokens",
+          "budgetedCostNok" = "reservedCostNok",
+          "reservedTokens" = 0,
+          "reservedCostNok" = 0,
+          "durationMs" = ${Math.max(0, Math.trunc(failure.durationMs))},
+          "errorCode" = ${failure.errorCode.slice(0, 100)},
+          "occurredAt" = ${occurredAt}
       WHERE "id" = ${reservationId} AND "userId" = ${userId} AND "status" = 'RESERVED'
     `);
   }

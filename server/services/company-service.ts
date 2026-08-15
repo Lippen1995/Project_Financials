@@ -338,6 +338,7 @@ export async function searchCompanies(
   filters: SearchFilters,
   options: {
     onAiUsage?: (usage: NonNullable<SearchInterpretation["aiUsage"]>) => Promise<void>;
+    onAiUsageFailure?: (errorCode: "PROVIDER_ACCOUNTING_MISSING") => Promise<void>;
     maxAiOutputTokens?: number;
   } = {},
 ): Promise<CompanySearchResponse> {
@@ -355,13 +356,16 @@ export async function searchCompanies(
 
   const shouldInterpretWithAi = Boolean(
     filters.aiAssisted &&
-      filters.query?.trim() &&
-      classifyQueryIntent(filters.query).intent !== "DIRECT_LOOKUP",
+    filters.query?.trim() &&
+    options.onAiUsage &&
+    options.onAiUsageFailure &&
+    classifyQueryIntent(filters.query).intent !== "DIRECT_LOOKUP",
   );
   const interpretation: SearchInterpretation = shouldInterpretWithAi
     ? await searchIntentProvider.interpretQuery(filters.query ?? "", {
-        maxCompletionTokens: options.maxAiOutputTokens,
-      })
+      maxCompletionTokens: options.maxAiOutputTokens,
+      onAiUsageFailure: options.onAiUsageFailure,
+    })
     : {
         originalQuery: filters.query ?? "",
         rewrittenQuery: filters.query ?? "",

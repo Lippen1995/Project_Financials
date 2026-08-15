@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   searchRegistryCompanies: vi.fn(),
   reserveAiSearchUsage: vi.fn(),
   finalizeAiSearchUsage: vi.fn(),
+  failAiSearchUsage: vi.fn(),
   releaseAiSearchUsage: vi.fn(),
   getAiSearchSubscriptionContext: vi.fn(),
   recordCompanySearch: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("@/server/registry/entity-search-service", () => ({
 vi.mock("@/server/services/search-history-service", () => ({
   reserveAiSearchUsage: mocks.reserveAiSearchUsage,
   finalizeAiSearchUsage: mocks.finalizeAiSearchUsage,
+  failAiSearchUsage: mocks.failAiSearchUsage,
   releaseAiSearchUsage: mocks.releaseAiSearchUsage,
   recordCompanySearch: mocks.recordCompanySearch,
 }));
@@ -104,6 +106,63 @@ describe("GET /api/companies/search", () => {
     );
     expect(response.status).toBe(429);
     expect(mocks.searchCompanies).not.toHaveBeenCalled();
+  });
+
+  it("fails the reservation instead of releasing it when provider accounting is missing", async () => {
+    const billingPeriod = {
+      periodStart: new Date("2026-07-14T10:00:00.000Z"),
+      periodEnd: new Date("2026-08-14T10:00:00.000Z"),
+      resetAt: new Date("2026-08-14T10:00:00.000Z"),
+      daysUntilReset: 31,
+    };
+    mocks.safeAuth.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.getAiSearchSubscriptionContext.mockResolvedValue({
+      premium: true,
+      billingPeriod,
+      tokenLimit: 1_000_000,
+      usageCategory: "CUSTOMER",
+      appRole: "USER",
+      subscriptionPlan: "premium",
+      subscriptionStatus: "ACTIVE",
+      subscriptionUpdatedAt: new Date("2026-07-01T10:00:00.000Z"),
+      planEconomicsVersion: 3,
+    });
+    mocks.reserveAiSearchUsage.mockResolvedValue("reservation-1");
+    mocks.failAiSearchUsage.mockResolvedValue(1);
+    mocks.searchCompanies.mockImplementation(async (_filters, options) => {
+      await options.onAiUsageFailure("PROVIDER_ACCOUNTING_MISSING");
+      return {
+        results: [],
+        interpretation: {
+          originalQuery: "havvind",
+          rewrittenQuery: "havvind",
+          aiAssisted: false,
+          fallbackReason: "Leverandoren manglet regnskapsmetadata.",
+          companyTerms: [],
+          industryTerms: [],
+          geographicTerm: null,
+          geographicType: null,
+          intentSummary: null,
+          matchedIndustryCodes: [],
+        },
+      };
+    });
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/companies/search?query=havvind&ai=1"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.failAiSearchUsage).toHaveBeenCalledWith(
+      "user-1",
+      "reservation-1",
+      {
+        errorCode: "PROVIDER_ACCOUNTING_MISSING",
+        durationMs: 0,
+        retainReservation: true,
+      },
+    );
+    expect(mocks.releaseAiSearchUsage).not.toHaveBeenCalled();
   });
 
   it("reports an unavailable Premium billing period without claiming the quota is spent", async () => {

@@ -15,11 +15,11 @@ godkjenning av betalt modellbruk, hosting eller G1.
 
 | ID | Teknisk status | Bevis |
 | --- | --- | --- |
-| GL-301 | Implementert som fundament | `LlmClient` holder produktlogikken leverandøruavhengig; betalt runtime har eksplisitt provider-/pris-preflight |
+| GL-301 | Implementert som fundament | Njord og begge søkeklassifiseringene går gjennom `LlmClient`, og betalt runtime har eksplisitt provider-/pris-preflight. De konkrete søkeproviderne/proveniensen er fortsatt OpenAI-spesifikke; alternativ provider krever egen wiring og kildekartlegging før den kan godkjennes |
 | GL-302 | Implementert som fundament | Alle Njord-verktøy har versjon, resultatklasse og godkjente datadomener; nytt `screen_company_universe` bruker bare intern tjeneste |
 | GL-303 | Implementert v1 på K0 | Verktøyresultater gir modellen eksplisitte sitat-ID-er. API og UI kobler hver sitert påstand til konkret femfeltsproveniens og eventuell offisiell URL; hele svaret avvises dersom én synlig svarlinje mangler gyldig kilde |
 | GL-304 | Implementert i kjernen | Manglende finans- og rangeringsdata forblir nullable og vises som datagap; de blir aldri nullstilt |
-| GL-305 | Implementert i kjernen | Sikker systeminstruks og server-side avvisning stopper hemmelighetsuthenting og forsøk på å omgå tilgang |
+| GL-305 | Implementert i kjernen | Sikker systeminstruks og server-side avvisning stopper hemmelighetsuthenting og forsøk på å omgå tilgang i Njord og begge søkeklassifiseringene |
 | GL-306 | Delvis: én appinstans | Burstgrense, dagstak og forespørselsbudsjett finnes; modelladapteren reduserer providerens maksimale output innenfor restbudsjettet, mens delt limiter avventer G1-host |
 | GL-307 | Implementert som K0-fundament | Tokens, leverandørkost, estimert og risikobudsjettert NOK-kostnad, responstid og modellfeil lagres; hele forespørselsbudsjettet reserveres atomisk mot et globalt kalendermånedstak før modellkall, og aktivering blokkeres uten verifiserte priser. Admin kan kontrollere valuta, buffer, priser, kvoter og abonnement samt se kostnad per bruker, brukertype, rolle, abonnement og modell |
 | GL-308 | Implementert v1 på K0 | 50 lagrede evalueringsspørsmål dekker fakta, beregning, offisiell kunnskap, tomtilstand og sikkerhet. 28 forventede fakta er verifisert mot Brreg-speilet for fire reelle virksomheter med komplett kildegrunnlag |
@@ -39,6 +39,19 @@ forespørselstak og månedstak er konfigurert. Standard prisfelter er bevisst
 nullstilt i `.env.example`; de skal ikke fylles med gamle eller antatte priser.
 
 Ingen språkmodell ble kalt under denne leveransen.
+
+## Modellkallinventar
+
+K0-kontrollen 15. august 2026 samlet de to tidligere separate
+søkeklassifiseringene bak `LlmClient`. Det aktive kilde-treet har nå ett
+registrert provider-transport og seks registrerte transport-/konsumentflater.
+En automatisk test håndhever tillatt signal per fil og avviser både nye direkte
+provider-kall og nye uregistrerte `LlmClient`-konsumenter. Klassifiseringene
+bruker felles sikker systeminstruks, injeksjonsinspeksjon og eksplisitte
+outputgrenser. Søkeintensjon kan ikke kalle modellen uten tokenbudsjett og aktiv
+hovedbryter; dashboardets scope-resolver krever i tillegg en forbruks-callback,
+men sender fortsatt ikke budsjett og er derfor deterministisk/fail-closed. Se
+[G1-beviset for modellkallsteder](../g1-model-callsite-inventory.md).
 
 ## AI-økonomi i admin
 

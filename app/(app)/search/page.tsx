@@ -23,6 +23,7 @@ import {
   type GroupEmployeeSummary,
 } from "@/server/ownership/group-employee-service";
 import {
+  failAiSearchUsage,
   getAiSearchUsageStatus,
   finalizeAiSearchUsage,
   recordCompanySearch,
@@ -183,6 +184,7 @@ export default async function SearchPage({
       : "AI-søk krever Premium-abonnement. Søket ble kjørt uten AI."
     : null;
   let aiUsageFinalized = false;
+  let aiUsageClosureAttempted = false;
 
   try {
     searchResult = await searchCompanies(
@@ -204,6 +206,7 @@ export default async function SearchPage({
         onAiUsage: async (usage) => {
           if (session?.user?.id && aiReservationId) {
             const cost = economics ? calculateUsageCost(usage, economics) : null;
+            aiUsageClosureAttempted = true;
             await finalizeAiSearchUsage(session.user.id, aiReservationId, {
               ...usage,
               estimatedCostNok: cost?.estimatedCostNok,
@@ -216,13 +219,29 @@ export default async function SearchPage({
             aiUsageFinalized = true;
           }
         },
+        onAiUsageFailure: async (errorCode) => {
+          if (session?.user?.id && aiReservationId) {
+            aiUsageClosureAttempted = true;
+            await failAiSearchUsage(session.user.id, aiReservationId, {
+              errorCode,
+              durationMs: 0,
+              retainReservation: true,
+            });
+            aiUsageFinalized = true;
+          }
+        },
       },
     );
   } catch {
     searchError =
       "Søket mot virksomhetsregisteret kunne ikke fullføres akkurat nå. Prøv igjen med selskapsnavn eller organisasjonsnummer.";
   } finally {
-    if (session?.user?.id && aiReservationId && !aiUsageFinalized) {
+    if (
+      session?.user?.id &&
+      aiReservationId &&
+      !aiUsageFinalized &&
+      !aiUsageClosureAttempted
+    ) {
       try {
         await releaseAiSearchUsage(session.user.id, aiReservationId);
       } catch (error) {

@@ -44,7 +44,15 @@ function dependencies(input?: {
 describe("dashboard all-search routing", () => {
   it("lets AI choose the destination while preserving AI mode", async () => {
     const href = await resolveDashboardSearchHref(
-      { query: "ROLE_QUERY", aiEnabled: true, aiBudget: { maxOutputTokens: 32 } },
+      {
+        query: "ROLE_QUERY",
+        aiEnabled: true,
+        aiBudget: {
+          maxOutputTokens: 32,
+          onAiUsage: vi.fn(),
+          onAiUsageFailure: vi.fn(),
+        },
+      },
       dependencies({ aiScope: "roles" }),
     );
 

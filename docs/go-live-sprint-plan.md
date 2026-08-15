@@ -207,7 +207,7 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
 | GL-A04 | OCR-flatene er ikke tilgjengelige | Ingen OCR-/PDF-flate, jobb eller adminside kan nås fra applikasjonen; koden er i karantene, ikke slettet | Rutetest og adminflate uten lenker til pensjonerte OCR-flater |
 | GL-A05 | Migrasjonshistorikken er trygg | Ingen sjekksumavvik, og indekser som bare finnes i rå SQL kan ikke forsvinne ubemerket | `npm run db:check-migrations` i CI etter `migrate deploy` |
 
-### Status 5. august 2026
+### Status 15. august 2026
 
 - GL-A01 er implementert for strukturert regnskap: selskapssiden og
   `GET /api/companies/[slug]/financials` leser databasen, legger ukjente
@@ -216,10 +216,14 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
   søkeintensjon gjenstår.
 - GL-A02 er implementert som `financials:drain-queue` og en hemmelighetsbeskyttet
   planlagt rute; kø, etterslep og feil vises i kontrollsenteret.
-- GL-A03 er delvis: Njord bruker adapteren, mens søkeintensjonen kaller
-  leverandøren direkte. Scope-klassifisereren for søk er gjort fail-closed og
-  kan ikke kalle modellen uten eksplisitt tokenbudsjett og aktiv betalt
-  AI-bryter. Samling av kallstedene er G1-arbeid.
+- GL-A03 er teknisk lukket på K0: Njord, søkeintensjonen og
+  scope-klassifisereren bruker samme `LlmClient`, sikker systeminstruks og
+  injeksjonsinspeksjon. Det aktive kilde-treet har nøyaktig ett registrert
+  provider-kallsted, og en automatisk inventartest avviser nye direkte kall.
+  Søkeintensjonen krever eksplisitt tokenbudsjett, aktiv betalt AI-bryter og
+  eksisterende kvotereservasjon i brukerflatene. Scope-klassifisereren forblir
+  fail-closed uten en budsjettert caller. Se
+  [G1-beviset for modellkallsteder](./go-live/g1-model-callsite-inventory.md).
 - GL-A04 er implementert. 23 adminsider, 48 API-ruter og 91 `npm`-skript for
   PDF/OCR er flyttet til `quarantine/`, som er utelatt fra typesjekk, tester og
   ESLint. Next.js ruter bare det som ligger under `app/`, så flatene svarer nå
