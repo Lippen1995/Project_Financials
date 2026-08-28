@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import env from "@/lib/env";
 import { drainAiSearchJobs } from "@/server/services/ai-search-job-service";
+import { runObservedBackgroundJob } from "@/server/services/background-job-observability-service";
 
 const querySchema = z.object({
   limit: z.string().regex(/^(?:[1-9]\d?)$/).transform(Number).pipe(z.number().int().min(1).max(50)),
@@ -18,7 +19,16 @@ async function handle(request: NextRequest) {
   }
 
   try {
-    const data = await drainAiSearchJobs({ limit: parsed.data.limit });
+    const data = await runObservedBackgroundJob({
+      jobKey: "ai-search-jobs",
+      execute: () => drainAiSearchJobs({ limit: parsed.data.limit }),
+      summarize: (result) => ({
+        claimedCount: result.claimed,
+        succeededCount: result.completed,
+        failedCount: result.failed,
+        skipped: result.skipped,
+      }),
+    });
     return NextResponse.json({ job: "ai-search-jobs", data });
   } catch (error) {
     return NextResponse.json(

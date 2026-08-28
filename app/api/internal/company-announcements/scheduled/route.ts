@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import env from "@/lib/env";
+import { runObservedBackgroundJob } from "@/server/services/background-job-observability-service";
 import { drainCompanyAnnouncementQueue } from "@/server/services/company-announcement-sync-service";
 
 const querySchema = z.object({
@@ -28,7 +29,16 @@ async function handle(request: NextRequest) {
   }
 
   try {
-    const data = await drainCompanyAnnouncementQueue({ limit: parsed.data.limit });
+    const data = await runObservedBackgroundJob({
+      jobKey: "company-announcement-queue",
+      execute: () => drainCompanyAnnouncementQueue({ limit: parsed.data.limit }),
+      summarize: (result) => ({
+        claimedCount: result.claimed,
+        succeededCount: result.succeeded,
+        failedCount: result.failed,
+        skipped: result.skipped,
+      }),
+    });
     return NextResponse.json({ job: "company-announcement-queue", data });
   } catch (error) {
     return NextResponse.json(

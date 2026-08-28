@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import env from "@/lib/env";
+import { runObservedBackgroundJob } from "@/server/services/background-job-observability-service";
 import {
   acquirePipelineJobLease,
   releasePipelineJobLease,
@@ -21,27 +22,36 @@ async function handle(request: NextRequest) {
 
   const leaseOwner = `ssb-classifications-${process.pid}`;
   try {
-    const lease = await acquirePipelineJobLease({
+    const data = await runObservedBackgroundJob({
       jobKey: JOB_KEY,
-      leaseOwner,
-      leaseSeconds: 15 * 60,
-    });
-    if (!lease.acquired) {
-      return NextResponse.json({
-        job: JOB_KEY,
-        data: {
+      execute: async () => {
+        const lease = await acquirePipelineJobLease({
+          jobKey: JOB_KEY,
+          leaseOwner,
+          leaseSeconds: 15 * 60,
+        });
+        if (!lease.acquired) {
+          return {
           skipped: true,
           skippedReason: `Jobben kjører allerede (eier: ${lease.lease.leaseOwner}).`,
-        },
-      });
-    }
+          };
+        }
 
-    try {
-      const data = await syncSsbClassifications();
-      return NextResponse.json({ job: JOB_KEY, data });
-    } finally {
-      await releasePipelineJobLease({ jobKey: JOB_KEY, leaseOwner });
-    }
+        try {
+          const result = await syncSsbClassifications();
+          return { ...result, skipped: false };
+        } finally {
+          await releasePipelineJobLease({ jobKey: JOB_KEY, leaseOwner });
+        }
+      },
+      summarize: (result) => ({
+        claimedCount: "classifications" in result ? result.classifications : 0,
+        succeededCount: "classifications" in result ? result.classifications : 0,
+        failedCount: 0,
+        skipped: !("classifications" in result),
+      }),
+    });
+    return NextResponse.json({ job: JOB_KEY, data });
   } catch (error) {
     return NextResponse.json(
       {

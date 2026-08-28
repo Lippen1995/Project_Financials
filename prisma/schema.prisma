@@ -1543,6 +1543,25 @@ model PipelineJobLease {
   @@index([jobKey, leaseExpiresAt])
 }
 
+/// Operational evidence for scheduled population workers. Records contain
+/// counts and error summaries only; no user queries or source payloads.
+model BackgroundJobRun {
+  id             String    @id @default(cuid())
+  jobKey         String
+  status         String
+  claimedCount   Int       @default(0)
+  succeededCount Int       @default(0)
+  failedCount    Int       @default(0)
+  errorMessage   String?
+  startedAt      DateTime
+  completedAt    DateTime?
+  durationMs     Int?
+  createdAt      DateTime  @default(now())
+
+  @@index([jobKey, startedAt(sort: Desc)])
+  @@index([status, startedAt])
+}
+
 model Person {
   id               String   @id @default(cuid())
   fullName         String

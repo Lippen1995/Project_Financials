@@ -25,8 +25,8 @@
       "schedule": "15 * * * *"
     },
     {
-      "path": "/api/internal/annual-report-financials/scheduled",
-      "schedule": "35 * * * *"
+      "path": "/api/internal/structured-financials-queue/scheduled",
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/internal/search-history-cleanup",

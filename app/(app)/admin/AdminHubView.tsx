@@ -8,6 +8,10 @@ import type {
   AdminHubNavigationItem,
   AdminHubTone,
 } from "@/server/services/admin-hub-service";
+import type {
+  BackgroundJobControlCenterItem,
+  BackgroundJobHealth,
+} from "@/server/services/background-job-control-center-service";
 
 type AdminHubViewProps = {
   model: AdminHubModel;
@@ -144,6 +148,90 @@ function NavigationCard({ item }: { item: AdminHubNavigationItem }) {
   return <div className={className}>{body}</div>;
 }
 
+function backgroundJobTone(health: BackgroundJobHealth) {
+  switch (health) {
+    case "healthy":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "active":
+      return "border-[var(--px-accent)] bg-[var(--px-accent-soft)] text-[var(--px-accent)]";
+    case "error":
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    default:
+      return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+}
+
+function formatJobTimestamp(value: string | null) {
+  return value ? new Date(value).toLocaleString("nb-NO") : "Ikke registrert";
+}
+
+function BackgroundJobCard({ job }: { job: BackgroundJobControlCenterItem }) {
+  const metrics = [
+    ["Kødybde", job.queueDepth],
+    ["Forfalt", job.dueCount],
+    ["Aktive kjøringer", job.runningCount],
+    ["Køfeil", job.errorCount],
+    ["Feil sist", job.latestRun?.failedCount ?? 0],
+  ] as const;
+
+  return (
+    <article className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="data-label text-[11px] uppercase tracking-widest text-[var(--px-muted)]">
+            {job.cadenceLabel}
+          </p>
+          <h3 className="mt-2 text-lg font-semibold text-[var(--px-text)]">{job.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--px-muted)]">{job.description}</p>
+        </div>
+        <span
+          className={`data-label inline-flex rounded-full border px-4 py-2 text-[10px] uppercase tracking-widest ${backgroundJobTone(job.health)}`}
+        >
+          {job.statusLabel}
+        </span>
+      </div>
+
+      <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
+        {metrics.map(([label, value]) => (
+          <div key={label} className="rounded-xl bg-[var(--px-subtle)] p-4">
+            <dt className="data-label text-[10px] uppercase tracking-widest text-[var(--px-muted)]">
+              {label}
+            </dt>
+            <dd className="mt-2 text-2xl font-semibold text-[var(--px-text)]">
+              {value.toLocaleString("nb-NO")}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-4 grid gap-4 text-sm text-[var(--px-muted)] sm:grid-cols-2">
+        <p>
+          <span className="data-label block text-[10px] uppercase tracking-widest">
+            Siste kjøring
+          </span>
+          <span className="mt-2 block text-[var(--px-text)]">
+            {formatJobTimestamp(job.latestRun?.startedAt ?? null)}
+          </span>
+        </p>
+        <p>
+          <span className="data-label block text-[10px] uppercase tracking-widest">
+            Eldste ventende
+          </span>
+          <span className="mt-2 block text-[var(--px-text)]">
+            {formatJobTimestamp(job.oldestQueuedAt)}
+          </span>
+        </p>
+      </div>
+
+      {job.health === "error" && job.latestFailure?.errorMessage ? (
+        <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          {job.latestFailure.errorMessage}
+        </p>
+      ) : null}
+    </article>
+  );
+}
+
 export default function AdminHubView({ model, canManageAiEconomics }: AdminHubViewProps) {
   // AI economics is gated by role in the model, but the caller may withhold it
   // independently; honour the stricter of the two.
@@ -186,6 +274,25 @@ export default function AdminHubView({ model, canManageAiEconomics }: AdminHubVi
           </div>
         </section>
       ) : null}
+
+      <section className="space-y-4">
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-[1.1rem] font-semibold text-[var(--px-text)]">
+              Bakgrunnsjobber
+            </h2>
+            <p className="mt-2 text-sm text-[var(--px-muted)]">
+              Kø, etterslep og siste registrerte kjøring for de kritiske populeringsflytene.
+            </p>
+          </div>
+          <div className="h-px flex-1 bg-[var(--px-border)]" />
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {model.backgroundJobs.map((job) => (
+            <BackgroundJobCard key={job.jobKey} job={job} />
+          ))}
+        </div>
+      </section>
 
       {/* Ingestion coverage */}
       <section className="space-y-4">

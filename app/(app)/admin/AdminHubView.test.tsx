@@ -64,6 +64,40 @@ const model: AdminHubModel = {
     coveragePercent: 68.6,
     neverFetched: 10663,
   },
+  backgroundJobs: [
+    {
+      jobKey: "ai-search-jobs",
+      title: "Premium AI-søk",
+      description: "Utfører budsjetterte AI-søk for Premium-abonnement.",
+      cadenceLabel: "Hvert minutt",
+      queueDepth: 2,
+      dueCount: 1,
+      runningCount: 0,
+      errorCount: 1,
+      oldestQueuedAt: "2026-08-05T17:55:00.000Z",
+      health: "error",
+      statusLabel: "Feil krever tiltak",
+      latestRun: {
+        status: "FAILED",
+        startedAt: "2026-08-05T17:59:00.000Z",
+        completedAt: "2026-08-05T17:59:02.000Z",
+        claimedCount: 1,
+        succeededCount: 0,
+        failedCount: 1,
+        errorMessage: "Provider utilgjengelig",
+      },
+      latestSuccess: null,
+      latestFailure: {
+        status: "FAILED",
+        startedAt: "2026-08-05T17:59:00.000Z",
+        completedAt: "2026-08-05T17:59:02.000Z",
+        claimedCount: 1,
+        succeededCount: 0,
+        failedCount: 1,
+        errorMessage: "Provider utilgjengelig",
+      },
+    },
+  ],
   actionItems: [
     {
       key: "fetch-errors",
@@ -160,6 +194,13 @@ describe("AdminHubView", () => {
     expect(html).toContain("Kontrollsenter");
     expect(html).toContain("Regnskapshenting fra Brreg");
     expect(html).toContain("Regnskapsdekning");
+    expect(html).toContain("Bakgrunnsjobber");
+    expect(html).toContain("Premium AI-søk");
+    expect(html).toContain("Feil krever tiltak");
+    expect(html).toContain("Kødybde");
+    expect(html).toContain("Aktive kjøringer");
+    expect(html).toContain("Køfeil");
+    expect(html).toContain("Feil sist");
     expect(html).toContain("Brukere og roller");
     expect(html).toContain("Regnskapsmapping");
     expect(html).toContain("/admin/ai-economics");

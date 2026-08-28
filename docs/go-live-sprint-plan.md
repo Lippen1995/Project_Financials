@@ -217,8 +217,14 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
   og klienten poller lagret resultat. Inventartesten avviser provider-fallback i
   de registrerte leseflatene. Se
   [G1-inventaret for forespørselsveien](./go-live/g1-request-path-network-inventory.md).
-- GL-A02 er implementert som `financials:drain-queue` og en hemmelighetsbeskyttet
-  planlagt rute; kø, etterslep og feil vises i kontrollsenteret.
+- GL-A02 er teknisk implementert 28. august 2026. Kontrollsenteret viser kødybde,
+  forfalte jobber, aktive kjøringer, feil, eldste ventende jobb og siste
+  kjøring for strukturerte regnskap, Brreg-kunngjøringer, Premium AI-søk og
+  SSB Klass. Alle fire cron-workerne skriver en dataminimert 30-dagers
+  kjøringslogg. Den utdaterte Vercel-planen mot den karantenerte
+  årsrapport-ruten er erstattet av den leasede regnskapskøen hvert femte minutt.
+  Formell lukking gjenstår til produksjonslik staging har bevist at planene
+  faktisk utløses.
 - GL-A03 er teknisk lukket på K0: Njord, søkeintensjonen og
   scope-klassifisereren bruker samme `LlmClient`, sikker systeminstruks og
   injeksjonsinspeksjon. Det aktive kilde-treet har nøyaktig ett registrert

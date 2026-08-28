@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   sync: vi.fn(),
   acquire: vi.fn(),
   release: vi.fn(),
+  observe: vi.fn(async (input: { execute: () => Promise<unknown> }) => input.execute()),
   env: { cronSecret: "cron-secret" },
 }));
 
@@ -15,6 +16,9 @@ vi.mock("@/server/services/ssb-classification-sync-service", () => ({
 vi.mock("@/server/persistence/pipeline-job-lease-repository", () => ({
   acquirePipelineJobLease: mocks.acquire,
   releasePipelineJobLease: mocks.release,
+}));
+vi.mock("@/server/services/background-job-observability-service", () => ({
+  runObservedBackgroundJob: mocks.observe,
 }));
 
 import { POST } from "@/app/api/internal/ssb-classifications/scheduled/route";
@@ -51,6 +55,9 @@ describe("POST /api/internal/ssb-classifications/scheduled", () => {
       jobKey: "ssb-classifications",
     }));
     expect(mocks.release).toHaveBeenCalledWith(expect.objectContaining({
+      jobKey: "ssb-classifications",
+    }));
+    expect(mocks.observe).toHaveBeenCalledWith(expect.objectContaining({
       jobKey: "ssb-classifications",
     }));
   });

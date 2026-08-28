@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import env from "@/lib/env";
+import { runObservedBackgroundJob } from "@/server/services/background-job-observability-service";
 import {
   drainStructuredFinancialsQueue,
   getStructuredFinancialsQueueDepth,
@@ -18,17 +19,22 @@ const querySchema = z
   .strict();
 
 function isAuthorized(request: NextRequest) {
-  if (!env.financialsSyncSecret) {
+  const validSecrets = [env.financialsSyncSecret, env.cronSecret].filter(Boolean);
+  if (validSecrets.length === 0) {
     return false;
   }
 
   const bearer = request.headers.get("authorization");
-  if (bearer === `Bearer ${env.financialsSyncSecret}`) {
+  if (validSecrets.some((secret) => bearer === `Bearer ${secret}`)) {
     return true;
   }
 
   const headerSecret = request.headers.get("x-financials-sync-secret");
-  return headerSecret === env.financialsSyncSecret;
+  return Boolean(
+    env.financialsSyncSecret
+      && headerSecret
+      && headerSecret === env.financialsSyncSecret,
+  );
 }
 
 async function handle(request: NextRequest) {
@@ -47,14 +53,26 @@ async function handle(request: NextRequest) {
   }
 
   try {
-    const data = await drainStructuredFinancialsQueue({
-      limit: parsedQuery.data.limit,
+    const data = await runObservedBackgroundJob({
+      jobKey: "structured-financials-queue",
+      execute: async () => {
+        const drained = await drainStructuredFinancialsQueue({
+          limit: parsedQuery.data.limit,
+        });
+        const depth = await getStructuredFinancialsQueueDepth();
+        return { ...drained, depth };
+      },
+      summarize: (result) => ({
+        claimedCount: result.claimed,
+        succeededCount: result.succeeded,
+        failedCount: result.failed,
+        skipped: result.skipped,
+      }),
     });
-    const depth = await getStructuredFinancialsQueueDepth();
 
     return NextResponse.json({
       job: "structured-financials-queue",
-      data: { ...data, depth },
+      data,
     });
   } catch (error) {
     return NextResponse.json(
@@ -71,3 +89,4 @@ async function handle(request: NextRequest) {
 
 export const GET = handle;
 export const POST = handle;
+export const maxDuration = 300;

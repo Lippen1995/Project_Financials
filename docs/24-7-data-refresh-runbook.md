@@ -32,10 +32,10 @@ freshness threshold.
 | Petroleum core data | Every 24 hours when stale | Scheduled | Refreshes fields, discoveries, licences, facilities, wells, surveys, production, reserves, investments, and publications. |
 | Petroleum snapshots | Every 6 hours when stale | Scheduled | Rebuilds fast read models. A core or metrics refresh also triggers a rebuild. |
 | Petroleum company exposure | Every 6 hours when stale | Scheduled | Rebuilds company-level petroleum exposure after snapshot changes. |
-| Annual-report filing discovery and processing | Hourly | Scheduled | Checks due companies, detects new or revised source documents, and processes pending filings. |
+| Structured Brreg financials | Every 5 minutes | Scheduled | Drains `StructuredFinancialFetchState` through the leased queue. The former annual-report/PDF scheduler is quarantined. |
 | Brreg company announcements | Every 5 minutes | Scheduled | Drains `CompanyAnnouncementFetchState`; profile requests only enqueue/read. |
 | Premium AI search jobs | Every minute | Scheduled | Executes only jobs created by entitled Premium users; model usage is reserved and finalized in the worker. Recoverable failures retry with bounded backoff, and stale `RUNNING` rows return to the queue. |
-| SSB industry and geography classifications | Daily | Scheduled | Atomically replaces the local versioned Klass mirror. Empty source responses fail the run and preserve the last good mirror. |
+| SSB industry and geography classifications | Daily at 03:00 UTC | Scheduled | Atomically replaces the local versioned Klass mirror. Empty source responses fail the run and preserve the last good mirror. |
 
 Annual-report company checks use state-dependent delays:
 
@@ -102,6 +102,18 @@ When the provider exists, refresh registrations, licence types, and regulatory s
 
 ## Monitoring and alerting requirements
 
+GL-A02 stores a 30-day `BackgroundJobRun` history for the four request-path
+population workers. `/admin` shows queue depth, due work, active leases,
+failures, oldest queued work and the latest run. The health states are
+actionable operating signals, not proof that an upstream dataset is complete.
+
+| Admin state | User impact | First investigation | Remediation / escalation |
+|---|---|---|---|
+| `Feil krever tiltak` | Data or a Premium AI result may remain unavailable | Open the latest error, verify secret/lease and inspect the source or model response | Retry only after the cause is understood; escalate immediately if paid AI usage may be unclosed |
+| `Etterslep` | Users wait longer than the advertised worker cadence | Compare queue depth, oldest queued timestamp and active lease | Verify cron delivery, then drain a bounded batch; do not bypass the lease |
+| `Kjøring forsinket` | Freshness may be outside policy even with an empty queue | Verify the platform cron and latest successful run | Restore the schedule and run once under the normal service secret |
+| `Ingen kjøring registrert` | Runtime operation is not yet proven | Confirm the observability migration and cron secret are deployed | Complete the first staging run before G1 evidence is accepted |
+
 Every scheduled job must record:
 
 - job name and run identifier
@@ -132,7 +144,7 @@ Use this order for a full recovery or initial production bootstrap:
 3. Import Brreg roles.
 4. Refresh SSB classifications.
 5. Bootstrap distress data, then enable incremental updates.
-6. Discover and process annual-report filings.
+6. Drain the structured Brreg financials queue and verify its run record.
 7. Import the latest official shareholder register and verify that the import is `COMPLETED`.
    The Skatteetaten export is a fixed nine-field, semicolon-delimited format. Quote characters in
    names are literal source data, and a blank shareholder name is retained when the remaining
@@ -152,12 +164,12 @@ Use this order for a full recovery or initial production bootstrap:
 
 - Production cron routes: `vercel.json`
 - Petroleum freshness thresholds: `server/services/petroleum-sync-service.ts`
-- Annual-report scheduler: `server/services/annual-report-financials-scheduler-service.ts`
-- Annual-report coverage timing: `server/services/annual-report-financials-service.ts`
+- Structured financials scheduler: `app/api/internal/structured-financials-queue/scheduled/route.ts`
+- Background-job control model: `server/services/background-job-control-center-service.ts`
 - News source registry: `server/news/news-source-registry.ts`
 - Current Oslo Børs-only scheduled route: `app/api/internal/company-event-sync/scheduled/route.ts`
 - Workspace notification checks: `server/services/workspace-collaboration-service.ts`
 - Brreg full imports: `scripts/ingest-brreg-entities.ts`, `scripts/ingest-brreg-subunits.ts`, and `scripts/ingest-brreg-roles.ts`
 - Distress incremental updates: `server/services/distress-analysis-service.ts`
 - GL-A01 request-path inventory: `docs/go-live/g1-request-path-network-inventory.md`
-- AI, announcement, and SSB scheduled routes: `app/api/internal/ai-search-jobs/scheduled`, `app/api/internal/company-announcements/scheduled`, and `app/api/internal/ssb-classifications/scheduled`
+- Structured financials, AI, announcement, and SSB scheduled routes: `app/api/internal/structured-financials-queue/scheduled`, `app/api/internal/ai-search-jobs/scheduled`, `app/api/internal/company-announcements/scheduled`, and `app/api/internal/ssb-classifications/scheduled`

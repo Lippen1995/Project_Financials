@@ -18,6 +18,10 @@
 import { type AppRole } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import {
+  buildBackgroundJobControlCenter,
+  type BackgroundJobControlCenterItem,
+} from "@/server/services/background-job-control-center-service";
 import { getCurrentIngestionRun } from "@/server/services/ingestion-run-service";
 
 export type AdminHubTone = "neutral" | "active" | "success" | "warning" | "error";
@@ -99,6 +103,7 @@ export type AdminHubModel = {
     coveragePercent: number;
     neverFetched: number;
   };
+  backgroundJobs: BackgroundJobControlCenterItem[];
   actionItems: AdminHubActionItem[];
   userStats: AdminUserStats;
   navigationSections: AdminHubNavigationSection[];
@@ -144,6 +149,7 @@ export async function buildAdminHubModel(input: {
     statementsByYear,
     metricAliasCount,
     userRoleGroups,
+    backgroundJobs,
   ] = await Promise.all([
     prisma.company.count(),
     prisma.financialStatement
@@ -201,6 +207,7 @@ export async function buildAdminHubModel(input: {
       by: ["appRole"],
       _count: { id: true },
     }),
+    buildBackgroundJobControlCenter({ now }),
   ]);
 
   const statusCountMap = new Map<string, number>();
@@ -264,6 +271,25 @@ export async function buildAdminHubModel(input: {
       detail: "Hentetilstander som har passert neste kontrolltidspunkt.",
       urgent: false,
     });
+  }
+  for (const job of backgroundJobs) {
+    if (job.health === "error") {
+      actionItems.push({
+        key: `background-job-error:${job.jobKey}`,
+        title: `${job.title}: feil`,
+        value: Math.max(job.errorCount, job.latestRun?.failedCount ?? 0),
+        detail: job.latestFailure?.errorMessage ?? "Siste kjøring feilet eller køen har feil som krever tiltak.",
+        urgent: true,
+      });
+    } else if (job.health === "warning" && job.dueCount > 0) {
+      actionItems.push({
+        key: `background-job-backlog:${job.jobKey}`,
+        title: `${job.title}: etterslep`,
+        value: job.dueCount,
+        detail: "Forfalte jobber har ventet lenger enn planlagt intervall.",
+        urgent: false,
+      });
+    }
   }
 
   const coverage: AdminCoverageStage[] = [
@@ -342,8 +368,9 @@ export async function buildAdminHubModel(input: {
   return {
     title: "Kontrollsenter",
     subtitle:
-      "Dekning, oppdatering og feil i den strukturerte regnskapshentingen fra Brønnøysundregistrene, samt adminoppgaver.",
+      "Køer, bakgrunnskjøringer, datadekning og feil for Fjord Insights produksjonsnære dataflyter.",
     generatedAt: now.toISOString(),
+    backgroundJobs,
     coverage,
     coverageTotals: {
       companies: companyCount,
