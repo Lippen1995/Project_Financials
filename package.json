@@ -108,6 +108,7 @@
     "vitest": "^3.2.7"
   },
   "overrides": {
+    "deepmerge-ts": "8.0.2",
     "minimatch@<=10.0.2": {
       "brace-expansion": "$brace-expansion"
     },

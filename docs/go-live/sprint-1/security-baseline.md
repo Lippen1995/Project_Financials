@@ -29,6 +29,15 @@
 - Legacy-konsumenter av `brace-expansion` i ESLint 9 / Next.js 15-verktøykjeden rutes gjennom en lokal CommonJS-adapter til offisielt patchet `brace-expansion@5.0.8`. Adapteren fjernes når hele lintgrafen støtter den patchede oppstrømskontrakten direkte.
 - `xlsx@0.18.5` ble fjernet fordi advisories mangler en trygg npm-fiks. Funksjonen brukte pakken kun til å liste arkfaner i offisielle SODIR-regneark; kildelenken og resten av publikasjonen beholdes.
 
+### Etterfølgende advisories
+
+29. august 2026 ble nye high-advisories lukket med kompatible låsefiloppgraderinger
+til `js-yaml@4.3.2` og `nanoid@3.3.18`. Prisma beholdes på `6.19.3`; den
+transitive `deepmerge-ts`-avhengigheten overstyres midlertidig til `8.0.2` for å
+lukke `GHSA-ggr8-5vv4-36mx`. Overstyringen skal fjernes når `@prisma/config`
+selv avhenger av `deepmerge-ts >= 8`. Prisma-konfigurasjonslasting, klientgenerering
+og migrasjonsintegritet må passere så lenge major-overstyringen er aktiv.
+
 ## Tilgangsmodell
 
 - `requireAdmin` og `requireFinancialReviewer` leser rollen på nytt fra databasen og stoler ikke bare på JWT.
