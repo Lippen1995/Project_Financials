@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -11,11 +11,17 @@ vi.mock("@/lib/prisma", () => ({ prisma: { aiSearchJob: { findFirst: mocks.findF
 
 import { GET } from "@/app/api/ai-search/[jobId]/route";
 
+const jobId = "clz8x8y9z0000qwertyuiopas";
+
 describe("GET /api/ai-search/[jobId]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("returns only the authenticated owner's stored result", async () => {
     mocks.auth.mockResolvedValue({ user: { id: "user-1" } });
     mocks.findFirst.mockResolvedValue({
-      id: "job-1",
+      id: jobId,
       status: "COMPLETED",
       result: { answer: "Ferdig" },
       errorMessage: null,
@@ -24,18 +30,30 @@ describe("GET /api/ai-search/[jobId]", () => {
     });
 
     const response = await GET(
-      new NextRequest("http://localhost/api/ai-search/job-1"),
-      { params: Promise.resolve({ jobId: "job-1" }) },
+      new NextRequest(`http://localhost/api/ai-search/${jobId}`),
+      { params: Promise.resolve({ jobId }) },
     );
 
     expect(response.status).toBe(200);
     expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "job-1", userId: "user-1" },
+      where: { id: jobId, userId: "user-1" },
     }));
     await expect(response.json()).resolves.toEqual(expect.objectContaining({
-      jobId: "job-1",
+      jobId,
       status: "COMPLETED",
       result: { answer: "Ferdig" },
     }));
+  });
+
+  it("rejects malformed job identifiers before querying the database", async () => {
+    mocks.auth.mockResolvedValue({ user: { id: "user-1" } });
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/ai-search/not-a-cuid"),
+      { params: Promise.resolve({ jobId: "not-a-cuid" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.findFirst).not.toHaveBeenCalled();
   });
 });

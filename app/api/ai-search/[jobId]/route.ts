@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { safeAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+const paramsSchema = z.object({ jobId: z.string().cuid() }).strict();
 
 export async function GET(
   _request: NextRequest,
@@ -12,10 +15,11 @@ export async function GET(
     return NextResponse.json({ error: "Krever innlogging." }, { status: 401 });
   }
 
-  const { jobId } = await context.params;
-  if (!jobId || jobId.length > 128) {
+  const parsedParams = paramsSchema.safeParse(await context.params);
+  if (!parsedParams.success) {
     return NextResponse.json({ error: "Ugyldig jobb-id." }, { status: 400 });
   }
+  const { jobId } = parsedParams.data;
   const job = await prisma.aiSearchJob.findFirst({
     where: { id: jobId, userId: session.user.id },
     select: {
