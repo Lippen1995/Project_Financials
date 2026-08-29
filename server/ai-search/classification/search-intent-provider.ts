@@ -1,13 +1,16 @@
 import env from "@/lib/env";
-import { calculateAiUsageTokens, type AiTokenUsage } from "@/lib/ai-search-usage";
+import type { AiTokenUsage } from "@/lib/ai-search-usage";
 import { SearchInterpretation, SearchInterpretationLocationType } from "@/lib/types";
-import { OpenAiLlmClient } from "@/server/ai-search/llm/openai-client";
+import {
+  createNjordLlmClient,
+  getNjordLlmRuntimeConfig,
+} from "@/server/ai-search/llm/runtime-client";
 import {
   LlmProviderAccountingError,
   LlmProviderResponseError,
   type LlmClient,
-  type LlmRunResult,
 } from "@/server/ai-search/llm/types";
+import { toObservedAiUsage } from "@/server/ai-search/llm/usage";
 import {
   buildSecureNjordSystemPrompt,
   inspectNjordUserQuery,
@@ -51,29 +54,6 @@ function normalizeList(values: unknown) {
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter(Boolean)
     .slice(0, 8);
-}
-
-function toObservedAiUsage(
-  usage: LlmRunResult["usage"],
-  fallbackModel: string,
-): AiTokenUsage | null {
-  if (!usage?.sourceId) return null;
-  const inputTokens = Math.max(0, usage.inputTokens);
-  const cachedInputTokens = Math.max(0, usage.cachedInputTokens ?? 0);
-  const outputTokens = Math.max(0, usage.outputTokens);
-  const fetchedAt = new Date();
-  return {
-    model: usage.model ?? fallbackModel,
-    sourceSystem: "OPENAI",
-    sourceEntityType: "chat.completion",
-    sourceId: usage.sourceId,
-    fetchedAt,
-    normalizedAt: new Date(),
-    inputTokens,
-    cachedInputTokens,
-    outputTokens,
-    usageTokens: calculateAiUsageTokens({ inputTokens, cachedInputTokens, outputTokens }),
-  };
 }
 
 function buildFallbackInterpretation(
@@ -126,14 +106,19 @@ function buildFallbackInterpretation(
   };
 }
 
-export class OpenAiSearchIntentProvider {
-  private readonly llm: LlmClient;
+export class SearchIntentLlmProvider {
+  private readonly llm: LlmClient | null;
+  private readonly providerConfigured: boolean;
 
   constructor(options: { llm?: LlmClient } = {}) {
-    this.llm = options.llm ?? new OpenAiLlmClient({
-      apiKey: env.openAiApiKey,
-      model: env.openAiSearchModel,
-    });
+    if (options.llm) {
+      this.providerConfigured = true;
+      this.llm = options.llm;
+      return;
+    }
+    const runtime = getNjordLlmRuntimeConfig();
+    this.providerConfigured = Boolean(runtime.credential);
+    this.llm = runtime.credential ? createNjordLlmClient(runtime, {}) : null;
   }
 
   async interpretQuery(
@@ -163,8 +148,12 @@ export class OpenAiSearchIntentProvider {
     if (!env.aiSearchBillingEnabled) {
       return buildFallbackInterpretation(trimmed, "Betalt AI-søk er deaktivert.");
     }
-    if (!env.openAiApiKey) {
-      return buildFallbackInterpretation(trimmed, "OPENAI_API_KEY mangler.");
+    if (!this.providerConfigured) {
+      return buildFallbackInterpretation(trimmed, "Modellleverandør mangler.");
+    }
+    const llm = this.llm;
+    if (!llm) {
+      return buildFallbackInterpretation(trimmed, "Modellleverandør mangler.");
     }
     if (!inspectNjordUserQuery(trimmed).allowed) {
       return buildFallbackInterpretation(
@@ -175,7 +164,7 @@ export class OpenAiSearchIntentProvider {
 
     let observedAiUsage: AiTokenUsage | null = null;
     try {
-      const result = await this.llm.run({
+      const result = await llm.run({
         tools: [],
         temperature: 0,
         maxOutputTokens: Math.max(
@@ -201,7 +190,7 @@ export class OpenAiSearchIntentProvider {
           },
         ],
       });
-      observedAiUsage = toObservedAiUsage(result.usage, this.llm.model);
+      observedAiUsage = toObservedAiUsage(result.usage, llm.model);
       if (!observedAiUsage) {
         await options.onAiUsageFailure("PROVIDER_ACCOUNTING_MISSING");
         return buildFallbackInterpretation(
@@ -211,7 +200,7 @@ export class OpenAiSearchIntentProvider {
       }
       const content = result.content;
       if (!content) {
-        throw new Error("OpenAI returned empty content.");
+        throw new Error("Model provider returned empty content.");
       }
 
       const parsed = JSON.parse(content) as SearchIntentPayload;
@@ -234,7 +223,7 @@ export class OpenAiSearchIntentProvider {
         return buildFallbackInterpretation(trimmed, error.message);
       }
       if (error instanceof LlmProviderResponseError) {
-        observedAiUsage = toObservedAiUsage(error.usage, this.llm.model);
+        observedAiUsage = toObservedAiUsage(error.usage, llm.model);
       }
       const reason = error instanceof Error ? error.message : "AI-tolkning feilet.";
       return buildFallbackInterpretation(trimmed, reason, observedAiUsage);

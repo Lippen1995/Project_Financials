@@ -18,6 +18,13 @@ const PROVIDER_PATTERNS: ReadonlyArray<{
   patterns: readonly RegExp[];
 }> = [
   {
+    signal: "provider-adapter-wiring",
+    patterns: [
+      /from\s+["'][^"']*\/llm\/(?:openai|anthropic|gemini|google)-client["']/,
+      /require\s*\(\s*["'][^"']*\/llm\/(?:openai|anthropic|gemini|google)-client["']\s*\)/,
+    ],
+  },
+  {
     signal: "openai",
     patterns: [
       /api\.openai\.com\//,
@@ -67,9 +74,16 @@ export function auditLlmCallsites(
     const providerSignals = new Set(PROVIDER_PATTERNS
       .filter((candidate) => candidate.patterns.some((pattern) => pattern.test(file.source)))
       .map((candidate) => candidate.signal));
-    const invokesTypedLlm = /\bLlmClient\b/.test(file.source) && /\.run\s*\(/.test(file.source);
+    const invokesTypedLlm =
+      /\b(?:LlmClient|MeteredLlmClient)\b/.test(file.source) &&
+      /\.run\s*\(/.test(file.source);
+    const invokesFactoryDerivedLlm =
+      /\bcreateNjordLlmClient\b/.test(file.source) &&
+      /\.run\s*\(/.test(file.source);
     const constructsLlm = /\bnew\s+[A-Za-z_$][\w$]*LlmClient\s*\(/.test(file.source);
-    if (invokesTypedLlm || constructsLlm) providerSignals.add("shared-llm-client");
+    if (invokesTypedLlm || invokesFactoryDerivedLlm || constructsLlm) {
+      providerSignals.add("shared-llm-client");
+    }
     if (providerSignals.size === 0) continue;
 
     detected.push({

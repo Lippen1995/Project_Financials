@@ -19,13 +19,12 @@ const EXCLUDED_DIRECTORIES = new Set([
   "test",
 ]);
 const REGISTERED_CALLSITES = [
-  { path: "app/api/ai-search/route.ts", providerSignals: ["shared-llm-client"] },
   {
-    path: "integrations/openai/openai-dashboard-search-scope-provider.ts",
+    path: "server/ai-search/classification/dashboard-search-scope-provider.ts",
     providerSignals: ["shared-llm-client"],
   },
   {
-    path: "integrations/openai/openai-search-intent-provider.ts",
+    path: "server/ai-search/classification/search-intent-provider.ts",
     providerSignals: ["shared-llm-client"],
   },
   {
@@ -33,6 +32,10 @@ const REGISTERED_CALLSITES = [
     providerSignals: ["shared-llm-client"],
   },
   { path: "server/ai-search/llm/openai-client.ts", providerSignals: ["openai"] },
+  {
+    path: "server/ai-search/llm/runtime-client.ts",
+    providerSignals: ["provider-adapter-wiring", "shared-llm-client"],
+  },
   { path: "scripts/demo-target-agent.ts", providerSignals: ["shared-llm-client"] },
 ] as const;
 
@@ -68,12 +71,30 @@ describe("auditLlmCallsites", () => {
           source: 'await fetch("https://api.openai.com/v1/chat/completions")',
         },
       ],
-      REGISTERED_CALLSITES,
+      [{ path: "app/api/ai-search/route.ts", providerSignals: ["shared-llm-client"] }],
     );
 
     expect(audit.violations).toEqual([
       { path: "app/api/ai-search/route.ts", providerSignals: ["openai"] },
     ]);
+  });
+
+  it("rejects concrete provider-adapter wiring from a registered product caller", () => {
+    const audit = auditLlmCallsites(
+      [{
+        path: "app/api/ai-search/route.ts",
+        source: `
+          import { OpenAiLlmClient } from "@/server/ai-search/llm/openai-client";
+          const llm = new OpenAiLlmClient({ apiKey: "key", model: "model" });
+        `,
+      }],
+      [{ path: "app/api/ai-search/route.ts", providerSignals: ["shared-llm-client"] }],
+    );
+
+    expect(audit.violations).toEqual([{
+      path: "app/api/ai-search/route.ts",
+      providerSignals: ["provider-adapter-wiring"],
+    }]);
   });
 
   it("detects direct provider SDK use in non-TypeScript runtime code", () => {
@@ -106,6 +127,36 @@ describe("auditLlmCallsites", () => {
     ]);
   });
 
+  it("detects metered and runtime-factory-derived LLM invocations", () => {
+    const audit = auditLlmCallsites(
+      [
+        {
+          path: "server/metered-flow.ts",
+          source: `
+            import type { MeteredLlmClient } from "@/server/ai-search/llm/types";
+            export async function run(client: MeteredLlmClient) {
+              return client.run({ messages: [], tools: [], maxOutputTokens: 32 });
+            }
+          `,
+        },
+        {
+          path: "server/factory-flow.ts",
+          source: `
+            import { createNjordLlmClient } from "@/server/ai-search/llm/runtime-client";
+            const client = createNjordLlmClient(config, budget);
+            await client.run({ messages: [], tools: [], maxOutputTokens: 32 });
+          `,
+        },
+      ],
+      REGISTERED_CALLSITES,
+    );
+
+    expect(audit.violations).toEqual([
+      { path: "server/factory-flow.ts", providerSignals: ["shared-llm-client"] },
+      { path: "server/metered-flow.ts", providerSignals: ["shared-llm-client"] },
+    ]);
+  });
+
   it("keeps every active provider call behind the registered adapter", () => {
     const repositoryRoot = process.cwd();
     const files = collectSourceFiles(repositoryRoot, ".");
@@ -115,18 +166,6 @@ describe("auditLlmCallsites", () => {
     expect(audit.unusedRegistrations).toEqual([]);
     expect(audit.detected).toEqual([
       {
-        path: "app/api/ai-search/route.ts",
-        providerSignals: ["shared-llm-client"],
-      },
-      {
-        path: "integrations/openai/openai-dashboard-search-scope-provider.ts",
-        providerSignals: ["shared-llm-client"],
-      },
-      {
-        path: "integrations/openai/openai-search-intent-provider.ts",
-        providerSignals: ["shared-llm-client"],
-      },
-      {
         path: "scripts/demo-target-agent.ts",
         providerSignals: ["shared-llm-client"],
       },
@@ -135,8 +174,20 @@ describe("auditLlmCallsites", () => {
         providerSignals: ["shared-llm-client"],
       },
       {
+        path: "server/ai-search/classification/dashboard-search-scope-provider.ts",
+        providerSignals: ["shared-llm-client"],
+      },
+      {
+        path: "server/ai-search/classification/search-intent-provider.ts",
+        providerSignals: ["shared-llm-client"],
+      },
+      {
         path: "server/ai-search/llm/openai-client.ts",
         providerSignals: ["openai"],
+      },
+      {
+        path: "server/ai-search/llm/runtime-client.ts",
+        providerSignals: ["provider-adapter-wiring", "shared-llm-client"],
       },
     ]);
   });

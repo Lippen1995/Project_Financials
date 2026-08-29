@@ -3,7 +3,7 @@ import type {
   LlmRunOptions,
   LlmRunResult,
   LlmToolCall,
-  LlmClient,
+  MeteredLlmClient,
 } from "./types";
 import { LlmProviderAccountingError, LlmProviderResponseError } from "./types";
 import { estimateNjordCostNok, type NjordPricing } from "../runtime-policy";
@@ -52,8 +52,12 @@ function toOpenAiMessage(message: LlmMessage) {
   return { role: message.role, content: message.content };
 }
 
-export class OpenAiLlmClient implements LlmClient {
+export class OpenAiLlmClient implements MeteredLlmClient {
   readonly model: string;
+  readonly provenance = {
+    sourceSystem: "OPENAI",
+    sourceEntityType: "chat.completion",
+  } as const;
   private readonly apiKey: string;
   private readonly pricing: NjordPricing | null;
   private readonly requestCostLimitNok: number | null;
@@ -171,6 +175,7 @@ export class OpenAiLlmClient implements LlmClient {
           cachedInputTokens,
           outputTokens,
           model: payload.model ?? this.model,
+          ...this.provenance,
           sourceId: payload.id,
         },
       );
@@ -191,6 +196,7 @@ export class OpenAiLlmClient implements LlmClient {
         cachedInputTokens,
         outputTokens,
         model: payload.model ?? this.model,
+        ...this.provenance,
         sourceId: payload.id,
       },
     };
@@ -202,6 +208,7 @@ export class OpenAiLlmClient implements LlmClient {
       cachedInputTokens: this.cachedInputTokens,
       outputTokens: this.outputTokens,
       model: this.model,
+      ...this.provenance,
       sourceIds: [...this.sourceIds],
     };
   }

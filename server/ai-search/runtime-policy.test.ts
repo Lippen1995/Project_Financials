@@ -52,6 +52,19 @@ describe("Njord runtime policy", () => {
     });
   });
 
+  it("does not lock an otherwise valid activation to one model provider", () => {
+    expect(validateNjordActivation({
+      enabled: true,
+      provider: "anthropic",
+      apiKeyPresent: true,
+      inputNokPerMillion: 10,
+      outputNokPerMillion: 80,
+      requestCostLimitNok: 25,
+      monthlyCostLimitNok: 2_500,
+      dailyRequestLimit: 50,
+    })).toEqual({ ready: true, issues: [] });
+  });
+
   it("calculates a conservative request estimate from configured rates", () => {
     expect(estimateNjordCostNok(
       { inputTokens: 1_000_000, cachedInputTokens: 500_000, outputTokens: 100_000 },

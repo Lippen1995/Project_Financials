@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   getAnalysis: vi.fn(),
   getEconomics: vi.fn(),
   createJob: vi.fn(),
+  createLlm: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({ safeAuth: mocks.safeAuth }));
@@ -55,19 +56,13 @@ vi.mock("@/server/ai-search/agent/visualization", () => ({
 vi.mock("@/server/ai-search/llm/heuristic-client", () => ({
   HeuristicLlmClient: class HeuristicLlmClient {},
 }));
-vi.mock("@/server/ai-search/llm/openai-client", () => ({
-  OpenAiLlmClient: class OpenAiLlmClient {
-    constructor(readonly options: unknown) {}
-    getUsageSnapshot() {
-      return {
-        inputTokens: 0,
-        cachedInputTokens: 0,
-        outputTokens: 0,
-        model: "test-model",
-        sourceIds: [],
-      };
-    }
-  },
+vi.mock("@/server/ai-search/llm/runtime-client", () => ({
+  createNjordLlmClient: mocks.createLlm,
+  getNjordLlmRuntimeConfig: () => ({
+    provider: "openai",
+    credential: "test-key",
+    model: "provider-model",
+  }),
 }));
 vi.mock("@/server/ai-search/tools", () => ({
   getRetrievalToolsForAccess: mocks.getRetrievalToolsForAccess,
@@ -90,6 +85,7 @@ vi.mock("@/server/services/search-history-service", () => ({
 }));
 
 import { POST as enqueueAiSearch } from "./route";
+import { LlmProviderAccountingError } from "@/server/ai-search/llm/types";
 
 const billingPeriod = {
   periodStart: new Date("2026-07-01T00:00:00.000Z"),
@@ -163,6 +159,22 @@ describe("POST /api/ai-search", () => {
     });
     mocks.getAnalysis.mockResolvedValue(null);
     mocks.createJob.mockResolvedValue({ id: "job-1", status: "PENDING" });
+    mocks.createLlm.mockReturnValue({
+      model: "provider-model",
+      provenance: {
+        sourceSystem: "ANTHROPIC",
+        sourceEntityType: "messages",
+      },
+      getUsageSnapshot: vi.fn().mockReturnValue({
+        inputTokens: 0,
+        cachedInputTokens: 0,
+        outputTokens: 0,
+        model: "provider-model",
+        sourceSystem: "ANTHROPIC",
+        sourceEntityType: "messages",
+        sourceIds: [],
+      }),
+    });
   });
 
   it("queues premium AI work without invoking the model in the user request", async () => {
@@ -212,6 +224,8 @@ describe("POST /api/ai-search", () => {
         cachedInputTokens: 200,
         outputTokens: 100,
         model: "provider-model",
+        sourceSystem: "ANTHROPIC",
+        sourceEntityType: "messages",
         sourceIds: ["resp-1", "resp-2"],
       },
     });
@@ -251,6 +265,8 @@ describe("POST /api/ai-search", () => {
       "reservation-1",
       expect.objectContaining({
         model: "provider-model",
+        sourceSystem: "ANTHROPIC",
+        sourceEntityType: "messages",
         sourceId: "resp-1,resp-2",
         inputTokens: 1_000,
         cachedInputTokens: 200,
@@ -275,6 +291,25 @@ describe("POST /api/ai-search", () => {
       expect.objectContaining({ errorCode: "MODEL_UNAVAILABLE" }),
     );
     expect(mocks.releaseUsage).not.toHaveBeenCalled();
+    expect(mocks.finalizeUsage).not.toHaveBeenCalled();
+  });
+
+  it("retains the full reservation when provider accounting is missing", async () => {
+    mocks.runAgent.mockRejectedValue(
+      new LlmProviderAccountingError("Provider response omitted usage."),
+    );
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(503);
+    expect(mocks.failUsage).toHaveBeenCalledWith(
+      "user-1",
+      "reservation-1",
+      expect.objectContaining({
+        errorCode: "PROVIDER_ACCOUNTING_MISSING",
+        retainReservation: true,
+      }),
+    );
     expect(mocks.finalizeUsage).not.toHaveBeenCalled();
   });
 
@@ -320,6 +355,8 @@ describe("POST /api/ai-search", () => {
         cachedInputTokens: 0,
         outputTokens: 5,
         model: "provider-model",
+        sourceSystem: "TEST_PROVIDER",
+        sourceEntityType: "test.completion",
         sourceIds: ["resp-3"],
       },
     });
@@ -371,6 +408,8 @@ describe("POST /api/ai-search", () => {
         cachedInputTokens: 0,
         outputTokens: 5,
         model: "provider-model",
+        sourceSystem: "TEST_PROVIDER",
+        sourceEntityType: "test.completion",
         sourceIds: ["resp-context"],
       },
     });

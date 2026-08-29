@@ -108,15 +108,15 @@ describe("runAgent", () => {
     const llm = new ScriptedLlmClient([
       {
         toolCalls: [{ name: "resolve_company", arguments: { nameHint: "Fjord Defence" } }],
-        usage: { inputTokens: 100, cachedInputTokens: 20, outputTokens: 10, model: "test-model", sourceId: "call-1" },
+        usage: { inputTokens: 100, cachedInputTokens: 20, outputTokens: 10, model: "test-model", sourceSystem: "TEST_PROVIDER", sourceEntityType: "test.completion", sourceId: "call-1" },
       },
       {
         toolCalls: [{ name: "get_company_profile", arguments: { orgNumber: "917811288" } }],
-        usage: { inputTokens: 200, cachedInputTokens: 30, outputTokens: 20, model: "test-model", sourceId: "call-2" },
+        usage: { inputTokens: 200, cachedInputTokens: 30, outputTokens: 20, model: "test-model", sourceSystem: "TEST_PROVIDER", sourceEntityType: "test.completion", sourceId: "call-2" },
       },
       {
         content: "Top target: FJORD DEFENCE GROUP ASA (917811288) [source:1].",
-        usage: { inputTokens: 300, cachedInputTokens: 40, outputTokens: 30, model: "test-model", sourceId: "call-3" },
+        usage: { inputTokens: 300, cachedInputTokens: 40, outputTokens: 30, model: "test-model", sourceSystem: "TEST_PROVIDER", sourceEntityType: "test.completion", sourceId: "call-3" },
       },
     ]);
 
@@ -133,6 +133,8 @@ describe("runAgent", () => {
       cachedInputTokens: 90,
       outputTokens: 60,
       model: "test-model",
+      sourceSystem: "TEST_PROVIDER",
+      sourceEntityType: "test.completion",
       sourceIds: ["call-1", "call-2", "call-3"],
     });
     // First turn must have carried system + user messages to the client.

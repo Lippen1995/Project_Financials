@@ -1,13 +1,17 @@
 import env from "@/lib/env";
-import { calculateAiUsageTokens, type AiTokenUsage } from "@/lib/ai-search-usage";
+import type { AiTokenUsage } from "@/lib/ai-search-usage";
 import type { ResolvedDashboardSearchScope } from "@/lib/dashboard-search";
-import { OpenAiLlmClient } from "@/server/ai-search/llm/openai-client";
+import {
+  createNjordLlmClient,
+  getNjordLlmRuntimeConfig,
+} from "@/server/ai-search/llm/runtime-client";
 import {
   LlmProviderAccountingError,
   LlmProviderResponseError,
   type LlmClient,
   type LlmRunResult,
 } from "@/server/ai-search/llm/types";
+import { toObservedAiUsage } from "@/server/ai-search/llm/usage";
 import {
   buildSecureNjordSystemPrompt,
   inspectNjordUserQuery,
@@ -23,33 +27,6 @@ const scopes: ResolvedDashboardSearchScope[] = [
 
 /** Hard ceiling regardless of the budget handed in; the reply is one short JSON object. */
 const PROVIDER_MAXIMUM_OUTPUT_TOKENS = 64;
-
-function toObservedAiUsage(
-  usage: LlmRunResult["usage"],
-  fallbackModel: string,
-): AiTokenUsage | null {
-  if (!usage?.sourceId) return null;
-  const inputTokens = Math.max(0, usage.inputTokens);
-  const cachedInputTokens = Math.max(0, usage.cachedInputTokens ?? 0);
-  const outputTokens = Math.max(0, usage.outputTokens);
-  const fetchedAt = new Date();
-  return {
-    model: usage.model ?? fallbackModel,
-    sourceSystem: "OPENAI",
-    sourceEntityType: "chat.completion",
-    sourceId: usage.sourceId,
-    fetchedAt,
-    normalizedAt: new Date(),
-    inputTokens,
-    cachedInputTokens,
-    outputTokens,
-    usageTokens: calculateAiUsageTokens({
-      inputTokens,
-      cachedInputTokens,
-      outputTokens,
-    }),
-  };
-}
 
 /**
  * Token allowance for a single classification, derived from the caller's
@@ -78,14 +55,19 @@ export type ScopeClassificationBudget = {
  * app/(app)/search/page.tsx does. Until that exists, callers pass null and the
  * deterministic router in dashboard-search-routing-service decides the scope.
  */
-export class OpenAiDashboardSearchScopeProvider {
-  private readonly llm: LlmClient;
+export class DashboardSearchScopeLlmProvider {
+  private readonly llm: LlmClient | null;
+  private readonly providerConfigured: boolean;
 
   constructor(options: { llm?: LlmClient } = {}) {
-    this.llm = options.llm ?? new OpenAiLlmClient({
-      apiKey: env.openAiApiKey,
-      model: env.openAiSearchModel,
-    });
+    if (options.llm) {
+      this.providerConfigured = true;
+      this.llm = options.llm;
+      return;
+    }
+    const runtime = getNjordLlmRuntimeConfig();
+    this.providerConfigured = Boolean(runtime.credential);
+    this.llm = runtime.credential ? createNjordLlmClient(runtime, {}) : null;
   }
 
   async classify(
@@ -102,7 +84,9 @@ export class OpenAiDashboardSearchScopeProvider {
       return null;
     }
     if (!env.aiSearchBillingEnabled) return null;
-    if (!env.openAiApiKey) return null;
+    if (!this.providerConfigured) return null;
+    const llm = this.llm;
+    if (!llm) return null;
     if (!inspectNjordUserQuery(query).allowed) return null;
 
     const maxCompletionTokens = Math.min(
@@ -112,7 +96,7 @@ export class OpenAiDashboardSearchScopeProvider {
 
     let result: LlmRunResult;
     try {
-      result = await this.llm.run({
+      result = await llm.run({
         tools: [],
         temperature: 0,
         maxOutputTokens: maxCompletionTokens,
@@ -135,13 +119,13 @@ export class OpenAiDashboardSearchScopeProvider {
         return null;
       }
       if (error instanceof LlmProviderResponseError) {
-        const failedUsage = toObservedAiUsage(error.usage, this.llm.model);
+        const failedUsage = toObservedAiUsage(error.usage, llm.model);
         if (failedUsage) await budget.onAiUsage(failedUsage);
       }
       return null;
     }
 
-    const observedUsage = toObservedAiUsage(result.usage, this.llm.model);
+    const observedUsage = toObservedAiUsage(result.usage, llm.model);
     if (!observedUsage) {
       await budget.onAiUsageFailure("PROVIDER_ACCOUNTING_MISSING");
       return null;

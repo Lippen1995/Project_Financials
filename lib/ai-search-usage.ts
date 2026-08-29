@@ -74,8 +74,8 @@ export function getAiSearchResetPresentation(
 
 export type AiTokenUsage = {
   model: string;
-  sourceSystem: "OPENAI";
-  sourceEntityType: "chat.completion";
+  sourceSystem: string;
+  sourceEntityType: string;
   sourceId: string;
   fetchedAt: Date;
   normalizedAt: Date;

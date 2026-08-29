@@ -10,7 +10,11 @@ import { runAgent } from "@/server/ai-search/agent/agent-loop";
 import { buildCompanySearchRows } from "@/server/ai-search/agent/company-rows";
 import { buildTargetReasoningPrompt } from "@/server/ai-search/agent/target-reasoning";
 import { buildNjordVisualization } from "@/server/ai-search/agent/visualization";
-import { OpenAiLlmClient } from "@/server/ai-search/llm/openai-client";
+import {
+  createNjordLlmClient,
+  getNjordLlmRuntimeConfig,
+} from "@/server/ai-search/llm/runtime-client";
+import { LlmProviderAccountingError } from "@/server/ai-search/llm/types";
 import {
   buildSecureNjordSystemPrompt,
   inspectNjordUserQuery,
@@ -83,6 +87,7 @@ async function executeAiSearchRequest(
   }
   const query = parsedBody.data.query;
   const analysisId = parsedBody.data.analysisId;
+  const llmRuntime = getNjordLlmRuntimeConfig();
 
   const queryInspection = inspectNjordUserQuery(query);
   if (!queryInspection.allowed) {
@@ -119,7 +124,7 @@ async function executeAiSearchRequest(
     }
   }
 
-  const realLlmEnabled = env.aiSearchBillingEnabled && Boolean(env.openAiApiKey);
+  const realLlmEnabled = env.aiSearchBillingEnabled && Boolean(llmRuntime.credential);
   if (!realLlmEnabled) {
     return NextResponse.json(
       { error: "Njord LLM er ikke aktivert i dette miljøet." },
@@ -144,7 +149,7 @@ async function executeAiSearchRequest(
   const activation = validateNjordActivation({
     enabled: env.aiSearchBillingEnabled,
     provider: env.njordProvider,
-    apiKeyPresent: Boolean(env.openAiApiKey),
+    apiKeyPresent: Boolean(llmRuntime.credential),
     inputNokPerMillion: pricing.inputNokPerMillion,
     outputNokPerMillion: pricing.outputNokPerMillion,
     requestCostLimitNok: economics.requestCostLimitNok,
@@ -179,6 +184,12 @@ async function executeAiSearchRequest(
   if (!subscription.billingPeriod) {
     return NextResponse.json({ error: "Abonnementsperioden for Njord er ikke tilgjengelig." }, { status: 503 });
   }
+  const llm = createNjordLlmClient(llmRuntime, {
+    pricing,
+    requestCostLimitNok:
+      economics.requestCostLimitNok /
+      (1 + economics.fxRiskBufferBps / 10_000),
+  });
   const reservationId = await reserveAiSearchUsage(
     session.user.id,
     subscription.billingPeriod,
@@ -198,14 +209,6 @@ async function executeAiSearchRequest(
       { status: 429 },
     );
   }
-  const llm = new OpenAiLlmClient({
-    apiKey: env.openAiApiKey,
-    model: env.openAiSearchModel,
-    pricing,
-    requestCostLimitNok:
-      economics.requestCostLimitNok /
-      (1 + economics.fxRiskBufferBps / 10_000),
-  });
   const tools = getRetrievalToolsForAccess({
     canUseDueDiligence: subscription.canUseDueDiligence,
     userQuery: query,
@@ -244,9 +247,10 @@ async function executeAiSearchRequest(
     if (reservationId) {
       const observedAt = new Date();
       await finalizeAiSearchUsage(session.user.id, reservationId, {
-        model: result.usage.model ?? env.openAiSearchModel,
-        sourceSystem: "OPENAI",
-        sourceEntityType: "chat.completion",
+        model: result.usage.model ?? llmRuntime.model,
+        sourceSystem: result.usage.sourceSystem ?? llm.provenance.sourceSystem,
+        sourceEntityType:
+          result.usage.sourceEntityType ?? llm.provenance.sourceEntityType,
         sourceId: result.usage.sourceIds.join(",").slice(0, 500) || "unavailable",
         fetchedAt: observedAt,
         normalizedAt: observedAt,
@@ -268,12 +272,14 @@ async function executeAiSearchRequest(
     }
   } catch (error) {
     if (reservationId) {
+      const accountingMissing = error instanceof LlmProviderAccountingError;
       const failedUsage = llm.getUsageSnapshot();
       const hasChargedUsage =
+        !accountingMissing &&
         failedUsage.inputTokens +
           failedUsage.cachedInputTokens +
           failedUsage.outputTokens >
-        0;
+          0;
       const observedAt = new Date();
       const failedCost = hasChargedUsage
         ? calculateUsageCost(failedUsage, {
@@ -285,13 +291,16 @@ async function executeAiSearchRequest(
           })
         : null;
       await failAiSearchUsage(session.user.id, reservationId, {
-        errorCode: "MODEL_UNAVAILABLE",
+        errorCode: accountingMissing
+          ? "PROVIDER_ACCOUNTING_MISSING"
+          : "MODEL_UNAVAILABLE",
         durationMs: Date.now() - startedAt,
+        retainReservation: accountingMissing,
         usage: failedCost
           ? {
               model: failedUsage.model,
-              sourceSystem: "OPENAI",
-              sourceEntityType: "chat.completion",
+              sourceSystem: failedUsage.sourceSystem,
+              sourceEntityType: failedUsage.sourceEntityType,
               sourceId:
                 failedUsage.sourceIds.join(",").slice(0, 500) || "unavailable",
               fetchedAt: observedAt,
@@ -478,7 +487,8 @@ export async function POST(request: NextRequest) {
   }
 
   const economics = await getAiRuntimeEconomicsConfig();
-  if (!env.aiSearchBillingEnabled || !env.openAiApiKey || !economics?.runtimeEnabled) {
+  const llmRuntime = getNjordLlmRuntimeConfig();
+  if (!env.aiSearchBillingEnabled || !llmRuntime.credential || !economics?.runtimeEnabled) {
     return NextResponse.json(
       { error: "Njord er pauset eller mangler økonomikonfigurasjon i admin." },
       { status: 503 },

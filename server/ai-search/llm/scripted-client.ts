@@ -43,7 +43,12 @@ export class ScriptedLlmClient implements LlmClient {
     return {
       content: turn.content ?? (toolCalls.length > 0 ? null : ""),
       toolCalls,
-      usage: turn.usage ?? { inputTokens: 0, outputTokens: 0 },
+      usage: turn.usage ?? {
+        inputTokens: 0,
+        outputTokens: 0,
+        sourceSystem: "LOCAL",
+        sourceEntityType: "scripted.completion",
+      },
     };
   }
 }

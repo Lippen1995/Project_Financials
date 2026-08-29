@@ -36,8 +36,24 @@ export type LlmRunResult = {
     cachedInputTokens?: number;
     outputTokens: number;
     model?: string;
+    /** Provider-neutral provenance supplied by the concrete adapter. */
+    sourceSystem: string;
+    sourceEntityType: string;
     sourceId?: string;
   };
+};
+
+export type LlmProvenance = {
+  sourceSystem: string;
+  sourceEntityType: string;
+};
+
+export type LlmUsageSnapshot = LlmProvenance & {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  model: string;
+  sourceIds: string[];
 };
 
 export type LlmRunOptions = {
@@ -79,4 +95,10 @@ export class LlmProviderAccountingError extends Error {
 export interface LlmClient {
   readonly model: string;
   run(options: LlmRunOptions): Promise<LlmRunResult>;
+}
+
+/** Runtime clients expose cumulative accounting without leaking provider-specific types. */
+export interface MeteredLlmClient extends LlmClient {
+  readonly provenance: LlmProvenance;
+  getUsageSnapshot(): LlmUsageSnapshot;
 }

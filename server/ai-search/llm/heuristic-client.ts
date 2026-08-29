@@ -26,6 +26,15 @@ function calledTools(messages: LlmMessage[]): Set<string> {
   return called;
 }
 
+function zeroUsage() {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    sourceSystem: "LOCAL",
+    sourceEntityType: "heuristic.completion",
+  };
+}
+
 /** Parse the result of the most recent call to `toolName` from the tool messages. */
 function resultOf(messages: LlmMessage[], toolName: string): any | null {
   let callId: string | null = null;
@@ -118,7 +127,7 @@ export class HeuristicLlmClient implements LlmClient {
   }
 
   private wantsTool(call: LlmToolCall): LlmRunResult {
-    return { content: null, toolCalls: [call], usage: { inputTokens: 0, outputTokens: 0 } };
+    return { content: null, toolCalls: [call], usage: zeroUsage() };
   }
 
   private finalAnswer(messages: LlmMessage[]): LlmRunResult {
@@ -131,7 +140,7 @@ export class HeuristicLlmClient implements LlmClient {
         return {
           content: "Jeg fant ingen utledet kjede som matcher spørsmålet i dagens Brønnøysund-grunnlag.",
           toolCalls: [],
-          usage: { inputTokens: 0, outputTokens: 0 },
+          usage: zeroUsage(),
         };
       }
 
@@ -152,7 +161,7 @@ export class HeuristicLlmClient implements LlmClient {
           `Operatørtilhørigheten er utledet fra Brønnøysundregistrenes underenhetsnavn og er ikke et offisielt franchisefelt.${sourceCitations}`,
         ].join("\n\n"),
         toolCalls: [],
-        usage: { inputTokens: 0, outputTokens: 0 },
+        usage: zeroUsage(),
       };
     }
 
@@ -184,6 +193,6 @@ export class HeuristicLlmClient implements LlmClient {
     lines.push("");
     lines.push("(Foreløpig regelbasert svar uten språkmodell – null API-kostnad. En ekte modell kobles på senere.)");
 
-    return { content: lines.join("\n"), toolCalls: [], usage: { inputTokens: 0, outputTokens: 0 } };
+    return { content: lines.join("\n"), toolCalls: [], usage: zeroUsage() };
   }
 }

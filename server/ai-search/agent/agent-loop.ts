@@ -7,7 +7,11 @@
  * and track grounding (which org numbers came from tool results) so the caller can verify the final
  * answer never cites a company the tools did not return.
  */
-import type { LlmClient, LlmMessage } from "@/server/ai-search/llm/types";
+import {
+  LlmProviderAccountingError,
+  type LlmClient,
+  type LlmMessage,
+} from "@/server/ai-search/llm/types";
 import type { NjordToolOutputKind, RetrievalTool } from "@/server/ai-search/tools/types";
 import {
   createClaimEvidenceTracker,
@@ -58,6 +62,8 @@ export type AgentResult = {
     cachedInputTokens: number;
     outputTokens: number;
     model: string | null;
+    sourceSystem: string | null;
+    sourceEntityType: string | null;
     sourceIds: string[];
   };
   /** Every cited statement mapped to the exact normalized source records behind it. */
@@ -310,6 +316,8 @@ export async function runAgent(params: {
     cachedInputTokens: 0,
     outputTokens: 0,
     model: null,
+    sourceSystem: null,
+    sourceEntityType: null,
     sourceIds: [],
   };
   const claimEvidenceTracker = createClaimEvidenceTracker();
@@ -348,6 +356,16 @@ export async function runAgent(params: {
       usage.cachedInputTokens += result.usage.cachedInputTokens ?? 0;
       usage.outputTokens += result.usage.outputTokens;
       if (result.usage.model) usage.model = result.usage.model;
+      if (
+        (usage.sourceSystem && usage.sourceSystem !== result.usage.sourceSystem)
+        || (usage.sourceEntityType && usage.sourceEntityType !== result.usage.sourceEntityType)
+      ) {
+        throw new LlmProviderAccountingError(
+          "LLM turns returned inconsistent provider provenance.",
+        );
+      }
+      usage.sourceSystem = result.usage.sourceSystem;
+      usage.sourceEntityType = result.usage.sourceEntityType;
       if (result.usage.sourceId) usage.sourceIds.push(result.usage.sourceId);
     }
 

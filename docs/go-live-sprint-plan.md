@@ -207,7 +207,7 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
 | GL-A04 | OCR-flatene er ikke tilgjengelige | Ingen OCR-/PDF-flate, jobb eller adminside kan nås fra applikasjonen; koden er i karantene, ikke slettet | Rutetest og adminflate uten lenker til pensjonerte OCR-flater |
 | GL-A05 | Migrasjonshistorikken er trygg | Ingen sjekksumavvik, og indekser som bare finnes i rå SQL kan ikke forsvinne ubemerket | `npm run db:check-migrations` i CI etter `migrate deploy` |
 
-### Status 15. august 2026
+### Status 29. august 2026
 
 - GL-A01 er teknisk lukket i aktiv kode. Strukturert regnskap og Brreg-
   kunngjøringer bruker per-selskap-kø ved manglende dekning, SSB Klass leses fra
@@ -228,7 +228,9 @@ en avvikssak uavhengig av hvilken sprint arbeidet hører til.
 - GL-A03 er teknisk lukket på K0: Njord, søkeintensjonen og
   scope-klassifisereren bruker samme `LlmClient`, sikker systeminstruks og
   injeksjonsinspeksjon. Det aktive kilde-treet har nøyaktig ett registrert
-  provider-kallsted, og en automatisk inventartest avviser nye direkte kall.
+  provider-kallsted, og en automatisk inventartest avviser nye direkte kall og
+  konkret provider-wiring utenfor runtime-fabrikken. Modell- og kildeproveniens
+  følger adapterresultatet i stedet for å hardkodes i produktlogikken.
   Søkeintensjonen krever eksplisitt tokenbudsjett, aktiv betalt AI-bryter og
   eksisterende kvotereservasjon i brukerflatene. Scope-klassifisereren forblir
   fail-closed uten en budsjettert caller. Se

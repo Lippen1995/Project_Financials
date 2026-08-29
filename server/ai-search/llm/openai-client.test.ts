@@ -57,6 +57,8 @@ describe("OpenAiLlmClient", () => {
       cachedInputTokens: 5,
       outputTokens: 8,
       model: "gpt-5-mini",
+      sourceSystem: "OPENAI",
+      sourceEntityType: "chat.completion",
       sourceId: "chatcmpl-1",
     });
   });
@@ -171,6 +173,8 @@ describe("OpenAiLlmClient", () => {
       cachedInputTokens: 10,
       outputTokens: 6,
       model: "gpt-5-mini",
+      sourceSystem: "OPENAI",
+      sourceEntityType: "chat.completion",
       sourceIds: ["chatcmpl-invalid"],
     });
   });

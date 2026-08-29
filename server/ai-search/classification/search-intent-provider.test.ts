@@ -1,21 +1,59 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/env", () => ({
-  default: {
-    openAiApiKey: "test-key",
-    openAiSearchModel: "gpt-5-mini",
-    aiSearchBillingEnabled: true,
-  },
+const envMock = vi.hoisted(() => ({
+  openAiApiKey: "test-key",
+  openAiSearchModel: "gpt-5-mini",
+  njordProvider: "openai",
+  aiSearchBillingEnabled: true,
 }));
 
-import { OpenAiSearchIntentProvider } from "@/integrations/openai/openai-search-intent-provider";
+vi.mock("@/lib/env", () => ({ default: envMock }));
+
+import { SearchIntentLlmProvider } from "@/server/ai-search/classification/search-intent-provider";
 import {
   LlmProviderAccountingError,
   LlmProviderResponseError,
 } from "@/server/ai-search/llm/types";
 
-describe("OpenAiSearchIntentProvider", () => {
-  afterEach(() => vi.unstubAllGlobals());
+describe("SearchIntentLlmProvider", () => {
+  afterEach(() => {
+    envMock.openAiApiKey = "test-key";
+    vi.unstubAllGlobals();
+  });
+
+  it("uses injected provider configuration and preserves its provenance", async () => {
+    envMock.openAiApiKey = "";
+    const provider = new SearchIntentLlmProvider({
+      llm: {
+        model: "claude-test",
+        run: vi.fn().mockResolvedValue({
+          content: JSON.stringify({ rewrittenQuery: "havvind" }),
+          toolCalls: [],
+          usage: {
+            inputTokens: 20,
+            cachedInputTokens: 0,
+            outputTokens: 4,
+            model: "claude-test",
+            sourceSystem: "ANTHROPIC",
+            sourceEntityType: "messages",
+            sourceId: "msg-alternative",
+          },
+        }),
+      },
+    });
+
+    const result = await provider.interpretQuery("havvind", {
+      maxCompletionTokens: 80,
+      onAiUsageFailure: vi.fn(),
+    });
+
+    expect(result.aiAssisted).toBe(true);
+    expect(result.aiUsage).toEqual(expect.objectContaining({
+      sourceSystem: "ANTHROPIC",
+      sourceEntityType: "messages",
+      sourceId: "msg-alternative",
+    }));
+  });
 
   it("runs intent extraction through the shared LLM interface and secure system prompt", async () => {
     const run = vi.fn().mockResolvedValue({
@@ -33,10 +71,12 @@ describe("OpenAiSearchIntentProvider", () => {
         cachedInputTokens: 0,
         outputTokens: 4,
         model: "test-model",
+        sourceSystem: "TEST_PROVIDER",
+        sourceEntityType: "test.completion",
         sourceId: "chatcmpl-intent",
       },
     });
-    const provider = new OpenAiSearchIntentProvider({
+    const provider = new SearchIntentLlmProvider({
       llm: { model: "test-model", run },
     });
 
@@ -66,7 +106,7 @@ describe("OpenAiSearchIntentProvider", () => {
 
   it("falls back without a model call for instruction and secret extraction", async () => {
     const run = vi.fn();
-    const provider = new OpenAiSearchIntentProvider({
+    const provider = new SearchIntentLlmProvider({
       llm: { model: "test-model", run },
     });
 
@@ -82,7 +122,7 @@ describe("OpenAiSearchIntentProvider", () => {
 
   it("falls back without an explicit output budget", async () => {
     const run = vi.fn();
-    const provider = new OpenAiSearchIntentProvider({
+    const provider = new SearchIntentLlmProvider({
       llm: { model: "test-model", run },
     });
 
@@ -108,7 +148,7 @@ describe("OpenAiSearchIntentProvider", () => {
       }),
     }));
 
-    const result = await new OpenAiSearchIntentProvider().interpretQuery("havvind", {
+    const result = await new SearchIntentLlmProvider().interpretQuery("havvind", {
       maxCompletionTokens: 500,
       onAiUsageFailure: vi.fn(),
     });
@@ -126,7 +166,7 @@ describe("OpenAiSearchIntentProvider", () => {
   });
 
   it("preserves charged usage when the provider returns no usable message", async () => {
-    const provider = new OpenAiSearchIntentProvider({
+    const provider = new SearchIntentLlmProvider({
       llm: {
         model: "test-model",
         run: vi.fn().mockRejectedValue(
@@ -135,6 +175,8 @@ describe("OpenAiSearchIntentProvider", () => {
             cachedInputTokens: 0,
             outputTokens: 4,
             model: "test-model",
+            sourceSystem: "TEST_PROVIDER",
+            sourceEntityType: "test.completion",
             sourceId: "chatcmpl-no-message",
           }),
         ),
@@ -156,7 +198,7 @@ describe("OpenAiSearchIntentProvider", () => {
 
   it("marks the reservation failed when provider accounting metadata is missing", async () => {
     const onAiUsageFailure = vi.fn().mockResolvedValue(undefined);
-    const provider = new OpenAiSearchIntentProvider({
+    const provider = new SearchIntentLlmProvider({
       llm: {
         model: "test-model",
         run: vi.fn().mockRejectedValue(

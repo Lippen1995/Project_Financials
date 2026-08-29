@@ -1,4 +1,4 @@
-import type { ScopeClassificationBudget } from "@/integrations/openai/openai-dashboard-search-scope-provider";
+import type { ScopeClassificationBudget } from "@/server/ai-search/classification/dashboard-search-scope-provider";
 import {
   buildDashboardSearchHref,
   type ResolvedDashboardSearchScope,

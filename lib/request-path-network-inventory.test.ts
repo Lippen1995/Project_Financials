@@ -31,6 +31,7 @@ const NETWORK_SIGNALS: Array<[string, RegExp]> = [
 // fails until it is deliberately classified here and in the inventory.
 const BACKGROUND_NETWORK_FILES = new Set([
   "server/ai-search/llm/openai-client.ts",
+  "server/ai-search/llm/runtime-client.ts",
   "server/importers/annual-report-importer.ts",
   "server/insider-transactions/newsweb-insider-sync-service.ts",
   "server/news/news-source-registry.ts",
@@ -81,7 +82,7 @@ describe("GL-A01 request-path network inventory", () => {
 
   it("prevents provider read-throughs from the known user-facing services", () => {
     const rules: Array<[string, RegExp[]]> = [
-      ["server/services/company-service.ts", [/BrregAnnouncementsProvider/, /OpenAiSearchIntentProvider/]],
+      ["server/services/company-service.ts", [/BrregAnnouncementsProvider/, /SearchIntentLlmProvider/, /OpenAiSearchIntentProvider/]],
       ["server/ownership/group-employee-service.ts", [/BrregCompanyProvider/]],
       ["server/shareholdings/shareholding-service.ts", [/SkatteetatenShareholdingProvider/]],
       ["server/services/company-grid-connection-service.ts", [/StatnettGridConnectionProvider/]],

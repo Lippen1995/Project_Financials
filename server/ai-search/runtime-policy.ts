@@ -58,7 +58,7 @@ export function validateNjordActivation(config: NjordActivationConfig) {
   if (!config.enabled) return { ready: false, issues: ["Paid Njord runtime is disabled."] };
 
   const issues: string[] = [];
-  if (config.provider !== "openai") issues.push("NJORD_PROVIDER must name a supported provider.");
+  if (!config.provider.trim()) issues.push("NJORD_PROVIDER must name a provider.");
   if (!config.apiKeyPresent) issues.push("The selected provider API key is missing.");
   if (!finitePositive(config.inputNokPerMillion)) {
     issues.push("NJORD_INPUT_NOK_PER_MILLION must be greater than zero.");
