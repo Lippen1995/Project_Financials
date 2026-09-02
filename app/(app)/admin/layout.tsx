@@ -1,7 +1,7 @@
 import React from "react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AdminSubNav, type AdminSubNavGroup } from "@/app/(app)/admin/AdminSubNav";
 import { getFinancialReviewerOrNull } from "@/lib/admin-auth";
 import { safeAuth } from "@/lib/auth";
 
@@ -21,36 +21,49 @@ export default async function AdminLayout({
     redirect("/dashboard");
   }
 
-  const adminLinks = [
-    { href: "/admin", label: "Oversikt" },
-    { href: "/admin/filings", label: "Alle rapporter" },
-    { href: "/admin/published-annual-reports", label: "Godkjente årsregnskaper" },
-    { href: "/admin/annual-report-reviews", label: "Manuell kontroll" },
-    ...(reviewer.appRole === "ADMIN"
+  const isAdmin = reviewer.appRole === "ADMIN";
+
+  // Only surfaces that actually exist belong here. The OCR-era admin routes
+  // (filings, published-annual-reports, annual-report-reviews,
+  // annual-report-unified-confidence, extraction-learning) were removed with
+  // the Brreg-only pivot; linking to them produced 404s.
+  const navGroups: AdminSubNavGroup[] = [
+    {
+      label: "Drift",
+      items: [{ key: "overview", label: "Oversikt", href: "/admin" }],
+    },
+    {
+      label: "Data",
+      items: [
+        { key: "mapping", label: "Regnskapsmapping", href: "/admin/metric-mapping" },
+        { key: "events", label: "Selskapshendelser", href: "/admin/company-events" },
+      ],
+    },
+    ...(isAdmin
       ? [
-          { href: "/admin/shareholder-register", label: "Aksjonærregister" },
-          { href: "/admin/users", label: "Brukere og roller" },
-          { href: "/admin/ai-economics", label: "AI-økonomi" },
-          { href: "/admin/health-score", label: "Finansiell helse" },
+          {
+            label: "System",
+            items: [
+              {
+                key: "shareholders",
+                label: "Aksjonærregister",
+                href: "/admin/shareholder-register",
+              },
+              { key: "users", label: "Brukere og roller", href: "/admin/users" },
+              { key: "ai-economics", label: "AI-økonomi", href: "/admin/ai-economics" },
+              { key: "health", label: "Finansiell helse", href: "/admin/health-score" },
+            ],
+          },
         ]
       : []),
-    { href: "/admin/annual-report-unified-confidence", label: "Datakvalitet" },
-    { href: "/admin/extraction-learning", label: "AI-modellen" },
-    { href: "/admin/metric-mapping", label: "Regnskapsmapping" },
   ];
 
+  // The app shell pads its content area by 24px; cancel that at the top so the
+  // rail sits flush under the sticky header instead of floating on a strip of
+  // page background.
   return (
-    <div>
-      <nav className="mb-6 flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-widest text-slate-400">
-        {adminLinks.map((link, index) => (
-          <React.Fragment key={link.href}>
-            {index > 0 ? <span>/</span> : null}
-            <Link href={link.href as never} className="hover:text-slate-600">
-              {link.label}
-            </Link>
-          </React.Fragment>
-        ))}
-      </nav>
+    <div className="-mt-6">
+      <AdminSubNav groups={navGroups} />
       {children}
     </div>
   );

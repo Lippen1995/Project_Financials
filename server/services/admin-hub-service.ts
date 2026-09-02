@@ -31,6 +31,8 @@ export type AdminHubMetric = {
   title: string;
   value: string;
   detail: string;
+  /** Drives the figure colour in the hub sidebar. Defaults to neutral ink. */
+  tone?: AdminHubTone;
 };
 
 export type AdminHubNavigationItem = {
@@ -63,6 +65,8 @@ export type AdminHubActivity = {
   description: string;
   timestamp: string;
   href?: string;
+  /** Drives the timeline dot colour. Defaults to neutral. */
+  tone?: AdminHubTone;
 };
 
 export type AdminHubActionItem = {
@@ -384,24 +388,28 @@ export async function buildAdminHubModel(input: {
       {
         key: "financial-coverage",
         title: "Regnskapsdekning",
+        tone: "neutral",
         value: formatPercent(coveragePercent),
         detail: `${formatNumber(companiesWithFinancials)} av ${formatNumber(companyCount)} virksomheter har minst ett offisielt regnskapsår.`,
       },
       {
         key: "never-fetched",
         title: "Aldri hentet",
+        tone: "warning",
         value: formatNumber(neverFetched),
         detail: "Virksomheter uten hentetilstand. Disse må gjennom en populeringsjobb.",
       },
       {
         key: "due-for-refresh",
         title: "Klar for oppdatering",
+        tone: "neutral",
         value: formatNumber(dueForRefresh),
         detail: `${formatNumber(fetchStateCount)} hentetilstander finnes totalt.`,
       },
       {
         key: "fetch-errors",
         title: "Kildefeil",
+        tone: "error",
         value: formatNumber(errorCount),
         detail:
           failingFetches > 0
@@ -468,6 +476,17 @@ export async function buildAdminHubModel(input: {
             available: isAdmin,
             restrictionLabel: isAdmin ? undefined : "Kun admin",
           },
+          {
+            key: "health-score",
+            title: "Finansiell helse",
+            eyebrow: "Modell",
+            description:
+              "Vedlikehold vektene og kurvene bak helsescoren som vises på selskapsprofilen.",
+            href: isAdmin ? "/admin/health-score" : undefined,
+            actionLabel: "Åpne modellen",
+            available: isAdmin,
+            restrictionLabel: isAdmin ? undefined : "Kun admin",
+          },
         ],
       },
     ],
@@ -476,6 +495,7 @@ export async function buildAdminHubModel(input: {
       {
         key: "latest-available-fetch",
         title: "Siste vellykkede henting",
+        tone: "success",
         description: latestAvailable
           ? `${latestAvailable.company.name}${
               latestAvailable.latestFiscalYear
@@ -489,6 +509,7 @@ export async function buildAdminHubModel(input: {
       {
         key: "latest-fetch-error",
         title: "Siste kildefeil",
+        tone: "error",
         description: latestError
           ? `${latestError.company.name} · ${latestError.lastErrorCode ?? "ukjent feil"} · ${formatNumber(latestError.failureCount)} forsøk`
           : "Ingen kildefeil registrert.",
@@ -498,6 +519,7 @@ export async function buildAdminHubModel(input: {
       {
         key: "latest-ingestion-run",
         title: "Siste populeringsjobb",
+        tone: "active",
         description: latestIngestionRun
           ? `${formatNumber(latestIngestionRun.processedFilings)} behandlet · ${formatNumber(latestIngestionRun.publishedCount)} publisert · ${formatNumber(latestIngestionRun.failedCount)} feilet`
           : "Ingen populeringsjobb registrert ennå.",
@@ -508,6 +530,7 @@ export async function buildAdminHubModel(input: {
       {
         key: "metric-aliases",
         title: "Regnskapsmapping",
+        tone: "neutral",
         description: `${formatNumber(metricAliasCount)} kildelabels er mappet til standardiserte nøkler.`,
         timestamp: "Løpende",
         href: "/admin/metric-mapping",

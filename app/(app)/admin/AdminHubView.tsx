@@ -4,6 +4,8 @@ import Link from "next/link";
 import type {
   AdminCoverageStage,
   AdminHubActionItem,
+  AdminHubActivity,
+  AdminHubMetric,
   AdminHubModel,
   AdminHubNavigationItem,
   AdminHubTone,
@@ -18,91 +20,142 @@ type AdminHubViewProps = {
   canManageAiEconomics: boolean;
 };
 
-function stageToneClasses(tone: AdminHubTone) {
-  switch (tone) {
-    case "success":
-      return { pill: "bg-green-50 border-green-200 text-green-700", dot: "bg-green-500" };
-    case "warning":
-      return { pill: "bg-amber-50 border-amber-200 text-amber-700", dot: "bg-amber-400" };
-    case "error":
-      return { pill: "bg-red-50 border-red-200 text-red-700", dot: "bg-red-500" };
-    case "active":
-      return { pill: "bg-blue-50 border-blue-200 text-blue-700", dot: "bg-blue-400" };
-    default:
-      return { pill: "bg-slate-50 border-slate-200 text-slate-500", dot: "bg-slate-300" };
-  }
+/** Dots, bars and rules: quiet marks that read as chrome, not as figures. */
+const STAGE_COLOR: Record<AdminHubTone, string> = {
+  neutral: "rgba(15, 23, 42, 0.28)",
+  active: "var(--px-accent)",
+  success: "var(--px-success)",
+  warning: "var(--px-watch)",
+  error: "var(--px-error)",
+};
+
+/** Figures and their labels: the deeper, text-grade variants of the same tones. */
+const FIGURE_COLOR: Record<AdminHubTone, string> = {
+  neutral: "var(--px-text)",
+  active: "var(--px-accent)",
+  success: "var(--px-success)",
+  warning: "var(--px-warning)",
+  error: "var(--px-error)",
+};
+
+function formatCount(value: number) {
+  return value.toLocaleString("nb-NO");
 }
 
-function CoverageStageCard({ stage }: { stage: AdminCoverageStage }) {
-  const tone = stageToneClasses(stage.tone);
-  const body = (
-    <>
-      <span
-        className={`mb-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${tone.pill}`}
-      >
-        <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
-        {stage.label}
-      </span>
-      <span className="editorial-display text-[2rem] leading-none text-[var(--px-text)]">
-        {stage.count.toLocaleString("nb-NO")}
-      </span>
-      <span className="mt-2 text-xs leading-5 text-[var(--px-muted)]">{stage.detail}</span>
-    </>
+/**
+ * The model hands over an ISO timestamp. Format it in UTC so the string is
+ * stable regardless of where it is rendered — this is an audit stamp, not a
+ * wall clock.
+ */
+function formatGeneratedAt(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(date.getUTCDate())}.${pad(date.getUTCMonth() + 1)}.${date.getUTCFullYear()} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+}
+
+function MaterialIcon({ name, className }: { name: string; className?: string }) {
+  return (
+    <span aria-hidden className={`material-symbols-outlined ${className ?? ""}`}>
+      {name}
+    </span>
   );
-
-  const className =
-    "group flex flex-col items-center rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-5 text-center transition-colors hover:bg-[var(--px-subtle)]";
-
-  if (stage.href) {
-    return (
-      <Link href={stage.href as never} className={className}>
-        {body}
-      </Link>
-    );
-  }
-
-  return <div className={className}>{body}</div>;
 }
 
-function ActionCard({ item }: { item: AdminHubActionItem }) {
-  const className = `group flex items-center justify-between rounded-2xl border p-5 transition-colors ${
-    item.urgent
-      ? "border-red-200 bg-red-50 hover:bg-red-100"
-      : "border-amber-200 bg-amber-50 hover:bg-amber-100"
-  }`;
+/** Section title with a hairline rule running out to the column edge. */
+function SectionHeading({ title, meta }: { title: string; meta?: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-4">
+      <h2 className="text-[17px] font-semibold tracking-[-0.04em] text-[var(--px-text)]">
+        {title}
+      </h2>
+      {meta ? <span className="data-label text-[9px] text-[var(--px-muted)]">{meta}</span> : null}
+      <div className="h-px flex-1 bg-[var(--px-border)]" />
+    </div>
+  );
+}
+
+function ActionItem({ item }: { item: AdminHubActionItem }) {
+  const color = item.urgent ? "var(--px-error)" : "var(--px-warning)";
 
   const body = (
     <>
       <div>
-        <p
-          className={`data-label text-[11px] uppercase tracking-widest ${
-            item.urgent ? "text-red-600" : "text-amber-700"
-          }`}
-        >
+        <span className="data-label text-[10px]" style={{ color }}>
           {item.title}
-        </p>
+        </span>
         <p
-          className={`editorial-display mt-1 text-[2rem] leading-none ${
-            item.urgent ? "text-red-700" : "text-amber-800"
-          }`}
+          className="editorial-display mt-2 whitespace-nowrap text-[32px] leading-none"
+          style={{ color }}
         >
-          {item.value.toLocaleString("nb-NO")}
+          {formatCount(item.value)}
         </p>
-        <p className={`mt-1.5 text-sm ${item.urgent ? "text-red-600" : "text-amber-700"}`}>
-          {item.detail}
-        </p>
+        <p className="mt-2 text-[13px] leading-[1.5] text-[var(--px-muted)]">{item.detail}</p>
       </div>
       {item.href ? (
-        <span className={`ml-4 shrink-0 text-lg ${item.urgent ? "text-red-400" : "text-amber-400"}`}>
-          →
-        </span>
+        <MaterialIcon name="arrow_forward" className="text-[18px] opacity-65" />
       ) : null}
     </>
   );
 
+  const className =
+    "-ml-px flex items-start justify-between gap-3 border-l border-[var(--px-border-subtle)] py-1 pl-5 pr-6 transition-colors";
+
   if (item.href) {
     return (
-      <Link href={item.href as never} className={className}>
+      <Link
+        href={item.href as never}
+        className={`${className} hover:border-l-[color:currentColor]`}
+        style={{ color }}
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={className} style={{ color }}>
+      {body}
+    </div>
+  );
+}
+
+function CoverageRow({ stage, share }: { stage: AdminCoverageStage; share: number }) {
+  const color = STAGE_COLOR[stage.tone];
+
+  const body = (
+    <>
+      <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--px-text)]">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
+        {stage.label}
+      </span>
+      <span className="whitespace-nowrap text-right font-mono text-[15px] tabular-nums text-[var(--px-text)]">
+        {formatCount(stage.count)}
+      </span>
+      <span className="block h-2 overflow-hidden rounded-[var(--radius-sm)] bg-[rgba(15,23,42,0.05)]">
+        <span
+          className="block h-full rounded-[var(--radius-sm)]"
+          style={{ width: `${share}%`, background: color }}
+        />
+      </span>
+      <span className="hidden text-xs leading-[1.45] text-[var(--px-muted)] xl:block">
+        {stage.detail}
+      </span>
+    </>
+  );
+
+  const className =
+    "grid grid-cols-[minmax(140px,220px)_96px_minmax(60px,1fr)] items-center gap-4 border-b border-[var(--px-border-subtle)] px-2 py-3 xl:grid-cols-[minmax(140px,220px)_96px_minmax(60px,1fr)_minmax(0,190px)]";
+
+  if (stage.href) {
+    return (
+      <Link
+        href={stage.href as never}
+        className={`${className} transition-colors hover:bg-[rgba(255,255,255,0.65)]`}
+      >
         {body}
       </Link>
     );
@@ -111,53 +164,55 @@ function ActionCard({ item }: { item: AdminHubActionItem }) {
   return <div className={className}>{body}</div>;
 }
 
-function NavigationCard({ item }: { item: AdminHubNavigationItem }) {
-  const className =
-    "group flex flex-col rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6 transition-colors";
+function NavigationItem({ item }: { item: AdminHubNavigationItem }) {
+  const label = item.available ? item.actionLabel : item.restrictionLabel;
 
   const body = (
     <>
       {item.eyebrow ? (
-        <p className="data-label text-[11px] uppercase tracking-widest text-[var(--px-accent)]">
-          {item.eyebrow}
-        </p>
+        <span className="data-label text-[9px] text-[var(--px-accent)]">{item.eyebrow}</span>
       ) : null}
-      <h3 className="mt-2 text-lg font-semibold text-[var(--px-text)]">{item.title}</h3>
-      <p className="mt-2 flex-1 text-sm leading-6 text-[var(--px-muted)]">{item.description}</p>
-      {item.available && item.actionLabel ? (
-        <span className="mt-4 inline-flex self-start rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 text-sm font-medium text-[var(--px-text)]">
-          {item.actionLabel}
-        </span>
-      ) : null}
-      {!item.available && item.restrictionLabel ? (
-        <span className="mt-4 inline-flex self-start rounded-full border border-[var(--px-border)] bg-[var(--px-subtle)] px-4 py-2 text-sm font-medium text-[var(--px-muted)]">
-          {item.restrictionLabel}
+      <p className="mt-2 text-[15px] font-semibold text-[var(--px-text)]">{item.title}</p>
+      <p className="mt-2 flex-1 text-[13px] leading-[1.55] text-[var(--px-muted)]">
+        {item.description}
+      </p>
+      {label ? (
+        <span
+          className={`mt-3.5 inline-flex items-center gap-1.5 text-[13px] font-medium ${
+            item.available ? "text-[var(--px-accent)]" : "text-[var(--px-muted)]"
+          }`}
+        >
+          {label}
+          <MaterialIcon name={item.available ? "arrow_forward" : "lock"} className="text-[16px]" />
         </span>
       ) : null}
     </>
   );
 
+  const className =
+    "-ml-px flex flex-col border-l border-[var(--px-border-subtle)] pb-4 pl-5 pr-6 pt-3.5 transition-colors";
+
   if (item.available && item.href) {
     return (
-      <Link href={item.href as never} className={`${className} hover:bg-[var(--px-subtle)]`}>
+      <Link href={item.href as never} className={`${className} hover:border-l-[var(--px-accent)]`}>
         {body}
       </Link>
     );
   }
 
-  return <div className={className}>{body}</div>;
+  return <div className={`${className} opacity-[0.72]`}>{body}</div>;
 }
 
-function backgroundJobTone(health: BackgroundJobHealth) {
+function backgroundJobToneClasses(health: BackgroundJobHealth) {
   switch (health) {
     case "healthy":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+      return "border-[var(--px-success-border)] bg-[var(--px-success-soft)] text-[var(--px-success)]";
     case "active":
       return "border-[var(--px-accent)] bg-[var(--px-accent-soft)] text-[var(--px-accent)]";
     case "error":
-      return "border-rose-200 bg-rose-50 text-rose-700";
+      return "border-[var(--px-error-border)] bg-[var(--px-error-soft)] text-[var(--px-error)]";
     default:
-      return "border-amber-200 bg-amber-50 text-amber-700";
+      return "border-[var(--px-warning-border)] bg-[var(--px-warning-soft)] text-[var(--px-warning)]";
   }
 }
 
@@ -165,7 +220,7 @@ function formatJobTimestamp(value: string | null) {
   return value ? new Date(value).toLocaleString("nb-NO") : "Ikke registrert";
 }
 
-function BackgroundJobCard({ job }: { job: BackgroundJobControlCenterItem }) {
+function BackgroundJobRow({ job }: { job: BackgroundJobControlCenterItem }) {
   const metrics = [
     ["Kødybde", job.queueDepth],
     ["Forfalt", job.dueCount],
@@ -175,60 +230,93 @@ function BackgroundJobCard({ job }: { job: BackgroundJobControlCenterItem }) {
   ] as const;
 
   return (
-    <article className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="data-label text-[11px] uppercase tracking-widest text-[var(--px-muted)]">
-            {job.cadenceLabel}
+    <article className="border-b border-[var(--px-border-subtle)] px-2 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="data-label text-[9px] text-[var(--px-muted)]">{job.cadenceLabel}</span>
+          <p className="mt-1.5 text-[15px] font-semibold text-[var(--px-text)]">{job.title}</p>
+          <p className="mt-1.5 max-w-[70ch] text-[13px] leading-[1.55] text-[var(--px-muted)]">
+            {job.description}
           </p>
-          <h3 className="mt-2 text-lg font-semibold text-[var(--px-text)]">{job.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-[var(--px-muted)]">{job.description}</p>
         </div>
         <span
-          className={`data-label inline-flex rounded-full border px-4 py-2 text-[10px] uppercase tracking-widest ${backgroundJobTone(job.health)}`}
+          className={`data-label shrink-0 rounded-full border px-2.5 py-1 text-[9px] ${backgroundJobToneClasses(job.health)}`}
         >
           {job.statusLabel}
         </span>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
+      <dl className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
         {metrics.map(([label, value]) => (
-          <div key={label} className="rounded-xl bg-[var(--px-subtle)] p-4">
-            <dt className="data-label text-[10px] uppercase tracking-widest text-[var(--px-muted)]">
-              {label}
-            </dt>
-            <dd className="mt-2 text-2xl font-semibold text-[var(--px-text)]">
-              {value.toLocaleString("nb-NO")}
+          <div key={label} className="flex items-baseline gap-2">
+            <dt className="data-label text-[9px] text-[var(--px-muted)]">{label}</dt>
+            <dd className="font-mono text-[15px] tabular-nums text-[var(--px-text)]">
+              {formatCount(value)}
             </dd>
           </div>
         ))}
       </dl>
 
-      <div className="mt-4 grid gap-4 text-sm text-[var(--px-muted)] sm:grid-cols-2">
-        <p>
-          <span className="data-label block text-[10px] uppercase tracking-widest">
-            Siste kjøring
-          </span>
-          <span className="mt-2 block text-[var(--px-text)]">
-            {formatJobTimestamp(job.latestRun?.startedAt ?? null)}
-          </span>
-        </p>
-        <p>
-          <span className="data-label block text-[10px] uppercase tracking-widest">
-            Eldste ventende
-          </span>
-          <span className="mt-2 block text-[var(--px-text)]">
-            {formatJobTimestamp(job.oldestQueuedAt)}
-          </span>
-        </p>
+      <div className="mt-2.5 flex flex-wrap gap-x-7 gap-y-1 text-xs text-[var(--px-muted)]">
+        <span>
+          <span className="data-label text-[9px]">Siste kjøring</span>{" "}
+          {formatJobTimestamp(job.latestRun?.startedAt ?? null)}
+        </span>
+        <span>
+          <span className="data-label text-[9px]">Eldste ventende</span>{" "}
+          {formatJobTimestamp(job.oldestQueuedAt)}
+        </span>
       </div>
 
       {job.health === "error" && job.latestFailure?.errorMessage ? (
-        <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <p className="mt-3 border-l-2 border-[var(--px-error)] bg-[var(--px-error-soft)] px-3 py-2 text-[13px] text-[var(--px-error)]">
           {job.latestFailure.errorMessage}
         </p>
       ) : null}
     </article>
+  );
+}
+
+function SidebarMetric({ metric }: { metric: AdminHubMetric }) {
+  return (
+    <div className="border-t border-[var(--px-border-subtle)] pt-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="data-label text-[10px] text-[var(--px-muted)]">{metric.title}</span>
+        <span
+          className="whitespace-nowrap font-mono text-[19px] font-medium tabular-nums"
+          style={{ color: FIGURE_COLOR[metric.tone ?? "neutral"] }}
+        >
+          {metric.value}
+        </span>
+      </div>
+      <p className="mt-1.5 text-xs leading-[1.5] text-[var(--px-muted)]">{metric.detail}</p>
+    </div>
+  );
+}
+
+function ActivityEntry({ activity }: { activity: AdminHubActivity }) {
+  return (
+    <div className="grid grid-cols-[14px_minmax(0,1fr)] gap-2.5 pt-3.5">
+      <span
+        className="mt-1.5 block h-[7px] w-[7px] rounded-full"
+        style={{ background: STAGE_COLOR[activity.tone ?? "neutral"] }}
+      />
+      <div>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-[13px] font-semibold text-[var(--px-text)]">{activity.title}</p>
+          {activity.href ? (
+            <Link
+              href={activity.href as never}
+              className="data-label shrink-0 text-[9px] text-[var(--px-accent)] hover:text-[var(--px-action-hover)]"
+            >
+              Åpne
+            </Link>
+          ) : null}
+        </div>
+        <p className="mt-1 text-xs leading-[1.5] text-[var(--px-muted)]">{activity.description}</p>
+        <p className="data-label mt-1.5 text-[9px] text-[var(--px-muted)]">{activity.timestamp}</p>
+      </div>
+    </div>
   );
 }
 
@@ -237,206 +325,189 @@ export default function AdminHubView({ model, canManageAiEconomics }: AdminHubVi
   // independently; honour the stricter of the two.
   const navigationSections = model.navigationSections.map((section) => ({
     ...section,
-    items: section.items.filter(
-      (item) => canManageAiEconomics || item.key !== "ai-economics",
-    ),
+    items: section.items.filter((item) => canManageAiEconomics || item.key !== "ai-economics"),
   }));
 
+  const { companies, withFinancials, coveragePercent, neverFetched } = model.coverageTotals;
+  const coverageStages = model.coverage.filter(
+    (stage) => stage.count > 0 || stage.tone === "error",
+  );
+  const shareOfBase = (count: number) =>
+    companies > 0 ? Math.min(100, Math.max(0, (count / companies) * 100)) : 0;
+  const coverageBarWidth = Math.min(100, Math.max(0, coveragePercent));
+  // One decimal, always — "40,0 %" reads as a measurement, "40 %" as a guess.
+  const coveragePercentLabel = coveragePercent.toLocaleString("nb-NO", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+
+  // The sidebar's "administer users" affordance follows the same availability
+  // rule as the navigation card, so role gating lives in one place: the model.
+  const usersNavItem = model.navigationSections
+    .flatMap((section) => section.items)
+    .find((item) => item.key === "users");
+
   return (
-    <div className="space-y-10 pb-14">
-      {/* Header */}
-      <section className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6">
-        <p className="data-label text-[11px] uppercase tracking-widest text-[var(--px-accent)]">
-          Admin
-        </p>
-        <h1 className="editorial-display mt-3 text-[2.5rem] leading-tight text-[var(--px-text)]">
-          {model.title}
-        </h1>
-        <p className="mt-3 max-w-3xl text-base leading-7 text-[var(--px-muted)]">
-          {model.subtitle}
-        </p>
-        <p className="mt-4 data-label text-[10px] uppercase tracking-widest text-[var(--px-muted)]">
-          Oppdatert {model.generatedAt.replace("T", " ").slice(0, 16)}
-        </p>
-      </section>
-
-      {/* Action items */}
-      {model.actionItems.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-center gap-4">
-            <h2 className="text-[1.1rem] font-semibold text-[var(--px-text)]">Krever tiltak</h2>
-            <div className="h-px flex-1 bg-[var(--px-border)]" />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {model.actionItems.map((item) => (
-              <ActionCard key={item.key} item={item} />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="space-y-4">
-        <div className="flex items-center gap-4">
+    <div className="pb-10">
+      {/* Editorial hero — full-bleed dark panel carrying the headline coverage figure */}
+      <section className="-mx-4 bg-[var(--px-panel)] text-white sm:-mx-6 lg:-mx-10">
+        <div className="grid gap-8 px-4 pb-7 pt-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end lg:gap-12 lg:px-10">
           <div>
-            <h2 className="text-[1.1rem] font-semibold text-[var(--px-text)]">
-              Bakgrunnsjobber
-            </h2>
-            <p className="mt-2 text-sm text-[var(--px-muted)]">
-              Kø, etterslep og siste registrerte kjøring for de kritiske populeringsflytene.
+            <p className="data-label m-0 text-[10px] text-white/55">Administrator</p>
+            <h1 className="editorial-display mt-2.5 text-[clamp(32px,4vw,44px)] leading-[1.1]">
+              {model.title}
+            </h1>
+            <p className="mt-3 max-w-[62ch] text-[15px] leading-[1.6] text-white/70">
+              {model.subtitle}
+            </p>
+            <p className="data-label mt-4 text-[10px] text-white/45">
+              Oppdatert {formatGeneratedAt(model.generatedAt)}
             </p>
           </div>
-          <div className="h-px flex-1 bg-[var(--px-border)]" />
-        </div>
-        <div className="grid gap-4 xl:grid-cols-2">
-          {model.backgroundJobs.map((job) => (
-            <BackgroundJobCard key={job.jobKey} job={job} />
-          ))}
+
+          <div className="pb-1">
+            <p className="data-label m-0 text-[10px] text-white/55">Regnskapsdekning</p>
+            <div className="mt-2 flex items-baseline gap-2.5">
+              <span className="editorial-display text-[40px] leading-none">
+                {coveragePercentLabel} %
+              </span>
+              <span className="text-[13px] text-white/60">
+                {formatCount(withFinancials)} av {formatCount(companies)}
+              </span>
+            </div>
+            <div className="mt-3.5 h-1.5 overflow-hidden rounded-full bg-white/[0.12]">
+              <div
+                className="h-full bg-[var(--px-chart-2)]"
+                style={{ width: `${coverageBarWidth}%` }}
+              />
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Ingestion coverage */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-4">
-          <h2 className="text-[1.1rem] font-semibold text-[var(--px-text)]">
-            Regnskapshenting fra Brreg
-          </h2>
-          <div className="h-px flex-1 bg-[var(--px-border)]" />
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-          {model.coverage
-            .filter((stage) => stage.count > 0 || stage.tone === "error")
-            .map((stage) => (
-              <CoverageStageCard key={stage.key} stage={stage} />
-            ))}
-        </div>
-        <div className="flex flex-wrap gap-6 rounded-xl bg-[var(--px-subtle)] px-5 py-4 text-sm text-[var(--px-muted)]">
-          <span>
-            <strong className="text-[var(--px-text)]">
-              {model.coverageTotals.companies.toLocaleString("nb-NO")}
-            </strong>{" "}
-            virksomheter i basen
-          </span>
-          <span>
-            <strong className="text-green-700">
-              {model.coverageTotals.withFinancials.toLocaleString("nb-NO")}
-            </strong>{" "}
-            med offisielt regnskap
-          </span>
-          <span>
-            <strong className="text-[var(--px-text)]">
-              {model.coverageTotals.coveragePercent.toLocaleString("nb-NO", {
-                maximumFractionDigits: 1,
-              })}{" "}
-              %
-            </strong>{" "}
-            dekning
-          </span>
-          <span>
-            <strong
-              className={
-                model.coverageTotals.neverFetched ? "text-amber-700" : "text-[var(--px-text)]"
-              }
-            >
-              {model.coverageTotals.neverFetched.toLocaleString("nb-NO")}
-            </strong>{" "}
-            aldri hentet
-          </span>
-        </div>
-      </section>
+      <div className="grid items-start gap-6 pt-6 xl:grid-cols-[minmax(0,9fr)_minmax(0,3fr)]">
+        <div className="flex flex-col gap-7">
+          {model.actionItems.length > 0 ? (
+            <section>
+              <SectionHeading title="Krever tiltak" meta={`${model.actionItems.length} punkter`} />
+              <div className="grid gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+                {model.actionItems.map((item) => (
+                  <ActionItem key={item.key} item={item} />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-      {/* Quick stats */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {model.metrics.slice(0, 4).map((metric) => (
-          <div
-            key={metric.key}
-            className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-6"
-          >
-            <p className="data-label text-[11px] uppercase tracking-widest text-[var(--px-muted)]">
-              {metric.title}
-            </p>
-            <p className="editorial-display mt-3 text-[2.3rem] leading-none text-[var(--px-text)]">
-              {metric.value}
-            </p>
-            <p className="mt-3 text-sm leading-6 text-[var(--px-muted)]">{metric.detail}</p>
-          </div>
-        ))}
-      </section>
-
-      {/* Human-in-the-loop steps */}
-      {model.humanSteps.length > 0 ? (
-        <section id="human-review" className="space-y-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-[1.1rem] font-semibold text-[var(--px-text)]">
-              Steg som krever menneskelig vurdering
-            </h2>
-            <div className="h-px flex-1 bg-[var(--px-border)]" />
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {model.humanSteps.map((step) => (
-              <Link
-                key={step.key}
-                href={step.href as never}
-                className="group rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-5 transition-colors hover:bg-[var(--px-subtle)]"
-              >
-                <p className="text-sm font-semibold text-[var(--px-text)]">{step.title}</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--px-muted)]">{step.description}</p>
-                <span className="mt-4 inline-flex rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-4 py-2 text-sm font-medium text-[var(--px-text)]">
-                  {step.actionLabel}
+          <section>
+            <SectionHeading title="Regnskapshenting fra Brreg" meta="Andel av basen" />
+            <div>
+              {coverageStages.map((stage) => (
+                <CoverageRow key={stage.key} stage={stage} share={shareOfBase(stage.count)} />
+              ))}
+              <div className="flex flex-wrap gap-x-7 gap-y-2 px-2 py-3.5 text-[13px] text-[var(--px-muted)]">
+                <span>
+                  <strong className="font-mono font-medium tabular-nums text-[var(--px-text)]">
+                    {formatCount(companies)}
+                  </strong>{" "}
+                  virksomheter i basen
                 </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {/* Navigation sections */}
-      {navigationSections.map((section) => (
-        <section key={section.title} className="space-y-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-[1.1rem] font-semibold text-[var(--px-text)]">{section.title}</h2>
-            <div className="h-px flex-1 bg-[var(--px-border)]" />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {section.items.map((item) => (
-              <NavigationCard key={item.key} item={item} />
-            ))}
-          </div>
-        </section>
-      ))}
-
-      {/* Recent activity */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-4">
-          <h2 className="text-[1.1rem] font-semibold text-[var(--px-text)]">Siste aktivitet</h2>
-          <div className="h-px flex-1 bg-[var(--px-border)]" />
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {model.recentActivity.map((activity) => (
-            <div
-              key={activity.key}
-              className="rounded-2xl border border-[var(--px-border)] bg-[var(--px-surface)] p-5"
-            >
-              <p className="text-sm font-semibold text-[var(--px-text)]">{activity.title}</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--px-muted)]">
-                {activity.description}
-              </p>
-              <div className="mt-3 flex items-center justify-between gap-4">
-                <span className="data-label text-[10px] uppercase tracking-widest text-[var(--px-muted)]">
-                  {activity.timestamp}
+                <span>
+                  <strong className="font-mono font-medium tabular-nums text-[var(--px-success)]">
+                    {formatCount(withFinancials)}
+                  </strong>{" "}
+                  med offisielt regnskap
                 </span>
-                {activity.href ? (
-                  <Link
-                    href={activity.href as never}
-                    className="rounded-full border border-[var(--px-border)] bg-[var(--px-surface)] px-3 py-1.5 text-xs font-medium text-[var(--px-text)] transition-colors hover:bg-[var(--px-subtle)]"
+                <span>
+                  <strong className="font-mono font-medium tabular-nums text-[var(--px-text)]">
+                    {coveragePercentLabel} %
+                  </strong>{" "}
+                  dekning
+                </span>
+                <span>
+                  <strong
+                    className={`font-mono font-medium tabular-nums ${
+                      neverFetched > 0 ? "text-[var(--px-warning)]" : "text-[var(--px-text)]"
+                    }`}
                   >
-                    Åpne
-                  </Link>
-                ) : null}
+                    {formatCount(neverFetched)}
+                  </strong>{" "}
+                  aldri hentet
+                </span>
               </div>
             </div>
+          </section>
+
+          {model.backgroundJobs.length > 0 ? (
+            <section>
+              <SectionHeading title="Bakgrunnsjobber" meta="Kø og siste kjøring" />
+              <div>
+                {model.backgroundJobs.map((job) => (
+                  <BackgroundJobRow key={job.jobKey} job={job} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {navigationSections.map((section) => (
+            <section key={section.title}>
+              <SectionHeading title={section.title} />
+              <div className="grid gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                {section.items.map((item) => (
+                  <NavigationItem key={item.key} item={item} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
-      </section>
+
+        <aside className="flex flex-col gap-8 border-[var(--px-border-subtle)] xl:sticky xl:top-32 xl:border-l xl:pl-7">
+          <div>
+            <p className="data-label mb-3 text-[10px] text-[var(--px-muted)]">Nøkkeltall</p>
+            <div className="flex flex-col gap-3">
+              {model.metrics.slice(0, 4).map((metric) => (
+                <SidebarMetric key={metric.key} metric={metric} />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="data-label mb-1 text-[10px] text-[var(--px-muted)]">Siste aktivitet</p>
+            {model.recentActivity.map((activity) => (
+              <ActivityEntry key={activity.key} activity={activity} />
+            ))}
+          </div>
+
+          <div>
+            <p className="data-label mb-3 text-[10px] text-[var(--px-muted)]">Tilgang</p>
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  ["Brukere", model.userStats.total],
+                  ["Admins", model.userStats.admins],
+                  ["Reviewere", model.userStats.reviewers],
+                  ["Vanlige", model.userStats.regularUsers],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label}>
+                  <p className="m-0 font-mono text-[22px] tabular-nums text-[var(--px-text)]">
+                    {formatCount(value)}
+                  </p>
+                  <p className="data-label mt-0.5 text-[9px] text-[var(--px-muted)]">{label}</p>
+                </div>
+              ))}
+            </div>
+            {usersNavItem?.available && usersNavItem.href ? (
+              <Link
+                href={usersNavItem.href as never}
+                className="mt-4 inline-flex items-center gap-1.5 text-[13px] text-[var(--px-accent)] hover:text-[var(--px-action-hover)]"
+              >
+                Administrer brukere
+                <MaterialIcon name="arrow_forward" className="text-[16px]" />
+              </Link>
+            ) : null}
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

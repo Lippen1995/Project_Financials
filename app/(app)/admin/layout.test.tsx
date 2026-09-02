@@ -13,6 +13,7 @@ const redirectMock = vi.fn((target: string) => {
 
 vi.mock("next/navigation", () => ({
   redirect: redirectMock,
+  usePathname: () => "/admin",
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -68,6 +69,53 @@ describe("app/admin/layout", () => {
 
     expect(html).toContain("admin child");
     expect(html).toContain("Oversikt");
-    expect(html).toContain("Godkjente årsregnskaper");
+    expect(html).toContain("Regnskapsmapping");
+    expect(html).toContain("Selskapshendelser");
+  });
+
+  it("keeps admin-only surfaces out of the rail for financial reviewers", async () => {
+    authMocks.safeAuth.mockResolvedValue({
+      user: { id: "user-1", email: "reviewer@example.com", appRole: "FINANCIAL_REVIEWER" },
+    });
+    authMocks.getFinancialReviewerOrNull.mockResolvedValue({
+      id: "user-1",
+      email: "reviewer@example.com",
+      appRole: "FINANCIAL_REVIEWER",
+    });
+
+    const adminLayoutModule = await import("@/app/(app)/admin/layout");
+    const html = renderToStaticMarkup(
+      await adminLayoutModule.default({ children: <div>admin child</div> }),
+    );
+
+    expect(html).not.toContain("/admin/users");
+    expect(html).not.toContain("/admin/ai-economics");
+    expect(html).not.toContain("/admin/health-score");
+  });
+
+  it("does not link to retired OCR admin routes", async () => {
+    authMocks.safeAuth.mockResolvedValue({
+      user: { id: "user-1", email: "admin@example.com", appRole: "ADMIN" },
+    });
+    authMocks.getFinancialReviewerOrNull.mockResolvedValue({
+      id: "user-1",
+      email: "admin@example.com",
+      appRole: "ADMIN",
+    });
+
+    const adminLayoutModule = await import("@/app/(app)/admin/layout");
+    const html = renderToStaticMarkup(
+      await adminLayoutModule.default({ children: <div>admin child</div> }),
+    );
+
+    for (const retired of [
+      "/admin/filings",
+      "/admin/published-annual-reports",
+      "/admin/annual-report-reviews",
+      "/admin/annual-report-unified-confidence",
+      "/admin/extraction-learning",
+    ]) {
+      expect(html).not.toContain(retired);
+    }
   });
 });
