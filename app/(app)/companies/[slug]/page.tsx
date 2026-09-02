@@ -571,6 +571,7 @@ export default async function CompanyPage({
         previousNames: company.previousNames ?? [],
         announcements: announcementsData.announcements,
         statusLabel: COMPANY_STATUS_LABELS[company.status],
+        availabilityStatus: announcementsData.availability.status ?? "AVAILABLE",
       })
     : null;
 
@@ -772,27 +773,23 @@ export default async function CompanyPage({
       {activeTab === "kunngjoringer" ? (
         <div className="space-y-6">
           {announcementsData && announcementStory ? (
-            <Card className="border-[var(--px-border-subtle)] bg-[var(--px-surface)] px-6 py-8 sm:px-10">
-              <CompanyAnnouncementStory
-                companyName={company.name}
-                companySlug={company.orgNumber}
-                story={announcementStory}
-                availabilityMessage={
-                  announcementsData.availability.message ?? "Kunngjøringer er tilgjengelige."
-                }
-                available={announcementsData.availability.available}
-                allAnnouncementsUrl={announcementsData.allAnnouncementsUrl ?? company.announcementsUrl}
-                initialDetail={initialAnnouncementDetail}
-                discussionRoomId={discussionContext?.selectedRoomId ?? null}
-                discussionRoomName={discussionContext?.selectedRoomName ?? null}
-              />
-            </Card>
+            <CompanyAnnouncementStory
+              companyName={company.name}
+              companySlug={company.orgNumber}
+              story={announcementStory}
+              availabilityMessage={
+                announcementsData.availability.message ?? "Kunngjøringer er tilgjengelige."
+              }
+              available={announcementsData.availability.available}
+              allAnnouncementsUrl={announcementsData.allAnnouncementsUrl ?? company.announcementsUrl}
+              initialDetail={initialAnnouncementDetail}
+              discussionRoomId={discussionContext?.selectedRoomId ?? null}
+              discussionRoomName={discussionContext?.selectedRoomName ?? null}
+            />
           ) : (
-            <Card className="border-[var(--px-border-subtle)] bg-[var(--px-surface)]">
-              <div className="rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] p-6 text-sm leading-6 text-[var(--px-muted)]">
-                Kunngjøringer kunne ikke lastes akkurat nå.
-              </div>
-            </Card>
+            <div className="rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-subtle)] p-6 text-sm leading-6 text-[var(--px-muted)]">
+              Kunngjøringer kunne ikke lastes akkurat nå.
+            </div>
           )}
 
           <RelatedNameHoldersSection

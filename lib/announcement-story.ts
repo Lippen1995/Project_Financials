@@ -163,10 +163,22 @@ export type AnnouncementStory = {
   /** The one-line note under the intro, e.g. "Tre kapitler utledet av navneendringer". */
   chapterLabel: string | null;
   isEmpty: boolean;
+  /**
+   * Why the story has no rows — `null` when it has some. A feed that has not been fetched yet
+   * must not be told as a company without history: the register is only known to be empty when
+   * it was actually asked and answered.
+   */
+  emptyReason: StoryEmptyReason | null;
   total: number;
   nameCount: number;
   firstYear: number | null;
 };
+
+/** Availability of the announcement feed, as the read service reports it. */
+export type StoryAvailabilityStatus = "AVAILABLE" | "UNAVAILABLE" | "STALE" | "ERROR" | "PENDING";
+
+/** `none-in-source` is the only one that licenses "foretaket har ingen kunngjøringer". */
+export type StoryEmptyReason = "none-in-source" | "not-loaded" | "unavailable";
 
 function numeral(count: number) {
   return NUMERALS[count] ?? String(count);
@@ -346,11 +358,14 @@ export function buildAnnouncementStory({
   previousNames,
   announcements,
   statusLabel,
+  availabilityStatus = "AVAILABLE",
 }: {
   companyName: string;
   previousNames: readonly NormalizedPreviousName[];
   announcements: readonly NormalizedAnnouncement[];
   statusLabel: string;
+  /** Defaults to AVAILABLE: an empty feed is only reported as empty when the source answered. */
+  availabilityStatus?: StoryAvailabilityStatus;
 }): AnnouncementStory {
   const history = buildCompanyNameHistory({ currentName: companyName, previousNames, announcements });
   const segments = history.segments;
@@ -438,14 +453,37 @@ export function buildAnnouncementStory({
       : [],
   );
 
+  // An empty feed means three different things, and only one of them is a statement about the
+  // company: the source answered and had nothing. PENDING is the queue not having run yet, and
+  // ERROR/UNAVAILABLE is Brreg not answering. Saying "historikken finnes ikke i kilden" in those
+  // two cases asserts something the page has not checked.
+  const emptyReason: StoryEmptyReason | null =
+    total > 0
+      ? null
+      : availabilityStatus === "PENDING"
+        ? "not-loaded"
+        : availabilityStatus === "ERROR" || availabilityStatus === "UNAVAILABLE"
+          ? "unavailable"
+          : "none-in-source";
+
   let headline: string;
-  if (total === 0) headline = "Ingen kunngjøringer registrert";
+  if (emptyReason === "not-loaded") headline = "Kunngjøringer er ikke hentet ennå";
+  else if (emptyReason === "unavailable") headline = "Kunngjøringer kunne ikke hentes";
+  else if (total === 0) headline = "Ingen kunngjøringer registrert";
   else if (nameCount > 1) headline = `${numeral(nameCount)} navn, ett organisasjonsnummer`;
   else if (total <= 2) headline = "Kort historikk, ett navn";
   else headline = firstYear ? `Samme navn siden ${firstYear}` : "Samme navn gjennom hele historikken";
 
   const clauses: string[] = [];
-  if (total === 0) {
+  if (emptyReason === "not-loaded") {
+    clauses.push(
+      "Kunngjøringene for dette organisasjonsnummeret står i kø for henting fra Foretaksregisteret. Tomt her betyr at hentingen ikke har kjørt ennå — ikke at foretaket er uten historikk.",
+    );
+  } else if (emptyReason === "unavailable") {
+    clauses.push(
+      "Foretaksregisteret svarte ikke på forespørselen om kunngjøringer. Siden vet derfor ikke om foretaket har historikk her, og påstår ikke at det ikke har det.",
+    );
+  } else if (total === 0) {
     clauses.push(
       "Foretaksregisteret har ingen kunngjøringer på dette organisasjonsnummeret. Siden viser ikke noe annet — historikken finnes ikke i kilden.",
     );
@@ -488,6 +526,7 @@ export function buildAnnouncementStory({
           ? `${numeral(eras.length)} kapitler utledet av navneendringer`
           : "Ett sammenhengende kapittel",
     isEmpty: total === 0,
+    emptyReason,
     total,
     nameCount,
     firstYear,

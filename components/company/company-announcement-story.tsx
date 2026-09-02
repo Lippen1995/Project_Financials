@@ -8,6 +8,7 @@ import {
   type AnnouncementStory,
   type StoryAnnouncement,
   type StoryBucket,
+  type StoryEmptyReason,
   type StoryEra,
   type StoryEvent,
 } from "@/lib/announcement-story";
@@ -24,6 +25,25 @@ type CompanyAnnouncementStoryProps = {
   initialDetail?: NormalizedAnnouncementDetail | null;
   discussionRoomId?: string | null;
   discussionRoomName?: string | null;
+};
+
+/**
+ * An empty tab is three different claims. Only the first one is about the company; the other two
+ * are about our own fetching, and must not read as "foretaket har ingen historikk".
+ */
+const EMPTY_COPY: Record<StoryEmptyReason, { title: string; body: string }> = {
+  "none-in-source": {
+    title: "Ingen kunngjøringer å vise",
+    body: "Kilden har ingen registrerte kunngjøringer på dette organisasjonsnummeret. Historikken kan finnes i andre faner, men den konstrueres ikke her.",
+  },
+  "not-loaded": {
+    title: "Kunngjøringene er ikke hentet ennå",
+    body: "Virksomheten står i kø for bakgrunnshenting fra Foretaksregisteret. Listen fylles så snart hentingen har kjørt — inntil da vet ikke siden hva registeret inneholder.",
+  },
+  unavailable: {
+    title: "Kunngjøringene kunne ikke hentes",
+    body: "Foretaksregisteret svarte ikke på siste forespørsel. Siden prøver på nytt automatisk; i mellomtiden kan kunngjøringene leses direkte hos Brreg.",
+  },
 };
 
 function toIsoDateParam(value?: Date | string | null) {
@@ -95,7 +115,7 @@ function ChildRow({ item, onOpen }: { item: StoryAnnouncement; onOpen: () => voi
     <button
       type="button"
       onClick={onOpen}
-      className="grid w-full gap-2 border-b border-[var(--px-border-subtle)] px-2 py-2.5 text-left transition-colors hover:bg-[rgba(248,249,250,0.62)] sm:grid-cols-[100px_170px_minmax(0,1fr)] sm:gap-4"
+      className="grid w-full gap-2 border-b border-[var(--px-border-subtle)] px-2 py-2.5 text-left transition-colors hover:bg-[var(--px-subtle)] sm:grid-cols-[100px_170px_minmax(0,1fr)] sm:gap-4"
     >
       <span className="data-label text-[10px] uppercase tabular-nums text-[var(--px-muted)]">
         {item.dateLabel}
@@ -190,9 +210,9 @@ export function CompanyAnnouncementStory({
   const selectedDetail = selected?.announcement ? (detailCache[selected.announcement.id] ?? null) : null;
 
   return (
-    <div>
+    <div className="min-w-0">
       {/* ── Intro: what the register holds, and the numbers behind it ── */}
-      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_420px] xl:gap-12">
+      <div className="grid items-start gap-8 pt-2 xl:grid-cols-[minmax(0,1fr)_420px] xl:gap-12">
         <div>
           <div className="data-label text-[10px] uppercase text-[var(--px-muted)]">Selskapets historie</div>
           <h2 className="editorial-display mt-2.5 text-[34px] font-semibold leading-[1.1] text-[var(--px-text)] [text-wrap:pretty]">
@@ -225,14 +245,15 @@ export function CompanyAnnouncementStory({
         </div>
       </div>
 
-      {/* ── Empty: the register has nothing, and the page says exactly that ── */}
+      {/* ── Empty: what the page actually knows — nothing in the register, or nothing fetched ── */}
       {story.isEmpty ? (
         <div className="mt-6 flex flex-col items-center gap-2.5 rounded-xl border border-dashed border-[var(--px-border)] bg-[var(--px-surface)] p-11">
-          <span className="material-symbols-outlined text-[28px] text-[var(--px-muted)]">campaign</span>
-          <div className="text-base font-semibold text-[var(--px-text)]">Ingen kunngjøringer å vise</div>
+          <span className="material-symbols-outlined text-[28px] text-[var(--px-muted)]">
+            {story.emptyReason === "none-in-source" ? "campaign" : "hourglass_empty"}
+          </span>
+          <div className="text-base font-semibold text-[var(--px-text)]">{EMPTY_COPY[story.emptyReason ?? "none-in-source"].title}</div>
           <p className="m-0 max-w-[52ch] text-center text-sm leading-[1.65] text-[var(--px-muted)]">
-            Kilden har ingen registrerte kunngjøringer på dette organisasjonsnummeret. Historikken kan finnes i
-            andre faner, men den konstrueres ikke her.
+            {EMPTY_COPY[story.emptyReason ?? "none-in-source"].body}
           </p>
           {allAnnouncementsUrl ? (
             <a
@@ -346,7 +367,7 @@ export function CompanyAnnouncementStory({
                 return (
                   <div
                     key={event.key}
-                    className="grid gap-3 border-t border-[var(--px-border-subtle)] px-2.5 py-4 transition-colors hover:bg-[rgba(248,249,250,0.62)] sm:grid-cols-[110px_190px_minmax(0,1fr)] sm:gap-5"
+                    className="grid gap-3 border-t border-[var(--px-border-subtle)] px-2.5 py-4 transition-colors hover:bg-[var(--px-subtle)] sm:grid-cols-[110px_190px_minmax(0,1fr)] sm:gap-5"
                   >
                     <div className="data-label pt-0.5 text-[10px] uppercase tabular-nums text-[var(--px-muted)]">
                       {event.dateLabel}

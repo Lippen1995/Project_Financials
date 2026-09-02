@@ -152,11 +152,46 @@ describe("buildAnnouncementStory — a company with nothing in the register", ()
 
   it("says the source is empty instead of constructing a history", () => {
     expect(story.isEmpty).toBe(true);
+    expect(story.emptyReason).toBe("none-in-source");
     expect(story.eras).toEqual([]);
     expect(story.headline).toBe("Ingen kunngjøringer registrert");
     expect(story.lead).toContain("historikken finnes ikke i kilden");
     expect(story.chapterLabel).toBeNull();
     expect(story.stats.find((stat) => stat.label === "KUNNGJØRINGER")?.value).toBe("—");
+  });
+});
+
+describe("buildAnnouncementStory — a company that has not been fetched yet", () => {
+  const story = buildAnnouncementStory({
+    companyName: "REACH SUBSEA ASA",
+    previousNames: [],
+    announcements: [],
+    statusLabel: "Aktiv",
+    availabilityStatus: "PENDING",
+  });
+
+  it("does not claim the register is empty when the queue has not run", () => {
+    expect(story.isEmpty).toBe(true);
+    expect(story.emptyReason).toBe("not-loaded");
+    expect(story.headline).toBe("Kunngjøringer er ikke hentet ennå");
+    expect(story.lead).not.toContain("historikken finnes ikke i kilden");
+    expect(story.lead).toContain("står i kø");
+  });
+});
+
+describe("buildAnnouncementStory — a source that did not answer", () => {
+  const story = buildAnnouncementStory({
+    companyName: "REACH SUBSEA ASA",
+    previousNames: [],
+    announcements: [],
+    statusLabel: "Aktiv",
+    availabilityStatus: "ERROR",
+  });
+
+  it("reports the failed fetch rather than an absent history", () => {
+    expect(story.emptyReason).toBe("unavailable");
+    expect(story.headline).toBe("Kunngjøringer kunne ikke hentes");
+    expect(story.lead).not.toContain("historikken finnes ikke i kilden");
   });
 });
 
