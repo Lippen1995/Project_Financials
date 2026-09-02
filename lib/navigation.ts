@@ -35,6 +35,7 @@ export function buildGlobalNavItems(user?: { appRole?: string | null } | null): 
     { href: "/watchlist", label: "Overvåkning", icon: "star" },
     { href: "/market/distress", label: "Distress", icon: "warning" },
     { href: "/market/oil-gas", label: "Olje & gass", icon: "oil_barrel" },
+    { href: "/njord", label: "Njord", icon: "auto_awesome" },
     { href: "/pricing", label: "Tilgang", icon: "key" },
   ];
 
@@ -69,9 +70,11 @@ export function buildGlobalNavMenuCategories(
     {
       id: "analysis",
       label: "Analyse",
-      items: [pick("/analyses", "Analyse"), pick("/market/oil-gas", "Olje og gass")].filter(
-        (item): item is GlobalNavItem => item !== null,
-      ),
+      items: [
+        pick("/analyses", "Analyse"),
+        pick("/market/oil-gas", "Olje og gass"),
+        pick("/njord", "Bli kjent med Njord"),
+      ].filter((item): item is GlobalNavItem => item !== null),
     },
   ];
 }

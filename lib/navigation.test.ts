@@ -71,6 +71,7 @@ describe("buildGlobalNavMenuCategories", () => {
         items: [
           { href: "/analyses", label: "Analyse", icon: "analytics" },
           { href: "/market/oil-gas", label: "Olje og gass", icon: "oil_barrel" },
+          { href: "/njord", label: "Bli kjent med Njord", icon: "auto_awesome" },
         ],
       },
     ]);
