@@ -31,6 +31,10 @@
     {
       "path": "/api/internal/search-history-cleanup",
       "schedule": "20 2 * * *"
+    },
+    {
+      "path": "/api/internal/news-sync/scheduled",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

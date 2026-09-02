@@ -4,10 +4,10 @@ import env from "@/lib/env";
 import { syncAndScoreNewsFeeds } from "@/server/services/news-aggregator-service";
 
 function isAuthorized(request: NextRequest) {
-  if (!env.newsSyncSecret) return false;
   const bearer = request.headers.get("authorization");
-  if (bearer === `Bearer ${env.newsSyncSecret}`) return true;
-  return request.headers.get("x-news-sync-secret") === env.newsSyncSecret;
+  const validSecrets = [env.cronSecret, env.newsSyncSecret].filter(Boolean);
+  return validSecrets.some((secret) => bearer === `Bearer ${secret}`)
+    || Boolean(env.newsSyncSecret && request.headers.get("x-news-sync-secret") === env.newsSyncSecret);
 }
 
 export async function POST(request: NextRequest) {
@@ -28,3 +28,4 @@ export async function POST(request: NextRequest) {
 }
 
 export const GET = POST;
+export const maxDuration = 300;
